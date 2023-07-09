@@ -17,6 +17,11 @@ CCUDADevice::CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConn
 	m_handler->getCUDAFunctionTable().pcuCtxCreate_v2(&m_context, 0, m_handle);
 }
 
+CCUDADevice::~CCUDADevice()
+{
+	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
+}
+
 #if 0
 CUresult CCUDAHandler::registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags)
 {

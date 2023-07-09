@@ -120,6 +120,8 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuTexObjectCreate
 			,cuTexObjectDestroy
 			,cuImportExternalMemory
+			,cuDestroyExternalMemory
+			,cuExternalMemoryGetMappedBuffer
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
