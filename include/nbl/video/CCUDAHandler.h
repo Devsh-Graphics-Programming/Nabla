@@ -122,6 +122,15 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuImportExternalMemory
 			,cuDestroyExternalMemory
 			,cuExternalMemoryGetMappedBuffer
+			,cuMemUnmap
+			,cuMemAddressFree
+			,cuMemGetAllocationGranularity
+			,cuMemAddressReserve
+			,cuMemCreate
+			,cuMemExportToShareableHandle
+			,cuMemMap
+			,cuMemRelease
+			,cuMemSetAccess
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
