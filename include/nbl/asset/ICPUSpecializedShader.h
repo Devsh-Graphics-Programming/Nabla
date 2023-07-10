@@ -59,17 +59,14 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
             return cp;
         }
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-			if (referenceLevelsBelowToConvert)
-			{
-				//NEVER DO THIS: OpenGL backend needs this data
-				//if (m_specInfo.getBackingBuffer())
-					//m_specInfo.getBackingBuffer()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			}
+			//NEVER DO THIS: OpenGL backend needs this data
+			//if (m_specInfo.getBackingBuffer())
+				//m_specInfo.getBackingBuffer()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+
 			if (canBeConvertedToDummy())
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
@@ -91,19 +88,20 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+
+	protected:
+
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
 			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
 				return false;
-			if (!m_unspecialized->canBeRestoredFrom(other->m_unspecialized.get()))
-				return false;
 
 			return true;
 		}
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return { m_unspecialized.get() }; }
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUSpecializedShader*>(_other);
 
@@ -111,10 +109,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 			if (restorable)
 				std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
-			if (_levelsBelow--)
-			{
-				restoreFromDummy_impl_call(m_unspecialized.get(), other->m_unspecialized.get(), _levelsBelow);
-			}
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

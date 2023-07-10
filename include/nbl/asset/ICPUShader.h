@@ -66,12 +66,9 @@ class ICPUShader : public IAsset, public IShader
 			return cp;
 		}
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
 		const ICPUBuffer* getContent() const { return m_code.get(); };
@@ -99,7 +96,9 @@ class ICPUShader : public IAsset, public IShader
 			return true;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+
+	protected:
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_contentType != other->m_contentType)
@@ -108,24 +107,10 @@ class ICPUShader : public IAsset, public IShader
 				return false;
 			if (getStage() != other->getStage())
 				return false;
-			if (!m_code->canBeRestoredFrom(other->m_code.get()))
-				return false;
-
 			return true;
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUShader*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-
-				restoreFromDummy_impl_call(m_code.get(), other->m_code.get(), _levelsBelow);
-			}
-		}
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return { m_code.get() }; }
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{

@@ -88,17 +88,6 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			return cp;
 		}
 
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-				m_parentJointIDs.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_defaultTransforms.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			}
-		}
-
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -112,7 +101,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			return estimate;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool compatible(const IAsset* _other) const override
 		{
 			auto other = static_cast<const ICPUSkeleton*>(_other);
 			// if we decide to get rid of the string pool when converting to dummy, then we need to start checking stringpool and map properties here
@@ -120,13 +109,9 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
                 return false;
             if ((!m_parentJointIDs.buffer) != (!other->m_parentJointIDs.buffer))
                 return false;
-            if (m_parentJointIDs.buffer && !m_parentJointIDs.buffer->canBeRestoredFrom(other->m_parentJointIDs.buffer.get()))
-                return false;
             if (m_defaultTransforms.offset != other->m_defaultTransforms.offset)
                 return false;
             if ((!m_defaultTransforms.buffer) != (!other->m_defaultTransforms.buffer))
-                return false;
-            if (m_defaultTransforms.buffer && !m_defaultTransforms.buffer->canBeRestoredFrom(other->m_defaultTransforms.buffer.get()))
                 return false;
 			if (m_jointCount != other->m_jointCount)
 				return false;
@@ -135,19 +120,14 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		}
 
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override
 		{
-			auto* other = static_cast<ICPUSkeleton*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				
-                if (m_parentJointIDs.buffer)
-                    restoreFromDummy_impl_call(m_parentJointIDs.buffer.get(),other->m_parentJointIDs.buffer.get(),_levelsBelow);
-                if (m_defaultTransforms.buffer)
-                    restoreFromDummy_impl_call(m_defaultTransforms.buffer.get(),other->m_defaultTransforms.buffer.get(),_levelsBelow);
-			}
+			nbl::core::vector<const IAsset*> assets = {};
+			if (m_parentJointIDs.buffer)
+				assets.push_back(m_parentJointIDs.buffer.get());
+			if (m_defaultTransforms.buffer)
+				assets.push_back(m_defaultTransforms.buffer.get());
+			return assets;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

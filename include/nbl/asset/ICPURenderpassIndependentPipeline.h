@@ -39,17 +39,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		using base_t::base_t;
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert)
-			{
-                //intentionally parent is not converted
-                --referenceLevelsBelowToConvert;
-				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-				for (auto i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
-                    if (m_shaders[i])
-					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
-			}
+			// do not call convertToDummyObject_common
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -132,7 +124,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_layout = std::move(_layout);
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+	protected:
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
 #define MEMCMP_MEMBER(m) \
@@ -150,30 +143,19 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			{
 				if ((!m_shaders[i]) != (!other->m_shaders[i]))
 					return false;
-				if (m_shaders[i] && !m_shaders[i]->canBeRestoredFrom(other->m_shaders[i].get()))
-					return false;
 			}
-			if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
-				return false;
-
+			
 			return true;
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-
-				restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
-				for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
-					if (m_shaders[i])
-						restoreFromDummy_impl_call(m_shaders[i].get(), other->m_shaders[i].get(), _levelsBelow);
-			}
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
+			nbl::core::vector<const IAsset*> assets = { m_layout.get() };
+			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
+				if (m_shaders[i])
+					assets.push_back(m_shaders[i].get());
+			return assets;
 		}
+
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{

@@ -64,15 +64,12 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         }
 
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+
+
+protected:
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
-			        if (it->get())
-				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-
             if (canBeConvertedToDummy())
 			    m_pushConstantRanges = nullptr;
 		}
@@ -80,7 +77,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool compatible(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUPipelineLayout*>(_other);
 
@@ -96,14 +93,18 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             {
                 if ((!m_descSetLayouts[i]) != (!other->m_descSetLayouts[i]))
                     return false;
-                if (!m_descSetLayouts[i]->canBeRestoredFrom(other->m_descSetLayouts[i].get()))
-                    return false;
             }
             return true;
         }
 
-protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
+            nbl::core::vector<const IAsset*> assets;
+            for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
+                assets.push_back(m_descSetLayouts[i].get());
+            return assets;
+        }
+
+        void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUPipelineLayout*>(_other);
 
@@ -111,12 +112,6 @@ protected:
 
             if (restorable)
                 std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
-            if (_levelsBelow)
-            {
-                --_levelsBelow;
-                for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
-                    restoreFromDummy_impl_call(m_descSetLayouts[i].get(), other->m_descSetLayouts[i].get(), _levelsBelow);
-            }
         }
 
         bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

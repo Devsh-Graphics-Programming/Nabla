@@ -70,25 +70,17 @@ class ICPUSampler : public ISampler, public IAsset
         }
 
 		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override 
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-        }
-
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool compatible(const IAsset* _other) const override
 		{
 			return true;
 		}
-
 protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			
-		}
+		nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return {}; }
+	
 };
 
 }
