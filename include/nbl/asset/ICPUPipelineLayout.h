@@ -65,6 +65,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
 
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        inline E_TYPE getAssetType() const override { return AssetType; }
+
 
 protected:
 		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -73,9 +76,6 @@ protected:
             if (canBeConvertedToDummy())
 			    m_pushConstantRanges = nullptr;
 		}
-
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
-        inline E_TYPE getAssetType() const override { return AssetType; }
 
         bool compatible(const IAsset* _other) const override
         {
@@ -97,8 +97,8 @@ protected:
             return true;
         }
 
-        nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
-            nbl::core::vector<const IAsset*> assets;
+        nbl::core::vector<IAsset*> getMembersToRecurse() const override {
+            nbl::core::vector<IAsset*> assets;
             for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
                 assets.push_back(m_descSetLayouts[i].get());
             return assets;

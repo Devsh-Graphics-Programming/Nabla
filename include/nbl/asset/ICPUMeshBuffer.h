@@ -154,29 +154,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return cp;
         }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-            if (referenceLevelsBelowToConvert)
-            {
-                --referenceLevelsBelowToConvert;
-                for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
-                    if (m_vertexBufferBindings[i].buffer)
-                        m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_indexBufferBinding.buffer)
-                    m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_inverseBindPoseBufferBinding.buffer)
-                    m_inverseBindPoseBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_jointAABBBufferBinding.buffer)
-                    m_jointAABBBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_descriptorSet)
-                    m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
-                if (m_pipeline)
-                    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
-            }
-        }
-
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -647,7 +624,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool compatible(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUMeshBuffer*>(_other);
             if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
@@ -676,15 +653,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 return false;
             if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
                 return false;
-            if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
-                return false;
             for (uint32_t i = 0u; i<MAX_ATTR_BUF_BINDING_COUNT; ++i)
             {
                 if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
                     return false;
                 if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
-                    return false;
-                if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom(other->m_vertexBufferBindings[i].buffer.get()))
                     return false;
             }
             
@@ -692,72 +665,31 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 return false;
             if ((!m_inverseBindPoseBufferBinding.buffer) != (!other->m_inverseBindPoseBufferBinding.buffer))
                 return false;
-            if (m_inverseBindPoseBufferBinding.buffer && !m_inverseBindPoseBufferBinding.buffer->canBeRestoredFrom(other->m_inverseBindPoseBufferBinding.buffer.get()))
-                return false;
             if (m_jointAABBBufferBinding.offset != other->m_jointAABBBufferBinding.offset)
                 return false;
             if ((!m_jointAABBBufferBinding.buffer) != (!other->m_jointAABBBufferBinding.buffer))
                 return false;
-            if (m_jointAABBBufferBinding.buffer && !m_jointAABBBufferBinding.buffer->canBeRestoredFrom(other->m_jointAABBBufferBinding.buffer.get()))
-                return false;
-
+           
             if ((!m_descriptorSet) != (!other->m_descriptorSet))
                 return false;
-            if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom(other->m_descriptorSet.get()))
-                return false;
-
-            // pipeline is not optional
-            if (!m_pipeline->canBeRestoredFrom(other->m_pipeline.get()))
-                return false;
-
             return true;
         }
 
     protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-        {
-            auto* other = static_cast<ICPUMeshBuffer*>(_other);
+               
 
-            if (_levelsBelow)
-            {
-                --_levelsBelow;
-
-                if (m_pipeline)
-                    restoreFromDummy_impl_call(m_pipeline.get(), other->m_pipeline.get(), _levelsBelow);
-                if (m_descriptorSet)
-                    restoreFromDummy_impl_call(m_descriptorSet.get(), other->m_descriptorSet.get(), _levelsBelow);
-
-                if (m_inverseBindPoseBufferBinding.buffer)
-                    restoreFromDummy_impl_call(m_inverseBindPoseBufferBinding.buffer.get(), other->m_inverseBindPoseBufferBinding.buffer.get(), _levelsBelow);
-                if (m_jointAABBBufferBinding.buffer)
-                    restoreFromDummy_impl_call(m_jointAABBBufferBinding.buffer.get(), other->m_jointAABBBufferBinding.buffer.get(), _levelsBelow);
-
-                for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
-                    if (m_vertexBufferBindings[i].buffer)
-                        restoreFromDummy_impl_call(m_vertexBufferBindings[i].buffer.get(), other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
-                if (m_indexBufferBinding.buffer)
-                    restoreFromDummy_impl_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get(), _levelsBelow);
-            }
-        }
-
-        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-        {
-            --_levelsBelow;
-            if (m_pipeline && m_pipeline->isAnyDependencyDummy(_levelsBelow))
-                return true;
-            if (m_descriptorSet && m_descriptorSet->isAnyDependencyDummy(_levelsBelow))
-                return true;
-
-            if (m_inverseBindPoseBufferBinding.buffer && m_inverseBindPoseBufferBinding.buffer->isAnyDependencyDummy(_levelsBelow))
-                return true;
-            if (m_jointAABBBufferBinding.buffer && m_jointAABBBufferBinding.buffer->isAnyDependencyDummy(_levelsBelow))
-                return true;
-
+        nbl::core::vector<IAsset*> getMembersToRecurse() const override {
+            nbl::core::vector<IAsset*> assets = {
+                m_descriptorSet.get(),
+                m_inverseBindPoseBufferBinding.buffer.get(),
+                m_jointAABBBufferBinding.buffer.get(),
+                m_pipeline.get(),
+                m_indexBufferBinding.buffer.get()
+            };
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
-                if (m_vertexBufferBindings[i].buffer && m_vertexBufferBindings[i].buffer->isAnyDependencyDummy(_levelsBelow))
-                    return true;
-
-            return (m_indexBufferBinding.buffer && m_indexBufferBinding.buffer->isAnyDependencyDummy(_levelsBelow));
+                //if (m_vertexBufferBindings[i].buffer)
+                    assets.push_back(m_vertexBufferBindings[i].buffer.get());
+            return assets;
         }
 };
 

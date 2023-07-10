@@ -32,7 +32,7 @@ private:
         return false; // TODO
     }
 
-    nbl::core::vector<const IAsset*> getMembersToRecurse() const override 
+    nbl::core::vector<IAsset*> getMembersToRecurse() const override 
     {
         // TODO
         return {};

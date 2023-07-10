@@ -80,7 +80,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override {
 			return { params.image.get() };
 		}
 		

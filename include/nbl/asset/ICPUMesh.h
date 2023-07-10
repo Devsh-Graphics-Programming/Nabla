@@ -75,15 +75,6 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 #endif
 		}
 
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			for (auto mesh : getMeshBuffers())
-				mesh->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
-
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -120,11 +111,11 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			return true;
 		}
 
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override 
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override 
 		{
-			nbl::core::vector<const IAsset*> assets;
-			for (auto mesh : getMeshBuffers())
-				assets.push_back(mesh);
+			nbl::core::vector<IAsset*> assets;
+			for (auto mesh = m_meshBuffers.begin(); mesh != m_meshBuffers.end(); mesh++)
+				assets.push_back((*mesh).get());
 			return assets;
 		}
 

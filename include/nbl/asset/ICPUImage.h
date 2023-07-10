@@ -210,7 +210,7 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override
 		{
 			return { buffer.get() };
 		}

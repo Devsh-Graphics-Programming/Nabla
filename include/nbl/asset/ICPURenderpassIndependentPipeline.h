@@ -148,8 +148,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			return true;
 		}
 
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override {
-			nbl::core::vector<const IAsset*> assets = { m_layout.get() };
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override {
+			nbl::core::vector<IAsset*> assets = { m_layout.get() };
 			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 				if (m_shaders[i])
 					assets.push_back(m_shaders[i].get());

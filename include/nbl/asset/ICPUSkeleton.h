@@ -120,9 +120,9 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		}
 
 	protected:
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override
 		{
-			nbl::core::vector<const IAsset*> assets = {};
+			nbl::core::vector<IAsset*> assets = {};
 			if (m_parentJointIDs.buffer)
 				assets.push_back(m_parentJointIDs.buffer.get());
 			if (m_defaultTransforms.buffer)

@@ -206,36 +206,6 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			convertToDummyObject_common(referenceLevelsBelowToConvert);
-			
-			if (referenceLevelsBelowToConvert)
-			{
-				--referenceLevelsBelowToConvert;
-				auto geoms = m_buildInfo.getGeometries().begin();
-				const auto geomsCount = m_buildInfo.getGeometries().size();
-				for(uint32_t i = 0; i < geomsCount; ++i)
-				{
-					auto geom = geoms[i];
-					if(geom.type == EGT_TRIANGLES)
-					{
-						if(geom.data.triangles.indexData.buffer)
-							geom.data.triangles.indexData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-						if(geom.data.triangles.vertexData.buffer)
-							geom.data.triangles.vertexData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-						if(geom.data.triangles.transformData.buffer)
-							geom.data.triangles.transformData.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-					}
-					else if(geom.type == EGT_AABBS)
-					{
-						if(geom.data.aabbs.data.buffer)
-							geom.data.aabbs.data.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-					}
-					else if(geom.type == EGT_INSTANCES)
-					{
-						if(geom.data.instances.data.buffer)
-							geom.data.instances.data.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-					}
-				}
-			}
 			if (canBeConvertedToDummy()) {
 				m_buildRangeInfos = nullptr;
 				m_hasBuildInfo = false;

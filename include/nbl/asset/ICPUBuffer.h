@@ -116,7 +116,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         virtual void hash_impl(size_t& seed) const override {
             core::hash_combine(seed, data);
             core::hash_combine(seed, m_creationParams.size);
-            core::hash_combine(seed, m_creationParams.usage);
+            core::hash_combine(seed, m_creationParams.usage.value);
         }
 
         virtual bool equals_impl(const IAsset* _other) const override {
@@ -172,7 +172,7 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
         {
         }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+        virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
         {
             if (isDummyObjectForCacheAliasing)
                 return;

@@ -99,7 +99,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 			return true;
 		}
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return { m_unspecialized.get() }; }
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override { return { m_unspecialized.get() }; }
 
 		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{

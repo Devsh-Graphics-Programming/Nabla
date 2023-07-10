@@ -214,14 +214,17 @@ class IAsset : virtual public core::IReferenceCounted
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
-
+		
 		bool canBeRestoredFrom(const IAsset* _other) const {
 			if (_other == nullptr)
 				return false;
 			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && canBeRestoredFrom_impl(_other);
 			if (result)
-				visitChildren([&result](IAsset* thisChild, IAsset* otherChild) {
-				return (result = thisChild->canBeRestoredFrom(otherChild));
+				visitChildren(_other,
+					[&result](IAsset* thisChild, IAsset* otherChild) 
+					{
+						result = thisChild->canBeRestoredFrom(otherChild);
+						return result;
 					});
 			return result;
 		}
@@ -253,18 +256,31 @@ class IAsset : virtual public core::IReferenceCounted
 				});
 			return value;
 		}
+	
+		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u)
+		{
+			convertToDummyObject_impl(referenceLevelsBelowToConvert);
+			if (referenceLevelsBelowToConvert)
+				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
+				thisChild->convertToDummyObject(referenceLevelsBelowToConvert - 1u);
+			return true;
+					});
+		}
+
 		inline bool equals(const IAsset* _other) const
 		{
 			if (_other == nullptr)
 				return false;
 			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && equals_impl(_other);
-			if (result)
-				visitChildren([&result](IAsset* thisChild, IAsset* otherChild) {
-						return (result = thisChild->equals(otherChild));
+			if (result) {
+				visitChildren(_other,
+					[&result](IAsset* thisChild, IAsset* otherChild) {
+						result = thisChild->equals(otherChild);
+				return result; //continue only if equal
 					});
+			}
 			return result;
 		}
-
 
     protected:
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
@@ -333,15 +349,7 @@ class IAsset : virtual public core::IReferenceCounted
 
 			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
 		*/
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u)
-		{
-			convertToDummyObject_impl(referenceLevelsBelowToConvert);
-			if (referenceLevelsBelowToConvert)
-				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
-					thisChild->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-					return true;
-					});
-		}
+		
 		virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) {
 			convertToDummyObject_common(referenceLevelsBelowToConvert);
 		};
@@ -360,19 +368,14 @@ class IAsset : virtual public core::IReferenceCounted
 
 		//! Lists members of type IAsset in order of least expensive to recurse through to most expensive
 		//! TODO maybe use SRange instead?
-		virtual nbl::core::vector<const IAsset*> getMembersToRecurse() const = 0;
+		virtual nbl::core::vector<IAsset*> getMembersToRecurse() const = 0;
 
 
 	private:
+
+
 		template<typename ChildLambda>
-		inline void visitChildren(const ChildLambda& childLambda) const {
-			auto assetMemberList = getMembersToRecurse();
-			for (size_t i = 0; i < assetMemberList.size(); i++)
-				if (assetMemberList[i])
-					if (!childLambda(assetMemberList[i])) break;
-		}
-		template<typename ChildLambda>
-		inline void visitChildren(const ChildLambda& childLambda, const IAsset* _other) {
+		inline void visitChildren(const IAsset* _other, const ChildLambda& childLambda) const {
 			auto assetMemberList = getMembersToRecurse();
 			auto otherAssetMemberList = _other->getMembersToRecurse();
 			for (size_t i = 0; i < assetMemberList.size(); i++)
@@ -380,11 +383,19 @@ class IAsset : virtual public core::IReferenceCounted
 					if (!childLambda(assetMemberList[i], otherAssetMemberList[i])) break;
 		}
 
+		template<typename ChildLambda>
+		inline void visitChildren(const ChildLambda& childLambda) const {
+			auto assetMemberList = getMembersToRecurse();
+			for (size_t i = 0; i < assetMemberList.size(); i++)
+				if (assetMemberList[i])
+					if (!childLambda(assetMemberList[i])) break;
+		}
 		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
 			restoreFromDummy_impl_impl(_other, _levelsBelow);
 			if (!_levelsBelow)
 				return;
-			visitChildren([](IAsset* thisChild, IAsset* otherChild) {
+			visitChildren(_other,
+				[](IAsset* thisChild, IAsset* otherChild) {
 				thisChild->restoreFromDummy_impl(otherChild);
 				return true; // continue
 			});

@@ -139,7 +139,7 @@ protected:
 		return true;
 	}
 
-	nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return {}; }
+	nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
 
 	void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{
@@ -151,8 +151,9 @@ protected:
 
 	virtual bool equals_impl(const IAsset* _other) const override 
 	{
-		return std::equal(m_cache.begin(), m_cache.end(),
-			static_cast<const ICPUPipelineCache*>(_other)->m_cache.begin());
+		return true;
+		//return std::equal(m_cache.begin(), m_cache.end(),
+		//	static_cast<const ICPUPipelineCache*>(_other)->m_cache.begin());
 	}
 
 private:

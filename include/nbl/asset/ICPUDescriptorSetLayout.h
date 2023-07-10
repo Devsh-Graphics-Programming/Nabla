@@ -87,9 +87,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return true;
         }
 
-        nbl::core::vector<const IAsset*> getMembersToRecurse() const override
+        nbl::core::vector<IAsset*> getMembersToRecurse() const override
         {
-            nbl::core::vector<const IAsset*> assets = {};
+            nbl::core::vector<IAsset*> assets = {};
    
             if (m_samplers)
             {

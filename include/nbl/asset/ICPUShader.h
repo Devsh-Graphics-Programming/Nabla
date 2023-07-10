@@ -110,7 +110,7 @@ class ICPUShader : public IAsset, public IShader
 			return true;
 		}
 
-		nbl::core::vector<const IAsset*> getMembersToRecurse() const override { return { m_code.get() }; }
+		nbl::core::vector<IAsset*> getMembersToRecurse() const override { return { m_code.get() }; }
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{
