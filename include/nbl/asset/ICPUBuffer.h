@@ -56,19 +56,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
-        {
-            if (!canBeConvertedToDummy())
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-            if (data)
-                _NBL_ALIGNED_FREE(data);
-            data = nullptr;
-            m_creationParams.size = 0ull;
-            isDummyObjectForCacheAliasing = true;
-        }
-
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
@@ -102,6 +89,19 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
     protected:
+
+        virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
+        {
+            if (!canBeConvertedToDummy())
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+            if (data)
+                _NBL_ALIGNED_FREE(data);
+            data = nullptr;
+            m_creationParams.size = 0ull;
+            isDummyObjectForCacheAliasing = true;
+        }
 
         bool compatible(const IAsset* _other) const override
         {
