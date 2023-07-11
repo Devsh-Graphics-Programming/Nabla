@@ -247,13 +247,23 @@ class IAsset : virtual public core::IReferenceCounted
 		
 		inline size_t hash(std::unordered_map<IAsset*, size_t>*temporary_hash_cache = nullptr) const
 		{
+			bool add_to_cache = false;
+			if (temporary_hash_cache)
+			{
+				if (temporary_hash_cache->contains(const_cast<IAsset* const>(this)))
+					return temporary_hash_cache->at(const_cast<IAsset* const>(this));
+				else
+					add_to_cache = true;
+			}
 			size_t value = getAssetType();
 			hash_impl(value);
 			visitChildren(
 				[&value, temporary_hash_cache](IAsset* _child) {
-					core::hash_combine(value, getHashFromCache(_child, temporary_hash_cache));
+					core::hash_combine(value, _child->hash(temporary_hash_cache));
 					return true;
 				});
+			if(add_to_cache)
+				temporary_hash_cache->insert(std::make_pair(const_cast<IAsset* const>(this), value));
 			return value;
 		}
 	
@@ -299,20 +309,6 @@ class IAsset : virtual public core::IReferenceCounted
 			const bool imm = getMutability() == EM_IMMUTABLE;
 			//_NBL_DEBUG_BREAK_IF(imm);
 			return imm;
-		}
-		//returns asset's hash, by looking it up from a map, or calculates it if entry does not exist
-		//calculating a hash without cache might be fairly expensive
-		static inline size_t getHashFromCache(IAsset* asset, std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) {
-			if (temporary_hash_cache == nullptr) // do not use cache
-				return asset->hash(nullptr);
-			auto hash_iter = temporary_hash_cache->find(asset);
-			if (hash_iter != temporary_hash_cache->end()) 
-				return hash_iter->second; 
-			else {
-				size_t hash_val = asset->hash(temporary_hash_cache);
-				temporary_hash_cache->insert(std::make_pair(asset, hash_val));
-				return hash_val;
-			}
 		}
 
 		//todo 
