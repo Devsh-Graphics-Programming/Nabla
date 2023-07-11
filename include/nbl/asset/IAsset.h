@@ -311,18 +311,17 @@ class IAsset : virtual public core::IReferenceCounted
 			return imm;
 		}
 
-		//todo 
 		virtual bool equals_impl(const IAsset* _other) const { return true; }
+
 		virtual bool canBeRestoredFrom_impl(const IAsset* _other) const { return true; }
+
 		virtual void hash_impl(size_t& seed) const {} //hash members without recursion into other IAsset objects
+
 		virtual void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) {};
-		virtual bool compatible(const IAsset* _other) const = 0;
+
+		virtual bool compatible(const IAsset* _other) const = 0; //common function between equals and canBeRestoredFrom
 		
 		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
-
-		//compares members
-		//common function between equals and canBeRestoredFrom
-
 
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
