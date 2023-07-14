@@ -48,9 +48,17 @@ struct WorkgroupScanHead
         T scan = firstLevelScan;
 		
         const bool isLastSubgroupInvocation = offsetsAndMasks.subgroupInvocation == offsetsAndMasks.subgroupMask; // last invocation in subgroup
-        const uint subgroupId = subgroup::SubgroupID();
-        const uint nextLevelStoreIndex = offsetsAndMasks.halfSubgroupSize + subgroupId; // TODO (PentaKon) Fix this, it should be subgroupId + halfSubgroupSize + subgroupMemBegin(subgroupId)
-        bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
+		
+		// Since we are scanning the RESULT of the initial scan (which paired one input per subgroup invocation) 
+		// every group of 64 invocations has been coallesced into 1 result value. This means that the results of 
+		// the first SubgroupSz^2 invocations will be processed by the first subgroup and so on.
+		// Consequently, those first SubgroupSz^2 invocations will store their results on SubgroupSz scratch slots 
+		// with halfSubgroupSz padding and the next level will follow the same + the previous as an `offset`.
+		const uint offset = (gl_LocalInvocationIndex >> subgroup::SizeLog2()) & ~offsetsAndMasks.subgroupMask;
+		const uint memBegin = (offset >> subgroup::SizeLog2()) * offsetsAndMasks.halfSubgroupSize + offset;
+        const uint nextLevelStoreIndex = memBegin + offsetsAndMasks.halfSubgroupSize + offsetsAndMasks.subgroupId;
+        
+		bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
         while(lastInvocationInLevel >= subgroup::Size() * subgroup::Size())
     	{
     		Barrier();
@@ -86,7 +94,7 @@ struct WorkgroupScanHead
     		if(participate)
     		{
     			const uint prevLevelScan = scratch.main.get(offsetsAndMasks.scanStoreOffset);
-    			scan = subgroupOp(prevLevelScan);
+				scan = subgroupOp(prevLevelScan);
     			if(isScan) {
     				scratch.main.set(scanStoreIndex, scan);
 				}
@@ -121,7 +129,6 @@ struct WorkgroupScanTail
 		Barrier();
         Binop binop;
         ScratchAccessor scratch;
-        subgroup::ScratchOffsetsAndMasks offsetsAndMasks = subgroup::ScratchOffsetsAndMasks::WithSubgroupOpDefaults(); // TODO (PentaKon): REMOVE
 		
         if(lastInvocation >= subgroup::Size())
     	{
@@ -145,9 +152,6 @@ struct WorkgroupScanTail
     		if(gl_LocalInvocationIndex <= lastInvocation && subgroupId != 0u)
     		{
     			const uint higherLevelExclusive = scratch.main.get(scanLoadIndex + currentToHighLevel - 1u);
-				//if(offsetsAndMasks.subgroupElectedLocalInvocation == gl_LocalInvocationIndex && offsetsAndMasks.subgroupElectedLocalInvocation != higherLevelExclusive) {
-				//	printf("[%u].[%u].[%u] Will be adding %u + %u\n", gl_WorkGroupID.x, gl_LocalInvocationIndex, offsetsAndMasks.subgroupElectedLocalInvocation, higherLevelExclusive, firstLevelScan);
-				//}
     			firstLevelScan = binop(higherLevelExclusive, firstLevelScan);
     		}
     	}

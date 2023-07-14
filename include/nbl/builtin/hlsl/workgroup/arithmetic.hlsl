@@ -18,14 +18,18 @@ namespace workgroup
 template<typename T, class Binop, class ScratchAccessor>
 struct reduction
 {
-    struct reduction_t : subgroup::reduction<T, Binop, ScratchAccessor, false> {};
+    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {}; // Yes, inclusive scan subgroup op is used for reduction workgroup ops
     T operator()(T value)
     {
+		Barrier();
 		Binop op;
-        WorkgroupScanHead<T, reduction_t, ScratchAccessor> wsh = WorkgroupScanHead<T, reduction_t, ScratchAccessor>::create(false, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
+        WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(false, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         T result = wsh(value);
         Barrier();
-        return Broadcast<uint, ScratchAccessor>(result, wsh.lastInvocationInLevel);
+        T retVal = Broadcast<uint, ScratchAccessor>(result, wsh.lastInvocationInLevel);
+		Barrier();
+		MemoryBarrierShared();
+		return retVal;
     }
 };
 
@@ -35,11 +39,15 @@ struct inclusive_scan
     struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {};
     T operator()(T value)
     {
+		Barrier();
 		Binop op;
         WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(true, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
         WorkgroupScanTail<T, Binop, ScratchAccessor> wst = WorkgroupScanTail<T, Binop, ScratchAccessor>::create(false, op.identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
-		return wst();
+		T retVal = wst();
+		Barrier();
+		MemoryBarrierShared();
+		return retVal;
     }
 };
 
@@ -49,11 +57,15 @@ struct exclusive_scan
     struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {}; // Yes, inclusive scan subgroup op is used for exclusive workgroup ops
     T operator()(T value)
     {
+		Barrier();
 		Binop op;
         WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(true, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
         WorkgroupScanTail<T, Binop, ScratchAccessor> wst = WorkgroupScanTail<T, Binop, ScratchAccessor>::create(true, op.identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
-		return wst();
+		T retVal = wst();
+		Barrier();
+		MemoryBarrierShared();
+		return retVal;
     }
 };
 
@@ -85,7 +97,8 @@ uint ballotScanBitCount(in bool exclusive)
 		globalCount = _dword != 0u ? scratch.main.get(_dword) : 0u;
 		Barrier();
 		
-		// restore
+		// restore because the counting process has changed the ballots in the scratch
+		// and we might want to use them further
 		if(gl_LocalInvocationIndex < bitfieldDWORDs)
 		{
 			scratch.main.set(gl_LocalInvocationIndex, localBitfieldBackup);

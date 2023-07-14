@@ -6,15 +6,10 @@
 
 #include "nbl/builtin/hlsl/atomics.hlsl"
 
-// REVIEW: Where would _NBL_HLSL_WORKGROUP_SIZE_ be defined?
-
 namespace nbl 
 {
 namespace hlsl
 {
-
-// REVIEW:  Bank conflict avoidance. It seems the offset for each index should be SUBGROUP_SIZE,
-//          not WORKGROUP_SIZE (assuming banks == SUBGROUP_SIZE)
 
 #ifdef SHARED_MEM
 struct MainScratchProxy
@@ -27,50 +22,6 @@ struct MainScratchProxy
 	void set(uint ix, uint value)
 	{
 		SHARED_MEM[ix] = value;
-	}
-
-	uint atomicAdd(uint ix, uint value)
-	{
-        return atomics::atomicAdd(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicAnd(uint ix, uint value)
-	{
-        return atomics::atomicAnd(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicOr(uint ix, uint value)
-	{
-		// TODO (PentaKon): Fix
-		uint orig;
-		InterlockedOr(SHARED_MEM[ix], value, orig);
-		return orig;
-        //return atomics::atomicOr(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicXor(uint ix, uint value)
-	{
-        return atomics::atomicXor(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicMin(uint ix, uint value)
-	{
-        return atomics::atomicMin(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicMax(uint ix, uint value)
-	{
-        return atomics::atomicMax(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicExchange(uint ix, uint value)
-	{
-        return atomics::atomicExchange(SHARED_MEM[ix], value);
-	}
-	
-	uint atomicCompSwap(uint ix, const uint comp, uint value)
-	{
-        return atomics::atomicCompSwap(SHARED_MEM[ix], comp, value);
 	}
 };
 #else
@@ -111,6 +62,9 @@ struct ShuffleScratchProxy
 struct ShuffleScratchProxy
 {};
 #endif
+
+// REVIEW:  Bank conflict avoidance. It seems the offset for each index should be SUBGROUP_SIZE,
+//          not WORKGROUP_SIZE (assuming banks == SUBGROUP_SIZE)
 
 template<class NumberSharedMemoryAccessor>
 struct SharedMemoryAdaptor
@@ -184,32 +138,33 @@ struct SharedMemoryAdaptor
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
-    // TODO (PentaKon): Need to handle other types apart from uint
+    // REVIEW:  Depending on how we handle SHARED_MEM in nbl::hlsl::atomics 
+	//			we should also update this part to handle float and int
     
     // uint atomics
     void atomicAdd(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicAdd(ix, value);
+	   orig = atomics::atomicAdd(ix, value);
 	}
 	void atomicAnd(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicAnd(ix, value);
+	   orig = atomics::atomicAnd(ix, value);
 	}
 	void atomicOr(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicOr(ix, value);
+	   orig = atomics::atomicOr(ix, value);
 	}
 	void atomicXor(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicXor(ix, value);
+	   orig = atomics::atomicXor(ix, value);
 	}
 	void atomicMin(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicMin(ix, value);
+	   orig = atomics::atomicMin(ix, value);
 	}
 	void atomicMax(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicMax(ix, value);
+	   orig = atomics::atomicMax(ix, value);
 	}
 	void atomicExchange(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicExchange(ix, value);
+	   orig = atomics::atomicExchange(ix, value);
 	}
 	void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
-	   orig = accessor.atomicCompSwap(ix, comp, value);
+	   orig = atomics::atomicCompSwap(ix, comp, value);
 	}
 };
 

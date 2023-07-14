@@ -4,76 +4,84 @@
 #ifndef _NBL_BUILTIN_HLSL_ATOMICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_ATOMICS_INCLUDED_
 
+#ifndef SHARED_MEM
+#error "Atomics need SHARED_MEM defined to point to uint groupshared array"
+#else
 namespace nbl
 {
 namespace hlsl
 {
 namespace atomics
 {
+	// REVIEW:  How should we handle shared memory access in here? Right now we assume SHARED_MEM is defined.
+	// 			Additionally, is there a point in having templated type or should it be uint and the called 
+	//			uses `asuint()` on different types before calling atomics? Note that Interlocked* API only works 
+	//			on uint and int
 	template<typename T>
-	T atomicAdd(inout T mem, T data)
+	T atomicAdd(in uint ix, T data)
 	{
 		T orig;
-		InterlockedAdd(mem, data, orig);
+		InterlockedAdd(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicAnd(inout T mem, T data)
+	T atomicAnd(in uint ix, T data)
 	{
 		T orig;
-		InterlockedAnd(mem, data, orig);
+		InterlockedAnd(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicOr(inout T mem, T data)
+	T atomicOr(in uint ix, T data)
 	{
 		T orig;
-		InterlockedOr(mem, data, orig);
+		InterlockedOr(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicXor(inout T mem, T data)
+	T atomicXor(in uint ix, T data)
 	{
 		T orig;
-		InterlockedXor(mem, data, orig);
+		InterlockedXor(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicMin(inout T mem, T data)
+	T atomicMin(in uint ix, T data)
 	{
 		T orig;
-		InterlockedMin(mem, data, orig);
+		InterlockedMin(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicMax(inout T mem, T data)
+	T atomicMax(in uint ix, T data)
 	{
 		T orig;
-		InterlockedMax(mem, data, orig);
+		InterlockedMax(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicExchange(inout T mem, T data)
+	T atomicExchange(in uint ix, T data)
 	{
 		T orig;
-		InterlockedExchange(mem, data, orig);
+		InterlockedExchange(SHARED_MEM[ix], data, orig);
 		return orig;
 	}
 	
 	template<typename T>
-	T atomicCompSwap(inout T mem, T compare, T data)
+	T atomicCompSwap(in uint ix, T compare, T data)
 	{
 		T orig;
-		InterlockedCompareExchange(mem, compare, data, orig);
+		InterlockedCompareExchange(SHARED_MEM[ix], compare, data, orig);
 		return orig;
 	}
 }
 }
 }
+#endif
 #endif

@@ -19,8 +19,6 @@
 [[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
 void fake_for_capability_and_extension(){}
 
-#define WHOLE_WAVE ~0
-
 //const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
 #define LastWorkgroupInvocation (_NBL_HLSL_WORKGROUP_SIZE_-1U)
 
@@ -362,14 +360,7 @@ struct inclusive_scan
 		{
 			Barrier();
 			MemoryBarrierShared();
-			
-			// each invocation initializes its respective slot with its value
-			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
-			// additionally, the first half invocations initialize the padding slots
-			// with identity values
-			if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
-				scratch.main.set(offsetsAndMasks.lastLoadOffset, op.identity());
-			}
+			scratchInitialize<ScratchAccessor, T>(value, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_-1);
 		}
 		Barrier();
 		MemoryBarrierShared();
@@ -377,8 +368,8 @@ struct inclusive_scan
 		// Stone-Kogge adder
 		// (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
 		// but they're SIMD and adding an `if`/conditional execution is more expensive
-	#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: maybe use it by default?
-		uint toAdd = ShuffleUp<T, ScratchAccessor>(value, 1u);
+	#if 1 // Use shuffling by default (either native or portability implementation)
+		uint toAdd = ShuffleUp<T, ScratchAccessor>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
 		if(offsetsAndMasks.subgroupInvocation >= 1u) {
 			// the first invocation (index 0) in the subgroup doesn't have anything in its left
 			value = op(value, toAdd);
@@ -386,10 +377,10 @@ struct inclusive_scan
 	#else
 		value = op(value, scratch.main.get(offsetsAndMasks.scanStoreOffset-1u));
 	#endif
-		[[unroll]]
+		[[unroll]] // REVIEW: I copied this from the example implementation on the github issue but if I'm not mistaken unroll doesn't work since halfSubgroupSize is not constexpr 
 		for (uint step=2u; step <= offsetsAndMasks.halfSubgroupSize; step <<= 1u)
 		{
-		#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: maybe use it by default?
+		#if 1
 			// there is no scratch and padding entries in this case so we have to guard the shuffles to not go out of bounds
 			toAdd = ShuffleUp<T, ScratchAccessor>(value, step);
 			if(offsetsAndMasks.subgroupInvocation >= step) {
@@ -438,7 +429,7 @@ struct exclusive_scan
 		value = impl(value);
 
 		// store value to smem so we can shuffle it
-	#ifdef NBL_GL_KHR_shader_subgroup_shuffle // REVIEW: Should we check this or just use shuffle by default?
+	#if 1
 		Binop op;
 		uint left = ShuffleUp<T, ScratchAccessor>(value, 1);
 		value = impl.offsetsAndMasks.subgroupInvocation >= 1 ? left : op.identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
@@ -472,14 +463,13 @@ struct reduction
     T operator()(T value)
     {
 		value = impl(value);
-        
-	#ifdef NBL_GL_KHR_shader_subgroup_shuffle
-		value = Shuffle<T, ScratchAccessor>(value, impl.offsetsAndMasks.subgroupMask); // take the last subgroup invocation's value
+	#if 1
+		value = Shuffle<T, ScratchAccessor>(value, impl.offsetsAndMasks.lastSubgroupInvocation); // take the last subgroup invocation's value
 	#else
 		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset, value);
 		Barrier();
 		MemoryBarrierShared();
-		uint reductionResultOffset = impl.offsetsAndMasks.subgroupPaddingMemoryEnd + impl.offsetsAndMasks.subgroupMask; // this should end up being the last subgroup invocation
+		uint reductionResultOffset = impl.offsetsAndMasks.subgroupPaddingMemoryEnd + impl.offsetsAndMasks.lastSubgroupInvocation; // this should end up being the last subgroup invocation
 		// store value to smem so we can broadcast it to everyone
 		value = impl.scratch.main.get(reductionResultOffset);
 		Barrier();
@@ -496,7 +486,5 @@ struct reduction
 }
 }
 }
-
-#undef WHOLE_WAVE
 
 #endif

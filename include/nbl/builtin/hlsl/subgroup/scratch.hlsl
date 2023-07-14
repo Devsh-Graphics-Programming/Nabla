@@ -44,9 +44,14 @@ namespace subgroup
 		{
 			ScratchOffsetsAndMasks s;
 			s.subgroupMask = Size() - 1u;
-			s.halfSubgroupSize = Size() >> 1u;
+			s.halfSubgroupSize = Size() >> 1u; // this is also the size of the padding memory
 			s.subgroupInvocation = InvocationID();
+			s.subgroupId = SubgroupID();
 			s.subgroupElectedLocalInvocation = ElectedLocalInvocationID();
+			s.lastSubgroupInvocation = s.subgroupMask;
+			if(s.subgroupId == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> SizeLog2())) {
+				s.lastSubgroupInvocation &= _NBL_HLSL_WORKGROUP_SIZE_ - 1u; // if the workgroup size is not a power of 2, then the lastSubgroupInvocation for the last subgroup of the workgroup will not be equal to the subgroupMask but something smaller
+			}
 			s.subgroupMemoryBegin = s.subgroupElectedLocalInvocation + s.halfSubgroupSize * (s.subgroupElectedLocalInvocation >> SizeLog2());
 			s.lastLoadOffset = s.subgroupMemoryBegin + s.subgroupInvocation;
 			s.subgroupPaddingMemoryEnd = s.subgroupMemoryBegin + s.halfSubgroupSize;
@@ -57,6 +62,8 @@ namespace subgroup
 		uint subgroupMask;
 		uint halfSubgroupSize;
 		uint subgroupInvocation;
+		uint lastSubgroupInvocation;
+		uint subgroupId;
 		uint subgroupElectedLocalInvocation;
 		uint subgroupMemoryBegin;
 		uint lastLoadOffset;
@@ -77,13 +84,26 @@ namespace subgroup
 		if (offsetsAndMasks.subgroupInvocation < offsetsAndMasks.halfSubgroupSize) {
 			scratch.main.set(offsetsAndMasks.lastLoadOffset, identity);
 		}
-		SOMETHING IS UP WITH SCRATCH INITIALIZATION AFTER SUCCESSIVE OPERATIONS ON GROUPSHAREDMEM
-		// TODO (PentaKon): Fix this to not use scratchInitializeClearIndex
+		
+		bool isLastSubgroupInWG = ((_NBL_HLSL_WORKGROUP_SIZE_-1u) >> SizeLog2()) == offsetsAndMasks.subgroupId;
+		uint lastSubgroupSize = offsetsAndMasks.lastSubgroupInvocation + 1;
+		if(isLastSubgroupInWG && lastSubgroupSize < offsetsAndMasks.halfSubgroupSize) {
+			// In this case, the workgroup size is such that the last subgroup is smaller than halfSubgroupSize.
+			// This means that some of the padding memory, which we initialize with the identity value, will 
+			// remain uninitialized. We must do more initializations with the subgroup invocations we have.
+			uint llo = offsetsAndMasks.lastLoadOffset;
+			uint padEnd = offsetsAndMasks.subgroupPaddingMemoryEnd;
+			for(uint ix = 1; llo + (ix * lastSubgroupSize) < padEnd; ix++) {
+				scratch.main.set(offsetsAndMasks.lastLoadOffset + (ix * lastSubgroupSize), identity);
+			}
+		}
+		
 		if(_NBL_HLSL_WORKGROUP_SIZE_ < offsetsAndMasks.halfSubgroupSize)
 		{
 			const uint maxItemsToClear = (((activeInvocationIndexUpperBound - 1u) & (~offsetsAndMasks.subgroupMask)) >> 1u) + offsetsAndMasks.halfSubgroupSize;
-			for (uint ix = gl_LocalInvocationIndex + _NBL_HLSL_WORKGROUP_SIZE_; ix < maxItemsToClear; ix += _NBL_HLSL_WORKGROUP_SIZE_)
+			for (uint ix = gl_LocalInvocationIndex + _NBL_HLSL_WORKGROUP_SIZE_; ix < maxItemsToClear; ix += _NBL_HLSL_WORKGROUP_SIZE_) {
 				scratch.main.set(scratchInitializeClearIndex(ix, halfSubgroupMask), identity);
+			}
 		}
 		workgroup::Barrier();
 	}
