@@ -51,8 +51,8 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         virtual bool startCapture() = 0;
         virtual bool endCapture() = 0;
 
-        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) = 0;
-        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) = 0;
+        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool endDebugMarker() = 0;
 
         //
