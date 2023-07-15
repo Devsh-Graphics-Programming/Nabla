@@ -786,9 +786,17 @@ public:
 
     void* getExternalMemoryHandle(IDeviceMemoryBacked* obj) const override
     {
+        if (!obj)
+            return nullptr;
+        auto mem = obj->getBoundMemory();
+        if (!mem)
+            return nullptr;
+        auto vkHandle = *static_cast<const VkDeviceMemory*>(mem->getNativeHandle());
+        if (!vkHandle)
+            return nullptr;
         VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-            .memory = *static_cast<const VkDeviceMemory*>(obj->getBoundMemory()->getNativeHandle()),
+            .memory = vkHandle,
             .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalMemoryHandType.value),
         };
         void* handle = 0;

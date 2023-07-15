@@ -116,9 +116,23 @@ CUresult CCUDADevice::createExportableMemory(size_t size, size_t alignment, SSha
 
 core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemory mem, ILogicalDevice* device)
 {
+
+	if (!device || !mem.memory || !mem.osHandle || !mem.ptr || !mem.size)
+		return nullptr;
+
+	{
+		CUuuid id;
+		// TODO(Atil): Cache properties
+		if (CUDA_SUCCESS != m_handler->getCUDAFunctionTable().pcuDeviceGetUuid(&id, m_handle))
+			return nullptr;
+
+		if (memcmp(&id, device->getPhysicalDevice()->getProperties().deviceUUID, 16))
+			return nullptr;
+	}
+
 	auto buf = device->createBuffer(
 		{ {.size = mem.size, .usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_SRC_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT },
-		{ {.externalMemoryHandType = video::IDeviceMemoryBacked::EHT_OPAQUE_WIN32, .externalHandle = mem.osHandle}} });
+		{ {.externalMemoryHandType = video::IDeviceMemoryBacked::EHT_OPAQUE_WIN32, .externalHandle = mem.osHandle}}});
 	
 	auto req = buf->getMemoryReqs();
 	req.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
@@ -133,9 +147,12 @@ core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemor
 
 CUresult CCUDADevice::importGPUBuffer(IGPUBuffer* buf, SSharedCUDAMemory* outPtr)
 {
+	if (!buf || !outPtr)
+		return CUDA_ERROR_INVALID_VALUE;
+
 	auto& params = buf->getCachedCreationParams();
 
-	if (!params.externalMemoryHandType.value || !outPtr)
+	if (!params.externalMemoryHandType.value)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	CUDA_EXTERNAL_MEMORY_HANDLE_DESC handleDesc = {
@@ -154,7 +171,7 @@ CUresult CCUDADevice::importGPUBuffer(IGPUBuffer* buf, SSharedCUDAMemory* outPtr
 		CUDA_SUCCESS != err)
 		return err;
 
-	if(auto err = reserveAdrressAndMapMemory(buf->getSize(), 1 << buf->getMemoryReqs().alignmentLog2, mem, &ptr))
+	if(auto err = reserveAdrressAndMapMemory(buf->getSize(), 1u << buf->getMemoryReqs().alignmentLog2, mem, &ptr))
 	{
 		cu.pcuMemRelease(mem);
 		return err;

@@ -108,7 +108,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         {
             const uint32_t* queueFamilyIndices = nullptr;
         };
-
+        
         void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
         {
             if (!m_cachedCreationParams.preDestroyCleanup)
