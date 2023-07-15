@@ -37,14 +37,30 @@ class CThreadSafeGPUQueueAdapter : public IGPUQueue
         }
 
         virtual bool startCapture() override 
-        { 
+        {
             std::lock_guard g(m);
             return originalQueue->startCapture();
         }
         virtual bool endCapture() override 
-        { 
+        {
             std::lock_guard g(m);
             return originalQueue->endCapture(); 
+        }
+
+        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override
+        {
+            std::lock_guard g(m);
+            return originalQueue->insertDebugMarker(name, color);
+        }
+        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override
+        {
+            std::lock_guard g(m);
+            return originalQueue->beginDebugMarker(name, color);
+        }
+        virtual bool endDebugMarker() override
+        {
+            std::lock_guard g(m);
+            return originalQueue->endDebugMarker();
         }
 
         IGPUQueue* getUnderlyingQueue() const
