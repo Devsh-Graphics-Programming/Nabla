@@ -109,11 +109,11 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             const uint32_t* queueFamilyIndices = nullptr;
         };
 
-        void chainPreDestroyCleanup(std::unique_ptr<ICleanup> next)
+        void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
         {
             if (!m_cachedCreationParams.preDestroyCleanup)
             {
-                m_cachedCreationParams.preDestroyCleanup = std::move(next);
+                m_cachedCreationParams.preDestroyCleanup = std::move(first);
                 return;
             }
 
@@ -131,7 +131,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
                 }
             };
 
-            m_cachedCreationParams.preDestroyCleanup = std::make_unique<SChainedCleanup>(std::move(m_cachedCreationParams.preDestroyCleanup), std::move(next));
+            m_cachedCreationParams.preDestroyCleanup = std::make_unique<SChainedCleanup>(std::move(first), std::move(m_cachedCreationParams.preDestroyCleanup));
         }
 
     protected:
