@@ -96,6 +96,7 @@ void CPLYMeshFileLoader::initialize()
 		auto pipelineBundle = defaultOverride.findCachedAsset(pipelineCacheHash, types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
 		if (pipelineBundle.getContents().empty())
 		{
+#if 0 // WHAT IS THIS?
 			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 			{
@@ -108,6 +109,7 @@ void CPLYMeshFileLoader::initialize()
 				mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
 				mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
 			}
+#endif
 
 			auto mbPipelineLayout = defaultOverride.findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/PLY", fakeContext, 0u).first;
 
@@ -130,7 +132,7 @@ void CPLYMeshFileLoader::initialize()
 				const auto currentBitmask = core::createBitmask({ attrib });
 				inputParams.enabledBindingFlags |= currentBitmask;
 				inputParams.enabledAttribFlags |= currentBitmask;
-				inputParams.bindings[attrib] = { asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vertexAttribParamsAllOptions[attrib].format)), EVIR_PER_VERTEX };
+				inputParams.bindings[attrib] = { asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vertexAttribParamsAllOptions[attrib].format)), SVertexInputBindingParams::EVIR_PER_VERTEX};
 				inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
 			}
 		
@@ -143,14 +145,15 @@ void CPLYMeshFileLoader::initialize()
 
 			SRasterizationParams rastarizationParmas;
 
+#if 0 // WHAT IS THIS?
 			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 			{
 				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
 				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
-			
 				asset::SAssetBundle newPipelineBundle(nullptr, { core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline) });
 				defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
 			}
+#endif
 		}
 		else
 			return;

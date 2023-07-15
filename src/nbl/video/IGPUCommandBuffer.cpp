@@ -164,7 +164,7 @@ bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 bool IGPUCommandBuffer::end()
 {
     const bool whollyInsideRenderpass = m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT);
-    if (!checkStateBeforeRecording(whollyInsideRenderpass ? queue_flags_t::GRAPHICS_BIT:queue_flags_t::NONE,whollyInsideRenderpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
+    if (!checkStateBeforeRecording(whollyInsideRenderpass ? queue_flags_t::GRAPHICS_BIT:~queue_flags_t::NONE,whollyInsideRenderpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
     m_state = STATE::EXECUTABLE;
@@ -302,7 +302,7 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IEvent* const* con
 
 bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
 {
-    if (!checkStateBeforeRecording(/*everything is allowed*/))
+    if (!checkStateBeforeRecording(~queue_flags_t::NONE))
         return false;
 
     if (depInfo.memBarrierCount==0u && depInfo.bufBarrierCount==0u && depInfo.imgBarrierCount==0u)

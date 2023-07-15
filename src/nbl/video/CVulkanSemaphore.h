@@ -15,8 +15,11 @@ class ILogicalDevice;
 class CVulkanSemaphore final : public ISemaphore
 {
     public:
-        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& _vkdev, const VkSemaphore semaphore)
-            : ISemaphore(std::move(_vkdev)), m_semaphore(semaphore) {}
+        inline CVulkanSemaphore(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const VkSemaphore semaphore, SCreationParams&& params = {})
+            : ISemaphore(std::move(dev), std::move(params))
+            , m_semaphore(semaphore)
+        {}
+
         ~CVulkanSemaphore();
 
         uint64_t getCounterValue() const override;

@@ -52,7 +52,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
         }
             
-        core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
+        core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&&) override;
         WAIT_RESULT waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             
         core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) override;

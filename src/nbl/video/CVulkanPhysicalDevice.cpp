@@ -1201,6 +1201,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrixRobustness = cooperativeMatrixFeatures.robustness;
 #endif
+        properties.limits.externalFenceWin32 = isExtensionSupported(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME);
+        properties.limits.externalMemoryWin32 = isExtensionSupported(VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME);
+        properties.limits.externalSemaphoreWin32 = isExtensionSupported(VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME);
     }
 
     // we compare all limits against the defaults easily!

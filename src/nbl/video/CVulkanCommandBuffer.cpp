@@ -210,7 +210,7 @@ bool CVulkanCommandBuffer::pipelineBarrier_impl(const core::bitflag<asset::E_DEP
 
     auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo,m_cmdpool->getQueueFamilyIndex());
     info.dependencyFlags = static_cast<VkDependencyFlagBits>(dependencyFlags.value);
-    getFunctionTable().vkCmdPipelineBarrier2KHR(m_cmdbuf,&info);
+    getFunctionTable().vkCmdPipelineBarrier2(m_cmdbuf,&info);
     return true;
 }
 

@@ -84,7 +84,7 @@ auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submi
         outSubmitInfo->signalSemaphoreInfoCount = fillSemaphoreInfo(submit.signalSemaphores,outSignalSemaphoreInfo);
         outSubmitInfo++;
     }
-    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
+    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
     return getResultFrom(vk_result);
 }
 

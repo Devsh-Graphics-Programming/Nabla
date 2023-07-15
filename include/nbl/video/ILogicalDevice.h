@@ -85,7 +85,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const;
 
         //! NOTE/TODO: this is not yet finished
-        inline bool validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const;
+        bool validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const;
         inline bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SOwnershipTransferBarrier& barrier, const bool concurrentSharing) const
         {
             // implicitly satisfied by our API:
@@ -147,7 +147,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual IQueue::RESULT waitIdle() const = 0;
 
         //! Semaphore Stuff
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&& ) = 0;
         //
         struct SSemaphoreWaitInfo
         {

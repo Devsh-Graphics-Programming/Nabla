@@ -119,7 +119,6 @@ nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 if (NBL_COMPILE_WITH_CUDA)
-	message(STATUS "Building with CUDA interop")
 	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
 	if (NBL_BUILD_OPTIX)
 		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
@@ -320,6 +319,8 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CCUDASharedMemory.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CCUDASharedSemaphore.cpp
 )
 
 set(NBL_SCENE_SOURCES
@@ -383,6 +384,10 @@ else()
 endif()
 
 target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+
+if (NBL_COMPILE_WITH_CUDA)
+    target_compile_definitions(Nabla PUBLIC _NBL_COMPILE_WITH_CUDA_)
+endif()
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC

@@ -45,21 +45,39 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
 }
 
 
-core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
+core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaphore::SCreationParams&& params)
 {
-    VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
-    type.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
-    type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
-    type.initialValue = initialValue;
+    VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
+    VkExportSemaphoreWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, .dwAccess = GENERIC_ALL };
+    VkExportSemaphoreCreateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, &handleInfo, static_cast<VkExternalSemaphoreHandleTypeFlags>(params.externalHandleTypes.value) };
 
-    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,&type };
+    VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
+    type.pNext = params.externalHandleTypes.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
+    type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
+    type.initialValue = params.initialValue;
+
+    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &type };
     createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
 
     VkSemaphore semaphore;
-    if (m_devf.vk.vkCreateSemaphore(m_vkdev,&createInfo,nullptr,&semaphore)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),semaphore);
-    else
+    if (VK_SUCCESS != m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore))
         return nullptr;
+
+    if (params.externalHandleTypes.value)
+    {
+        VkSemaphoreGetWin32HandleInfoKHR props = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
+            .semaphore = semaphore,
+            .handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(params.externalHandleTypes.value),
+        };
+        if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreWin32HandleKHR(m_vkdev, &props, &params.externalHandle))
+        {
+            m_devf.vk.vkDestroySemaphore(m_vkdev, semaphore, 0);
+            return nullptr;
+        }
+    }
+
+    return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), semaphore, std::move(params));
 }
 auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
 {
@@ -138,11 +156,32 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo };
+    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
+
+    VkImportMemoryWin32HandleInfoKHR importInfo = { 
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .handle = info.externalHandle
+    };
+
+    const void** pNext = &vk_allocateFlagsInfo.pNext;
+
+    if (info.externalHandleType)
+    {
+        // Importing
+        *pNext = &importInfo;
+        pNext = &importInfo.pNext;
+    }
+
     if(info.dedication)
     {
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0,1,1,0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+        *pNext = &vk_dedicatedInfo;
+        pNext = &vk_dedicatedInfo.pNext;
+
         switch (info.dedication->getObjectType())
         {
             case IDeviceMemoryBacked::EOT_BUFFER:
@@ -157,9 +196,6 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 break;
         }
     }
-    VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
-    vk_allocateInfo.allocationSize = info.size;
-    vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkDeviceMemory vk_deviceMemory;
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
@@ -168,7 +204,17 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 
     // automatically allocation goes out of scope and frees itself if no success later on
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,allocateFlags,memoryPropertyFlags,info.dedication,vk_deviceMemory);
+
+    CVulkanMemoryAllocation::SCreationParams params = {
+        .allocateFlags = allocateFlags,
+        .memoryPropertyFlags = memoryPropertyFlags,
+        .externalHandleType = info.externalHandleType,
+        .externalHandle = info.externalHandle,
+        .dedicated = !!info.dedication,
+        .allocationSize = info.size,
+    };
+    
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,vk_deviceMemory, std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {
