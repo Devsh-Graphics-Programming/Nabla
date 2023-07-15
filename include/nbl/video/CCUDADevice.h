@@ -205,7 +205,7 @@ class CCUDADevice : public core::IReferenceCounted
 				, dev(std::move(dev))
 			{ }
 
-			~SCUDACleaner()
+			~SCUDACleaner() override
 			{
 				dev->releaseExportableMemory(*this);
 			}
