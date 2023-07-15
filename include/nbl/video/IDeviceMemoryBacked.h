@@ -19,6 +19,15 @@ namespace nbl::video
 struct NBL_API2 ICleanup
 {
     virtual ~ICleanup() = 0;
+
+    std::unique_ptr<ICleanup> next;
+
+    static void chain(std::unique_ptr<ICleanup>& first, std::unique_ptr<ICleanup>&& next)
+    {
+        if (first)
+            return chain(first->next, std::move(next));
+        first = std::move(next);
+    }
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
@@ -95,29 +104,9 @@ class IDeviceMemoryBacked : public IBackendObject
         
         void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
         {
-            if (!m_cachedCreationParams.preDestroyCleanup)
-            {
-                m_cachedCreationParams.preDestroyCleanup = std::move(first);
-                return;
-            }
-
-            struct SChainedCleanup : ICleanup
-            {
-                std::unique_ptr<ICleanup> first, next;
-                SChainedCleanup(std::unique_ptr<ICleanup>&& first, std::unique_ptr<ICleanup>&& next)
-                    : first(std::move(first))
-                    , next(std::move(next)) 
-                { }
-                ~SChainedCleanup()
-                {
-                    first = nullptr;
-                    next = nullptr;
-                }
-            };
-
-            m_cachedCreationParams.preDestroyCleanup = std::make_unique<SChainedCleanup>(std::move(first), std::move(m_cachedCreationParams.preDestroyCleanup));
+            ICleanup::chain(m_cachedCreationParams.preDestroyCleanup, std::move(first));
         }
-
+        
     protected:
         inline IDeviceMemoryBacked(core::smart_refctd_ptr<const ILogicalDevice>&& originDevice, SCreationParams&& creationParams, const SDeviceMemoryRequirements& reqs)
             : IBackendObject(std::move(originDevice)), m_cachedCreationParams(std::move(creationParams)), m_cachedMemoryReqs(reqs) {}

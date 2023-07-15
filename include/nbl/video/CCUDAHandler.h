@@ -132,6 +132,10 @@ class CCUDAHandler : public core::IReferenceCounted
 			,cuMemRelease
 			,cuMemSetAccess
 			,cuMemImportFromShareableHandle
+			,cuLaunchHostFunc
+			,cuDestroyExternalSemaphore
+			,cuImportExternalSemaphore
+			,cuSignalExternalSemaphoresAsync
 		);
 		const CUDA& getCUDAFunctionTable() const {return m_cuda;}
 
