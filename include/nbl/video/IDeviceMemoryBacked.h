@@ -13,6 +13,15 @@ namespace nbl::video
 struct NBL_API2 ICleanup
 {
     virtual ~ICleanup() = 0;
+
+    std::unique_ptr<ICleanup> next;
+
+    static void chain(std::unique_ptr<ICleanup>& first, std::unique_ptr<ICleanup>&& next)
+    {
+        if (first)
+            return chain(first->next, std::move(next));
+        first = std::move(next);
+    }
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
@@ -20,7 +29,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
         //! Flags for imported/exported allocation
-        enum E_EXTERNAL_MEMORY_HANDLE_TYPE : uint32_t
+        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
         {
             EHT_NONE = 0,
             EHT_OPAQUE_FD = 0x00000001,
@@ -48,9 +57,9 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
             // Handle Type for external resources
-            core::bitflag<E_EXTERNAL_MEMORY_HANDLE_TYPE> externalMemoryHandType = EHT_NONE;
-            //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandType != EHT_NONE
-            //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandType != EHT_NONE
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleType = EHT_NONE;
+            //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandleType != EHT_NONE
+            //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandleType != EHT_NONE
             void* externalHandle = nullptr;
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
@@ -111,29 +120,9 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         
         void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
         {
-            if (!m_cachedCreationParams.preDestroyCleanup)
-            {
-                m_cachedCreationParams.preDestroyCleanup = std::move(first);
-                return;
-            }
-
-            struct SChainedCleanup : ICleanup
-            {
-                std::unique_ptr<ICleanup> first, next;
-                SChainedCleanup(std::unique_ptr<ICleanup>&& first, std::unique_ptr<ICleanup>&& next)
-                    : first(std::move(first))
-                    , next(std::move(next)) 
-                { }
-                ~SChainedCleanup()
-                {
-                    first = nullptr;
-                    next = nullptr;
-                }
-            };
-
-            m_cachedCreationParams.preDestroyCleanup = std::make_unique<SChainedCleanup>(std::move(first), std::move(m_cachedCreationParams.preDestroyCleanup));
+            ICleanup::chain(m_cachedCreationParams.preDestroyCleanup, std::move(first));
         }
-
+        
     protected:
         inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)
             : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}

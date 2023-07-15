@@ -82,24 +82,7 @@ public:
         m_devf.vk.vkDestroyDevice(m_vkdev, nullptr);
     }
             
-    core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() override
-    {
-        VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-        createInfo.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
-        createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
-
-        VkSemaphore semaphore;
-        if (m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
-        {
-            return core::make_smart_refctd_ptr<CVulkanSemaphore>
-                (core::smart_refctd_ptr<CVulkanLogicalDevice>(this), semaphore);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
-            
+    core::smart_refctd_ptr<IGPUSemaphore> createSemaphore(IGPUSemaphore::SCreationParams&& params) override;
     core::smart_refctd_ptr<IGPUEvent> createEvent(IGPUEvent::E_CREATE_FLAGS flags) override;
     IGPUEvent::E_STATUS getEventStatus(const IGPUEvent* _event) override;
     IGPUEvent::E_STATUS resetEvent(IGPUEvent* _event) override;
@@ -797,7 +780,7 @@ public:
         VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
             .memory = vkHandle,
-            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalMemoryHandType.value),
+            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalHandleType.value),
         };
         void* handle = 0;
         if(VK_SUCCESS == m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle))

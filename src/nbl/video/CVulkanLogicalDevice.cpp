@@ -9,6 +9,37 @@
 namespace nbl::video
 {
 
+core::smart_refctd_ptr<IGPUSemaphore> CVulkanLogicalDevice::createSemaphore(IGPUSemaphore::SCreationParams&& params)
+{
+    VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
+    VkExportSemaphoreWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1 };
+    VkExportSemaphoreCreateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, &handleInfo, static_cast<VkExternalSemaphoreHandleTypeFlags>(params.externalHandleType.value) };
+
+    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    createInfo.pNext = params.externalHandleType.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
+    createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
+
+    VkSemaphore semaphore;
+    if (VK_SUCCESS != m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore))
+        return nullptr;
+
+    if (params.externalHandleType.value)
+    {
+        VkSemaphoreGetWin32HandleInfoKHR props = {
+            .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
+            .semaphore = semaphore,
+            .handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(params.externalHandleType.value),
+        };
+        if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreWin32HandleKHR(m_vkdev, &props, &params.externalHandle))
+        {
+            m_devf.vk.vkDestroySemaphore(m_vkdev, semaphore, 0);
+            return nullptr;
+        }
+    }
+
+    return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(params), semaphore);
+}
+
 core::smart_refctd_ptr<IGPUEvent> CVulkanLogicalDevice::createEvent(IGPUEvent::E_CREATE_FLAGS flags)
 {
     VkEventCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_EVENT_CREATE_INFO };
@@ -104,19 +135,19 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
 
         auto& ccParams = info.dedication->getCachedCreationParams();
 
-        if (ccParams.externalMemoryHandType.value)
+        if (ccParams.externalHandleType.value)
         {
             external = true;
             // Importing
             if (ccParams.externalHandle)
             {
-                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalMemoryHandType.value);
+                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalHandleType.value);
                 importInfo.handle = ccParams.externalHandle;
                 vk_dedicatedInfo.pNext = &importInfo;
             }
             else // Exporting
             {
-                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalMemoryHandType.value);
+                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalHandleType.value);
                 vk_dedicatedInfo.pNext = &exportInfo;
             }
         }
@@ -818,10 +849,10 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
 
     VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
-       .handleTypes = creationParams.externalMemoryHandType.value,
+       .handleTypes = creationParams.externalHandleType.value,
     };
 
-    const bool external = creationParams.externalMemoryHandType.value;
+    const bool external = creationParams.externalHandleType.value;
     const bool imported = external && creationParams.externalHandle;
     const bool exported = external && !imported;
 
@@ -838,7 +869,7 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
         VkPhysicalDeviceExternalBufferInfo bufferInfo = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
             .usage = vk_createInfo.usage,
-            .handleType = VkExternalMemoryHandleTypeFlagBits(creationParams.externalMemoryHandType.value),
+            .handleType = VkExternalMemoryHandleTypeFlagBits(creationParams.externalHandleType.value),
         };
 
         VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };

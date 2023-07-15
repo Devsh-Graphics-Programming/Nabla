@@ -24,7 +24,7 @@ CCUDADevice::~CCUDADevice()
 	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
 }
 
-CUresult CCUDADevice::reserveAdrressAndMapMemory(size_t size, size_t alignment, CUmemGenericAllocationHandle memory, CUdeviceptr* outPtr)
+CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemGenericAllocationHandle memory)
 {
 	auto& cu = m_handler->getCUDAFunctionTable();
 	
@@ -57,16 +57,25 @@ CUresult CCUDADevice::reserveAdrressAndMapMemory(size_t size, size_t alignment, 
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::releaseExportableMemory(SSharedCUDAMemory mem)
+CUresult CCUDADevice::releaseExportableMemory(SSharedCUDAMemory* mem)
 {
 	auto& cu = m_handler->getCUDAFunctionTable();
-	if (auto err = cu.pcuMemUnmap(mem.ptr, mem.size); CUDA_SUCCESS != err) return err;
-	if (auto err = cu.pcuMemAddressFree(mem.ptr, mem.size); CUDA_SUCCESS != err) return err;
-	if (auto err = cu.pcuMemRelease(mem.memory); CUDA_SUCCESS != err) return err;
-	CloseHandle(mem.osHandle);
+	if (auto err = cu.pcuMemUnmap(mem->ptr, mem->size); CUDA_SUCCESS != err) return err;
+	if (auto err = cu.pcuMemAddressFree(mem->ptr, mem->size); CUDA_SUCCESS != err) return err;
+	if (auto err = cu.pcuMemRelease(mem->memory); CUDA_SUCCESS != err) return err;
+	CloseHandle(mem->osHandle);
+	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::createExportableMemory(size_t size, size_t alignment, SSharedCUDAMemory* outMem)
+CUresult CCUDADevice::destroyExternalSemaphore(SExternalCUDASemaphore* sema)
+{
+	auto& cu = m_handler->getCUDAFunctionTable();
+	if (auto err = cu.pcuDestroyExternalSemaphore(sema->semaphore); CUDA_SUCCESS != err) return err;
+	CloseHandle(sema->osHandle);
+	return CUDA_SUCCESS;
+}
+
+CUresult CCUDADevice::createExportableMemory(core::smart_refctd_ptr<SSharedCUDAMemory>* outMem, size_t size, size_t alignment)
 {
 	if (!outMem)
 		return CUDA_ERROR_INVALID_VALUE;
@@ -100,24 +109,32 @@ CUresult CCUDADevice::createExportableMemory(size_t size, size_t alignment, SSha
 		return err;
 	}
 
-	if (auto err = reserveAdrressAndMapMemory(size, alignment, mem, &ptr); CUDA_SUCCESS != err)
+	if (auto err = reserveAdrressAndMapMemory(&ptr, size, alignment, mem); CUDA_SUCCESS != err)
 	{
 		CloseHandle(handle);
 		cu.pcuMemRelease(mem);
 		return err;
 	}
 
-	outMem->size = size;
-	outMem->memory = mem;
-	outMem->ptr = ptr;
-	outMem->osHandle = handle;
+	*outMem = core::make_smart_refctd_ptr<SSharedCUDAMemory>(core::smart_refctd_ptr<CCUDADevice>(this), size, ptr, mem, handle);
+
 	return CUDA_SUCCESS;
 }
 
-core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemory mem, ILogicalDevice* device)
+CCUDADevice::SSharedCUDAMemory::~SSharedCUDAMemory()
+{
+	device->releaseExportableMemory(this);
+}
+
+CCUDADevice::SExternalCUDASemaphore::~SExternalCUDASemaphore()
+{
+	device->destroyExternalSemaphore(this);
+}
+
+core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemory* mem, ILogicalDevice* device)
 {
 
-	if (!device || !mem.memory || !mem.osHandle || !mem.ptr || !mem.size)
+	if (!device || !mem || !mem->memory || !mem->osHandle || !mem->ptr || !mem->size)
 		return nullptr;
 
 	{
@@ -130,9 +147,17 @@ core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemor
 			return nullptr;
 	}
 
-	auto buf = device->createBuffer(
-		{ {.size = mem.size, .usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_SRC_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT },
-		{ {.externalMemoryHandType = video::IDeviceMemoryBacked::EHT_OPAQUE_WIN32, .externalHandle = mem.osHandle}}});
+	auto buf = device->createBuffer(IGPUBuffer::SCreationParams {
+		asset::IBuffer::SCreationParams{
+			.size = mem->size, 
+			.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_SRC_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT 
+		},
+		IDeviceMemoryBacked::SCreationParams{ 
+			IDeviceMemoryBacked::SCachedCreationParams{
+				.externalHandleType = video::IDeviceMemoryBacked::EHT_OPAQUE_WIN32,
+				.externalHandle = mem->osHandle
+			}
+		}});
 	
 	auto req = buf->getMemoryReqs();
 	req.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
@@ -141,22 +166,22 @@ core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(SSharedCUDAMemor
 	if (!(allocation.memory && allocation.offset != ILogicalDevice::InvalidMemoryOffset))
 		return nullptr;
 
-	buf->chainPreDestroyCleanup(std::make_unique<SCUDACleaner>(mem, core::smart_refctd_ptr<video::CCUDADevice>(this)));
+	buf->chainPreDestroyCleanup(std::make_unique<SCUDACleaner>(core::smart_refctd_ptr<SSharedCUDAMemory>(mem)));
 	return buf;
 }
 
-CUresult CCUDADevice::importGPUBuffer(IGPUBuffer* buf, SSharedCUDAMemory* outPtr)
+CUresult CCUDADevice::importGPUBuffer(core::smart_refctd_ptr<SSharedCUDAMemory>* outPtr, IGPUBuffer* buf)
 {
 	if (!buf || !outPtr)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	auto& params = buf->getCachedCreationParams();
 
-	if (!params.externalMemoryHandType.value)
+	if (!params.externalHandleType.value)
 		return CUDA_ERROR_INVALID_VALUE;
 
 	CUDA_EXTERNAL_MEMORY_HANDLE_DESC handleDesc = {
-		.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32,
+		.type = static_cast<CUexternalMemoryHandleType>(params.externalHandleType.value),
 		.handle = {.win32 = {.handle = buf->getExternalHandle()}},
 		.size = buf->getMemoryReqs().size,
 	};
@@ -167,22 +192,47 @@ CUresult CCUDADevice::importGPUBuffer(IGPUBuffer* buf, SSharedCUDAMemory* outPtr
 
 	auto& cu = m_handler->getCUDAFunctionTable();
 	if (auto err = cu.pcuMemImportFromShareableHandle(&mem, buf->getExternalHandle(),
-		static_cast<CUmemAllocationHandleType>(params.externalMemoryHandType.value)); 
+		static_cast<CUmemAllocationHandleType>(params.externalHandleType.value));
 		CUDA_SUCCESS != err)
 		return err;
 
-	if(auto err = reserveAdrressAndMapMemory(buf->getSize(), 1u << buf->getMemoryReqs().alignmentLog2, mem, &ptr))
+	if(auto err = reserveAdrressAndMapMemory(&ptr, buf->getSize(), 1u << buf->getMemoryReqs().alignmentLog2, mem))
 	{
 		cu.pcuMemRelease(mem);
 		return err;
 	}
 
-	outPtr->ptr = ptr;
-	outPtr->memory = mem;
-	outPtr->size = buf->getSize();
-	outPtr->osHandle = handle;
+	*outPtr = core::make_smart_refctd_ptr<SSharedCUDAMemory>(
+		core::smart_refctd_ptr<CCUDADevice>(this),
+		buf->getSize(), ptr, mem, handle);
+	
+	buf->chainPreDestroyCleanup(std::make_unique<SCUDACleaner>(*outPtr));
+	return CUDA_SUCCESS;
+}
 
-	buf->chainPreDestroyCleanup(std::make_unique<SCUDACleaner>(*outPtr, core::smart_refctd_ptr<video::CCUDADevice>(this)));
+CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<SExternalCUDASemaphore>* outPtr, IGPUSemaphore* sema)
+{
+	if (!sema || !outPtr)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	auto& cu = m_handler->getCUDAFunctionTable();
+	auto handleType = sema->getCreationParams().externalHandleType.value;
+	auto handle = sema->getCreationParams().externalHandle;
+
+	if (!handleType || !handle)
+		return CUDA_ERROR_INVALID_VALUE;
+
+	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
+		.type = static_cast<CUexternalSemaphoreHandleType>(handleType),
+		.handle = {.win32 = {.handle = handle }},
+	};
+
+	CUexternalSemaphore cusema;
+	if (auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
+		return err;
+	
+	*outPtr = core::make_smart_refctd_ptr<SExternalCUDASemaphore>(core::smart_refctd_ptr<CCUDADevice>(this), cusema, handle);
+	sema->chainPreDestroyCleanup(std::make_unique<SCUDACleaner>(*outPtr));
 	return CUDA_SUCCESS;
 }
 

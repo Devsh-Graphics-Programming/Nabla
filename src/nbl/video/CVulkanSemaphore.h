@@ -13,8 +13,12 @@ class ILogicalDevice;
 class CVulkanSemaphore final : public IGPUSemaphore
 {
 public:
-    CVulkanSemaphore(core::smart_refctd_ptr<ILogicalDevice>&& _vkdev,
-        VkSemaphore semaphore) : IGPUSemaphore(std::move(_vkdev)), m_semaphore(semaphore)
+    CVulkanSemaphore(
+        core::smart_refctd_ptr<ILogicalDevice>&& _vkdev, 
+        SCreationParams&& params,
+        VkSemaphore semaphore) 
+        : IGPUSemaphore(std::move(_vkdev), std::move(params))
+        , m_semaphore(semaphore)
     {}
 
     ~CVulkanSemaphore();

@@ -46,7 +46,7 @@ class CVulkanBuffer : public IGPUBuffer
 
             auto& ccp = getCachedCreationParams();
 
-            if (ccp.externalMemoryHandType.value)
+            if (ccp.externalHandleType.value)
             {
                 if (ccp.externalHandle)
                     return m_cachedExternalHandle = ccp.externalHandle;
