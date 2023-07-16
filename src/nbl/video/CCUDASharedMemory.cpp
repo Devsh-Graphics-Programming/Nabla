@@ -8,7 +8,20 @@ namespace nbl::video
 {
 CCUDASharedMemory::~CCUDASharedMemory()
 {
-	m_device->releaseExportableMemory(this);
+	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
+	auto& params = m_params;
+	if (params.srcRes)
+	{
+		cu.pcuDestroyExternalMemory(params.extMem); 
+		params.srcRes->drop();
+	}
+	else
+	{
+		cu.pcuMemUnmap(params.ptr, params.size); 
+		cu.pcuMemAddressFree(params.ptr, params.size);
+		cu.pcuMemRelease(params.mem); 
+	}
+	CloseHandle(params.osHandle);
 }
 }
 

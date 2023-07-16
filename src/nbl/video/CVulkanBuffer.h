@@ -46,15 +46,20 @@ class CVulkanBuffer : public IGPUBuffer
 
             auto& ccp = getCachedCreationParams();
 
-            if (ccp.externalHandleType.value)
+            if (ccp.externalHandleTypes.value)
             {
                 if (ccp.externalHandle)
                     return m_cachedExternalHandle = ccp.externalHandle;
 
-                return m_cachedExternalHandle = getOriginDevice()->getExternalMemoryHandle(this);
+                return m_cachedExternalHandle = getOriginDevice()->getExternalHandle(this);
             }
 
             return nullptr;
+        }
+
+        bool getExternalMemoryProperties(SExternalMemoryProperties* outProps)  const
+        {
+            return getOriginDevice()->getPhysicalDevice()->getExternalMemoryProperties(outProps, getCachedCreationParams().externalHandleTypes, getCreationParams().usage);
         }
 
         size_t getBoundMemoryOffset() const override

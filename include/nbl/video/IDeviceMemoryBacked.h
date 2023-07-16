@@ -13,15 +13,6 @@ namespace nbl::video
 struct NBL_API2 ICleanup
 {
     virtual ~ICleanup() = 0;
-
-    std::unique_ptr<ICleanup> next;
-
-    static void chain(std::unique_ptr<ICleanup>& first, std::unique_ptr<ICleanup>&& next)
-    {
-        if (first)
-            return chain(first->next, std::move(next));
-        first = std::move(next);
-    }
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
@@ -39,11 +30,47 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             EHT_D3D11_TEXTURE_KMT = 0x00000010,
             EHT_D3D12_HEAP = 0x00000020,
             EHT_D3D12_RESOURCE = 0x00000040,
-            EHT_DMA_BUF = 0x00000200,
-            EHT_HOST_ALLOCATION = 0x00000080,
+            EHT_HOST_ALLOCATION_BIT = 0x00000080,
             EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
-            EHT_RDMA_ADDRES = 0x00001000,
+            EHT_DMA_BUF = 0x00000200,
+            EHT_ANDROID_HARDWARE_BUFFER = 0x00000400,
+            EHT_ZIRCON_VMO = 0x00000800,
+            EHT_RDMA_ADDRESS = 0x00001000,
+            EHT_LAST = EHT_RDMA_ADDRESS,
+
+            EHT_WIN32_TYPES = EHT_OPAQUE_WIN32
+                            | EHT_OPAQUE_WIN32_KMT
+                            | EHT_D3D11_TEXTURE
+                            | EHT_D3D11_TEXTURE_KMT
+                            | EHT_D3D12_HEAP
+                            | EHT_D3D12_RESOURCE,
         };
+
+        static constexpr uint32_t HANDLE_TYPE_COUNT = 1u + std::countr_zero(static_cast<uint32_t>(EHT_LAST));
+
+        /* ExternalMemoryProperties *//* provided by VK_KHR_external_memory_capabilities */
+        struct SExternalMemoryProperties
+        {
+            uint32_t exportableTypes : IDeviceMemoryBacked::HANDLE_TYPE_COUNT = ~0u;
+            uint32_t compatibleTypes : IDeviceMemoryBacked::HANDLE_TYPE_COUNT = ~0u;
+            uint32_t dedicatedOnly : 1 = 0u;
+            uint32_t exportable : 1 = ~0u;
+            uint32_t importable : 1 = ~0u;
+
+            bool operator == (SExternalMemoryProperties const& rhs) const = default;
+
+            SExternalMemoryProperties operator &(SExternalMemoryProperties rhs) const
+            {
+                rhs.exportableTypes &= exportableTypes;
+                rhs.compatibleTypes &= compatibleTypes;
+                rhs.dedicatedOnly |= dedicatedOnly;
+                rhs.exportable &= exportable;
+                rhs.importable &= importable;
+                return rhs;
+            }
+        };
+
+        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
 
         //!
         struct SCachedCreationParams
@@ -57,9 +84,9 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
             // Handle Type for external resources
-            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleType = EHT_NONE;
-            //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandleType != EHT_NONE
-            //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandleType != EHT_NONE
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
+            //! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
+            //! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
             void* externalHandle = nullptr;
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
@@ -95,6 +122,7 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             // whether you need to have one allocation exclusively bound to this resource, always true in OpenGL
             uint32_t requiresDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
         };
+
         static_assert(sizeof(SDeviceMemoryRequirements)==16);
 
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
@@ -117,15 +145,17 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         {
             const uint32_t* queueFamilyIndices = nullptr;
         };
-        
-        void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
+
+        virtual bool getExternalMemoryProperties(struct SExternalMemoryProperties* outProps)  const
         {
-            ICleanup::chain(m_cachedCreationParams.preDestroyCleanup, std::move(first));
+            return false;
         }
-        
+
     protected:
         inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)
-            : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs) {}
+            : m_cachedCreationParams(std::move(_creationParams)), m_cachedMemoryReqs(reqs)
+        {
+        }
         inline virtual ~IDeviceMemoryBacked()
         {
             assert(!m_cachedCreationParams.preDestroyCleanup); // derived class should have already cleared this out

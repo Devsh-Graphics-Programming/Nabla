@@ -34,7 +34,7 @@ class IGPUSemaphore : public core::IReferenceCounted, public IBackendObject
         // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
         bool skipHandleDestroy = false;
         // Handle Type for external resources
-        core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleType = EHT_NONE;
+        core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
         //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandleType != EHT_NONE
         //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandleType != EHT_NONE
         void* externalHandle = nullptr;
@@ -43,11 +43,6 @@ class IGPUSemaphore : public core::IReferenceCounted, public IBackendObject
     auto const& getCreationParams() const
     {
         return m_creationParams;
-    }
-
-    void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
-    {
-        ICleanup::chain(m_creationParams.preDestroyCleanup, std::move(first));
     }
 
     protected:

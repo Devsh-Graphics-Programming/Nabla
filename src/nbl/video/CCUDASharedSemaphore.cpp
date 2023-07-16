@@ -8,7 +8,9 @@ namespace nbl::video
 {
 CCUDASharedSemaphore::~CCUDASharedSemaphore()
 {
-	m_device->destroyExternalSemaphore(this);
+	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
+	cu.pcuDestroyExternalSemaphore(m_handle);
+	CloseHandle(m_osHandle);
 }
 }
 

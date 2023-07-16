@@ -1375,6 +1375,77 @@ public:
             m_properties.limits.viewportSwizzle = isExtensionSupported(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME);
         }
 
+        for (uint64_t j = 1ull; j < (1ull << 32ull); j <<= 1ull)
+        {
+            if (!(asset::IBuffer::EUF_ANY & j))
+                continue;
+            const uint32_t usageIdx = std::popcount(asset::IBuffer::EUF_ANY & (j - 1));
+            const VkBufferUsageFlagBits usage = static_cast<VkBufferUsageFlagBits>(j);
+            m_bufferUsageIndexMap[usageIdx] = static_cast<asset::IBuffer::E_USAGE_FLAGS>(usage);
+
+            for (uint32_t i = 0; i < IDeviceMemoryBacked::HANDLE_TYPE_COUNT; ++i)
+            {
+                VkPhysicalDeviceExternalBufferInfo info = {
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+                    .usage = VkBufferUsageFlags(usage),
+                    .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(1u << i)
+                };
+                VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+                vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+
+                m_externalBufferProperties[i][usageIdx] = {
+                    .exportableTypes = externalProps.externalMemoryProperties.exportFromImportedHandleTypes,
+                    .compatibleTypes = externalProps.externalMemoryProperties.compatibleHandleTypes,
+                    .dedicatedOnly = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT),
+                    .exportable = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT),
+                    .importable = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT),
+                };
+            }
+        }
+
+#if 1
+        auto MapUsage = [&](uint32_t f)
+        {
+            struct {
+                VkBufferUsageFlags flags = 0;
+                IDeviceMemoryBacked::SExternalMemoryProperties props[IDeviceMemoryBacked::HANDLE_TYPE_COUNT] = {};
+            } re;
+            if (!f) return re;
+  
+            for (uint32_t i = 0; i < asset::IBuffer::USAGE_COUNT; ++i)
+                if (f & (1 << i))
+                {
+                    re.flags |= m_bufferUsageIndexMap[i];
+                    for (uint32_t j = 0; j < IDeviceMemoryBacked::HANDLE_TYPE_COUNT; ++j)
+                        re.props[j] = re.props[j] & m_externalBufferProperties[j][i];
+                }
+            return re;
+        };
+
+        for (uint64_t j = 1; j < 1 << asset::IBuffer::USAGE_COUNT; ++j)
+        {
+            auto [usage, reducedProps] = MapUsage(j);
+            for (uint32_t i = 0; i < IDeviceMemoryBacked::HANDLE_TYPE_COUNT; ++i)
+            {
+                VkPhysicalDeviceExternalBufferInfo info = {
+                    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+                    .usage = usage,
+                    .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(1u << i)
+                };
+                VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+                vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+                IDeviceMemoryBacked::SExternalMemoryProperties properties = {
+                    .exportableTypes = externalProps.externalMemoryProperties.exportFromImportedHandleTypes,
+                    .compatibleTypes = externalProps.externalMemoryProperties.compatibleHandleTypes,
+                    .dedicatedOnly = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT),
+                    .exportable = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT),
+                    .importable = 0 != (externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT),
+                };
+                auto p = reducedProps[i];
+                assert(p == properties);
+            }
+        }
+#endif
         // Get physical device's memory properties
         {
             m_memoryProperties = SMemoryProperties();

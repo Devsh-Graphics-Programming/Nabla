@@ -606,6 +606,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return createLogicalDevice_impl(std::move(params));
         }
 
+
+        bool getExternalMemoryProperties(IDeviceMemoryBacked::SExternalMemoryProperties* outProperties, core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> handleTypes, core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage) const
+        {
+            usage &= asset::IBuffer::EUF_ANY;
+            if (!outProperties || !usage.value || !handleTypes.value)
+                return false;
+
+            IDeviceMemoryBacked::SExternalMemoryProperties re = {};
+            for (uint32_t i = 0; i < IDeviceMemoryBacked::HANDLE_TYPE_COUNT; ++i)
+                if (handleTypes.hasFlags(IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE(1 << i)))
+                    for (uint32_t j = 0; j < asset::IBuffer::USAGE_COUNT; ++j)
+                        if (usage.hasFlags(m_bufferUsageIndexMap[j]))
+                            re = re & m_externalBufferProperties[i][j];
+            *outProperties = re;
+            return true;
+        }
+
     protected:
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api);
 
@@ -680,6 +697,10 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SProperties m_properties = {};
         SFeatures m_features = {};
         SMemoryProperties m_memoryProperties = {};
+
+        /* ExternalBufferProperties *//* provided by VK_KHR_external_memory_capabilities */
+        asset::IBuffer::E_USAGE_FLAGS m_bufferUsageIndexMap[asset::IBuffer::USAGE_COUNT];
+        IDeviceMemoryBacked::SExternalMemoryProperties m_externalBufferProperties[IDeviceMemoryBacked::HANDLE_TYPE_COUNT][asset::IBuffer::USAGE_COUNT];
 
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;

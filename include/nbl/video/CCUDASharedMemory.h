@@ -25,23 +25,38 @@ class CCUDASharedMemory : public core::IReferenceCounted
 {
 public:
     friend class CCUDADevice;
-    CUdeviceptr getDevicePtr() const { return m_ptr; }
+    CUdeviceptr getDevicePtr() const { return m_params.ptr; }
+
+    struct SCreationParams
+    {
+        IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE type;
+        IDeviceMemoryBacked* srcRes;
+        union
+        {
+            CUmemGenericAllocationHandle mem;
+            CUexternalMemory extMem;
+        };
+        size_t size;
+        CUdeviceptr ptr;
+        union
+        {
+            void* osHandle;
+            int fd;
+        };
+    };
+
+    const SCreationParams& getCreationParams() const { return m_params; }
+
 protected:
 
-    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, size_t size, CUdeviceptr ptr, CUmemGenericAllocationHandle memory, void* osHandle)
+    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, SCreationParams&& params)
         : m_device(std::move(device))
-        , m_size(size)
-        , m_ptr(ptr)
-        , m_handle(memory)
-        , m_osHandle(osHandle)
+        , m_params(params)
     {}
     ~CCUDASharedMemory() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
-    size_t m_size;
-    CUdeviceptr m_ptr;
-    CUmemGenericAllocationHandle m_handle;
-    void* m_osHandle;
+    SCreationParams m_params;
 };
 
 }

@@ -767,7 +767,7 @@ public:
         assert(retval == VK_SUCCESS);
     }
 
-    void* getExternalMemoryHandle(IDeviceMemoryBacked* obj) const override
+    void* getExternalHandle(IDeviceMemoryBacked* obj) const override
     {
         if (!obj)
             return nullptr;
@@ -780,7 +780,7 @@ public:
         VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
             .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
             .memory = vkHandle,
-            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalHandleType.value),
+            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalHandleTypes.value),
         };
         void* handle = 0;
         if(VK_SUCCESS == m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle))

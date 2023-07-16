@@ -13,22 +13,22 @@ core::smart_refctd_ptr<IGPUSemaphore> CVulkanLogicalDevice::createSemaphore(IGPU
 {
     VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
     VkExportSemaphoreWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1 };
-    VkExportSemaphoreCreateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, &handleInfo, static_cast<VkExternalSemaphoreHandleTypeFlags>(params.externalHandleType.value) };
+    VkExportSemaphoreCreateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, &handleInfo, static_cast<VkExternalSemaphoreHandleTypeFlags>(params.externalHandleTypes.value) };
 
     VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
-    createInfo.pNext = params.externalHandleType.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
+    createInfo.pNext = params.externalHandleTypes.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
     createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
 
     VkSemaphore semaphore;
     if (VK_SUCCESS != m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore))
         return nullptr;
 
-    if (params.externalHandleType.value)
+    if (params.externalHandleTypes.value)
     {
         VkSemaphoreGetWin32HandleInfoKHR props = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
             .semaphore = semaphore,
-            .handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(params.externalHandleType.value),
+            .handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(params.externalHandleTypes.value),
         };
         if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreWin32HandleKHR(m_vkdev, &props, &params.externalHandle))
         {
@@ -135,19 +135,19 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
 
         auto& ccParams = info.dedication->getCachedCreationParams();
 
-        if (ccParams.externalHandleType.value)
+        if (ccParams.externalHandleTypes.value)
         {
             external = true;
             // Importing
             if (ccParams.externalHandle)
             {
-                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalHandleType.value);
+                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalHandleTypes.value);
                 importInfo.handle = ccParams.externalHandle;
                 vk_dedicatedInfo.pNext = &importInfo;
             }
             else // Exporting
             {
-                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalHandleType.value);
+                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalHandleTypes.value);
                 vk_dedicatedInfo.pNext = &exportInfo;
             }
         }
@@ -849,10 +849,10 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
 
     VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
-       .handleTypes = creationParams.externalHandleType.value,
+       .handleTypes = creationParams.externalHandleTypes.value,
     };
 
-    const bool external = creationParams.externalHandleType.value;
+    const bool external = creationParams.externalHandleTypes.value;
     const bool imported = external && creationParams.externalHandle;
     const bool exported = external && !imported;
 
@@ -864,22 +864,18 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
     vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
 
+    bool dedicatedOnly = false;
+
     if (external)
     {
-        VkPhysicalDeviceExternalBufferInfo bufferInfo = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
-            .usage = vk_createInfo.usage,
-            .handleType = VkExternalMemoryHandleTypeFlagBits(creationParams.externalHandleType.value),
-        };
+        IDeviceMemoryBacked::SExternalMemoryProperties props;
+        if (!m_physicalDevice->getExternalMemoryProperties(&props, creationParams.externalHandleTypes, creationParams.usage))
+            return nullptr;
 
-        VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
-        VkPhysicalDevice vk_physicalDevice = static_cast<const CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
-        vkGetPhysicalDeviceExternalBufferProperties(vk_physicalDevice, &bufferInfo, &externalProps);
-        
-        if (imported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT))
+        if ((imported && !props.importable) || (exported && !props.exportable))
             return nullptr;
-        if (exported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT))
-            return nullptr;
+
+        creationParams.externalHandleTypes = IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE(props.compatibleTypes);
     }
 
     VkBuffer vk_buffer;
@@ -899,8 +895,8 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
         bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
         bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
         bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-        bufferMemoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-        bufferMemoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+        bufferMemoryReqs.prefersDedicatedAllocation  = dedicatedOnly ? true : vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+        bufferMemoryReqs.requiresDedicatedAllocation = dedicatedOnly ? true : vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanBuffer>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),

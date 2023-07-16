@@ -43,12 +43,12 @@ class CVulkanImage : public IGPUImage
 
 			auto& ccp = getCachedCreationParams();
 
-			if (ccp.externalHandleType.value)
+			if (ccp.externalHandleTypes.value)
 			{
 				if (ccp.externalHandle)
 					return m_cachedExternalHandle = ccp.externalHandle;
 
-				return m_cachedExternalHandle = getOriginDevice()->getExternalMemoryHandle(this);
+				return m_cachedExternalHandle = getOriginDevice()->getExternalHandle(this);
 			}
 
 			return nullptr;

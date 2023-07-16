@@ -193,9 +193,6 @@ class CCUDADevice : public core::IReferenceCounted
 		friend class CCUDASharedMemory;
 		friend class CCUDASharedSemaphore;
 
-		CUresult releaseExportableMemory(CCUDASharedMemory* mem);
-		CUresult destroyExternalSemaphore(CCUDASharedSemaphore* sema);
-
 		struct SCUDACleaner : video::ICleanup
 		{
 			core::smart_refctd_ptr<core::IReferenceCounted> resource;

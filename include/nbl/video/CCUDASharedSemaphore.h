@@ -30,14 +30,16 @@ public:
 
 protected:
    
-    CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, CUexternalSemaphore semaphore, void* osHandle)
+    CCUDASharedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<IGPUSemaphore> src, CUexternalSemaphore semaphore, void* osHandle)
         : m_device(std::move(device))
+        , m_src(std::move(m_src))
         , m_handle(semaphore)
         , m_osHandle(osHandle)
     {}
     ~CCUDASharedSemaphore() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
+    core::smart_refctd_ptr<IGPUSemaphore> m_src;
     CUexternalSemaphore m_handle;
     void* m_osHandle;
 };
