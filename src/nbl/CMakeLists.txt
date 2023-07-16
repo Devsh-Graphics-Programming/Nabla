@@ -323,6 +323,8 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CCUDASharedMemory.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CCUDASharedSemaphore.cpp
 )
 
 set(NBL_SCENE_SOURCES

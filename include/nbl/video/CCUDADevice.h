@@ -23,6 +23,8 @@
 namespace nbl::video
 {
 class CCUDAHandler;
+class CCUDASharedMemory;
+class CCUDASharedSemaphore;
 
 class CCUDADevice : public core::IReferenceCounted
 {
@@ -181,46 +183,18 @@ class CCUDADevice : public core::IReferenceCounted
 #endif
 		CUdevice getInternalObject() const { return m_handle; }
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
-
-		struct SSharedCUDAMemory : core::IReferenceCounted
-		{
-			core::smart_refctd_ptr<CCUDADevice> device;
-			size_t size;
-			CUdeviceptr ptr;
-			CUmemGenericAllocationHandle memory;
-			void* osHandle;
-			SSharedCUDAMemory(core::smart_refctd_ptr<CCUDADevice> device, size_t size, CUdeviceptr ptr, CUmemGenericAllocationHandle memory, void* osHandle)
-				: device(std::move(device))
-				, size(size)
-				, ptr(ptr)
-				, memory(memory)
-				, osHandle(osHandle)
-			{}
-			~SSharedCUDAMemory() override;
-		};
-
-		struct SExternalCUDASemaphore : core::IReferenceCounted
-		{
-			core::smart_refctd_ptr<CCUDADevice> device;
-			CUexternalSemaphore semaphore;
-			void* osHandle;
-			SExternalCUDASemaphore(core::smart_refctd_ptr<CCUDADevice> device, CUexternalSemaphore semaphore, void* osHandle)
-				: device(std::move(device))
-				, semaphore(semaphore)
-				, osHandle(osHandle)
-			{}
-			~SExternalCUDASemaphore() override;
-		};
-
-		core::smart_refctd_ptr<IGPUBuffer> exportGPUBuffer(SSharedCUDAMemory* mem, ILogicalDevice* device);
-		CUresult importGPUBuffer(core::smart_refctd_ptr<SSharedCUDAMemory>* outPtr, IGPUBuffer* buf);
-		CUresult importGPUSemaphore(core::smart_refctd_ptr<SExternalCUDASemaphore>* outPtr, IGPUSemaphore* sem);
-		CUresult createExportableMemory(core::smart_refctd_ptr<SSharedCUDAMemory>* outMem, size_t size, size_t alignment);
+		core::smart_refctd_ptr<IGPUBuffer> exportGPUBuffer(CCUDASharedMemory* mem, ILogicalDevice* device);
+		CUresult importGPUBuffer(core::smart_refctd_ptr<CCUDASharedMemory>* outPtr, IGPUBuffer* buf);
+		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, IGPUSemaphore* sem);
+		CUresult createExportableMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, size_t size, size_t alignment);
 		
 	protected:
-		friend struct SSharedCUDAMemory;
-		CUresult releaseExportableMemory(SSharedCUDAMemory* mem);
-		CUresult destroyExternalSemaphore(SExternalCUDASemaphore* sema);
+		friend class CCUDAHandler;
+		friend class CCUDASharedMemory;
+		friend class CCUDASharedSemaphore;
+
+		CUresult releaseExportableMemory(CCUDASharedMemory* mem);
+		CUresult destroyExternalSemaphore(CCUDASharedSemaphore* sema);
 
 		struct SCUDACleaner : video::ICleanup
 		{
@@ -235,7 +209,6 @@ class CCUDADevice : public core::IReferenceCounted
 		};
 
 		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemGenericAllocationHandle memory);
-		friend class CCUDAHandler;
 		
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
 		~CCUDADevice();
