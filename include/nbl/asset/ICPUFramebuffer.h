@@ -31,12 +31,26 @@ public:
         return false; // TODO
     }
 
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_FRAMEBUFFER;
     E_TYPE getAssetType() const override
     {
-        return ET_FRAMEBUFFER;
+        return AssetType;
     }
+    bool equals(const IAsset* _other) const override
+	{
+        return compatible(_other); // TODO
+	}
 
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+		size_t seed = AssetType;
+		return seed; // TODO
+	}
 private:
+    bool compatible(const IAsset* _other) const override {
+        //return IAsset::compatible(_other);
+        return false; // TODO
+	}
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         // TODO

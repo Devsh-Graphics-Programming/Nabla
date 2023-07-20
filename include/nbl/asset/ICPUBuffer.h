@@ -82,14 +82,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return data;
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (m_creationParams.size != other->m_creationParams.size)
-                return false;
-            return true;
-        }
-        
         inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
         {
             return m_creationParams.usage;
@@ -107,7 +99,37 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return true;
         }
 
+        bool equals(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUBuffer*>(_other);
+			return compatible(other) && (m_creationParams.usage.value == other->m_creationParams.usage.value);
+		}
+
+
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUBuffer*>(_other);
+			return compatible(other);
+		}
+
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			core::hash_combine(seed, m_creationParams.size);
+			core::hash_combine(seed, m_creationParams.usage.value);
+			return seed;
+		}
+
     protected:
+
+	    bool compatible(const IAsset* _other) const override {
+		    if (IAsset::compatible(_other)) {
+			    auto* other = static_cast<const ICPUBuffer*>(_other);
+                return (m_creationParams.size == other->m_creationParams.size);
+		    }
+		    return false;
+	    }
+
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUBuffer*>(_other);

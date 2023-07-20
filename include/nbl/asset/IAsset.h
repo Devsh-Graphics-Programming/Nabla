@@ -6,7 +6,6 @@
 #define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
-
 #include <string>
 
 namespace nbl::asset
@@ -210,6 +209,13 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
+		//! Returns a hash of an object while avoiding recalculating the same object's hash twice by caching results. Use when assuming data has not mutated.
+		virtual size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const = 0;
+
+		//! Check if two assets store identical data
+		virtual bool equals(const IAsset* _other) const = 0;
+
+
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
 		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
@@ -241,6 +247,26 @@ class IAsset : virtual public core::IReferenceCounted
 			const bool imm = getMutability() == EM_IMMUTABLE;
 			//_NBL_DEBUG_BREAK_IF(imm);
 			return imm;
+		}
+		//! compares two objects for matching types and, in derived types, compares member variable values. Common code for IAsset::equals, IAsset::canBeRestoredFrom
+		virtual bool compatible(const IAsset* _other) const {
+			_other->getAssetType() == getAssetType();
+		}
+
+		static inline size_t hashMatchInCache(IAsset* asset, std::unordered_map<IAsset*, size_t>* temporary_hash_cache){
+			size_t hash_val;
+			if (temporary_hash_cache == nullptr)
+			{
+				return asset->hash(nullptr);
+			}
+			auto hash_iter = temporary_hash_cache->find(asset);
+			if (hash_iter == temporary_hash_cache->end()) { //hash for object not in cache
+				hash_val = asset->hash(temporary_hash_cache);
+				temporary_hash_cache->insert(std::make_pair(asset, hash_val));
+			}
+			else
+				hash_val = hash_iter->second;
+			return hash_val;
 		}
 
 	private:
@@ -282,12 +308,15 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
+
 	public:
 		//! To be implemented by derived classes. Returns a type of an Asset
 		virtual E_TYPE getAssetType() const = 0;
 
 		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+
+
 };
 
 }

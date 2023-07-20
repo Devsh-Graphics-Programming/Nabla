@@ -649,6 +649,64 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
+            if (!compatible(_other))
+                return false;
+            auto* other = static_cast<const ICPUMeshBuffer*>(_other);
+            if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
+                return false;
+            for (uint32_t i = 0u; i<MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            {
+                if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom(other->m_vertexBufferBindings[i].buffer.get()))
+                    return false;
+            }
+            if (m_inverseBindPoseBufferBinding.buffer && !m_inverseBindPoseBufferBinding.buffer->canBeRestoredFrom(other->m_inverseBindPoseBufferBinding.buffer.get()))
+                return false;
+            if (m_jointAABBBufferBinding.buffer && !m_jointAABBBufferBinding.buffer->canBeRestoredFrom(other->m_jointAABBBufferBinding.buffer.get()))
+                return false;
+            if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom(other->m_descriptorSet.get()))
+                return false;
+            // pipeline is not optional
+            if (!m_pipeline->canBeRestoredFrom(other->m_pipeline.get()))
+                return false;
+
+            return true;
+        }
+        bool equals(const IAsset* _other) const override
+	    {
+            if (!compatible(_other))
+                return false;
+            auto* other = static_cast<const ICPUMeshBuffer*>(_other);
+            if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->equals(other->m_indexBufferBinding.buffer.get()))
+                return false;
+            for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            {
+                if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->equals(other->m_vertexBufferBindings[i].buffer.get()))
+                    return false;
+            }
+            if (m_inverseBindPoseBufferBinding.buffer && !m_inverseBindPoseBufferBinding.buffer->equals(other->m_inverseBindPoseBufferBinding.buffer.get()))
+                return false;
+            if (m_jointAABBBufferBinding.buffer && !m_jointAABBBufferBinding.buffer->equals(other->m_jointAABBBufferBinding.buffer.get()))
+                return false;
+            if (m_descriptorSet && !m_descriptorSet->equals(other->m_descriptorSet.get()))
+                return false;
+            // pipeline is not optional
+            if (!m_pipeline->equals(other->m_pipeline.get()))
+                return false;
+
+            return true;
+	    }
+
+	    size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	    {
+		    size_t seed = AssetType;
+            // TODO
+		    return seed; 
+	    }
+    protected:
+
+        bool compatible(const IAsset* _other) const override {
+            if (!IAsset::compatible(_other))
+                return false;
             auto* other = static_cast<const ICPUMeshBuffer*>(_other);
             if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
                 return false;
@@ -676,44 +734,26 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                 return false;
             if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
                 return false;
-            if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
-                return false;
-            for (uint32_t i = 0u; i<MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
             {
                 if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
                     return false;
                 if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
                     return false;
-                if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom(other->m_vertexBufferBindings[i].buffer.get()))
-                    return false;
             }
-            
             if (m_inverseBindPoseBufferBinding.offset != other->m_inverseBindPoseBufferBinding.offset)
                 return false;
             if ((!m_inverseBindPoseBufferBinding.buffer) != (!other->m_inverseBindPoseBufferBinding.buffer))
-                return false;
-            if (m_inverseBindPoseBufferBinding.buffer && !m_inverseBindPoseBufferBinding.buffer->canBeRestoredFrom(other->m_inverseBindPoseBufferBinding.buffer.get()))
                 return false;
             if (m_jointAABBBufferBinding.offset != other->m_jointAABBBufferBinding.offset)
                 return false;
             if ((!m_jointAABBBufferBinding.buffer) != (!other->m_jointAABBBufferBinding.buffer))
                 return false;
-            if (m_jointAABBBufferBinding.buffer && !m_jointAABBBufferBinding.buffer->canBeRestoredFrom(other->m_jointAABBBufferBinding.buffer.get()))
-                return false;
-
             if ((!m_descriptorSet) != (!other->m_descriptorSet))
                 return false;
-            if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom(other->m_descriptorSet.get()))
-                return false;
-
-            // pipeline is not optional
-            if (!m_pipeline->canBeRestoredFrom(other->m_pipeline.get()))
-                return false;
-
             return true;
         }
 
-    protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUMeshBuffer*>(_other);

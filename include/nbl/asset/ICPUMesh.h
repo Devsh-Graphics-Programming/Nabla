@@ -96,13 +96,40 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			auto otherMBs = other->getMeshBuffers();
 			if (myMBs.size()!=otherMBs.size())
 				return false;
-			for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
+			for (auto myIt=myMBs.begin(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
 			if (!(*myIt)->canBeRestoredFrom(*theirIt))
 				return false;
 
 			return true;
 		}
-		
+	
+		bool equals(const IAsset* _other) const override
+		{
+			if (!compatible(_other))
+				return false;
+			auto other = static_cast<const ICPUMesh*>(_other);
+			auto myMBs = getMeshBuffers();
+			auto otherMBs = other->getMeshBuffers();
+			if (myMBs.size() != otherMBs.size())
+				return false;
+			for (auto myIt = myMBs.begin(), theirIt = otherMBs.begin(); myIt != myMBs.end(); myIt++)
+				if (!(*myIt)->equals(*theirIt))
+					return false;
+
+			return true;
+		}
+
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			auto myMBs = getMeshBuffers();
+			for (auto myIt = myMBs.begin(); myIt != myMBs.end(); myIt++)
+			{
+				core::hash_combine(seed, hashMatchInCache((myIt), temporary_hash_cache));
+			}
+			return seed;
+		}
+
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUMesh>();

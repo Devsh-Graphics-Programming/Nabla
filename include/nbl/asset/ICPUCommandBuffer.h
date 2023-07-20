@@ -41,19 +41,42 @@ public:
         return nullptr; // TODO
     }
 
-    bool canBeRestoredFrom(const IAsset* _other) const
-    {
-        return false; // TODO
-    }
-
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_COMMAND_BUFFER;
     E_TYPE getAssetType() const override
     {
-        return ET_COMMAND_BUFFER;
+        return AssetType;
     }
 
+    bool equals(const IAsset* _other) const override
+	{
+		auto* other = static_cast<const ICPUCommandBuffer*>(_other);
+		return compatible(other); //TODO
+	}
+
+	bool canBeRestoredFrom(const IAsset* _other) const override
+	{
+		auto* other = static_cast<const ICPUCommandBuffer*>(_other);
+		return compatible(other); //TODO
+	}
+
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+        size_t seed = AssetType; //TODO
+		/*size_t buffer_hash = hashMatchInCache(m_buffer.get(), temporary_hash_cache);
+		core::hash_combine(seed, buffer_hash);*/
+		return seed;
+	}
     // TODO implement commands
 
 private:
+
+    bool compatible(const IAsset* _other) const override {
+		if (IAsset::compatible(_other)) {
+			auto* other = static_cast<const ICPUCommandBuffer*>(_other);
+			return true; //TODO compare members
+		}
+		return false;
+	}
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         // TODO

@@ -47,7 +47,79 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline ICPUDescriptorSetLayout* getLayout() 
+	inline ICPUDescriptorSetLayout* getLayout() 
+	{
+		assert(!isImmutable_debug());
+		return m_layout.get();
+	}
+
+	inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
+
+	inline bool canBeRestoredFrom(const IAsset* _other) const override
+	{
+		auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+		return compatible(_other) && m_layout->canBeRestoredFrom(other->m_layout.get());
+	}
+
+    bool equals(const IAsset* _other) const override
+	{
+        auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+		return compatible(_other) && m_layout->equals(other->m_layout.get());
+	}
+
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+		size_t seed = AssetType;
+        core::hash_combine(seed, hashMatchInCache(m_layout.get(), temporary_hash_cache));
+		return seed;
+	}
+
+	inline size_t conservativeSizeEstimate() const override
+	{
+		assert(!"Invalid code path.");
+		return 0xdeadbeefull;
+	}
+
+	inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
+	{
+		// TODO: @Hazardu
+		// Cannot do the mutability check here because it requires the function to be non-const, but the function cannot be non-const because it's called
+		// from const functions in the asset converter.
+		// Relevant comments/conversations:
+		// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1054258384
+		// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1056289599
+		// 
+		// assert(!isImmutable_debug());
+		if (!m_descriptorInfos[static_cast<uint32_t>(type)])
+			return { nullptr, nullptr };
+		else
+			return { m_descriptorInfos[static_cast<uint32_t>(type)]->begin(), m_descriptorInfos[static_cast<uint32_t>(type)]->end() };
+	}
+
+	core::SRange<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
+
+	core::SRange<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
+
+	core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
+
+	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;
+
+protected:
+	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override;
+
+	bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
+
+	virtual ~ICPUDescriptorSet() = default;
+
+	bool compatible(const IAsset* _other) const override {
+        return IAsset::compatible(_other);
+	}
+
+private:
+	static inline IDescriptor::E_CATEGORY getCategoryFromType(const IDescriptor::E_TYPE type)
+	{
+		auto category = IDescriptor::E_CATEGORY::EC_COUNT;
+		switch (type)
 		{
 			assert(!isImmutable_debug());
 			return m_layout.get();

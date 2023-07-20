@@ -72,9 +72,43 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
+			if (!compatible(_other))
+				return false;
 			auto* other = static_cast<const ICPUImageView*>(_other);
 			const auto& rhs = other->params;
+			if (!params.image->canBeRestoredFrom(other->params.image.get()))
+				return false;
+			return true;
+		}
 
+		bool equals(const IAsset* _other) const override
+		{
+			if (!compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUImageView*>(_other);
+			if (!params.image->equals(other->params.image.get()))
+				return false;
+			return true;
+		}
+
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+		{
+			size_t seed = AssetType;
+			core::hash_combine(seed, params.flags);
+			core::hash_combine(seed, params.format);
+			core::hash_combine(seed, params.components);
+			core::hash_combine(seed, params.viewType);
+			core::hash_combine(seed, params.subresourceRange);
+			return seed;
+		}
+
+	protected:
+
+		bool compatible(const IAsset* _other) const override {
+			if (!IAsset::compatible(_other))
+				return false;
+			auto* other = static_cast<const ICPUImageView*>(_other);
+			const auto& rhs = other->params;
 			if (params.flags != rhs.flags)
 				return false;
 			if (params.format != rhs.format)
@@ -85,13 +119,9 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 				return false;
 			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
 				return false;
-			if (!params.image->canBeRestoredFrom(rhs.image.get()))
-				return false;
-
 			return true;
 		}
 
-	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImageView*>(_other);

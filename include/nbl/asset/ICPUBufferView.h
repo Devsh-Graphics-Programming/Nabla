@@ -7,6 +7,7 @@
 
 
 #include <utility>
+#include "nbl/core/algorithm/utility.h"
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IBufferView.h"
@@ -64,38 +65,56 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
+		bool equals(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUBufferView*>(_other);
+			return compatible(other) && m_buffer->equals(other->m_buffer.get());
+		}
+
+
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUBufferView*>(_other);
-			if (m_size != other->m_size)
-				return false;
-			if (m_offset != other->m_offset)
-				return false;
-			if (m_format != other->m_format)
-				return false;
-			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
-				return false;
-
-			return true;
+			return compatible(other) && m_buffer->canBeRestoredFrom(other->m_buffer.get());
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
 		{
-			auto* other = static_cast<ICPUBufferView*>(_other);
-
-			if (_levelsBelow)
-			{
-				restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow-1u);
-			}
+			size_t seed = AssetType;
+			size_t buffer_hash = hashMatchInCache(m_buffer.get(), temporary_hash_cache);
+			core::hash_combine(seed, buffer_hash);
+			core::hash_combine(seed, m_format);
+			core::hash_combine(seed, m_offset);
+			core::hash_combine(seed, m_size);
+			return seed;
 		}
 
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+
+protected:
+	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+	{
+		auto* other = static_cast<ICPUBufferView*>(_other);
+
+		if (_levelsBelow)
 		{
-			return m_buffer->isAnyDependencyDummy(_levelsBelow-1u);
+			restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow - 1u);
 		}
+	}
 
-		virtual ~ICPUBufferView() = default;
+	bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
+	{
+		return m_buffer->isAnyDependencyDummy(_levelsBelow - 1u);
+	}
+
+	virtual ~ICPUBufferView() = default;
+
+	bool compatible(const IAsset* _other) const override {
+		if (IAsset::compatible(_other)) {
+			auto* other = static_cast<const ICPUBufferView*>(_other);
+			return (m_size == other->m_size) && (m_offset == other->m_offset) && (m_format == other->m_format);
+		}
+		return false;
+	}
 };
 
 }

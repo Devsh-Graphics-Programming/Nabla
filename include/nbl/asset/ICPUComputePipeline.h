@@ -89,7 +89,30 @@ public:
         return true;
     }
 
+    bool equals(const IAsset* _other) const override
+	{
+        auto* other = static_cast<const ICPUComputePipeline*>(_other);
+        if (!m_shader->equals(m_shader.get()))
+            return false;
+        if (!m_layout->equals(other->m_layout.get()))
+            return false;
+        return true;
+	}
+
+	size_t hash(std::unordered_map<IAsset*, size_t>* temporary_hash_cache = nullptr) const override
+	{
+		size_t seed = AssetType;
+        core::hash_combine(seed, hashMatchInCache(m_shader.get(), temporary_hash_cache));
+        core::hash_combine(seed, hashMatchInCache(m_layout.get(), temporary_hash_cache));
+		return seed;
+	}
+
 protected:
+    
+	bool compatible(const IAsset* _other) const override {
+        return IAsset::compatible(_other);
+	}
+
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUComputePipeline*>(_other);
