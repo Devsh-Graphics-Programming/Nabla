@@ -92,7 +92,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		template<typename BufferType>
 		struct AABBs
 		{
-			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation doesn't work
+			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};
 			uint32_t								stride = sizeof(AABB_t);
 			core::bitflag<GEOMETRY_FLAGS>			geometryFlags = GEOMETRY_FLAGS::NONE;

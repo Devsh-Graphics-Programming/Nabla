@@ -14,7 +14,7 @@ namespace nbl::asset
 class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 {
 	public:
-		// WARNING: Expensive, especially for TLASes!
+		// WARNING: This call is expensive, especially for TLASes!
 		virtual bool usesMotion() const = 0;
 
 	protected:
@@ -32,7 +32,8 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			if(!isMutable())
 				return;
 			m_buildFlags &= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
-			m_buildFlags |= buildFlags&(~BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
+			constexpr auto everyBitButAABB = ~BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_buildFlags |= buildFlags&everyBitButAABB;
 		}
 
 		//
@@ -46,13 +47,13 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		//
 		inline core::SRange<Triangles<asset::ICPUBuffer>> getTriangleGeometries()
 		{
-			if (!isMutable() || m_triangleGeoms)
+			if (!isMutable() || !m_triangleGeoms)
 				return {nullptr,nullptr};
 			return {m_triangleGeoms->begin(),m_triangleGeoms->end()};
 		}
 		inline core::SRange<const Triangles<asset::ICPUBuffer>> getTriangleGeometries() const
 		{
-			if (m_triangleGeoms)
+			if (!m_triangleGeoms)
 				return {nullptr,nullptr};
 			return {m_triangleGeoms->begin(),m_triangleGeoms->end()};
 		}
@@ -69,13 +70,13 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		//
 		inline core::SRange<AABBs<asset::ICPUBuffer>> getAABBGeometries()
 		{
-			if (!isMutable() || m_AABBGeoms)
+			if (!isMutable() || !m_AABBGeoms)
 				return {nullptr,nullptr};
 			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
 		}
 		inline core::SRange<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
 		{
-			if (m_AABBGeoms)
+			if (!m_AABBGeoms)
 				return {nullptr,nullptr};
 			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
 		}
@@ -117,12 +118,11 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 			{
-				// TODO
+				if (m_AABBGeoms && !m_AABBGeoms->empty())
+					cp->m_AABBGeoms = core::make_refctd_dynamic_array<decltype(m_AABBGeoms)>(*m_AABBGeoms);
 			}
-			else
-			{
-				// TODO
-			}
+			else if (m_triangleGeoms && !m_triangleGeoms->empty())
+				cp->m_triangleGeoms = core::make_refctd_dynamic_array<decltype(m_triangleGeoms)>(*m_triangleGeoms);
 
 			cp->m_buildFlags = m_buildFlags;
 			return cp;
@@ -172,13 +172,10 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				{
 					const auto& src = other->m_AABBGeoms->operator[](i);
 					const auto& dst = m_AABBGeoms->operator[](i);
-					if (src.data.buffer)
-					{
-						if (dst.data.offset!=src.data.offset || dst.stride!=src.stride || dst.geometryFlags!=src.geometryFlags)
-							return false;
-						if (!src.data.buffer->canBeRestoredFrom(dst.data.buffer.get()))
-							return false;
-					}
+					if (dst.stride!=src.stride || dst.geometryFlags!=src.geometryFlags)
+						return false;
+					if (!asset::canBeRestoredFrom(dst.data,src.data))
+						return false;
 				}
 			}
 			else
@@ -187,13 +184,16 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				{
 					const auto& src = other->m_triangleGeoms->operator[](i);
 					const auto& dst = m_triangleGeoms->operator[](i);
-					if (src.data.buffer)
-					{
-						if (dst.data.offset!=src.data.offset || dst.stride!=src.stride || dst.geometryFlags!=src.geometryFlags)
-							return false;
-						if (!src.data.buffer->canBeRestoredFrom(dst.data.buffer.get()))
-							return false;
-					}
+					if (dst.maxVertex!=src.maxVertex || dst.vertexStride!=src.vertexStride || dst.vertexFormat!=src.vertexFormat || dst.indexType!=src.indexType || dst.geometryFlags!=src.geometryFlags)
+						return false;
+					if (!asset::canBeRestoredFrom(dst.vertexData[0],src.vertexData[0]))
+						return false;
+					if (dst.vertexData[1].isValid() && !asset::canBeRestoredFrom(dst.vertexData[1], src.vertexData[1]))
+						return false;
+					if (dst.indexType!=EIT_UNKNOWN && dst.indexData.isValid() && !asset::canBeRestoredFrom(dst.indexData,src.indexData))
+						return false;
+					if (dst.transformData.isValid() && !asset::canBeRestoredFrom(dst.transformData,src.transformData))
+						return false;
 				}
 			}
 			return true;
@@ -208,29 +208,30 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			if (_levelsBelow==0u)
 				return;
 
+			auto condRestoreBufferInBinding = [_levelsBelow](SBufferBinding<const ICPUBuffer>& dst, const SBufferBinding<const ICPUBuffer>& src)
+			{
+				if (dst.isValid())
+					return;
+				return restoreFromDummy_impl_call(const_cast<ICPUBuffer*>(dst.buffer.get()),const_cast<ICPUBuffer*>(src.buffer.get()),_levelsBelow);
+			};
+
 			const uint32_t geometryCount = getGeometryCount();
 			auto* other = static_cast<ICPUBottomLevelAccelerationStructure*>(_other);
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 			{
 				for (auto i=0u; i<geometryCount; i++)
-				{
-					auto* dst = m_AABBGeoms->operator[](i).data.buffer.get();
-					if (dst)
-						restoreFromDummy_impl_call(const_cast<ICPUBuffer*>(dst),const_cast<ICPUBuffer*>(other->m_AABBGeoms->operator[](i).data.buffer.get(),_levelsBelow);
-				}
+					condRestoreBufferInBinding(m_AABBGeoms->operator[](i).data,other->m_AABBGeoms->operator[](i).data);
 			}
 			else
 			{
 				for (auto i=0u; i<geometryCount; i++)
 				{
-					if (triGeom.vertexData[0].buffer && triGeom.vertexData[0].buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.vertexData[1].buffer && triGeom.vertexData[1].buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.indexData.buffer && triGeom.indexData.buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.transformData.buffer && triGeom.transformData.buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
+					auto& srcGeom = m_triangleGeoms->operator[](i);
+					const auto& dstGeom = other->m_triangleGeoms->operator[](i);
+					condRestoreBufferInBinding(srcGeom.vertexData[0],dstGeom.vertexData[0]);
+					condRestoreBufferInBinding(srcGeom.vertexData[1],dstGeom.vertexData[1]);
+					condRestoreBufferInBinding(srcGeom.indexData,dstGeom.indexData);
+					condRestoreBufferInBinding(srcGeom.transformData,dstGeom.transformData);
 				}
 			}
 		}
@@ -286,7 +287,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			if(!isMutable())
 				return;
 			m_buildFlags = buildFlags;
-			// we always clear this flag as we always store instances as polymorphic
+			// we always clear this flag as we always store instances as polymorphic for ICPUTopLevelAccelerationStructure
 			m_buildFlags &= ~BUILD_FLAGS::INSTANCE_TYPE_ENCODED_IN_POINTER_LSB;
 		}
 
@@ -297,52 +298,19 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		using SRTMotionInstance = SRTMotionInstance<blas_ref_t>;
 		struct PolymorphicInstance final
 		{
-			inline PolymorphicInstance(const PolymorphicInstance& other) : PolymorphicInstance()
+			inline INSTANCE_TYPE getType() const
 			{
-				operator=(other);
-			}
-			inline PolymorphicInstance& operator=(const PolymorphicInstance& other)
-			{
-				switch (other.type)
-				{
-					case INSTANCE_TYPE::MATRIX_MOTION:
-						matrixMotion = other.matrixMotion;
-						break;
-					case INSTANCE_TYPE::SRT_MOTION:
-						srtMotion = other.srtMotion;
-						break;
-					default: // INSTANCE_TYPE::STATIC:
-						_static = other._static;
-						break;
-				}
-				type = other.type;
-				return *this;
+				return static_cast<INSTANCE_TYPE>(instance.index());
 			}
 
 			inline Instance& getBase()
 			{
-				switch (type)
-				{
-					case INSTANCE_TYPE::MATRIX_MOTION:
-						return matrixMotion.base;
-						break;
-					case INSTANCE_TYPE::SRT_MOTION:
-						return srtMotion.base;
-						break;
-					default:
-						break;
-				}
-				return _static.base;
+				return std::visit([](auto& typedInstance)->Instance&{return typedInstance.base;},instance);
 			}
 			inline const Instance& getBase() const {return const_cast<PolymorphicInstance*>(this)->getBase();}
 
-			union
-			{
-				StaticInstance _static = {};
-				MatrixMotionInstance matrixMotion;
-				SRTMotionInstance srtMotion;
-			};
-			INSTANCE_TYPE type = INSTANCE_TYPE::STATIC;
+
+			std::variant<StaticInstance,MatrixMotionInstance,SRTMotionInstance> instance = StaticInstance{};
 		};
 
 		core::SRange<PolymorphicInstance> getInstances()
@@ -369,7 +337,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		inline bool usesMotion() const override
 		{
 			for (const auto& instance : *m_instances)
-			if (instance.type!=INSTANCE_TYPE::STATIC)
+			if (instance.getType()!=INSTANCE_TYPE::STATIC)
 				return true;
 			return false;
 		}
@@ -428,8 +396,12 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			const auto instanceCount = m_instances->size();
 			for (auto i=0u; i<instanceCount; i++)
 			{
-				auto* blas = m_instances->operator[](i).getBase().blas.get();
-				if (blas && !blas->canBeRestoredFrom(other->m_instances->operator[](i).getBase().blas.get()))
+				const auto& dstInstance = m_instances->operator[](i);
+				const auto& srcInstance = other->m_instances->operator[](i);
+				if (dstInstance.getType()!=srcInstance.getType())
+					return false;
+				auto* blas = dstInstance.getBase().blas.get();
+				if (blas && !blas->canBeRestoredFrom(srcInstance.getBase().blas.get()))
 					return false;
 			}
 			return true;
