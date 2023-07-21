@@ -12,7 +12,7 @@ namespace nbl::video
 
 // Note how we don't have a `getResult()` because the return value depends on the actual operation being deferred
 // Therefore every class with deferred operations has a `getResult(const IDeferredOperation* const)` or similar
-class IDeferredOperation : public core::IReferenceCounted, public IBackendObject
+class IDeferredOperation : public IBackendObject
 {
     public:
         // How many calls to `execute()` in parallel you can do before you stop seeing a benefit
