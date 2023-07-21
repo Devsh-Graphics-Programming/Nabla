@@ -84,6 +84,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
+            if (!_other)
+                return false;
             auto* other = static_cast<const ICPUBuffer*>(_other);
             if (m_creationParams.size != other->m_creationParams.size)
                 return false;
@@ -118,6 +120,18 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         void* data;
 };
+
+
+//! temporarily added these here because its a bit too much effort to specialize SBufferOffset and SBufferRange
+inline bool canBeRestoredFrom(const SBufferBinding<const ICPUBuffer>& to, const SBufferBinding<const ICPUBuffer>& from)
+{
+    return to.buffer && to.offset==from.offset && to.buffer->canBeRestoredFrom(from.buffer.get());
+}
+inline bool canBeRestoredFrom(const SBufferRange<const ICPUBuffer>& to, const SBufferRange<const ICPUBuffer>& from)
+{
+    return to.buffer && to.offset==from.offset && to.size==from.size && to.buffer->canBeRestoredFrom(from.buffer.get());
+}
+
 
 template<
     typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
