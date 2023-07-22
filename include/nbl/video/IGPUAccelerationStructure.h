@@ -81,9 +81,6 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03675
 				bool invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const;
 		};
-		
-		// for indirect builds
-		using BuildRangeInfo = hlsl::acceleration_structures::BuildRangeInfo;
 
 		// copies
 		enum class COPY_MODE : uint8_t
@@ -161,6 +158,9 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
+		// read the comments in the .hlsl file, AABB builds ignore certain fields
+		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
+
 		//! Fill your `ITopLevelAccelerationStructure::BuildGeometryInfo<IGPUBuffer>::instanceData` with `ITopLevelAccelerationStructure::Instance<device_op_ref_t>`
 		struct device_op_ref_t
 		{
@@ -211,6 +211,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
+
+		// read the comments in the .hlsl file, TLAS builds ignore certain fields
+		using BuildRangeInfo = hlsl::acceleration_structures::top_level::BuildRangeInfo;
 
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
 		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure`

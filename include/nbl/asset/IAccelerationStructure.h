@@ -83,7 +83,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			uint32_t								maxVertex = 0u;
 			uint32_t								vertexStride = sizeof(float);
 			E_FORMAT								vertexFormat = EF_R32G32B32_SFLOAT;
-			E_INDEX_TYPE							indexType = EIT_32BIT;
+			E_INDEX_TYPE							indexType = EIT_UNKNOWN;
 			core::bitflag<GEOMETRY_FLAGS>			geometryFlags = GEOMETRY_FLAGS::NONE;
 			// TODO: opacity and displacement micromap buffers and shizz
 		};
