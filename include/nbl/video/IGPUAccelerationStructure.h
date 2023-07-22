@@ -138,9 +138,17 @@ template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
 {
 	public:
+		// read the comments in the .hlsl file, AABB builds ignore certain fields
+		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
+
 		template<class BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
+			inline uint32_t inputCount() const
+			{
+				return buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT) ? aabbs.size():triangles.size();
+			}
+
 			// Returns 0 on failure, otherwise returns the number of `core::smart_refctd_ptr` to reserve for lifetime tracking
 			// When validating for indirect builds pass `nullptr` as the argument
 			uint32_t valid(const BuildRangeInfo* const buildRangeInfos) const;
@@ -157,9 +165,6 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
-
-		// read the comments in the .hlsl file, AABB builds ignore certain fields
-		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
 
 		//! Fill your `ITopLevelAccelerationStructure::BuildGeometryInfo<IGPUBuffer>::instanceData` with `ITopLevelAccelerationStructure::Instance<device_op_ref_t>`
 		struct device_op_ref_t
@@ -192,13 +197,50 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		//
 		inline uint32_t getMaxInstanceCount() const {return m_maxInstanceCount;}
 
+		// read the comments in the .hlsl file, TLAS builds ignore certain fields
+		using BuildRangeInfo = hlsl::acceleration_structures::top_level::BuildRangeInfo;
+
 		template<typename BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
+			inline uint32_t inputCount() const {return 1u;}
+
 			// When validating for indirect builds pass the maximum possible instance count as the argument
 			// List of things too expensive or impossible (without GPU Assist) to validate:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
-			bool valid(const uint32_t instanceCount) const;
+			inline bool valid(const uint32_t instanceCount) const
+			{
+				if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
+					return false;
+				if (instanceCount>dstAs->getMaxInstanceCount())
+					return false;
+				
+				constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
+				// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
+				const size_t instanceSize = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_TYPE_ENCODED_IN_POINTER_LSB) ? sizeof(void*):(
+					dstAs->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
+				);
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03778
+				if (!instanceData.isValid())
+					return false;
+				else if (instanceData.offset+instanceSize*instanceCount>instanceData.buffer->getSize())
+					return false;
+
+				#ifdef _NBL_DEBUG
+				/* TODO: with `EXT_private_data
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03724
+				if constexpr (HostBuild)
+				{
+					for (auto 
+					if (device->invalidAccelerationStructureForHostOperations(getAccelerationStructureFromReference(geometry.instanceData.blas)))
+						return false;
+				}
+				*/
+				#endif
+
+				// destination, scratch and instanceData are required, source is optional
+				return isUpdate ? 4u:3u;
+			}
 			
 			core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 			const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
@@ -212,27 +254,28 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
-		// read the comments in the .hlsl file, TLAS builds ignore certain fields
-		using BuildRangeInfo = hlsl::acceleration_structures::top_level::BuildRangeInfo;
-
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
 		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure`
 		using DeviceInstance = Instance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostInstance = Instance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		static_assert(sizeof(DeviceInstance)==sizeof(HostInstance));
 		// other typedefs for convenience
 		using DeviceStaticInstance = StaticInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostStaticInstance = StaticInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		static_assert(sizeof(DeviceStaticInstance)==sizeof(HostStaticInstance));
 		using DeviceMatrixMotionInstance = MatrixMotionInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostMatrixMotionInstance = MatrixMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		static_assert(sizeof(DeviceMatrixMotionInstance)==sizeof(HostMatrixMotionInstance));
 		using DeviceSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostSRTMotionInstance = SRTMotionInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		static_assert(sizeof(DeviceSRTMotionInstance)==sizeof(HostSRTMotionInstance));
 
 		// defined exactly as Vulkan wants it, byte for byte
 		template<typename blas_ref_t>
 		struct PolymorphicInstance final
 		{
 				// make sure we're not trying to memcpy smartpointers
-				static_assert(!std::is_same_v<core::IReferenceCounted<const asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t>);
+				static_assert(!std::is_same_v<core::smart_refctd_ptr<const asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t>);
 
 			public:
 				PolymorphicInstance() = default;
@@ -261,7 +304,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 				inline INSTANCE_TYPE getType() const {return type;}
 
-				template<template<class> InstanceT>
+				template<template<class> class InstanceT>
 				inline InstanceT<blas_ref_t> copy() const
 				{
 					InstanceT<blas_ref_t> retval;
@@ -280,6 +323,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		};
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
+		static_assert(sizeof(DevicePolymorphicInstance)==sizeof(HostPolymorphicInstance));
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)

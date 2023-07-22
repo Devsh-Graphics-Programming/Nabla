@@ -459,10 +459,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool buildAccelerationStructures(
             IDeferredOperation* const deferredOperation,
             const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
+            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
         )
         {
             if (!acquireDeferredOperation(deferredOperation))
+                return false;
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-accelerationStructureHostCommands-03581
+            if (!m_enabledFeatures.accelerationStructureHostCommands)
                 return false;
 
             // we will at least need to track each dstAS
@@ -491,10 +495,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool buildAccelerationStructures(
             IDeferredOperation* const deferredOperation,
             const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
+            const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
         )
         {
             if (!acquireDeferredOperation(deferredOperation))
+                return false;
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-accelerationStructureHostCommands-03581
+            if (!m_enabledFeatures.accelerationStructureHostCommands)
                 return false;
 
             // we will at least need to track each dstAS
