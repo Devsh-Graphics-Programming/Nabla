@@ -4,29 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 
-#include "nbl/builtin/hlsl/atomics.hlsl"
-
 namespace nbl 
 {
 namespace hlsl
 {
-
-#ifdef SHARED_MEM
-struct MainScratchProxy
-{
-	uint get(uint ix)
-	{
-		return SHARED_MEM[ix];
-	}
-
-	void set(uint ix, uint value)
-	{
-		SHARED_MEM[ix] = value;
-	}
-};
-#else
-#error "Must #define scratch memory array as SHARED_MEM"
-#endif
 
 #ifdef BROADCAST_MEM
 struct BroadcastScratchProxy
@@ -143,36 +124,29 @@ struct SharedMemoryAdaptor
     
     // uint atomics
     void atomicAdd(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicAdd(ix, value);
+	   orig = accessor.atomicAdd(ix, value);
 	}
 	void atomicAnd(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicAnd(ix, value);
+	   orig = accessor.atomicAnd(ix, value);
 	}
 	void atomicOr(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicOr(ix, value);
+	   orig = accessor.atomicOr(ix, value);
 	}
 	void atomicXor(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicXor(ix, value);
+	   orig = accessor.atomicXor(ix, value);
 	}
 	void atomicMin(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicMin(ix, value);
+	   orig = accessor.atomicMin(ix, value);
 	}
 	void atomicMax(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicMax(ix, value);
+	   orig = accessor.atomicMax(ix, value);
 	}
 	void atomicExchange(const uint ix, const uint value, out uint orig) {
-	   orig = atomics::atomicExchange(ix, value);
+	   orig = accessor.atomicExchange(ix, value);
 	}
 	void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
-	   orig = atomics::atomicCompSwap(ix, comp, value);
+	   orig = accessor.atomicCompSwap(ix, comp, value);
 	}
-};
-
-struct SharedMemory
-{
-	SharedMemoryAdaptor<MainScratchProxy> main;
-	SharedMemoryAdaptor<BroadcastScratchProxy> broadcast;
-	SharedMemoryAdaptor<ShuffleScratchProxy> shuffle;
 };
 
 }

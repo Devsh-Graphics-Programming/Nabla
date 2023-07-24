@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/atomics.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
