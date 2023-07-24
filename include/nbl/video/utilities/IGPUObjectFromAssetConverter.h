@@ -84,6 +84,7 @@ struct AssetBundleIterator
 
 class IGPUObjectFromAssetConverter
 {
+    friend asset::IAsset;
     public:
 
         enum E_QUEUE_USAGE
@@ -94,6 +95,36 @@ class IGPUObjectFromAssetConverter
             EQU_COUNT
         };
 
+        struct SValue
+        {
+            core::smart_refctd_ptr<asset::IAsset> asset;
+            core::smart_refctd_ptr<int> gpuObj;
+        };
+
+        struct SContext {
+
+            struct Hash
+            {
+                inline std::size_t operator()(asset::IAsset* asset) const
+                {
+                    return asset->hash(hashDict);
+                }
+            };
+
+            struct KeyEqual
+            {
+                bool operator()(asset::IAsset* lhs, asset::IAsset* rhs) const { return lhs->equals(rhs); }
+            };
+
+            std::list<asset::IAsset*> conversionQueue;
+            static std::unordered_map<asset::IAsset*, size_t> hashDict;
+            std::unordered_map<asset::IAsset*, size_t> hashSnapshot;
+            std::unordered_map<asset::IAsset*, SValue, Hash, KeyEqual> cache;
+
+            SContext() : conversionQueue(), hashDict(), hashSnapshot(), cache() {
+
+            }
+        };
         struct SParams
         {
             struct SPerQueue
@@ -117,6 +148,7 @@ class IGPUObjectFromAssetConverter
 
             uint32_t finalQueueFamIx = 0u;
 
+            SContext context;
             // @sadiuk put here more parameters if needed
 
             SPerQueue perQueue[EQU_COUNT];
@@ -198,21 +230,7 @@ class IGPUObjectFromAssetConverter
 			static inline AssetType* value(AssetType*const* it) { return *it; }
 		};
 
-        template<typename AssetType>
-        struct Hash
-        {
-            inline std::size_t operator()(AssetType* asset) const
-            {
-                return std::hash<AssetType*>{}(asset);
-            }
-        };
-
-        template<typename AssetType>
-        struct KeyEqual
-        {
-            bool operator()(AssetType* lhs, AssetType* rhs) const { return lhs==rhs; }
-        };
-
+      
 		inline virtual created_gpu_object_array<asset::ICPUBuffer>				            create(const asset::ICPUBuffer** const _begin, const asset::ICPUBuffer** const _end, SParams& _params);
 		inline virtual created_gpu_object_array<asset::ICPUImage>				            create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUSampler>		                    create(const asset::ICPUSampler** const _begin, const asset::ICPUSampler** const _end, SParams& _params);
@@ -230,6 +248,117 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUAnimationLibrary>			    create(const asset::ICPUAnimationLibrary** const _begin, const asset::ICPUAnimationLibrary** const _end, SParams& _params);
         inline virtual created_gpu_object_array<asset::ICPUAccelerationStructure>			create(const asset::ICPUAccelerationStructure** const _begin, const asset::ICPUAccelerationStructure** const _end, SParams& _params);
+
+
+        ////! TODO: Make this faster and not call any allocator
+        //template<typename T>
+        //static inline core::vector<size_t> eliminateDuplicatesAndGenRedirs(core::vector<T*>& _input)
+        //{
+        //    core::vector<size_t> redirs;
+
+        //    core::unordered_map<T*, size_t, Hash<T, >, KeyEqual<T>> firstOccur;
+        //    size_t i = 0u;
+        //    for (T* el : _input)
+        //    {
+        //        if (!el)
+        //        {
+        //            redirs.push_back(0xdeadbeefu);
+        //            continue;
+        //        }
+
+        //        auto r = firstOccur.insert({ el, i });
+        //        redirs.push_back(r.first->second);
+        //        if (r.second)
+        //            ++i;
+        //    }
+        //    for (const auto& p : firstOccur)
+        //        _input.push_back(p.first);
+        //    _input.erase(_input.begin(), _input.begin() + (_input.size() - firstOccur.size()));
+        //    std::sort(_input.begin(), _input.end(), [&firstOccur](T* a, T* b) { return firstOccur[a] < firstOccur[b]; });
+
+        //    return redirs;
+        //}
+        
+         //template<class asset::IAsset>
+
+
+        template<typename AssetType = asset::IAsset>
+        void enqueueToConversion(core::smart_refctd_ptr<AssetType> asset, SContext<AssetType>& context) {
+            assert(asset);
+
+            auto children = asset->getMembersToRecurse();
+            int childCount = 0;
+
+            for (auto child : children) {
+                //check if child is not null
+                if (child)
+                {
+                    childCount++;
+                    enqueueToConversion<AssetType>(child, context);
+                }
+            }
+
+            //check if item was already converted 
+            size_t hash = asset->hash(hashDict);
+            if (context.hashSnapshot.contains(asset.get()) {
+                if (context.hashSnapshot[asset.get()] == hash && context.cache[asset.get()].gpuObj != nullptr) {
+                    return;
+                }
+            }
+            if (context.cache.contains(asset.get())) {
+                return;
+            }
+            else {
+                context.cache.insert(asset, {asset, nullptr})
+            }
+
+            //enqueue
+            if (childCount == 0) {
+                //is leaf
+                //should be converted first
+                context.conversionQueue.push_front(asset.get());
+            }
+            else {
+                //is branch
+                context.conversionQueue.push_back(asset.get());
+            }
+
+        }
+
+
+        //! asset converter new convert function
+        //! parameter is the range of root assets to convert
+        template<typename AssetType, typename iterator_type>
+        std::enable_if_t<!impl::is_const_iterator_v<iterator_type>, created_gpu_object_array<AssetType>>
+            getGPUObjectsFromAssets_new(iterator_type _begin, iterator_type _end, SParams& _params)
+        {
+            {
+                //evict modified elements from cache
+                for (auto iter = _context.cache.begin(); iter != _context.cache.end(); iter++)
+                {
+                    auto recalculatedHash = iter.first->hash(_context.hashDict);
+                    bool evict = _context.hashSnapshot.contains(iter.first) && _context.hashSnapshot[iter.first] == recalculatedHash;
+                    //TODO check if usages changed
+                    if (evict) {
+                        _NBL_TODO(); //erase one
+                        //_context.cache.erase(iter, iter+1,1)
+                    }
+                }
+            }
+         
+            for (auto iter = _begin; iter != _end; iter++)
+            {
+                enqueueToConversion(*iter, _context)
+            }
+
+            for (auto iter = conversionQueue.begin(); iter != conversionQueue.end(); iter++)
+            {
+                //create without recursion
+                std::cout << "create " << (*iter)->getAssetType() << std::endl;
+            }
+
+            //fill in hashes to gpu object dictionary
+        }
 
 
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
@@ -349,34 +478,7 @@ class IGPUObjectFromAssetConverter
                 _amgr->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
         }
 
-		//! TODO: Make this faster and not call any allocator
-		template<typename T>
-		static inline core::vector<size_t> eliminateDuplicatesAndGenRedirs(core::vector<T*>& _input)
-		{
-			core::vector<size_t> redirs;
-
-			core::unordered_map<T*, size_t, Hash<T>, KeyEqual<T>> firstOccur;
-			size_t i = 0u;
-			for (T* el : _input)
-			{
-				if (!el)
-				{
-					redirs.push_back(0xdeadbeefu);
-					continue;
-				}
-
-				auto r = firstOccur.insert({ el, i });
-				redirs.push_back(r.first->second);
-				if (r.second)
-					++i;
-			}
-			for (const auto& p : firstOccur)
-				_input.push_back(p.first);
-			_input.erase(_input.begin(), _input.begin() + (_input.size() - firstOccur.size()));
-			std::sort(_input.begin(), _input.end(), [&firstOccur](T* a, T* b) { return firstOccur[a] < firstOccur[b]; });
-
-			return redirs;
-		}
+		
 };
 
 
@@ -391,73 +493,6 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
             if (_asset && _gpuobj)
                 _amgr->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
         }
-};
-
-
-// need to specialize outside because of GCC
-template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
-{
-    inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
-    {
-        constexpr size_t bytesToHash = 
-            asset::SVertexInputParams::serializedSize()+
-            asset::SBlendParams::serializedSize()+
-            asset::SRasterizationParams::serializedSize()+
-            asset::SPrimitiveAssemblyParams::serializedSize()+
-            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT+//shaders
-            sizeof(void*);//layout
-        uint8_t mem[bytesToHash]{};
-        uint32_t offset = 0u;
-        _ppln->getVertexInputParams().serialize(mem+offset);
-        offset += asset::SVertexInputParams::serializedSize();
-        _ppln->getBlendParams().serialize(mem+offset);
-        offset += asset::SBlendParams::serializedSize();
-        _ppln->getRasterizationParams().serialize(mem+offset);
-        offset += sizeof(asset::SRasterizationParams);
-        _ppln->getPrimitiveAssemblyParams().serialize(mem+offset);
-        offset += sizeof(asset::SPrimitiveAssemblyParams);
-        const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
-        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++i)
-            shaders[i] = _ppln->getShaderAtIndex(i);
-        offset += asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT*sizeof(void*);
-        reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
-
-        const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
-
-        return hs;
-    }
-};
-template<>
-struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
-{
-    inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
-    {
-        constexpr size_t bytesToHash = 
-            sizeof(void*)+//shader
-            sizeof(void*);//layout
-        uint8_t mem[bytesToHash]{};
-
-        reinterpret_cast<const asset::ICPUSpecializedShader**>(mem)[0] = _ppln->getShader();
-        reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+sizeof(void*))[0] = _ppln->getLayout();
-
-        const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
-
-        return hs;
-    }
-};
-
-template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
-{
-    //equality depends on hash only
-    bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
-};
-template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
-{
-    //equality depends on hash only
-    bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
 };
 
 
