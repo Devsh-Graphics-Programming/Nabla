@@ -124,14 +124,14 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 	protected:
 
-		core::vector<IAsset*> getMembersToRecurse() const override {
-			core::vector<IAsset*> members = {};
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
+			nbl::core::vector<core::smart_refctd_ptr<IAsset>> members = {};
 			if (m_keyframeStorageBinding.buffer)
-				members.push_back(m_keyframeStorageBinding.buffer.get());
+				members.push_back(m_keyframeStorageBinding.buffer);
 			if (m_timestampStorageBinding.buffer)
-				members.push_back(m_timestampStorageBinding.buffer.get());
+				members.push_back(m_timestampStorageBinding.buffer);
 			if (m_animationStorageRange.buffer)
-				members.push_back(m_animationStorageRange.buffer.get());
+				members.push_back(m_animationStorageRange.buffer);
 			return members;
 		}
 

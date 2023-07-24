@@ -210,9 +210,9 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<IAsset*> getMembersToRecurse() const override
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
 		{
-			return { buffer.get() };
+			return { buffer };
 		}
 
 		inline void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override

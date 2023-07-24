@@ -31,7 +31,7 @@ public:
     }
 
 private:
-    nbl::core::vector<IAsset*> getMembersToRecurse() const override
+    nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
     {
         // TODO
         return {};

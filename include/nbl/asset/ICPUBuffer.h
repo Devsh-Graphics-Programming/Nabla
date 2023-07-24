@@ -111,7 +111,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return true;
         }
 
-        virtual nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
+        virtual nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return {}; }
 
         virtual void hash_impl(size_t& seed) const override {
             core::hash_combine(seed, data);

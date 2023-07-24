@@ -75,7 +75,7 @@ protected:
         return true;
     }
 
-    nbl::core::vector<IAsset*> getMembersToRecurse() const override { return { m_shader.get(), m_layout.get() }; }
+    nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return { m_shader, m_layout }; }
 
     bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
     {

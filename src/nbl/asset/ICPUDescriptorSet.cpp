@@ -106,8 +106,8 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 }
 
 
-core::vector<IAsset*> ICPUDescriptorSet::getMembersToRecurse() const {
-	core::vector<IAsset*> assets = { };
+nbl::core::vector<core::smart_refctd_ptr<IAsset>> ICPUDescriptorSet::getMembersToRecurse() const {
+	nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = { };
 	for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 	{
 		const auto type = static_cast<IDescriptor::E_TYPE>(t);
@@ -124,19 +124,19 @@ core::vector<IAsset*> ICPUDescriptorSet::getMembersToRecurse() const {
 			switch (category)
 			{
 			case IDescriptor::E_CATEGORY::EC_BUFFER:
-				assets.push_back(static_cast<ICPUBuffer*>(descriptorInfos[i].desc.get()));
+				assets.push_back(descriptorInfos[i].desc);
 				break;
 
 			case IDescriptor::EC_IMAGE:
-				assets.push_back(static_cast<ICPUImageView*>(descriptorInfos[i].desc.get()));
+				assets.push_back(descriptorInfos[i].desc);
 				if (descriptorInfos[i].info.image.sampler)
-					assets.push_back(descriptorInfos[i].info.image.sampler.get());
+					assets.push_back(descriptorInfos[i].info.image.sampler);
 				else
 					assets.push_back(nullptr);
 				break;
 
 			case IDescriptor::EC_BUFFER_VIEW:
-				assets.push_back(static_cast<ICPUBufferView*>(descriptorInfos[i].desc.get()));
+				assets.push_back(descriptorInfos[i].desc);
 				break;
 
 			default:

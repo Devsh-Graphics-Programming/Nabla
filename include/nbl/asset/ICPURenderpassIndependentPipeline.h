@@ -148,14 +148,13 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			return true;
 		}
 
-		nbl::core::vector<IAsset*> getMembersToRecurse() const override {
-			nbl::core::vector<IAsset*> assets = { m_layout.get() };
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
+			nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = { m_layout.get() };
 			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 				if (m_shaders[i])
-					assets.push_back(m_shaders[i].get());
+					assets.push_back(m_shaders[i]);
 			return assets;
 		}
-
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{
@@ -166,6 +165,15 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 				if (shader && shader->isAnyDependencyDummy(_levelsBelow))
 					return true;
 			return false;
+		}
+
+		virtual void hash_impl(size_t& seed) const override
+		{
+			core::hash_combine(seed, m_vertexInputParams);
+			core::hash_combine(seed, m_blendParams);
+			core::hash_combine(seed, m_primAsmParams);
+			core::hash_combine(seed, m_rasterParams);
+			core::hash_combine(seed, m_disableOptimizations);
 		}
 
 		virtual ~ICPURenderpassIndependentPipeline() = default;

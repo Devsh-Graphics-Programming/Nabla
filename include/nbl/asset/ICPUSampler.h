@@ -79,7 +79,7 @@ class ICPUSampler : public ISampler, public IAsset
 			return true;
 		}
 protected:
-		nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return {}; }
 	
 };
 

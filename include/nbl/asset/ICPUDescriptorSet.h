@@ -87,7 +87,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 	protected:
 		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) override;
 
-		core::vector<IAsset*> getMembersToRecurse() const override;
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override;
 
 		inline bool compatible(const IAsset* _other) const { return true; }
 

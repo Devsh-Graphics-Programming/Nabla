@@ -111,11 +111,11 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			return true;
 		}
 
-		nbl::core::vector<IAsset*> getMembersToRecurse() const override 
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
 		{
-			nbl::core::vector<IAsset*> assets;
+			nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets;
 			for (auto mesh = m_meshBuffers.begin(); mesh != m_meshBuffers.end(); mesh++)
-				assets.push_back((*mesh).get());
+				assets.push_back((*mesh));
 			return assets;
 		}
 

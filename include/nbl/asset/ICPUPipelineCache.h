@@ -139,7 +139,7 @@ protected:
 		return true;
 	}
 
-	nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
+	nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return {}; }
 
 	void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{

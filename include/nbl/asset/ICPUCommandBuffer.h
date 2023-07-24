@@ -61,7 +61,7 @@ private:
         return true;
     }
 
-    nbl::core::vector<IAsset*> getMembersToRecurse() const override { return {}; }
+    nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return {}; }
 };
 
 }

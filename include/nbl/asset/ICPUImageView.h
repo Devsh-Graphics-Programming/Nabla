@@ -80,10 +80,17 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<IAsset*> getMembersToRecurse() const override {
-			return { params.image.get() };
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
+			return { params.image };
 		}
 		
+		virtual void hash_impl(size_t& seed) const override {
+			core::hash_combine(seed, params.flags);
+			core::hash_combine(seed, params.format);
+			core::hash_combine(seed, params.components);
+			core::hash_combine(seed, params.viewType);
+			core::hash_combine(seed, params.subresourceRange);
+		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{

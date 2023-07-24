@@ -97,10 +97,10 @@ protected:
             return true;
         }
 
-        nbl::core::vector<IAsset*> getMembersToRecurse() const override {
-            nbl::core::vector<IAsset*> assets;
+        nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
+            nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets;
             for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
-                assets.push_back(m_descSetLayouts[i].get());
+                assets.push_back(m_descSetLayouts[i]);
             return assets;
         }
 

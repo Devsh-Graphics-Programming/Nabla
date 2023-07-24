@@ -234,8 +234,8 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 
 		}
 
-		core::vector<IAsset*> getMembersToRecurse() const override { 
-			core::vector<IAsset*> members = {};
+		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
+			nbl::core::vector<core::smart_refctd_ptr<IAsset>> members = {};
 			auto geoms = m_buildInfo.getGeometries().begin();
 			const auto geomsCount = m_buildInfo.getGeometries().size();
 			for (uint32_t i = 0; i < geomsCount; ++i)
@@ -244,21 +244,21 @@ class ICPUAccelerationStructure final : public IAccelerationStructure, public IA
 				if (geom.type == EGT_TRIANGLES)
 				{
 					if (geom.data.triangles.indexData.buffer)
-						members.push_back(geom.data.triangles.indexData.buffer.get());
+						members.push_back(geom.data.triangles.indexData.buffer);
 					if (geom.data.triangles.vertexData.buffer)
-						members.push_back(geom.data.triangles.vertexData.buffer.get());
+						members.push_back(geom.data.triangles.vertexData.buffer);
 					if (geom.data.triangles.transformData.buffer)
-						members.push_back(geom.data.triangles.transformData.buffer.get());
+						members.push_back(geom.data.triangles.transformData.buffer);
 				}
 				else if (geom.type == EGT_AABBS)
 				{
 					if (geom.data.aabbs.data.buffer)
-						members.push_back(geom.data.aabbs.data.buffer.get());
+						members.push_back(geom.data.aabbs.data.buffer);
 				}
 				else if (geom.type == EGT_INSTANCES)
 				{
 					if (geom.data.instances.data.buffer)
-						members.push_back(geom.data.instances.data.buffer.get());
+						members.push_back(geom.data.instances.data.buffer);
 				}
 			}
 			return members;

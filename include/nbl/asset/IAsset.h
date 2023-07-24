@@ -363,7 +363,7 @@ class IAsset : virtual public core::IReferenceCounted
 
 		//! Lists members of type IAsset in order of least expensive to recurse through to most expensive
 		//! TODO maybe use SRange instead?
-		virtual nbl::core::vector<IAsset*> getMembersToRecurse() const = 0;
+		virtual nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const = 0;
 
 
 	private:
@@ -375,7 +375,7 @@ class IAsset : virtual public core::IReferenceCounted
 			auto otherAssetMemberList = _other->getMembersToRecurse();
 			for (size_t i = 0; i < assetMemberList.size(); i++)
 				if(assetMemberList[i] && otherAssetMemberList[i])
-					if (!childLambda(assetMemberList[i], otherAssetMemberList[i])) break;
+					if (!childLambda(assetMemberList[i].get(), otherAssetMemberList[i].get())) break;
 		}
 
 		template<typename ChildLambda>
@@ -383,7 +383,7 @@ class IAsset : virtual public core::IReferenceCounted
 			auto assetMemberList = getMembersToRecurse();
 			for (size_t i = 0; i < assetMemberList.size(); i++)
 				if (assetMemberList[i])
-					if (!childLambda(assetMemberList[i])) break;
+					if (!childLambda(assetMemberList[i].get())) break;
 		}
 		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
 			restoreFromDummy_impl_impl(_other, _levelsBelow);
