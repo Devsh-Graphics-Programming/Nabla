@@ -718,4 +718,4 @@ else()
 	nbl_install_program_spec(Nabla "nbl")
 endif()
 
-nbl_install_program("${DXC_DLL}")
+nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")

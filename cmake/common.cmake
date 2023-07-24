@@ -13,6 +13,7 @@
 # limitations under the License.
 
 include(ProcessorCount)
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 # submodule managment
 function(update_git_submodule _PATH)
@@ -202,7 +203,22 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	get_target_property(_EX_SOURCE_DIR_ ${EXECUTABLE_NAME} SOURCE_DIR)
 	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
 	
-	nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+	if(NOT "${EXECUTABLE_NAME}" STREQUAL commonpch)
+		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+		
+		get_target_property(_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_ ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
+		get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		get_property(_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		
+		cmake_path(RELATIVE_PATH _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		cmake_path(RELATIVE_PATH _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		
+		# DLLs relative to CPack install package
+		target_compile_definitions(${EXECUTABLE_NAME}
+			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
+			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
+		)
+	endif()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -369,15 +385,52 @@ function(nbl_install_lib _TARGETS)
 endfunction()
 
 function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
+	
 	if (TARGET ${_TRGT})
-		install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Runtimes)
-		install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes)
-		install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Runtimes)
-		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes)
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+	
+		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		
+		get_property(_DEFINED_PROPERTY_
+            TARGET ${_TRGT}
+            PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+                PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
+		
 	else()
-		install(PROGRAMS ${_TRGT} DESTINATION runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Runtimes)
-		install(PROGRAMS ${_TRGT} DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes)
-		install(PROGRAMS ${_TRGT} DESTINATION relwithdebinfo/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Runtimes)
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS ${_TRGT} DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+		
+		string(MAKE_C_IDENTIFIER "${_RELATIVE_DESTINATION}" _VAR_)
+		string(TOUPPER "${_VAR_}" _VAR_)
+		
+		get_property(_DEFINED_PROPERTY_
+            GLOBAL
+            PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(GLOBAL
+                PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_property(GLOBAL PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
 	endif()
 endfunction()
 
@@ -386,9 +439,29 @@ function(nbl_install_program _TRGT)
 endfunction()
 
 function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Executables)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Executables)
-	install(TARGETS ${_TARGETS} RUNTIME DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Executables)
+	set(_TARGETS ${_TARGETS})
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	
+	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
+	endforeach()
+	
+	foreach(_TRGT IN LISTS _TARGETS)
+		get_property(_DEFINED_PROPERTY_
+			TARGET ${_TRGT}
+			PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+			DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+				PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+				BRIEF_DOCS "Relative path in CPack package to runtime executable target directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_EXE_DIR_PATH "${_DEST_GE_}")
+	endforeach()
 endfunction()
 
 function(nbl_install_exe _TARGETS)
