@@ -73,13 +73,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			float wage;												//angle wage of the vertex
 			core::vector4df_SIMD position;							//position of the vertex in 3D space
 			core::vector3df_SIMD parentTriangleFaceNormal;			//
-			core::vector3df_SIMD v0s;
-			core::vector3df_SIMD v0t;
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
-
-
-		
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
