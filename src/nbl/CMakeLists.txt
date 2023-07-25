@@ -544,6 +544,7 @@ add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 
 add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
 add_dependencies(Nabla dxcompiler)
+add_dependencies(3rdparty dxcompiler)
 
 target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
 if(NBL_STATIC_BUILD)
@@ -552,7 +553,6 @@ else()
 	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
 endif()
 	
-
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
@@ -659,33 +659,21 @@ if(NOT NBL_STATIC_BUILD)
 	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
-nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 if(NOT NBL_STATIC_BUILD)
-	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
 endif()
-nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
+nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
 endif()
 
-# TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
-macro(nbl_install_program _TRGT)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION lib CONFIGURATIONS Release)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
-endmacro()
-macro(nbl_install_lib _TRGT)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
-endmacro()
-
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
-nbl_install_lib(Nabla)
+nbl_install_lib_spec(Nabla "nbl")
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds
@@ -720,11 +708,14 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
+	
 	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
 		nbl_install_program(tbbmalloc_proxy)
 	endif()
 else()
-	nbl_install_program(Nabla)
+	nbl_install_program_spec(Nabla "nbl")
 endif()
+
+nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")

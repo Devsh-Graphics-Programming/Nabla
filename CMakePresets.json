@@ -1,0 +1,180 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 26,
+    "patch": 0
+  },
+    	
+  "configurePresets": [
+    {
+      "name": "ci-configure-dev",
+	  "hidden": true,
+      "description": "main CI configure preset for inheritance",
+      "cacheVariables": {
+        "NBL_UPDATE_GIT_SUBMODULE": "OFF",
+		"NBL_COMPILE_WITH_CUDA": "OFF",
+		"NBL_BUILD_OPTIX": "OFF",
+		"NBL_BUILD_MITSUBA_LOADER": "OFF",
+		"NBL_BUILD_RADEON_RAYS": "OFF",
+		"NBL_RUN_TESTS": "ON",
+		"NBL_CPACK_CI": "ON"
+      }
+    },
+	{
+      "name": "ci-configure-static-dev",
+	  "hidden": true,
+      "description": "CI preset for static-configure inheritance",
+      "inherits": "ci-configure-dev",
+	  "binaryDir": "${sourceDir}/build_static"
+    },
+	{
+      "name": "ci-configure-dynamic-dev",
+	  "hidden": true,
+      "description": "CI preset for dynamic-configure inheritance",
+      "inherits": "ci-configure-dev",
+	  "binaryDir": "${sourceDir}/build_dynamic",
+	  "cacheVariables": {
+        "NBL_STATIC_BUILD": "OFF",
+		"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+      }
+    },
+    {
+      "name": "ci-configure-static-ninja-multi",
+      "inherits": "ci-configure-static-dev",
+      "displayName": "CI configure-static Ninja Multi-Config",
+      "description": "CI static configure using Ninja Multi-Config generator, any OS as host",
+      "generator": "Ninja Multi-Config"
+    },
+	{
+      "name": "ci-configure-dynamic-ninja-multi",
+      "inherits": "ci-configure-dynamic-dev",
+      "displayName": "CI configure-dynamic Ninja Multi-Config",
+      "description": "CI dynamic configure using Ninja Multi-Config generator, any OS as host",
+      "generator": "Ninja Multi-Config"
+    },
+    {
+      "name": "ci-configure-static-msvc",
+      "inherits": "ci-configure-static-dev",
+      "displayName": "CI configure-static Visual Studio MSVC windows-host-only",
+      "description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
+	  "generator": "Visual Studio 17 2022",
+	  "toolset": "v143",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+	{
+      "name": "ci-configure-dynamic-msvc",
+      "inherits": "ci-configure-dynamic-dev",
+      "displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only",
+      "description": "CI dynamic configure using Visual Studio generator and MSVC toolset, windows as host only",
+	  "toolset": "v143",
+	  "generator": "Visual Studio 17 2022",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci-build-dev",
+      "configurePreset": "ci-configure-dev",
+	  "hidden": true,
+      "description": "main CI build preset for inheritance",
+	  "targets": [
+		"Nabla"
+	  ]
+    },
+	{
+      "name": "ci-build-static-dev",
+      "configurePreset": "ci-configure-static-dev",
+	  "hidden": true,
+	  "description": "CI preset for static build inheritance",
+      "inherits": "ci-build-dev"
+    },
+	{
+      "name": "ci-build-dynamic-dev",
+      "configurePreset": "ci-configure-dynamic-dev",
+	  "hidden": true,
+	  "description": "CI preset for dynamic-build inheritance",
+      "inherits": "ci-build-dev"
+    },
+	{
+      "name": "ci-build-static-ninja-multi",
+      "configurePreset": "ci-configure-static-ninja-multi",
+	  "displayName": "CI build-static Ninja Multi-Config",
+	  "description": "CI static build using Ninja Multi-Config generator",
+      "inherits": "ci-build-static-dev"
+    },
+	{
+      "name": "ci-build-dynamic-ninja-multi",
+      "configurePreset": "ci-configure-dynamic-ninja-multi",
+	  "displayName": "CI build-dynamic Ninja Multi-Config",
+	  "description": "CI dynamic build using Ninja Multi-Config generator",
+      "inherits": "ci-build-dynamic-dev"
+    },
+	{
+      "name": "ci-build-static-msvc",
+      "configurePreset": "ci-configure-static-msvc",
+	  "displayName": "CI build-dynamic Visual Studio MSVC windows-host-only",
+	  "description": "CI dynamic build using Visual Studio generator and MSVC toolset, windows as host only",
+      "inherits": "ci-build-static-dev"
+    },
+	{
+      "name": "ci-build-dynamic-msvc",
+      "configurePreset": "ci-configure-dynamic-msvc",
+	  "displayName": "CI build-dynamic Visual Studio MSVC windows-host-only",
+	  "description": "CI dynamic build using Visual Studio generator and MSVC toolset, windows as host only",
+      "inherits": "ci-build-dynamic-dev"
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "ci-package-dev",
+	  "hidden": true
+    },
+	{
+      "name": "ci-package-static-dev",
+	  "hidden": true,
+	  "inherits": "ci-package-dev"
+    },
+	{
+      "name": "ci-package-dynamic-dev",
+	  "hidden": true,
+	  "inherits": "ci-package-dev"
+    },
+	{
+      "name": "ci-package-static-ninja-multi",
+	  "inherits": "ci-package-static-dev",
+	  "configurePreset": "ci-configure-static-ninja-multi",
+	  "displayName": "CI package-static Ninja Multi-Config",
+	  "description": "CI static package using Ninja Multi-Config generator"
+    },
+	{
+      "name": "ci-package-dynamic-ninja-multi",
+	  "inherits": "ci-package-dynamic-dev",
+	  "configurePreset": "ci-configure-dynamic-ninja-multi",
+	  "displayName": "CI package-dynamic Ninja Multi-Config",
+	  "description": "CI dynamic package using Ninja Multi-Config generator"
+    },
+	{
+      "name": "ci-package-static-msvc",
+	  "inherits": "ci-package-static-dev",
+	  "configurePreset": "ci-configure-static-msvc",
+	  "displayName": "CI package-static Visual Studio MSVC windows-host-only",
+	  "description": "CI static package using Visual Studio generator and MSVC toolset, windows as host only"
+    },
+	{
+      "name": "ci-package-dynamic-msvc",
+	  "inherits": "ci-package-dynamic-dev",
+	  "configurePreset": "ci-configure-dynamic-msvc",
+	  "displayName": "CI package-dynamic Visual Studio MSVC windows-host-only",
+	  "description": "CI dynamic package using Visual Studio generator and MSVC toolset, windows as host only"
+    }
+  ]
+}
