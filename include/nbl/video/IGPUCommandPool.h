@@ -791,33 +791,6 @@ class IGPUCommandPool::CBuildAccelerationStructuresCmd final : public IVariableS
         {
             return resourceCount;
         }
-
-        inline void fill(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos)
-        {
-            auto oit = getVariableCountResources();
-            for (auto& info : pInfos)
-            {
-                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.srcAS);
-                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.dstAS);
-                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(info.scratchAddr.buffer);
-                for (auto& geometry : info.geometries)
-                switch (geometry.type)
-                {
-                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES:
-                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.vertexData.buffer);
-                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.indexData.buffer);
-                        if (geometry.data.triangles.transformData.isValid())
-                            *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.triangles.transformData.buffer);
-                        break;
-                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_AABBS:
-                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.aabbs.data.buffer);
-                        break;
-                    case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_INSTANCES:
-                        *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(geometry.data.instances.data.buffer);
-                        break;
-                }
-            }
-        }
 };
 
 class IGPUCommandPool::CCopyAccelerationStructureCmd final : public IFixedSizeCommand<CCopyAccelerationStructureCmd>

@@ -652,9 +652,12 @@ bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(
     auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourceCount+1);
     if (!cmd)
         return false;
-    cmd->fill<IGPUBottomLevelAccelerationStructure>(pInfos);
 
-    cmd->getVariableCountResources()[resourceCount] = core::smart_refctd_ptr<const IGPUBuffer>(indirectRangeBuffer);
+    auto oit = cmd->getVariableCountResources();
+    for (const auto& info : infos)
+        oit = info.fillTracking(oit);
+    *oit = core::smart_refctd_ptr<const IGPUBuffer>(indirectRangeBuffer);
+
     return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,ppMaxPrimitiveCounts);
 }
 bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(

@@ -56,64 +56,60 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 
 
 template<class BufferType>
-inline uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const BuildRangeInfo* const buildRangeInfos) const
+template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
+uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const
 {
 	if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
 		return false;
 
+	const auto* device = dstAS->getOriginDevice();
+	if (!validBuildFlags(flags,device->getEnabledFeatures()))
+		return {};
+
+	const auto* physDev = device->getPhysicalDevice();
+	const auto& limits = getPhysicalDevice()->getLimits();
+
+	const uint32_t geometryCount = inputCount();
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
+    if (geometryCount >limits.maxAccelerationStructureGeometryCount)
+        return {};
+
 	const bool isAABB = buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
-	const bool hasMotion = dstAS->getCreationFlags().hasFlags(IAccelerationStructure::CREATE_FLAGS::MOTION_BIT);
+
 	#ifdef _NBL_DEBUG
-	if (isAABB)
+	size_t totalPrims = 0ull;
+	const auto& bufferUsages = physDev->getBufferFormatUsages();
+	for (auto i=0u; i<geometryCount; i++)
 	{
-		for (auto i=0u; i<aabbs.size(); i++)
+		BuildRangeInfo buildRangeInfo;
+		constexpr bool IndirectBuild = std::is_same_v<T, uint32_t>;
+		if constexpr (IndirectBuild)
 		{
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03811
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03812
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03814
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03774
-			if (invalidInputBuffer(aabbs[i].data,buildRangeInfos[i].primitiveOffset,buildRangeInfos[i].primitiveCount,sizeof(AABB_t),8u))
+			buildRangeInfo.primitiveOffset = 0u;
+			buildRangeInfo.primitiveCount = buildRangeInfosOrMaxPrimitiveCounts[i];
+		}
+		else
+			buildRangeInfo = buildRangeInfosOrMaxPrimitiveCounts[i];
+
+		if (isAABB)
+		{
+			if (!validGeometry(totalPrims,aabbs[i],buildRangeInfo))
 				return false;
 		}
-	}
-	else
-	{
-		const auto& bufferUsages = getOriginDevice()->getPhysicalDevice()->getBufferFormatUsages();
-		for (auto i=0u; i<triangles.size(); i++)
+		else
 		{
-			const auto& geometry = triangles[i];
-			//
-			if (!bufferUsages[geometry.vertexFormat].accelerationStructureVertex)
-				return false;
-			const size_t vertexSize = asset::getTexelOrBlockBytesize(geometry.vertexFormat);
-			// TODO: improve in line with
-			const size_t vertexAlignment = vertexSize;
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
-			if (invalidInputBuffer(geometry.vertexData[0],buildRangeInfos[i].firstVertex,geometry.maxVertex,vertexSize,vertexAlignment))
-				return false;
-			//
-			if (hasMotion && invalidInputBuffer(geometry.vertexData[1],buildRangeInfos[i].firstVertex,geometry.maxVertex,vertexSize,vertexAlignment))
-				return false;
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03712
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03806
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03807
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03771
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03772
-			if (geometry.indexType!=asset::EIT_UNKNOWN)
+			if constexpr (IndirectBuild)
 			{
-				const size_t indexSize = indexType==asset::EIT_16BIT ? sizeof(uint16_t):sizeof(uint32_t);
-				if (invalidInputBuffer(geometry.indexData,buildRangeInfos[i].primitiveOffset,buildRangeInfos[i].primitiveCount,indexSize,indexSize))
-					return false;
+				buildRangeInfo.firstVertex = 0u;
+				buildRangeInfo.transformOffset = 0u;
 			}
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03808
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-			if (geometry.transformData.buffer && invalidInputBuffer(geometry.transformData,buildRangeInfos[i].primitiveOffset,buildRangeInfos[i].primitiveCount,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf))) // TODO: check size
+			if (!validGeometry(totalPrims,triangles[i],buildRangeInfo))
 				return false;
 		}
 	}
+	// TODO: and not sure of VUID
+	if (totalPrims>size_t(limits.maxAccelerationStructurePrimitiveCount))
+		return false;
 	#endif
 
 	// destination and scratch
@@ -121,9 +117,15 @@ inline uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::val
 	if (isUpdate) // source
 		retval++;
 
+	const bool hasMotion = dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
 	const uint32_t MaxBuffersPerGeometry = isAABB ? 1u:(hasMotion ? 4u:3u);
-	retval += MaxBuffersPerGeometry*geometries.size();
+	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
+}
+
+bool validVertexFormat(const asset::E_FORMAT format)
+{
+	return getOriginDevice()->getPhysicalDevice()->getBufferFormatUsages()[format].accelerationStructureVertex;
 }
 
 }
