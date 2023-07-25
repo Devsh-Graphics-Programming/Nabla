@@ -38,7 +38,7 @@ class NBL_API2 CSystemWin32 : public ISystem
             // now lets try our custom dirs
             for (system::path dir : paths)
             {
-                const auto pathStr = (dir.make_preferred()/dllName).string();
+                const auto pathStr = std::filesystem::absolute(dir.make_preferred()/dllName).string(); // always attempt to resolve relative paths
                 if (res = LoadLibraryExA(pathStr.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                     break;
             }
