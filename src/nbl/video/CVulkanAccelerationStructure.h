@@ -118,13 +118,20 @@ void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStru
 	outBase.flags = getVkGeometryFlagsFrom(aabbs.geometryFlags.value);
 }
 
-inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUBottomLevelAccelerationStructure::BUILD_FLAGS in)
+template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const core::bitflag<typename AccelerationStructure::BUILD_FLAGS> in, const bool motionBlur)
 {
-	return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+	auto retval =  static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+	if (motionBlur)
+		retval |= VK_BUILD_ACCELERATION_STRUCTURE_MOTION_BIT_NV;
+	else
+		retval &= ~VK_BUILD_ACCELERATION_STRUCTURE_MOTION_BIT_NV;
+	return retval;
 }
-inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const IGPUTopLevelAccelerationStructure::BUILD_FLAGS in)
+template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const core::bitflag<typename AccelerationStructure::BUILD_FLAGS> in, const AccelerationStructure* as)
 {
-	return static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+	return getVkASBuildFlagsFrom<AccelerationStructure>(in,as->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT));
 }
 
 

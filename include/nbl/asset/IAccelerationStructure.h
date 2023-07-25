@@ -60,6 +60,18 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			// Provided by VK_KHR_ray_tracing_position_fetch
 			ALLOW_DATA_ACCESS_KHR = 0x1u<<11u,
 		};
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags)
+		{
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
+			if (flags.hasFlags(BUILD_FLAGS::PREFER_FAST_BUILD_BIT) && flags.hasFlags(BUILD_FLAGS::PREFER_FAST_TRACE_BIT))
+				return false;
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
+			if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
+				return false;
+
+			return true;
+		}
 		
 		// Apparently Vulkan allows setting these on TLAS Geometry (which are instances) but applying them to a TLAS doesn't make any SENSE AT ALL!
 		enum class GEOMETRY_FLAGS : uint8_t
@@ -75,6 +87,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		template<typename BufferType>
 		struct Triangles
 		{
+			using buffer_t = BufferType;
+
 			// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
 			asset::SBufferBinding<const BufferType>	vertexData[2] = {{},{}};
 			asset::SBufferBinding<const BufferType>	indexData = {};
@@ -92,6 +106,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		template<typename BufferType>
 		struct AABBs
 		{
+			using buffer_t = BufferType;
+
 			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};
 			uint32_t								stride = sizeof(AABB_t);
@@ -121,11 +137,19 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
 			LOW_MEMORY_BIT = 0x1u<<4u,
 			// Synthetic flag we use to indicate `VkAccelerationStructureGeometryInstancesDataKHR::arrayOfPointers`
-			INSTANCE_TYPE_ENCODED_IN_POINTER_LSB = 0x1u<<5u,
+			INSTANCE_TYPE_ENCODED_IN_POINTER_LSB = 0x1u<<5u, // TODO: rename?
 			// Provided by VK_NV_ray_tracing_motion_blur, but we always override and deduce from creation flag because of
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-dstAccelerationStructure-04927
 			//MOTION_BIT = 0x1u<<5u,
 		};
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags)
+		{
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
+			if (flags.hasFlags(BUILD_FLAGS::PREFER_FAST_BUILD_BIT) && flags.hasFlags(BUILD_FLAGS::PREFER_FAST_TRACE_BIT))
+				return false;
+
+			return true;
+		}
 
 		enum class INSTANCE_FLAGS : uint8_t
 		{

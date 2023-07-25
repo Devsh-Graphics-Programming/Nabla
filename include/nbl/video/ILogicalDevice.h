@@ -349,43 +349,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Acceleration Structure modifiers
-#if 0
-        template<typename build_flags_t>
-        inline bool validAccelerationStructureBuildFlags(const core::bitflag<build_flags_t> flags) const
-        {
-            constexpr bool BLAS = std::is_same_v<build_flags_t,IGPUBottomLevelAccelerationStructure::BUILD_FLAGS>;
-            constexpr bool TLAS = std::is_same_v<build_flags_t,IGPUTopLevelAccelerationStructure::BUILD_FLAGS>;
-            static_assert(BLAS||TLAS);
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
-            if (!m_enabledFeatures.accelerationStructure)
-                return false;
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
-            if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT) && flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
-                return false;
-            
-            if constexpr(BLAS)
-            {
-                /* TODO
-                if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !m_enabledFeatures.??????????)
-                    return false;
-                if (flags.hasFlags(build_flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !m_enabledFeatures.???????????)
-                    return false;
-                if (flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS) && !m_enabledFeatures.???????????)
-                    return false;
-                */
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
-                if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
-                    return false;
-            }
-            else
-            {
-                if (flags.hasFlags(build_flags_t::MOTION_BIT) && !m_enabledFeatures.rayTracingMotionBlur)
-                    return false;
-            }
-
-            return true;
-        }
         //
         struct AccelerationStructureBuildSizes
         {
@@ -396,52 +359,63 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             size_t buildScratchSize = ~0ull;
         };
         // fun fact: you can use garbage/invalid pointers/offset for the Device/Host addresses of the per-geometry data, just make sure what was supposed to be null is null
-        template<class Geometry>
-        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<typename Geometry::build_flags_t> flags, const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts) const
+        template<class Geometry> requires nbl::is_any_of_v<Geometry,
+            IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>
+        >
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveCounts) const
         {
-            static_assert(nbl::is_any_of_v<Geometry,
-                IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>,
-                IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>,
-                IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>,
-                IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>
-            >);
-            using buffer_t = Geometry::buffer_t;
-			// not sure of VUID
-			if (std::is_same_v<buffer_t,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
-				return {};
+            if (invalidFeatures<Geometry::buffer_t>(motionBlur))
+                return {};
 
-            if (!validAccelerationStructureBuildFlags(flags))
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
                 return {};
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-            if (geometries.size() && !pMaxPrimitiveOrInstanceCounts)
+            if (geometries.size() && !pMaxPrimitiveCounts)
                 return {};
 
             const auto& limits = getPhysicalDevice()->getLimits();
-            constexpr bool BLAS = std::is_same_v<IGPUTopLevelAccelerationStructure::Geometry<buffer_t>,Geometry>;
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-            if constexpr (BLAS)
             if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
                 return {};
 
-            uint32_t primsFree = BLAS ? limits.maxAccelerationStructurePrimitiveCount:limits.maxAccelerationStructureInstanceCount;
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
+            // not sure of VUID
+            uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
 			for (auto i=0u; i<geometries.size(); i++)
             {
-			    if (pMaxPrimitiveOrInstanceCounts[i]>primsFree)
+			    if (pMaxPrimitiveCounts[i]>primsFree)
 				    return {};
-                primsFree -= pMaxPrimitiveOrInstanceCounts[i];
+                primsFree -= pMaxPrimitiveCounts[i];
             }
 
-            return getAccelerationStructureBuildSizes_impl(flags,geometries,pMaxPrimitiveOrInstanceCounts);
+            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
-#endif
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
+        {
+            if (invalidFeatures<IGPUBuffer>(motionBlur))
+                return {};
 
+            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags))
+                return {};
 
+            const auto& limits = getPhysicalDevice()->getLimits();
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
+            if (maxInstanceCount>limits.maxAccelerationStructureInstanceCount)
+                return {};
 
-
-
-
+            return getAccelerationStructureBuildSizes_impl(hostBuild,flags,motionBlur,maxInstanceCount);
+        }
+        // little utility
+        template<typename BufferType=IGPUBuffer>
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
+        {
+            return getAccelerationStructureBuildSizes(std::is_same_v<BufferType,asset::ICPUBuffer>,flags,motionBlur,maxInstanceCount);
+        }
 
         //
         inline bool invalidAccelerationStructureForHostOperations(const IGPUAccelerationStructure* const as) const
@@ -455,11 +429,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Acceleration Structures manipulated using Host Commands should always be bound to host cached memory, as the implementation may need to repeatedly read and write this memory during the execution of the command.",system::ILogger::ELL_PERFORMANCE);
             return false;
         }
-        // For TLAS build `firstVertex` and `transformOffset` in the build ranges are ignored
+        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructures(
-            IDeferredOperation* const deferredOperation,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
+            IDeferredOperation* const deferredOperation, const core::SRange<const typename AccelerationStructure::HostBuildInfo>& infos,
+            const typename AccelerationStructure::DirectBuildRangeRangeInfos pDirectBuildRangeRangeInfos
         )
         {
             if (!acquireDeferredOperation(deferredOperation))
@@ -469,61 +442,24 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (!m_enabledFeatures.accelerationStructureHostCommands)
                 return false;
 
-            // we will at least need to track each dstAS
-            uint32_t trackingReservation = infos.size(); 
+            uint32_t trackingReservation = 0; 
             for (auto i=0u; i<infos.size(); i++)
-            if (!infos[i].valid(ppBuildRangeInfos[i]))
-                return false;
-            
-            auto result = buildAccelerationStructures_impl(deferredOperation,infos,ppBuildRangeInfos);
-            // track things created
-            if (result==DEFERRABLE_RESULT::DEFERRED)
             {
-                auto& tracking = deferredOperation->m_resourceTracking;
-                tracking.reserve(tracking.size()+infos.size()*3u);
-                for (const auto& info : infos)
-                {
-                    if (info.srcAS)
-                        tracking.emplace_back(info.srcAS);
-                    tracking.emplace_back(info.dstAS);
-                    // TODO
-                }
+                const auto toTrack = infos[i].valid(pDirectBuildRangeRangeInfos[i]);
+                if (!toTrack)
+                    return false;
+                trackingReservation += toTrack;
             }
-            return result!=DEFERRABLE_RESULT::SOME_ERROR;
-        }
-        // For TLAS build `firstVertex` and `transformOffset` in the build ranges are ignored
-        inline bool buildAccelerationStructures(
-            IDeferredOperation* const deferredOperation,
-            const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
-        )
-        {
-            if (!acquireDeferredOperation(deferredOperation))
-                return false;
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-accelerationStructureHostCommands-03581
-            if (!m_enabledFeatures.accelerationStructureHostCommands)
-                return false;
-
-            // we will at least need to track each dstAS
-            uint32_t trackingReservation = infos.size();
-            for (auto i=0u; i<infos.size(); i++)
-            if (!infos[i].valid(pBuildRangeInfos[i].primitiveOrInstanceCount))
-                return false;
-
-            auto result = buildAccelerationStructures_impl(deferredOperation,infos,pBuildRangeInfos);
+            
+            auto result = buildAccelerationStructures_impl(deferredOperation,infos,pDirectBuildRangeRangeInfos);
             // track things created
             if (result==DEFERRABLE_RESULT::DEFERRED)
             {
                 auto& tracking = deferredOperation->m_resourceTracking;
-                tracking.reserve(tracking.size()+infos.size()*3u);
+                tracking.resize(trackingReservation);
+                auto oit = tracking.data();
                 for (const auto& info : infos)
-                {
-                    if (info.srcAS)
-                        tracking.emplace_back(info.srcAS);
-                    tracking.emplace_back(info.dstAS);
-                    tracking.emplace_back(info.instanceData.buffer);
-                }
+                    oit = info.fillTracking(oit);
             }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
@@ -981,32 +917,47 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const auto bufferUsages = params.bufferRange.buffer->getCreationParams().usage;
             if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT))
                 return true;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
                 return true;
             return false;
         }
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
+        template<class Accelera>
+        bool invalidFeatures(const bool motionBlur) const
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
+            if (!m_enabledFeatures.accelerationStructure)
+                return true;
+			// not sure of VUID
+			if (std::is_same_v<buffer_t,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+				return true;
+            // not sure of VUID
+            if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur)
+                return true;
+
+            return false;
+        }
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
-            const uint32_t* const pMaxPrimitiveCounts
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
-            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<IGPUBuffer>>& geometries,
-            const uint32_t* const pMaxInstanceCounts
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
-            const uint32_t* const pMaxPrimitiveCounts
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
-            const core::SRange<const IGPUTopLevelAccelerationStructure::Geometry<asset::ICPUBuffer>>& geometries,
-            const uint32_t* const pMaxInstanceCounts
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+        ) const = 0;
+        virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
+            const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
+            const bool motionBlur, const uint32_t maxInstanceCount
         ) const = 0;
         enum class DEFERRABLE_RESULT : uint8_t
         {

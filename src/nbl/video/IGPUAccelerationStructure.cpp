@@ -71,7 +71,7 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 
 	const uint32_t geometryCount = inputCount();
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-    if (geometryCount >limits.maxAccelerationStructureGeometryCount)
+    if (geometryCount>limits.maxAccelerationStructureGeometryCount)
         return {};
 
 	const bool isAABB = buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);

@@ -5,7 +5,7 @@
 #define _NBL_VIDEO_I_GPU_ACCELERATION_STRUCTURE_H_INCLUDED_
 
 
-#include "nbl/asset/IAccelerationStructure.h"
+#include "nbl/asset/asset.h"
 
 #include "nbl/video/IDeferredOperation.h"
 #include "nbl/video/IGPUBuffer.h"
