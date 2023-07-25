@@ -1,14 +1,83 @@
-def execute(agent, config)
+import org.DevshGraphicsProgramming.Agent
+import org.DevshGraphicsProgramming.BuilderInfo
+import org.DevshGraphicsProgramming.IBuilder
+
+class CNablaBuilder extends IBuilder
 {
-	stage("CMake")
+	public static enum PRESET_TYPE 
 	{
-		  agent.execute("cmake -DNBL_UPDATE_GIT_SUBMODULE=OFF -DNBL_COMPILE_WITH_CUDA:BOOL=OFF -DNBL_BUILD_OPTIX:BOOL=OFF -DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF -DNBL_BUILD_RADEON_RAYS:BOOL=OFF -DNBL_RUN_TESTS:BOOL=ON -S ./ -B ./build -T v143")
+		CONFIGURE, BUILD
 	}
 
-	stage("Compile Nabla with ${config} configuration")
+	public CNablaBuilder(Agent _agent, BuilderInfo _info)
 	{
-		agent.execute("cmake --build ./build --target Nabla --config ${config} -j12 -v")
-	}	
+		super(_agent, _info)
+	}
+	
+	@Override
+	public boolean prepare(Map axisMapping)
+	{
+		final def preset = getPreset(PRESET_TYPE.CONFIGURE, axisMapping)
+			
+		agent.execute("cmake . --preset ${preset}")
+		
+		return true
+	}
+	
+	@Override
+  	public boolean build(Map axisMapping)
+	{
+		final def preset = getPreset(PRESET_TYPE.BUILD, axisMapping)	
+		final def nameOfConfig = getNameOfConfig(axisMapping.get("CONFIGURATION"))
+		
+		agent.execute("cmake --build --preset ${preset} --config ${nameOfConfig} -j12 -v")
+		
+		return true
+	}
+	
+	@Override
+  	public boolean test(Map axisMapping)
+	{
+		return true
+	}
+	
+	@Override
+	public boolean install(Map axisMapping)
+	{
+		return true
+	}
+	
+	private def getPreset(final PRESET_TYPE presetType, final Map _axisMapping) // currently we only maintain Windows as host with MSVC target
+	{
+		def mode, preset
+		
+		switch (presetType)
+		{
+			case PRESET_TYPE.CONFIGURE:
+				mode = "configure"
+				break
+			case PRESET_TYPE.BUILD:
+				mode = "build"
+				break
+		}
+	
+		switch (_axisMapping.get("BUILD_TYPE"))
+		{
+			case IBuilder.BUILD_TYPE.STATIC:
+				preset = "ci-${mode}-static-msvc"
+				break
+			case IBuilder.BUILD_TYPE.DYNAMIC:
+				preset = "ci-${mode}-dynamic-msvc"
+				break
+		}
+		
+		return preset
+	}
+}
+
+def create(Agent _agent, BuilderInfo _info)
+{
+	return new CNablaBuilder(_agent, _info)
 }
 
 return this

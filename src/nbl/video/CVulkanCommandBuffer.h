@@ -355,7 +355,50 @@ public:
     bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
     bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
     bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
-    
+
+    bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdInsertDebugUtilsLabelEXT == 0)
+            return false;
+
+        VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+        labelInfo.pLabelName = name;
+        labelInfo.color[0] = color.x;
+        labelInfo.color[1] = color.y;
+        labelInfo.color[2] = color.z;
+        labelInfo.color[3] = color.w;
+
+        vkCmdBeginDebugUtilsLabelEXT(m_cmdbuf, &labelInfo);
+        return true;
+    }
+
+    bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdBeginDebugUtilsLabelEXT == 0)
+            return false;
+        
+        VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+        labelInfo.pLabelName = name;
+        labelInfo.color[0] = color.x;
+        labelInfo.color[1] = color.y;
+        labelInfo.color[2] = color.z;
+        labelInfo.color[3] = color.w;
+        vkCmdBeginDebugUtilsLabelEXT(m_cmdbuf, &labelInfo);
+
+        return true;
+    }
+
+    bool endDebugMarker() override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdEndDebugUtilsLabelEXT == 0)
+            return false;
+        vkCmdEndDebugUtilsLabelEXT(m_cmdbuf);
+        return true;
+    }
+
 	inline const void* getNativeHandle() const override {return &m_cmdbuf;}
     VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
 
