@@ -431,6 +431,44 @@ VkAccelerationStructureKHR CVulkanLogicalDevice::createAccelerationStructure(con
 }
 
 
+auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
+    const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
+    const bool motionBlur, const uint32_t maxInstanceCount
+) const -> AccelerationStructureBuildSizes
+{
+    VkAccelerationStructureGeometryKHR geometry = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_INSTANCES_KHR};
+    geometry.geometry.instances = {};
+    // no "geometry flags" are valid for all instances!
+    geometry.flags = static_cast<VkGeometryFlagBitsKHR>(0);
+
+    return getAccelerationStructureBuildSizes_impl_impl(hostBuild,true,getVkASBuildFlagsFrom<IGPUTopLevelAccelerationStructure>(flags,motionBlur),1u,&geometry,&maxInstanceCount);
+}
+auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
+    const bool hostBuild, const bool isTLAS, const VkBuildAccelerationStructureFlagsKHR flags,
+    const uint32_t geometryCount, const VkAccelerationStructureGeometryKHR* geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
+) const -> AccelerationStructureBuildSizes
+{
+    VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
+    vk_buildGeomsInfo.type = isTLAS ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR:VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+    vk_buildGeomsInfo.flags = flags;
+    vk_buildGeomsInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_MAX_ENUM_KHR; // ignored by this command
+    vk_buildGeomsInfo.srcAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
+    vk_buildGeomsInfo.dstAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
+    vk_buildGeomsInfo.geometryCount = geometryCount;
+    vk_buildGeomsInfo.pGeometries = geometries;
+    vk_buildGeomsInfo.ppGeometries = nullptr;
+    vk_buildGeomsInfo.scratchData.deviceAddress = 0x0ull; // ignored by this command
+
+    VkAccelerationStructureBuildSizesInfoKHR vk_ret = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,nullptr};
+    m_devf.vk.vkGetAccelerationStructureBuildSizesKHR(m_vkdev,hostBuild ? VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR:VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,&vk_buildGeomsInfo,pMaxPrimitiveOrInstanceCounts,&vk_ret);
+    return AccelerationStructureBuildSizes{
+        .accelerationStructureSize = vk_ret.accelerationStructureSize,
+        .updateScratchSize = vk_ret.updateScratchSize,
+        .buildScratchSize = vk_ret.buildScratchSize
+    };
+}
+
+#if 0
 auto CVulkanLogicalDevice::buildAccelerationStructures(IDeferredOperation* const deferredOperation,
     const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
     IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos
@@ -473,6 +511,7 @@ auto CVulkanLogicalDevice::buildAccelerationStructures(IDeferredOperation* const
      
     return getDeferrableResultFrom(m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),infoCount,vk_buildGeomsInfos,buildRangeInfos));
 }
+#endif
 
 auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) -> DEFERRABLE_RESULT
 {
@@ -490,18 +529,6 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
 {
     const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
     return getDeferrableResultFrom(m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
-}
-
-IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::HostBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
-{
-    // TODO(Validation): Rayquery or RayTracing Pipeline must be enabled
-    return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_HOST_KHR, pBuildInfo, pMaxPrimitiveCounts);
-}
-
-IGPUAccelerationStructure::BuildSizes CVulkanLogicalDevice::getAccelerationStructureBuildSizes(const IGPUAccelerationStructure::DeviceBuildGeometryInfo& pBuildInfo, const uint32_t* pMaxPrimitiveCounts)
-{
-    // TODO(Validation): Rayquery or RayTracing Pipeline must be enabled
-    return getAccelerationStructureBuildSizes_impl(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, pBuildInfo, pMaxPrimitiveCounts);
 }
 
 

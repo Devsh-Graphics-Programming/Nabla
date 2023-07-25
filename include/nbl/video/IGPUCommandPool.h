@@ -687,7 +687,7 @@ class IGPUCommandPool::CWaitEventsCmd final : public IVariableSizeCommand<CWaitE
                 getVariableCountResources()[i] = core::smart_refctd_ptr<const IEvent>(events[i]);
         }
 
-        inline auto* getDeviceMemoryBacked() { return reinterpret_cast<core::smart_refctd_ptr<const IDeviceMemoryBacked>*>(getVariableCountResources()+m_eventCount); }
+        inline core::smart_refctd_ptr<const IDeviceMemoryBacked>* getDeviceMemoryBacked() {return reinterpret_cast<core::smart_refctd_ptr<const IDeviceMemoryBacked>*>(getVariableCountResources()+m_eventCount);}
 
         static uint32_t calc_resources(const uint32_t eventCount, const IEvent *const *const, const uint32_t totalBufferCount, const uint32_t totalImageCount)
         {
