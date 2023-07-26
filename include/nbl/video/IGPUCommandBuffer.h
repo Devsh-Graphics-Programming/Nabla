@@ -187,19 +187,47 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
         bool copyImageToBuffer(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions);
         bool copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions);
-
+        
         //! acceleration structure builds
-        bool buildAccelerationStructures(const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos);
-        bool buildAccelerationStructures(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos);
+        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool buildAccelerationStructures(const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos, const typename AccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
+        {
+            if (!buildAccelerationStructures_common(infos,buildRangeInfos))
+                return false;
+            return buildAccelerationStructures_impl(infos,buildRangeInfos);
+        }
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
-        bool buildAccelerationStructuresIndirect(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
-            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts
-        );
-        bool buildAccelerationStructuresIndirect(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
-            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const pMaxInstanceCounts
-        );
+        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool buildAccelerationStructuresIndirect(
+            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, typename AccelerationStructure::MaxInputCounts* const maxPrimitiveOrInstanceCounts
+        )
+        {
+            if (!maxPrimitiveOrInstanceCounts || !pIndirectStrides || !pIndirectOffsets)
+                return false;
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03645
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03647
+            if (!indirectRangeBuffer || indirectRangeBuffer->getDeviceAddress()==0ull || !indirectRangeBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+                return false;
+
+            for (auto i=0u; i<infos.size(); i++)
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03648
+                if (!core::is_aligned_to(pIndirectOffsets[i],alignof(uint32_t)))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectStrides-03787
+                if (!core::is_aligned_to(pIndirectStrides[i],alignof(uint32_t)))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
+                if (pIndirectOffsets[i]+infos[i].inputCount()*pIndirectStrides[i]>indirectRangeBuffer->getSize())
+                    return false;
+            }
+
+            if (!buildAccelerationStructures_common(infos,maxPrimitiveOrInstanceCounts,indirectRangeBuffer))
+                return false;
+            return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+        }
         
         //! acceleration structure transfers
         bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo);
@@ -400,7 +428,7 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         ) = 0;
         virtual bool buildAccelerationStructuresIndirect_impl(
             const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
-            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const pMaxInstanceCounts
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
         ) = 0;
 
         virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
@@ -579,85 +607,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
-
-        inline bool invalidAccelerationStructure(const IGPUAccelerationStructure* as) const
-        {
-            if (!as || this->isCompatibleDevicewise(as))
-                return true;
-            return false;
-        }
         
-        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
-        inline uint32_t validateBuildGeometryInfos(const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& pInfos) const
-        {
-            if (pInfos.empty())
-                return 0u;
-
-            //const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
-            const auto maxGeometryCount = ~0ull; // TODO: limits.maxGeometryCount
-            const auto maxPrimitiveCount = ~0ull; //TODO limits.accelerationStructure
-
-            uint32_t trackedResourceCount = 0u;
-            size_t totalGeometryCount = 0ull;
-            //size_t totalPrimitiveCount = 0ull;
-            for (auto& info : pInfos)
-            {
-                if (info.type!=IGPUAccelerationStructure::ET_GENERIC)
-                    return 0u;
-
-                // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccelerationStructureBuildGeometryInfoKHR.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
-                //if (info.buildFlags)
-
-                if (info.buildMode==IGPUAccelerationStructure::EBM_UPDATE && invalidAccelerationStructure(info.srcAS))
-                    return 0u;
-                if (invalidAccelerationStructure(info.dstAS))
-                    return 0u;
-
-                const auto geometryCount = info.geometries.size();
-                if (geometryCount==0u)
-                    return 0u;
-
-                const bool topLevel = info.type==IGPUAccelerationStructure::ET_TOP_LEVEL;
-                if (topLevel && geometryCount!=1u)
-                    return 0u;
-                totalGeometryCount += geometryCount;
-                for (auto& geom : info.geometries)
-                {
-                    // all of this in concert with : https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkAccelerationStructureBuildGeometryInfoKHR.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-                    // means we could slap the `geom.type` above and outside
-                    switch (geom.type)
-                    {
-                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_TRIANGLES:
-                            if (topLevel)
-                                return 0u;
-                            trackedResourceCount += 2u;
-                            if (geom.data.triangles.transformData.isValid())
-                                trackedResourceCount++;
-                            break;
-                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_AABBS:
-                            if (topLevel)
-                                return 0u;
-                            trackedResourceCount++;
-                            break;
-                        case IGPUAccelerationStructure::E_GEOM_TYPE::EGT_INSTANCES:
-                            if (!topLevel)
-                                return 0u;
-                            trackedResourceCount++;
-                            break;
-                    }
-                }
-                trackedResourceCount += 3u;
-            }
-
-            if (totalGeometryCount>maxGeometryCount)
-                return 0u;
-
-// TODO: whole structs of IAccelerationStructure need a refactor            
-//            if (primitiveCount>maxPrimitiveCount)
-//                return 0u;
-
-            return trackedResourceCount;
-        }
+        template<class DeviceBuildInfo, typename BuildRangeInfos>
+        bool buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
 
         bool invalidDynamic(const uint32_t first, const uint32_t count);
 
@@ -685,6 +637,19 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
+extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+);
+extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts>(
+    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
+);
+extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+);
+extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts>(
+    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
+);
+
 extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);

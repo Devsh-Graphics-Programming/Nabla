@@ -537,135 +537,50 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-#if 0
-template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
-bool IGPUCommandBuffer::buildAccelerationStructures(const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos)
+
+template<class DeviceBuildInfo, typename BuildRangeInfos>
+bool IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-    
-    const uint32_t resourceCount = validateBuildGeometryInfos(pInfos);
-    if (resourceCount==0u)
+
+    const auto& features = getOriginDevice()->getEnabledFeatures();
+    if (!features.accelerationStructure)
         return false;
 
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourceCount);
-    if (!cmd)
-        return false;
-    cmd->fill(pInfos);
-
-    return buildAccelerationStructures_impl(pInfos,ppBuildRangeInfos);
-}
-
-template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
-bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(
-    const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& pInfos,
-    const core::SRange<const asset::SBufferBinding<const IGPUBuffer>>& pIndirectDeviceAddresses,
-    const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveOrInstanceCounts
-)
-{
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-    
-    if (!pIndirectStrides)
-        return false;
-    // TODO: validate the values of `pIndirectStrides`
-    
-    if (!ppMaxPrimitiveOrInstanceCounts)
-        return false;
-    for (auto i=0u; i<pInfos.size(); i++)
-    {
-        const uint32_t* const pMaxPrimitiveOrInstanceCounts = ppMaxPrimitiveOrInstanceCounts[i];
-        if (!pMaxPrimitiveOrInstanceCounts)
-            return false;
-        // TODO: validate the values of `pMaxPrimitiveOrInstanceCounts`
-    }
-
-    return buildAccelerationStructuresIndirect_impl(pInfos,pIndirectDeviceAddresses,pIndirectStrides,ppMaxPrimitiveOrInstanceCounts);
-}
-
-// common
-{
-    // infos not null and not empty
-}
-
-// direct host
-{
-    //
-}
-
-// common cmdbuf
-{
-    // compute queue and outside a renderpass
-}
-
-// direct cmdbuf
-{
-    //
-}
-
-// indirect
-{
-    // common()
-
-    // max counts less than device limits
-}
-#endif
-
-bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(
-    const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
-    const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts
-)
-{
-    if (!getOriginDevice()->getEnabledFeatures().accelerationStructureIndirectBuild)
-        return false;
-
-    if (!ppMaxPrimitiveCounts || !pIndirectStrides || !pIndirectOffsets)
-        return false;
-
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03645
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03647
-    if (!indirectRangeBuffer || indirectRangeBuffer->getDeviceAddress()==0ull || !indirectRangeBuffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
-        return false;
-
+    uint32_t resourcesToTrack = 0u;
     for (auto i=0u; i<infos.size(); i++)
     {
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03648
-        if (!core::is_aligned_to(pIndirectOffsets[i],alignof(uint32_t)))
+        // valid also checks that the `ranges` are below device limits
+        const auto toAdd = infos[i].valid(ranges[i]);
+        if (toAdd!=0)
             return false;
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectStrides-03787
-        if (!core::is_aligned_to(pIndirectStrides[i],alignof(uint32_t)))
+        if (!isCompatibleDevicewise(infos[i].dstAS))
             return false;
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
-        if (pIndirectOffsets[i]+infos[i].inputCount()*pIndirectStrides[i]>indirectRangeBuffer->getSize())
-            return false;
+        resourcesToTrack += toAdd;
     }
-    
-    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
-        return false;
-    if (invalidAccelerationStructuresIndirectBuild(indirectRangeBuffer,infos))
+    // infos array was empty
+    if (resourcesToTrack==0u)
         return false;
 
-    const uint32_t resourceCount = validateBuildGeometryInfos(pInfos);
-    if (resourceCount==0u)
-        return false;
-
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourceCount+1);
+    if (indirectBuffer)
+    {
+        if (!features.accelerationStructureIndirectBuild)
+            return false;
+        resourcesToTrack++;
+    }
+            
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourcesToTrack);
     if (!cmd)
         return false;
 
-    auto oit = cmd->getVariableCountResources();
+    oit = cmd->getVariableCountResources();
+    if constexpr (indirectBuffer)
+        *(oit++) = indirectBuffer;
     for (const auto& info : infos)
         oit = info.fillTracking(oit);
-    *oit = core::smart_refctd_ptr<const IGPUBuffer>(indirectRangeBuffer);
 
-    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,ppMaxPrimitiveCounts);
-}
-bool IGPUCommandBuffer::buildAccelerationStructuresIndirect(
-    const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
-    const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const pMaxInstanceCounts
-)
-{
-    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,pMaxInstanceCounts);
+    return true;
 }
 
 bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
@@ -959,7 +874,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const core::SRange<
         return false;
 
     for (auto& as : pAccelerationStructures)
-    if (invalidAccelerationStructure(as))
+    if (!isCompatibleDevicewise(as))
         return false;
 
     auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_commandList, queryPool, pAccelerationStructures.size());
