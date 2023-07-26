@@ -67,7 +67,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 				return false;
 
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
-			if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
 				return false;
 
 			return true;
@@ -121,6 +121,9 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		virtual ~IBottomLevelAccelerationStructure() = default;
 };
 
+// forward declare for `static_assert`
+class ICPUBottomLevelAccelerationStructure;
+
 template<class AccelerationStructure>
 class ITopLevelAccelerationStructure : public AccelerationStructure
 {
@@ -168,7 +171,7 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		struct Instance final
 		{
 			static_assert(sizeof(blas_ref_t)==8 && alignof(blas_ref_t)==8);
-			static_assert(std::is_same_v<core::IReferenceCounted<asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t> || std::is_standard_layout_v<blas_ref_t>);
+			static_assert(std::is_same_v<core::smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>,blas_ref_t> || std::is_standard_layout_v<blas_ref_t>);
 
 			uint32_t	instanceCustomIndex : 24 = 0u;
 			uint32_t	mask : 8 = 0xFFu;

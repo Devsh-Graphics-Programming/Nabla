@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class IEvent : public core::IReferenceCounted, public IBackendObject
+class IEvent : public IBackendObject
 {
     public:
         enum class CREATE_FLAGS : uint8_t

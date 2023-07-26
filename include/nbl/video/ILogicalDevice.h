@@ -976,8 +976,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
-        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
-        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
