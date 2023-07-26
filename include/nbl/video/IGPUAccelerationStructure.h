@@ -49,7 +49,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		struct BuildInfo
 		{
 			public:
-				asset::SBufferBinding<BufferType>	scratchAddr = {};
+				asset::SBufferBinding<BufferType>	scratch = {};
 				// implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-mode-04628
 				bool								isUpdate = false;
 
@@ -175,6 +175,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		// read the comments in the .hlsl file, AABB builds ignore certain fields
 		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
 		using DirectBuildRangeRangeInfos = const BuildRangeInfo* const*;
+		using MaxInputCounts = const uint32_t* const;
 
 		template<class BufferType>
 		struct BuildInfo final : IGPUAccelerationStructure::BuildInfo<BufferType>
@@ -207,7 +208,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				inline bool validGeometry(size_t& totalPrims, const Triangles<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
 					//
-					if (!dstAs->validVertexFormat(geometry.vertexFormat))
+					if (!dstAS->validVertexFormat(geometry.vertexFormat))
 						return false;
 
 					const size_t vertexSize = asset::getTexelOrBlockBytesize(geometry.vertexFormat);
@@ -244,7 +245,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 
 				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
 				{
-					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratchAddr.buffer);
+					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
 						*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(srcAS);
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(dstAS);
@@ -302,7 +303,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		using asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
 
 	private:
-		bool validVertexFormat(const asset::E_FORMAT format);
+		bool validVertexFormat(const asset::E_FORMAT format) const;
 };
 template class IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
 template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
@@ -321,6 +322,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		// read the comments in the .hlsl file
 		using BuildRangeInfo = hlsl::acceleration_structures::top_level::BuildRangeInfo;
 		using DirectBuildRangeRangeInfos = const BuildRangeInfo*;
+		using MaxInputCounts = const uint32_t;
 
 		template<typename BufferType>
 		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
@@ -370,14 +372,14 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 					if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
 						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03801
-					if (buildRangeInfo.instanceCount>dstAs->getMaxInstanceCount())
+					if (buildRangeInfo.instanceCount>dstAS->getMaxInstanceCount())
 						return false;
 				
 					const bool arrayOfPointers = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_TYPE_ENCODED_IN_POINTER_LSB);
 					constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
 					// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
 					const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
-						dstAs->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
+						dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
 					);
 				
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03717
@@ -411,7 +413,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
 				{
-					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratchAddr.buffer);
+					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(Base::scratch.buffer);
 					if (Base::isUpdate)
 						*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(srcAS);
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(dstAS);

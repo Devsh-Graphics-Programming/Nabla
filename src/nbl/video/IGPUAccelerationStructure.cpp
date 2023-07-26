@@ -6,11 +6,11 @@ namespace nbl::video
 {
 
 template<class BufferType>
-bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst)
+bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-dstAccelerationStructure-03800
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03707
-	if (!dst || !dst->getCreationParams().bufferRange.buffer->getBoundMemory())
+	if (!dst || !dst->getCreationParams().bufferRange.buffer->getBoundMemory().isValid())
         return true;
 
 	const auto device = dst->getOriginDevice();
@@ -21,24 +21,24 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03708
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-srcAccelerationStructure-04629
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-04630
-		if (!src || src->getOriginDevice()!=device || !src->getCreationParams().bufferRange.buffer->getBoundMemory())
+		if (!src || src->getOriginDevice()!=device || !src->getCreationParams().bufferRange.buffer->getBoundMemory().isValid())
 			return true;
 	}
 	
-	if (!scratchAddr.isValid())
+	if (!scratch.isValid())
         return true;
 	if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
 	{
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03674
-		if (scratchAddr.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT))
+		if (scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT))
 			return true;
-		const auto scratchAddr = scratchAddr.buffer->getDeviceAddress();
+		const auto scratchAddress = scratch.buffer->getDeviceAddress();
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03802
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03803
-		if (scratchAddr==0ull)
+		if (scratchAddress==0ull)
 			return true;
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03710
-		if (!core::is_aligned_to(scratchAddr,device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment))
+		if (!core::is_aligned_to(scratchAddress,device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment))
 			return true;
 	}
 	else
@@ -56,7 +56,7 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 
 
 template<class BufferType>
-template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
+template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>
 uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const
 {
 	if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
@@ -123,7 +123,7 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	return retval;
 }
 
-bool validVertexFormat(const asset::E_FORMAT format)
+bool IGPUBottomLevelAccelerationStructure::validVertexFormat(const asset::E_FORMAT format) const
 {
 	return getOriginDevice()->getPhysicalDevice()->getBufferFormatUsages()[format].accelerationStructureVertex;
 }
