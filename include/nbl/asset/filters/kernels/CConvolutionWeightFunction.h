@@ -84,7 +84,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 		const WeightFunction1DA m_funcA;
 		const WeightFunction1DB m_funcB;
 
-		value_t weight_impl(const float x, const uint32_t sampleCount) const
+		value_t NBL_API2 weight_impl(const float x, const uint32_t sampleCount) const
 		{
 			const auto [minIntegrationLimit,maxIntegrationLimit] = getIntegrationDomain(x);
 			const double dtau = (maxIntegrationLimit-minIntegrationLimit)/double(sampleCount);

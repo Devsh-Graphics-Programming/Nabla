@@ -4,7 +4,7 @@
 
 namespace nbl::video
 {
-class CComputeBlit : public core::IReferenceCounted
+class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
 private:
 	struct vec3 { float x, y, z; };
