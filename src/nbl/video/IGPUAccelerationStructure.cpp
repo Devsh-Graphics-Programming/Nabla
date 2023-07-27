@@ -23,6 +23,8 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-04630
 		if (!src || src->getOriginDevice()!=device || !src->getCreationParams().bufferRange.buffer->getBoundMemory().isValid())
 			return true;
+		// TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03668
+		if (src!=dst && /*memory aliasing check*/false)
 	}
 	
 	if (!scratch.isValid())

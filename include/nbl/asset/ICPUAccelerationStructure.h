@@ -288,7 +288,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 				return;
 			m_buildFlags = buildFlags;
 			// we always clear this flag as we always store instances as polymorphic for ICPUTopLevelAccelerationStructure
-			m_buildFlags &= ~BUILD_FLAGS::INSTANCE_TYPE_ENCODED_IN_POINTER_LSB;
+			m_buildFlags &= ~BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB;
 		}
 
 		//
