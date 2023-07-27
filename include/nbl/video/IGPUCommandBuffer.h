@@ -189,12 +189,17 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         bool copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions);
         
         //! acceleration structure builds
-        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
-        inline bool buildAccelerationStructures(const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos, const typename AccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
+        inline bool buildAccelerationStructures(const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
-            if (!buildAccelerationStructures_common(infos,buildRangeInfos))
-                return false;
-            return buildAccelerationStructures_impl(infos,buildRangeInfos);
+            if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,buildRangeInfos); totalGeometryCount)
+                return buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount);
+            return false;
+        }
+        inline bool buildAccelerationStructures(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
+        {
+            if (buildAccelerationStructures_common(infos,buildRangeInfos))
+                return buildAccelerationStructures_impl(infos,buildRangeInfos);
+            return false;
         }
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
@@ -224,9 +229,14 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
                     return false;
             }
 
-            if (!buildAccelerationStructures_common(infos,maxPrimitiveOrInstanceCounts,indirectRangeBuffer))
-                return false;
-            return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+            if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,maxPrimitiveOrInstanceCounts,indirectRangeBuffer); totalGeometryCount)
+            {
+                if constexpr(std::is_same_v<AccelerationStructure,IGPUBottomLevelAccelerationStructure>)
+                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
+                else
+                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+            }
+            return false;
         }
         
         //! acceleration structure transfers
@@ -420,11 +430,16 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
         virtual bool copyImageToBuffer_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) = 0;
         virtual bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) = 0;
         
-        virtual bool buildAccelerationStructures_impl(const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
+        virtual bool buildAccelerationStructures_impl(
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos,
+            const uint32_t totalGeometryCount
+        ) = 0;
         virtual bool buildAccelerationStructures_impl(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
         virtual bool buildAccelerationStructuresIndirect_impl(
             const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
-            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
+            const uint32_t* const* const ppMaxPrimitiveCounts, const uint32_t totalGeometryCount
         ) = 0;
         virtual bool buildAccelerationStructuresIndirect_impl(
             const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
@@ -608,8 +623,9 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
         
+        // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
-        bool buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
+        uint32_t buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
 
         bool invalidDynamic(const uint32_t first, const uint32_t count);
 
@@ -637,16 +653,16 @@ class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBacke
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
-extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts>(
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts>(
     const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
 );
-extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-extern template bool IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts>(
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts>(
     const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
 );
 

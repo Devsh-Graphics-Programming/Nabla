@@ -539,7 +539,7 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
 
 
 template<class DeviceBuildInfo, typename BuildRangeInfos>
-bool IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
+uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -548,6 +548,7 @@ bool IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<co
     if (!features.accelerationStructure)
         return false;
 
+    uint32_t totalGeometries = 0u;
     uint32_t resourcesToTrack = 0u;
     for (auto i=0u; i<infos.size(); i++)
     {
@@ -558,6 +559,7 @@ bool IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<co
         if (!isCompatibleDevicewise(infos[i].dstAS))
             return false;
         resourcesToTrack += toAdd;
+        totalGeometries += infos[i].inputCount();
     }
     // infos array was empty
     if (resourcesToTrack==0u)
@@ -580,7 +582,7 @@ bool IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRange<co
     for (const auto& info : infos)
         oit = info.fillTracking(oit);
 
-    return true;
+    return totalGeometries;
 }
 
 bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
