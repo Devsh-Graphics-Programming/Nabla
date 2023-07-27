@@ -777,14 +777,23 @@ public:
         auto vkHandle = *static_cast<const VkDeviceMemory*>(mem->getNativeHandle());
         if (!vkHandle)
             return nullptr;
-        VkMemoryGetWin32HandleInfoKHR getHandleInfo = {
-            .sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-            .memory = vkHandle,
-            .handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalHandleTypes.value),
-        };
+#if _WIN32
+        VkMemoryGetWin32HandleInfoKHR getHandleInfo = { VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR };
+        auto pfn = m_devf.vk.vkGetMemoryWin32HandleKHR;
         void* handle = 0;
-        if(VK_SUCCESS == m_devf.vk.vkGetMemoryWin32HandleKHR(m_vkdev, &getHandleInfo, &handle))
-            return handle;
+#elif __unix__
+        VkMemoryGetFdInfoKHR getHandleInfo = { VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR };
+        auto pfn = m_devf.vk.vkGetMemoryFdKHR;
+        int handle = 0;
+#else 
+#error
+#endif
+        getHandleInfo.memory = vkHandle;
+        getHandleInfo.handleType = VkExternalMemoryHandleTypeFlagBits(obj->getCachedCreationParams().externalHandleTypes.value);
+        
+        if(VK_SUCCESS == pfn(m_vkdev, &getHandleInfo, &handle))
+            return (void*)(handle);
+        
         return nullptr;
     }
 

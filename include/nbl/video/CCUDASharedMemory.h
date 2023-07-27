@@ -4,7 +4,6 @@
 #ifndef _NBL_VIDEO_C_CUDA_SHARED_MEMORY_H_
 #define _NBL_VIDEO_C_CUDA_SHARED_MEMORY_H_
 
-#include "nbl/video/CCUDADevice.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
@@ -29,14 +28,15 @@ public:
 
     struct SCreationParams
     {
-        IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE type;
-        IDeviceMemoryBacked* srcRes;
-        union
-        {
-            CUmemGenericAllocationHandle mem;
-            CUexternalMemory extMem;
-        };
-        size_t size;
+        size_t            size;
+        uint32_t          alignment;
+        CUmemLocationType location;
+    };
+
+    struct SCachedCreationParams : SCreationParams
+    {
+        size_t granularSize;
+        CUmemGenericAllocationHandle mem;
         CUdeviceptr ptr;
         union
         {
@@ -47,16 +47,19 @@ public:
 
     const SCreationParams& getCreationParams() const { return m_params; }
 
+    core::smart_refctd_ptr<IGPUBuffer> exportAsBuffer(ILogicalDevice* device, core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage) const;
+    core::smart_refctd_ptr<IGPUImage>  exportAsImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const;
+
 protected:
 
-    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, SCreationParams&& params)
+    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
         : m_device(std::move(device))
-        , m_params(params)
+        , m_params(std::move(params))
     {}
     ~CCUDASharedMemory() override;
 
     core::smart_refctd_ptr<CCUDADevice> m_device;
-    SCreationParams m_params;
+    SCachedCreationParams m_params;
 };
 
 }

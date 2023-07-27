@@ -6,7 +6,8 @@
 
 
 #include "nbl/video/IPhysicalDevice.h"
-
+#include "nbl/video/CCUDASharedMemory.h"
+#include "nbl/video/CCUDASharedSemaphore.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
@@ -29,6 +30,14 @@ class CCUDASharedSemaphore;
 class CCUDADevice : public core::IReferenceCounted
 {
     public:
+#ifdef _WIN32
+		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_WIN32;
+		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_WIN32;
+#else
+		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_FD;
+		static constexpr CUmemAllocationHandleType ALLOCATION_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+#endif
+
 		enum E_VIRTUAL_ARCHITECTURE
 		{
 			EVA_30,
@@ -183,11 +192,9 @@ class CCUDADevice : public core::IReferenceCounted
 #endif
 		CUdevice getInternalObject() const { return m_handle; }
 		const CCUDAHandler* getHandler() const { return m_handler.get();  }
-		core::smart_refctd_ptr<IGPUBuffer> exportGPUBuffer(CCUDASharedMemory* mem, ILogicalDevice* device);
-		CUresult importGPUBuffer(core::smart_refctd_ptr<CCUDASharedMemory>* outPtr, IGPUBuffer* buf);
 		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, IGPUSemaphore* sem);
-		CUresult createExportableMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, size_t size, size_t alignment);
-		
+		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
+		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
 	protected:
 		friend class CCUDAHandler;
 		friend class CCUDASharedMemory;
@@ -195,14 +202,10 @@ class CCUDADevice : public core::IReferenceCounted
 
 		struct SCUDACleaner : video::ICleanup
 		{
-			core::smart_refctd_ptr<core::IReferenceCounted> resource;
-			SCUDACleaner(core::smart_refctd_ptr<core::IReferenceCounted> resource)
+			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
+			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
 				: resource(std::move(resource))
 			{ }
-			~SCUDACleaner() override
-			{
-				resource = nullptr;
-			}
 		};
 
 		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemGenericAllocationHandle memory);

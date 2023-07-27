@@ -135,7 +135,10 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         virtual const IDeviceMemoryAllocation* getBoundMemory() const = 0;
 
         //! Get handle of external memory, might be null
-        virtual void* getExternalHandle() = 0;
+        virtual void* getExternalHandle() { return nullptr;  }
+
+        //! Check whether if the resource exportable as the requested type
+        virtual bool isExportableAs(E_EXTERNAL_HANDLE_TYPE type) const { return false;  }
 
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;
@@ -145,11 +148,6 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
         {
             const uint32_t* queueFamilyIndices = nullptr;
         };
-
-        virtual bool getExternalMemoryProperties(struct SExternalMemoryProperties* outProps)  const
-        {
-            return false;
-        }
 
     protected:
         inline IDeviceMemoryBacked(SCreationParams&& _creationParams, const SDeviceMemoryRequirements& reqs)

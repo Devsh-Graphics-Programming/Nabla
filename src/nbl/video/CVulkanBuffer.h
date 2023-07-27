@@ -57,9 +57,12 @@ class CVulkanBuffer : public IGPUBuffer
             return nullptr;
         }
 
-        bool getExternalMemoryProperties(SExternalMemoryProperties* outProps)  const
+        bool isExportableAs(E_EXTERNAL_HANDLE_TYPE type) const override
         {
-            return getOriginDevice()->getPhysicalDevice()->getExternalMemoryProperties(outProps, getCachedCreationParams().externalHandleTypes, getCreationParams().usage);
+            auto props = getOriginDevice()->getPhysicalDevice()->getExternalMemoryProperties(getCreationParams().usage, type);
+            if (!props.exportable || !(props.exportableTypes & type))
+                return false;
+            return true;
         }
 
         size_t getBoundMemoryOffset() const override

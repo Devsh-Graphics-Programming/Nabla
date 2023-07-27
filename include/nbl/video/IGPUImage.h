@@ -29,6 +29,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
 			E_TILING tiling = ET_OPTIMAL;
+			//! Ignored if external
 			E_LAYOUT initialLayout = EL_UNDEFINED;
 
 			SCreationParams& operator =(const asset::IImage::SCreationParams& rhs)

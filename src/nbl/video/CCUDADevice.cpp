@@ -2,14 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/video/CCUDAHandler.h"
-#include "nbl/video/CCUDASharedMemory.h"
-#include "nbl/video/CCUDASharedSemaphore.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 namespace nbl::video
 {
-
-
 
 CCUDADevice::CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler)
 	: m_defaultCompileOptions(), m_vulkanConnection(std::move(_vulkanConnection)), m_vulkanDevice(_vulkanDevice), m_virtualArchitecture(_virtualArchitecture), m_handle(_handle), m_handler(std::move(_handler))
@@ -41,9 +37,9 @@ CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 		cu.pcuMemAddressFree(ptr, size);
 		return err;
 	}
-
+	
 	CUmemAccessDesc accessDesc = {
-		.location = {.type = CU_MEM_LOCATION_TYPE_DEVICE, .id = m_handle },
+		.location = { .type = CU_MEM_LOCATION_TYPE_DEVICE, .id = m_handle },
 		.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
 	};
 
@@ -59,36 +55,34 @@ CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 	return CUDA_SUCCESS;
 }
 
-CUresult CCUDADevice::createExportableMemory(
+CUresult CCUDADevice::createSharedMemory(
 	core::smart_refctd_ptr<CCUDASharedMemory>* outMem, 
-	size_t size, 
-	size_t alignment)
+	CCUDASharedMemory::SCreationParams&& inParams)
 {
 	if (!outMem)
 		return CUDA_ERROR_INVALID_VALUE;
 
+	CCUDASharedMemory::SCachedCreationParams params = { inParams };
+
 	auto& cu = m_handler->getCUDAFunctionTable();
 
 	uint32_t metaData[16] = { 48 };
+
 	CUmemAllocationProp prop = {
 		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-		.requestedHandleTypes = CU_MEM_HANDLE_TYPE_WIN32,
-		.location = {.type = CU_MEM_LOCATION_TYPE_DEVICE, .id = m_handle },
+		.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
+		.location = { .type = params.location, .id = m_handle },
 		.win32HandleMetaData = metaData,
 	};
-
+	
 	size_t granularity = 0;
 	if (auto err = cu.pcuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_RECOMMENDED); CUDA_SUCCESS != err)
 		return err;
 
-	size = ((size - 1) / granularity + 1) * granularity;
+	params.granularSize = ((params.size - 1) / granularity + 1) * granularity;
 
-	CCUDASharedMemory::SCreationParams params = {
-		.type = IDeviceMemoryBacked::EHT_OPAQUE_WIN32,
-		.size = size,
-	};
 
-	if(auto err = cu.pcuMemCreate(&params.mem, size, &prop, 0); CUDA_SUCCESS != err)
+	if(auto err = cu.pcuMemCreate(&params.mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
 		return err;
 	
 	if (auto err = cu.pcuMemExportToShareableHandle(&params.osHandle, params.mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
@@ -97,120 +91,15 @@ CUresult CCUDADevice::createExportableMemory(
 		return err;
 	}
 
-	if (auto err = reserveAdrressAndMapMemory(&params.ptr, size, alignment, params.mem); CUDA_SUCCESS != err)
+	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.size, params.alignment, params.mem); CUDA_SUCCESS != err)
 	{
 		CloseHandle(params.osHandle);
 		cu.pcuMemRelease(params.mem);
 		return err;
 	}
 
-
 	*outMem = core::smart_refctd_ptr<CCUDASharedMemory>(new CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)), core::dont_grab);
 
-	return CUDA_SUCCESS;
-}
-
-core::smart_refctd_ptr<IGPUBuffer> CCUDADevice::exportGPUBuffer(CCUDASharedMemory* mem, ILogicalDevice* device)
-{
-	if (!device || !mem)
-		return nullptr;
-
-	{
-		CUuuid id;
-		// TODO(Atil): Cache properties
-		if (CUDA_SUCCESS != m_handler->getCUDAFunctionTable().pcuDeviceGetUuid(&id, m_handle))
-			return nullptr;
-
-		if (memcmp(&id, device->getPhysicalDevice()->getProperties().deviceUUID, 16))
-			return nullptr;
-	}
-	auto& params = mem->getCreationParams();
-	auto buf = device->createBuffer(IGPUBuffer::SCreationParams {
-		asset::IBuffer::SCreationParams{
-			.size = params.size,
-			.usage = asset::IBuffer::EUF_STORAGE_BUFFER_BIT | asset::IBuffer::EUF_TRANSFER_SRC_BIT | asset::IBuffer::EUF_TRANSFER_DST_BIT 
-		},
-		IDeviceMemoryBacked::SCreationParams{ 
-			IDeviceMemoryBacked::SCachedCreationParams{
-				.preDestroyCleanup = std::make_unique<SCUDACleaner>(core::smart_refctd_ptr<CCUDASharedMemory>(mem)),
-				.externalHandleTypes = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(params.type),
-				.externalHandle = params.osHandle
-			}
-		}});
-	
-	auto req = buf->getMemoryReqs();
-	req.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-	auto allocation = device->allocate(req, buf.get());
-
-	if (!(allocation.memory && allocation.offset != ILogicalDevice::InvalidMemoryOffset))
-		return nullptr;
-
-	return buf;
-}
-
-CUresult CCUDADevice::importGPUBuffer(core::smart_refctd_ptr<CCUDASharedMemory>* outPtr, IGPUBuffer* buf)
-{
-	if (!buf || !outPtr)
-		return CUDA_ERROR_INVALID_VALUE;
-
-	IDeviceMemoryBacked::SExternalMemoryProperties props;
-	if(!buf->getExternalMemoryProperties(&props) || !props.exportable)
-		return CUDA_ERROR_INVALID_VALUE;
-
-	CUDA_EXTERNAL_MEMORY_HANDLE_DESC handleDesc = {
-		.size = buf->getMemoryReqs().size,
-	};
-
-	void* handle = buf->getExternalHandle();
-	CCUDASharedMemory::SCreationParams params = {
-		.srcRes = buf,
-		.size = handleDesc.size,
-	};
-
-	if (props.exportableTypes & IDeviceMemoryBacked::EHT_OPAQUE_FD)
-	{
-		handleDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
-		params.type = IDeviceMemoryBacked::EHT_OPAQUE_FD;
-		params.fd = handleDesc.handle.fd = int(handle);
-	}
-	
-	if (auto validTypes = props.exportableTypes & IDeviceMemoryBacked::EHT_WIN32_TYPES; validTypes)
-	{
-		handleDesc.type = static_cast<CUexternalMemoryHandleType>(1 + core::findLSB(validTypes));
-		params.type = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(validTypes);
-		params.osHandle = handleDesc.handle.win32.handle = handle;
-	}
-
-	if(!handleDesc.type)
-		return CUDA_ERROR_INVALID_VALUE;
-
-	auto& cu = m_handler->getCUDAFunctionTable();
-
-	CUDA_EXTERNAL_MEMORY_BUFFER_DESC bufferDesc = {
-		.offset = buf->getBoundMemoryOffset(),
-		.size = handleDesc.size,
-	};
-	
-#if 1
-	if (auto err = cu.pcuImportExternalMemory(&params.extMem, &handleDesc); CUDA_SUCCESS != err)
-		return err;
-
-	if (auto err = cu.pcuExternalMemoryGetMappedBuffer(&params.ptr, params.extMem, &bufferDesc); CUDA_SUCCESS != err)
-		return err;
-
-#else
-	if (auto err = cu.pcuMemImportFromShareableHandle(&params.mem, buf->getExternalHandle(), static_cast<CUmemAllocationHandleType>(props.compatibleTypes));
-		CUDA_SUCCESS != err)
-		return err;
-
-	if(auto err = reserveAdrressAndMapMemory(&params.ptr, buf->getSize(), 1u << buf->getMemoryReqs().alignmentLog2, params.mem))
-	{
-		cu.pcuMemRelease(params.mem);
-		return err;
-	}
-#endif
-	*outPtr = core::smart_refctd_ptr<CCUDASharedMemory>(new CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)),  core::dont_grab);
-	buf->grab();
 	return CUDA_SUCCESS;
 }
 

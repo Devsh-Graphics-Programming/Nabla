@@ -252,7 +252,17 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::SCreationParams&& params)
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
-    vk_createInfo.pNext = nullptr; // there are a lot of extensions
+
+    VkExternalMemoryImageCreateInfo  externalMemoryInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+        .handleTypes = params.externalHandleTypes.value,
+    };
+
+    const bool external = params.externalHandleTypes.value;
+    const bool imported = external && params.externalHandle;
+    const bool exported = external && !imported;
+
+    vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr; // there are a lot of extensions
     vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
@@ -265,10 +275,73 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
     vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-    vk_createInfo.initialLayout = static_cast<VkImageLayout>(params.initialLayout);
+    // The Vulkan spec states: If the pNext chain includes a VkExternalMemoryImageCreateInfo or VkExternalMemoryImageCreateInfoNV structure whose handleTypes member is not 0, initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED
+    vk_createInfo.initialLayout = external ? VK_IMAGE_LAYOUT_UNDEFINED : static_cast<VkImageLayout>(params.initialLayout);
+  
+    bool dedicatedOnly = false;
+    if (external)
+    {
+        auto pd = dynamic_cast<CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
+
+        core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
+
+        while (const auto idx = core::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
+
+            VkExternalImageFormatPropertiesNV xprops = {};
+
+            VkPhysicalDeviceExternalImageFormatInfo externalImageFormatInfo = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+                .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType),
+            };
+
+            VkPhysicalDeviceImageFormatInfo2 formatInfo = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+                .pNext = &externalImageFormatInfo,
+                .format = vk_createInfo.format,
+                .type = vk_createInfo.imageType,
+                .tiling = vk_createInfo.tiling,
+                .usage = vk_createInfo.usage,
+                .flags = vk_createInfo.flags,
+            };
+
+            VkExternalImageFormatProperties externalProps = { 
+                .sType = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES,
+            };
+            VkImageFormatProperties2 props = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+                .pNext = &externalProps,
+            };
+            
+            auto re = vkGetPhysicalDeviceImageFormatProperties2(pd, &formatInfo, &props);
+            assert(VK_SUCCESS == re);
+
+            if (props.imageFormatProperties.maxArrayLayers < vk_createInfo.arrayLayers ||
+                !core::bitflag<VkSampleCountFlagBits>(props.imageFormatProperties.sampleCounts).hasFlags(vk_createInfo.samples) ||
+                /* props.imageFormatProperties.maxResourceSize?? */
+                props.imageFormatProperties.maxExtent.width < vk_createInfo.extent.width ||
+                props.imageFormatProperties.maxExtent.height < vk_createInfo.extent.height ||
+                props.imageFormatProperties.maxExtent.depth < vk_createInfo.extent.depth)
+            {
+                return nullptr;
+            }
+
+            if (!core::bitflag(static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(externalProps.externalMemoryProperties.compatibleHandleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
+
+            if ((imported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_NV)) ||
+                (exported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_NV))) // no good
+                return nullptr;
+
+            dedicatedOnly |= externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT_NV;
+        }
+    }
 
     VkImage vk_image;
-    if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) == VK_SUCCESS)
+    VkResult re = m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image);
+    if (re == VK_SUCCESS)
     {
         VkImageMemoryRequirementsInfo2 vk_memReqsInfo = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 };
         vk_memReqsInfo.pNext = nullptr;
@@ -284,8 +357,8 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
         imageMemReqs.size = vk_memReqs.memoryRequirements.size;
         imageMemReqs.memoryTypeBits = vk_memReqs.memoryRequirements.memoryTypeBits;
         imageMemReqs.alignmentLog2 = std::log2(vk_memReqs.memoryRequirements.alignment);
-        imageMemReqs.prefersDedicatedAllocation = vk_memDedReqs.prefersDedicatedAllocation;
-        imageMemReqs.requiresDedicatedAllocation = vk_memDedReqs.requiresDedicatedAllocation;
+        imageMemReqs.prefersDedicatedAllocation  = dedicatedOnly || !!vk_memDedReqs.prefersDedicatedAllocation;
+        imageMemReqs.requiresDedicatedAllocation = dedicatedOnly || !!vk_memDedReqs.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanImage>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
@@ -868,14 +941,23 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
 
     if (external)
     {
-        IDeviceMemoryBacked::SExternalMemoryProperties props;
-        if (!m_physicalDevice->getExternalMemoryProperties(&props, creationParams.externalHandleTypes, creationParams.usage))
-            return nullptr;
+        core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+        
+        while (const auto idx = core::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
 
-        if ((imported && !props.importable) || (exported && !props.exportable))
-            return nullptr;
+            auto props = m_physicalDevice->getExternalMemoryProperties(creationParams.usage, handleType);
+            
+            if (!core::bitflag(static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
 
-        creationParams.externalHandleTypes = IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE(props.compatibleTypes);
+            if ((imported && !props.importable) || (exported && !props.exportable)) // no good
+                return nullptr;
+
+            dedicatedOnly = props.dedicatedOnly;
+        }
     }
 
     VkBuffer vk_buffer;
@@ -895,8 +977,8 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
         bufferMemoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
         bufferMemoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
         bufferMemoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-        bufferMemoryReqs.prefersDedicatedAllocation  = dedicatedOnly ? true : vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-        bufferMemoryReqs.requiresDedicatedAllocation = dedicatedOnly ? true : vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+        bufferMemoryReqs.prefersDedicatedAllocation  = dedicatedOnly || !!vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+        bufferMemoryReqs.requiresDedicatedAllocation = dedicatedOnly || !!vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
 
         return core::make_smart_refctd_ptr<CVulkanBuffer>(
             core::smart_refctd_ptr<CVulkanLogicalDevice>(this),

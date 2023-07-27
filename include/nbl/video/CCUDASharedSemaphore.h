@@ -4,8 +4,6 @@
 #ifndef _NBL_VIDEO_C_CUDA_SHARED_SEMAPHORE_H_
 #define _NBL_VIDEO_C_CUDA_SHARED_SEMAPHORE_H_
 
-#include "nbl/video/CCUDADevice.h"
-
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
 #include "cuda.h"

@@ -607,23 +607,22 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
 
-        bool getExternalMemoryProperties(IDeviceMemoryBacked::SExternalMemoryProperties* outProperties, core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> handleTypes, core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage) const
+        //! Not thread safe
+        IDeviceMemoryBacked::SExternalMemoryProperties getExternalMemoryProperties(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
-            usage &= asset::IBuffer::EUF_ANY;
-            if (!outProperties || !usage.value || !handleTypes.value)
-                return false;
-
-            IDeviceMemoryBacked::SExternalMemoryProperties re = {};
-            for (uint32_t i = 0; i < IDeviceMemoryBacked::HANDLE_TYPE_COUNT; ++i)
-                if (handleTypes.hasFlags(IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE(1 << i)))
-                    for (uint32_t j = 0; j < asset::IBuffer::USAGE_COUNT; ++j)
-                        if (usage.hasFlags(m_bufferUsageIndexMap[j]))
-                            re = re & m_externalBufferProperties[i][j];
-            *outProperties = re;
-            return true;
+            usage &= asset::IBuffer::EUF_ANY; // mask out synthetic flags
+            const SBufferPropertyKey key(usage, handleType);
+            auto it = m_externalBufferProperties.find(key);
+            if (it != m_externalBufferProperties.end())
+                return it->second;
+            
+            return m_externalBufferProperties[key] = getExternalMemoryProperties_impl(usage, handleType);
         }
 
+
     protected:
+        virtual IDeviceMemoryBacked::SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+
         IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api);
 
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
@@ -699,9 +698,35 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SMemoryProperties m_memoryProperties = {};
 
         /* ExternalBufferProperties *//* provided by VK_KHR_external_memory_capabilities */
-        asset::IBuffer::E_USAGE_FLAGS m_bufferUsageIndexMap[asset::IBuffer::USAGE_COUNT];
-        IDeviceMemoryBacked::SExternalMemoryProperties m_externalBufferProperties[IDeviceMemoryBacked::HANDLE_TYPE_COUNT][asset::IBuffer::USAGE_COUNT];
 
+        struct SBufferPropertyKey
+        {
+            static constexpr uint32_t HANDLE_TYPE_COUNT_LOG2 = 32u - std::countl_zero(IDeviceMemoryBacked::HANDLE_TYPE_COUNT);
+            uint32_t HandleTypeBit    : HANDLE_TYPE_COUNT_LOG2;
+            uint32_t BufferUsageFlags : 32u - HANDLE_TYPE_COUNT_LOG2;
+
+            constexpr SBufferPropertyKey(
+                core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usageFlags = asset::IBuffer::EUF_NONE,
+                IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE handleType = IDeviceMemoryBacked::EHT_NONE)
+                : BufferUsageFlags(static_cast<uint32_t>(usageFlags.value))
+                , HandleTypeBit(std::countr_zero(static_cast<uint32_t>(handleType)))
+            {
+                assert(!(handleType & (handleType - 1)));
+            }
+            constexpr bool operator==(SBufferPropertyKey const&) const = default;
+            struct Hasher
+            {
+                constexpr size_t operator()(SBufferPropertyKey const& key) const
+                {
+                    return static_cast<size_t>(key.HandleTypeBit | (key.BufferUsageFlags << HANDLE_TYPE_COUNT_LOG2));
+                }
+            };
+        };
+
+        static_assert(sizeof(SBufferPropertyKey) == sizeof(uint32_t));
+        using ExternalBufferPropertyMap = std::unordered_map<SBufferPropertyKey, IDeviceMemoryBacked::SExternalMemoryProperties, SBufferPropertyKey::Hasher>;
+        mutable ExternalBufferPropertyMap m_externalBufferProperties;
+        
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 
