@@ -83,8 +83,11 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	const auto& bufferUsages = physDev->getBufferFormatUsages();
 	for (auto i=0u; i<geometryCount; i++)
 	{
+		if (!triangles) // its a union so checks aabbs as well
+			return false;
+
 		BuildRangeInfo buildRangeInfo;
-		constexpr bool IndirectBuild = std::is_same_v<T, uint32_t>;
+		constexpr bool IndirectBuild = std::is_same_v<T,uint32_t>;
 		if constexpr (IndirectBuild)
 		{
 			buildRangeInfo.primitiveOffset = 0u;

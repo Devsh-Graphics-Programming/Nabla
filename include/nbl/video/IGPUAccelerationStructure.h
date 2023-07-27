@@ -180,10 +180,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				using Base = IGPUAccelerationStructure::BuildInfo<BufferType>;
 
 			public:
-				inline uint32_t inputCount() const
-				{
-					return buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT) ? aabbs.size():triangles.size();
-				}
+				inline uint32_t inputCount() const {return geometryCount;}
 
 				// Returns 0 on failure, otherwise returns the number of `core::smart_refctd_ptr` to reserve for lifetime tracking
 				// List of things too expensive or impossible (without GPU Assist) to validate:
@@ -256,13 +253,14 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 
 					if (buildFlags.hasFlags(IGPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 					{
-						for (const auto& geometry : aabbs)
-							*(oit++) = geometry.data.buffer;
+						for (auto i=0u; i<geometryCount; i++)
+							*(oit++) = aabbs[i].data.buffer;
 					}
 					else
 					{
-						for (const auto& geometry : triangles)
+						for (auto i=0u; i<geometryCount; i++)
 						{
+							const auto& geometry = triangles[i];
 							*(oit++) = geometry.vertexData[0].buffer;
 							if (geometry.vertexData[1].buffer)
 								*(oit++) = geometry.vertexData[1].buffer;
@@ -277,13 +275,14 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				}
 
 				core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+				uint32_t geometryCount = 0u;
 				const IGPUBottomLevelAccelerationStructure* srcAS = nullptr;
 				IGPUBottomLevelAccelerationStructure* dstAS = nullptr;
 				// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_IS_AABB_BIT)`
 				union
 				{
-					core::SRange<const Triangles<BufferType>> triangles = {nullptr,nullptr};
-					core::SRange<const AABBs<BufferType>> aabbs;
+					const Triangles<BufferType>* triangles = nullptr;
+					const AABBs<BufferType>* aabbs;
 				};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;

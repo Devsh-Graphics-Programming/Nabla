@@ -367,7 +367,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         >
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const core::SRange<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveCounts) const
+            const uint32_t geometryCount, const Geometry* const geometries, const uint32_t* const pMaxPrimitiveCounts) const
         {
             if (invalidFeatures<Geometry::buffer_t>(motionBlur))
                 return {};
@@ -376,24 +376,24 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-            if (geometries.size() && !pMaxPrimitiveCounts)
+            if (geometryCount && !pMaxPrimitiveCounts)
                 return {};
 
             const auto& limits = getPhysicalDevice()->getLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-            if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
+            if (geometryCount>limits.maxAccelerationStructureGeometryCount)
                 return {};
 
             // not sure of VUID
             uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
-			for (auto i=0u; i<geometries.size(); i++)
+			for (auto i=0u; i<geometryCount; i++)
             {
 			    if (pMaxPrimitiveCounts[i]>primsFree)
 				    return {};
                 primsFree -= pMaxPrimitiveCounts[i];
             }
 
-            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometryCount,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
         {
@@ -941,19 +941,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
@@ -976,8 +976,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
-        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) = 0;
-        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
+            IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
+            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
+        ) = 0;
+        virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
+            IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
+            const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
+        ) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
