@@ -442,6 +442,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (!m_enabledFeatures.accelerationStructureHostCommands)
                 return false;
 
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-infoCount-arraylength
+            if (infos.empty())
+                return false;
+
             uint32_t trackingReservation = 0; 
             uint32_t totalGeometryCount = 0; 
             for (auto i=0u; i<infos.size(); i++)

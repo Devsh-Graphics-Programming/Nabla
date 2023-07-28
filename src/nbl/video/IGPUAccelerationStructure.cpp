@@ -8,6 +8,7 @@ namespace nbl::video
 template<class BufferType>
 bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const
 {
+	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresIndirectKHR-dstAccelerationStructure-03800
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-dstAccelerationStructure-03800
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03707
 	if (!dst || !dst->getCreationParams().bufferRange.buffer->getBoundMemory().isValid())
@@ -25,6 +26,7 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 			return true;
 		// TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03668
 		if (src!=dst && /*memory aliasing check*/false)
+			return true;
 	}
 	
 	if (!scratch.isValid())
