@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class ISemaphore : public core::IReferenceCounted, public IBackendObject
+class ISemaphore : public IBackendObject
 {
     public:
         virtual uint64_t getCounterValue() const = 0;

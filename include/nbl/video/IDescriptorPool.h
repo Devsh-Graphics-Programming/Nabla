@@ -19,7 +19,7 @@ namespace nbl::video
 
 class IGPUDescriptorSet;
 
-class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API2 IDescriptorPool : public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t

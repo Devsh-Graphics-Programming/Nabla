@@ -158,10 +158,12 @@ template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 
 class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
 {
+		using Base = asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
+
 	public:
 		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceFeatures& enabledFeatures)
 		{
-			if (!asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>::validBuildFlags(flags))
+			if (!Base::validBuildFlags(flags))
 				return false;
 			/* TODO
 			if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !enabledFeatures.??????????)
@@ -353,7 +355,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		virtual host_op_ref_t getReferenceForHostOperations() const = 0;
 
 	protected:
-		using asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
+		using Base::Base;
 
 	private:
 		bool validVertexFormat(const asset::E_FORMAT format) const;
@@ -395,54 +397,55 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03672
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-06707
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03706
-				inline uint32_t valid(const BuildRangeInfo& buildRangeInfo) const
+				template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
+				inline uint32_t valid(const T& buildRangeInfo) const
 				{
-					if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
-						return false;
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03801
-					if (buildRangeInfo.instanceCount>dstAS->getMaxInstanceCount())
-						return false;
-				
-					const bool arrayOfPointers = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
-					constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
-					// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
-					const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
-						dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
-					);
-				
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03660
-					if (!core::is_aligned_to(buildRangeInfo.instanceByteOffset,16ull))
-						return false;
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03715
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03716
-					const size_t instanceAlignment = arrayOfPointers ? 16u:sizeof(void*);
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03813
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03814
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03778
-					if (Base::invalidInputBuffer(instanceData,buildRangeInfo.instanceByteOffset,buildRangeInfo.instanceCount,instanceSize,instanceAlignment))
-						return false;
-
-					#ifdef _NBL_DEBUG
-					/* TODO: with `EXT_private_data
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03724
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03779
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-04930
-					if constexpr (HostBuild)
+					if constexpr (std::is_same_v<T,uint32_t>)
+						return valid({.instanceCount=buildRangeInfo,.instanceByteOffset=0});
+					else
 					{
-						for (auto 
-						if (device->invalidAccelerationStructureForHostOperations(getAccelerationStructureFromReference(geometry.instanceData.blas)))
+						if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
 							return false;
-					}
-					*/
-					#endif
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03801
+						if (buildRangeInfo.instanceCount>dstAS->getMaxInstanceCount())
+							return false;
+				
+						const bool arrayOfPointers = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
+						constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
+						// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
+						const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
+							dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
+						);
+				
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03660
+						if (!core::is_aligned_to(buildRangeInfo.instanceByteOffset,16ull))
+							return false;
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03715
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03716
+						const size_t instanceAlignment = arrayOfPointers ? 16u:sizeof(void*);
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03813
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03814
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03778
+						if (Base::invalidInputBuffer(instanceData,buildRangeInfo.instanceByteOffset,buildRangeInfo.instanceCount,instanceSize,instanceAlignment))
+							return false;
 
-					// destination, scratch and instanceData are required, source is optional
-					return Base::isUpdate ? 4u:3u;
-				}
-				// for validating indirect builds
-				inline std::enable_if_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t> valid(const uint32_t maxInstanceCount) const
-				{
-					return valid({.instanceCount=maxInstanceCount,.instanceByteOffset=0});
+						#ifdef _NBL_DEBUG
+						/* TODO: with `EXT_private_data
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03724
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03779
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-04930
+						if constexpr (HostBuild)
+						{
+							for (auto 
+							if (device->invalidAccelerationStructureForHostOperations(getAccelerationStructureFromReference(geometry.instanceData.blas)))
+								return false;
+						}
+						*/
+						#endif
+
+						// destination, scratch and instanceData are required, source is optional
+						return Base::isUpdate ? 4u:3u;
+					}
 				}
 
 				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
@@ -536,7 +539,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				uint32_t reservedMotionFlags = 0u;
 				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
 				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
-				static_assert(alignof(largestUnionMember)==8ull);
+				static_assert(alignof(SRTMotionInstance<blas_ref_t>)==8ull);
 		};
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;

@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-class IQueryPool : public core::IReferenceCounted, public IBackendObject
+class IQueryPool : public IBackendObject
 {
     public:
             enum TYPE : uint16_t

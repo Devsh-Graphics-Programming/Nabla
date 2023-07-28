@@ -22,7 +22,7 @@ namespace nbl::video
 // depr
 class IGPUMeshBuffer;
 
-class NBL_API2 IGPUCommandBuffer : public core::IReferenceCounted, public IBackendObject
+class NBL_API2 IGPUCommandBuffer : public IBackendObject
 {
     public:
         inline IGPUCommandPool::BUFFER_LEVEL getLevel() const { return m_level; }

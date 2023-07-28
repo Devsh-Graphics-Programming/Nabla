@@ -19,7 +19,7 @@ namespace nbl::video
 
 class IGPUCommandBuffer;
 
-class IGPUCommandPool : public core::IReferenceCounted, public IBackendObject
+class IGPUCommandPool : public IBackendObject
 {
         // for temporary arrays instead of having to use `core::vector`
         template<typename T> friend class StackAllocation;

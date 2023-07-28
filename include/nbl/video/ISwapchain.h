@@ -12,7 +12,7 @@ namespace nbl::video
 {
 class IQueue;
 
-class ISwapchain : public core::IReferenceCounted, public IBackendObject
+class ISwapchain : public IBackendObject
 {
     public:
         struct SCreationParams
