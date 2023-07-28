@@ -266,12 +266,25 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 						if (Base::invalidInputBuffer(geometry.vertexData[i],buildRangeInfo.primitiveByteOffset+firstVertexByteOffset,indexCount,geometry.vertexStride,vertexAlignment))
 							return false;
 					}
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03808
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-					if (geometry.transformData.buffer && Base::invalidInputBuffer(geometry.transformData,buildRangeInfo.transformByteOffset,1u,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
-						return false;
+
+					if (geometry.hasTransform())
+					{
+						if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
+						{
+							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03808
+							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
+							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
+							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
+							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
+								return false;
+						}
+						else
+						{
+							if (!(core::abs(core::determinant(geometry.transform))>std::numeric_limits<float>::min()))
+								return false;
+						}
+					}
+
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
@@ -298,8 +311,9 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 								*(oit++) = geometry.vertexData[1].buffer;
 							if (geometry.indexData.buffer)
 								*(oit++) = geometry.indexData.buffer;
-							if (geometry.transformData.buffer)
-								*(oit++) = geometry.transformData.buffer;
+							if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
+							if (geometry.hasTransform())
+								*(oit++) = geometry.transform.buffer;
 						}
 					}
 

@@ -88,12 +88,22 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		struct Triangles
 		{
 			using buffer_t = BufferType;
+			// we make our life easier by not taking pointers to single matrix values
+			using transform_t = std::conditional_t<std::is_same_v<BufferType,ICPUBuffer>,core::matrix3x4SIMD,asset::SBufferBinding<const BufferType>>;
 
+			inline bool hasTransform() const
+			{
+				if constexpr (std::is_same_v<BufferType,ICPUBuffer>)
+					return !core::isnan(transform[0][0]);
+				else
+					return bool(transform.buffer);
+			}
+
+			// optional, only useful for baking model transforms of multiple meshes into one BLAS
+			transform_t	transform = {};
 			// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
 			asset::SBufferBinding<const BufferType>	vertexData[2] = {{},{}};
 			asset::SBufferBinding<const BufferType>	indexData = {};
-			// optional, only useful for baking model transforms of multiple meshes into one BLAS
-			asset::SBufferBinding<const BufferType>	transformData = {};
 			uint32_t								maxVertex = 0u;
 			// type implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03819
 			uint32_t								vertexStride = sizeof(float);

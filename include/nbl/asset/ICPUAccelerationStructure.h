@@ -150,8 +150,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 							const_cast<ICPUBuffer*>(geometry.vertexData[j].buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 						if (geometry.indexData.buffer)
 							const_cast<ICPUBuffer*>(geometry.indexData.buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
-						if (geometry.transformData.buffer)
-							const_cast<ICPUBuffer*>(geometry.transformData.buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 					}
 				}
 			}
@@ -192,8 +190,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 						return false;
 					if (dst.indexType!=EIT_UNKNOWN && dst.indexData.isValid() && !asset::canBeRestoredFrom(dst.indexData,src.indexData))
 						return false;
-					if (dst.transformData.isValid() && !asset::canBeRestoredFrom(dst.transformData,src.transformData))
-						return false;
 				}
 			}
 			return true;
@@ -231,7 +227,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 					condRestoreBufferInBinding(srcGeom.vertexData[0],dstGeom.vertexData[0]);
 					condRestoreBufferInBinding(srcGeom.vertexData[1],dstGeom.vertexData[1]);
 					condRestoreBufferInBinding(srcGeom.indexData,dstGeom.indexData);
-					condRestoreBufferInBinding(srcGeom.transformData,dstGeom.transformData);
 				}
 			}
 		}
@@ -257,8 +252,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 					if (triGeom.vertexData[1].buffer && triGeom.vertexData[1].buffer->isAnyDependencyDummy(_levelsBelow))
 						return true;
 					if (triGeom.indexData.buffer && triGeom.indexData.buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.transformData.buffer && triGeom.transformData.buffer->isAnyDependencyDummy(_levelsBelow))
 						return true;
 				}
 			}
