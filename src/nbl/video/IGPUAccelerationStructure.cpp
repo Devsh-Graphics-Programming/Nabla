@@ -124,8 +124,17 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	if (isUpdate) // source
 		retval++;
 
-	const bool hasMotion = dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
-	const uint32_t MaxBuffersPerGeometry = isAABB ? 1u:(hasMotion ? 4u:3u);
+	uint32_t MaxBuffersPerGeometry = 1u;
+	if (!isAABB)
+	{
+		// on host builds the transforms are "by-value" no BDA ergo no tracking needed
+		MaxBuffersPerGeometry = std::is_same_v<BufferType,IGPUBuffer> ? 3u:2u;
+
+		const bool hasMotion = dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
+		if (hasMotion)
+			MaxBuffersPerGeometry++;
+	}
+
 	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
 }

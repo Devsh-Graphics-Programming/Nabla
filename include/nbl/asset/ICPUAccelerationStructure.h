@@ -20,6 +20,8 @@ class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
 	protected:
 		using IAccelerationStructure::IAccelerationStructure;
 };
+NBL_ENUM_ADD_BITWISE_OPERATORS(IBottomLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
+NBL_ENUM_ADD_BITWISE_OPERATORS(ITopLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
 
 class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>
 {
@@ -264,7 +266,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>> m_AABBGeoms = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
-NBL_ENUM_ADD_BITWISE_OPERATORS(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS);
 
 class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStructure<ICPUAccelerationStructure>
 {
@@ -436,7 +437,6 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 };
-NBL_ENUM_ADD_BITWISE_OPERATORS(ICPUTopLevelAccelerationStructure::BUILD_FLAGS);
 
 }
 

@@ -188,19 +188,19 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			uint32_t	instanceCustomIndex : 24 = 0u;
 			uint32_t	mask : 8 = 0xFFu;
 			uint32_t	instanceShaderBindingTableRecordOffset : 24 = 0u;
-			uint32_t	flags : 8 = INSTANCE_FLAGS::TRIANGLE_FACING_CULL_DISABLE_BIT;
+			uint32_t	flags : 8 = static_cast<uint32_t>(INSTANCE_FLAGS::TRIANGLE_FACING_CULL_DISABLE_BIT);
 			blas_ref_t	blas = {};
 		};
 		template<typename blas_ref_t>
 		struct StaticInstance final
 		{
-			core::matrix3x4SIMD	transform;
+			core::matrix3x4SIMD	transform = core::matrix3x4SIMD();
 			Instance<blas_ref_t> base = {};
 		};
 		template<typename blas_ref_t>
 		struct MatrixMotionInstance final
 		{
-			core::matrix3x4SIMD transform[2];
+			core::matrix3x4SIMD transform[2] = {core::matrix3x4SIMD(),core::matrix3x4SIMD()};
 			Instance<blas_ref_t> base = {};
 		};
 		struct SRT
@@ -227,11 +227,11 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		template<typename blas_ref_t>
 		struct SRTMotionInstance final
 		{
-			alignas(8) SRT transform[2];
+			alignas(8) SRT transform[2] = {};
 			Instance<blas_ref_t> base = {};
 
-			static_assert(sizeof(base)==16ull);
-			static_assert(alignof(base)==8ull);
+			static_assert(sizeof(Instance<blas_ref_t>)==16ull);
+			static_assert(alignof(Instance<blas_ref_t>)==8ull);
 		};
 
 		// enum for distinguishing unions of Instance Types when there is no `INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB` in build flags
