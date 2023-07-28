@@ -443,15 +443,17 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return false;
 
             uint32_t trackingReservation = 0; 
+            uint32_t totalGeometryCount = 0; 
             for (auto i=0u; i<infos.size(); i++)
             {
                 const auto toTrack = infos[i].valid(pDirectBuildRangeRangeInfos[i]);
                 if (!toTrack)
                     return false;
                 trackingReservation += toTrack;
+                totalGeometryCount += infos[i].inputCount();
             }
             
-            auto result = buildAccelerationStructures_impl(deferredOperation,infos,pDirectBuildRangeRangeInfos);
+            auto result = buildAccelerationStructures_impl(deferredOperation,infos,pDirectBuildRangeRangeInfos,totalGeometryCount);
             // track things created
             if (result==DEFERRABLE_RESULT::DEFERRED)
             {
@@ -978,11 +980,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
             IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos
+            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
         virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
             IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
-            const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos
+            const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;

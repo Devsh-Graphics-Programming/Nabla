@@ -84,7 +84,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
                 vk_pBuildRangeInfos[i] = out_vk_infos;
                 getVkASBuildRangeInfos(infos[i].inputCount(),ppBuildRangeInfos[i],out_vk_infos);
             }
-            return buildAccelerationStructures_impl_impl<IGPUBottomLevelAccelerationStructure>(infos,vk_buildRangeInfos.data(),vk_pBuildRangeInfos.data(),vk_vertexMotions.data());
+            return buildAccelerationStructures_impl_impl<IGPUBottomLevelAccelerationStructure>(infos,vk_pBuildRangeInfos.data(),vk_vertexMotions.data());
         }
         inline bool buildAccelerationStructures_impl(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) override
         {
@@ -99,20 +99,19 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
                 vk_buildRangeInfos[i] = getVkASBuildRangeInfo(pBuildRangeInfos[i]);
                 vk_pBuildRangeInfos[i] = vk_buildRangeInfos.data()+i;
             }
-            return buildAccelerationStructures_impl_impl<IGPUTopLevelAccelerationStructure>(infos,vk_buildRangeInfos.data(),vk_pBuildRangeInfos.data());
+            return buildAccelerationStructures_impl_impl<IGPUTopLevelAccelerationStructure>(infos,vk_pBuildRangeInfos.data());
         }
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructures_impl_impl(
             const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
-            const VkAccelerationStructureBuildRangeInfoKHR* const vk_buildRangeInfos,
-            const VkAccelerationStructureBuildRangeInfoKHR* const* vk_pBuildRangeInfos,
+            const VkAccelerationStructureBuildRangeInfoKHR* const* const vk_ppBuildRangeInfos,
             VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
         )
         {
             const auto infoCount = infos.size();
             IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildGeometryInfoKHR> vk_buildGeomsInfos(m_cmdpool,infoCount);
             // I can actually rely on this pointer arithmetic because I allocated and populated the arrays myself
-            const uint32_t totalGeometryCount = infos[infoCount-1].inputCount()+(vk_pBuildRangeInfos[infoCount-1]-vk_pBuildRangeInfos[0]);
+            const uint32_t totalGeometryCount = infos[infoCount-1].inputCount()+(vk_ppBuildRangeInfos[infoCount-1]-vk_ppBuildRangeInfos[0]);
             IGPUCommandPool::StackAllocation<VkAccelerationStructureGeometryKHR> vk_geometries(m_cmdpool,totalGeometryCount);
             if (!vk_geometries || !vk_buildGeomsInfos)
                 return false;
@@ -121,7 +120,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             for (auto i=0u; i<infoCount; i++)
                 getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
 
-            getFunctionTable().vkCmdBuildAccelerationStructuresKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),vk_pBuildRangeInfos);
+            getFunctionTable().vkCmdBuildAccelerationStructuresKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),vk_ppBuildRangeInfos);
             return true;
         }
 

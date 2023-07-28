@@ -440,7 +440,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
     geometry.geometry.instances = {};
     // no "geometry flags" are valid for all instances!
     geometry.flags = static_cast<VkGeometryFlagBitsKHR>(0);
-
+    
     return getAccelerationStructureBuildSizes_impl_impl(hostBuild,true,getVkASBuildFlagsFrom<IGPUTopLevelAccelerationStructure>(flags,motionBlur),1u,&geometry,&maxInstanceCount);
 }
 auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
@@ -468,50 +468,6 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     };
 }
 
-#if 0
-auto CVulkanLogicalDevice::buildAccelerationStructures(IDeferredOperation* const deferredOperation,
-    const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
-    IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos
-) -> DEFERRABLE_RESULT
-{
-    auto features = getEnabledFeatures();
-    if(!features.accelerationStructure)
-    {
-        assert(false && "device acceleration structures is not enabled.");
-        return false;
-    }
-
-
-        VkDeferredOperationKHR vk_deferredOp = IBackendObject::device_compatibility_cast<CVulkanDeferredOperation *>(deferredOperation.get(), this)->getInternalObject();
-        static constexpr size_t MaxGeometryPerBuildInfoCount = 64;
-        static constexpr size_t MaxBuildInfoCount = 128;
-        size_t infoCount = pInfos.size();
-        assert(infoCount <= MaxBuildInfoCount);
-                
-        // TODO: Use better container when ready for these stack allocated memories.
-        VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfos[MaxBuildInfoCount] = {};
-
-        uint32_t geometryArrayOffset = 0u;
-        VkAccelerationStructureGeometryKHR vk_geometries[MaxGeometryPerBuildInfoCount * MaxBuildInfoCount] = {};
-
-        IGPUAccelerationStructure::HostBuildGeometryInfo* infos = pInfos.begin();
-        for(uint32_t i = 0; i < infoCount; ++i)
-        {
-            uint32_t geomCount = infos[i].geometries.size();
-
-            assert(geomCount > 0);
-            assert(geomCount <= MaxGeometryPerBuildInfoCount);
-
-            vk_buildGeomsInfos[i] = CVulkanAccelerationStructure::getVkASBuildGeomInfoFromBuildGeomInfo(m_vkdev, &m_devf, infos[i], &vk_geometries[geometryArrayOffset]);
-            geometryArrayOffset += geomCount; 
-        }
-                
-        static_assert(sizeof(IGPUAccelerationStructure::BuildRangeInfo) == sizeof(VkAccelerationStructureBuildRangeInfoKHR));
-        auto buildRangeInfos = reinterpret_cast<const VkAccelerationStructureBuildRangeInfoKHR* const*>(ppBuildRangeInfos);
-     
-    return getDeferrableResultFrom(m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),infoCount,vk_buildGeomsInfos,buildRangeInfos));
-}
-#endif
 
 auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) -> DEFERRABLE_RESULT
 {

@@ -133,6 +133,9 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 		// this will return false also if your deferred operation is not ready yet, so please use in combination with `isPending()`
 		virtual bool wasCopySuccessful(const IDeferredOperation* const deferredOp) = 0;
 
+		// this will return false also if your deferred operation is not ready yet, so please use in combination with `isPending()`
+		virtual bool wasBuildSuccessful(const IDeferredOperation* const deferredOp) = 0;
+
 		// Vulkan const VkAccelerationStructureKHR*
 		virtual const void* getNativeHandle() const = 0;
 
