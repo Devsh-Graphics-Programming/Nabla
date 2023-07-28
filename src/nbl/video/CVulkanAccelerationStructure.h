@@ -80,7 +80,7 @@ inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUBottomLevelAccelerati
 // The srcAccelerationStructure, dstAccelerationStructure, and mode members of pBuildInfo are ignored. Any VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command
 static const VkDeviceOrHostAddressConstKHR NullAddress = { 0x0ull };
 template<class BufferType, bool QueryOnly=false>
-void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase)
 {
 	static const VkDeviceOrHostAddressConstKHR DummyNonNullAddress = { 0xdeadbeefBADC0FFEull };
 
@@ -93,23 +93,34 @@ void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStru
 	outBase.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType);
 	outBase.geometry.triangles.indexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.indexData);
 	// except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL.
-	outBase.geometry.triangles.transformData = QueryOnly ? DummyNonNullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.transformData);
+	if (triangles.hasTransform())
+		outBase.geometry.triangles.transformData = NullAddress;
+	else if (QueryOnly)
+		outBase.geometry.triangles.transformData = DummyNonNullAddress;
+	else
+	{
+		if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
+			outBase.geometry.triangles.transformData = getVkDeviceOrHostConstAddress<IGPUBuffer>(triangles.transform);
+		else
+			outBase.geometry.triangles.transformData.hostAddress = triangles.transform.pointer();
+	}
 	outBase.flags = getVkGeometryFlagsFrom(triangles.geometryFlags.value);
 }
-#if 0 // TODO
 template<class BufferType, bool QueryOnly=false>
-void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV& vertexMotion)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV* &p_vertexMotion)
 {
-	getVkAcelerationStructureGeometryFrom(triangles,outBase);
+	getVkASGeometryFrom(triangles,outBase);
 	if (triangles.vertexData[1].buffer)
 	{
-		vertexMotion->vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.vertexData[1]);
-		outBase.geometry.triangles.pNext = vertexMotion;
+		p_vertexMotion->sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_MOTION_TRIANGLES_DATA_NV;
+		p_vertexMotion->pNext = nullptr; // no micromaps for now 
+		p_vertexMotion->vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(triangles.vertexData[1]);
+		outBase.geometry.triangles.pNext = p_vertexMotion++;
 	}
 }
-#endif
+
 template<class BufferType, bool QueryOnly=false>
-void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStructure::AABBs<BufferType>& aabbs, VkAccelerationStructureGeometryKHR& outBase)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::AABBs<BufferType>& aabbs, VkAccelerationStructureGeometryKHR& outBase)
 {
 	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_AABBS_KHR};
 	outBase.geometry.aabbs = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,nullptr};
@@ -118,6 +129,18 @@ void getVkAcelerationStructureGeometryFrom(const IGPUBottomLevelAccelerationStru
 	outBase.flags = getVkGeometryFlagsFrom(aabbs.geometryFlags.value);
 }
 
+template<class BufferType, bool QueryOnly=false>
+void getVkASGeometryFrom(const IGPUTopLevelAccelerationStructure::BuildInfo<BufferType>& info, VkAccelerationStructureGeometryKHR& outBase)
+{
+	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_INSTANCES_KHR};
+	outBase.geometry.instances = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,nullptr};
+	outBase.geometry.instances.arrayOfPointers = info.buildFlags.hasFlags(IGPUTopLevelAccelerationStructure::BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
+	outBase.geometry.instances.data = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(info.instanceData);
+	// no "geometry flags" are valid for all instances!
+	vk_geom.flags = static_cast<VkGeometryFlagsKHR>(0u);
+}
+
+// TODO: do BLASes with vertex motion need `VK_BUILD_ACCELERATION_STRUCTURE_MOTION_BIT_NV` ?
 template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
 inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const core::bitflag<typename AccelerationStructure::BUILD_FLAGS> in, const bool motionBlur)
 {
@@ -134,6 +157,58 @@ inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const core::bi
 	return getVkASBuildFlagsFrom<AccelerationStructure>(in,as->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT));
 }
 
+template<class BuildInfo> 
+inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(const BuildInfo& info, VkAccelerationStructureGeometryKHR* &p_vk_geometry, VkAccelerationStructureGeometryMotionTrianglesDataNV* &p_vertexMotion)
+{
+	using acceleration_structure_t = std::remove_pointer_t<decltype(info.dstAS)>;
+	constexpr bool IsTLAS = std::is_same_v<acceleration_structure_t,IGPUTopLevelAccelerationStructure>;
+
+	VkAccelerationStructureBuildGeometryInfoKHR vk_info = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
+    vk_info.type = IsTLAS ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR:VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+    vk_info.flags = getVkASBuildFlagsFrom<acceleration_structure_t>(info.buildFlags,info.dstAS);
+    vk_info.mode = info.isUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR:VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    vk_info.srcAccelerationStructure = static_cast<const CVulkanAccelerationStructure<acceleration_structure_t>*>(info.srcAS)->getInternalObject();
+    vk_info.dstAccelerationStructure = static_cast<CVulkanAccelerationStructure<acceleration_structure_t>*>(info.dstAS)->getInternalObject();
+    vk_info.geometryCount = info.inputCount();
+    vk_info.pGeometries = p_vk_geometry;
+    vk_info.ppGeometries = nullptr;
+    vk_info.scratchData.deviceAddress = info.scratch.buffer->getDeviceAddress()+info.scratch.offset;
+
+	if constexpr (IsTLAS)
+	{
+		getVkASGeometryFrom(info,*p_vk_geometry);
+		p_vk_geometry++;
+	}
+	else
+	for (auto j=0u; j<info.geometryCount; j++)
+	{
+		auto& vk_geom = *(p_vk_geometry++);
+		if (info.buildFlags.hasFlags(IGPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+			getVkASGeometryFrom(info.aabbs[j],vk_geom);
+		else
+			getVkASGeometryFrom(info.triangles[j],vk_geom,p_vertexMotion);
+	}
+}
+
+inline void getVkASBuildRangeInfos(const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo*const pBuildRanges, VkAccelerationStructureBuildRangeInfoKHR* &out_vk_infos)
+{
+	for (auto i=0; i<geometryCount; i++)
+		*(out_vk_infos++) = {
+			.primitiveCount = pBuildRanges[i].primitiveCount,
+			.primitiveOffset = pBuildRanges[i].primitiveByteOffset,
+			.firstVertex = pBuildRanges[i].firstVertex,
+			.transformOffset = pBuildRanges[i].transformByteOffset
+		};
+}
+inline VkAccelerationStructureBuildRangeInfoKHR getVkASBuildRangeInfo(const IGPUTopLevelAccelerationStructure::BuildRangeInfo& info)
+{
+	return {
+		.primitiveCount = info.instanceCount,
+		.primitiveOffset = info.instanceByteOffset,
+		.firstVertex = 0, .transformOffset = 0
+	};
+}
+
 
 class CVulkanLogicalDevice;
 
@@ -146,6 +221,7 @@ class CVulkanAccelerationStructure : public GPUAccelerationStructure
 		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
 	
 		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
+		bool wasBuildSuccessful(const IDeferredOperation* const deferredOp) override;
 
 	protected:
 		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);

@@ -8,6 +8,7 @@
 #include "nbl/video/CVulkanEvent.h"
 #include "nbl/video/CVulkanBuffer.h"
 #include "nbl/video/CVulkanImage.h"
+#include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanDescriptorSet.h"
 #include "nbl/video/CVulkanRenderpass.h"
 #include "nbl/video/CVulkanFramebuffer.h"
@@ -60,8 +61,122 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool copyImageToBuffer_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions) override;
         bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) override;
 
-        bool buildAccelerationStructures_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const video::IGPUAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos) override;
-        bool buildAccelerationStructuresIndirect_impl(const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<const IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* const pIndirectStrides, const uint32_t* const* const ppMaxPrimitiveCounts) override;
+        inline bool buildAccelerationStructures_impl(
+            const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos,
+            const uint32_t totalGeometryCount
+        ) override
+        {
+            const auto infoCount = infos.size();
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildRangeInfoKHR> vk_buildRangeInfos(m_cmdpool,totalGeometryCount);
+            IGPUCommandPool::StackAllocation<const VkAccelerationStructureBuildRangeInfoKHR*> vk_pBuildRangeInfos(m_cmdpool,infoCount);
+            if (!vk_buildRangeInfos || !vk_pBuildRangeInfos)
+                return false;
+            
+            // TODO: check for the raytracing feature enabled before wasting memory
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureGeometryMotionTrianglesDataNV> vk_vertexMotions(m_cmdpool,totalGeometryCount);
+            if (!vk_vertexMotions)
+                return false;
+
+            auto out_vk_infos = vk_buildRangeInfos.data();
+            for (auto i=0u; i<infoCount; i++)
+            {
+                vk_pBuildRangeInfos[i] = out_vk_infos;
+                getVkASBuildRangeInfos(infos[i].inputCount(),ppBuildRangeInfos[i],out_vk_infos);
+            }
+            return buildAccelerationStructures_impl_impl<IGPUBottomLevelAccelerationStructure>(infos,vk_buildRangeInfos.data(),vk_pBuildRangeInfos.data(),vk_vertexMotions.data());
+        }
+        inline bool buildAccelerationStructures_impl(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) override
+        {
+            const auto infoCount = infos.size();
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildRangeInfoKHR> vk_buildRangeInfos(m_cmdpool,infoCount);
+            IGPUCommandPool::StackAllocation<const VkAccelerationStructureBuildRangeInfoKHR*> vk_pBuildRangeInfos(m_cmdpool,infoCount);
+            if (!vk_buildRangeInfos || !vk_pBuildRangeInfos)
+                return false;
+            
+            for (auto i=0u; i<infoCount; i++)
+            {
+                vk_buildRangeInfos[i] = getVkASBuildRangeInfo(pBuildRangeInfos[i]);
+                vk_pBuildRangeInfos[i] = vk_buildRangeInfos.data()+i;
+            }
+            return buildAccelerationStructures_impl_impl<IGPUTopLevelAccelerationStructure>(infos,vk_buildRangeInfos.data(),vk_pBuildRangeInfos.data());
+        }
+        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool buildAccelerationStructures_impl_impl(
+            const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const VkAccelerationStructureBuildRangeInfoKHR* const vk_buildRangeInfos,
+            const VkAccelerationStructureBuildRangeInfoKHR* const* vk_pBuildRangeInfos,
+            VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
+        )
+        {
+            const auto infoCount = infos.size();
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildGeometryInfoKHR> vk_buildGeomsInfos(m_cmdpool,infoCount);
+            // I can actually rely on this pointer arithmetic because I allocated and populated the arrays myself
+            const uint32_t totalGeometryCount = infos[infoCount-1].inputCount()+(vk_pBuildRangeInfos[infoCount-1]-vk_pBuildRangeInfos[0]);
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureGeometryKHR> vk_geometries(m_cmdpool,totalGeometryCount);
+            if (!vk_geometries || !vk_buildGeomsInfos)
+                return false;
+
+            auto out_vk_geoms = vk_geometries.data();
+            for (auto i=0u; i<infoCount; i++)
+                getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
+
+            getFunctionTable().vkCmdBuildAccelerationStructuresKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),vk_pBuildRangeInfos);
+            return true;
+        }
+
+        bool buildAccelerationStructuresIndirect_impl(
+            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
+            const uint32_t* const* const ppMaxPrimitiveCounts, const uint32_t totalGeometryCount
+        ) override
+        {
+            // TODO: check for the raytracing feature enabled before wasting memory
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureGeometryMotionTrianglesDataNV> vk_vertexMotions(m_cmdpool,totalGeometryCount);
+            if (!vk_vertexMotions)
+                return false;
+
+            return buildAccelerationStructuresIndirect_impl_impl<IGPUBottomLevelAccelerationStructure>(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,ppMaxPrimitiveCounts,totalGeometryCount,vk_vertexMotions.data());
+        }
+        bool buildAccelerationStructuresIndirect_impl(
+            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
+        ) override
+        {
+            const auto infoCount = infos.size();
+            IGPUCommandPool::StackAllocation<const uint32_t*> vk_pMaxInstanceCounts(m_cmdpool,infoCount);
+            if (!vk_pMaxInstanceCounts)
+                return false;
+            
+            for (auto i=0u; i<infoCount; i++)
+                vk_pMaxInstanceCounts[i] = pMaxInstanceCounts+i;
+            return buildAccelerationStructuresIndirect_impl_impl<IGPUTopLevelAccelerationStructure>(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,vk_pMaxInstanceCounts.data(),infoCount);
+        }
+        template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool buildAccelerationStructuresIndirect_impl_impl(
+            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
+            const uint32_t* const* const ppMaxPrimitiveOrInstanceCounts, const uint32_t totalGeometryCount,
+            VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
+        )
+        {
+            const auto infoCount = infos.size();
+            IGPUCommandPool::StackAllocation<VkDeviceAddress> indirectDeviceAddresses(m_cmdpool,infoCount);
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildGeometryInfoKHR> vk_buildGeomsInfos(m_cmdpool,infoCount);
+            IGPUCommandPool::StackAllocation<VkAccelerationStructureGeometryKHR> vk_geometries(m_cmdpool,totalGeometryCount);
+            if (!indirectDeviceAddresses || !vk_geometries || !vk_buildGeomsInfos)
+                return false;
+            
+            const auto baseIndirectAddress = indirectRangeBuffer->getDeviceAddress();
+            auto out_vk_geoms = vk_geometries.data();
+            for (auto i=0u; i<infoCount; i++)
+            {
+                getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
+                indirectDeviceAddresses[i] = baseIndirectAddress+pIndirectOffsets[i];
+            }
+            getFunctionTable().vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),indirectDeviceAddresses.data(),pIndirectStrides,ppMaxPrimitiveOrInstanceCounts);
+            return true;
+        }
 
         bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
         bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
