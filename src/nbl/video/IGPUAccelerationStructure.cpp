@@ -90,7 +90,7 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 		constexpr bool IndirectBuild = std::is_same_v<T,uint32_t>;
 		if constexpr (IndirectBuild)
 		{
-			buildRangeInfo.primitiveOffset = 0u;
+			buildRangeInfo.primitiveByteOffset = 0u;
 			buildRangeInfo.primitiveCount = buildRangeInfosOrMaxPrimitiveCounts[i];
 		}
 		else
@@ -106,7 +106,7 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 			if constexpr (IndirectBuild)
 			{
 				buildRangeInfo.firstVertex = 0u;
-				buildRangeInfo.transformOffset = 0u;
+				buildRangeInfo.transformByteOffset = 0u;
 			}
 			if (!validGeometry(totalPrims,triangles[i],buildRangeInfo))
 				return false;

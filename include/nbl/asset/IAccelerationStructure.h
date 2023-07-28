@@ -95,6 +95,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			// optional, only useful for baking model transforms of multiple meshes into one BLAS
 			asset::SBufferBinding<const BufferType>	transformData = {};
 			uint32_t								maxVertex = 0u;
+			// type implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03819
 			uint32_t								vertexStride = sizeof(float);
 			E_FORMAT								vertexFormat = EF_R32G32B32_SFLOAT;
 			E_INDEX_TYPE							indexType = EIT_UNKNOWN;
@@ -110,6 +111,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 
 			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};
+			// type implicity satisfies https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryAabbsDataKHR-stride-03820
 			uint32_t								stride = sizeof(AABB_t);
 			core::bitflag<GEOMETRY_FLAGS>			geometryFlags = GEOMETRY_FLAGS::NONE;
 		};

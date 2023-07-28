@@ -78,9 +78,9 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 				bool invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const;
 
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-geometry-03673
-				static inline bool invalidInputBuffer(const asset::SBufferBinding<const BufferType>& binding, const size_t offset, const size_t count, const size_t elementSize, const size_t alignment)
+				static inline bool invalidInputBuffer(const asset::SBufferBinding<const BufferType>& binding, const size_t byteOffset, const size_t count, const size_t elementSize, const size_t alignment)
 				{
-					if (!binding.buffer || binding.offset+(offset+count)*elementSize<binding.buffer->getSize())
+					if (!binding.buffer || binding.offset+byteOffset+count*elementSize<binding.buffer->getSize())
 						return true;
 
 					if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
@@ -149,6 +149,8 @@ template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03699
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03700
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03760
+// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03789
+// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03790
 
 class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
 {
@@ -197,12 +199,20 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				// really expensive to call, `valid` only calls it when `_NBL_DEBUG` is defined
 				inline bool validGeometry(size_t& totalPrims, const AABBs<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
+					constexpr size_t AABBalignment = 8ull;
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03659
+					if (!core::is_aligned_to(buildRangeInfo.primitiveByteOffset,AABBalignment))
+						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03811
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03812
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03814
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03774
-					if (Base::invalidInputBuffer(geometry.data,buildRangeInfo.primitiveOffset,buildRangeInfo.primitiveCount,sizeof(AABB_t),8u))
+					if (Base::invalidInputBuffer(geometry.data,buildRangeInfo.primitiveByteOffset,buildRangeInfo.primitiveCount,sizeof(AABB_t),AABBalignment))
 						return false;
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryAabbsDataKHR-stride-03545
+					if (!core::is_aligned_to(geometry.stride,AABBalignment))
+						return false;
+
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
@@ -215,30 +225,52 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 					const size_t vertexSize = asset::getTexelOrBlockBytesize(geometry.vertexFormat);
 					// TODO: improve in line with the spec https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03711
 					const size_t vertexAlignment = core::max(vertexSize/4u,1ull);
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
-					if (Base::invalidInputBuffer(geometry.vertexData[0],buildRangeInfo.firstVertex,geometry.maxVertex,vertexSize,vertexAlignment))
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03735
+					if (!core::is_aligned_to(geometry.vertexStride,vertexAlignment))
 						return false;
+
 					//
-					const bool hasMotion = dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
-					if (hasMotion && Base::invalidInputBuffer(geometry.vertexData[1],buildRangeInfo.firstVertex,geometry.maxVertex,vertexSize,vertexAlignment))
-						return false;
+					const bool hasMotion = geometry.vertexData[1].buffer && dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
+
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03712
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03806
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03807
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03771
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03772
+					const size_t indexCount = 3ull*buildRangeInfo.primitiveCount;
+					const size_t firstVertexByteOffset = size_t(buildRangeInfo.firstVertex)*geometry.vertexStride;
 					if (geometry.indexType!=asset::EIT_UNKNOWN)
 					{
 						const size_t indexSize = geometry.indexType==asset::EIT_16BIT ? sizeof(uint16_t):sizeof(uint32_t);
-						if (Base::invalidInputBuffer(geometry.indexData,buildRangeInfo.primitiveOffset*3u,buildRangeInfo.primitiveCount*3u,indexSize,indexSize))
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03656
+						if (!core::is_aligned_to(buildRangeInfo.primitiveByteOffset,indexSize))
+							return false;
+						if (Base::invalidInputBuffer(geometry.indexData,buildRangeInfo.primitiveByteOffset,indexCount,indexSize,indexSize))
+							return false;
+						
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
+						for (auto i=0u; i<hasMotion ? 2u:1u; i++)
+						if (Base::invalidInputBuffer(geometry.vertexData[i],firstVertexByteOffset,buildRangeInfo.firstVertex+geometry.maxVertex,geometry.vertexStride,vertexAlignment))
+							return false;
+					}
+					else
+					{
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03657
+						if (!core::is_aligned_to(buildRangeInfo.primitiveByteOffset,vertexAlignment))
+							return false;
+						
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
+						for (auto i=0u; i<hasMotion ? 2u:1u; i++)
+						if (Base::invalidInputBuffer(geometry.vertexData[i],buildRangeInfo.primitiveByteOffset+firstVertexByteOffset,indexCount,geometry.vertexStride,vertexAlignment))
 							return false;
 					}
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03808
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-					if (geometry.transformData.buffer && Base::invalidInputBuffer(geometry.transformData,buildRangeInfo.primitiveOffset,buildRangeInfo.primitiveCount,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
+					if (geometry.transformData.buffer && Base::invalidInputBuffer(geometry.transformData,buildRangeInfo.transformByteOffset,1u,sizeof(core::matrix3x4SIMD),sizeof(core::vectorSIMDf)))
 						return false;
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
@@ -334,6 +366,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				using Base = IGPUAccelerationStructure::BuildInfo<BufferType>;
 
 			public:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03791
 				inline uint32_t inputCount() const {return 1u;}
 
 				// Returns 0 on failure, otherwise returns the number of `core::smart_refctd_ptr` to reserve for lifetime tracking
@@ -359,13 +392,16 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 						dstAS->getCreationParams().flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) ? sizeof(DevicePolymorphicInstance):sizeof(DeviceStaticInstance)
 					);
 				
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03660
+					if (!core::is_aligned_to(buildRangeInfo.instanceByteOffset,16ull))
+						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03715
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03716
 					const size_t instanceAlignment = arrayOfPointers ? 16u:sizeof(void*);
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03813
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03814
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03778
-					if (Base::invalidInputBuffer(instanceData,buildRangeInfo.instanceOffset,buildRangeInfo.instanceCount,instanceSize,instanceAlignment))
+					if (Base::invalidInputBuffer(instanceData,buildRangeInfo.instanceByteOffset,buildRangeInfo.instanceCount,instanceSize,instanceAlignment))
 						return false;
 
 					#ifdef _NBL_DEBUG
@@ -386,7 +422,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				// for validating indirect builds
 				inline std::enable_if_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t> valid(const uint32_t maxInstanceCount) const
 				{
-					return valid({.instanceCount=maxInstanceCount,.instanceOffset=0});
+					return valid({.instanceCount=maxInstanceCount,.instanceByteOffset=0});
 				}
 
 				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const

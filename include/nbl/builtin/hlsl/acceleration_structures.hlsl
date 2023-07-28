@@ -23,10 +23,10 @@ namespace bottom_level
 struct BuildRangeInfo
 {
     uint32_t primitiveCount; // needs to stay constant across updates
-    uint32_t primitiveOffset;
+    uint32_t primitiveByteOffset;
     // following are only relevant for Triangle Geometries in BLASes
     uint32_t firstVertex; // needs to stay constant across updates
-    uint32_t transformOffset;
+    uint32_t transformByteOffset;
 
     #ifdef __cplusplus
     auto operator<=>(const BuildRangeInfo&) const = default;
@@ -40,7 +40,7 @@ namespace top_level
 struct BuildRangeInfo
 {
     uint32_t instanceCount; // needs to stay constant across updates
-    uint32_t instanceOffset;
+    uint32_t instanceByteOffset;
 
     #ifdef __cplusplus
     auto operator<=>(const BuildRangeInfo&) const = default;
