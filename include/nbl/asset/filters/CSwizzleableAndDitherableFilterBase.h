@@ -62,14 +62,16 @@ class CSwizzleableAndDitherableFilterBase
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+
+		template<E_FORMAT inFormat, typename Tdec>
+		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+			
+			Tdec swizzled[4];
+			static_cast<Swizzle&>(*state).template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount<inFormat>(), decodeBuffer);
 		}
 
 		/*
@@ -77,14 +79,16 @@ class CSwizzleableAndDitherableFilterBase
 
 			@see onDecode
 		*/
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+
+		template<typename Tdec>
+		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			
+			Tdec swizzled[4];
+			static_cast<Swizzle&>(*state).template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount(inFormat), decodeBuffer);
 		}
 
 		/*
@@ -100,6 +104,7 @@ class CSwizzleableAndDitherableFilterBase
 
 			The function supports compile-time encode.
 		*/
+
 		template<E_FORMAT outFormat, typename Tenc>
 		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
@@ -197,14 +202,16 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+
+		template<E_FORMAT inFormat, typename Tdec>
+		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			
+			Tdec swizzled[4];
+			static_cast<Swizzle&>(*state).template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount<inFormat>(), decodeBuffer);
 		}
 
 		/*
@@ -212,14 +219,16 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 
 			@see onDecode
 		*/
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+
+		template<typename Tdec>
+		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			static_cast<Swizzle&>(*state).template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			
+			Tdec swizzled[4];
+			static_cast<Swizzle&>(*state).template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount(inFormat), decodeBuffer);
 		}
 
 		/*
@@ -331,14 +340,15 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 
 			The function supports compile-time decode.
 		*/
-		template<E_FORMAT inFormat, typename Tdec, typename Tenc>
-		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+		template<E_FORMAT inFormat, typename Tdec>
+		static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			
+			Tdec swizzled[4];
+			state->swizzle->template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount<inFormat>(), decodeBuffer);
 		}
 
 		/*
@@ -347,14 +357,15 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 			@see onDecode
 		*/
 
-		template<typename Tdec, typename Tenc>
-		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+		template<typename Tdec>
+		static void onDecode(E_FORMAT inFormat, state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
 		{
 			static_assert(sizeof(Tdec)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
-			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			asset::decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-			// TODO: shouldn't swizzles be performed in-place on decode buffers and their values?
-			state->swizzle->template operator()<Tdec,Tenc>(decodeBuffer,encodeBuffer);
+			
+			Tdec swizzled[4];
+			state->swizzle->template operator() < Tdec, Tdec > (decodeBuffer, swizzled);
+			std::copy<const Tdec*, Tdec*>(swizzled, swizzled + asset::getFormatChannelCount(inFormat), decodeBuffer);
 		}
 
 		/*
@@ -370,6 +381,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 
 			The function supports compile-time encode.
 		*/
+
 		template<E_FORMAT outFormat, typename Tenc>
 		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{

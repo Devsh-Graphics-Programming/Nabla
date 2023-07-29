@@ -163,18 +163,20 @@ public:
 				{
 					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 					{
+						const size_t okwpIndex = (i * _windowSize + j) * ChannelCount + ch;
+
 						const double weight = static_cast<double>(kernel.weight(relativePos, ch));
 						if (!shouldNormalize)
 						{
 							if constexpr (std::is_same_v<LutDataType, uint16_t>)
-								outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = core::Float16Compressor::compress(float(weight));
+								outKernelWeightsPixel[okwpIndex] = core::Float16Compressor::compress(float(weight));
 							else
-								outKernelWeightsPixel[(i * _windowSize + j) * ChannelCount + ch] = LutDataType(weight);
+								outKernelWeightsPixel[okwpIndex] = LutDataType(weight);
 						}
 						else
 						{
 							accum[ch] += weight;
-							outKernelWeightsPixel_f64[(i * _windowSize + j) * ChannelCount + ch] = weight;
+							outKernelWeightsPixel_f64[okwpIndex] = weight;
 						}
 					}
 					
@@ -198,15 +200,10 @@ public:
 							const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
 							const double normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
 
-							LutDataType compressed;
-							{
-								if constexpr (std::is_same_v<LutDataType, uint16_t>)
-									compressed = core::Float16Compressor::compress(float(normalized));
-								else
-									compressed = LutDataType(normalized);
-							}
-
-							memcpy(&outKernelWeightsPixel[idx], &compressed, sizeof(LutDataType));
+							if constexpr (std::is_same_v<LutDataType, uint16_t>)
+								outKernelWeightsPixel[idx] = core::Float16Compressor::compress(float(normalized));
+							else
+								outKernelWeightsPixel[idx] = LutDataType(normalized);
 						}
 					}
 				}

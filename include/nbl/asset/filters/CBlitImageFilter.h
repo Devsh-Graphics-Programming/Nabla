@@ -270,6 +270,9 @@ class CBlitImageFilter :
 			if (state->inLayerCount!=state->outLayerCount)
 				return false;
 
+			if (state->alphaChannel > ChannelCount)
+				return false;
+
 			IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->inLayerCount };
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(subresource, {state->inOffset,state->inExtent}, state->inImage))
 				return false;
@@ -536,11 +539,9 @@ class CBlitImageFilter :
 								if (!srcPix[0])
 									continue;
 
-								// TODO: make sure there is no leak due to ChannelCount!
 								auto sample = lineBuffer+i*ChannelCount;
-								value_t preSwizzleSample[ChannelCount];
 
-								base_t::template onDecode(inFormat, state, srcPix, preSwizzleSample, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
