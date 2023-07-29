@@ -121,7 +121,7 @@ class ISwapchain : public IBackendObject
             core::smart_refctd_ptr<ISwapchain> m_swapchain;
             uint32_t m_imageIndex;
 
-            ~CCleanupSwapchainReference()
+            inline ~CCleanupSwapchainReference()
             {
                 m_swapchain->freeImageExists(m_imageIndex);
             }
@@ -131,26 +131,7 @@ class ISwapchain : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
     protected: // TODO: move all definitions to a .cpp
-        inline ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount)
-            : IBackendObject(std::move(dev)), m_params(std::move(params)), m_imageCount(imageCount), m_imgCreationParams{}
-        {
-            assert(imageCount <= ISwapchain::MaxImages);
-
-            m_imgCreationParams.type = IGPUImage::ET_2D;
-            m_imgCreationParams.samples = IGPUImage::ESCF_1_BIT;
-            m_imgCreationParams.format = m_params.surfaceFormat.format;
-            m_imgCreationParams.extent = { m_params.width, m_params.height, 1u };
-            m_imgCreationParams.mipLevels = 1u;
-            m_imgCreationParams.arrayLayers = m_params.arrayLayers;
-            m_imgCreationParams.flags = m_params.viewFormats.count()>1u ? IGPUImage::ECF_MUTABLE_FORMAT_BIT:IGPUImage::ECF_NONE;
-            m_imgCreationParams.usage = m_params.imageUsage;
-            if (!(getOriginDevice()->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[m_imgCreationParams.format]<m_imgCreationParams.usage))
-                m_imgCreationParams.flags |= IGPUImage::ECF_EXTENDED_USAGE_BIT;
-            m_imgCreationParams.viewFormats = m_params.viewFormats;
-
-            // don't need to keep a reference to the old swapchain anymore
-            m_params.oldSwapchain = nullptr;
-        }
+        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount);
         virtual inline ~ISwapchain()
         {
             assert(m_imageExists.load()==0u);

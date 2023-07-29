@@ -930,14 +930,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
-        template<class Accelera>
+        template<class BufferType>
         bool invalidFeatures(const bool motionBlur) const
         {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
             if (!m_enabledFeatures.accelerationStructure)
                 return true;
 			// not sure of VUID
-			if (std::is_same_v<buffer_t,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+			if (std::is_same_v<BufferType,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
 				return true;
             // not sure of VUID
             if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur)
