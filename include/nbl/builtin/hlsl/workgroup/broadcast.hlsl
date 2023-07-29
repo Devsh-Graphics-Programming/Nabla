@@ -20,27 +20,38 @@ namespace workgroup
  * We save the value in the shared array in the bitfieldDWORDs index 
  * and then all invocations access that index.
  */
-template<typename T, class ScratchAccessor>
+template<typename T, class ScratchAccessor, bool edgeBarriers = true>
 T Broadcast(in T val, in uint id)
 {
-// REVIEW: Check if we need edge barriers
+	if(edgeBarriers)
+		Barrier();
+	
 	ScratchAccessor scratch;
 	
 	if(gl_LocalInvocationIndex == id) {
 		scratch.broadcast.set(bitfieldDWORDs, val);
 	}
-	Barrier();
+	
+	if(edgeBarriers)
+		Barrier();
+	
 	return scratch.broadcast.get(bitfieldDWORDs);
 }
 
 // REVIEW: Should we have broadcastFirst and broadcastElected?
-template<typename T, class ScratchAccessor>
+template<typename T, class ScratchAccessor, bool edgeBarriers = true>
 T BroadcastFirst(in T val)
 {
+	if(edgeBarriers)
+		Barrier();
+	
 	ScratchAccessor scratch;
 	if (Elect())
 		scratch.broadcast.set(bitfieldDWORDs, val);
-	Barrier();
+	
+	if(edgeBarriers)
+		Barrier();
+	
 	return scratch.broadcast.get(bitfieldDWORDs);
 }
 

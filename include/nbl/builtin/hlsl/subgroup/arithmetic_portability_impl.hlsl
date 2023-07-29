@@ -19,9 +19,6 @@
 [[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
 void fake_for_capability_and_extension(){}
 
-//const uint LastWorkgroupInvocation = _NBL_HLSL_WORKGROUP_SIZE_-1; // REVIEW: Where should this be defined?
-#define LastWorkgroupInvocation (_NBL_HLSL_WORKGROUP_SIZE_-1U)
-
 namespace nbl
 {
 namespace hlsl
@@ -85,10 +82,10 @@ struct reduction<T, binops::bitwise_or<T> >
     }
 };
 
-//template<typename T>
+template<typename T>
 [[vk::ext_instruction(360)]]
-//T spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, T value);
-uint spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, uint value);
+T spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, T value);
+//uint spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, uint value);
 
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_or<T> >
@@ -369,7 +366,7 @@ struct inclusive_scan
 		// (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
 		// but they're SIMD and adding an `if`/conditional execution is more expensive
 	#if 1 // Use shuffling by default (either native or portability implementation)
-		uint toAdd = ShuffleUp<T, ScratchAccessor>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+		uint toAdd = ShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
 		if(offsetsAndMasks.subgroupInvocation >= 1u) {
 			// the first invocation (index 0) in the subgroup doesn't have anything in its left
 			value = op(value, toAdd);
@@ -382,7 +379,7 @@ struct inclusive_scan
 		{
 		#if 1
 			// there is no scratch and padding entries in this case so we have to guard the shuffles to not go out of bounds
-			toAdd = ShuffleUp<T, ScratchAccessor>(value, step);
+			toAdd = ShuffleUp<T>(value, step);
 			if(offsetsAndMasks.subgroupInvocation >= step) {
 				value = op(value, toAdd);
 			}
@@ -431,7 +428,7 @@ struct exclusive_scan
 		// store value to smem so we can shuffle it
 	#if 1
 		Binop op;
-		uint left = ShuffleUp<T, ScratchAccessor>(value, 1);
+		uint left = ShuffleUp<T>(value, 1);
 		value = impl.offsetsAndMasks.subgroupInvocation >= 1 ? left : op.identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
 	#else
 		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset,value);
@@ -464,7 +461,7 @@ struct reduction
     {
 		value = impl(value);
 	#if 1
-		value = Shuffle<T, ScratchAccessor>(value, impl.offsetsAndMasks.lastSubgroupInvocation); // take the last subgroup invocation's value
+		value = Broadcast<T>(value, impl.offsetsAndMasks.lastSubgroupInvocation); // take the last subgroup invocation's value
 	#else
 		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset, value);
 		Barrier();

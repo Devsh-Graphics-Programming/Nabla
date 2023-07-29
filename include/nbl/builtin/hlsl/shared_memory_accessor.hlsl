@@ -12,36 +12,18 @@ namespace hlsl
 #ifdef BROADCAST_MEM
 struct BroadcastScratchProxy
 {
-	uint get(uint ix)
-	{
-		return BROADCAST_MEM[ix];
-	}
-
-	void set(uint ix, uint value)
-	{
-		BROADCAST_MEM[ix] = value;
-	}
+    uint get(uint ix)
+    {
+        return BROADCAST_MEM[ix];
+    }
+	
+    void set(uint ix, uint value)
+    {
+        BROADCAST_MEM[ix] = value;
+    }
 };
 #else
 struct BroadcastScratchProxy {};
-#endif
-
-#ifdef SHUFFLE_MEM 
-struct ShuffleScratchProxy
-{
-	uint get(uint ix)
-	{
-		return SHUFFLE_MEM[ix];
-	}
-
-	void set(uint ix, uint value)
-	{
-		SHUFFLE_MEM[ix] = value;
-	}
-};
-#else
-struct ShuffleScratchProxy
-{};
 #endif
 
 // REVIEW:  Bank conflict avoidance. It seems the offset for each index should be SUBGROUP_SIZE,
@@ -119,21 +101,36 @@ struct SharedMemoryAdaptor
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
-    // REVIEW:  Depending on how we handle SHARED_MEM in nbl::hlsl::atomics 
-	//			we should also update this part to handle float and int
-    
     // uint atomics
-    void atomicAdd(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicAdd(ix, value);
-	}
 	void atomicAnd(const uint ix, const uint value, out uint orig) {
 	   orig = accessor.atomicAnd(ix, value);
+	}
+	void atomicAnd(const uint ix, const int value, out int orig) {
+	   orig = asint(accessor.atomicAnd(ix, asuint(value)));
+	}
+	void atomicAnd(const uint ix, const float value, out float orig) {
+	   orig = asfloat(accessor.atomicAnd(ix, asuint(value)));
 	}
 	void atomicOr(const uint ix, const uint value, out uint orig) {
 	   orig = accessor.atomicOr(ix, value);
 	}
+	void atomicOr(const uint ix, const int value, out int orig) {
+	   orig = asint(accessor.atomicOr(ix, asuint(value)));
+	}
+	void atomicOr(const uint ix, const float value, out float orig) {
+	   orig = asfloat(accessor.atomicOr(ix, asuint(value)));
+	}
 	void atomicXor(const uint ix, const uint value, out uint orig) {
 	   orig = accessor.atomicXor(ix, value);
+	}
+	void atomicXor(const uint ix, const int value, out int orig) {
+	   orig = asint(accessor.atomicXor(ix, asuint(value)));
+	}
+	void atomicXor(const uint ix, const float value, out float orig) {
+	   orig = asfloat(accessor.atomicXor(ix, asuint(value)));
+	}
+	void atomicAdd(const uint ix, const uint value, out uint orig) {
+	   orig = accessor.atomicAdd(ix, value);
 	}
 	void atomicMin(const uint ix, const uint value, out uint orig) {
 	   orig = accessor.atomicMin(ix, value);
