@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_COMMON_INCLUDED_
 
 
-#ifdef __cplusplus
+#ifndef __cplusplus
 typedef uint uint32_t;
 #endif
 

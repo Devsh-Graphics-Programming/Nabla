@@ -7,7 +7,6 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUCommandPool.h"
 
 

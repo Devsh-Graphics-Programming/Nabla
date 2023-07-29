@@ -183,7 +183,7 @@ bool CPropertyPoolHandler::transferProperties(
 }
 
 uint32_t CPropertyPoolHandler::transferProperties(
-	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
+	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IQueue* const queue,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest* &requests, const uint32_t requestCount,
 	uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 	system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint
@@ -453,7 +453,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	auto submit = [&]() -> void
 	{
 		cmdbuf->end();
-		IGPUQueue::SSubmitInfo submit;
+		IQueue::SSubmitInfo submit;
 		submit.commandBufferCount = 1u;
 		submit.commandBuffers = &cmdbuf;
 		submit.signalSemaphoreCount = 0u;

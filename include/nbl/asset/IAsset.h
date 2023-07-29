@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_ASSET_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_H_INCLUDED_
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 
@@ -174,6 +173,7 @@ class IAsset : virtual public core::IReferenceCounted
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
+		// TODO: `_other` should probably be const qualified!
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			assert(getAssetType() == _other->getAssetType());
@@ -207,6 +207,7 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
 
+		// TODO: add a null and type check here, delegate rest to an `impl`
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below

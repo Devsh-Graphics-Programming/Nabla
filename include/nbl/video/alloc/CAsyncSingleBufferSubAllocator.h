@@ -9,7 +9,6 @@
 #include <mutex>
 
 #include "nbl/video/alloc/CSingleBufferSubAllocator.h"
-#include "nbl/video/IGPUFence.h"
 
 namespace nbl::video
 {

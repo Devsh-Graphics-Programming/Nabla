@@ -75,13 +75,13 @@ struct SBufferBinding
 	inline operator SBufferBinding<const BufferType>&() {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
 	inline operator const SBufferBinding<const BufferType>&() const {return *reinterpret_cast<const SBufferBinding<const BufferType>*>(this);}
 
-	bool isValid() const
+	inline bool isValid() const
 	{
 		return buffer && (offset<buffer->getSize());
 	}
 
-	inline bool operator==(const SBufferBinding<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset; }
-	inline bool operator!=(const SBufferBinding<BufferType>& rhs) const { return !operator==(rhs); }
+	inline bool operator==(const SBufferBinding<const BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset; }
+	inline bool operator!=(const SBufferBinding<const BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 template<typename BufferType>
@@ -108,8 +108,8 @@ struct SBufferRange
 	{
 		return size!=WholeBuffer ? size:buffer->getSize();
 	}
-	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && actualSize()==rhs.actualSize(); }
-	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
+	inline bool operator==(const SBufferRange<const BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && actualSize()==rhs.actualSize(); }
+	inline bool operator!=(const SBufferRange<const BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 }

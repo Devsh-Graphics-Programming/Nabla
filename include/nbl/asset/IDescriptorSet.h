@@ -32,7 +32,7 @@ class IAccelerationStructure;
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted
+class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to remove this inheritance and see what happens
 {
 	public:
 		using layout_t = LayoutType;

@@ -28,4 +28,11 @@ bool CVulkanAccelerationStructure<GPUAccelerationStructure>::wasCopySuccessful(c
 	return vulkanDevice->getFunctionTable()->vk.vkGetDeferredOperationResultKHR(vulkanDevice->getInternalObject(),static_cast<const CVulkanDeferredOperation*>(deferredOp)->getInternalObject())==VK_SUCCESS;
 }
 
+template<class GPUAccelerationStructure>
+bool CVulkanAccelerationStructure<GPUAccelerationStructure>::wasBuildSuccessful(const IDeferredOperation* const deferredOp)
+{
+	auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	return vulkanDevice->getFunctionTable()->vk.vkGetDeferredOperationResultKHR(vulkanDevice->getInternalObject(),static_cast<const CVulkanDeferredOperation*>(deferredOp)->getInternalObject())==VK_SUCCESS;
+}
+
 }

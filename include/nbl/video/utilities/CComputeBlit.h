@@ -650,7 +650,7 @@ public:
 
 	//! WARNING: This function blocks and stalls the GPU!
 	template <typename KernelX, typename KernelY, typename KernelZ, typename... Args>
-	inline void blit(IGPUQueue* computeQueue, Args&&... args)
+	inline void blit(IQueue* computeQueue, Args&&... args)
 	{
 		auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::NONE);
 		core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
@@ -662,7 +662,7 @@ public:
 		blit(cmdbuf.get(), std::forward<Args>(args)...);
 		cmdbuf->end();
 
-		IGPUQueue::SSubmitInfo submitInfo = {};
+		IQueue::SSubmitInfo submitInfo = {};
 		submitInfo.commandBufferCount = 1u;
 		submitInfo.commandBuffers = &cmdbuf.get();
 		computeQueue->submit(1u, &submitInfo, fence.get());

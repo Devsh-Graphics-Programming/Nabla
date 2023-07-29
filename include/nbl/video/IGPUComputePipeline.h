@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED__
-#define __NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED_
 
 
 #include "nbl/asset/IComputePipeline.h"
@@ -15,7 +14,7 @@
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
+class IGPUComputePipeline : public IBackendObject, public asset::IComputePipeline<IGPUSpecializedShader,IGPUPipelineLayout>
 {
         using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
@@ -24,9 +23,7 @@ class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs
-        ) : base_t(std::move(_layout), std::move(_cs)), IBackendObject(std::move(dev))
-        {
-        }
+        ) : IBackendObject(std::move(dev)), base_t(std::move(_layout),std::move(_cs)) {}
 
         struct SCreationParams
         {
