@@ -13,6 +13,7 @@
 # limitations under the License.
 
 include(ProcessorCount)
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 # submodule managment
 function(update_git_submodule _PATH)
@@ -27,7 +28,7 @@ endfunction()
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET)
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
 	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
@@ -36,8 +37,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		set(NBL_EXECUTABLE_SOURCES 
-			${NBL_ROOT_PATH}/examples_tests/common/CommonAPI.cpp
+		set(NBL_EXECUTABLE_SOURCES
 			main.cpp
 			${_EXTRA_SOURCES}
 		)
@@ -47,13 +47,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 			
-			if(WIN32 AND MSVC)
-				set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-				
+			if(WIN32 AND MSVC)				
 				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-				target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-				)
 			endif()
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -61,32 +56,28 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		
 		if(WIN32 AND MSVC)
 			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
-			target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-				_DXC_DLL_="${DXC_DLL}"
-			)
 		endif()
 	endif()
 	
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Nabla)
-	
-	if(NOT "${_PCH_TARGET}" STREQUAL "")
-		if(NOT "${_PCH_TARGET}" STREQUAL Nabla)
-			add_dependencies("${EXECUTABLE_NAME}" "${_PCH_TARGET}")
-		endif()
-		
-		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${_PCH_TARGET}")
+	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
+		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		set_target_properties("${EXECUTABLE_NAME}" PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
-	endif()
+		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		endif()
 	
+		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
+	endif()
+		
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
 		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
-		PUBLIC ../../include
+		PUBLIC ../../include # in macro.. relative to what? TODO: correct
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS})
 
 	add_compile_options(${_EXTRA_OPTIONS})
 
@@ -208,6 +199,26 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif ()
 		
 	endif()
+	
+	get_target_property(_EX_SOURCE_DIR_ ${EXECUTABLE_NAME} SOURCE_DIR)
+	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
+	
+	if(NOT "${EXECUTABLE_NAME}" STREQUAL commonpch)
+		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+		
+		get_target_property(_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_ ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
+		get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		get_property(_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		
+		cmake_path(RELATIVE_PATH _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		cmake_path(RELATIVE_PATH _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		
+		# DLLs relative to CPack install package
+		target_compile_definitions(${EXECUTABLE_NAME}
+			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
+			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
+		)
+	endif()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -215,11 +226,9 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${LIB_NAME} Nabla)
-	
 	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
 
+	# TODO: correct those bugs, use generator expressions
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
@@ -236,6 +245,22 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		
 		target_include_directories(${LIB_NAME}
 			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
+		)
+	endif()
+	
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		if(WIN32 AND MSVC)
+			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+			
+			target_compile_definitions(${LIB_NAME} PUBLIC 
+				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+			)
+		endif()
+	endif()
+
+	if(WIN32 AND MSVC)
+		target_compile_definitions(${LIB_NAME} PUBLIC 
+			_DXC_DLL_="${DXC_DLL}"
 		)
 	endif()
 	
@@ -278,38 +303,10 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
 		)
 	endif()
-
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./debug/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./relwithdebinfo/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./debug/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./relwithdebinfo/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-
+	
+	nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")	
+	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
+	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
 		"${NBL_ROOT_PATH}/include/"
 		"${NBL_ROOT_PATH}/src"
@@ -324,37 +321,168 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
-# End of TODO, rest are all functions
-
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
+	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
+###########################################
+# Nabla install rules, directory structure:
+#
+# -	$<CONFIG>/include 		(header files)
+# - $<CONFIG>/lib 			(import/static/shared libraries)
+# - $<CONFIG>/runtime 		(DLLs/PDBs)
+# - $<CONFIG>/exe			(executables and media)
+#
+# If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
 
-# function for installing header files preserving directory structure
-# _DEST_DIR is directory relative to CMAKE_INSTALL_PREFIX
-function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
+function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
-		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release)
-		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug)
-		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo)
+		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
+		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
+		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
 	endforeach()
 endfunction()
 
-function(nbl_install_file _FILE _RELATIVE_DESTINATION)
-	install(FILES ${_FILE} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(FILES ${_FILE} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+function(nbl_install_headers _HEADERS)
+	if(NOT DEFINED NBL_ROOT_PATH)
+		message(FATAL_ERROR "NBL_ROOT_PATH isn't defined!")
+	endif()
+
+	nbl_install_headers_spec("${_HEADERS}" "${NBL_ROOT_PATH}/include")
+endfunction()
+
+function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+endfunction()
+
+function(nbl_install_file _FILES)
+	nbl_install_file_spec("${_FILES}" "")
+endfunction()
+
+function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
+	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+endfunction()
+
+function(nbl_install_dir _DIR)
+	nbl_install_dir_spec("${_DIR}" "")
+endfunction()
+
+function(nbl_install_lib_spec _TARGETS _RELATIVE_DESTINATION)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION debug/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION relwithdebinfo/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Libraries)
+endfunction()
+
+function(nbl_install_lib _TARGETS)
+	nbl_install_lib_spec("${_TARGETS}" "")
+endfunction()
+
+function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
+	
+	if (TARGET ${_TRGT})
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+	
+		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		
+		get_property(_DEFINED_PROPERTY_
+            TARGET ${_TRGT}
+            PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+                PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
+		
+	else()
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS ${_TRGT} DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+		
+		string(MAKE_C_IDENTIFIER "${_RELATIVE_DESTINATION}" _VAR_)
+		string(TOUPPER "${_VAR_}" _VAR_)
+		
+		get_property(_DEFINED_PROPERTY_
+            GLOBAL
+            PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(GLOBAL
+                PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_property(GLOBAL PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
+	endif()
+endfunction()
+
+function(nbl_install_program _TRGT)
+	nbl_install_program_spec("${_TRGT}" "")
+endfunction()
+
+function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
+	set(_TARGETS ${_TARGETS})
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	
+	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
+	endforeach()
+	
+	foreach(_TRGT IN LISTS _TARGETS)
+		get_property(_DEFINED_PROPERTY_
+			TARGET ${_TRGT}
+			PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+			DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+				PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+				BRIEF_DOCS "Relative path in CPack package to runtime executable target directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_EXE_DIR_PATH "${_DEST_GE_}")
+	endforeach()
+endfunction()
+
+function(nbl_install_exe _TARGETS)
+	nbl_install_exe_spec("${_TARGETS}" "")
+endfunction()
+
+function(nbl_install_media_spec _DIR _RELATIVE_DESTINATION)
+	install(DIRECTORY ${_DIR} DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
+	install(DIRECTORY ${_DIR} DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Media PATTERN "Ditt-Reference-Scenes/*" EXCLUDE)
+endfunction()
+
+function(nbl_install_media _DIR)
+	nbl_install_media_spec("${_DIR}" "")
 endfunction()
 
 function(nbl_install_builtin_resources _TARGET_)
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
 	
-	nbl_install_headers("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 function(nbl_install_config_header _CONF_HDR_NAME)

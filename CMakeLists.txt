@@ -268,8 +268,6 @@ option(NBL_FAST_MATH "Enable fast low-precision math" ON)
 
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
-option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
-
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
@@ -303,10 +301,6 @@ option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 add_subdirectory(src/nbl)
 
-if(NBL_BUILD_TOOLS)
-	add_subdirectory(tools) # convert2BAW
-endif()
-
 if(NBL_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()
@@ -316,5 +310,8 @@ if(NBL_BUILD_DOCS)
 endif()
 
 add_subdirectory(artifacts)
+
+option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
+include(cpack/package)
 
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

@@ -29,7 +29,7 @@ fixing problems with wrong imported or exported meshes quickly after
 loading. It is not intended for doing mesh modifications and/or
 animations during runtime.
 */
-class IMeshManipulator : public virtual core::IReferenceCounted
+class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 {
 	public:
 		//! Comparison methods
@@ -75,9 +75,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			core::vector3df_SIMD parentTriangleFaceNormal;			//
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
-
-
-		
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
@@ -352,6 +349,12 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			return vertexCount;
 		}
 
+		static float DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint);
+		static float DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal);
+		static core::vectorSIMDf FindMinMaxProj(core::vectorSIMDf Dir, core::vectorSIMDf Extrema[]);
+		static void ComputeAxis(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, core::vectorSIMDf Extrema[]);
+		static core::matrix3x4SIMD calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
+
 		//! Calculates bounding box of the meshbuffer
 		static inline core::aabbox3df calculateBoundingBox(
 			const ICPUMeshBuffer* meshbuffer, core::aabbox3df* outJointAABBs=nullptr,
@@ -476,6 +479,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 					static constexpr float cosOf45Deg = 0.70710678118f;
 					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
 				});
+
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
