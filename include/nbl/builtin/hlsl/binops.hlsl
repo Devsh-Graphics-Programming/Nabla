@@ -18,7 +18,7 @@ struct bitwise_and
         return lhs&rhs;
     }
 	
-	T identity()
+	static T identity()
 	{
 		return ~0;
 	}
@@ -32,7 +32,7 @@ struct bitwise_or
         return lhs|rhs;
     }
 	
-	T identity()
+	static T identity()
 	{
 		return 0;
 	}
@@ -46,7 +46,7 @@ struct bitwise_xor
         return lhs^rhs;
     }
 	
-	T identity()
+	static T identity()
 	{
 		return 0;
 	}
@@ -60,7 +60,7 @@ struct add
         return lhs+rhs;
     }
 	
-	T identity()
+	static T identity()
 	{
 		return 0;
 	}
@@ -74,7 +74,7 @@ struct mul
         return lhs*rhs;
     }
 	
-	T identity()
+	static T identity()
 	{
 		return 1;
 	}
@@ -125,7 +125,7 @@ struct min
         return comp(lhs, rhs) ? lhs : rhs;
     }
 
-	T identity()
+	static T identity()
 	{
 		return ~0;
 	}
@@ -140,7 +140,7 @@ struct max
         return comp(lhs, rhs) ? lhs : rhs;
     }
 
-	T identity()
+	static T identity()
 	{
 		return 0;
 	}

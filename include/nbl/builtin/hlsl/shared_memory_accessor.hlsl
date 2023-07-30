@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
+
 namespace nbl 
 {
 namespace hlsl
@@ -101,7 +103,6 @@ struct SharedMemoryAdaptor
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
-    // uint atomics
 	void atomicAnd(const uint ix, const uint value, out uint orig) {
 	   orig = accessor.atomicAnd(ix, value);
 	}
@@ -143,6 +144,11 @@ struct SharedMemoryAdaptor
 	}
 	void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
 	   orig = accessor.atomicCompSwap(ix, comp, value);
+	}
+	
+	void workgroupExecutionAndMemoryBarrier() {
+		glsl::barrier();
+		glsl::memoryBarrierShared();
 	}
 };
 

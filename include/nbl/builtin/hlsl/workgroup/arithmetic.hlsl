@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
@@ -15,110 +16,107 @@ namespace hlsl
 namespace workgroup
 {
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class SharedAccessor>
 struct reduction
 {
-    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {}; // Yes, inclusive scan subgroup op is used for reduction workgroup ops
+    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {}; // Yes, inclusive scan subgroup op is used for reduction workgroup ops
     T operator()(T value)
     {
-		Barrier();
-		Binop op;
-        WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(false, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
+		glsl::barrier();
+        WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(false, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         T result = wsh(value);
-        Barrier();
-        T retVal = Broadcast<uint, ScratchAccessor>(result, wsh.lastInvocationInLevel);
-		Barrier();
-		MemoryBarrierShared();
+        glsl::barrier();
+        T retVal = Broadcast<uint, SharedAccessor>(result, wsh.lastInvocationInLevel);
+		glsl::barrier();
+		glsl::memoryBarrierShared();
 		return retVal;
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class SharedAccessor>
 struct inclusive_scan
 {
-    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {};
+    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {};
     T operator()(T value)
     {
-		Barrier();
-		Binop op;
-        WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(true, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
+		glsl::barrier();
+        WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(true, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
-        WorkgroupScanTail<T, Binop, ScratchAccessor> wst = WorkgroupScanTail<T, Binop, ScratchAccessor>::create(false, op.identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
+        WorkgroupScanTail<T, Binop, SharedAccessor> wst = WorkgroupScanTail<T, Binop, SharedAccessor>::create(false, Binop::identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
 		T retVal = wst();
-		Barrier();
-		MemoryBarrierShared();
+		glsl::barrier();
+		glsl::memoryBarrierShared();
 		return retVal;
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class SharedAccessor>
 struct exclusive_scan
 {
-    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop, ScratchAccessor, false> {}; // Yes, inclusive scan subgroup op is used for exclusive workgroup ops
+    struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {}; // Yes, inclusive scan subgroup op is used for exclusive workgroup ops
     T operator()(T value)
     {
-		Barrier();
-		Binop op;
-        WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, ScratchAccessor>::create(true, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_);
+		glsl::barrier();
+        WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(true, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
-        WorkgroupScanTail<T, Binop, ScratchAccessor> wst = WorkgroupScanTail<T, Binop, ScratchAccessor>::create(true, op.identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
+        WorkgroupScanTail<T, Binop, SharedAccessor> wst = WorkgroupScanTail<T, Binop, SharedAccessor>::create(true, Binop::identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
 		T retVal = wst();
-		Barrier();
-		MemoryBarrierShared();
+		glsl::barrier();
+		glsl::memoryBarrierShared();
 		return retVal;
     }
 };
 
-#define WSHT WorkgroupScanHead<uint, subgroup::inclusive_scan<uint, binops::add<uint>, ScratchAccessor>, ScratchAccessor>
-#define WSTT WorkgroupScanTail<uint, binops::add<uint>, ScratchAccessor>
-template<class ScratchAccessor>
+#define WSHT WorkgroupScanHead<uint, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor>
+#define WSTT WorkgroupScanTail<uint, binops::add<uint>, SharedAccessor>
+template<class SharedAccessor>
 uint ballotScanBitCount(in bool exclusive)
 {
-	ScratchAccessor scratch;
+	SharedAccessor accessor;
 	const uint _dword = getDWORD(gl_LocalInvocationIndex);
-	const uint localBitfield = scratch.main.get(_dword);
+	const uint localBitfield = accessor.main.get(_dword);
 	uint globalCount;
 	{
 		uint localBitfieldBackup;
-		if(gl_LocalInvocationIndex < bitfieldDWORDs)
+		if(gl_LocalInvocationIndex < uballotBitfieldCount)
 		{
-			localBitfieldBackup = scratch.main.get(gl_LocalInvocationIndex);
+			localBitfieldBackup = accessor.main.get(gl_LocalInvocationIndex);
 		}
-		// scan hierarchically, invocations with `gl_LocalInvocationIndex >= bitfieldDWORDs` will have garbage here
-		Barrier();
+		// scan hierarchically, invocations with `gl_LocalInvocationIndex >= uballotBitfieldCount` will have garbage here
+		glsl::barrier();
 		
-		WSHT wsh = WSHT::create(true, 0u, bitfieldDWORDs);
+		WSHT wsh = WSHT::create(true, 0u, uballotBitfieldCount);
 		wsh(countbits(localBitfieldBackup));
 		
 		WSTT wst = WSTT::create(true, 0u, wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
 		wst();
 		
 		// fix it (abuse the fact memory is left over)
-		globalCount = _dword != 0u ? scratch.main.get(_dword) : 0u;
-		Barrier();
+		globalCount = _dword != 0u ? accessor.main.get(_dword) : 0u;
+		glsl::barrier();
 		
-		// restore because the counting process has changed the ballots in the scratch
+		// restore because the counting process has changed the ballots in the shared mem
 		// and we might want to use them further
-		if(gl_LocalInvocationIndex < bitfieldDWORDs)
+		if(gl_LocalInvocationIndex < uballotBitfieldCount)
 		{
-			scratch.main.set(gl_LocalInvocationIndex, localBitfieldBackup);
+			accessor.main.set(gl_LocalInvocationIndex, localBitfieldBackup);
 		}
-		Barrier();
+		glsl::barrier();
 	}
 	const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(gl_LocalInvocationIndex&31u));
 	return globalCount + countbits(localBitfield & mask);
 }
 
-template<class ScratchAccessor>
+template<class SharedAccessor>
 uint ballotInclusiveBitCount()
 {
-	return ballotScanBitCount<ScratchAccessor>(false);
+	return ballotScanBitCount<SharedAccessor>(false);
 }
 
-template<class ScratchAccessor>
+template<class SharedAccessor>
 uint ballotExclusiveBitCount()
 {
-	return ballotScanBitCount<ScratchAccessor>(true);
+	return ballotScanBitCount<SharedAccessor>(true);
 }
 
 }

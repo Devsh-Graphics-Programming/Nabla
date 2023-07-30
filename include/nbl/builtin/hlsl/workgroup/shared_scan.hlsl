@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
 
 namespace nbl 
 {
@@ -14,7 +15,7 @@ namespace hlsl
 namespace workgroup
 {
 
-template<typename T, class SubgroupOp, class ScratchAccessor>
+template<typename T, class SubgroupOp, class SharedAccessor>
 struct WorkgroupScanHead
 {
     bool isScan;
@@ -27,7 +28,7 @@ struct WorkgroupScanHead
 
     static WorkgroupScanHead create(bool isScan, T identity, uint itemCount)
     {
-        WorkgroupScanHead<T, SubgroupOp, ScratchAccessor> wsh;
+        WorkgroupScanHead<T, SubgroupOp, SharedAccessor> wsh;
         wsh.isScan = isScan;
         wsh.identity = identity;
         wsh.itemCount = itemCount;
@@ -38,10 +39,10 @@ struct WorkgroupScanHead
     T operator()(T value)
     {
         subgroup::ScratchOffsetsAndMasks offsetsAndMasks = subgroup::ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
-        ScratchAccessor scratch;
-        subgroup::scratchInitialize<ScratchAccessor, T>(value, identity, itemCount);
+        SharedAccessor sharedAccessor;
+        subgroup::scratchInitialize<SharedAccessor, T>(value, identity, itemCount);
         lastInvocationInLevel = lastInvocation;
-		scanStoreIndex = Broadcast<T, ScratchAccessor>(offsetsAndMasks.scanStoreOffset, lastInvocation) + gl_LocalInvocationIndex + 1u;
+		scanStoreIndex = Broadcast<T, SharedAccessor>(offsetsAndMasks.scanStoreOffset, lastInvocation) + gl_LocalInvocationIndex + 1u;
 		
         SubgroupOp subgroupOp;
         firstLevelScan = subgroupOp(value);
@@ -61,42 +62,42 @@ struct WorkgroupScanHead
 		bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
         while(lastInvocationInLevel >= subgroup::Size() * subgroup::Size())
     	{
-    		Barrier();
+    		glsl::barrier();
     		if(participate)
     		{
     			if (any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
     			{
-    				scratch.main.set(nextLevelStoreIndex, scan);
+    				sharedAccessor.main.set(nextLevelStoreIndex, scan);
     			}
     		}
-    		Barrier();
+    		glsl::barrier();
     		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= subgroup::SizeLog2());
     		if(participate)
     		{
-    			const uint prevLevelScan = scratch.main.get(offsetsAndMasks.scanStoreOffset);
+    			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
     			scan = subgroupOp(prevLevelScan);
     			if(isScan)
-    				scratch.main.set(scanStoreIndex, scan);
+    				sharedAccessor.main.set(scanStoreIndex, scan);
     		}
     		if(isScan)
     			scanStoreIndex += lastInvocationInLevel + 1u;
     	}
     	if(lastInvocationInLevel >= subgroup::Size())
     	{
-    		Barrier();
+    		glsl::barrier();
     		if(participate)
     		{
     			if(any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
-    				scratch.main.set(nextLevelStoreIndex, scan);
+    				sharedAccessor.main.set(nextLevelStoreIndex, scan);
     		}
-    		Barrier();
+    		glsl::barrier();
     		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= subgroup::SizeLog2());
     		if(participate)
     		{
-    			const uint prevLevelScan = scratch.main.get(offsetsAndMasks.scanStoreOffset);
+    			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
 				scan = subgroupOp(prevLevelScan);
     			if(isScan) {
-    				scratch.main.set(scanStoreIndex, scan);
+    				sharedAccessor.main.set(scanStoreIndex, scan);
 				}
     		}
     	}
@@ -104,7 +105,7 @@ struct WorkgroupScanHead
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor>
+template<typename T, class Binop, class SharedAccessor>
 struct WorkgroupScanTail
 {
     bool isExclusive;
@@ -115,7 +116,7 @@ struct WorkgroupScanTail
 
     static WorkgroupScanTail create(bool isExclusive, T identity, T firstLevelScan, uint lastInvocation, uint scanStoreIndex)
     {
-        WorkgroupScanTail<T, Binop, ScratchAccessor> wst;
+        WorkgroupScanTail<T, Binop, SharedAccessor> wst;
         wst.isExclusive = isExclusive;
         wst.identity = identity;
         wst.firstLevelScan = firstLevelScan;
@@ -126,9 +127,9 @@ struct WorkgroupScanTail
 
     T operator()()
     {
-		Barrier();
+		glsl::barrier();
         Binop binop;
-        ScratchAccessor scratch;
+        SharedAccessor sharedAccessor;
 		
         if(lastInvocation >= subgroup::Size())
     	{
@@ -139,19 +140,19 @@ struct WorkgroupScanTail
     		for(uint logShift = (firstbithigh(lastInvocation) / subgroup::SizeLog2() - 1u) * subgroup::SizeLog2(); logShift > 0u; logShift -= subgroup::SizeLog2())
     		{
     			uint lastInvocationInLevel = lastInvocation >> logShift;
-    			Barrier();
+    			glsl::barrier();
     			const uint currentLevelIndex = scanLoadIndex - (lastInvocationInLevel + 1u);
     			if(shiftedInvocationIndex <= lastInvocationInLevel)
     			{
-    				scratch.main.set(currentLevelIndex, binop(scratch.main.get(scanLoadIndex+currentToHighLevel), scratch.main.get(currentLevelIndex)));
+    				sharedAccessor.main.set(currentLevelIndex, binop(sharedAccessor.main.get(scanLoadIndex+currentToHighLevel), sharedAccessor.main.get(currentLevelIndex)));
     			}
     			scanLoadIndex = currentLevelIndex;
     		}
-    		Barrier();
+    		glsl::barrier();
 			
     		if(gl_LocalInvocationIndex <= lastInvocation && subgroupId != 0u)
     		{
-    			const uint higherLevelExclusive = scratch.main.get(scanLoadIndex + currentToHighLevel - 1u);
+    			const uint higherLevelExclusive = sharedAccessor.main.get(scanLoadIndex + currentToHighLevel - 1u);
     			firstLevelScan = binop(higherLevelExclusive, firstLevelScan);
     		}
     	}
@@ -160,10 +161,10 @@ struct WorkgroupScanTail
     	{
     		if(gl_LocalInvocationIndex < lastInvocation)
     		{
-    			scratch.main.set(gl_LocalInvocationIndex + 1u, firstLevelScan);
+    			sharedAccessor.main.set(gl_LocalInvocationIndex + 1u, firstLevelScan);
     		}
-			Barrier();
-    		return any(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? scratch.main.get(gl_LocalInvocationIndex) : identity;
+			glsl::barrier();
+    		return any(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(gl_LocalInvocationIndex) : identity;
     	}
     	else
     	{

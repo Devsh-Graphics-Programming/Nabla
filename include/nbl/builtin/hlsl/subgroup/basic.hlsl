@@ -4,6 +4,11 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_BASIC_INCLUDED_
 
+// TODO (PentaKon): All of these have to be ported to spirv intrinsics
+
+// [[vk::ext_extension("GL_KHR_shader_subgroup_basic")]] REVIEW-519: Extensions don't seem to be needed?
+void spirv_subgroup_basic_ext(){}
+
 namespace nbl 
 {
 namespace hlsl
@@ -24,7 +29,16 @@ namespace subgroup
 	}
 
 	uint SubgroupID() {
+		// TODO (PentaKon): This is not always correct (subgroup IDs aren't always aligned with invocation index per the spec)
 		return gl_LocalInvocationIndex >> SizeLog2();
+	}
+	
+	uint LastSubgroupInvocation() {
+		uint lastSubgroupInvocation = Size() - 1u;
+		if(SubgroupID() == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> SizeLog2())) {
+			lastSubgroupInvocation &= _NBL_HLSL_WORKGROUP_SIZE_ - 1u; // if the workgroup size is not a power of 2, then the lastSubgroupInvocation for the last subgroup of the workgroup will not be equal to the subgroupMask but something smaller
+		}
+		return lastSubgroupInvocation;
 	}
 
 	bool Elect() {
@@ -53,39 +67,6 @@ namespace subgroup
 
 	uint64_t LtMask() {
 		return ~GeMask();
-	}
-
-	// WAVE BARRIERS
-
-	// REVIEW: Review everything related to subgroup barriers and SPIR-V injection
-	// REVIEW: Should we check #ifdef NBL_GL_KHR_shader_subgroup_XYZ before applying spirv_subgroupBarriers? Maybe add GroupBarriers if not defined?
-
-	[[vk::ext_instruction(/* OpControlBarrier */ 224)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
-	void spirv_subgroupBarrier(uint executionScope, uint memoryScope, uint memorySemantics);
-
-	// REVIEW: Should we name the Barriers with the Subgroup prefix just to make it clearer when calling?
-	// REVIEW: Proper Memory Semantics!! Link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
-	// REVIEW: Need advice on memory semantics. Would think SubgroupMemory(0x80) | AcquireRelease(0x8) is the correct bitmask but SubgroupMemory doesn't seem to be supported as Vulkan storage class
-	
-	void Barrier() {
-		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_scope_id
-		// Subgroup scope is number 3, both for execution and memory
-
-		// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
-		// By providing memory semantics None we do both control and memory barrier as is done in GLSL
-		
-		// REVIEW: After testing it seems that this doesn't work at all even if we provide Subgroup execution scope and it 
-		// compiles as `OpControlBarrier %uint_3 %uint_3 %uint_264` which is supposed to be correct. What seems to actually 
-		// happen is that this executes as a workgroup scoped barrier which can break uniform barrier calls and produce UB.
-		// Since subgroups execute in lockstep we could maybe just avoid calling this?
-		//spirv_subgroupBarrier(3, 3, 0x8 | 0x80);
-	}
-
-	[[vk::ext_instruction(/* OpMemoryBarrier */ 225)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
-	void spirv_subgroupMemoryBarrierShared(uint memoryScope, uint memorySemantics);
-
-	void MemoryBarrierShared() {
-		spirv_subgroupMemoryBarrierShared(3, 0x8 | 0x100);
 	}
 }
 }

@@ -4,20 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
 #include "nbl/builtin/hlsl/binops.hlsl"
-#include "nbl/builtin/hlsl/subgroup/scratch.hlsl"
-#include "nbl/builtin/hlsl/subgroup/shuffle_portability.hlsl"
-
-// REVIEW:  Location and need of these. They need to be over a function but
-//          there's no need to have them over every subgroup func.
-//          The compiler doesn't seem to whine about these missing
-//          for subgroup*Min/Max functions even though the spec seems
-//          to mandate them https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Group_Operation
-[[vk::ext_extension("GL_KHR_shader_subgroup_basic")]]
-[[vk::ext_extension("GL_KHR_shader_subgroup_arithmetic")]]
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
-void fake_for_capability_and_extension(){}
+#include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 
 namespace nbl
 {
@@ -339,144 +328,67 @@ struct exclusive_scan<uint, binops::max<float> >
 #else
 namespace portability
 {
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
+	
+// WARNING
+// THIS PORTABILITY IMPLEMENTATION USES SHUFFLE OPS
+// Shuffles where you attempt to read an invactive lane, return garbage, 
+// which means that our portability reductions and prefix sums will also return garbage/UB/UV
+// Always use the native subgroup_arithmetic extensions if supported
+	
+template<typename T, class Binop>
 struct inclusive_scan
 {
-    static inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
-    {
-		inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
-		retval.offsetsAndMasks = ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
-		return retval;
-    }
-
     T operator()(T value)
     {
 		Binop op;
-
-		if (initializeScratch)
-		{
-			Barrier();
-			MemoryBarrierShared();
-			scratchInitialize<ScratchAccessor, T>(value, op.identity(), _NBL_HLSL_WORKGROUP_SIZE_-1);
-		}
-		Barrier();
-		MemoryBarrierShared();
+		const uint subgroupInvocation = InvocationID();
+		const uint halfSubgroupSize = Size() >> 1u;
 		
-		// Stone-Kogge adder
-		// (devsh): it seems that lanes below <HalfSubgroupSize/step are doing useless work,
-		// but they're SIMD and adding an `if`/conditional execution is more expensive
-	#if 1 // Use shuffling by default (either native or portability implementation)
-		uint toAdd = ShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-		if(offsetsAndMasks.subgroupInvocation >= 1u) {
-			// the first invocation (index 0) in the subgroup doesn't have anything in its left
-			value = op(value, toAdd);
-		}
-	#else
-		value = op(value, scratch.main.get(offsetsAndMasks.scanStoreOffset-1u));
-	#endif
-		[[unroll]] // REVIEW: I copied this from the example implementation on the github issue but if I'm not mistaken unroll doesn't work since halfSubgroupSize is not constexpr 
-		for (uint step=2u; step <= offsetsAndMasks.halfSubgroupSize; step <<= 1u)
+		uint rhs = glsl::subgroupShuffleUp(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+		value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
+		
+		[[unroll(5)]]
+		for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
 		{
-		#if 1
-			// there is no scratch and padding entries in this case so we have to guard the shuffles to not go out of bounds
-			toAdd = ShuffleUp<T>(value, step);
-			if(offsetsAndMasks.subgroupInvocation >= step) {
-				value = op(value, toAdd);
-			}
-		#else
-			Barrier();
-			MemoryBarrierShared();
-			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
-			Barrier();
-			MemoryBarrierShared();
-			value = op(value, scratch.main.get(offsetsAndMasks.scanStoreOffset - step));
-			Barrier();
-			MemoryBarrierShared();
-			scratch.main.set(offsetsAndMasks.scanStoreOffset, value);
-			Barrier();
-			MemoryBarrierShared();
-			
-			// REVIEW: The Stone-Kogge adder is done at this point.
-			// The GLSL implementation however has a final operation that uses the lastLoadOffset
-			// but it actually messes the results, not sure what the point was.
-			//value = op(value, scratch.main.get(offsetsAndMasks.lastLoadOffset));
-			//Barrier();
-			//MemoryBarrierShared();
-		#endif
+			rhs = glsl::subgroupShuffleUp(value, step);
+			value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
 		}
 		return value;
     }
-// protected:
-	ScratchAccessor scratch;
-	ScratchOffsetsAndMasks offsetsAndMasks;
 };
 
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
+template<typename T, class Binop>
 struct exclusive_scan
 {
-    static exclusive_scan<T, Binop, ScratchAccessor, initializeScratch> create()
-    {
-        exclusive_scan<T, Binop, ScratchAccessor, initializeScratch> retval;
-        retval.impl = inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create();
-        return retval;
-    }
 
     T operator()(T value)
     {
+		const uint subgroupInvocation = InvocationID();
+		
 		value = impl(value);
-
 		// store value to smem so we can shuffle it
-	#if 1
-		Binop op;
-		uint left = ShuffleUp<T>(value, 1);
-		value = impl.offsetsAndMasks.subgroupInvocation >= 1 ? left : op.identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-	#else
-		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset,value);
-		Barrier();
-		MemoryBarrierShared();
-		// get previous item
-		value = impl.scratch.main.get(impl.offsetsAndMasks.scanStoreOffset-1u);
-		Barrier();
-		MemoryBarrierShared();
-	#endif
+		uint left = glsl::subgroupShuffleUp(value, 1);
+		value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
 		// return it
 		return value;
     }
 
 // protected:
-	inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> impl;
+	inclusive_scan<T, Binop> impl;
 };
 
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch>
+template<typename T, class Binop>
 struct reduction
 {
-    static reduction<T, Binop, ScratchAccessor, initializeScratch> create()
-    {
-        reduction<T, Binop, ScratchAccessor, initializeScratch> retval;
-        retval.impl = inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create();
-        return retval;
-    }
-
     T operator()(T value)
     {
 		value = impl(value);
-	#if 1
-		value = Broadcast<T>(value, impl.offsetsAndMasks.lastSubgroupInvocation); // take the last subgroup invocation's value
-	#else
-		impl.scratch.main.set(impl.offsetsAndMasks.scanStoreOffset, value);
-		Barrier();
-		MemoryBarrierShared();
-		uint reductionResultOffset = impl.offsetsAndMasks.subgroupPaddingMemoryEnd + impl.offsetsAndMasks.lastSubgroupInvocation; // this should end up being the last subgroup invocation
-		// store value to smem so we can broadcast it to everyone
-		value = impl.scratch.main.get(reductionResultOffset);
-		Barrier();
-		MemoryBarrierShared();
-	#endif
-		// return it
+		value = glsl::subgroupBroadcast(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
 		return value;
     }
+	
 // protected:
-    inclusive_scan<T, Binop, ScratchAccessor, initializeScratch> impl;
+    inclusive_scan<T, Binop> impl;
 };
 }
 #endif

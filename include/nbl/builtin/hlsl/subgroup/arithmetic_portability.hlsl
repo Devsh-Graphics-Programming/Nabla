@@ -5,8 +5,12 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
 #ifndef NBL_GL_KHR_shader_subgroup_arithmetic
-#include "nbl/builtin/hlsl/subgroup/basic_portability.hlsl"
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #endif
+
+// [[vk::ext_extension("GL_KHR_shader_subgroup_arithmetic")]] REVIEW-519: Extensions don't seem to be needed?
+[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
+void spirv_arithmetic_extcap(){}
 
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
@@ -17,21 +21,22 @@ namespace hlsl
 namespace subgroup
 {
 
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
+template<typename T, class Binop>
 struct reduction
 {
     T operator()(const T x)
-    { // REVIEW: Should these extension headers have the GL name?
+    {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         native::reduction<T, Binop> reduce;
         return reduce(x);
     #else
-        return portability::reduction<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
+		portability::reduction<T, Binop> reduce;
+        return reduce(x);
     #endif
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
+template<typename T, class Binop>
 struct exclusive_scan
 {
     T operator()(const T x)
@@ -40,12 +45,13 @@ struct exclusive_scan
         native::exclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        return portability::exclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
+        portability::exclusive_scan<T, Binop> scan;
+		return scan(x);
     #endif
     }
 };
 
-template<typename T, class Binop, class ScratchAccessor, bool initializeScratch = true>
+template<typename T, class Binop>
 struct inclusive_scan
 {
     T operator()(const T x)
@@ -54,9 +60,8 @@ struct inclusive_scan
         native::inclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-		//if(gl_GlobalInvocationID.x == 0)
-		
-        return portability::inclusive_scan<T, Binop, ScratchAccessor, initializeScratch>::create()(x);
+        portability::inclusive_scan<T, Binop> scan;
+		return scan(x);
     #endif
     }
 };

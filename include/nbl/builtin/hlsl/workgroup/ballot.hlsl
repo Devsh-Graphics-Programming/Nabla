@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
@@ -23,87 +24,87 @@ namespace workgroup
  * then the Uint will be ...00100000
  * This way we can encode 32 invocations into a single Uint.
  *
- * All Uints are kept in contiguous scratch memory in a shared array.
- * The size of that array is based on the WORKGROUP SIZE. In this case we use bitfieldDWORDs.
+ * All Uints are kept in contiguous accessor memory in a shared array.
+ * The size of that array is based on the WORKGROUP SIZE. In this case we use uballotBitfieldCount.
  *
  * For each group of 32 invocations, a DWORD is assigned to the array (i.e. a 32-bit value, in this case Uint).
  * For example, for a workgroup size 128, 4 DWORDs are needed.
- * For each invocation index, we can find its respective DWORD index in the scratch array 
+ * For each invocation index, we can find its respective DWORD index in the accessor array 
  * by calling the getDWORD function.
  */
-template<class ScratchAccessor, bool edgeBarriers> // REVIEW: Not sure if barriers as tpl or as new function 'ballotWithBarriers'
+template<class SharedAccessor, bool edgeBarriers = true>
 void ballot(in bool value)
 {
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	ScratchAccessor scratch;
-	uint initialize = gl_LocalInvocationIndex < bitfieldDWORDs;
+	SharedAccessor accessor;
+	uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
 	if(initialize) {
-		scratch.main.set(gl_LocalInvocationIndex, 0u);
+		accessor.main.set(gl_LocalInvocationIndex, 0u);
 	}
-	Barrier();
+	glsl::barrier();
 	if(value) {
 		uint dummy;
-		scratch.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+		accessor.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
 	}
 	
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 }
 
 /**
- * Once we have assigned ballots in the scratch array, we can 
+ * Once we have assigned ballots in the shared array, we can 
  * extract any invocation's ballot value using this function.
  */
-template<class ScratchAccessor, bool edgeBarriers>
+template<class SharedAccessor, bool edgeBarriers = true>
 bool ballotBitExtract(in uint index)
 {
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	ScratchAccessor scratch;
-	const bool retval = (scratch.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
+	SharedAccessor accessor;
+	const bool retval = (accessor.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
 	
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
 	return retval;
 }
 
-template<class ScratchAccessor, bool edgeBarriers>
+template<class SharedAccessor, bool edgeBarriers = true>
 bool inverseBallot()
 {
-	return ballotBitExtract<ScratchAccessor, edgeBarriers>(gl_LocalInvocationIndex);
+	return ballotBitExtract<SharedAccessor, edgeBarriers>(gl_LocalInvocationIndex);
 }
 
 /**
  * Gives us the sum of all ballots for the workgroup.
  *
  * Only the first few invocations are used for performing the sum 
- * since we only have `bitfieldDWORDs` amount of Uints that we need 
+ * since we only have `uballotBitfieldCount` amount of Uints that we need 
  * to add together.
  * 
- * We add them all in the scratch array index after the last DWORD 
+ * We add them all in the shared array index after the last DWORD 
  * that is used for the ballots. For example, if we have 128 workgroup size,
  * then the array index in which we accumulate the sum is `4` since 
  * indexes 0..3 are used for ballots.
  */ 
-template<class ScratchAccessor>
+template<class SharedAccessor>
 uint ballotBitCount()
 {
-	ScratchAccessor scratch;
-	scratch.main.set(bitfieldDWORDs, 0u);
-	Barrier();
-	if(gl_LocalInvocationIndex < bitfieldDWORDs)
+	SharedAccessor accessor;
+	accessor.main.set(uballotBitfieldCount, 0u);
+	glsl::barrier();
+	if(gl_LocalInvocationIndex < uballotBitfieldCount)
 	{
-		const uint localBallot = scratch.main.get(gl_LocalInvocationIndex);
+		const uint localBallot = accessor.main.get(gl_LocalInvocationIndex);
 		const uint localBallotBitCount = countbits(localBallot);
 		uint dummy;
-		scratch.main.atomicAdd(bitfieldDWORDs, localBallotBitCount, dummy);
+		accessor.main.atomicAdd(uballotBitfieldCount, localBallotBitCount, dummy);
 	}
-	Barrier();
-	return scratch.main.get(bitfieldDWORDs);
+	glsl::barrier();
+	return accessor.main.get(uballotBitfieldCount);
 }
 
 }

@@ -18,17 +18,6 @@ namespace workgroup
 	{
 		return gl_LocalInvocationIndex==0u;
 	}
-	
-	void Barrier() {
-		GroupMemoryBarrierWithGroupSync();
-	}
-	
-	[[vk::ext_instruction(/* OpMemoryBarrier */ 225)]] // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpControlBarrier
-	void spirv_subgroupMemoryBarrierShared(uint memoryScope, uint memorySemantics);
-
-	void MemoryBarrierShared() {
-		spirv_subgroupMemoryBarrierShared(2, 0x8 | 0x100); // REVIEW: Need advice on memory semantics
-	}
 }
 }
 }

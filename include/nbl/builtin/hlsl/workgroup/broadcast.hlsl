@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat.hlsl"
 
 namespace nbl 
 {
@@ -17,42 +18,41 @@ namespace workgroup
  * Broadcasts the value `val` of invocation index `id`
  * to all other invocations.
  * 
- * We save the value in the shared array in the bitfieldDWORDs index 
+ * We save the value in the shared array in the uballotBitfieldCount index 
  * and then all invocations access that index.
  */
-template<typename T, class ScratchAccessor, bool edgeBarriers = true>
+template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T Broadcast(in T val, in uint id)
 {
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	ScratchAccessor scratch;
+	SharedAccessor accessor;
 	
 	if(gl_LocalInvocationIndex == id) {
-		scratch.broadcast.set(bitfieldDWORDs, val);
+		accessor.broadcast.set(uballotBitfieldCount, val);
 	}
 	
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	return scratch.broadcast.get(bitfieldDWORDs);
+	return accessor.broadcast.get(uballotBitfieldCount);
 }
 
-// REVIEW: Should we have broadcastFirst and broadcastElected?
-template<typename T, class ScratchAccessor, bool edgeBarriers = true>
+template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T BroadcastFirst(in T val)
 {
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	ScratchAccessor scratch;
+	SharedAccessor accessor;
 	if (Elect())
-		scratch.broadcast.set(bitfieldDWORDs, val);
+		accessor.broadcast.set(uballotBitfieldCount, val);
 	
 	if(edgeBarriers)
-		Barrier();
+		glsl::barrier();
 	
-	return scratch.broadcast.get(bitfieldDWORDs);
+	return accessor.broadcast.get(uballotBitfieldCount);
 }
 
 }

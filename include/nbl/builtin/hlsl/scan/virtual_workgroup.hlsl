@@ -19,7 +19,6 @@ namespace scan
 	template<class Binop, class Storage_t>
 	void virtualWorkgroup(in uint treeLevel, in uint localWorkgroupIndex)
 	{
-		Binop binop;
 		const Parameters_t params = getParameters();
 		const uint levelInvocationIndex = localWorkgroupIndex * _NBL_HLSL_WORKGROUP_SIZE_ + gl_LocalInvocationIndex;
 		const bool lastInvocationInGroup = gl_LocalInvocationIndex == (_NBL_HLSL_WORKGROUP_SIZE_ - 1);
@@ -29,7 +28,7 @@ namespace scan
 
 		const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
 
-		Storage_t data = binop.identity();
+		Storage_t data = Binop::identity();
 		if(inRange)
 		{
 			getData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
@@ -38,16 +37,16 @@ namespace scan
 		if(treeLevel < params.topLevel) 
 		{
 			#error "Must also define some scratch accessor when calling operation()"
-			data = workgroup::reduction<binop>()(data);
+			data = workgroup::reduction<Binop>()(data);
 		}
 		// REVIEW: missing _TYPE_ check and extra case here
 		else if (treeLevel != params.topLevel)
 		{
-			data = workgroup::inclusive_scan<binop>()(data);
+			data = workgroup::inclusive_scan<Binop>()(data);
 		}
 		else
 		{
-			data = workgroup::exclusive_scan<binop>()(data);
+			data = workgroup::exclusive_scan<Binop>()(data);
 		}
 		setData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel, inRange);
 	}
