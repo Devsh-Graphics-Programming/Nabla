@@ -185,12 +185,15 @@ public:
 
 				if (shouldNormalize)
 				{
+					constexpr double Threshold = 1e-6;
+
 					double normalizationFactor[ChannelCount] = { };
-					std::fill(normalizationFactor, normalizationFactor + ChannelCount, 1.0);
 					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 					{
-						if (core::abs(accum[ch]) > 1e-6)
+						if (core::abs(accum[ch]) >= Threshold)
 							normalizationFactor[ch] = normalizeWeightsTo / accum[ch];
+						else
+							normalizationFactor[ch] = normalizeWeightsTo / double(_windowSize);
 					}
 
 					for (int32_t j = 0; j < _windowSize; ++j)
@@ -198,7 +201,12 @@ public:
 						for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 						{
 							const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
-							const double normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
+
+							double normalized;
+							if (core::abs(accum[ch]) >= Threshold)
+								normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
+							else
+								normalized = normalizationFactor[ch];
 
 							if constexpr (std::is_same_v<LutDataType, uint16_t>)
 								outKernelWeightsPixel[idx] = core::Float16Compressor::compress(float(normalized));
