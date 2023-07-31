@@ -541,7 +541,7 @@ class CBlitImageFilter :
 
 								auto sample = lineBuffer+i*ChannelCount;
 
-								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
 
 								if (nonPremultBlendSemantic)
 								{
