@@ -1526,47 +1526,47 @@ float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorS
     return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? core::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
 }
 
-core::vectorSIMDf IMeshManipulator::FindMinMaxProj(core::vectorSIMDf Dir, core::vectorSIMDf Extrema[]) 
-{
-    float MinPoint, MaxPoint;
-    MinPoint = MaxPoint = core::dot(Dir, Extrema[0]).x;
-
-    for (int i = 1; i < 12; i++) {
-        float Proj = core::dot(Dir, Extrema[i]).x;
-        if (MinPoint > Proj) MinPoint = Proj;
-        if (MaxPoint < Proj) MaxPoint = Proj;
-    }
-
-    return core::vectorSIMDf(MaxPoint, MinPoint, 0);
-}
-
-void IMeshManipulator::ComputeAxis(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, core::vectorSIMDf Extrema[])
-{
-    core::vectorSIMDf e0 = P1 - P0;
-    core::vectorSIMDf Edges[3];
-    Edges[0] = e0 / core::length(e0);
-    Edges[1] = core::cross(P2 - P1, P1 - P0);
-    Edges[1] = Edges[1] / core::length(Edges[1]);
-    Edges[2] = core::cross(Edges[0], Edges[1]);
-
-    core::vectorSIMDf Edge10Proj = FindMinMaxProj(Edges[0], Extrema);
-    core::vectorSIMDf Edge20Proj = FindMinMaxProj(Edges[1], Extrema);
-    core::vectorSIMDf Edge30Proj = FindMinMaxProj(Edges[2], Extrema);
-    core::vectorSIMDf Max2 = core::vectorSIMDf(Edge10Proj.x, Edge20Proj.x, Edge30Proj.x);
-    core::vectorSIMDf Min2 = core::vectorSIMDf(Edge10Proj.y, Edge20Proj.y, Edge30Proj.y);
-    core::vectorSIMDf Diff = Max2 - Min2;
-    float Quality = Diff.x * Diff.y + Diff.x * Diff.z + Diff.y * Diff.z;
-
-    if (Quality < PrevQuality) {
-        PrevQuality = Quality;
-        for (int i = 0; i < 3; i++) {
-            AxesEdge[i] = Edges[i];
-        }
-    }
-}
-
 core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 
 {
+    auto FindMinMaxProj = [&](const core::vectorSIMDf& Dir, const core::vectorSIMDf Extrema[]) -> core::vectorSIMDf
+    {
+        float MinPoint, MaxPoint;
+        MinPoint = MaxPoint = core::dot(Dir, Extrema[0]).x;
+
+        for (int i = 1; i < 12; i++) {
+            float Proj = core::dot(Dir, Extrema[i]).x;
+            if (MinPoint > Proj) MinPoint = Proj;
+            if (MaxPoint < Proj) MaxPoint = Proj;
+        }
+
+        return core::vectorSIMDf(MaxPoint, MinPoint, 0);
+    };
+
+    auto ComputeAxis = [&](const core::vectorSIMDf& P0, const core::vectorSIMDf& P1, const core::vectorSIMDf& P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, const core::vectorSIMDf Extrema[]) -> void
+    {
+        core::vectorSIMDf e0 = P1 - P0;
+        core::vectorSIMDf Edges[3];
+        Edges[0] = e0 / core::length(e0);
+        Edges[1] = core::cross(P2 - P1, P1 - P0);
+        Edges[1] = Edges[1] / core::length(Edges[1]);
+        Edges[2] = core::cross(Edges[0], Edges[1]);
+
+        core::vectorSIMDf Edge10Proj = FindMinMaxProj(Edges[0], Extrema);
+        core::vectorSIMDf Edge20Proj = FindMinMaxProj(Edges[1], Extrema);
+        core::vectorSIMDf Edge30Proj = FindMinMaxProj(Edges[2], Extrema);
+        core::vectorSIMDf Max2 = core::vectorSIMDf(Edge10Proj.x, Edge20Proj.x, Edge30Proj.x);
+        core::vectorSIMDf Min2 = core::vectorSIMDf(Edge10Proj.y, Edge20Proj.y, Edge30Proj.y);
+        core::vectorSIMDf Diff = Max2 - Min2;
+        float Quality = Diff.x * Diff.y + Diff.x * Diff.z + Diff.y * Diff.z;
+
+        if (Quality < PrevQuality) {
+            PrevQuality = Quality;
+            for (int i = 0; i < 3; i++) {
+                AxesEdge[i] = Edges[i];
+            }
+        }
+    };
+
     core::vectorSIMDf Extrema[12];
     float A = (core::sqrt(5.0f) - 1.0f) / 2.0f;
     core::vectorSIMDf N[6];
