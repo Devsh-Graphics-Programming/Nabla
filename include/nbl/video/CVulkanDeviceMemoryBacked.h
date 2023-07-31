@@ -28,13 +28,13 @@ class CVulkanDeviceMemoryBacked : public Interface
 
 	public:
 		inline IDeviceMemoryBacked::SMemoryBinding getBoundMemory() const {return {m_memory.get(),m_offset};}
-		inline void setMemoryBinding(const IDeviceMemoryBacked::SMemoryBinding& binding) override
+		inline void setMemoryBinding(const IDeviceMemoryBacked::SMemoryBinding& binding)
 		{
 			m_memory = core::smart_refctd_ptr<IDeviceMemoryAllocation>(binding.memory);
 			m_offset = binding.offset;
 		}
 
-		inline void* getNativeHandle() override {return &m_handle;}
+		inline const void* getNativeHandle() const override {return &m_handle;}
 		inline VkResource_t getInternalObject() const {return m_handle;}
 
 	protected:
