@@ -69,13 +69,13 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 						{						
 							constexpr auto maxChannels = 4;
 							decodeBufferType decodeBuffer[maxChannels] = {};
-							encodeBufferType encodeBuffer[maxChannels] = {};
 
 							if constexpr (kInFormat!=EF_UNKNOWN)
-								base_t::template onDecode<kInFormat,encodeBufferType>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+								base_t::template onDecode<kInFormat>(state, srcPix, decodeBuffer, blockX, blockY);
 							else
-								base_t::template onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							state->normalization.prepass(encodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifference,blockX,blockY,4u/*TODO: figure this out*/);
+								base_t::template onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, blockX, blockY);
+
+							state->normalization.prepass(decodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels,blockX,blockY,4u/*TODO: figure this out*/);
 						}
 					};
 					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -145,15 +145,14 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 						
 						constexpr auto maxChannels = 4;
 						decodeBufferType decodeBuffer[maxChannels] = {};
-						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY);
+						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -211,15 +210,14 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 				
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
-						double encodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY);
+						base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -286,15 +284,14 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 					for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 					for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference;
+						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY), commonExecuteData.outByteStrides);
 
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
-						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-						base_t::template onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY);
+						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -362,15 +359,14 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 					for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 						for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 						{
-							auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference;
+							auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
 							uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY), commonExecuteData.outByteStrides);
 
 							constexpr auto maxChannels = 4;
 							decodeBufferType decodeBuffer[maxChannels] = {};
-							double encodeBuffer[maxChannels] = {};
 
-							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
-							base_t::template onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY);
+							base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
