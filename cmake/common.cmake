@@ -32,6 +32,10 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
+	if(MSVC)
+		set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
+	endif()
+	
 	project(${EXECUTABLE_NAME})
 
 	if(ANDROID)
