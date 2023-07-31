@@ -1,5 +1,5 @@
-#ifndef __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
-#define __NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED_
+#define _NBL_VIDEO_I_PHYSICAL_DEVICE_H_INCLUDED_
 
 
 #include "nbl/core/util/bitflag.h"
@@ -69,15 +69,17 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct APIVersion
         {
-            uint32_t major : 5;
-            uint32_t minor : 5;
-            uint32_t patch : 22;
+            uint32_t major : 8;
+            uint32_t minor : 8;
+            uint32_t subminor : 8;
+            uint32_t patch : 8;
 
             inline auto operator <=> (uint32_t vkApiVersion) const { return vkApiVersion - VK_MAKE_API_VERSION(0, major, minor, patch); }
             inline auto operator <=> (const APIVersion& other) const 
             {
                 if(major != other.major) return static_cast<uint32_t>(other.major - major);
                 if(minor != other.minor) return static_cast<uint32_t>(other.minor - minor);
+                if(subminor != other.subminor) return static_cast<uint32_t>(other.subminor - subminor);
                 if(patch != other.patch) return static_cast<uint32_t>(other.patch - patch);
                 return 0u;
             }
@@ -105,11 +107,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t    deviceNodeMask;
             bool        deviceLUIDValid;
 
-            /* Vulkan 1.2 Core  or VK_KHR_driver_properties */
+            /* Vulkan 1.2 Core  */
             E_DRIVER_ID driverID;
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
-            VkConformanceVersion conformanceVersion;
+            APIVersion conformanceVersion;
         };
 
         const SProperties& getProperties() const { return m_properties; }
@@ -270,8 +272,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //
         struct SFormatBufferUsages
         {
-            // TODO: should memset everything to 0 on default constructor?
-
             struct SUsage
             {
                 uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
@@ -405,14 +405,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , log2MaxSamples(0)
                 {}
 
-                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
+                SUsage(core::bitflag<IGPUImage::E_USAGE_FLAGS> usages):
                     log2MaxSamples(0),
-                    sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
-                    storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
-                    transferSrc(usages.hasFlags(asset::IImage::EUF_TRANSFER_SRC_BIT)),
-                    transferDst(usages.hasFlags(asset::IImage::EUF_TRANSFER_DST_BIT)),
-                    attachment((usages & (core::bitflag(asset::IImage::EUF_COLOR_ATTACHMENT_BIT) | asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT)).value != 0),
-                    attachmentBlend(usages.hasFlags(asset::IImage::EUF_COLOR_ATTACHMENT_BIT)), // TODO: should conservatively deduct to be false
+                    sampledImage(usages.hasFlags(IGPUImage::EUF_SAMPLED_BIT)),
+                    storageImage(usages.hasFlags(IGPUImage::EUF_STORAGE_BIT)),
+                    transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
+                    transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
+                    attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
+                    attachmentBlend(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)/*&& TODO: is Float or Normalized Format*/),
                     // Deduced as false. User may patch it up later
                     blitSrc(0),
                     blitDst(0),
@@ -521,17 +521,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
         const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
-
-        //
-        enum E_QUEUE_FLAGS : uint32_t
-        {
-            EQF_NONE = 0,
-            EQF_GRAPHICS_BIT = 0x01,
-            EQF_COMPUTE_BIT = 0x02,
-            EQF_TRANSFER_BIT = 0x04,
-            EQF_SPARSE_BINDING_BIT = 0x08,
-            EQF_PROTECTED_BIT = 0x10
-        };
+        const SFormatImageUsages& getImageFormatUsages(const IGPUImage::TILING tiling) const {return tiling!=IGPUImage::TILING::OPTIMAL ? m_linearTilingUsages:m_optimalTilingUsages;}
 
         /* QueueFamilyProperties2
 * 
@@ -562,14 +552,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         */
         struct SQueueFamilyProperties
         {
-            core::bitflag<E_QUEUE_FLAGS> queueFlags;
+            core::bitflag<IQueue::FAMILY_FLAGS> queueFlags;
             uint32_t queueCount;
             uint32_t timestampValidBits;
             asset::VkExtent3D minImageTransferGranularity;
 
             inline bool operator!=(const SQueueFamilyProperties& other) const
             {
-                return queueFlags.value != other.queueFlags.value || queueCount != other.queueCount || timestampValidBits != other.timestampValidBits || minImageTransferGranularity != other.minImageTransferGranularity;
+                return queueFlags!=other.queueFlags || queueCount != other.queueCount || timestampValidBits != other.timestampValidBits || minImageTransferGranularity != other.minImageTransferGranularity;
             }
         };
         auto getQueueFamilyProperties() const 
@@ -591,13 +581,13 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SFormatImageUsages::SUsage usages = SFormatImageUsages::SUsage();
         };
 
-        asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req);
-        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling);
+        asset::E_FORMAT promoteBufferFormat(const SBufferFormatPromotionRequest req) const;
+        asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const;
 
         //
         inline system::ISystem* getSystem() const {return m_system.get();}
         
-        virtual IDebugCallback* getDebugCallback() = 0;
+        virtual IDebugCallback* getDebugCallback() const = 0;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
@@ -725,7 +715,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             format_buffer_cache_t buffers;
             format_image_cache_t optimalTilingImages;
             format_image_cache_t linearTilingImages;
-        } m_formatPromotionCache;
+        };
+        mutable format_promotion_cache_t m_formatPromotionCache;
 };
 
 }

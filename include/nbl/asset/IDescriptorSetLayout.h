@@ -37,7 +37,7 @@ namespace nbl::asset
 */
 
 template<typename SamplerType>
-class IDescriptorSetLayout : public virtual core::IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted  // TODO: try to remove this inheritance and see what happens
 {
 public:
 	using sampler_type = SamplerType;

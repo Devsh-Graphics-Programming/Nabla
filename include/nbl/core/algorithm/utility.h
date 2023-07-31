@@ -1,9 +1,7 @@
-#ifndef __NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__
-#define __NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__
+#ifndef _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
+#define _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 namespace impl
@@ -29,7 +27,15 @@ inline void hash_combine(std::size_t& seed, const T& v)
     seed ^= hasher(v) + 0x9e3779b97f4a7c15ull + (seed << 6) + (seed >> 2);
 }
 
+template<typename T, class func_t>
+static inline void visit_token_terminated_array(const T* array, const T& endToken, func_t&& func)
+{
+    if (array)
+    for (auto it=array; *it!=endToken && func(*it); it++)
+    {
+    }
 }
+
 }
 
 #endif //__NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED__

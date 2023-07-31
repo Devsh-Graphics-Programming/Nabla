@@ -722,7 +722,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     {
         auto descriptorInfos = ds->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
         descriptorInfos.begin()[0].desc = _views[i] ? std::move(_views[i]) : dummy2d;
-        descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+        descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
     }
 
     return ds;

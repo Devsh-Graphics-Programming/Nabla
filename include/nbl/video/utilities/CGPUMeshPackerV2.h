@@ -39,7 +39,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         }
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)
-        CGPUMeshPackerV2(ILogicalDevice* driver, IGPUQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
+        CGPUMeshPackerV2(ILogicalDevice* driver, IQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
             : base_t(cpuMP), m_driver(driver)
         {
             // TODO: protect against unitiliazed storage of cpuMP

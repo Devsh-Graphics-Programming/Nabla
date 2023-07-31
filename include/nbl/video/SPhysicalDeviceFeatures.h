@@ -31,19 +31,31 @@ namespace nbl::video
 struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
+
     bool robustBufferAccess = false;
-    bool fullDrawIndexUint32 = false;
-    bool imageCubeArray = false;
-    bool independentBlend = false;
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    //bool fullDrawIndexUint32 = true; // TODO: expose the `maxDrawIndexedIndexValue` limit instead
+ 
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool imageCubeArray = true;
+    //bool independentBlend = true;
+
     bool geometryShader    = false;
     bool tessellationShader = false;
-    bool sampleRateShading = false;
+
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool sampleRateShading = true;
+
     bool dualSrcBlend = false;
     bool logicOp = false;
-    bool multiDrawIndirect = false;
-    bool drawIndirectFirstInstance = false;
-    bool depthClamp = false;
-    bool depthBiasClamp = false;
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    //bool multiDrawIndirect = true;
+    //bool drawIndirectFirstInstance = true;
+    //bool depthClamp = true;
+    //bool depthBiasClamp = true;
+
     bool fillModeNonSolid = false;
     bool depthBounds = false;
     bool wideLines = false;
@@ -51,32 +63,49 @@ struct SPhysicalDeviceFeatures
     bool alphaToOne = false;
     bool multiViewport = false;
 
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous
+    // bool samplerAnisotropy = true;
+
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool    textureCompressionETC2;
     //bool    textureCompressionASTC_LDR;
     //bool    textureCompressionBC;
-    
-    bool occlusionQueryPrecise = false;
+ 
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool occlusionQueryPrecise = true;
+
     bool pipelineStatisticsQuery = false;
 
     // Enabled by Default, Moved to Limits
-    //bool vertexPipelineStoresAndAtomics = false;
-    //bool fragmentStoresAndAtomics = false;
-    //bool shaderTessellationAndGeometryPointSize = false;
-    //bool shaderImageGatherExtended = false;
+    //bool vertexPipelineStoresAndAtomics;
+    //bool fragmentStoresAndAtomics;
+    //bool shaderTessellationAndGeometryPointSize;
+    //bool shaderImageGatherExtended;
 
-    bool shaderStorageImageExtendedFormats = false;
-    bool shaderStorageImageMultisample = false;
+    // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
+    // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
+    //bool shaderStorageImageExtendedFormats = true;
+
+    // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
+    //bool shaderStorageImageMultisample;
+
     bool shaderStorageImageReadWithoutFormat = false;
     bool shaderStorageImageWriteWithoutFormat = false;
-    bool shaderUniformBufferArrayDynamicIndexing = false;
-    bool shaderSampledImageArrayDynamicIndexing = false;
-    bool shaderStorageBufferArrayDynamicIndexing = false;
-    bool shaderStorageImageArrayDynamicIndexing = false;
+
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    //bool shaderUniformBufferArrayDynamicIndexing = true;
+    //bool shaderSampledImageArrayDynamicIndexing = true;
+    //bool shaderStorageBufferArrayDynamicIndexing = true;
+ 
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support
+    //bool shaderStorageImageArrayDynamicIndexing;
+
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
-    bool shaderFloat64 = false; // shaderFloat64
-    
+
+    // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
+    //bool shaderFloat64;
+
     // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
     //bool shaderInt16 = false;
@@ -98,36 +127,44 @@ struct SPhysicalDeviceFeatures
     bool variableMultisampleRate = false;
     bool inheritedQueries = false;
 
+
     /* Vulkan 1.1 Core */
 
-    // Enabled by Default, Moved to Limits
-    /* VK_KHR_16bit_storage */
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
     //bool storageBuffer16BitAccess = false;
     //bool uniformAndStorageBuffer16BitAccess = false;
     //bool storagePushConstant16 = false;
     //bool storageInputOutput16 = false;
-    
-    // [TODO LATER] do not expose multiview yet
-    /* VK_KHR_multiview */
-    //bool           multiview;
-    //bool           multiviewGeometryShader;
-    //bool           multiviewTessellationShader;
+
+    // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
+    //bool multiview;
+    // 
+    // [TODO LATER] do not expose this part of multiview yet
+    /* VK_KHR_multiview */ 
+    //bool multiviewGeometryShader;
+    //bool multiviewTessellationShader;
+
+    // [EXPOSE AS A LIMIT] Its just a shader capability
+    //bool variablePointers;
+    // [DO NOT EXPOSE] Under Vulkan 1.1 if `variablePointers` is present it implies `variablePointersStorageBuffer`
+    //bool variablePointersStorageBuffer = variablePointers;
     
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
- 
+
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
 
     bool shaderDrawParameters = false;  /* ALIAS: VK_KHR_shader_draw_parameters */
 
 
-
-
     /* Vulkan 1.2 Core */
 
-    bool samplerMirrorClampToEdge = false;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
-    bool drawIndirectCount = false;                 // ALIAS: VK_KHR_draw_indirect_count
+    // [DO NOT EXPOSE] Device support ubiquitous
+    //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
+ 
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well, exposed as a limit `maxDrawIndirectCount`
+    //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
     // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
@@ -146,65 +183,73 @@ struct SPhysicalDeviceFeatures
     //bool shaderInt8 = false;
     
     // or VK_EXT_descriptor_indexing
-    bool descriptorIndexing = false;
+    bool descriptorIndexing = false;  // always enable ?
     bool shaderInputAttachmentArrayDynamicIndexing = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool shaderUniformTexelBufferArrayDynamicIndexing = false;
     bool shaderStorageTexelBufferArrayDynamicIndexing = false;
     bool shaderUniformBufferArrayNonUniformIndexing = false;
     bool shaderSampledImageArrayNonUniformIndexing = false;
     bool shaderStorageBufferArrayNonUniformIndexing = false;
     bool shaderStorageImageArrayNonUniformIndexing = false;
+
     bool shaderInputAttachmentArrayNonUniformIndexing = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool shaderUniformTexelBufferArrayNonUniformIndexing = false;
     bool shaderStorageTexelBufferArrayNonUniformIndexing = false;
+
     bool descriptorBindingUniformBufferUpdateAfterBind = false;
+
+    // on ROADMAP 2022 but need to check stuff first
     bool descriptorBindingSampledImageUpdateAfterBind = false;
     bool descriptorBindingStorageImageUpdateAfterBind = false;
     bool descriptorBindingStorageBufferUpdateAfterBind = false;
     bool descriptorBindingUniformTexelBufferUpdateAfterBind = false;
     bool descriptorBindingStorageTexelBufferUpdateAfterBind = false;
+
+    // supported by ROADMAP 2022 but might be expensive to enable for the implementation
     bool descriptorBindingUpdateUnusedWhilePending = false;
     bool descriptorBindingPartiallyBound = false;
     bool descriptorBindingVariableDescriptorCount = false;
     bool runtimeDescriptorArray = false;
     
+    // TODO: Actually implement the sampler flag enums
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
+
+    // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
+    //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
+
+    // [DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
+    //bool imagelessFramebuffer = false;  // or VK_KHR_imageless_framebuffer
     
-    bool scalarBlockLayout = false;     // or VK_EXT_scalar_block_layout
-    
-    //bool           imagelessFramebuffer;  // or VK_KHR_imageless_framebuffer // [FUTURE TODO] https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
-    
-    bool uniformBufferStandardLayout = false;   // or VK_KHR_uniform_buffer_standard_layout
-    
-    bool shaderSubgroupExtendedTypes = false;   // or VK_KHR_shader_subgroup_extended_types
-    
-    bool separateDepthStencilLayouts = false;   // or VK_KHR_separate_depth_stencil_layouts
-    
-    //bool           timelineSemaphore;             // or VK_KHR_timeline_semaphore // [FUTURE TODO] won't expose for a long time
+    // [DO NOT EXPOSE] Vulkan 1.2 requires these
+    //bool uniformBufferStandardLayout = true; // or VK_KHR_uniform_buffer_standard_layout
+    //bool shaderSubgroupExtendedTypes = true;   // or VK_KHR_shader_subgroup_extended_types
+    //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layouts
+    //bool hostQueryReset = true;                // or VK_EXT_host_query_reset [TODO Implement]
+    //bool timelineSemaphore = true;             // or VK_KHR_timeline_semaphore [TODO Implement]
     
     // or VK_KHR_buffer_device_address:
     bool bufferDeviceAddress = false;
     // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
     bool bufferDeviceAddressMultiDevice = false;
     
-    // or VK_KHR_vulkan_memory_model
-    bool vulkanMemoryModel = false;
-    bool vulkanMemoryModelDeviceScope = false;
-    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
-   
-    bool subgroupBroadcastDynamicId = false;    // if Vulkan 1.2 is supported
-
-
+    // [EXPOSE AS A LIMIT] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
+    //bool vulkanMemoryModel;
+    //bool vulkanMemoryModelDeviceScope;
+    //bool vulkanMemoryModelAvailabilityVisibilityChains;
 
 
     /* Vulkan 1.3 Core */
     
-    // [DO NOT EXPOSE]
+    // [DO NOT EXPOSE] EVIL regressive step back into OpenGL/Dx10 times
     //  or VK_EXT_inline_uniform_block:
     //bool           inlineUniformBlock;
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
 
-    // [DO NOT EXPOSE] ever
+    // [DO NOT EXPOSE] ever we have our own mechanism
     //bool           privateData;                       // or VK_EXT_private_data
     
     bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
@@ -214,13 +259,13 @@ struct SPhysicalDeviceFeatures
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
-    // [DO NOT EXPOSE] and false because we havent rewritten our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
+    // [DO NOT EXPOSE] REQUIRE but we need to rewrite our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
     //bool           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
     
-    // [DO NOT EXPOSE] would require doing research into the GL/GLES robustness extensions
+    // [TODO] Expose
     //bool           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     
     // [DO NOT EXPOSE] EVIL
@@ -240,7 +285,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
 
-    // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
+    // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with `EXT_fragment_shader_interlock` and EXT_shader_tile_image
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
     //bool           advancedBlendCoherentOperations;
     
@@ -472,13 +517,6 @@ struct SPhysicalDeviceFeatures
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
 
-    // [TODO]:
-    //bool           variablePointersStorageBuffer;
-    //bool           variablePointers;
-
-    // [TODO] add implementation to engine
-    bool hostQueryReset = false;                // or VK_EXT_host_query_reset
-
     bool pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
 
     // [TODO] need new commandbuffer methods, etc
@@ -617,19 +655,19 @@ struct SPhysicalDeviceFeatures
     // Enabled by Default, Moved to Limits
     /* VK_KHR_external_semaphore_win32 */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_KHR_shader_non_semantic_info */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_KHR_fragment_shader_barycentric */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_NV_geometry_shader_passthrough */
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_NV_viewport_swizzle */
 
     // [TODO] this one isn't in the headers
@@ -909,14 +947,15 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
 
-    // [DO NOT EXPOSE] Promoted to VK1.3 core, migrate to it when/if we need it
+    // [DO NOT EXPOSE] Promoted to VK1.3 core but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
     /* VK_KHR_copy_commands2 */
 
     /* VK_KHR_deferred_host_operations */
     bool deferredHostOperations = false;
 
-    // [DO NOT EXPOSE] Promoted to core VK 1.1
+    // [DO NOT EXPOSE YET] Promoted to core VK 1.1
     /* VK_KHR_device_group */
+    /* VK_KHR_device_group_creation */
 
     // [DO NOT EXPOSE] Promoted to core VK 1.1
     /* VK_KHR_external_fence */
@@ -1000,9 +1039,15 @@ struct SPhysicalDeviceFeatures
 
     /* VK_NV_present_barrier */
     /* VK_EXT_queue_family_foreign */
+
+    // [DO NOT EXPOSE] Core 1.2
     /* VK_EXT_separate_stencil_usage */
+
     /* VK_KHR_create_renderpass2 */
+
+    // [DO NOT EXPOSE] implemented on default path and there's no choice in not using it
     /* VK_KHR_bind_memory2 */
+
     /* VK_NV_viewport_array2 */
     /* VK_EXT_image_compression_control */
     /* VK_EXT_image_compression_control_swapchain */
@@ -1015,44 +1060,26 @@ struct SPhysicalDeviceFeatures
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
-        if (fullDrawIndexUint32 && !_rhs.fullDrawIndexUint32) return false;
-        if (imageCubeArray && !_rhs.imageCubeArray) return false;
-        if (independentBlend && !_rhs.independentBlend) return false;
         if (geometryShader && !_rhs.geometryShader) return false;
         if (tessellationShader && !_rhs.tessellationShader) return false;
-        if (sampleRateShading && !_rhs.sampleRateShading) return false;
         if (dualSrcBlend && !_rhs.dualSrcBlend) return false;
         if (logicOp && !_rhs.logicOp) return false;
-        if (multiDrawIndirect && !_rhs.multiDrawIndirect) return false;
-        if (drawIndirectFirstInstance && !_rhs.drawIndirectFirstInstance) return false;
-        if (depthClamp && !_rhs.depthClamp) return false;
-        if (depthBiasClamp && !_rhs.depthBiasClamp) return false;
         if (fillModeNonSolid && !_rhs.fillModeNonSolid) return false;
         if (depthBounds && !_rhs.depthBounds) return false;
         if (wideLines && !_rhs.wideLines) return false;
         if (largePoints && !_rhs.largePoints) return false;
         if (alphaToOne && !_rhs.alphaToOne) return false;
         if (multiViewport && !_rhs.multiViewport) return false;
-        if (occlusionQueryPrecise && !_rhs.occlusionQueryPrecise) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        if (shaderStorageImageExtendedFormats && !_rhs.shaderStorageImageExtendedFormats) return false;
-        if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
         if (shaderStorageImageWriteWithoutFormat && !_rhs.shaderStorageImageWriteWithoutFormat) return false;
-        if (shaderUniformBufferArrayDynamicIndexing && !_rhs.shaderUniformBufferArrayDynamicIndexing) return false;
-        if (shaderSampledImageArrayDynamicIndexing && !_rhs.shaderSampledImageArrayDynamicIndexing) return false;
-        if (shaderStorageBufferArrayDynamicIndexing && !_rhs.shaderStorageBufferArrayDynamicIndexing) return false;
-        if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
-        if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
         if (inheritedQueries && !_rhs.inheritedQueries) return false;
         if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
-        if (samplerMirrorClampToEdge && !_rhs.samplerMirrorClampToEdge) return false;
-        if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;
@@ -1075,16 +1102,8 @@ struct SPhysicalDeviceFeatures
         if (descriptorBindingVariableDescriptorCount && !_rhs.descriptorBindingVariableDescriptorCount) return false;
         if (runtimeDescriptorArray && !_rhs.runtimeDescriptorArray) return false;
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
-        if (scalarBlockLayout && !_rhs.scalarBlockLayout) return false;
-        if (uniformBufferStandardLayout && !_rhs.uniformBufferStandardLayout) return false;
-        if (shaderSubgroupExtendedTypes && !_rhs.shaderSubgroupExtendedTypes) return false;
-        if (separateDepthStencilLayouts && !_rhs.separateDepthStencilLayouts) return false;
         if (bufferDeviceAddress && !_rhs.bufferDeviceAddress) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
-        if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
-        if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
-        if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
-        if (subgroupBroadcastDynamicId && !_rhs.subgroupBroadcastDynamicId) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
         if (subgroupSizeControl && !_rhs.subgroupSizeControl) return false;
@@ -1154,7 +1173,6 @@ struct SPhysicalDeviceFeatures
         if (rasterizationOrder && !_rhs.rasterizationOrder) return false;
         if (shaderExplicitVertexParameter && !_rhs.shaderExplicitVertexParameter) return false;
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
-        if (hostQueryReset && !_rhs.hostQueryReset) return false;
         if (pipelineCreationCacheControl && !_rhs.pipelineCreationCacheControl) return false;
         if (colorWriteEnable && !_rhs.colorWriteEnable) return false;
         if (conditionalRendering && !_rhs.conditionalRendering) return false;

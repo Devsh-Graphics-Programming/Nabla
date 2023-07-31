@@ -4,30 +4,235 @@ using namespace nbl;
 using namespace nbl::video;
 
 
+ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params)
+    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
+    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr)
+{
+    uint32_t qcnt = 0u;
+    uint32_t greatestFamNum = 0u;
+    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+    {
+        greatestFamNum = core::max(greatestFamNum,params.queueParams[i].familyIndex);
+        qcnt += params.queueParams[i].count;
+    }
+
+    m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
+    m_queueFamilyInfos = core::make_refctd_dynamic_array<q_family_info_array_t>(greatestFamNum+1u);
+
+    for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams,params.queueParams+params.queueParamsCount))
+    {
+        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos->operator[](qci.familyIndex));
+        {
+            using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+            info.supportedStages = stage_flags_t::HOST_BIT;
+
+            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
+            const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
+                (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+
+            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[qci.familyIndex].queueFlags;
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
+            {
+                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
+                if (m_enabledFeatures.accelerationStructure)
+                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
+                if (m_enabledFeatures.rayTracingPipeline)
+                    info.supportedStages |= stage_flags_t::RAY_TRACING_SHADER_BIT;
+            }
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+            {
+                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
+
+                if (m_enabledFeatures.tessellationShader)
+                    info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT|stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
+                if (m_enabledFeatures.geometryShader)
+                    info.supportedStages |= stage_flags_t::GEOMETRY_SHADER_BIT;
+                // we don't do transform feedback
+                //if (m_enabledFeatures.meshShader)
+                //    info.supportedStages |= stage_flags_t::;
+                //if (m_enabledFeatures.taskShader)
+                //    info.supportedStages |= stage_flags_t::;
+                if (m_enabledFeatures.fragmentDensityMap)
+                    info.supportedStages |= stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT;
+                //if (m_enabledFeatures.????)
+                //    info.supportedStages |= stage_flags_t::SHADING_RATE_ATTACHMENT_BIT;
+
+                info.supportedStages |= stage_flags_t::FRAMEBUFFER_SPACE_BITS;
+            }
+            if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+                info.supportedStages |= transferStages;
+        }
+        {
+            using access_flags_t = asset::ACCESS_FLAGS;
+            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
+        }
+        info.firstQueueIndex = qci.count;
+    }
+    // bothering with an `std::exclusive_scan` is a bit too cumbersome here
+    uint32_t sum = 0u;
+    for (auto i=0u; i<m_queueFamilyInfos->size(); i++)
+    {
+        auto& x = m_queueFamilyInfos->operator[](i).firstQueueIndex;
+        auto tmp = sum+x;
+        const_cast<uint32_t&>(x) = sum;
+        sum = tmp;
+    }
+}
+
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
 {
-    uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
-    for (auto b=_begin; b!=_end; ++b)
+    if (queueFamilyIndex>m_queueFamilyInfos->size())
+        return false;
+    using q_family_flags_t = IQueue::FAMILY_FLAGS;
+    const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
+    // strip special values
+    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS))
+        return true;
+    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS) && bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT|q_family_flags_t::TRANSFER_BIT)))
+        stageMask ^= asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS;
+    if (familyProps.hasFlags(q_family_flags_t::GRAPHICS_BIT))
     {
-        if (b->type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
-            dynamicSSBOCount++;
-        else if (b->type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
-            dynamicUBOCount++;
-        else if (b->type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
+        if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_GRAPHICS_BITS))
+            stageMask ^= asset::PIPELINE_STAGE_FLAGS::ALL_GRAPHICS_BITS;
+        if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS))
+            stageMask ^= asset::PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS;
+    }
+    return getSupportedStageMask(queueFamilyIndex).hasFlags(stageMask);
+}
+
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
+{
+    if (queueFamilyIndex>m_queueFamilyInfos->size())
+        return false;
+    using q_family_flags_t = IQueue::FAMILY_FLAGS;
+    const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
+    const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
+    // strip special values
+    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
+        stageMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
+        stageMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
+    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
+        stageMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
+        stageMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+    return getSupportedAccessMask(queueFamilyIndex).hasFlags(stageMask);
+}
+
+bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const
+{
+    if (!supportsMask(queueFamilyIndex,barrier.srcStageMask) || !supportsMask(queueFamilyIndex,barrier.dstStageMask))
+        return false;
+    if (!supportsMask(queueFamilyIndex,barrier.srcAccessMask) || !supportsMask(queueFamilyIndex,barrier.dstAccessMask))
+        return false;
+
+    using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+    const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
+    using access_flags_t = asset::ACCESS_FLAGS;
+    const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
+    auto validAccess = [supportedStageMask,supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03917
+        if (bool(accessMask&(access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT)) && !stageMask.hasFlags(stage_flags_t::HOST_BIT))
+            return false;
+        // this takes care of all stuff below
+        if (stageMask.hasFlags(stage_flags_t::ALL_COMMANDS_BITS))
+            return true;
+        // first strip unsupported bits
+        stageMask &= supportedStageMask;
+        accessMask &= supportedAccessMask;
+        // TODO: finish this stuff
+        if (stageMask.hasFlags(stage_flags_t::ALL_GRAPHICS_BITS))
         {
-            auto* samplers = b->samplers;
-            for (uint32_t i = 0u; i < b->count; ++i)
-                if (!samplers[i]->wasCreatedBy(this))
-                    return nullptr;
+            if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+            {
+            }
+            else
+            {
+            }
+        }
+        else
+        {
+            if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+            {
+            }
+            else
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03914
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03915
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03927
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03928
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-06256
+            }
+            // this is basic valid usage stuff
+            #ifdef _NBL_DEBUG
+            // TODO:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03900
+            if (accessMask.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT) && !bool(stageMask&(stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03901
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03902
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03903
+            //constexpr core::bitflag<stage_flags_t> ShaderStages = stage_flags_t::PRE_RASTERIZATION_SHADERS;
+            //const bool noShaderStages = stageMask&ShaderStages;
+            // TODO:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03904
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03905
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03906
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03907
+            // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07454
+            // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03909
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07272
+            // TODO:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03910
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03911
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03912
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03913
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03918
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03919
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03924
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03925
+            #endif
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07457
+        return true;
+    };
+
+    return true;
+}
+
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings)
+{
+    // TODO: MORE VALIDATION, but after descriptor indexing.
+    uint32_t maxSamplersCount = 0u;
+    uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
+    for (auto& binding : bindings)
+    {
+        if (binding.type==asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+            dynamicSSBOCount++;
+        else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+            dynamicUBOCount++;
+        else if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers)
+        {
+            auto* samplers = binding.samplers;
+            for (uint32_t i=0u; i<binding.count; ++i)
+            if (!samplers[i]->wasCreatedBy(this))
+                return nullptr;
+            maxSamplersCount += binding.count;
         }
     }
+
     const auto& limits = m_physicalDevice->getLimits();
     if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
         return nullptr;
-    return createDescriptorSetLayout_impl(_begin,_end);
+
+    return createDescriptorSetLayout_impl(bindings,maxSamplersCount);
 }
+
 
 bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
 {
@@ -69,7 +274,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         dstDS->processCopy(copy);
     }
 
-    updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
+    return updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 
     return true;
 }
@@ -373,9 +578,9 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (limits.postDepthCoverage) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_POST_DEPTH_COVERAGE");
     if (limits.shaderStencilExport) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_STENCIL_EXPORT");
     if (limits.decorateString) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_DECORATE_STRING");
-    // if (limits.externalFence) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE"); // [TODO] requires instance extensions, add them
-    // if (limits.externalMemory) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY"); // [TODO] requires instance extensions, add them
-    // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // [TODO] requires instance extensions, add them
+    // if (limits.externalFence) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_FENCE"); // shader doesn't need to know about that
+    // if (limits.externalMemory) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_MEMORY"); // shader doesn't need to know about that
+    // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_EXTERNAL_SEMAPHORE"); // shader doesn't need to know about that
     if (limits.shaderNonSemanticInfo) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_SHADER_NON_SEMANTIC_INFO");
     if (limits.fragmentShaderBarycentric) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_FRAGMENT_SHADER_BARYCENTRIC");
     if (limits.geometryShaderPassthrough) addShaderDefineToPool(pool,"NBL_GLSL_LIMIT_GEOMETRY_SHADER_PASSTHROUGH");
@@ -391,13 +596,14 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (limits.fragmentStoresAndAtomics) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_FRAGMENT_STORES_AND_ATOMICS");
     if (limits.shaderTessellationAndGeometryPointSize) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE");
     if (limits.shaderImageGatherExtended) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_IMAGE_GATHER_EXTENDED");
+    if (limits.shaderFloat64) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT64");
     if (limits.shaderInt64) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT64");
     if (limits.shaderInt16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SHADER_INT16");
-    if (limits.samplerAnisotropy) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_SAMPLER_ANISOTROPY");
     if (limits.storageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_16BIT_ACCESS");
     if (limits.uniformAndStorageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
     if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_16");
     if (limits.storageInputOutput16) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_INPUT_OUTPUT_16");
+    if (limits.variablePointers) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_VARIABLE_POINTERS");
     if (limits.storageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_BUFFER_8BIT_ACCESS");
     if (limits.uniformAndStorageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_8BIT_ACCESS");
     if (limits.storagePushConstant8) addShaderDefineToPool(pool, "NBL_GLSL_LIMIT_STORAGE_PUSH_CONSTANT_8");
@@ -408,44 +614,29 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
 
     // SPhysicalDeviceFeatures
     if (features.robustBufferAccess) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_ROBUST_BUFFER_ACCESS");
-    if (features.fullDrawIndexUint32) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FULL_DRAW_INDEX_UINT32");
-    if (features.imageCubeArray) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_IMAGE_CUBE_ARRAY");
-    if (features.independentBlend) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INDEPENDENT_BLEND");
     if (features.geometryShader) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_GEOMETRY_SHADER");
     if (features.tessellationShader) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_TESSELLATION_SHADER");
-    if (features.sampleRateShading) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLE_RATE_SHADING");
     if (features.dualSrcBlend) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DUAL_SRC_BLEND");
     if (features.logicOp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_LOGIC_OP");
-    if (features.multiDrawIndirect) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_DRAW_INDIRECT");
-    if (features.drawIndirectFirstInstance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_FIRST_INSTANCE");
-    if (features.depthClamp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_CLAMP");
-    if (features.depthBiasClamp) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_BIAS_CLAMP");
     if (features.fillModeNonSolid) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_FILL_MODE_NON_SOLID");
     if (features.depthBounds) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DEPTH_BOUNDS");
     if (features.wideLines) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_WIDE_LINES");
     if (features.largePoints) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_LARGE_POINTS");
     if (features.alphaToOne) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_ALPHA_TO_ONE");
     if (features.multiViewport) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_MULTI_VIEWPORT");
-    if (features.occlusionQueryPrecise) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_OCCLUSION_QUERY_PRECISE");
     // if (features.pipelineStatisticsQuery) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
-    if (features.shaderStorageImageExtendedFormats) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_EXTENDED_FORMATS");
-    if (features.shaderStorageImageMultisample) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE");
+    if (limits.shaderStorageImageMultisample) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE");
     if (features.shaderStorageImageReadWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT");
     if (features.shaderStorageImageWriteWithoutFormat) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT");
-    if (features.shaderUniformBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_BUFFER_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderSampledImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_SAMPLED_IMAGE_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderStorageBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_BUFFER_ARRAY_DYNAMIC_INDEXING");
-    if (features.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
+    if (limits.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderClipDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CLIP_DISTANCE");
     if (features.shaderCullDistance) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_CULL_DISTANCE");
-    if (features.shaderFloat64) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_FLOAT64");
     if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_RESIDENCY");
     if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_RESOURCE_MIN_LOD");
     if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
     // if (features.inheritedQueries) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
     if (features.shaderDrawParameters) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DRAW_PARAMETERS");
-    if (features.samplerMirrorClampToEdge) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_MIRROR_CLAMP_TO_EDGE");
-    if (features.drawIndirectCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_COUNT");
+    if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DRAW_INDIRECT_COUNT");
     if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_INDEXING");
     if (features.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
     if (features.shaderUniformTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");
@@ -468,16 +659,11 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.descriptorBindingVariableDescriptorCount) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT");
     if (features.runtimeDescriptorArray) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RUNTIME_DESCRIPTOR_ARRAY");
     if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SAMPLER_FILTER_MINMAX");
-    if (features.scalarBlockLayout) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SCALAR_BLOCK_LAYOUT");
-    if (features.uniformBufferStandardLayout) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_UNIFORM_BUFFER_STANDARD_LAYOUT");
-    if (features.shaderSubgroupExtendedTypes) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_SUBGROUP_EXTENDED_TYPES");
-    if (features.separateDepthStencilLayouts) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SEPARATE_DEPTH_STENCIL_LAYOUTS");
     if (features.bufferDeviceAddress) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS");
     if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
-    if (features.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL");
-    if (features.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");
-    if (features.vulkanMemoryModelAvailabilityVisibilityChains) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_AVAILABILITY_VISIBILITY_CHAINS");
-    if (features.subgroupBroadcastDynamicId) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SUBGROUP_BROADCAST_DYNAMIC_ID");
+    if (limits.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL");
+    if (limits.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");
+    if (limits.vulkanMemoryModelAvailabilityVisibilityChains) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_VULKAN_MEMORY_MODEL_AVAILABILITY_VISIBILITY_CHAINS");
     if (features.shaderDemoteToHelperInvocation) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_DEMOTE_TO_HELPER_INVOCATION");
     if (features.shaderTerminateInvocation) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_TERMINATE_INVOCATION");
     if (features.subgroupSizeControl) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SUBGROUP_SIZE_CONTROL");
@@ -547,7 +733,6 @@ void ILogicalDevice::addCommonShaderDefines(std::ostringstream& pool, const bool
     if (features.rasterizationOrder) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_RASTERIZATION_ORDER");
     if (features.shaderExplicitVertexParameter) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_EXPLICIT_VERTEX_PARAMETER");
     if (features.shaderInfoAMD) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_SHADER_INFO_AMD");
-    if (features.hostQueryReset) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_HOST_QUERY_RESET");
     // if (features.pipelineCreationCacheControl) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_PIPELINE_CREATION_CACHE_CONTROL"); // shader doesn't need to know about
     if (features.colorWriteEnable) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_COLOR_WRITE_ENABLE");
     if (features.conditionalRendering) addShaderDefineToPool(pool, "NBL_GLSL_FEATURE_CONDITIONAL_RENDERING");

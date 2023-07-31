@@ -363,7 +363,7 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT);
+        info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard

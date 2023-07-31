@@ -10,13 +10,6 @@ namespace nbl::video
 
 struct SPhysicalDeviceLimits
 {
-    enum E_TRI_BOOLEAN
-    {
-        ETB_FALSE,
-        ETB_DONT_KNOW,
-        ETB_TRUE
-    };
-
     /* Vulkan 1.0 Core  */
     uint32_t maxImageDimension1D = 0u;
     uint32_t maxImageDimension2D = 0u;
@@ -76,8 +69,8 @@ struct SPhysicalDeviceLimits
     uint32_t maxWorkgroupSize[3] = {};
     uint32_t subPixelPrecisionBits = 0u;
     //uint32_t              subTexelPrecisionBits;
-    //uint32_t              mipmapPrecisionBits; // [TODO] require investigation GL+ES spec
-    //uint32_t              maxDrawIndexedIndexValue;
+    //uint32_t              mipmapPrecisionBits;
+    //uint32_t              maxDrawIndexedIndexValue; // TODO: expose
     uint32_t maxDrawIndirectCount = 0u;
     float    maxSamplerLodBias = 0.0f;
     uint8_t  maxSamplerAnisotropyLog2 = 0u;
@@ -163,25 +156,23 @@ struct SPhysicalDeviceLimits
 
 
     /* Vulkan 1.2 Core  */
-
-    //      or VK_KHR_shader_float_controls:
-    //VkShaderFloatControlsIndependence    denormBehaviorIndependence; // TODO: need to implement ways to set them
-    //VkShaderFloatControlsIndependence    roundingModeIndependence;   // TODO: need to implement ways to set them
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderSignedZeroInfNanPreserveFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormPreserveFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderDenormFlushToZeroFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTEFloat64 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat16 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat32 = ETB_DONT_KNOW;
-    E_TRI_BOOLEAN shaderRoundingModeRTZFloat64 = ETB_DONT_KNOW;
+//    VkShaderFloatControlsIndependence denormBehaviorIndependence; // TODO: need to implement ways to set them
+//    VkShaderFloatControlsIndependence roundingModeIndependence;   // TODO: need to implement ways to set them
+    bool shaderSignedZeroInfNanPreserveFloat16 = false;
+    bool shaderSignedZeroInfNanPreserveFloat32 = false;
+    bool shaderSignedZeroInfNanPreserveFloat64 = false;
+    bool shaderDenormPreserveFloat16 = false;
+    bool shaderDenormPreserveFloat32 = false;
+    bool shaderDenormPreserveFloat64 = false;
+    bool shaderDenormFlushToZeroFloat16 = false;
+    bool shaderDenormFlushToZeroFloat32 = false;
+    bool shaderDenormFlushToZeroFloat64 = false;
+    bool shaderRoundingModeRTEFloat16 = false;
+    bool shaderRoundingModeRTEFloat32 = false;
+    bool shaderRoundingModeRTEFloat64 = false;
+    bool shaderRoundingModeRTZFloat16 = false;
+    bool shaderRoundingModeRTZFloat32 = false;
+    bool shaderRoundingModeRTZFloat64 = false;
  
     // expose in 2 phases
     // -Update After Bindand nonUniformEXT shader qualifier:
@@ -212,7 +203,6 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 0u;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = 0u;
 
-    //      or VK_EXT_sampler_filter_minmax:
     bool filterMinmaxSingleComponentFormats = false;
     bool filterMinmaxImageComponentMapping = false;
 
@@ -298,9 +288,9 @@ struct SPhysicalDeviceLimits
     bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
 
     /* AccelerationStructurePropertiesKHR *//* provided by VK_KHR_acceleration_structure */
-    uint64_t           maxGeometryCount = 0ull;
-    uint64_t           maxInstanceCount = 0ull;
-    uint64_t           maxPrimitiveCount = 0ull;
+    uint64_t           maxAccelerationStructureGeometryCount = 0ull;
+    uint64_t           maxAccelerationStructureInstanceCount = 0ull;
+    uint64_t           maxAccelerationStructurePrimitiveCount = 0ull;
     uint32_t           maxPerStageDescriptorAccelerationStructures = 0u;
     uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
     uint32_t           maxDescriptorSetAccelerationStructures = 0u;
@@ -365,14 +355,13 @@ struct SPhysicalDeviceLimits
     //uint32_t                   maxMultiviewInstanceIndex;
     //bool                   protectedNoFault;
 
-    // [TODO LATER] Needs API work to expose -> https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html
-    //      or VK_KHR_depth_stencil_resolve:
+    // [TODO] Vulkan 1.2 or VK_KHR_depth_stencil_resolve:
     //VkResolveModeFlags                   supportedDepthResolveModes;
     //VkResolveModeFlags                   supportedStencilResolveModes;
     //bool                             independentResolveNone;
     //bool                             independentResolve;
 
-    // [TODO LATER]: we don't expose inline uniform blocks right now
+    // [DO NOT EXPOSE]: we won't expose inline uniform blocks right EVER
     /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
     //      or VK_EXT_inline_uniform_block: 
     //uint32_t              maxInlineUniformBlockSize; 
@@ -381,7 +370,7 @@ struct SPhysicalDeviceLimits
     //uint32_t              maxDescriptorSetInlineUniformBlocks;
     //uint32_t              maxDescriptorSetUpdateAfterBindInlineUniformBlocks;
 
-    // [DO NOT EXPOSE] right now, no idea if we'll ever expose and implement those but they'd all be false for OpenGL
+    // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with fragment shader interlock or tiler cache access
     /* BlendOperationAdvancedPropertiesEXT *//* provided by VK_EXT_blend_operation_advanced */
     //uint32_t           advancedBlendMaxColorAttachments;
     //bool           advancedBlendIndependentBlend;
@@ -407,7 +396,6 @@ struct SPhysicalDeviceLimits
     //int64_t            renderMajor;
     //int64_t            renderMinor;
 
-    // [DO NOT EXPOSE] we don't expose or want timeline semaphore currently
     /* TimelineSemaphorePropertiesKHR *//* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core  */
 
     // [DO NOT EXPOSE] we will never expose provoking vertex control, we will always set the provoking vertex to the LAST (vulkan default) convention also because of never exposing Xform Feedback, we'll never expose this as well
@@ -545,30 +533,55 @@ struct SPhysicalDeviceLimits
     /*  Always enabled, reported as limits */
 
     // Core 1.0 Features
+    // redundant can deduce from `maxSamplerAnisotropyLog2
+    //bool samplerAnisotropy = false;
     bool vertexPipelineStoresAndAtomics = false;
+
+    // Intel is a special boy
+    bool shaderStorageImageMultisample = false;
+
+    // ROADMAP 2022 but poor support on Apple GPUs
     bool fragmentStoresAndAtomics = false;
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
+
+    // ROADMAP 2022 but poor support on Apple GPUs
+    bool shaderStorageImageArrayDynamicIndexing = false;
+    
+    //
+    bool shaderFloat64 = false;
     bool shaderInt64 = false;
     bool shaderInt16 = false;
-    bool samplerAnisotropy = false;
 
-    // Core 1.1 Features or VK_KHR_16bit_storage */
+    // Core 1.1 Features or VK_KHR_16bit_storage
     bool storageBuffer16BitAccess = false;
     bool uniformAndStorageBuffer16BitAccess = false;
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
 
+    // Core 1.1 Features or VK_KHR_variable_pointers
+    bool variablePointers = false;
+
+    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
+    bool drawIndirectCount = false;
+
     // Vulkan 1.2 Core or VK_KHR_8bit_storage:
     bool storageBuffer8BitAccess = false;
     bool uniformAndStorageBuffer8BitAccess = false;
     bool storagePushConstant8 = false;
+
     // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
     bool shaderBufferInt64Atomics = false;
     bool shaderSharedInt64Atomics = false;
+
     // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
     bool shaderFloat16 = false;
     bool shaderInt8 = false;
+    
+    // Vulkan 1.2 Core or VK_KHR_vulkan_memory_model
+    bool vulkanMemoryModel = false;
+    bool vulkanMemoryModelDeviceScope = false;
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
 
     // Vulkan 1.2 Struct Or
     bool shaderOutputViewportIndex = false;     // ALIAS: VK_EXT_shader_viewport_index_layer
@@ -743,21 +756,21 @@ struct SPhysicalDeviceLimits
         if (shaderSubgroupQuadAllStages && !_rhs.shaderSubgroupQuadAllStages) return false;
         if (maxPerSetDescriptors > _rhs.maxPerSetDescriptors) return false;
         if (maxMemoryAllocationSize > _rhs.maxMemoryAllocationSize) return false;
-        if (shaderSignedZeroInfNanPreserveFloat16 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat16 == ETB_FALSE) return false;
-        if (shaderSignedZeroInfNanPreserveFloat32 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat32 == ETB_FALSE) return false;
-        if (shaderSignedZeroInfNanPreserveFloat64 == ETB_TRUE && _rhs.shaderSignedZeroInfNanPreserveFloat64 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat16 == ETB_TRUE && _rhs.shaderDenormPreserveFloat16 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat32 == ETB_TRUE && _rhs.shaderDenormPreserveFloat32 == ETB_FALSE) return false;
-        if (shaderDenormPreserveFloat64 == ETB_TRUE && _rhs.shaderDenormPreserveFloat64 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat16 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat16 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat32 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat32 == ETB_FALSE) return false;
-        if (shaderDenormFlushToZeroFloat64 == ETB_TRUE && _rhs.shaderDenormFlushToZeroFloat64 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat16 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat16 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat32 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat32 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTEFloat64 == ETB_TRUE && _rhs.shaderRoundingModeRTEFloat64 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat16 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat16 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat32 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat32 == ETB_FALSE) return false;
-        if (shaderRoundingModeRTZFloat64 == ETB_TRUE && _rhs.shaderRoundingModeRTZFloat64 == ETB_FALSE) return false;
+        if (shaderSignedZeroInfNanPreserveFloat16 && !_rhs.shaderSignedZeroInfNanPreserveFloat16) return false;
+        if (shaderSignedZeroInfNanPreserveFloat32 && !_rhs.shaderSignedZeroInfNanPreserveFloat32) return false;
+        if (shaderSignedZeroInfNanPreserveFloat64 && !_rhs.shaderSignedZeroInfNanPreserveFloat64) return false;
+        if (shaderDenormPreserveFloat16 && !_rhs.shaderDenormPreserveFloat16) return false;
+        if (shaderDenormPreserveFloat32 && !_rhs.shaderDenormPreserveFloat32) return false;
+        if (shaderDenormPreserveFloat64 && !_rhs.shaderDenormPreserveFloat64) return false;
+        if (shaderDenormFlushToZeroFloat16 && !_rhs.shaderDenormFlushToZeroFloat16) return false;
+        if (shaderDenormFlushToZeroFloat32 && !_rhs.shaderDenormFlushToZeroFloat32) return false;
+        if (shaderDenormFlushToZeroFloat64 && !_rhs.shaderDenormFlushToZeroFloat64) return false;
+        if (shaderRoundingModeRTEFloat16 && !_rhs.shaderRoundingModeRTEFloat16) return false;
+        if (shaderRoundingModeRTEFloat32 && !_rhs.shaderRoundingModeRTEFloat32) return false;
+        if (shaderRoundingModeRTEFloat64 && !_rhs.shaderRoundingModeRTEFloat64) return false;
+        if (shaderRoundingModeRTZFloat16 && !_rhs.shaderRoundingModeRTZFloat16) return false;
+        if (shaderRoundingModeRTZFloat32 && !_rhs.shaderRoundingModeRTZFloat32) return false;
+        if (shaderRoundingModeRTZFloat64 && !_rhs.shaderRoundingModeRTZFloat64) return false;
         if (maxUpdateAfterBindDescriptorsInAllPools > _rhs.maxUpdateAfterBindDescriptorsInAllPools) return false;
         if (shaderUniformBufferArrayNonUniformIndexingNative && !_rhs.shaderUniformBufferArrayNonUniformIndexingNative) return false;
         if (shaderSampledImageArrayNonUniformIndexingNative && !_rhs.shaderSampledImageArrayNonUniformIndexingNative) return false;
@@ -904,7 +917,9 @@ struct SPhysicalDeviceLimits
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
         if (spirvVersion > _rhs.spirvVersion) return false;
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
+        if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
+        if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
         if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
         if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
         if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
@@ -912,14 +927,19 @@ struct SPhysicalDeviceLimits
         if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
         if (shaderFloat16 && !_rhs.shaderFloat16) return false;
         if (shaderInt8 && !_rhs.shaderInt8) return false;
+        if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
+        if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
+        if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
         if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
+        if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderInt16 && !_rhs.shaderInt16) return false;
-        if (samplerAnisotropy && !_rhs.samplerAnisotropy) return false;
+        if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
+        if (variablePointers && !_rhs.variablePointers) return false;
         if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
         
         return true;
