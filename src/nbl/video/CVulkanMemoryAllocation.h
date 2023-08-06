@@ -17,9 +17,8 @@ public:
         size_t size,
         bool isDedicated, 
         VkDeviceMemory deviceMemoryHandle,
-        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
-        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
-        : IDeviceMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
+        SCreationParams&& params)
+        : IDeviceMemoryAllocation(dev, std::move(params)), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
     {}
 
     ~CVulkanMemoryAllocation();

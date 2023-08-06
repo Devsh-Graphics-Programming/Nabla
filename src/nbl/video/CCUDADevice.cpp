@@ -8,13 +8,30 @@ namespace nbl::video
 {
 
 CCUDADevice::CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler)
-	: m_defaultCompileOptions(), m_vulkanConnection(std::move(_vulkanConnection)), m_vulkanDevice(_vulkanDevice), m_virtualArchitecture(_virtualArchitecture), m_handle(_handle), m_handler(std::move(_handler))
+	: m_defaultCompileOptions(), m_vulkanConnection(std::move(_vulkanConnection)), m_vulkanDevice(_vulkanDevice), m_virtualArchitecture(_virtualArchitecture), m_handle(_handle), m_handler(std::move(_handler)), m_allocationGranularity{}
 {
 	m_defaultCompileOptions.push_back("--std=c++14");
 	m_defaultCompileOptions.push_back(virtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
-	m_handler->getCUDAFunctionTable().pcuCtxCreate_v2(&m_context, 0, m_handle);
+	auto& cu = m_handler->getCUDAFunctionTable();
+	
+	cu.pcuCtxCreate_v2(&m_context, 0, m_handle);
+
+	for (uint32_t i = 0; i < ARRAYSIZE(m_allocationGranularity); ++i)
+	{
+		uint32_t metaData[16] = { 48 };
+		CUmemAllocationProp prop = {
+			.type = CU_MEM_ALLOCATION_TYPE_PINNED,
+			.requestedHandleTypes = ALLOCATION_HANDLE_TYPE,
+			.location = {.type = static_cast<CUmemLocationType>(i), .id = m_handle },
+			.win32HandleMetaData = metaData,
+		};
+		auto re = cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[i], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
+
+		assert(CUDA_SUCCESS == re);
+	}
+
 }
 
 CCUDADevice::~CCUDADevice()
@@ -22,15 +39,18 @@ CCUDADevice::~CCUDADevice()
 	m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_context);
 }
 
-CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemGenericAllocationHandle memory)
+size_t CCUDADevice::roundToGranularity(CUmemLocationType location, size_t size) const
+{
+	return ((size - 1) / m_allocationGranularity[location] + 1) * m_allocationGranularity[location];
+}
+
+CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory)
 {
 	auto& cu = m_handler->getCUDAFunctionTable();
 	
 	CUdeviceptr ptr = 0;
 	if (auto err = cu.pcuMemAddressReserve(&ptr, size, alignment, 0, 0); CUDA_SUCCESS != err)
-	{
 		return err;
-	}
 
 	if (auto err = cu.pcuMemMap(ptr, size, 0, memory, 0); CUDA_SUCCESS != err)
 	{
@@ -39,7 +59,7 @@ CUresult CCUDADevice::reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t siz
 	}
 	
 	CUmemAccessDesc accessDesc = {
-		.location = { .type = CU_MEM_LOCATION_TYPE_DEVICE, .id = m_handle },
+		.location = { .type = location, .id = m_handle },
 		.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE,
 	};
 
@@ -75,29 +95,31 @@ CUresult CCUDADevice::createSharedMemory(
 		.win32HandleMetaData = metaData,
 	};
 	
-	size_t granularity = 0;
-	if (auto err = cu.pcuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_RECOMMENDED); CUDA_SUCCESS != err)
-		return err;
+	params.granularSize = roundToGranularity(params.location, params.size);
 
-	params.granularSize = ((params.size - 1) / granularity + 1) * granularity;
-
-
-	if(auto err = cu.pcuMemCreate(&params.mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
+	CUmemGenericAllocationHandle mem;
+	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
 		return err;
 	
-	if (auto err = cu.pcuMemExportToShareableHandle(&params.osHandle, params.mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
+	if (auto err = cu.pcuMemExportToShareableHandle(&params.osHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
 	{
-		cu.pcuMemRelease(params.mem);
+		cu.pcuMemRelease(mem);
 		return err;
 	}
 
-	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.size, params.alignment, params.mem); CUDA_SUCCESS != err)
+	if (auto err = reserveAdrressAndMapMemory(&params.ptr, params.granularSize, params.alignment, params.location, mem); CUDA_SUCCESS != err)
 	{
 		CloseHandle(params.osHandle);
-		cu.pcuMemRelease(params.mem);
+		cu.pcuMemRelease(mem);
 		return err;
 	}
 
+	if (auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
+	{
+		CloseHandle(params.osHandle);
+		return err;
+	}
+	
 	*outMem = core::smart_refctd_ptr<CCUDASharedMemory>(new CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice>(this), std::move(params)), core::dont_grab);
 
 	return CUDA_SUCCESS;

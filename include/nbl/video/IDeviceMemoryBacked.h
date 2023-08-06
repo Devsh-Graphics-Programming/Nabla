@@ -19,59 +19,6 @@ struct NBL_API2 ICleanup
 class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
-        //! Flags for imported/exported allocation
-        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
-        {
-            EHT_NONE = 0,
-            EHT_OPAQUE_FD = 0x00000001,
-            EHT_OPAQUE_WIN32 = 0x00000002,
-            EHT_OPAQUE_WIN32_KMT = 0x00000004,
-            EHT_D3D11_TEXTURE = 0x00000008,
-            EHT_D3D11_TEXTURE_KMT = 0x00000010,
-            EHT_D3D12_HEAP = 0x00000020,
-            EHT_D3D12_RESOURCE = 0x00000040,
-            EHT_HOST_ALLOCATION_BIT = 0x00000080,
-            EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
-            EHT_DMA_BUF = 0x00000200,
-            EHT_ANDROID_HARDWARE_BUFFER = 0x00000400,
-            EHT_ZIRCON_VMO = 0x00000800,
-            EHT_RDMA_ADDRESS = 0x00001000,
-            EHT_LAST = EHT_RDMA_ADDRESS,
-
-            EHT_WIN32_TYPES = EHT_OPAQUE_WIN32
-                            | EHT_OPAQUE_WIN32_KMT
-                            | EHT_D3D11_TEXTURE
-                            | EHT_D3D11_TEXTURE_KMT
-                            | EHT_D3D12_HEAP
-                            | EHT_D3D12_RESOURCE,
-        };
-
-        static constexpr uint32_t HANDLE_TYPE_COUNT = 1u + std::countr_zero(static_cast<uint32_t>(EHT_LAST));
-
-        /* ExternalMemoryProperties *//* provided by VK_KHR_external_memory_capabilities */
-        struct SExternalMemoryProperties
-        {
-            uint32_t exportableTypes : IDeviceMemoryBacked::HANDLE_TYPE_COUNT = ~0u;
-            uint32_t compatibleTypes : IDeviceMemoryBacked::HANDLE_TYPE_COUNT = ~0u;
-            uint32_t dedicatedOnly : 1 = 0u;
-            uint32_t exportable : 1 = ~0u;
-            uint32_t importable : 1 = ~0u;
-
-            bool operator == (SExternalMemoryProperties const& rhs) const = default;
-
-            SExternalMemoryProperties operator &(SExternalMemoryProperties rhs) const
-            {
-                rhs.exportableTypes &= exportableTypes;
-                rhs.compatibleTypes &= compatibleTypes;
-                rhs.dedicatedOnly |= dedicatedOnly;
-                rhs.exportable &= exportable;
-                rhs.importable &= importable;
-                return rhs;
-            }
-        };
-
-        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
-
         //!
         struct SCachedCreationParams
         {
@@ -83,16 +30,13 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
             uint8_t queueFamilyIndexCount = 0u;
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
-            // Handle Type for external resources
-            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
-            //! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
-            //! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
-            void* externalHandle = nullptr;
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
             {
                 return queueFamilyIndexCount!=0u;
             }
+
+            core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = IDeviceMemoryAllocation::EHT_NONE;
         };
 
         //!
@@ -133,12 +77,6 @@ class IDeviceMemoryBacked : public virtual core::IReferenceCounted
 
         //! Constant version
         virtual const IDeviceMemoryAllocation* getBoundMemory() const = 0;
-
-        //! Get handle of external memory, might be null
-        virtual void* getExternalHandle() { return nullptr;  }
-
-        //! Check whether if the resource exportable as the requested type
-        virtual bool isExportableAs(E_EXTERNAL_HANDLE_TYPE type) const { return false;  }
 
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;

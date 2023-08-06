@@ -20,11 +20,16 @@
 namespace nbl::video
 {
 
+class CCUDAMemoryMapping: public core::IReferenceCounted
+{
+};
+
 class CCUDASharedMemory : public core::IReferenceCounted
 {
 public:
     friend class CCUDADevice;
-    CUdeviceptr getDevicePtr() const { return m_params.ptr; }
+
+    CUdeviceptr getDeviceptr() const { return m_params.ptr;  }
 
     struct SCreationParams
     {
@@ -36,7 +41,6 @@ public:
     struct SCachedCreationParams : SCreationParams
     {
         size_t granularSize;
-        CUmemGenericAllocationHandle mem;
         CUdeviceptr ptr;
         union
         {
@@ -47,7 +51,8 @@ public:
 
     const SCreationParams& getCreationParams() const { return m_params; }
 
-    core::smart_refctd_ptr<IGPUBuffer> exportAsBuffer(ILogicalDevice* device, core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage) const;
+    core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
+
     core::smart_refctd_ptr<IGPUImage>  exportAsImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const;
 
 protected:

@@ -192,6 +192,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         so effectively the memory is pre-bound at the time of creation.
         \return true on success, always false under OpenGL.*/
         virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
+        bool bindBufferMemory(SBindBufferMemoryInfo&& info) { return bindBufferMemory(1, &info); }
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
@@ -220,6 +221,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! The counterpart of @see bindBufferMemory for images
         virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
+        bool bindImageMemory(SBindImageMemoryInfo&& info) { return bindImageMemory(1, &info); }
 
         //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
@@ -423,7 +425,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         virtual void unmapMemory(IDeviceMemoryAllocation* memory) = 0;
 
-        virtual void* getExternalHandle(IDeviceMemoryBacked* obj) const = 0;
+        virtual void* getExternalHandle(IDeviceMemoryAllocation* mem) const = 0;
 
         // Not implemented stuff:
         //vkCreateGraphicsPipelines // no graphics pipelines yet (just renderpass independent)

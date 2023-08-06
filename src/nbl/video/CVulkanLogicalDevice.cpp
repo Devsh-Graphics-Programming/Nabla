@@ -96,19 +96,24 @@ IGPUEvent::E_STATUS CVulkanLogicalDevice::setEvent(IGPUEvent* _event)
         return IGPUEvent::ES_FAILURE;
 }
 
+
 IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
     IDeviceMemoryAllocator::SMemoryOffset ret = {nullptr, IDeviceMemoryAllocator::InvalidMemoryOffset};
 
     core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
 
-    VkImportMemoryWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR };
-    VkExportMemoryWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR, .dwAccess = /*DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE*/0x80000000L | 1 };
-    VkExportMemoryAllocateInfo  exportInfo = { VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO, &handleInfo };
-
+    VkImportMemoryWin32HandleInfoKHR importInfo = { 
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .handle = info.externalHandle
+    };
+    
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
+
+    const void** pNext = &vk_allocateFlagsInfo.pNext;
 
     if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_MASK_BIT))
         vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_MASK_BIT;
@@ -121,36 +126,27 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
 
     VkDeviceMemory vk_deviceMemory;
     bool isDedicated = (info.dedication != nullptr);
-    bool external = false;
+    const bool external = info.externalHandleType;
+
+    if (external)
+    {
+        // Importing
+        *pNext = &importInfo;
+        pNext = &importInfo.pNext;
+    }
+
     if(isDedicated)
     {
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0, 1, 1, 0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
-
+        // Importing
+        *pNext = &vk_dedicatedInfo;
+        pNext = &vk_dedicatedInfo.pNext;
+        
         if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_BUFFER)
             vk_dedicatedInfo.buffer = static_cast<CVulkanBuffer*>(info.dedication)->getInternalObject();
         else if (info.dedication->getObjectType() == IDeviceMemoryBacked::EOT_IMAGE)
             vk_dedicatedInfo.image = static_cast<CVulkanImage*>(info.dedication)->getInternalObject();
-
-        auto& ccParams = info.dedication->getCachedCreationParams();
-
-        if (ccParams.externalHandleTypes.value)
-        {
-            external = true;
-            // Importing
-            if (ccParams.externalHandle)
-            {
-                importInfo.handleType = VkExternalMemoryHandleTypeFlagBits(ccParams.externalHandleTypes.value);
-                importInfo.handle = ccParams.externalHandle;
-                vk_dedicatedInfo.pNext = &importInfo;
-            }
-            else // Exporting
-            {
-                exportInfo.handleTypes = VkExternalMemoryHandleTypeFlags(ccParams.externalHandleTypes.value);
-                vk_dedicatedInfo.pNext = &exportInfo;
-            }
-        }
 
     }
 
@@ -160,7 +156,13 @@ IDeviceMemoryAllocator::SMemoryOffset CVulkanLogicalDevice::allocate(const SAllo
         if(info.memoryTypeIndex < m_physicalDevice->getMemoryProperties().memoryTypeCount)
         {
             auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, allocateFlags, memoryPropertyFlags);
+            CVulkanMemoryAllocation::SCreationParams params = {};
+            params.allocateFlags = allocateFlags;
+            params.memoryPropertyFlags = memoryPropertyFlags;
+            params.externalHandleType = info.externalHandleType;
+            params.externalHandle = info.externalHandle;
+
+            ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, info.size, isDedicated, vk_deviceMemory, std::move(params));
             ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
 
             if(info.dedication)
@@ -259,9 +261,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
     };
 
     const bool external = params.externalHandleTypes.value;
-    const bool imported = external && params.externalHandle;
-    const bool exported = external && !imported;
-
+    
     vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr; // there are a lot of extensions
     vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
@@ -283,11 +283,11 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
     {
         auto pd = dynamic_cast<CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
 
-        core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
 
         while (const auto idx = core::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
         {
-            const auto handleType = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
             requestedTypes ^= handleType;
 
             VkExternalImageFormatPropertiesNV xprops = {};
@@ -328,12 +328,12 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
                 return nullptr;
             }
 
-            if (!core::bitflag(static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(externalProps.externalMemoryProperties.compatibleHandleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalProps.externalMemoryProperties.compatibleHandleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
                 return nullptr;
 
-            if ((imported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_NV)) ||
-                (exported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_NV))) // no good
-                return nullptr;
+            //if ((imported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT_NV)) ||
+            //    (exported && !(externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT_NV))) // no good
+            //    return nullptr;
 
             dedicatedOnly |= externalProps.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT_NV;
         }
@@ -916,7 +916,6 @@ bool CVulkanLogicalDevice::getQueryPoolResults(IQueryPool* queryPool, uint32_t f
 
 core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer::SCreationParams&& creationParams)
 {
- 
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
 
@@ -926,8 +925,6 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
     };
 
     const bool external = creationParams.externalHandleTypes.value;
-    const bool imported = external && creationParams.externalHandle;
-    const bool exported = external && !imported;
 
     vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
@@ -941,21 +938,18 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer(IGPUBuffer
 
     if (external)
     {
-        core::bitflag<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
         
         while (const auto idx = core::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
         {
-            const auto handleType = static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
             requestedTypes ^= handleType;
 
             auto props = m_physicalDevice->getExternalMemoryProperties(creationParams.usage, handleType);
             
-            if (!core::bitflag(static_cast<IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
                 return nullptr;
-
-            if ((imported && !props.importable) || (exported && !props.exportable)) // no good
-                return nullptr;
-
+            
             dedicatedOnly = props.dedicatedOnly;
         }
     }

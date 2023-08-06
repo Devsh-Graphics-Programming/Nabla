@@ -36,24 +36,6 @@ class CVulkanImage : public IGPUImage
 
 		inline size_t getBoundMemoryOffset() const override { return m_memBindingOffset; }
 
-		void* getExternalHandle() override
-		{
-			if (m_cachedExternalHandle)
-				return m_cachedExternalHandle;
-
-			auto& ccp = getCachedCreationParams();
-
-			if (ccp.externalHandleTypes.value)
-			{
-				if (ccp.externalHandle)
-					return m_cachedExternalHandle = ccp.externalHandle;
-
-				return m_cachedExternalHandle = getOriginDevice()->getExternalHandle(this);
-			}
-
-			return nullptr;
-		}
-
 		inline void setMemoryAndOffset(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& memory, uint64_t memBindingOffset)
 		{
 			m_memory = std::move(memory);

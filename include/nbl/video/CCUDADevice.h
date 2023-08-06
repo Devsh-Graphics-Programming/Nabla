@@ -31,7 +31,7 @@ class CCUDADevice : public core::IReferenceCounted
 {
     public:
 #ifdef _WIN32
-		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_WIN32;
+		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
 		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_WIN32;
 #else
 		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_FD;
@@ -195,7 +195,12 @@ class CCUDADevice : public core::IReferenceCounted
 		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, IGPUSemaphore* sem);
 		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
 		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
+		
+		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
+
 	protected:
+		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
+
 		friend class CCUDAHandler;
 		friend class CCUDASharedMemory;
 		friend class CCUDASharedSemaphore;
@@ -207,8 +212,6 @@ class CCUDADevice : public core::IReferenceCounted
 				: resource(std::move(resource))
 			{ }
 		};
-
-		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemGenericAllocationHandle memory);
 		
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
 		~CCUDADevice();
@@ -220,6 +223,7 @@ class CCUDADevice : public core::IReferenceCounted
 		core::smart_refctd_ptr<CCUDAHandler> m_handler;
 		CUdevice m_handle;
 		CUcontext m_context;
+		size_t m_allocationGranularity[4];
 };
 
 }

@@ -1662,7 +1662,7 @@ protected:
         return true;
     }
 
-    IDeviceMemoryBacked::SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE handleType) const override
+    IDeviceMemoryAllocation::SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override
     {
         assert(!(handleType & (handleType - 1)));
         VkPhysicalDeviceExternalBufferInfo info = {
