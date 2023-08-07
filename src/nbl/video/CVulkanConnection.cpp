@@ -9,9 +9,7 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
-    core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName,
-    core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable)
+core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_refctd_ptr<system::ISystem>&& sys, uint32_t appVer, const char* appName, core::smart_refctd_ptr<system::ILogger>&& logger, const SFeatures& featuresToEnable)
 {
     if (volkInitialize() != VK_SUCCESS)
     {
@@ -35,6 +33,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
         return true;
     };
 
+    // TODO: its okay to use vectors here
     constexpr uint32_t MAX_LAYER_COUNT = 100u;
     constexpr uint32_t MAX_EXTENSION_COUNT = (1u << 12) / sizeof(char*);
 
@@ -213,7 +212,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
     VkValidationFeatureDisableEXT validationsDisable[16u] = {};
     validationFeaturesEXT.pEnabledValidationFeatures = validationsEnable;
 
-    // TODO: Do the samefor other validation features as well(?)
+    // TODO: Do the same for other validation features as well(?)
     if (enabledFeatures.synchronizationValidation)
     {
         validationsEnable[validationFeaturesEXT.enabledValidationFeatureCount] = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT;
@@ -225,7 +224,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
     vkEnumerateInstanceVersion(&instanceApiVersion); // Get Highest
     if(instanceApiVersion<MinimumVulkanApiVersion)
     {
-        assert(false);
+        LOG(logger,"Vulkan Instance version too low %d vs the required %d",system::ILogger::ELL_ERROR,instanceApiVersion,MinimumVulkanApiVersion);
         return nullptr;
     }
 
@@ -271,26 +270,18 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
 
     volkLoadInstanceOnly(vk_instance);
 
-    constexpr uint32_t MAX_PHYSICAL_DEVICE_COUNT = 16u;
-    uint32_t physicalDeviceCount = 0u;
-    VkPhysicalDevice vk_physicalDevices[MAX_PHYSICAL_DEVICE_COUNT];
+    core::vector<VkPhysicalDevice> vk_physicalDevices; vk_physicalDevices.reserve(16);
     {
-        VkResult retval = vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, nullptr);
-        if ((retval != VK_SUCCESS) && (retval != VK_INCOMPLETE))
+        uint32_t physicalDeviceCount = 0u;
+        VkResult retval = vkEnumeratePhysicalDevices(vk_instance,&physicalDeviceCount,nullptr);
+        if (retval!=VK_SUCCESS && retval!=VK_INCOMPLETE)
         {
             if (debugCallback)
                 LOG(debugCallback->getLogger(), "Failed to enumerate physical devices!\n");
             return nullptr;
         }
-
-        if (physicalDeviceCount > MAX_PHYSICAL_DEVICE_COUNT)
-        {
-            if (debugCallback)
-                LOG(debugCallback->getLogger(), "Too many physical devices (%d) found!", system::ILogger::ELL_ERROR, physicalDeviceCount);
-            return nullptr;
-        }
-
-        vkEnumeratePhysicalDevices(vk_instance, &physicalDeviceCount, vk_physicalDevices);
+        vk_physicalDevices.resize(physicalDeviceCount);
+        vkEnumeratePhysicalDevices(vk_instance,&physicalDeviceCount,vk_physicalDevices.data());
     }
 
     VkDebugUtilsMessengerEXT vk_debugMessenger = VK_NULL_HANDLE;
@@ -301,12 +292,15 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(
     }
 
     core::smart_refctd_ptr<CVulkanConnection> api(new CVulkanConnection(vk_instance,enabledFeatures,std::move(debugCallback),vk_debugMessenger),core::dont_grab);
-    auto& physicalDevices = api->m_physicalDevices;
-    physicalDevices.reserve(physicalDeviceCount);
-    for (uint32_t i=0u; i<physicalDeviceCount; ++i)
+    api->m_physicalDevices.reserve(vk_physicalDevices.size());
+    for (auto vk_physicalDevice : vk_physicalDevices)
     {
-        physicalDevices.emplace_back(std::make_unique<CVulkanPhysicalDevice>(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevices[i],vk_instance,instanceApiVersion));
+        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
+        if (!device)
+            LOG(debugCallback->getLogger(),"Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!",system::ILogger::ELL_WARNING,vk_physicalDevice);
+        api->m_physicalDevices.emplace_back(std::move(device));
     }
+    // TODO: should we return created non-null API connections that have 0 physical devices?
     return api;
 }
 
