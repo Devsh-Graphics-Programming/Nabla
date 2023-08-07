@@ -245,16 +245,16 @@ public:
             m_properties.limits.maxFramebufferWidth = deviceProperties.properties.limits.maxFramebufferWidth;
             m_properties.limits.maxFramebufferHeight = deviceProperties.properties.limits.maxFramebufferHeight;
             m_properties.limits.maxFramebufferLayers = deviceProperties.properties.limits.maxFramebufferLayers;
-            m_properties.limits.framebufferColorSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferColorSampleCounts);
-            m_properties.limits.framebufferDepthSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferDepthSampleCounts);
-            m_properties.limits.framebufferStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferStencilSampleCounts);
-            m_properties.limits.framebufferNoAttachmentsSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferNoAttachmentsSampleCounts);
+            m_properties.limits.framebufferColorSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferColorSampleCounts);
+            m_properties.limits.framebufferDepthSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferDepthSampleCounts);
+            m_properties.limits.framebufferStencilSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferStencilSampleCounts);
+            m_properties.limits.framebufferNoAttachmentsSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.framebufferNoAttachmentsSampleCounts);
             m_properties.limits.maxColorAttachments = deviceProperties.properties.limits.maxColorAttachments;
-            m_properties.limits.sampledImageColorSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageColorSampleCounts);
-            m_properties.limits.sampledImageIntegerSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageIntegerSampleCounts);
-            m_properties.limits.sampledImageDepthSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageDepthSampleCounts);
-            m_properties.limits.sampledImageStencilSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageStencilSampleCounts);
-            m_properties.limits.storageImageSampleCounts = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.storageImageSampleCounts);
+            m_properties.limits.sampledImageColorSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageColorSampleCounts);
+            m_properties.limits.sampledImageIntegerSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageIntegerSampleCounts);
+            m_properties.limits.sampledImageDepthSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageDepthSampleCounts);
+            m_properties.limits.sampledImageStencilSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.sampledImageStencilSampleCounts);
+            m_properties.limits.storageImageSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(deviceProperties.properties.limits.storageImageSampleCounts);
             m_properties.limits.maxSampleMaskWords = deviceProperties.properties.limits.maxSampleMaskWords;
             m_properties.limits.timestampComputeAndGraphics = deviceProperties.properties.limits.timestampComputeAndGraphics;
             m_properties.limits.timestampPeriodInNanoSeconds = deviceProperties.properties.limits.timestampPeriod;
@@ -285,7 +285,7 @@ public:
 
             /* SubgroupProperties */
             m_properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
-            m_properties.limits.subgroupOpsShaderStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+            m_properties.limits.subgroupOpsShaderStages = static_cast<IGPUShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
             m_properties.limits.shaderSubgroupBasic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_BASIC_BIT;
             m_properties.limits.shaderSubgroupVote = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_VOTE_BIT;
             m_properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
@@ -367,7 +367,7 @@ public:
                 m_properties.limits.minSubgroupSize = subgroupSizeControlProperties.minSubgroupSize;
                 m_properties.limits.maxSubgroupSize = subgroupSizeControlProperties.maxSubgroupSize;
                 m_properties.limits.maxComputeWorkgroupSubgroups = subgroupSizeControlProperties.maxComputeWorkgroupSubgroups;
-                m_properties.limits.requiredSubgroupSizeStages = core::bitflag<asset::IShader::E_SHADER_STAGE>(subgroupSizeControlProperties.requiredSubgroupSizeStages);
+                m_properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupSizeControlProperties.requiredSubgroupSizeStages);
             }
             else
             {
@@ -456,7 +456,7 @@ public:
             
             if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
             {
-                m_properties.limits.sampleLocationSampleCounts          = core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>(sampleLocationsProperties.sampleLocationSampleCounts);
+                m_properties.limits.sampleLocationSampleCounts          = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(sampleLocationsProperties.sampleLocationSampleCounts);
                 m_properties.limits.maxSampleLocationGridSize           = sampleLocationsProperties.maxSampleLocationGridSize;
                 m_properties.limits.sampleLocationCoordinateRange[0]    = sampleLocationsProperties.sampleLocationCoordinateRange[0];
                 m_properties.limits.sampleLocationCoordinateRange[1]    = sampleLocationsProperties.sampleLocationCoordinateRange[1];
@@ -466,7 +466,7 @@ public:
             
             if (isExtensionSupported(VK_NV_COOPERATIVE_MATRIX_EXTENSION_NAME))
             {
-                m_properties.limits.cooperativeMatrixSupportedStages   = core::bitflag<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
+                m_properties.limits.cooperativeMatrixSupportedStages   = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
             }
             
             /* AccelerationStructurePropertiesKHR */
@@ -1117,7 +1117,7 @@ public:
                 m_features.deviceCoherentMemory = coherentMemoryFeatures.deviceCoherentMemory;
             }
 
-            m_features.swapchainMode = core::bitflag<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
+            m_features.swapchainMode = static_cast<E_SWAPCHAIN_MODE>(E_SWAPCHAIN_MODE::ESM_NONE);
             if(isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
                 m_features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
 
@@ -1219,7 +1219,7 @@ public:
             for(uint32_t i = 0; i < m_memoryProperties.memoryHeapCount; ++i)
             {
                 m_memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].size;
-                m_memoryProperties.memoryHeaps[i].flags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].flags);
+                m_memoryProperties.memoryHeaps[i].flags = static_cast<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].flags);
             }
         }
                 
