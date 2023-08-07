@@ -2,13 +2,9 @@
 #define _RAYTRACE_COMMON_GLSL_INCLUDED_
 
 #include "virtualGeometry.glsl"
-#include "warpCommon.h"
 #include <nbl/builtin/glsl/sampling/envmap.glsl>
 
 #include <nbl/builtin/glsl/limits/numeric.glsl>
-
-// #define ONLY_BXDF_SAMPLING
-// #define ONLY_ENV_SAMPLING
 
 layout(push_constant, row_major) uniform PushConstants
 {
@@ -50,7 +46,7 @@ layout(set = 2, binding = 6, r32ui) restrict uniform uimage2DArray normalAOV;
 // environment emitter
 layout(set = 2, binding = 7) uniform sampler2D envMap;
 layout(set = 2, binding = 8) uniform sampler2D warpMap; 
-layout(set = 2, binding = 9) uniform sampler2D luminance[MAX_LUMINANCE_LEVELS];
+layout(set = 2, binding = 9) uniform sampler2D luminance;
 
 void clear_raycount()
 {
@@ -260,25 +256,16 @@ vec3 load_normal_and_prefetch_textures(
 	return geomNormal;
 }
 
-vec3 nbl_glsl_unormSphericalToCartesian(in vec2 uv, out float sinTheta)
-{
-	vec3 dir;
-	nbl_glsl_sincos((uv.x-0.5)*2.f*nbl_glsl_PI,dir.y,dir.x);
-	nbl_glsl_sincos(uv.y*nbl_glsl_PI,sinTheta,dir.z);
-	dir.xy *= sinTheta;
-	return dir;
-}
-
 // return regularized pdf of sample
 float Envmap_regularized_deferred_pdf(in vec3 rayDirection)
 {
-	const ivec2 luminanceMapSize = textureSize(luminance[0], 0);
-	uint lastLuminanceMip = uint(log2(luminanceMapSize.x)); // TODO: later turn into push constant
-	const vec2 envmapUV = nbl_glsl_sampling_generateUVCoordFromDirection(rayDirection);
+	const ivec2 luminanceMapSize = textureSize(luminance, 0);
+	int lastLuminanceMip = int(log2(luminanceMapSize.x)); // TODO: later turn into push constant
+	const vec2 envmapUV = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(rayDirection);
 
 	float sinTheta = length(rayDirection.zx);
-	float sumLum = texelFetch(luminance[lastLuminanceMip], ivec2(0), 0).r;
-	float lum = textureLod(luminance[0], envmapUV, 0).r;
+	float sumLum = texelFetch(luminance, ivec2(0), lastLuminanceMip).r;
+	float lum = textureLod(luminance, envmapUV, 0).r;
 	float bigfactor = float(luminanceMapSize.x*luminanceMapSize.y)/sumLum;
 	return bigfactor*(lum/(sinTheta*2.0f*nbl_glsl_PI*nbl_glsl_PI));
 }
@@ -309,7 +296,7 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 	const vec2 uv = yDiff*interpolant.y+yVals[0];
 
 	float sinTheta;
-	const vec3 L = nbl_glsl_unormSphericalToCartesian(uv, sinTheta);
+	const vec3 L = nbl_glsl_sampling_envmap_generateDirectionFromUVCoord(uv, sinTheta);
 	lightSample = nbl_glsl_createLightSample(L, interaction);
 	
 	const float detInterpolJacobian = determinant(mat2(
@@ -322,36 +309,41 @@ void Envmap_generateRegularizedSample_and_pdf(out float pdf, out nbl_glsl_LightS
 }
 
 #include <nbl/builtin/glsl/sampling/quantized_sequence.glsl>
-mat2x3 rand6d(in uvec3 scramble_key, in int _sample, int depth)
+mat2x3 rand6d(in uvec3 scramble_keys[2], in int _sample, int depth)
 {
 	mat2x3 retVal;
 	// decrement depth because first vertex is rasterized and picked with a different sample sequence
 	--depth;
 	//
 	int offset = int(_sample)*SAMPLE_SEQUENCE_STRIDE+depth;
-	int eachStrategyStride = SAMPLE_SEQUENCE_STRIDE/2; // get this from cpp side?
+	int eachStrategyStride = SAMPLE_SEQUENCE_STRIDE/SAMPLING_STRATEGY_COUNT;
 
 	const nbl_glsl_sampling_quantized3D quant1 = texelFetch(quantizedSampleSequence, offset).xy;
 	const nbl_glsl_sampling_quantized3D quant2 = texelFetch(quantizedSampleSequence, offset + eachStrategyStride).xy;
-    retVal[0] = nbl_glsl_sampling_decodeSample3Dimensions(quant1,scramble_key);
-    retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_key);
+    retVal[0] = nbl_glsl_sampling_decodeSample3Dimensions(quant1,scramble_keys[0]);
+    retVal[1] = nbl_glsl_sampling_decodeSample3Dimensions(quant2,scramble_keys[1]);
 	return retVal;
 }
 
 nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	out vec3 direction,
-	in uvec3 scramble_key,
+	in uvec3 scramble_keys[2],
 	in uint sampleID, in uint depth,
 	in nbl_glsl_MC_precomputed_t precomp,
 	in nbl_glsl_MC_instr_stream_t gcs,
 	in nbl_glsl_MC_instr_stream_t rnps
 )
 {
-	mat2x3 rand = rand6d(scramble_key,int(sampleID),int(depth));
+	mat2x3 rand = rand6d(scramble_keys,int(sampleID),int(depth));
 
 	// (1) BXDF Sample and Weight
 	nbl_glsl_LightSample bxdfSample;
 	nbl_glsl_MC_quot_pdf_aov_t bxdfCosThroughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp,gcs,rnps,rand[0],bxdfSample);
+
+	nbl_glsl_LightSample outSample;
+	nbl_glsl_MC_quot_pdf_aov_t result;
+
+#ifndef ONLY_BXDF_SAMPLING
 	float bxdfWeight = 0;
 
 	float p_bxdf_bxdf = bxdfCosThroughput.pdf; // BxDF PDF evaluated with BxDF sample (returned from 
@@ -407,10 +399,7 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	}
 
 	const float bxdfChoiceProb = w_bxdf/w_sum;
-#endif
-
-	nbl_glsl_LightSample outSample;
-	nbl_glsl_MC_quot_pdf_aov_t result;
+#endif // ifdef TRADE_REGISTERS_FOR_IEEE754_ACCURACY
 
 	float rcpChoiceProb;
 	float w_star_over_p_env = w_sum;
@@ -429,13 +418,11 @@ nbl_glsl_MC_quot_pdf_aov_t gen_sample_ray(
 	
 	result.quotient *= w_star_over_p_env;
 	result.pdf /= w_star_over_p_env;
+#endif // ifndef ONLY_BXDF_SAMPLING
 
 #ifdef ONLY_BXDF_SAMPLING
 	outSample = bxdfSample;
 	result = bxdfCosThroughput;
-#elif defined(ONLY_ENV_SAMPLING)
-	outSample = envmapSample;
-	result = envmapSampleThroughput;
 #endif
 
 	// russian roulette
@@ -479,12 +466,16 @@ void generate_next_rays(
 	vec3 nextThroughput[MAX_RAYS_GENERATED];
 	float nextAoVThroughputScale[MAX_RAYS_GENERATED];
 	{
-		const uvec3 scramble_key = uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+		const uvec3 scramble_keys[2] = { 
+			uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state)),
+			uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state))
+		};
+		
 		for (uint i=0u; i<maxRaysToGen; i++)
 		{
 			maxT[i] = 0.f;
 			// TODO: When generating NEE rays, advance the dimension, NOT the sampleID
-			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_key,sampleID+i,vertex_depth,precomputed,gcs,rnps);
+			const nbl_glsl_MC_quot_pdf_aov_t result = gen_sample_ray(direction[i],scramble_keys,sampleID+i,vertex_depth,precomputed,gcs,rnps);
 			albedo += result.aov.albedo/float(maxRaysToGen);
 			worldspaceNormal += result.aov.normal/float(maxRaysToGen);
 
@@ -549,7 +540,7 @@ struct Contribution
 
 void Contribution_initMiss(out Contribution contrib, in float aovThroughputScale)
 {
-	vec2 uv = nbl_glsl_sampling_generateUVCoordFromDirection(-normalizedV);
+	vec2 uv = nbl_glsl_sampling_envmap_generateUVCoordFromDirection(-normalizedV);
 	// funny little trick borrowed from things like Progressive Photon Mapping
 	const float bias = 0.0625f*(1.f-aovThroughputScale)*pow(pc.cummon.rcpFramesDispatched,0.08f);
 	contrib.albedo = contrib.color = textureGrad(envMap, uv, vec2(bias*0.5,0.f), vec2(0.f,bias)).rgb;

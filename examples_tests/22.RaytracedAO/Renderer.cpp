@@ -53,7 +53,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_framesDispatched(0u), m_rcpPixelSize{0.f,0.f},
 		m_staticViewData{{0u,0u},0u,0u}, m_raytraceCommonData{core::matrix4SIMD(), vec3(),0.f,0u,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
-		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr)
+		m_raygenWorkGroups{0u,0u},m_visibilityBuffer(nullptr),m_colorBuffer(nullptr),
+		m_envMapImportanceSampling(_driver)
 {
 	// TODO: reimplement
 	m_useDenoiser = false;
@@ -129,8 +130,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[7].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		bindings[8].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 		bindings[9].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-		bindings[9].count = MipCountLuminance;
-
 		m_commonRaytracingDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
 
@@ -789,7 +788,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	// TODO: better filter and GPU accelerated
 	m_finalEnvmap->regenerateMipMapLevels();
 
-	initWarpingResources();
+	m_envMapImportanceSampling.initResources(m_finalEnvmap);
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
@@ -830,7 +829,7 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	}
 }
 
-core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, uint32_t height, E_FORMAT format, uint32_t layers)
+core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, uint32_t height, E_FORMAT format, uint32_t mipLevels, uint32_t layers)
 {
 	const auto real_layers = layers ? layers:1u;
 
@@ -839,7 +838,7 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, ui
 	imgparams.arrayLayers = real_layers;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
-	imgparams.mipLevels = 1u;
+	imgparams.mipLevels = mipLevels;
 	imgparams.samples = IImage::ESCF_1_BIT;
 	imgparams.type = IImage::ET_2D;
 
@@ -852,14 +851,14 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createTexture(uint32_t width, ui
 	viewparams.subresourceRange.baseArrayLayer = 0u;
 	viewparams.subresourceRange.layerCount = real_layers;
 	viewparams.subresourceRange.baseMipLevel = 0u;
-	viewparams.subresourceRange.levelCount = 1u;
+	viewparams.subresourceRange.levelCount = mipLevels;
 
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
 core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format, uint32_t layers)
 {
-	return createTexture(m_staticViewData.imageDimensions.x, m_staticViewData.imageDimensions.y, format, layers);
+	return createTexture(m_staticViewData.imageDimensions.x, m_staticViewData.imageDimensions.y, format, 1u, layers);
 }
 
 core::smart_refctd_ptr<asset::ICPUBuffer> Renderer::SampleSequence::createCPUBuffer(uint32_t quantizedDimensions, uint32_t sampleCount)
@@ -1120,7 +1119,7 @@ void Renderer::deinitSceneResources()
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 	
 	m_finalEnvmap = nullptr;
-	deinitWarpingResources();
+	m_envMapImportanceSampling.deinitResources();
 	m_staticViewData = {{0u,0u},0u,0u};
 
 	auto rr = m_rrManager->getRadeonRaysAPI();
@@ -1142,7 +1141,7 @@ void Renderer::deinitSceneResources()
 
 void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float envMapRegularizationFactor)
 {
-	bool enableRIS = computeWarpMap(envMapRegularizationFactor);
+	bool enableRIS = m_envMapImportanceSampling.computeWarpMap(envMapRegularizationFactor);
 
 	m_staticViewData.imageDimensions = {width, height};
 	m_rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
@@ -1162,7 +1161,7 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 		uint32_t _maxRaysPerDispatch = 0u;
 		auto setRayBufferSizes = [renderPixelCount,this,&_maxRaysPerDispatch,&raygenBufferSize,&intersectionBufferSize](uint32_t sampleMultiplier) -> void
 		{
-			m_staticViewData.samplesPerPixelPerDispatch = SAMPLING_STRATEGY_COUNT*sampleMultiplier;
+			m_staticViewData.samplesPerPixelPerDispatch = sampleMultiplier;
 
 			const size_t minimumSampleCountPerDispatch = static_cast<size_t>(renderPixelCount)*getSamplesPerPixelPerDispatch();
 			_maxRaysPerDispatch = static_cast<uint32_t>(minimumSampleCountPerDispatch);
@@ -1283,7 +1282,10 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 	constexpr uint32_t MaxDescritorUpdates = 10u;
 	IGPUDescriptorSet::SDescriptorInfo infos[MaxDescritorUpdates];
 	IGPUDescriptorSet::SWriteDescriptorSet writes[MaxDescritorUpdates];
-
+	
+	auto warpMap = m_envMapImportanceSampling.getWarpMapImageView();
+	auto lumaMap = m_envMapImportanceSampling.getLuminanceImageView();
+	
 	// set up m_commonRaytracingDS
 	core::smart_refctd_ptr<IGPUBuffer> _staticViewDataBuffer;
 	size_t staticViewDataBufferSize=0u;
@@ -1304,24 +1306,21 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 		}
 		// warpmap
 		{
-			setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_warpMap));
+			setImageInfo(infos+8,asset::EIL_GENERAL,core::smart_refctd_ptr(m_envMapImportanceSampling.m_warpMap));
 			ISampler::SParams samplerParams = { ISampler::ETC_REPEAT, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 			infos[8].image.sampler = m_driver->createGPUSampler(samplerParams);
 			infos[8].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 		
-		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance];
+		IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfo = {};
 		// luminance mip maps
 		{
 			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, 0u, false, ECO_ALWAYS };
 			auto sampler = m_driver->createGPUSampler(samplerParams);
 
-			for(uint32_t i = 0; i < MipCountLuminance; ++i)
-			{
-				luminanceDescriptorInfos[i].desc = m_luminanceMipMaps[i];
-				luminanceDescriptorInfos[i].image.sampler = sampler;
-				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			}
+			luminanceDescriptorInfo.desc = m_envMapImportanceSampling.m_luminanceBaseImageView;
+			luminanceDescriptorInfo.image.sampler = sampler;
+			luminanceDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
 
 		createEmptyInteropBufferAndSetUpInfo(infos+3,m_rayBuffer[0],raygenBufferSize);
@@ -1343,13 +1342,13 @@ void Renderer::initScreenSizedResources(uint32_t width, uint32_t height, float e
 			EDT_COMBINED_IMAGE_SAMPLER,
 		});
 		
-		// Set last write which is a descriptor array
+		// Set last write
 		writes[9].binding = 9u;
 		writes[9].arrayElement = 0u;
-		writes[9].count = MipCountLuminance;
+		writes[9].count = 1u;
 		writes[9].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 		writes[9].dstSet = m_commonRaytracingDS[0].get();
-		writes[9].info = luminanceDescriptorInfos;
+		writes[9].info = &luminanceDescriptorInfo;
 
 		m_driver->updateDescriptorSets(descriptorUpdateCount,writes,0u,nullptr);
 		// set up second DS
@@ -1952,389 +1951,6 @@ bool Renderer::traceBounce(uint32_t& raycount)
 	}
 
 	return true;
-}
-
-void Renderer::initWarpingResources()
-{
-	for(uint32_t i = 0; i < MipCountLuminance; ++i)
-	{
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1 - i);
-		const uint32_t width = std::max(resolution, 1u);
-		const uint32_t height = std::max(resolution/2u, 1u);
-		m_luminanceMipMaps[i] = createTexture(width, height, EF_R32_SFLOAT);
-		assert(m_luminanceMipMaps[i]);
-	}
-
-	{
-		const uint32_t resolution = 0x1u<<(MipCountEnvmap-1); // same size as envmap
-		const uint32_t width = std::max(resolution, 1u);
-		const uint32_t height = std::max(resolution/2u, 1u);
-		// m_warpMap = createTexture(width, height, EF_R16G16_SFLOAT);
-		m_warpMap = createTexture(width, height, EF_R32G32_SFLOAT);
-	}
-
-	ISampler::SParams samplerParams;
-	samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
-	samplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-	samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-	samplerParams.AnisotropicFilter = 0u;
-	samplerParams.CompareEnable = false;
-	auto nearestSampler = m_driver->createGPUSampler(samplerParams);
-
-	// Create DescriptorLayout
-	{
-		{
-			constexpr auto lumaDescriptorCount = 3u;
-			IGPUDescriptorSetLayout::SBinding bindings[lumaDescriptorCount];
-			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-			bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
-			bindings[0].count = 1u;
-			bindings[0].samplers = &nearestSampler;
-		
-			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_IMAGE;
-			bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
-			bindings[1].count = 1u;
-
-			bindings[2].binding = 2u;
-			bindings[2].type = asset::EDT_STORAGE_IMAGE;
-			bindings[2].stageFlags = ISpecializedShader::ESS_COMPUTE;
-			bindings[2].count = 1u;
-
-			m_lumaDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+lumaDescriptorCount);
-		}
-
-		{
-			
-			ISampler::SParams lumaSamplerParams;
-			lumaSamplerParams.TextureWrapU = lumaSamplerParams.TextureWrapV = lumaSamplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
-			lumaSamplerParams.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-			lumaSamplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
-			lumaSamplerParams.MipmapMode = ISampler::ESMM_NEAREST;
-			lumaSamplerParams.AnisotropicFilter = 0u;
-			lumaSamplerParams.CompareEnable = false;
-			auto lumaSampler = m_driver->createGPUSampler(lumaSamplerParams);
-
-			core::smart_refctd_ptr<IGPUSampler> samplers[MipCountLuminance];
-			for(uint32_t i = 0u; i < MipCountLuminance; ++i)
-				samplers[i] = lumaSampler;
-
-			constexpr auto warpDescriptorCount = 2u;
-			IGPUDescriptorSetLayout::SBinding bindings[warpDescriptorCount];
-			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-			bindings[0].stageFlags = ISpecializedShader::ESS_COMPUTE;
-			bindings[0].count = MipCountLuminance;
-			bindings[0].samplers = samplers;
-		
-			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_IMAGE;
-			bindings[1].stageFlags = ISpecializedShader::ESS_COMPUTE;
-			bindings[1].count = 1u;
-
-			m_warpDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+warpDescriptorCount);
-		}
-	}
-
-	{
-		{
-			SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(LumaMipMapGenShaderData_t)};
-			m_lumaPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(m_lumaDSLayout));
-		
-			for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
-		 		m_lumaDS[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_lumaDSLayout));
-	
-			for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
-			{
-				const uint32_t src = i;
-				const uint32_t dst = i + 1;
-			
-				IGPUDescriptorSet::SDescriptorInfo envMapDescriptorInfo = {};
-				envMapDescriptorInfo.desc = m_finalEnvmap;
-				envMapDescriptorInfo.image.sampler = nullptr;
-				envMapDescriptorInfo.image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-		
-				IGPUDescriptorSet::SDescriptorInfo srcMipDescriptorInfo = {};
-				srcMipDescriptorInfo.desc = m_luminanceMipMaps[src];
-				srcMipDescriptorInfo.image.sampler = nullptr;
-				srcMipDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
-
-				IGPUDescriptorSet::SDescriptorInfo dstMipDescriptorInfo = {};
-				dstMipDescriptorInfo.desc = m_luminanceMipMaps[dst];
-				dstMipDescriptorInfo.image.sampler = nullptr;
-				dstMipDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
-
-				IGPUDescriptorSet::SWriteDescriptorSet writes[3u];
-				writes[0].binding = 0u;
-				writes[0].arrayElement = 0u;
-				writes[0].count = 1u;
-				writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
-				writes[0].dstSet = m_lumaDS[i].get();
-				writes[0].info = &envMapDescriptorInfo;
-		
-				writes[1].binding = 1u;
-				writes[1].arrayElement = 0u;
-				writes[1].count = 1u;
-				writes[1].descriptorType = EDT_STORAGE_IMAGE;
-				writes[1].dstSet = m_lumaDS[i].get();
-				writes[1].info = &srcMipDescriptorInfo;
-
-				writes[2].binding = 2u;
-				writes[2].arrayElement = 0u;
-				writes[2].count = 1u;
-				writes[2].descriptorType = EDT_STORAGE_IMAGE;
-				writes[2].dstSet = m_lumaDS[i].get();
-				writes[2].info = &dstMipDescriptorInfo;
-
-				m_driver->updateDescriptorSets(3u,writes,0u,nullptr);
-			}
-		}
-
-		{
-			
-			SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(WarpMapGenShaderData_t)};
-			m_warpPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(m_warpDSLayout));
-		
-		 	m_warpDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_warpDSLayout));
-			
-			IGPUDescriptorSet::SDescriptorInfo luminanceDescriptorInfos[MipCountLuminance] = {};
-			for(uint32_t i = 0; i < MipCountLuminance; ++i)
-			{
-				luminanceDescriptorInfos[i].desc = m_luminanceMipMaps[i];
-				luminanceDescriptorInfos[i].image.sampler = nullptr;
-				luminanceDescriptorInfos[i].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
-			}
-		
-			IGPUDescriptorSet::SDescriptorInfo warpMapDescriptorInfo = {};
-			warpMapDescriptorInfo.desc = m_warpMap;
-			warpMapDescriptorInfo.image.sampler = nullptr;
-			warpMapDescriptorInfo.image.imageLayout = asset::EIL_GENERAL;
-
-			IGPUDescriptorSet::SWriteDescriptorSet writes[2u];
-			writes[0].binding = 0u;
-			writes[0].arrayElement = 0u;
-			writes[0].count = MipCountLuminance;
-			writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
-			writes[0].dstSet = m_warpDS.get();
-			writes[0].info = luminanceDescriptorInfos;
-		
-			writes[1].binding = 1u;
-			writes[1].arrayElement = 0u;
-			writes[1].count = 1u;
-			writes[1].descriptorType = EDT_STORAGE_IMAGE;
-			writes[1].dstSet = m_warpDS.get();
-			writes[1].info = &warpMapDescriptorInfo;
-
-			m_driver->updateDescriptorSets(2u,writes,0u,nullptr);
-		}
-	}
-
-	{
-		m_lumaGPUShader = gpuSpecializedShaderFromFile(m_assetManager, m_driver, "../lumaMipMapGen.comp");
-		assert(m_lumaGPUShader);
-
-		m_lumaPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_lumaPipelineLayout), core::smart_refctd_ptr(m_lumaGPUShader));
-		assert(m_lumaPipeline);
-		
-		m_warpGPUShader = gpuSpecializedShaderFromFile(m_assetManager, m_driver, "../genWarpMap.comp");
-		assert(m_warpGPUShader);
-
-		m_warpPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_warpPipelineLayout), core::smart_refctd_ptr(m_warpGPUShader));
-		assert(m_warpPipeline);
-	}
-
-}
-
-void Renderer::deinitWarpingResources()
-{
-	m_lumaPipeline = nullptr;
-	m_lumaGPUShader = nullptr;
-	for(uint32_t i = 0u; i < MipCountLuminance - 1; ++i)
-		m_lumaDS[i] = nullptr;
-	m_lumaPipelineLayout = nullptr;
-	m_lumaDSLayout = nullptr;
-
-	for(uint32_t i = 0; i < MipCountLuminance; ++i)
-		m_luminanceMipMaps[i] = nullptr;
-
-	m_warpPipeline = nullptr;
-	m_warpGPUShader = nullptr;
-	m_warpDS = nullptr;
-	m_warpPipelineLayout = nullptr;
-	m_warpDSLayout = nullptr;
-	m_warpMap = nullptr;
-}
-
-bool Renderer::computeWarpMap(float envMapRegularizationFactor)
-{
-	bool enableRIS = false;
-
-	LumaMipMapGenShaderData_t pcData = {};
-	const nbl::core::vectorSIMDf lumaScales = nbl::core::vectorSIMDf(0.2126729f, 0.7151522f, 0.0721750f, 1.0f);
-	
-	m_driver->bindComputePipeline(m_lumaPipeline.get());
-
-	// Calc Luma without Sin Factor
-	{
-		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * envMapRegularizationFactor, lumaScales[1] * envMapRegularizationFactor, lumaScales[2] * envMapRegularizationFactor, (1.0f-envMapRegularizationFactor));
-		pcData.calcLuma = 1;
-		pcData.sinFactor = 0;
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
-
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
-		const uint32_t sourceMipWidth = std::max(resolution, 1u);
-		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
-		
-		uint32_t workGroups[2] = {
-			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
-			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
-		};
-
-		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
-		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
-	}
-
-	// Download Luma Image and caclulate Variance and new Regularization Factor
-	float variance = 0.0f;
-	{
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
-		const uint32_t width = std::max(resolution, 1u);
-		const uint32_t height = std::max(resolution/2u, 1u);
-
-		const uint32_t colorBufferBytesize = width * height * asset::getTexelOrBlockBytesize(EF_R32_SFLOAT);
-
-		auto downloadStagingArea = m_driver->getDefaultDownStreamingBuffer();
-
-		constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
-		const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
-
-		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
-		const uint32_t alignment = 4096u; // common page size
-		auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &colorBufferBytesize, &alignment);
-		if (unallocatedSize)
-		{
-			os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
-		}
-
-		IImage::SBufferCopy copyRegion = {};
-		copyRegion.bufferOffset = 0u;
-		copyRegion.bufferRowLength = 0u;
-		copyRegion.bufferImageHeight = 0u;
-		//copyRegion.imageSubresource.aspectMask = wait for Vulkan;
-		copyRegion.imageSubresource.mipLevel = 0u;
-		copyRegion.imageSubresource.baseArrayLayer = 0u;
-		copyRegion.imageSubresource.layerCount = 1u;
-		copyRegion.imageOffset = { 0u,0u,0u };
-		copyRegion.imageExtent = { width, height, 1u };
-
-		auto luminanceGPUImage = m_luminanceMipMaps[0].get()->getCreationParameters().image.get();
-		m_driver->copyImageToBuffer(luminanceGPUImage, downloadStagingArea->getBuffer(), 1, &copyRegion);
-		
-		auto downloadFence = m_driver->placeFence(true);
-		
-		auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
-		
-		// wait for download fence and then invalidate the CPU cache
-		{
-			auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
-			if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
-			{
-				os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-				downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
-			}
-			if (downloadStagingArea->needsManualFlushOrInvalidate())
-				m_driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
-		}
-
-		float* fltData = reinterpret_cast<float*>(data);
-		float avg_x2 = 0.0f;
-		float avg_x = 0.0f;
-		for(uint32_t i = 0; i < width * height; ++i)
-		{
-			const float x = fltData[i]; 
-			const float x2 = x*x;
-			const float n = float(i + 1);
-			avg_x = avg_x + (x-avg_x)/(n);
-			avg_x2 = avg_x2 + (x2-avg_x2)/(n);
-		}
-
-		variance = avg_x2 - avg_x * avg_x; // V[x] = E[X^2]-E[X]^2
-		std::cout << "Final Luminance Variance = " << variance << std::endl;
-	}
-
-	float regularizationFactor = envMapRegularizationFactor*(1.0f-1.0f/(1.0f+variance));
-	std::cout << "New Regularization Factor based on Variance = " << regularizationFactor << std::endl;
-	constexpr float varianceThreshold = 0.001f;
-	enableRIS = (variance >= varianceThreshold);
-
-	// Calc Luma again with Sin Factor and new Regularization Factor
-	{
-		pcData.luminanceScales = nbl::core::vectorSIMDf(lumaScales[0] * regularizationFactor, lumaScales[1] * regularizationFactor, lumaScales[2] * regularizationFactor, (1.0f-regularizationFactor));
-		pcData.calcLuma = 1;
-		pcData.sinFactor = 1;
-
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[0].get(),nullptr);
-
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1);
-		const uint32_t sourceMipWidth = std::max(resolution, 1u);
-		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
-		
-		uint32_t workGroups[2] = {
-			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
-			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
-		};
-
-		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
-		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
-	}
-
-	// Calc Mipmaps
-	for(uint32_t s = 0; s < MipCountLuminance - 1; ++s)
-	{
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_lumaPipeline->getLayout(),0u,1u,&m_lumaDS[s].get(),nullptr);
-		
-		const uint32_t resolution = 0x1u<<(MipCountLuminance - 1 - s);
-		const uint32_t sourceMipWidth = std::max(resolution, 1u);
-		const uint32_t sourceMipHeight = std::max(resolution/2u, 1u);
-		
-		uint32_t workGroups[2] = {
-			(sourceMipWidth-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u,
-			(sourceMipHeight-1u)/LUMA_MIP_MAP_GEN_WORKGROUP_DIM+1u
-		};
-
-		pcData.calcLuma = 0;
-		m_driver->pushConstants(m_lumaPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(pcData),&pcData);
-		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
-	}
-
-	// Generate WarpMap
-	{
-		m_driver->bindComputePipeline(m_warpPipeline.get());
-
-		WarpMapGenShaderData_t warpPcData = {};
-		warpPcData.lumaMipCount = MipCountLuminance;
-	
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_warpPipeline->getLayout(),0u,1u,&m_warpDS.get(),nullptr);
-		
-		const uint32_t resolution = 0x1u<<(MipCountEnvmap-1);
-		const uint32_t warpMapWidth = std::max(resolution, 1u);
-		const uint32_t warpMapHeight = std::max(resolution/2u, 1u);
-
-		uint32_t workGroups[2] = {
-			(warpMapWidth-1u)/WARP_MAP_GEN_WORKGROUP_DIM+1u,
-			(warpMapHeight-1u)/WARP_MAP_GEN_WORKGROUP_DIM+1u
-		};
-
-		m_driver->pushConstants(m_warpPipeline->getLayout(),ICPUSpecializedShader::ESS_COMPUTE,0u,sizeof(warpPcData),&warpPcData);
-		m_driver->dispatch(workGroups[0],workGroups[1],1);
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT);
-	}
-
-	return enableRIS;
 }
 
 const float Renderer::AntiAliasingSequence[Renderer::AntiAliasingSequenceLength][2] =

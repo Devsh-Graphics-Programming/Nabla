@@ -1,6 +1,7 @@
-#version 430 core
+#ifndef _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
+#define _NBL_GLSL_EXT_ENVMAP_SAMPLING_GEN_LUMA_INCLUDED_
 
-#include "warpCommon.h"
+#include <nbl/builtin/glsl/ext/EnvmapImportanceSampling/parameters.glsl>
 #include <nbl/builtin/glsl/math/functions.glsl>
 
 layout(local_size_x = LUMA_MIP_MAP_GEN_WORKGROUP_DIM, local_size_y = LUMA_MIP_MAP_GEN_WORKGROUP_DIM) in;
@@ -35,8 +36,8 @@ void main()
 			if(pc.data.calcLuma > 0)
 			{
 				float sinTheta = sin(nbl_glsl_PI * (float(pixelCoord.y + 0.5f) / envMapSize.y));
-				vec4 envMapSample = texelFetch(envMap, pixelCoord, 0);
-				float luma = dot(pc.data.luminanceScales, envMapSample);
+				vec3 envMapSample = texelFetch(envMap, pixelCoord, 0).rgb;
+				float luma = dot(pc.data.luminanceScales, vec4(envMapSample, 1.0f));
 				if(pc.data.sinFactor > 0)
 					luma *= sinTheta;
 				imageStore(srcLuminance, pixelCoord, vec4(luma));
@@ -55,3 +56,5 @@ void main()
 		}
 	}
 }
+
+#endif
