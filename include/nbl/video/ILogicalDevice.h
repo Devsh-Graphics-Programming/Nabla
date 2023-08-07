@@ -6,6 +6,7 @@
 #include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/SPhysicalDeviceFeatures.h"
+#include "nbl/video/SPhysicalDeviceLimits.h"
 #include "nbl/video/IDeferredOperation.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 #include "nbl/video/IGPUPipelineCache.h"
@@ -294,7 +295,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Buffer (@see ICPUBuffer)
         inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
         {
-            const auto maxSize = getPhysicalDevice()->getLimits().maxBufferSize;
+            const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
             if (creationParams.size>maxSize)
             {
                 m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
@@ -303,14 +304,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createBuffer_impl(std::move(creationParams));
         }
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
-        inline core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
-        {
-            if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))
-                return nullptr;
-            if (!getPhysicalDevice()->getBufferFormatUsages()[_fmt].bufferView)
-                return nullptr;
-            return createBufferView_impl(underlying,_fmt);
-        }
+        core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt);
         // Creates an Image (@see ICPUImage)
         inline core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams)
         {
@@ -343,7 +337,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             if (invalidCreationParams(params))
                 return nullptr;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && (params.maxInstanceCount==0u || params.maxInstanceCount>getPhysicalDevice()->getLimits().maxAccelerationStructureInstanceCount))
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && (params.maxInstanceCount==0u || params.maxInstanceCount>getPhysicalDeviceLimits().maxAccelerationStructureInstanceCount))
                 return nullptr;
             return createTopLevelAccelerationStructure_impl(std::move(params));
         }
@@ -369,7 +363,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
             const uint32_t geometryCount, const Geometry* const geometries, const uint32_t* const pMaxPrimitiveCounts) const
         {
-            if (invalidFeatures<Geometry::buffer_t>(motionBlur))
+            if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur))
                 return {};
 
             if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
@@ -379,7 +373,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (geometryCount && !pMaxPrimitiveCounts)
                 return {};
 
-            const auto& limits = getPhysicalDevice()->getLimits();
+            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
             if (geometryCount>limits.maxAccelerationStructureGeometryCount)
                 return {};
@@ -397,13 +391,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
         {
-            if (invalidFeatures<IGPUBuffer>(motionBlur))
+            if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur))
                 return {};
 
             if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags))
                 return {};
 
-            const auto& limits = getPhysicalDevice()->getLimits();
+            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
             if (maxInstanceCount>limits.maxAccelerationStructureInstanceCount)
                 return {};
@@ -815,17 +809,17 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             {
                 case IQueryPool::TYPE::PIPELINE_STATISTICS:
                     if (!getEnabledFeatures().pipelineStatisticsQuery)
-                        return false;
+                        return nullptr;
                     break;
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
                     if (!getEnabledFeatures().accelerationStructure)
-                        return false;
+                        return nullptr;
                     break;
                 default:
-                    return false;
+                    return nullptr;
             }
             return createQueryPool_impl(params);
         }
@@ -860,52 +854,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params);
+        ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc);
         inline virtual ~ILogicalDevice()
         {
             if (m_queues)
             for (uint32_t i=0u; i<m_queues->size(); ++i)
                 delete (*m_queues)[i];
         }
-
-        inline bool invalidMappedRanges(const core::SRange<const MappedMemoryRange>& ranges)
-        {
-            for (auto& range : ranges)
-            {
-                if (!range.valid())
-                    return true;
-                if (range.memory->getOriginDevice()!=this)
-                    return true;
-            }
-            return false;
-        }
         virtual bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) = 0;
         virtual bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) = 0;
 
-        inline bool invalidAllocationForBind(const IDeviceMemoryBacked* resource, const IDeviceMemoryBacked::SMemoryBinding& binding, const size_t alignment)
-        {
-            if (!resource->wasCreatedBy(this))
-            {
-                m_logger.log("Buffer or Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,resource,this);
-                return true;
-            }
-            if (!resource->getBoundMemory().isValid())
-            {
-                m_logger.log("Buffer or Image %p already has memory bound!",system::ILogger::ELL_ERROR,resource);
-                return true;
-            }
-            if (!binding.isValid() || binding.memory->getOriginDevice()!=this)
-            {
-                m_logger.log("Memory Allocation %p and Offset %d not valid or not compatible with Device %p !",system::ILogger::ELL_ERROR,binding.memory,binding.offset,this);
-                return true;
-            }
-            if (binding.offset&(alignment-1))
-            {
-                m_logger.log("Memory Allocation Offset %d not aligned to %d which is required by the Buffer or Image!",system::ILogger::ELL_ERROR,binding.offset,alignment);
-                return true;
-            }
-            return false;
-        }
         virtual bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) = 0;
         virtual bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) = 0;
 
@@ -913,38 +871,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        inline bool invalidCreationParams(const IGPUAccelerationStructure::SCreationParams& params)
-        {
-            if (!getEnabledFeatures().accelerationStructure)
-                return true;
-            constexpr size_t MinAlignment = 256u;
-            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
-                return true;
-            const auto bufferUsages = params.bufferRange.buffer->getCreationParams().usage;
-            if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT))
-                return true;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
-                return true;
-            return false;
-        }
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
-        template<class BufferType>
-        bool invalidFeatures(const bool motionBlur) const
-        {
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
-            if (!m_enabledFeatures.accelerationStructure)
-                return true;
-			// not sure of VUID
-			if (std::is_same_v<BufferType,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
-				return true;
-            // not sure of VUID
-            if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur)
-                return true;
-
-            return false;
-        }
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
             const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
@@ -965,23 +894,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur, const uint32_t maxInstanceCount
         ) const = 0;
+
         enum class DEFERRABLE_RESULT : uint8_t
         {
             DEFERRED,
             NOT_DEFERRED,
             SOME_ERROR
         };
-        inline bool acquireDeferredOperation(IDeferredOperation* const deferredOp)
-        {
-            if (!deferredOp || !deferredOp->wasCreatedBy(this) || deferredOp->isPending())
-                return false;
-            deferredOp->m_resourceTracking.clear();
-            return getEnabledFeatures().accelerationStructureHostCommands;
-        }
-        static inline bool invalidMemoryForAccelerationStructureHostOperations(const IDeviceMemoryAllocation* const memory)
-        {
-            return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
-        }
         virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
             IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos, const uint32_t totalGeometryCount
@@ -1060,44 +979,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool_impl(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) = 0;
 
 
-        void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
-
-        template<typename... Args>
-        inline void addShaderDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
-        {
-            const ptrdiff_t pos = pool.tellp();
-            m_extraShaderDefines.push_back(reinterpret_cast<const char*>(pos));
-            pool << define << " ";
-            ((pool << std::forward<Args>(args)), ...);
-        }
-        inline void finalizeShaderDefinePool(std::ostringstream&& pool)
-        {
-            m_ShaderDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraShaderDefines.size());
-            const auto data = ptrdiff_t(m_ShaderDefineStringPool.data());
-
-            const auto str = pool.str();
-            size_t nullCharsWritten = 0u;
-            for (auto i=0u; i<m_extraShaderDefines.size(); i++)
-            {
-                auto& dst = m_extraShaderDefines[i];
-                const auto len = (i!=(m_extraShaderDefines.size()-1u) ? ptrdiff_t(m_extraShaderDefines[i+1]):str.length())-ptrdiff_t(dst);
-                const char* src = str.data()+ptrdiff_t(dst);
-                dst += data+(nullCharsWritten++);
-                memcpy(const_cast<char*>(dst),src,len);
-                const_cast<char*>(dst)[len] = 0;
-            }
-        }
-
-
+        // TODO: think what to move to `private`
         core::smart_refctd_ptr<asset::CCompilerSet> m_compilerSet;
         core::smart_refctd_ptr<const IAPIConnection> m_api;
         const IPhysicalDevice* const m_physicalDevice;
         const system::logger_opt_ptr m_logger;
 
-        SPhysicalDeviceFeatures m_enabledFeatures;
-
-        core::vector<char> m_ShaderDefineStringPool;
-        core::vector<const char*> m_extraShaderDefines;
+        const SPhysicalDeviceFeatures m_enabledFeatures;
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeQueueAdapter*>;
         queues_array_t m_queues;
@@ -1110,6 +998,94 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
         using q_family_info_array_t = core::smart_refctd_dynamic_array<const QueueFamilyInfo>;
         q_family_info_array_t m_queueFamilyInfos;
+        
+    private:
+        const SPhysicalDeviceLimits& getPhysicalDeviceLimits() const;
+
+        void addCommonShaderDefines(const bool runningInRenderDoc);
+
+        inline bool invalidAllocationForBind(const IDeviceMemoryBacked* resource, const IDeviceMemoryBacked::SMemoryBinding& binding, const size_t alignment)
+        {
+            if (!resource->wasCreatedBy(this))
+            {
+                m_logger.log("Buffer or Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,resource,this);
+                return true;
+            }
+            if (!resource->getBoundMemory().isValid())
+            {
+                m_logger.log("Buffer or Image %p already has memory bound!",system::ILogger::ELL_ERROR,resource);
+                return true;
+            }
+            if (!binding.isValid() || binding.memory->getOriginDevice()!=this)
+            {
+                m_logger.log("Memory Allocation %p and Offset %d not valid or not compatible with Device %p !",system::ILogger::ELL_ERROR,binding.memory,binding.offset,this);
+                return true;
+            }
+            if (binding.offset&(alignment-1))
+            {
+                m_logger.log("Memory Allocation Offset %d not aligned to %d which is required by the Buffer or Image!",system::ILogger::ELL_ERROR,binding.offset,alignment);
+                return true;
+            }
+            return false;
+        }
+
+        inline bool invalidMappedRanges(const core::SRange<const MappedMemoryRange>& ranges)
+        {
+            for (auto& range : ranges)
+            {
+                if (!range.valid())
+                    return true;
+                if (range.memory->getOriginDevice()!=this)
+                    return true;
+            }
+            return false;
+        }
+
+        inline bool acquireDeferredOperation(IDeferredOperation* const deferredOp)
+        {
+            if (!deferredOp || !deferredOp->wasCreatedBy(this) || deferredOp->isPending())
+                return false;
+            deferredOp->m_resourceTracking.clear();
+            return getEnabledFeatures().accelerationStructureHostCommands;
+        }
+
+        inline bool invalidCreationParams(const IGPUAccelerationStructure::SCreationParams& params)
+        {
+            if (!getEnabledFeatures().accelerationStructure)
+                return true;
+            constexpr size_t MinAlignment = 256u;
+            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
+                return true;
+            const auto bufferUsages = params.bufferRange.buffer->getCreationParams().usage;
+            if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT))
+                return true;
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
+                return true;
+            return false;
+        }
+        template<class BufferType>
+        bool invalidFeaturesForASBuild(const bool motionBlur) const
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
+            if (!m_enabledFeatures.accelerationStructure)
+                return true;
+			// not sure of VUID
+			if (std::is_same_v<BufferType,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+				return true;
+            // not sure of VUID
+            if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur)
+                return true;
+
+            return false;
+        }
+        static inline bool invalidMemoryForAccelerationStructureHostOperations(const IDeviceMemoryAllocation* const memory)
+        {
+            return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
+        }
+
+
+        core::vector<char> m_shaderDefineStringPool;
+        core::vector<const char*> m_extraShaderDefines;
 };
 
 

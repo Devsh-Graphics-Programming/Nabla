@@ -14,17 +14,17 @@ using namespace nbl::video;
 
 
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params)
-    : ILogicalDevice(std::move(api),physicalDevice,params), m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation), 1u, MAX_BLOCK_COUNT_DEFERRED_OP, static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
+    : ILogicalDevice(std::move(api),physicalDevice,params,rdoc), m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
 {
     // create actual queue objects
-    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+    for (uint32_t i=0u; i<params.queueParamsCount; ++i)
     {
         const auto& qci = params.queueParams[i];
         const uint32_t famIx = qci.familyIndex;
         const uint32_t offset = m_queueFamilyInfos->operator[](famIx).first;
         const auto flags = qci.flags;
                     
-        for (uint32_t j = 0u; j < qci.count; ++j)
+        for (uint32_t j=0u; j<qci.count; ++j)
         {
             const float priority = qci.priorities[j];
                         
@@ -39,11 +39,6 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
             (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::make_unique<CVulkanQueue>(this,rdoc,vkinst,q,famIx,flags,priority));
         }
     }
-        
-    std::ostringstream pool;
-    bool runningInRenderdoc = (rdoc != nullptr);
-    addCommonShaderDefines(pool,runningInRenderdoc);
-    finalizeShaderDefinePool(std::move(pool));
 
     m_dummyDSLayout = createDescriptorSetLayout({nullptr,nullptr});
 }
