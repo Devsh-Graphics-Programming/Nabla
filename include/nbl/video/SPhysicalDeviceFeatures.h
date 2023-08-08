@@ -554,8 +554,6 @@ struct SPhysicalDeviceFeatures
     bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
 
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
-    bool inlineUniformBlock = false;
-    bool descriptorBindingInlineUniformBlockUpdateAfterBind = false;
 
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
@@ -1183,8 +1181,6 @@ struct SPhysicalDeviceFeatures
         if (fragmentDensityMapNonSubsampledImages && !_rhs.fragmentDensityMapNonSubsampledImages) return false;
         if (fragmentDensityMapDeferred && !_rhs.fragmentDensityMapDeferred) return false;
         if (robustImageAccess && !_rhs.robustImageAccess) return false;
-        if (inlineUniformBlock && !_rhs.inlineUniformBlock) return false;
-        if (descriptorBindingInlineUniformBlockUpdateAfterBind && !_rhs.descriptorBindingInlineUniformBlockUpdateAfterBind) return false;
         if (rectangularLines && !_rhs.rectangularLines) return false;
         if (bresenhamLines && !_rhs.bresenhamLines) return false;
         if (smoothLines && !_rhs.smoothLines) return false;
