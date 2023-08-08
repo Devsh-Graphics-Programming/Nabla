@@ -132,8 +132,8 @@ struct SPhysicalDeviceLimits
 
     /* Vulkan 1.1 Core  */
     uint32_t subgroupSize = 0u;
-    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_UNKNOWN;
-    // all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing! 
+    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_COMPUTE|asset::IShader::ESS_FRAGMENT;
+    // ROADMAP2022L mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!
     bool shaderSubgroupArithmetic = false;
     bool shaderSubgroupClustered = false;
     bool shaderSubgroupQuad = false;

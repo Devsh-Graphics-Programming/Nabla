@@ -438,8 +438,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_PER_SET_DESCRIPTORS",limits.maxPerSetDescriptors);
         // addShaderDefineToPool(pool,"NBL_LIMIT_MAX_MEMORY_ALLOCATION_SIZE",limits.maxMemoryAllocationSize); // shader doesn't need to know about that
 
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT16",limits.shaderSignedZeroInfNanPreserveFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT32",limits.shaderSignedZeroInfNanPreserveFloat32);
         addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT64",limits.shaderSignedZeroInfNanPreserveFloat64);
         addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT16",limits.shaderDenormPreserveFloat16);
         addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT32",limits.shaderDenormPreserveFloat32);

@@ -180,11 +180,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;
 
-        inline bool isExtensionSupported(const char* name) const
-        {
-            return m_availableFeatureSet.find(name)!=m_availableFeatureSet.end();
-        }
-
     private:
         renderdoc_api_t* const m_rdoc_api;
         const VkPhysicalDevice m_vkPhysicalDevice;
