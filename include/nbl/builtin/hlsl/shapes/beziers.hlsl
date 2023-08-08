@@ -13,17 +13,66 @@ namespace hlsl
 {
 namespace shapes
 {
+    // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
+    // GH link https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
+    // Credits to Doublefresh for hinting there
+    // returns the roots, and number of filled in real values under numRealValues
+    float2 SolveQuadratic(float3 c, out int numRealValues)
+    {
+        // bhaskara: x = (-b ± √(b² – 4ac)) / (2a)
+        float b = c.y / (2 * c.z);
+        float q = c.x / c.z;
+        float delta = b * b - q;
+
+        if (delta == 0.0) // Δ = 0
+        {
+            numRealValues = 1;
+            return float2(-b, 0.0);
+        }
+        if (delta < 0) // Δ < 0 (no real values)
+        {
+            numRealValues = 0;
+            return 0.0;
+        }
+
+        // Δ > 0 (two distinct real values)
+        float sqrtD = sqrt(delta);
+        numRealValues = 2;
+        return float2(sqrtD - b, sqrtD + b);
+    }
+
     struct QuadraticBezier
     {
         float2 A;
         float2 B;
         float2 C;
+        // TODO: thickness is only used in signedDistance, have it as parameter there instead?
         float thickness;
 
         static QuadraticBezier construct(float2 a, float2 b, float2 c, float thickness)
         {
             QuadraticBezier ret = { a, b, c, thickness };
             return ret;
+        }
+
+        float2 evaluate(float t)
+        {
+            float2 position = A * (1.0 - t) * (1.0 - t) 
+                      + 2.0 * B * (1.0 - t) * t
+                      +       C * t         * t;
+            return position;
+        }
+
+        // https://pomax.github.io/bezierinfo/#yforx
+        float tForMajorCoordinate(const int major, float x) 
+        { 
+            float a = A[major] - x;
+            float b = B[major] - x;
+            float c = C[major] - x;
+            int rootCount;
+            float2 roots = SolveQuadratic(float3(a, b, c), rootCount);
+            // assert(rootCount == 1);
+            return roots.x;
         }
 
         // original from https://www.shadertoy.com/view/lsyfWc
@@ -240,6 +289,7 @@ namespace shapes
 
         // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
         // Credits to Doublefresh for hinting there
+        // TODO: Deprecate this to SolveQuadratic function, that works outside CubicBezier?
         int solve_quadric(float2 coeffs, inout float2 roots){
 
             // normal form: x^2 + px + q = 0
