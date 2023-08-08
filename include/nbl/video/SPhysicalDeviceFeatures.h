@@ -35,7 +35,7 @@ struct SPhysicalDeviceFeatures
     bool robustBufferAccess = false;
 
     // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
-    //bool fullDrawIndexUint32 = true; // TODO: expose the `maxDrawIndexedIndexValue` limit instead
+    //bool fullDrawIndexUint32 = true;
  
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
     //bool imageCubeArray = true;

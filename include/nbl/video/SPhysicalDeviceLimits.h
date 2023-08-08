@@ -68,9 +68,11 @@ struct SPhysicalDeviceLimits
     uint32_t maxComputeWorkGroupInvocations = 0u;
     uint32_t maxWorkgroupSize[3] = {};
     uint32_t subPixelPrecisionBits = 0u;
+    // TODO: Expose
     //uint32_t              subTexelPrecisionBits;
     //uint32_t              mipmapPrecisionBits;
-    //uint32_t              maxDrawIndexedIndexValue; // TODO: expose
+    // ROADMAP2022: requires fullDrawIndexUint32 so this must be 0xffFFffFFu
+    //uint32_t              maxDrawIndexedIndexValue;
     uint32_t maxDrawIndirectCount = 0u;
     float    maxSamplerLodBias = 0.0f;
     uint8_t  maxSamplerAnisotropyLog2 = 0u;
@@ -154,8 +156,6 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.2 Core  */
 //    VkShaderFloatControlsIndependence denormBehaviorIndependence; // TODO: need to implement ways to set them
 //    VkShaderFloatControlsIndependence roundingModeIndependence;   // TODO: need to implement ways to set them
-    bool shaderSignedZeroInfNanPreserveFloat16 = false;
-    bool shaderSignedZeroInfNanPreserveFloat32 = false;
     bool shaderSignedZeroInfNanPreserveFloat64 = false;
     bool shaderDenormPreserveFloat16 = false;
     bool shaderDenormPreserveFloat32 = false;
@@ -747,8 +747,6 @@ struct SPhysicalDeviceLimits
         if (shaderSubgroupQuadAllStages && !_rhs.shaderSubgroupQuadAllStages) return false;
         if (maxPerSetDescriptors > _rhs.maxPerSetDescriptors) return false;
         if (maxMemoryAllocationSize > _rhs.maxMemoryAllocationSize) return false;
-        if (shaderSignedZeroInfNanPreserveFloat16 && !_rhs.shaderSignedZeroInfNanPreserveFloat16) return false;
-        if (shaderSignedZeroInfNanPreserveFloat32 && !_rhs.shaderSignedZeroInfNanPreserveFloat32) return false;
         if (shaderSignedZeroInfNanPreserveFloat64 && !_rhs.shaderSignedZeroInfNanPreserveFloat64) return false;
         if (shaderDenormPreserveFloat16 && !_rhs.shaderDenormPreserveFloat16) return false;
         if (shaderDenormPreserveFloat32 && !_rhs.shaderDenormPreserveFloat32) return false;

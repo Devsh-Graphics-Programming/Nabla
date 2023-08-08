@@ -183,7 +183,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
     private:
         renderdoc_api_t* const m_rdoc_api;
         const VkPhysicalDevice m_vkPhysicalDevice;
-        const core::unordered_set<std::string> m_availableFeatureSet;
 };
 
 }

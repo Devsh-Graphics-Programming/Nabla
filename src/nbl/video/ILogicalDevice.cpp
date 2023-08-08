@@ -370,7 +370,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_WORKGROUP_SIZE_Y",limits.maxWorkgroupSize[1]);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_WORKGROUP_SIZE_Z",limits.maxWorkgroupSize[2]);
         addShaderDefineToPool(pool,"NBL_LIMIT_SUB_PIXEL_PRECISION_BITS",limits.subPixelPrecisionBits);
-        // TODO: maxDrawIndexedIndexValue
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_DRAW_INDIRECT_COUNT",limits.maxDrawIndirectCount);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_SAMPLER_LOD_BIAS",limits.maxSamplerLodBias);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_SAMPLER_ANISOTROPY_LOG2",limits.maxSamplerAnisotropyLog2);

@@ -203,10 +203,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.subPixelPrecisionBits = vk_deviceProperties.limits.subPixelPrecisionBits;
         // TODO: report and check `subTexelPrecisionBits` & `mipmapPrecisionBits` ?
 
-        // TODO: check properly
-        if (vk_deviceProperties.limits.maxDrawIndexedIndexValue<0x80000000u)
+        if (vk_deviceProperties.limits.maxDrawIndexedIndexValue!=0xffFFffFFu)
             return nullptr;
-        if (vk_deviceProperties.limits.maxDrawIndirectCount<0x80000000u)
+        if (vk_deviceProperties.limits.maxDrawIndirectCount<0x10000u)
             return nullptr;
         properties.limits.maxDrawIndirectCount = vk_deviceProperties.limits.maxDrawIndirectCount;
         
@@ -506,6 +505,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             else
                 properties.limits.maxBufferSize = vulkan11Properties.maxMemoryAllocationSize;
 
+            constexpr uint32_t Roadmap2022MaxSubgroupSize = 4u;
             if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
             {
                 properties.limits.minSubgroupSize = subgroupSizeControlProperties.minSubgroupSize;
@@ -517,6 +517,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             {
                 getMinMaxSubgroupSizeFromDriverID(properties.driverID, properties.limits.minSubgroupSize, properties.limits.maxSubgroupSize);
             }
+            if (properties.limits.maxSubgroupSize<Roadmap2022MaxSubgroupSize)
+                return nullptr;
 
             if (vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
             {
@@ -563,7 +565,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 properties.limits.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = shaderIntegerDotProductProperties.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
             }
 
-#if 0
+
             //! Extensions
             
             /* ConservativeRasterizationPropertiesEXT */
@@ -616,9 +618,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             /* AccelerationStructurePropertiesKHR */
             if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             {
-                properties.limits.maxGeometryCount = accelerationStructureProperties.maxGeometryCount;
-                properties.limits.maxInstanceCount = accelerationStructureProperties.maxInstanceCount;
-                properties.limits.maxPrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
+                properties.limits.maxAccelerationStructureGeometryCount = accelerationStructureProperties.maxGeometryCount;
+                properties.limits.maxAccelerationStructureInstanceCount = accelerationStructureProperties.maxInstanceCount;
+                properties.limits.maxAccelerationStructurePrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
                 properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
                 properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
                 properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
@@ -683,16 +685,16 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             
             properties.limits.dispatchBase = true;
             properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
-            properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(deviceProperties.properties.limits.maxComputeWorkGroupInvocations),512u);
+            properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
             
             auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(properties.driverID);
             if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             {
                 constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
-                invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM * invocationsPerWarp;
+                invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
             }
 
-            properties.limits.maxResidentInvocations = properties.limits.computeUnits * invocationsPerComputeUnit;
+            properties.limits.maxResidentInvocations = properties.limits.computeUnits*invocationsPerComputeUnit;
             
             // constexpr auto beefyGPUWorkgroupMaxOccupancy = 256u; // TODO: find a way to query and report this somehow, persistent threads are very useful!
             // properties.limits.maxResidentInvocations = beefyGPUWorkgroupMaxOccupancy*properties.limits.maxOptimallyResidentWorkgroupInvocations;
@@ -706,7 +708,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
             if (VK_API_VERSION_MINOR(vk_deviceProperties.apiVersion)>=3)
                     properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
-#endif
         }
 #if 0        
         // Get physical device's features
