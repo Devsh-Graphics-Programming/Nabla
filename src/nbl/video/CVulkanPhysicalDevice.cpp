@@ -894,19 +894,31 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             /* Vulkan 1.0 Core  */
             features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
+            if (!deviceFeatures.features.fullDrawIndexUint32 || !deviceFeatures.features.imageCubeArray || !deviceFeatures.features.independentBlend)
+                return nullptr;
             features.geometryShader = deviceFeatures.features.geometryShader;
             features.tessellationShader = deviceFeatures.features.tessellationShader;
+            if (!deviceFeatures.features.sampleRateShading)
+                return nullptr;
             features.dualSrcBlend = deviceFeatures.features.dualSrcBlend;
             features.logicOp = deviceFeatures.features.logicOp;
+            if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance || !deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
+                return nullptr;
             features.fillModeNonSolid = deviceFeatures.features.fillModeNonSolid;
             features.depthBounds = deviceFeatures.features.depthBounds;
             features.wideLines = deviceFeatures.features.wideLines;
             features.largePoints = deviceFeatures.features.largePoints;
             features.alphaToOne = deviceFeatures.features.alphaToOne;
             features.multiViewport = deviceFeatures.features.multiViewport;
+            if (!deviceFeatures.features.samplerAnisotropy || !deviceFeatures.features.occlusionQueryPrecise)
+                return nullptr;
             features.pipelineStatisticsQuery = deviceFeatures.features.pipelineStatisticsQuery;
+            if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
+                return nullptr;
             features.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
             features.shaderStorageImageWriteWithoutFormat = deviceFeatures.features.shaderStorageImageWriteWithoutFormat;
+            if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
+                return nullptr;
             features.shaderClipDistance = deviceFeatures.features.shaderClipDistance;
             features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
             features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;

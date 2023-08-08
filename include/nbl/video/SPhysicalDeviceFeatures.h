@@ -82,8 +82,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderTessellationAndGeometryPointSize;
     //bool shaderImageGatherExtended;
 
-    // VK SPEC: "shaderStorageImageExtendedFormats feature only adds a guarantee of format support, which is specified for the whole physical device.
-    // Therefore enabling or disabling the feature via vkCreateDevice has no practical effect."
+    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
     //bool shaderStorageImageExtendedFormats = true;
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped

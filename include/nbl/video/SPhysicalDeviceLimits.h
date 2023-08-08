@@ -529,8 +529,6 @@ struct SPhysicalDeviceLimits
     /*  Always enabled, reported as limits */
 
     // Core 1.0 Features
-    // redundant can deduce from `maxSamplerAnisotropyLog2
-    //bool samplerAnisotropy = false;
     bool vertexPipelineStoresAndAtomics = false;
 
     // Intel is a special boy
@@ -538,6 +536,7 @@ struct SPhysicalDeviceLimits
 
     // ROADMAP 2022 but poor support on Apple GPUs
     bool fragmentStoresAndAtomics = false;
+
     bool shaderTessellationAndGeometryPointSize = false;
     bool shaderImageGatherExtended = false;
 
