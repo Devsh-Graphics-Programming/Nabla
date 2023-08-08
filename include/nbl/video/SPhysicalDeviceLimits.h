@@ -71,7 +71,7 @@ struct SPhysicalDeviceLimits
     // TODO: Expose
     //uint32_t              subTexelPrecisionBits;
     //uint32_t              mipmapPrecisionBits;
-    // ROADMAP2022: requires fullDrawIndexUint32 so this must be 0xffFFffFFu
+    // [DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint32 so this must be 0xffFFffFFu
     //uint32_t              maxDrawIndexedIndexValue;
     uint32_t maxDrawIndirectCount = 0u;
     float    maxSamplerLodBias = 0.0f;

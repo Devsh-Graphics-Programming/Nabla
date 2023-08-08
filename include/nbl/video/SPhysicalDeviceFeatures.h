@@ -47,6 +47,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
     //bool sampleRateShading = true;
 
+    // good device support, candidate for promotion
     bool dualSrcBlend = false;
     bool logicOp = false;
 
@@ -59,8 +60,11 @@ struct SPhysicalDeviceFeatures
     bool fillModeNonSolid = false;
     bool depthBounds = false;
     bool wideLines = false;
+    // good device support, candidate for promotion
     bool largePoints = false;
+    // good device support, candidate for promotion
     bool alphaToOne = false;
+    // good device support, candidate for promotion, but can we abandon the A11 ?
     bool multiViewport = false;
 
     // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous
@@ -89,6 +93,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderStorageImageMultisample;
 
     bool shaderStorageImageReadWithoutFormat = false;
+    // very good device support, candidate for promotion
     bool shaderStorageImageWriteWithoutFormat = false;
 
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
@@ -99,6 +104,7 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support
     //bool shaderStorageImageArrayDynamicIndexing;
 
+    // good device support, candidate for promotion
     bool shaderClipDistance = false;
     bool shaderCullDistance = false;
 
@@ -124,6 +130,7 @@ struct SPhysicalDeviceFeatures
     //bool    sparseResidencyAliased;
     
     bool variableMultisampleRate = false;
+    // good device support, candidate for promotion
     bool inheritedQueries = false;
 
 
@@ -137,7 +144,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
-    // 
     // [TODO LATER] do not expose this part of multiview yet
     /* VK_KHR_multiview */ 
     //bool multiviewGeometryShader;
