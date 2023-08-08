@@ -114,7 +114,8 @@ struct SPhysicalDeviceLimits
     float pointSizeGranularity = 1.f;
     float lineWidthGranularity = 1.f;
     bool strictLines = false;
-    bool standardSampleLocations = false;
+    // ROADMAP 2022
+    //bool standardSampleLocations = true;
     uint64_t optimalBufferCopyOffsetAlignment = std::numeric_limits<size_t>::max();
     uint64_t optimalBufferCopyRowPitchAlignment = std::numeric_limits<size_t>::max();
     uint64_t nonCoherentAtomSize = 0ull;
@@ -132,12 +133,8 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.1 Core  */
     uint32_t subgroupSize = 0u;
     core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_UNKNOWN;
-    bool shaderSubgroupBasic = false;
-    bool shaderSubgroupVote = false;
+    // all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing! 
     bool shaderSubgroupArithmetic = false;
-    bool shaderSubgroupBallot = false;
-    bool shaderSubgroupShuffle = false;
-    bool shaderSubgroupShuffleRelative = false;
     bool shaderSubgroupClustered = false;
     bool shaderSubgroupQuad = false;
     bool shaderSubgroupQuadAllStages = false; //quadOperationsInAllStages;
@@ -151,7 +148,6 @@ struct SPhysicalDeviceLimits
     
     uint32_t maxPerSetDescriptors = 0u;
     size_t maxMemoryAllocationSize = 0ull;
-
 
 
 
@@ -745,12 +741,7 @@ struct SPhysicalDeviceLimits
         if (nonCoherentAtomSize > _rhs.nonCoherentAtomSize) return false;
         if (subgroupSize > _rhs.subgroupSize) return false;
         if (!_rhs.subgroupOpsShaderStages.hasFlags(subgroupOpsShaderStages)) return false;
-        if (shaderSubgroupBasic && !_rhs.shaderSubgroupBasic) return false;
-        if (shaderSubgroupVote && !_rhs.shaderSubgroupVote) return false;
         if (shaderSubgroupArithmetic && !_rhs.shaderSubgroupArithmetic) return false;
-        if (shaderSubgroupBallot && !_rhs.shaderSubgroupBallot) return false;
-        if (shaderSubgroupShuffle && !_rhs.shaderSubgroupShuffle) return false;
-        if (shaderSubgroupShuffleRelative && !_rhs.shaderSubgroupShuffleRelative) return false;
         if (shaderSubgroupClustered && !_rhs.shaderSubgroupClustered) return false;
         if (shaderSubgroupQuad && !_rhs.shaderSubgroupQuad) return false;
         if (shaderSubgroupQuadAllStages && !_rhs.shaderSubgroupQuadAllStages) return false;

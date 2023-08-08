@@ -320,7 +320,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_BUFFER_VIEW_TEXELS", limits.maxBufferViewTexels);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_UBO_SIZE", limits.maxUBOSize);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_SSBO_SIZE", limits.maxSSBOSize);
-        addShaderDefineToPool(pool,"NBL_LIMIT_MAX_PUSH_CONSTANTS_SIZE", limits.maxPushConstantsSize); // TODO: review
+        addShaderDefineToPool(pool,"NBL_LIMIT_MAX_PUSH_CONSTANTS_SIZE", limits.maxPushConstantsSize); // TODO: re-adjust
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_MEMORY_ALLOCATION_COUNT", limits.maxMemoryAllocationCount);
         // addShaderDefineToPool(pool,"NBL_LIMIT_MAX_SAMPLER_ALLOCATION_COUNT",limits.maxSamplerAllocationCount); // shader doesn't need to know about that
         addShaderDefineToPool(pool,"NBL_LIMIT_BUFFER_IMAGE_GRANULARITY", core::min(limits.bufferImageGranularity,std::numeric_limits<int32_t>::max()));
@@ -394,6 +394,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_FRAMEBUFFER_WIDTH",limits.maxFramebufferWidth);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_FRAMEBUFFER_HEIGHT",limits.maxFramebufferHeight);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_FRAMEBUFFER_LAYERS",limits.maxFramebufferLayers);
+        // TODO: for enums we should also define the values we'd be checking for (but not inject here as a macro)
         addShaderDefineToPool(pool,"NBL_LIMIT_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",static_cast<uint32_t>(limits.framebufferColorSampleCounts.value));
         addShaderDefineToPool(pool,"NBL_LIMIT_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferDepthSampleCounts.value));
         addShaderDefineToPool(pool,"NBL_LIMIT_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferStencilSampleCounts.value));
@@ -419,45 +420,39 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_LIMIT_POINT_SIZE_GRANULARITY",limits.pointSizeGranularity);
         addShaderDefineToPool(pool,"NBL_LIMIT_LINE_WIDTH_GRANULARITY",limits.lineWidthGranularity);
         addShaderDefineToPool(pool,"NBL_LIMIT_STRICT_LINES",limits.strictLines);
-        addShaderDefineToPool(pool,"NBL_LIMIT_STANDARD_SAMPLE_LOCATIONS",limits.standardSampleLocations);
         addShaderDefineToPool(pool,"NBL_LIMIT_OPTIMAL_BUFFER_COPY_OFFSET_ALIGNMENT",core::min(limits.optimalBufferCopyOffsetAlignment, 1u << 30));
         addShaderDefineToPool(pool,"NBL_LIMIT_OPTIMAL_BUFFER_COPY_ROW_PITCH_ALIGNMENT",core::min(limits.optimalBufferCopyRowPitchAlignment, 1u << 30));
         addShaderDefineToPool(pool,"NBL_LIMIT_NON_COHERENT_ATOM_SIZE",core::min(limits.nonCoherentAtomSize, std::numeric_limits<int32_t>::max()));
-
-        addShaderDefineToPool(pool,"NBL_LIMIT_MAX_VERTEX_OUTPUT_COMPONENTS",limits.maxVertexOutputComponents);
     
         addShaderDefineToPool(pool,"NBL_LIMIT_SUBGROUP_SIZE",limits.subgroupSize);
+        // TODO: for enums we should also define the values we'd be checking for (but not inject here as a macro)
         addShaderDefineToPool(pool,"NBL_LIMIT_SUBGROUP_OPS_SHADER_STAGES", static_cast<uint32_t>(limits.subgroupOpsShaderStages.value));
-        if (limits.shaderSubgroupBasic) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_BASIC");
-        if (limits.shaderSubgroupVote) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_VOTE");
         if (limits.shaderSubgroupArithmetic) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_ARITHMETIC");
-        if (limits.shaderSubgroupBallot) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_BALLOT");
-        if (limits.shaderSubgroupShuffle) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_SHUFFLE");
-        if (limits.shaderSubgroupShuffleRelative) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_SHUFFLE_RELATIVE");
         if (limits.shaderSubgroupClustered) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_CLUSTERED");
         if (limits.shaderSubgroupQuad) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_QUAD");
         if (limits.shaderSubgroupQuadAllStages) addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SUBGROUP_QUAD_ALL_STAGES");
 
+        // TODO: for enums we should also define the values we'd be checking for (but not inject here as a macro)
         addShaderDefineToPool(pool,"NBL_LIMIT_POINT_CLIPPING_BEHAVIOR",(uint32_t)limits.pointClippingBehavior);
     
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_PER_SET_DESCRIPTORS",limits.maxPerSetDescriptors);
         // addShaderDefineToPool(pool,"NBL_LIMIT_MAX_MEMORY_ALLOCATION_SIZE",limits.maxMemoryAllocationSize); // shader doesn't need to know about that
 
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT16",(uint32_t)limits.shaderSignedZeroInfNanPreserveFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT32",(uint32_t)limits.shaderSignedZeroInfNanPreserveFloat32);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT64",(uint32_t)limits.shaderSignedZeroInfNanPreserveFloat64);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT16",(uint32_t)limits.shaderDenormPreserveFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT32",(uint32_t)limits.shaderDenormPreserveFloat32);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT64",(uint32_t)limits.shaderDenormPreserveFloat64);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT16",(uint32_t)limits.shaderDenormFlushToZeroFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT32",(uint32_t)limits.shaderDenormFlushToZeroFloat32);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT64",(uint32_t)limits.shaderDenormFlushToZeroFloat64);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT16",(uint32_t)limits.shaderRoundingModeRTEFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT32",(uint32_t)limits.shaderRoundingModeRTEFloat32);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT64",(uint32_t)limits.shaderRoundingModeRTEFloat64);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT16",(uint32_t)limits.shaderRoundingModeRTZFloat16);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT32",(uint32_t)limits.shaderRoundingModeRTZFloat32);
-        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT64",(uint32_t)limits.shaderRoundingModeRTZFloat64);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT16",limits.shaderSignedZeroInfNanPreserveFloat16);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT32",limits.shaderSignedZeroInfNanPreserveFloat32);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_SIGNED_ZERO_INF_NAN_PRESERVE_FLOAT64",limits.shaderSignedZeroInfNanPreserveFloat64);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT16",limits.shaderDenormPreserveFloat16);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT32",limits.shaderDenormPreserveFloat32);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_PRESERVE_FLOAT64",limits.shaderDenormPreserveFloat64);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT16",limits.shaderDenormFlushToZeroFloat16);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT32",limits.shaderDenormFlushToZeroFloat32);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_DENORM_FLUSH_TO_ZERO_FLOAT64",limits.shaderDenormFlushToZeroFloat64);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT16",limits.shaderRoundingModeRTEFloat16);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT32",limits.shaderRoundingModeRTEFloat32);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTE_FLOAT64",limits.shaderRoundingModeRTEFloat64);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT16",limits.shaderRoundingModeRTZFloat16);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT32",limits.shaderRoundingModeRTZFloat32);
+        addShaderDefineToPool(pool,"NBL_LIMIT_SHADER_ROUNDING_MODE_RTZ_FLOAT64",limits.shaderRoundingModeRTZFloat64);
 
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_PER_STAGE_DESCRIPTOR_UPDATE_AFTER_BIND_SAMPLERS",limits.maxPerStageDescriptorUpdateAfterBindSamplers);
         addShaderDefineToPool(pool,"NBL_LIMIT_MAX_UPDATE_AFTER_BIND_DESCRIPTORS_IN_ALL_POOLS",limits.maxUpdateAfterBindDescriptorsInAllPools);
@@ -771,8 +766,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.fragmentDensityMapNonSubsampledImages) addShaderDefineToPool(pool, "NBL_FEATURE_FRAGMENT_DENSITY_MAP_NON_SUBSAMPLED_IMAGES");
         if (features.fragmentDensityMapDeferred) addShaderDefineToPool(pool, "NBL_FEATURE_FRAGMENT_DENSITY_MAP_DEFERRED");
         if (features.robustImageAccess) addShaderDefineToPool(pool, "NBL_FEATURE_ROBUST_IMAGE_ACCESS");
-        if (features.inlineUniformBlock) addShaderDefineToPool(pool, "NBL_FEATURE_INLINE_UNIFORM_BLOCK");
-        // if (features.descriptorBindingInlineUniformBlockUpdateAfterBind) addShaderDefineToPool(pool, "NBL_FEATURE_DESCRIPTOR_BINDING_INLINE_UNIFORM_BLOCK_UPDATE_AFTER_BIND"); // shader doesn't need to know about
         if (features.rectangularLines) addShaderDefineToPool(pool, "NBL_FEATURE_RECTANGULAR_LINES");
         if (features.bresenhamLines) addShaderDefineToPool(pool, "NBL_FEATURE_BRESENHAM_LINES");
         if (features.smoothLines) addShaderDefineToPool(pool, "NBL_FEATURE_SMOOTH_LINES");
