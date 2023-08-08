@@ -611,9 +611,10 @@ struct SPhysicalDeviceLimits
     bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
     bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
     bool decorateString = false; /* VK_GOOGLE_decorate_string */
-    bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */ // [TODO] requires instance extensions, add them
-    bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */ // [TODO] requires instance extensions, add them
-    bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */ // [TODO] requires instance extensions, add them
+    //! [DO NOT EXPOSE] Core in Vulkan 1.1 but apparently requires Instance Extensions to be added, @Atil please review
+    //bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
+    //bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
+    //bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
     bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
     bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
     bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
@@ -892,9 +893,6 @@ struct SPhysicalDeviceLimits
         if (postDepthCoverage && !_rhs.postDepthCoverage) return false;
         if (shaderStencilExport && !_rhs.shaderStencilExport) return false;
         if (decorateString && !_rhs.decorateString) return false;
-        if (externalFence && !_rhs.externalFence) return false;
-        if (externalMemory && !_rhs.externalMemory) return false;
-        if (externalSemaphore && !_rhs.externalSemaphore) return false;
         if (shaderNonSemanticInfo && !_rhs.shaderNonSemanticInfo) return false;
         if (fragmentShaderBarycentric && !_rhs.fragmentShaderBarycentric) return false;
         if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
