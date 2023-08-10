@@ -92,8 +92,9 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderStorageImageMultisample;
 
+    // Intel is a special boy and doesn't support
     bool shaderStorageImageReadWithoutFormat = false;
-    // very good device support, candidate for promotion
+    // very good device support, candidate for promotion (does it cause overhead?)
     bool shaderStorageImageWriteWithoutFormat = false;
 
     // [DO NOT EXPOSE] ROADMAP 2022 and good device support
@@ -110,11 +111,12 @@ struct SPhysicalDeviceFeatures
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderFloat64;
-
-    // Enabled by Default, Moved to Limits
     //bool shaderInt64 = false;
+
+    // [ALWAYS ENABLE]
     //bool shaderInt16 = false;
 
+    // poor support on Apple GPUs
     bool shaderResourceResidency = false;
     bool shaderResourceMinLod = false;
     
@@ -129,9 +131,10 @@ struct SPhysicalDeviceFeatures
     //bool    sparseResidency16Samples;
     //bool    sparseResidencyAliased;
     
+    // poor support on Apple GPUs
     bool variableMultisampleRate = false;
-    // good device support, candidate for promotion
-    bool inheritedQueries = false;
+    // [DO NOT EXPOSE] Always enabled, good device support.
+    // bool inheritedQueries = false;
 
 
     /* Vulkan 1.1 Core */
@@ -254,7 +257,7 @@ struct SPhysicalDeviceFeatures
     //bool           inlineUniformBlock;
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
 
-    // [DO NOT EXPOSE] ever we have our own mechanism
+    // [DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?
     //bool           privateData;                       // or VK_EXT_private_data
     
     bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
@@ -264,7 +267,7 @@ struct SPhysicalDeviceFeatures
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
-    // [DO NOT EXPOSE] REQUIRE but we need to rewrite our frontend API for that: https://github.com/Devsh-Graphics-Programming/Nabla/issues/384
+    // [DO NOT EXPOSE] REQUIRE 
     //bool           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
@@ -276,6 +279,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] EVIL
     //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
     
+    // [EXPOSE AS A LIMIT] TODO move to limits
     bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
 
 
@@ -1081,7 +1085,6 @@ struct SPhysicalDeviceFeatures
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
-        if (inheritedQueries && !_rhs.inheritedQueries) return false;
         if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;

@@ -529,18 +529,21 @@ struct SPhysicalDeviceLimits
     /*  Always enabled, reported as limits */
 
     // Core 1.0 Features
+    // Only A11 doesn't support 
     bool vertexPipelineStoresAndAtomics = false;
 
-    // Intel is a special boy
+    // Apple GPUs and some Intels don't support
     bool shaderStorageImageMultisample = false;
 
-    // ROADMAP 2022 but poor support on Apple GPUs
+    // ROADMAP 2022 but poor support on A11 GPUs
     bool fragmentStoresAndAtomics = false;
 
+    // could deduce from tessellation shader being enables
     bool shaderTessellationAndGeometryPointSize = false;
+    // very good device support, candidate for promotion
     bool shaderImageGatherExtended = false;
 
-    // ROADMAP 2022 but poor support on Apple GPUs
+    // ROADMAP 2022 but poor support on A11 GPUs
     bool shaderStorageImageArrayDynamicIndexing = false;
     
     //

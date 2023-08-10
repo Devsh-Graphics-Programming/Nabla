@@ -618,7 +618,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderImageGatherExtended) addShaderDefineToPool(pool, "NBL_LIMIT_SHADER_IMAGE_GATHER_EXTENDED");
         if (limits.shaderFloat64) addShaderDefineToPool(pool, "NBL_FEATURE_SHADER_FLOAT64");
         if (limits.shaderInt64) addShaderDefineToPool(pool, "NBL_LIMIT_SHADER_INT64");
-        if (limits.shaderInt16) addShaderDefineToPool(pool, "NBL_LIMIT_SHADER_INT16");
         if (limits.storageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_LIMIT_STORAGE_BUFFER_16BIT_ACCESS");
         if (limits.uniformAndStorageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_LIMIT_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
         if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_LIMIT_STORAGE_PUSH_CONSTANT_16");
@@ -654,7 +653,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_FEATURE_SHADER_RESOURCE_RESIDENCY");
         if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_FEATURE_SHADER_RESOURCE_MIN_LOD");
         if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_FEATURE_VARIABLE_MULTISAMPLE_RATE");
-        // if (features.inheritedQueries) addShaderDefineToPool(pool, "NBL_FEATURE_INHERITED_QUERIES"); // shader doesn't need to know about
         if (features.shaderDrawParameters) addShaderDefineToPool(pool, "NBL_FEATURE_SHADER_DRAW_PARAMETERS");
         if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_FEATURE_DRAW_INDIRECT_COUNT");
         if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_FEATURE_DESCRIPTOR_INDEXING");

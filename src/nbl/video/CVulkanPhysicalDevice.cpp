@@ -893,6 +893,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             vkGetPhysicalDeviceFeatures2(vk_physicalDevice,&deviceFeatures);
 
             /* Vulkan 1.0 Core  */
+            //if (!features.robustBufferAccess && !isExtensionSupported(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME))
+                //return nullptr;
             features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
             if (!deviceFeatures.features.fullDrawIndexUint32 || !deviceFeatures.features.imageCubeArray || !deviceFeatures.features.independentBlend)
                 return nullptr;
@@ -921,15 +923,26 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 return nullptr;
             features.shaderClipDistance = deviceFeatures.features.shaderClipDistance;
             features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
+
+            if (!deviceFeatures.features.shaderInt16)
+                return nullptr;
+
             features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;
             features.shaderResourceMinLod = deviceFeatures.features.shaderResourceMinLod; 
+            // todo sparse stuff
             features.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
-            features.inheritedQueries = deviceFeatures.features.inheritedQueries;
+            if (!deviceFeatures.features.inheritedQueries)
+                return nullptr;
             
             /* Vulkan 1.1 Core  */
+            if (!vulkan11Features.multiview)
+                return nullptr;
             features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
             
             /* Vulkan 1.2 Core  */
+            if (!vulkan12Features.samplerMirrorClampToEdge)
+                return nullptr;
+
             properties.limits.storageBuffer8BitAccess = vulkan12Features.storageBuffer8BitAccess;
             properties.limits.uniformAndStorageBuffer8BitAccess = vulkan12Features.uniformAndStorageBuffer8BitAccess;
             properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
@@ -964,12 +977,29 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             features.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
 
+            if (!vulkan12Features.scalarBlockLayout)
+                return nullptr;
+            if (!vulkan12Features.uniformBufferStandardLayout)
+                return nullptr;
+            if (!vulkan12Features.shaderSubgroupExtendedTypes)
+                return nullptr;
+            if (!vulkan12Features.separateDepthStencilLayouts)
+                return nullptr;
+            if (!vulkan12Features.hostQueryReset)
+                return nullptr;
+            if (!vulkan12Features.timelineSemaphore)
+                return nullptr;
+
             features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
             features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
 
             properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
             properties.limits.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
             properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
+
+            if (!vulkan12Features.subgroupBroadcastDynamicId)
+                return nullptr;
+
 
             /* Vulkan 1.3 Core  */
             if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
@@ -1287,7 +1317,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderImageGatherExtended = deviceFeatures.features.shaderImageGatherExtended;
             properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
             properties.limits.shaderInt64 = deviceFeatures.features.shaderInt64;
-            properties.limits.shaderInt16 = deviceFeatures.features.shaderInt16;
             
             properties.limits.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
             properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
@@ -1690,7 +1719,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
         vk_deviceFeatures2.features.shaderInt64 = properties.limits.shaderInt64;
-        vk_deviceFeatures2.features.shaderInt16 = properties.limits.shaderInt16;
+        vk_deviceFeatures2.features.shaderInt16 = true; // always enable
         vk_deviceFeatures2.features.shaderFloat64 = properties.limits.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
         vk_deviceFeatures2.features.shaderResourceMinLod = enabledFeatures.shaderResourceMinLod;
@@ -1704,7 +1733,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.sparseResidency16Samples = false; // not implemented yet
         vk_deviceFeatures2.features.sparseResidencyAliased = false; // not implemented yet
         vk_deviceFeatures2.features.variableMultisampleRate = enabledFeatures.variableMultisampleRate;
-        vk_deviceFeatures2.features.inheritedQueries = enabledFeatures.inheritedQueries;
+        vk_deviceFeatures2.features.inheritedQueries = true;
 
         /* Vulkan 1.1 Core */
         vulkan11Features.storageBuffer16BitAccess = properties.limits.storageBuffer16BitAccess;
