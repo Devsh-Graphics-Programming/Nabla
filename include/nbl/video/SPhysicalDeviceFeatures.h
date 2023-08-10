@@ -147,7 +147,7 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
-    // [TODO LATER] do not expose this part of multiview yet
+    // DO NOT EXPOSE] `multiview` is required but these depend on pipelines
     /* VK_KHR_multiview */ 
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
