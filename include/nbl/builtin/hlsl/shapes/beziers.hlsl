@@ -46,12 +46,10 @@ namespace shapes
         float2 A;
         float2 B;
         float2 C;
-        // TODO: thickness is only used in signedDistance, have it as parameter there instead?
-        float thickness;
 
-        static QuadraticBezier construct(float2 a, float2 b, float2 c, float thickness)
+        static QuadraticBezier construct(float2 a, float2 b, float2 c)
         {
-            QuadraticBezier ret = { a, b, c, thickness };
+            QuadraticBezier ret = { a, b, c };
             return ret;
         }
 
@@ -140,9 +138,23 @@ namespace shapes
             return res.x;
         }
 
+    };
+
+    struct QuadraticBezierOutline
+    {
+        QuadraticBezier bezier;
+        float thickness;
+
+        static QuadraticBezierOutline construct(float2 a, float2 b, float2 c, float thickness)
+        {
+            QuadraticBezier bezier = { a, b, c };
+            QuadraticBezierOutline ret = { bezier, thickness };
+            return ret;
+        }
+
         float signedDistance(float2 pos)
         {
-            return abs(ud(pos)) - thickness;
+            return abs(bezier.ud(pos)) - thickness;
         }
     };
 
@@ -290,8 +302,8 @@ namespace shapes
         // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
         // Credits to Doublefresh for hinting there
         // TODO: Deprecate this to SolveQuadratic function, that works outside CubicBezier?
-        int solve_quadric(float2 coeffs, inout float2 roots){
-
+        int solve_quadric(float2 coeffs, inout float2 roots)
+        {
             // normal form: x^2 + px + q = 0
             float p = coeffs[1] / 2.;
             float q = coeffs[0];
