@@ -28,7 +28,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
 namespace nbl::asset::hlsl::impl
 {
@@ -360,6 +360,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-spirv",
         L"-HV", L"2021",
         L"-T", targetProfile.c_str(),
+        L"-enable-16bit-types",
+        L"-fvk-use-scalar-layout",
     };
 
     // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
