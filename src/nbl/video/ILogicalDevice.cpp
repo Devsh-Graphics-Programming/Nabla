@@ -793,27 +793,28 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         
         if (limits.shaderSMBuiltins) addShaderDefineToPool(pool,"NBL_SHADER_SM_BUILTINS");
 
-//        if (limits.workgroupSizeFromSpecConstant) addShaderDefineToPool(pool,"NBL_SHADER_SM_BUILTINS");
+//        if (limits.workgroupSizeFromSpecConstant) addShaderDefineToPool(pool,"NBL_WORKGROUP_SIZE_FROM_SPEC_CONSTANT");
         
-        if (limits.shaderSubgroupPartitioned) addShaderDefineToPool(pool,"NBL_SHADER_SUBGROUP_PARTITIONED");
+        if (limits.gpuShaderHalfFloat) addShaderDefineToPool(pool,"NBL_AMD_GPU_SHADER_HALF_FLOAT");
 
-        if (limits.gcnShader) addShaderDefineToPool(pool,"NBL_GCN_SHADER");
-        if (limits.gpuShaderHalfFloat) addShaderDefineToPool(pool,"NBL_GPU_SHADER_HALF_FLOAT");
-        if (limits.shaderBallot) addShaderDefineToPool(pool,"NBL_SHADER_BALLOT");
         if (limits.shaderImageLoadStoreLod) addShaderDefineToPool(pool,"NBL_SHADER_IMAGE_LOAD_STORE_LOD");
+
         if (limits.shaderTrinaryMinmax) addShaderDefineToPool(pool,"NBL_SHADER_TRINARY_MINMAX");
+
         if (limits.postDepthCoverage) addShaderDefineToPool(pool,"NBL_POST_DEPTH_COVERAGE");
         if (limits.shaderStencilExport) addShaderDefineToPool(pool,"NBL_SHADER_STENCIL_EXPORT");
+
         if (limits.decorateString) addShaderDefineToPool(pool,"NBL_DECORATE_STRING");
-        // if (limits.externalFence) addShaderDefineToPool(pool,"NBL_EXTERNAL_FENCE"); // shader doesn't need to know about that
-        // if (limits.externalMemory) addShaderDefineToPool(pool,"NBL_EXTERNAL_MEMORY"); // shader doesn't need to know about that
-        // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_EXTERNAL_SEMAPHORE"); // shader doesn't need to know about that
+
         if (limits.shaderNonSemanticInfo) addShaderDefineToPool(pool,"NBL_SHADER_NON_SEMANTIC_INFO");
+        
         if (limits.fragmentShaderBarycentric) addShaderDefineToPool(pool,"NBL_FRAGMENT_SHADER_BARYCENTRIC");
+
+        if (limits.shaderEarlyAndLateFragmentTests) addShaderDefineToPool(pool,"NBL_EARLY_AND_LATE_FRAGMENT_TESTS");
+
 
         if (limits.dispatchBase) addShaderDefineToPool(pool,"NBL_DISPATCH_BASE");
         if (limits.allowCommandBufferQueryCopies) addShaderDefineToPool(pool,"NBL_ALLOW_COMMAND_BUFFER_QUERY_COPIES");
-
 
         addShaderDefineToPool(pool, "NBL_COMPUTE_UNITS", limits.computeUnits);
         addShaderDefineToPool(pool, "NBL_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS", limits.maxOptimallyResidentWorkgroupInvocations);

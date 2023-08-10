@@ -621,22 +621,24 @@ struct SPhysicalDeviceLimits
     /* VkPhysicalDeviceMaintenance4Features *//* VK_KHR_maintenance4 */
     bool workgroupSizeFromSpecConstant = false;
 
-    bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
-
-    bool gcnShader = false; /* VK_AMD_gcn_shader */
     bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
-    bool shaderBallot = false; /* VK_AMD_shader_ballot */
+    
     bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
+    
     bool shaderTrinaryMinmax = false; /* VK_AMD_shader_trinary_minmax  */
+    
     bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
+
     bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
+
     bool decorateString = false; /* VK_GOOGLE_decorate_string */
-    //! [DO NOT EXPOSE] Core in Vulkan 1.1 but apparently requires Instance Extensions to be added, @Atil please review
-    //bool externalFence = false; /* VK_KHR_external_fence_fd */ /* VK_KHR_external_fence_win32 */
-    //bool externalMemory = false; /* VK_KHR_external_memory_fd */ /* VK_KHR_external_memory_win32 */
-    //bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
+
     bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
+
     bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
+
+    bool shaderEarlyAndLateFragmentTests = false; /* VK_AMD_shader_early_and_late_fragment_tests */
+
 
     /* Nabla */
     uint32_t computeUnits = 0u;
@@ -754,7 +756,6 @@ struct SPhysicalDeviceLimits
         if (pointSizeGranularity < _rhs.pointSizeGranularity) return false;
         if (lineWidthGranularity < _rhs.lineWidthGranularity) return false;
         if (strictLines > _rhs.strictLines) return false;
-        if (standardSampleLocations > _rhs.standardSampleLocations) return false;
         if (optimalBufferCopyOffsetAlignment < _rhs.optimalBufferCopyOffsetAlignment) return false;
         if (optimalBufferCopyRowPitchAlignment < _rhs.optimalBufferCopyRowPitchAlignment) return false;
         if (nonCoherentAtomSize > _rhs.nonCoherentAtomSize) return false;
@@ -902,10 +903,7 @@ struct SPhysicalDeviceLimits
         if (texelBufferAlignment && !_rhs.texelBufferAlignment) return false;
         if (shaderSMBuiltins && !_rhs.shaderSMBuiltins) return false;
         if (workgroupSizeFromSpecConstant && !_rhs.workgroupSizeFromSpecConstant) return false;
-        if (shaderSubgroupPartitioned && !_rhs.shaderSubgroupPartitioned) return false;
-        if (gcnShader && !_rhs.gcnShader) return false;
         if (gpuShaderHalfFloat && !_rhs.gpuShaderHalfFloat) return false;
-        if (shaderBallot && !_rhs.shaderBallot) return false;
         if (shaderImageLoadStoreLod && !_rhs.shaderImageLoadStoreLod) return false;
         if (shaderTrinaryMinmax && !_rhs.shaderTrinaryMinmax) return false;
         if (postDepthCoverage && !_rhs.postDepthCoverage) return false;
@@ -913,12 +911,15 @@ struct SPhysicalDeviceLimits
         if (decorateString && !_rhs.decorateString) return false;
         if (shaderNonSemanticInfo && !_rhs.shaderNonSemanticInfo) return false;
         if (fragmentShaderBarycentric && !_rhs.fragmentShaderBarycentric) return false;
+        if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
+
         if (computeUnits > _rhs.computeUnits) return false;
         if (dispatchBase && !_rhs.dispatchBase) return false;
         if (allowCommandBufferQueryCopies && !_rhs.allowCommandBufferQueryCopies) return false;
         if (maxOptimallyResidentWorkgroupInvocations > _rhs.maxOptimallyResidentWorkgroupInvocations) return false;
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
         if (spirvVersion > _rhs.spirvVersion) return false;
+
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
