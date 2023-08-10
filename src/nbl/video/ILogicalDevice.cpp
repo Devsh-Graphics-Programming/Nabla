@@ -447,7 +447,10 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.pipelineExecutableInfo) addShaderDefineToPool(pool, "NBL_PIPELINE_EXECUTABLE_INFO");
         // if (features.maintenance4) addShaderDefineToPool(pool, "NBL_MAINTENANCE_4"); // shader doesn't need to know about
         if (features.deviceCoherentMemory) addShaderDefineToPool(pool, "NBL_DEVICE_COHERENT_MEMORY");
+
         // if (features.bufferMarkerAMD) addShaderDefineToPool(pool, "NBL_BUFFER_MARKER_AMD"); // shader doesn't need to know about
+
+        if (features.geometryShaderPassthrough) addShaderDefineToPool(pool, "NBL_GEOMETRY_SHADER_PASSTHROUGH");
 
 
         if (runningInRenderdoc)
@@ -793,6 +796,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 //        if (limits.workgroupSizeFromSpecConstant) addShaderDefineToPool(pool,"NBL_SHADER_SM_BUILTINS");
         
         if (limits.shaderSubgroupPartitioned) addShaderDefineToPool(pool,"NBL_SHADER_SUBGROUP_PARTITIONED");
+
         if (limits.gcnShader) addShaderDefineToPool(pool,"NBL_GCN_SHADER");
         if (limits.gpuShaderHalfFloat) addShaderDefineToPool(pool,"NBL_GPU_SHADER_HALF_FLOAT");
         if (limits.shaderBallot) addShaderDefineToPool(pool,"NBL_SHADER_BALLOT");
@@ -806,8 +810,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         // if (limits.externalSemaphore) addShaderDefineToPool(pool,"NBL_EXTERNAL_SEMAPHORE"); // shader doesn't need to know about that
         if (limits.shaderNonSemanticInfo) addShaderDefineToPool(pool,"NBL_SHADER_NON_SEMANTIC_INFO");
         if (limits.fragmentShaderBarycentric) addShaderDefineToPool(pool,"NBL_FRAGMENT_SHADER_BARYCENTRIC");
-        if (limits.geometryShaderPassthrough) addShaderDefineToPool(pool,"NBL_GEOMETRY_SHADER_PASSTHROUGH");
-        if (limits.viewportSwizzle) addShaderDefineToPool(pool,"NBL_VIEWPORT_SWIZZLE");
 
         if (limits.dispatchBase) addShaderDefineToPool(pool,"NBL_DISPATCH_BASE");
         if (limits.allowCommandBufferQueryCopies) addShaderDefineToPool(pool,"NBL_ALLOW_COMMAND_BUFFER_QUERY_COPIES");

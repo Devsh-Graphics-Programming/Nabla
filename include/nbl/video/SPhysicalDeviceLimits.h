@@ -637,8 +637,6 @@ struct SPhysicalDeviceLimits
     //bool externalSemaphore = false; /* VK_KHR_external_semaphore_fd */ /* VK_KHR_external_semaphore_win32 */
     bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
     bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
-    bool geometryShaderPassthrough = false; /* VK_NV_geometry_shader_passthrough */
-    bool viewportSwizzle = false; /* VK_NV_viewport_swizzle */
 
     /* Nabla */
     uint32_t computeUnits = 0u;
@@ -915,8 +913,6 @@ struct SPhysicalDeviceLimits
         if (decorateString && !_rhs.decorateString) return false;
         if (shaderNonSemanticInfo && !_rhs.shaderNonSemanticInfo) return false;
         if (fragmentShaderBarycentric && !_rhs.fragmentShaderBarycentric) return false;
-        if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
-        if (viewportSwizzle && !_rhs.viewportSwizzle) return false;
         if (computeUnits > _rhs.computeUnits) return false;
         if (dispatchBase && !_rhs.dispatchBase) return false;
         if (allowCommandBufferQueryCopies && !_rhs.allowCommandBufferQueryCopies) return false;

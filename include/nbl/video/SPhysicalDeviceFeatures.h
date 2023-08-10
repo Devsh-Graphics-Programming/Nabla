@@ -671,10 +671,11 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_KHR_fragment_shader_barycentric */
 
-    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
     /* VK_NV_geometry_shader_passthrough */
+    // The only reason its not a limit is because it needs geometryShader to be enabled
+    bool geometryShaderPassthrough = false;
 
-    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
+    // [DO NOT EXPOSE] A silly Nvidia extension thats specific to singlepass cubemap rendering and voxelization with geometry shader
     /* VK_NV_viewport_swizzle */
 
     // [TODO] this one isn't in the headers
@@ -1205,6 +1206,7 @@ struct SPhysicalDeviceFeatures
         if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
         if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
+        if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
         if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
         if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
         return true;

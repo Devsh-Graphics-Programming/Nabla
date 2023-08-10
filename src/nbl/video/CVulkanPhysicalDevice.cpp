@@ -1220,9 +1220,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             }
 
             if (isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME))
-            {
                 features.bufferMarkerAMD = true;
-            }
+            
+            features.geometryShaderPassthrough = isExtensionSupported(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
 
             /* VkPhysicalDeviceColorWriteEnableFeaturesEXT */
             if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
@@ -1367,8 +1367,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
             properties.limits.fragmentShaderBarycentric = isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
-            properties.limits.geometryShaderPassthrough = isExtensionSupported(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
-            properties.limits.viewportSwizzle = isExtensionSupported(VK_NV_VIEWPORT_SWIZZLE_EXTENSION_NAME);
         }
 
         // Get physical device's memory properties
@@ -2155,6 +2153,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             
         if (enabledFeatures.bufferMarkerAMD)
             insertExtensionIfAvailable(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+
+        if (enabledFeatures.geometryShaderPassthrough)
+            insertExtensionIfAvailable(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
 
         if (enabledFeatures.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE))
         {
