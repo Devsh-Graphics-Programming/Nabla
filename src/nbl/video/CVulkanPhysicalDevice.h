@@ -156,25 +156,14 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
         
             // Handle later: E_SWAPCHAIN_MODE::ESM_SURFACE: VK_KHR_swapchain requires VK_KHR_surface instance extension
             
-            // If sparseImageInt64Atomics is enabled, shaderImageInt64Atomics must be enabled
-            if (features.sparseImageInt64Atomics)
+            // [NOOP] If sparseImageInt64Atomics is enabled, shaderImageInt64Atomics must be enabled
+            // [NOOP] If sparseImageFloat32Atomics is enabled, shaderImageFloat32Atomics must be enabled
+            // [NOOP] If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
+            // [NOOP] If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
+
+            if (features.geometryShaderPassthrough)
             {
-                features.shaderImageInt64Atomics = true;
-            }
-            // If sparseImageFloat32Atomics is enabled, shaderImageFloat32Atomics must be enabled
-            if (features.sparseImageFloat32Atomics)
-            {
-                features.shaderImageFloat32Atomics = true;
-            }
-            // If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
-            if (features.sparseImageFloat32AtomicAdd)
-            {
-                features.shaderImageFloat32AtomicAdd = true;
-            }
-            // If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
-            if (features.sparseImageFloat32AtomicMinMax)
-            {
-                features.shaderImageFloat32AtomicMinMax = true;
+                features.geometryShader = true;
             }
         }
 
