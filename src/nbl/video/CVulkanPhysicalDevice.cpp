@@ -937,7 +937,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             /* Vulkan 1.1 Core  */
             if (!vulkan11Features.multiview)
                 return nullptr;
-            features.shaderDrawParameters = vulkan11Features.shaderDrawParameters;
+
+            if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
+                return nullptr;
+            
+            if (!vulkan11Features.shaderDrawParameters)
+                return nullptr;
             
             /* Vulkan 1.2 Core  */
             if (!vulkan12Features.samplerMirrorClampToEdge)
@@ -1318,8 +1323,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
             properties.limits.shaderInt64 = deviceFeatures.features.shaderInt64;
             
-            properties.limits.storageBuffer16BitAccess = vulkan11Features.storageBuffer16BitAccess;
-            properties.limits.uniformAndStorageBuffer16BitAccess = vulkan11Features.uniformAndStorageBuffer16BitAccess;
             properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
             properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
             properties.limits.variablePointers = vulkan11Features.variablePointers;
@@ -1735,8 +1738,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.inheritedQueries = true;
 
         /* Vulkan 1.1 Core */
-        vulkan11Features.storageBuffer16BitAccess = properties.limits.storageBuffer16BitAccess;
-        vulkan11Features.uniformAndStorageBuffer16BitAccess = properties.limits.uniformAndStorageBuffer16BitAccess;
+        vulkan11Features.storageBuffer16BitAccess = true;
+        vulkan11Features.uniformAndStorageBuffer16BitAccess = true;
         vulkan11Features.storagePushConstant16 = properties.limits.storagePushConstant16;
         vulkan11Features.storageInputOutput16 = properties.limits.storageInputOutput16;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
@@ -1748,7 +1751,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         // not yet
         vulkan11Features.protectedMemory = false;
         vulkan11Features.samplerYcbcrConversion = false;
-        vulkan11Features.shaderDrawParameters = enabledFeatures.shaderDrawParameters;
+        vulkan11Features.shaderDrawParameters = true;
             
         /* Vulkan 1.2 Core */
         vulkan12Features.samplerMirrorClampToEdge = true; // ubiquitous

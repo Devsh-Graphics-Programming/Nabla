@@ -568,8 +568,6 @@ struct SPhysicalDeviceLimits
     bool shaderInt64 = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage
-    bool storageBuffer16BitAccess = false;
-    bool uniformAndStorageBuffer16BitAccess = false;
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
 
@@ -939,11 +937,9 @@ struct SPhysicalDeviceLimits
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
-        if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
         if (variablePointers && !_rhs.variablePointers) return false;
-        if (storageBuffer16BitAccess && !_rhs.storageBuffer16BitAccess) return false;
         
         return true;
     }

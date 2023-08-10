@@ -139,9 +139,11 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.1 Core */
 
-    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
+    // [REQUIRED] Force Enabled : ALIAS VK_KHR_16bit_storage
     //bool storageBuffer16BitAccess = false;
     //bool uniformAndStorageBuffer16BitAccess = false;
+  
+    // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
     //bool storagePushConstant16 = false;
     //bool storageInputOutput16 = false;
 
@@ -163,7 +165,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
 
-    bool shaderDrawParameters = false;  /* ALIAS: VK_KHR_shader_draw_parameters */
+    // [REQUIRED] Force Enabled : VK_KHR_shader_draw_parameters
+    //bool shaderDrawParameters;
 
 
     /* Vulkan 1.2 Core */
@@ -1102,7 +1105,6 @@ struct SPhysicalDeviceFeatures
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
-        if (shaderDrawParameters && !_rhs.shaderDrawParameters) return false;
         if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;

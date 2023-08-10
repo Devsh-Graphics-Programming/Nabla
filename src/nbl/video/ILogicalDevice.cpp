@@ -328,7 +328,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_RESIDENCY");
         if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_MIN_LOD");
         if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_VARIABLE_MULTISAMPLE_RATE");
-        if (features.shaderDrawParameters) addShaderDefineToPool(pool, "NBL_SHADER_DRAW_PARAMETERS");
         if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_INDEXING");
         if (features.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
         if (features.shaderUniformTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");
@@ -758,8 +757,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderFloat64) addShaderDefineToPool(pool, "NBL_SHADER_FLOAT64");
         if (limits.shaderInt64) addShaderDefineToPool(pool, "NBL_SHADER_INT64");
 
-        if (limits.storageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_STORAGE_BUFFER_16BIT_ACCESS");
-        if (limits.uniformAndStorageBuffer16BitAccess) addShaderDefineToPool(pool, "NBL_UNIFORM_AND_STORAGE_BUFFER_16BIT_ACCESS");
         if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_STORAGE_PUSH_CONSTANT_16");
         if (limits.storageInputOutput16) addShaderDefineToPool(pool, "NBL_STORAGE_INPUT_OUTPUT_16");
 
