@@ -59,31 +59,39 @@ struct SPhysicalDeviceLimits
     uint32_t maxGeometryOutputComponents = 0u;
     uint32_t maxGeometryOutputVertices = 0u;
     uint32_t maxGeometryTotalOutputComponents = 0u;
+
     uint32_t maxFragmentInputComponents = 0u;
     uint32_t maxFragmentOutputAttachments = 0u;
     uint32_t maxFragmentDualSrcAttachments = 0u;
     uint32_t maxFragmentCombinedOutputResources = 0u;
+
     uint32_t maxComputeSharedMemorySize;
     uint32_t maxComputeWorkGroupCount[3];
     uint32_t maxComputeWorkGroupInvocations = 0u;
     uint32_t maxWorkgroupSize[3] = {};
+
     uint32_t subPixelPrecisionBits = 0u;
     // TODO: Expose
     //uint32_t              subTexelPrecisionBits;
     //uint32_t              mipmapPrecisionBits;
+
     // [DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint32 so this must be 0xffFFffFFu
     //uint32_t              maxDrawIndexedIndexValue;
     uint32_t maxDrawIndirectCount = 0u;
+
     float    maxSamplerLodBias = 0.0f;
     uint8_t  maxSamplerAnisotropyLog2 = 0u;
+
     uint32_t maxViewports = 0u;
     uint32_t maxViewportDims[2] = {};
     float    viewportBoundsRange[2] = { 0.0f, 0.0f};
     uint32_t viewportSubPixelBits = 0u;
+
     size_t   minMemoryMapAlignment = std::numeric_limits<size_t>::max();
     uint32_t bufferViewAlignment = 0x1u << 31u;
     uint32_t minUBOAlignment = 0x1u << 31u;
     uint32_t minSSBOAlignment = 0x1u << 31u;
+
     int32_t  minTexelOffset = 0;
     uint32_t maxTexelOffset = 0u;
     int32_t  minTexelGatherOffset = 0;
@@ -91,6 +99,7 @@ struct SPhysicalDeviceLimits
     float    minInterpolationOffset = 0.0f;
     float    maxInterpolationOffset = 0.0f;
     //uint32_t              subPixelInterpolationOffsetBits;
+
     uint32_t maxFramebufferWidth = 0u;
     uint32_t maxFramebufferHeight = 0u;
     uint32_t maxFramebufferLayers = 0u;
@@ -99,25 +108,33 @@ struct SPhysicalDeviceLimits
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     uint32_t maxColorAttachments = 0u;
+
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageStencilSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> storageImageSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+
     uint32_t maxSampleMaskWords = 0u;
+
     bool timestampComputeAndGraphics = false;
     float timestampPeriodInNanoSeconds = 0.0f; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
+
     uint32_t maxClipDistances = 0u;
     uint32_t maxCullDistances = 0u;
     uint32_t maxCombinedClipAndCullDistances = 0u;
+
     uint32_t discreteQueuePriorities = 0u;
+
     float pointSizeRange[2] = { std::numeric_limits<float>::max(), 0.0f};
     float lineWidthRange[2] = { std::numeric_limits<float>::max(), 0.0f};
     float pointSizeGranularity = 1.f;
     float lineWidthGranularity = 1.f;
     bool strictLines = false;
+
     // ROADMAP 2022
     //bool standardSampleLocations = true;
+
     uint64_t optimalBufferCopyOffsetAlignment = std::numeric_limits<size_t>::max();
     uint64_t optimalBufferCopyRowPitchAlignment = std::numeric_limits<size_t>::max();
     uint64_t nonCoherentAtomSize = 0ull;
@@ -333,7 +350,6 @@ struct SPhysicalDeviceLimits
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
     // [TODO LATER] not in header (previous comment: too much effort)
-    // GLHint: Report false for both on GL
     /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
     //bool           graphicsPipelineLibraryFastLinking;
     //bool           graphicsPipelineLibraryIndependentInterpolationDecoration;
@@ -475,7 +491,7 @@ struct SPhysicalDeviceLimits
     /* FragmentShadingRateEnumsPropertiesNV *//* VK_NV_fragment_shading_rate_enums */
     // VkSampleCountFlagBits    maxFragmentShadingRateInvocationCount;
     
-    // [DO NOT EXPOSE] wont expose right now, may in the future
+    // [DO NOT EXPOSE] wont expose, KHR extension supersedes
     /* MeshShaderPropertiesNV *//* VK_NV_mesh_shader */
     //uint32_t           maxDrawMeshTasksCount;
     //uint32_t           maxTaskWorkGroupInvocations;
@@ -540,16 +556,16 @@ struct SPhysicalDeviceLimits
 
     // could deduce from tessellation shader being enables
     bool shaderTessellationAndGeometryPointSize = false;
+
     // very good device support, candidate for promotion
     bool shaderImageGatherExtended = false;
 
     // ROADMAP 2022 but poor support on A11 GPUs
     bool shaderStorageImageArrayDynamicIndexing = false;
     
-    //
+    // Intel Gen12 and ARC are special-boy drivers (TM)
     bool shaderFloat64 = false;
     bool shaderInt64 = false;
-    bool shaderInt16 = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage
     bool storageBuffer16BitAccess = false;
@@ -558,6 +574,7 @@ struct SPhysicalDeviceLimits
     bool storageInputOutput16 = false;
 
     // Core 1.1 Features or VK_KHR_variable_pointers
+    // the only reason I'm not requiring it is because it doesn't seem to help HLSL/DXC in any way
     bool variablePointers = false;
 
     // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
@@ -605,6 +622,7 @@ struct SPhysicalDeviceLimits
     bool workgroupSizeFromSpecConstant = false;
 
     bool shaderSubgroupPartitioned = false; /* VK_NV_shader_subgroup_partitioned */
+
     bool gcnShader = false; /* VK_AMD_gcn_shader */
     bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
     bool shaderBallot = false; /* VK_AMD_shader_ballot */
@@ -923,7 +941,6 @@ struct SPhysicalDeviceLimits
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
         if (shaderInt64 && !_rhs.shaderInt64) return false;
-        if (shaderInt16 && !_rhs.shaderInt16) return false;
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (uniformAndStorageBuffer16BitAccess && !_rhs.uniformAndStorageBuffer16BitAccess) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
