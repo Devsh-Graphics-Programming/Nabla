@@ -351,8 +351,6 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 
 		static float DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint);
 		static float DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal);
-		static core::vectorSIMDf FindMinMaxProj(core::vectorSIMDf Dir, core::vectorSIMDf Extrema[]);
-		static void ComputeAxis(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, core::vectorSIMDf Extrema[]);
 		static core::matrix3x4SIMD calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
 
 		//! Calculates bounding box of the meshbuffer
