@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/glsl_compat.hlsl"
 
 namespace nbl 
 {

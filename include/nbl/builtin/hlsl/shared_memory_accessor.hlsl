@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/glsl_compat.hlsl"
 
 namespace nbl 
 {

@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/arithmetic.hlsl"
 #include "nbl/builtin/hlsl/binops.hlsl"
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 
@@ -36,13 +36,6 @@ struct reduction<T, binops::bitwise_and<T> >
     }
 };
 
-// For all WaveMultiPrefix* ops, an example can be found here https://github.com/microsoft/DirectXShaderCompiler/blob/4e5440e1ee1f30d1164f90445611328293de08fa/tools/clang/test/HLSLFileCheck/hlsl/intrinsics/wave/prefix/sm_6_5_wave.hlsl
-// However, it seems they do not work for DXC->SPIR-V yet so we implement them via spirv intrinsics
-
-template<typename T>
-[[vk::ext_instruction(359)]]
-T spirv_subgroupPrefixAnd(uint scope, [[vk::ext_literal]] uint operation, T value);
-
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_and<T> >
 {
@@ -72,11 +65,6 @@ struct reduction<T, binops::bitwise_or<T> >
 };
 
 template<typename T>
-[[vk::ext_instruction(360)]]
-T spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, T value);
-//uint spirv_subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, uint value);
-
-template<typename T>
 struct inclusive_scan<T, binops::bitwise_or<T> >
 {
     T operator()(const T x)
@@ -103,11 +91,6 @@ struct reduction<T, binops::bitwise_xor<T> >
         return WaveActiveBitXor(x);
     }
 };
-
-
-template<typename T>
-[[vk::ext_instruction(361)]]
-T spirv_subgroupPrefixXor(uint scope, [[vk::ext_literal]] uint operation, T value);
 
 template<typename T>
 struct inclusive_scan<T, binops::bitwise_xor<T> >
@@ -189,16 +172,6 @@ struct reduction<T, binops::min<T> >
     }
 };
 
-// The MIN and MAX operations in SPIR-V have different Ops for each type
-// so we implement them distinctly
-
-[[vk::ext_instruction(353)]]
-int spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_instruction(354)]]
-uint spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_instruction(355)]]
-float spirv_subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, float value);
-
 template<>
 struct inclusive_scan<int, binops::min<int> >
 {
@@ -262,13 +235,6 @@ struct reduction<T, binops::max<T> >
         return WaveActiveMax(x);
     }
 };
-
-[[vk::ext_instruction(356)]]
-int spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_instruction(357)]]
-uint spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_instruction(358)]]
-float spirv_subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, float value);
 
 template<>
 struct inclusive_scan<int, binops::max<int> >

@@ -8,10 +8,6 @@
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #endif
 
-// [[vk::ext_extension("GL_KHR_shader_subgroup_arithmetic")]] REVIEW-519: Extensions don't seem to be needed?
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-void spirv_arithmetic_extcap(){}
-
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
 namespace nbl

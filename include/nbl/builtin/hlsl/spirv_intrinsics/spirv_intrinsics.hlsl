@@ -3,12 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_INCLUDED_
-
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
-[[vk::ext_capability(/* GroupNonUniformShuffleRelative */ 66)]]
-void spirv_shuffle_cap(){}
-#endif
 
 namespace nbl 
 {
@@ -16,8 +10,14 @@ namespace hlsl
 {
 namespace spirv
 {
+namespace impl
+{
+#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
+[[vk::ext_capability(/* GroupNonUniformShuffleRelative */ 66)]]
+void spirv_shuffle_cap(){}
+#endif
+}
 
-#pragma region ATOMICS
 template<typename T>
 T atomicAdd(T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
@@ -93,8 +93,6 @@ int atomicCompSwap([[vk::ext_reference]] int ptr, uint memoryScope, uint memSema
 template<>
 [[vk::ext_instruction(/* OpAtomicCompareExchange */ 230)]]
 uint atomicCompSwap([[vk::ext_reference]] uint ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, uint value, uint comparator);
-
-#pragma endregion ATOMICS
 
 #pragma region BALLOT
 template<typename T>
