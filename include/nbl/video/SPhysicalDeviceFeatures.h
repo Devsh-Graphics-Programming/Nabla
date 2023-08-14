@@ -113,8 +113,8 @@ struct SPhysicalDeviceFeatures
     //bool shaderFloat64;
 
     // [ALWAYS ENABLE]
-    //bool shaderInt64;
-    //bool shaderInt16;
+    //bool shaderInt64 = false;
+    //bool shaderInt16 = false;
 
     // poor support on Apple GPUs
     bool shaderResourceResidency = false;
@@ -174,7 +174,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Device support ubiquitous
     //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
  
-    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but mobile GPUs don't support well, exposed as a limit `maxDrawIndirectCount`
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support, exposed as a limit `drawIndirectCount`
     //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
     // Enabled by Default, Moved to Limits

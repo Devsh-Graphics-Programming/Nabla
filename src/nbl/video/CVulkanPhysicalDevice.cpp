@@ -708,6 +708,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 [NO NABLA SUPPORT] A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
                 A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
                 A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+
+                Ideally we'd like to raise the minimum to 1.6 but we can't do that without raising VK to 1.3
             */
             properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_5;
             if (VK_API_VERSION_MINOR(vk_deviceProperties.apiVersion)>=3)
@@ -937,11 +939,16 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 return nullptr;
             
             /* Vulkan 1.1 Core  */
+            if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
+                return nullptr;
+            properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
+            properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
+
             if (!vulkan11Features.multiview)
                 return nullptr;
 
-            if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
-                return nullptr;
+
+            properties.limits.variablePointers = vulkan11Features.variablePointers;
             
             if (!vulkan11Features.shaderDrawParameters)
                 return nullptr;
@@ -1323,11 +1330,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderTessellationAndGeometryPointSize = deviceFeatures.features.shaderTessellationAndGeometryPointSize;
             properties.limits.shaderImageGatherExtended = deviceFeatures.features.shaderImageGatherExtended;
             properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
-            properties.limits.shaderInt64 = deviceFeatures.features.shaderInt64;
-            
-            properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
-            properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
-            properties.limits.variablePointers = vulkan11Features.variablePointers;
 
             properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
             properties.limits.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;

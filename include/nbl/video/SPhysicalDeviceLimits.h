@@ -77,6 +77,8 @@ struct SPhysicalDeviceLimits
 
     // [DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint32 so this must be 0xffFFffFFu
     //uint32_t              maxDrawIndexedIndexValue;
+
+    // This is different to `maxDrawIndirectCount`, this is NOT about whether you can source the MDI count from a buffer, just about how many you can have
     uint32_t maxDrawIndirectCount = 0u;
 
     float    maxSamplerLodBias = 0.0f;
@@ -590,7 +592,7 @@ struct SPhysicalDeviceLimits
     bool shaderFloat16 = false;
     bool shaderInt8 = false;
     
-    // Vulkan 1.2 Core or VK_KHR_vulkan_memory_model
+    // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModel = false;
     bool vulkanMemoryModelDeviceScope = false;
     bool vulkanMemoryModelAvailabilityVisibilityChains = false;
