@@ -128,6 +128,11 @@ namespace shapes
                 if(abs(abs(h/q) - 1.0) < 0.0001)
                 {
                    // Approximation of x where h and q are close with no carastrophic cancellation
+                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
+                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
+                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
+                      // So √(1+w) can be approximated by 1+½w
+                      // Simplifying later and the fact that w=4p³/q will result in the following.
                    x = float2(p3/q, -q - p3/q);
                 }
 
