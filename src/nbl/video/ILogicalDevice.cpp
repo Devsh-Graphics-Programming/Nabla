@@ -763,15 +763,12 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
         if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_DRAW_INDIRECT_COUNT");
 
-        if (limits.storageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_STORAGE_BUFFER_8BIT_ACCESS");
-        if (limits.uniformAndStorageBuffer8BitAccess) addShaderDefineToPool(pool, "NBL_UNIFORM_AND_STORAGE_BUFFER_8BIT_ACCESS");
         if (limits.storagePushConstant8) addShaderDefineToPool(pool, "NBL_STORAGE_PUSH_CONSTANT_8");
 
         if (limits.shaderBufferInt64Atomics) addShaderDefineToPool(pool, "NBL_SHADER_BUFFER_INT64_ATOMICS");
         if (limits.shaderSharedInt64Atomics) addShaderDefineToPool(pool, "NBL_SHADER_SHARED_INT64_ATOMICS");
 
         if (limits.shaderFloat16) addShaderDefineToPool(pool, "NBL_SHADER_FLOAT16");
-        if (limits.shaderInt8) addShaderDefineToPool(pool, "NBL_SHADER_INT8");
 
         if (limits.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL");
         if (limits.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");

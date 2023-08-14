@@ -962,15 +962,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!vulkan12Features.samplerMirrorClampToEdge)
                 return nullptr;
 
-            properties.limits.storageBuffer8BitAccess = vulkan12Features.storageBuffer8BitAccess;
-            properties.limits.uniformAndStorageBuffer8BitAccess = vulkan12Features.uniformAndStorageBuffer8BitAccess;
             properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
 
             properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
             properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
 
             properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
-            properties.limits.shaderInt8 = vulkan12Features.shaderInt8;
             
             features.descriptorIndexing = vulkan12Features.descriptorIndexing;
             features.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
@@ -1765,13 +1762,13 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         /* Vulkan 1.2 Core */
         vulkan12Features.samplerMirrorClampToEdge = true; // ubiquitous
         vulkan12Features.drawIndirectCount = properties.limits.drawIndirectCount;
-        vulkan12Features.storageBuffer8BitAccess = properties.limits.storageBuffer8BitAccess;
-        vulkan12Features.uniformAndStorageBuffer8BitAccess = properties.limits.uniformAndStorageBuffer8BitAccess;
+        vulkan12Features.storageBuffer8BitAccess = true; // ubiquitous
+        vulkan12Features.uniformAndStorageBuffer8BitAccess = true; // ubiquitous
         vulkan12Features.storagePushConstant8 = properties.limits.storagePushConstant8;
         vulkan12Features.shaderBufferInt64Atomics = properties.limits.shaderBufferInt64Atomics;
         vulkan12Features.shaderSharedInt64Atomics = properties.limits.shaderSharedInt64Atomics;
         vulkan12Features.shaderFloat16 = properties.limits.shaderFloat16;
-        vulkan12Features.shaderInt8 = properties.limits.shaderInt8;
+        vulkan12Features.shaderInt8 = true; // ubiquitous
         vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
         vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;

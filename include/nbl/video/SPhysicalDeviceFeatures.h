@@ -176,10 +176,11 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support, exposed as a limit `drawIndirectCount`
     //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
-    // Enabled by Default, Moved to Limits
     // or VK_KHR_8bit_storage:
-    //bool storageBuffer8BitAccess = false;
-    //bool uniformAndStorageBuffer8BitAccess = false;
+    // [ALWAYS ENABLE] good device coverage
+    //bool storageBuffer8BitAccess = true;
+    //bool uniformAndStorageBuffer8BitAccess = true;
+    // [EXPOSE AS LIMIT] not great support yet
     //bool storagePushConstant8 = false;
  
     // Enabled by Default, Moved to Limits
@@ -187,10 +188,11 @@ struct SPhysicalDeviceFeatures
     //bool shaderBufferInt64Atomics = false;
     //bool shaderSharedInt64Atomics = false;
 
-    // Enabled by Default, Moved to Limits
     // or VK_KHR_shader_float16_int8:
+    // [EXPOSE AS LIMIT] not great support yet
     //bool shaderFloat16 = false;
-    //bool shaderInt8 = false;
+    // [ALWAYS ENABLE] good device coverage
+    //bool shaderInt8 = true;
     
     // or VK_EXT_descriptor_indexing
     bool descriptorIndexing = false;  // always enable ?

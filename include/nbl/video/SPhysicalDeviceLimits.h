@@ -584,8 +584,6 @@ struct SPhysicalDeviceLimits
     bool drawIndirectCount = false;
 
     // Vulkan 1.2 Core or VK_KHR_8bit_storage:
-    bool storageBuffer8BitAccess = false;
-    bool uniformAndStorageBuffer8BitAccess = false;
     bool storagePushConstant8 = false;
 
     // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
@@ -594,7 +592,6 @@ struct SPhysicalDeviceLimits
 
     // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
     bool shaderFloat16 = false;
-    bool shaderInt8 = false;
     
     // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModel = false;
@@ -927,13 +924,10 @@ struct SPhysicalDeviceLimits
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
-        if (storageBuffer8BitAccess && !_rhs.storageBuffer8BitAccess) return false;
-        if (uniformAndStorageBuffer8BitAccess && !_rhs.uniformAndStorageBuffer8BitAccess) return false;
         if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
         if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
         if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
         if (shaderFloat16 && !_rhs.shaderFloat16) return false;
-        if (shaderInt8 && !_rhs.shaderInt8) return false;
         if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
         if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
         if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
