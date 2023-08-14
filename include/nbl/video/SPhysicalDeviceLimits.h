@@ -572,6 +572,10 @@ struct SPhysicalDeviceLimits
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
 
+    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
+    bool multiviewGeometryShader = false;
+    bool multiviewTessellationShader = false;
+
     // Core 1.1 Features or VK_KHR_variable_pointers
     // the only reason I'm not requiring it is because it doesn't seem to help HLSL/DXC in any way
     bool variablePointers = false;
@@ -939,6 +943,8 @@ struct SPhysicalDeviceLimits
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
+        if (multiviewGeometryShader && !_rhs.multiviewGeometryShader) return false;
+        if (multiviewTessellationShader && !_rhs.multiviewTessellationShader) return false;
         if (variablePointers && !_rhs.variablePointers) return false;
         
         return true;

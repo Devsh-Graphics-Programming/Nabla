@@ -946,9 +946,14 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             if (!vulkan11Features.multiview)
                 return nullptr;
-
+            properties.limits.multiviewGeometryShader = vulkan11Features.multiviewGeometryShader;
+            properties.limits.multiviewTessellationShader = vulkan11Features.multiviewTessellationShader;
 
             properties.limits.variablePointers = vulkan11Features.variablePointers;
+            if (vulkan11Features.variablePointers!=vulkan11Features.variablePointersStorageBuffer)
+                return nullptr;
+
+            // could check protectedMemory and YcbcrConversion but no point in doing so yet
             
             if (!vulkan11Features.shaderDrawParameters)
                 return nullptr;
@@ -1748,8 +1753,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan11Features.storageInputOutput16 = properties.limits.storageInputOutput16;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
         vulkan11Features.multiview = true;
-        vulkan11Features.multiviewGeometryShader = vk_deviceFeatures2.features.geometryShader;
-        vulkan11Features.multiviewTessellationShader = vk_deviceFeatures2.features.tessellationShader;
+        vulkan11Features.multiviewGeometryShader = properties.limits.multiviewGeometryShader;
+        vulkan11Features.multiviewTessellationShader = properties.limits.multiviewTessellationShader;
         vulkan11Features.variablePointers = properties.limits.variablePointers;
         vulkan11Features.variablePointersStorageBuffer = vulkan11Features.variablePointers;
         // not yet

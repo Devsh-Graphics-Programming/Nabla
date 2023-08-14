@@ -149,8 +149,7 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
-    // DO NOT EXPOSE] `multiview` is required but these depend on pipelines
-    /* VK_KHR_multiview */ 
+    // [EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
 
