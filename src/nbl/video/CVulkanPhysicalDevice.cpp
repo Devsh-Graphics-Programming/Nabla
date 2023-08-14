@@ -1006,7 +1006,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!vulkan12Features.timelineSemaphore)
                 return nullptr;
 
-            features.bufferDeviceAddress = bufferDeviceAddressFeatures.bufferDeviceAddress;
+            if (!bufferDeviceAddressFeatures.bufferDeviceAddress)
+                return nullptr;
             features.bufferDeviceAddressMultiDevice = bufferDeviceAddressFeatures.bufferDeviceAddressMultiDevice;
 
             properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
@@ -1798,9 +1799,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.separateDepthStencilLayouts = true; // required anyway
         vulkan12Features.hostQueryReset = true; // required anyway
         vulkan12Features.timelineSemaphore = true; // required anyway
-        vulkan12Features.bufferDeviceAddress = enabledFeatures.bufferDeviceAddress || enabledFeatures.bufferDeviceAddressMultiDevice;
+        vulkan12Features.bufferDeviceAddress = true;
         // Some capture tools need this but can't enable this when you set this to false (they're buggy probably, We shouldn't worry about this)
-        vulkan12Features.bufferDeviceAddressCaptureReplay = bool(vulkan12Features.bufferDeviceAddress) && (m_rdoc_api!=nullptr);
+        vulkan12Features.bufferDeviceAddressCaptureReplay = m_rdoc_api!=nullptr;
         vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
         vulkan12Features.vulkanMemoryModel = properties.limits.vulkanMemoryModel;
         vulkan12Features.vulkanMemoryModelDeviceScope = properties.limits.vulkanMemoryModelDeviceScope;
@@ -1946,7 +1947,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
         {
             // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of resolveFeatureDependencies(featuresToEnable);
-            // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of resolveFeatureDependencies(featuresToEnable);
+            // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of requirement
             // IMPLICIT ENABLE: VK_KHR_DEFERRED_HOST_OPERATIONS -> Already handled because of resolveFeatureDependencies(featuresToEnable);
 
             insertExtensionIfAvailable(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
@@ -2038,7 +2039,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(coverageReductionMode, VK_NV_COVERAGE_REDUCTION_MODE_EXTENSION_NAME, coverageReductionModeFeatures);
             
-        // IMPLICIT ENABLE: deviceGeneratedCommands requires bufferDeviceAddress -> Already handled because of resolveFeatureDependencies(featuresToEnable); 
+        // IMPLICIT ENABLE: deviceGeneratedCommands requires bufferDeviceAddress -> Already handled because of requirement
         CHECK_VULKAN_EXTENTION_FOR_SINGLE_VAR_FEATURE(deviceGeneratedCommands, VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME, deviceGeneratedCommandsFeatures);
             
         if (enabledFeatures.taskShader ||

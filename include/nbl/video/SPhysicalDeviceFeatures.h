@@ -244,8 +244,10 @@ struct SPhysicalDeviceFeatures
     //bool timelineSemaphore = true;             // or VK_KHR_timeline_semaphore [TODO Implement]
     
     // or VK_KHR_buffer_device_address:
-    bool bufferDeviceAddress = false;
-    // bool           bufferDeviceAddressCaptureReplay; // [DO NOT EXPOSE] for capture tools not engines
+    // [REQUIRE] Vulkan 1.3 requires
+    //bool bufferDeviceAddress = true;
+    // [DO NOT EXPOSE] for capture tools not engines
+    //bool           bufferDeviceAddressCaptureReplay;
     bool bufferDeviceAddressMultiDevice = false;
     
     // [EXPOSE AS A LIMIT] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
@@ -256,7 +258,7 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.3 Core */
     
-    // [DO NOT EXPOSE] EVIL regressive step back into OpenGL/Dx10 times
+    // [DO NOT EXPOSE] EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
     //  or VK_EXT_inline_uniform_block:
     //bool           inlineUniformBlock;
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
@@ -1128,7 +1130,6 @@ struct SPhysicalDeviceFeatures
         if (descriptorBindingVariableDescriptorCount && !_rhs.descriptorBindingVariableDescriptorCount) return false;
         if (runtimeDescriptorArray && !_rhs.runtimeDescriptorArray) return false;
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
-        if (bufferDeviceAddress && !_rhs.bufferDeviceAddress) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;

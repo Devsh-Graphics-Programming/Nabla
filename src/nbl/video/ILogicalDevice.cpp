@@ -350,7 +350,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.descriptorBindingVariableDescriptorCount) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT");
         if (features.runtimeDescriptorArray) addShaderDefineToPool(pool, "NBL_RUNTIME_DESCRIPTOR_ARRAY");
         if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
-        if (features.bufferDeviceAddress) addShaderDefineToPool(pool, "NBL_BUFFER_DEVICE_ADDRESS");
         if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
         if (features.shaderDemoteToHelperInvocation) addShaderDefineToPool(pool, "NBL_SHADER_DEMOTE_TO_HELPER_INVOCATION");
         if (features.shaderTerminateInvocation) addShaderDefineToPool(pool, "NBL_SHADER_TERMINATE_INVOCATION");

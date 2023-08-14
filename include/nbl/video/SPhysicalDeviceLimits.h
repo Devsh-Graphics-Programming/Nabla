@@ -375,7 +375,7 @@ struct SPhysicalDeviceLimits
     //bool                             independentResolveNone;
     //bool                             independentResolve;
 
-    // [DO NOT EXPOSE]: we won't expose inline uniform blocks right EVER
+    // [DO NOT EXPOSE]: we won't expose inline uniform blocks right now
     /* InlineUniformBlockPropertiesEXT ---> MOVED TO Vulkan 1.3 Core  */
     //      or VK_EXT_inline_uniform_block: 
     //uint32_t              maxInlineUniformBlockSize; 

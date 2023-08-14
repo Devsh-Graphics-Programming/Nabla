@@ -56,19 +56,12 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             {
                 features.accelerationStructure = true;
                 features.descriptorIndexing = true;
-                features.bufferDeviceAddress = true;
                 features.deferredHostOperations = true;
             }
 
             // VK_NV_coverage_reduction_mode requires VK_NV_framebuffer_mixed_samples
             if (features.coverageReductionMode)
                 features.mixedAttachmentSamples = true;
-
-            if (features.deviceGeneratedCommands)
-                features.bufferDeviceAddress = true;
-        
-            if (features.bufferDeviceAddressMultiDevice)
-                features.bufferDeviceAddress = true; // make sure features have their main bool enabled
 
             // TODO: review
             if (features.shaderInputAttachmentArrayDynamicIndexing ||
