@@ -119,6 +119,15 @@ namespace shapes
             { 
                 h = sqrt(h);
                 float2 x = (float2(h, -h) - q) / 2.0;
+
+                if(abs(abs(h/q) - 1.0) < 0.0001)
+                {
+                    x = float2(p3/q, -q - p3/q);
+
+                    if(q < 0.0)
+                        x = x.yx;
+                }
+
                 float2 uv = sign(x)*pow(abs(x), float2(1.0/3.0,1.0/3.0));
                 float t = uv.x + uv.y - kx;
                 t = clamp( t, 0.0, 1.0 );
