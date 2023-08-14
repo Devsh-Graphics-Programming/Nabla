@@ -565,7 +565,6 @@ struct SPhysicalDeviceLimits
     
     // Intel Gen12 and ARC are special-boy drivers (TM)
     bool shaderFloat64 = false;
-    bool shaderInt64 = false;
 
     // Core 1.1 Features or VK_KHR_16bit_storage
     bool storagePushConstant16 = false;
@@ -935,7 +934,6 @@ struct SPhysicalDeviceLimits
         if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
         if (shaderImageGatherExtended && !_rhs.shaderImageGatherExtended) return false;
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
-        if (shaderInt64 && !_rhs.shaderInt64) return false;
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;

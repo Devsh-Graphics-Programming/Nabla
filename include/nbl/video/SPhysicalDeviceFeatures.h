@@ -111,10 +111,10 @@ struct SPhysicalDeviceFeatures
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderFloat64;
-    //bool shaderInt64 = false;
 
     // [ALWAYS ENABLE]
-    //bool shaderInt16 = false;
+    //bool shaderInt64;
+    //bool shaderInt16;
 
     // poor support on Apple GPUs
     bool shaderResourceResidency = false;

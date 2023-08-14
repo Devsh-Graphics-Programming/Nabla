@@ -918,13 +918,15 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
                 return nullptr;
             features.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
-            features.shaderStorageImageWriteWithoutFormat = deviceFeatures.features.shaderStorageImageWriteWithoutFormat;
+            features.shaderStorageImageWriteWithoutFormat = deviceFeatures.features.shaderStorageImageWriteWithoutFormat; // really want to make this required
             if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
                 return nullptr;
             features.shaderClipDistance = deviceFeatures.features.shaderClipDistance;
             features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
 
             if (!deviceFeatures.features.shaderInt16)
+                return nullptr;
+            if (!deviceFeatures.features.shaderInt64)
                 return nullptr;
 
             features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;
@@ -1720,7 +1722,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = properties.limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderInt64 = properties.limits.shaderInt64;
+        vk_deviceFeatures2.features.shaderInt64 = true; // always enable
         vk_deviceFeatures2.features.shaderInt16 = true; // always enable
         vk_deviceFeatures2.features.shaderFloat64 = properties.limits.shaderFloat64;
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
