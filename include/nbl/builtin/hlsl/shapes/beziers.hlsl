@@ -103,6 +103,7 @@ namespace shapes
             float2 b = A - 2.0*B + C;
             float2 c = A - pos;
 
+            // Reducing Quartic to Cubic Solution
             float kk = 1.0 / dot(b,b);
             float kx = kk * dot(a,b);
             float ky = kk * (2.0*dot(a,a)+dot(c,b)) / 3.0;
@@ -110,6 +111,9 @@ namespace shapes
 
             float2 res;
 
+            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
+            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
+            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
             float p = ky - kx*kx;
             float p3 = p*p*p;
             float q = kx*(2.0*kx*kx - 3.0*ky) + kz;
@@ -120,12 +124,11 @@ namespace shapes
                 h = sqrt(h);
                 float2 x = (float2(h, -h) - q) / 2.0;
 
+                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
                 if(abs(abs(h/q) - 1.0) < 0.0001)
                 {
-                    x = float2(p3/q, -q - p3/q);
-
-                    if(q < 0.0)
-                        x = x.yx;
+                   // Approximation of x where h and q are close with no carastrophic cancellation
+                   x = float2(p3/q, -q - p3/q);
                 }
 
                 float2 uv = sign(x)*pow(abs(x), float2(1.0/3.0,1.0/3.0));
