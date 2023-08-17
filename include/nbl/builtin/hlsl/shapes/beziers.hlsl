@@ -78,27 +78,36 @@ namespace shapes
         }
     };
 
-    float arcLen(float tA, QuadraticBezier curve)
+    float arcLen(float t, QuadraticBezier curve)
     {
         float2 A = curve.A - 2.0*curve.B + curve.C;
         float2 B = 2.0*(curve.B - curve.A);
         float2 C = curve.A;
+        float lenA2 = dot(A,A);
+        float AdotB = dot(A,B);
 
-            // a = 4 * |A|^2
-            // b = (2 * cos(a,b) * |A| * |B|) / (4 * |A|^2)
-            // c = (|B|^2) / (4 * |A|^2)
-        float a = 4.0 * dot(A, A);
-        float b = 2.0 * (dot(A, B)) / a;
-        float c = dot(B, B) / a;
+        float a = 4.0 * lenA2;
+        float b = 4.0 * AdotB;
+        float c = dot(B,B);
 
-        float u = tA + b;
-        float k = c - b * b;
+        float b_over_4a = AdotB/a;
 
-        float subExp0 = sqrt(u * u + k);
-            //subExp1 = sqrt(b * b + k) = sqrt(c) = sqrt(|B|^2/(4 * |A|^2)) = |B| / (2 * |A|)
-        float subExp1 = 0.5*length(B)/length(A);
+        float lenTan = sqrt(t*(a*t+b)+c);
+        float retval = 0.5f*t*lenTan;
+        // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
+        if (lenA2>=exp2(-23.f))
+            retval += b_over_4a*(lenTan-sqrt(c));
 
-        return sqrt(a) * 0.5 * ( u * subExp0 - b * subExp1 + k * log(abs((u + subExp0)/(b + subExp1))));
+        // sin2 multiplied by length of A and B
+        float det_over_16 = AdotB*AdotB-lenA2*c;
+        // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
+        if (det_over_16>=exp2(-23.f))
+        {
+        // TODO: finish by @Przemog
+            //retval += det_over_16*...;
+        }
+        
+        return retval;
     }
 
     float getParameterTFromArcLen(float arcLen, QuadraticBezier curve, float accuracyThreshold)
