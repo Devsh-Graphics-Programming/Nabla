@@ -74,6 +74,34 @@ namespace shapes
         }
     };
 
+    float arcLen(float tA, QuadraticBezier curve)
+    {
+        float2 A = curve.A - 2.0*curve.B + curve.C;
+        float2 B = 2.0*(curve.B - curve.A);
+        float2 C = curve.A;
+
+            // a = 4 * |A|^2
+            // b = (2 * cos(a,b) * |A| * |B|) / (4 * |A|^2)
+            // c = (|B|^2) / (4 * |A|^2)
+        float a = 4.0 * dot(A, A);
+        float b = 2.0 * (dot(A, B)) / a;
+        float c = dot(B, B) / a;
+
+        float u = tA + b;
+        float k = c - b * b;
+
+        float subExp0 = sqrt(u * u + k);
+            //subExp1 = sqrt(b * b + k) = sqrt(c) = sqrt(|B|^2/(4 * |A|^2)) = |B| / (2 * |A|)
+        float subExp1 = 0.5*length(B)/length(A);
+
+        return sqrt(a) * 0.5 * ( u * subExp0 - b * subExp1 + k * log(abs((u + subExp0)/(b + subExp1))));
+    }
+
+    float getParameterTFromArcLen(float arcLen, QuadraticBezier curve, float accuracyThreshold)
+    {
+        return 0.0;
+    }
+
     struct QuadraticBezierOutline
     {
         QuadraticBezier bezier;
@@ -87,7 +115,7 @@ namespace shapes
         }
 
         // original from https://www.shadertoy.com/view/lsyfWc
-        float ud(float2 pos)
+        float2 ud(float2 pos)
         {
             const float2 A = bezier.A;
             const float2 B = bezier.B;
@@ -170,7 +198,7 @@ namespace shapes
                 res.x = sqrt( res.x );
             }
             
-            return res.x;
+            return res;
         }
 
         float signedDistance(float2 pos)
@@ -730,7 +758,6 @@ namespace shapes
 
             return sqrt(d0);
         }
-
 
         float signedDistance(float2 pos)
         {
