@@ -17,17 +17,18 @@ namespace shapes
     // GH link https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
     // Credits to Doublefresh for hinting there
     // returns the roots, and number of filled in real values under numRealValues
-    float2 SolveQuadratic(float3 c, out int numRealValues)
+    template<typename FloatingPointType>
+    vector<FloatingPointType, 2> SolveQuadratic(vector<FloatingPointType, 3> c, out int numRealValues)
     {
         // bhaskara: x = (-b ± √(b² – 4ac)) / (2a)
-        float b = c.y / (2 * c.z);
-        float q = c.x / c.z;
-        float delta = b * b - q;
+        FloatingPointType b = c.y / (2 * c.z);
+        FloatingPointType q = c.x / c.z;
+        FloatingPointType delta = b * b - q;
 
         if (delta == 0.0) // Δ = 0
         {
             numRealValues = 1;
-            return float2(-b, 0.0);
+            return vector<FloatingPointType, 2>(-b, 0.0);
         }
         if (delta < 0) // Δ < 0 (no real values)
         {
@@ -36,99 +37,124 @@ namespace shapes
         }
 
         // Δ > 0 (two distinct real values)
-        float sqrtD = sqrt(delta);
+        FloatingPointType sqrtD = sqrt(delta);
         numRealValues = 2;
-        return float2(sqrtD - b, sqrtD + b);
+        return vector<FloatingPointType, 2>(sqrtD - b, sqrtD + b);
     }
 
+    template<typename FloatingPointType>
     struct QuadraticBezier
     {
-        float2 A;
-        float2 B;
-        float2 C;
+        vector<FloatingPointType, 2> P0;
+        vector<FloatingPointType, 2> P1;
+        vector<FloatingPointType, 2> P2;
 
-        static QuadraticBezier construct(float2 a, float2 b, float2 c)
+        static QuadraticBezier construct(vector<FloatingPointType, 2> A, vector<FloatingPointType, 2> B, vector<FloatingPointType, 2> C)
         {
-            QuadraticBezier ret = { a, b, c };
+            QuadraticBezier ret = { A, B, C };
             return ret;
         }
 
-        float2 evaluate(float t)
+        vector<FloatingPointType, 2> evaluate(FloatingPointType t)
         {
-            float2 position = A * (1.0 - t) * (1.0 - t) 
-                      + 2.0 * B * (1.0 - t) * t
-                      +       C * t         * t;
+            float2 position = 
+                P0 * (1.0 - t) * (1.0 - t) 
+                 + 2.0 * P1 * (1.0 - t) * t
+                 +       P2 * t         * t;
+
             return position;
         }
 
         // https://pomax.github.io/bezierinfo/#yforx
-        float tForMajorCoordinate(const int major, float x) 
+        FloatingPointType tForMajorCoordinate(const int major, FloatingPointType x) 
         { 
-            float a = A[major] - x;
-            float b = B[major] - x;
-            float c = C[major] - x;
+            FloatingPointType a = P0[major] - x;
+            FloatingPointType b = P1[major] - x;
+            FloatingPointType c = P2[major] - x;
             int rootCount;
-            float2 roots = SolveQuadratic(float3(a, b, c), rootCount);
+            vector<FloatingPointType, 2> roots = SolveQuadratic(vector<FloatingPointType, 3>(a, b, c), rootCount);
             // assert(rootCount == 1);
             return roots.x;
         }
+
+        FloatingPointType calcArcLen(FloatingPointType t)
+        {
+            vector<FloatingPointType, 2> A = P0 - 2.0*P1 + P2;
+            vector<FloatingPointType, 2> B = 2.0*(P1 - P0);
+            vector<FloatingPointType, 2> C = P0;
+            FloatingPointType lenA2 = dot(A,A);
+            FloatingPointType AdotB = dot(A,B);
+
+            FloatingPointType a = 4.0 * lenA2;
+            FloatingPointType b = 4.0 * AdotB;
+            FloatingPointType c = dot(B,B);
+
+            FloatingPointType b_over_4a = AdotB/a;
+
+            FloatingPointType lenTan = sqrt(t*(a*t+b)+c);
+            FloatingPointType retval = 0.5f*t*lenTan;
+            // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
+            if (lenA2>=exp2(-23.f))
+                retval += b_over_4a*(lenTan-sqrt(c));
+
+            // sin2 multiplied by length of A and B
+            float det_over_16 = AdotB*AdotB-lenA2*c;
+            // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
+            if (det_over_16>=exp2(-23.f))
+            {
+            // TODO: finish by @Przemog
+                //retval += det_over_16*...;
+            }
+
+            return retval;
+        }
+
+        FloatingPointType calcArcLenInverse(FloatingPointType arcLen, FloatingPointType accuracyThreshold, FloatingPointType hint)
+        {
+            FloatingPointType xn = hint;
+
+            if (arcLen <= accuracyThreshold)
+                return arcLen;
+
+            vector<FloatingPointType, 2> B = 2.0*(P1 - P0);
+            vector<FloatingPointType, 2> twoA = 2.0*(P2 - P1) - B;
+
+            const int iterationThreshold = 32;
+            for(int n = 0; n < iterationThreshold; n++)
+            {
+                FloatingPointType arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
+
+                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                    return xn;
+
+                FloatingPointType differentialAtGuess = length(twoA * xn + B);
+                    // x_n+1 = x_n - f(x_n)/f'(x_n)
+                xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
+            }
+
+            return xn;
+        }
     };
 
-    float arcLen(float t, QuadraticBezier curve)
-    {
-        float2 A = curve.A - 2.0*curve.B + curve.C;
-        float2 B = 2.0*(curve.B - curve.A);
-        float2 C = curve.A;
-        float lenA2 = dot(A,A);
-        float AdotB = dot(A,B);
-
-        float a = 4.0 * lenA2;
-        float b = 4.0 * AdotB;
-        float c = dot(B,B);
-
-        float b_over_4a = AdotB/a;
-
-        float lenTan = sqrt(t*(a*t+b)+c);
-        float retval = 0.5f*t*lenTan;
-        // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
-        if (lenA2>=exp2(-23.f))
-            retval += b_over_4a*(lenTan-sqrt(c));
-
-        // sin2 multiplied by length of A and B
-        float det_over_16 = AdotB*AdotB-lenA2*c;
-        // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
-        if (det_over_16>=exp2(-23.f))
-        {
-        // TODO: finish by @Przemog
-            //retval += det_over_16*...;
-        }
-        
-        return retval;
-    }
-
-    float getParameterTFromArcLen(float arcLen, QuadraticBezier curve, float accuracyThreshold)
-    {
-        return 0.0;
-    }
-
+    template<typename FloatingPointType>
     struct QuadraticBezierOutline
     {
-        QuadraticBezier bezier;
-        float thickness;
+        QuadraticBezier<FloatingPointType> bezier;
+        FloatingPointType thickness;
 
-        static QuadraticBezierOutline construct(float2 a, float2 b, float2 c, float thickness)
+        static QuadraticBezierOutline construct(vector<FloatingPointType, 2> P0, vector<FloatingPointType, 2> P1, vector<FloatingPointType, 2> P2, FloatingPointType thickness)
         {
-            QuadraticBezier bezier = { a, b, c };
-            QuadraticBezierOutline ret = { bezier, thickness };
+            QuadraticBezier<FloatingPointType> bezier = { P0, P1, P2 };
+            QuadraticBezierOutline<FloatingPointType> ret = { bezier, thickness };
             return ret;
         }
 
         // original from https://www.shadertoy.com/view/lsyfWc
-        float2 ud(float2 pos)
+        float2 ud(vector<FloatingPointType, 2> pos)
         {
-            const float2 A = bezier.A;
-            const float2 B = bezier.B;
-            const float2 C = bezier.C;
+            const vector<FloatingPointType, 2> P0 = bezier.P0;
+            const vector<FloatingPointType, 2> P1 = bezier.P1;
+            const vector<FloatingPointType, 2> P2 = bezier.P2;
                     
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
@@ -136,30 +162,30 @@ namespace shapes
             // p'(1)   = 2(C-B)
             // p'(1/2) = 2(C-A)
                     
-            float2 a = B - A;
-            float2 b = A - 2.0*B + C;
-            float2 c = A - pos;
+            vector<FloatingPointType, 2> A = P1 - P0;
+            vector<FloatingPointType, 2> B = P0 - 2.0*P1 + P2;
+            vector<FloatingPointType, 2> C = P0 - pos;
 
             // Reducing Quartic to Cubic Solution
-            float kk = 1.0 / dot(b,b);
-            float kx = kk * dot(a,b);
-            float ky = kk * (2.0*dot(a,a)+dot(c,b)) / 3.0;
-            float kz = kk * dot(c,a);      
+            FloatingPointType kk = 1.0 / dot(B,B);
+            FloatingPointType kx = kk * dot(A,B);
+            FloatingPointType ky = kk * (2.0*dot(A,A)+dot(C,B)) / 3.0;
+            FloatingPointType kz = kk * dot(C,A);      
 
-            float2 res;
+            vector<FloatingPointType, 2> res;
 
             // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
             // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
             // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
-            float p = ky - kx*kx;
-            float p3 = p*p*p;
-            float q = kx*(2.0*kx*kx - 3.0*ky) + kz;
-            float h = q*q + 4.0*p3;
+            FloatingPointType p = ky - kx*kx;
+            FloatingPointType p3 = p*p*p;
+            FloatingPointType q = kx*(2.0*kx*kx - 3.0*ky) + kz;
+            FloatingPointType h = q*q + 4.0*p3;
 
             if(h >= 0.0) 
             { 
                 h = sqrt(h);
-                float2 x = (float2(h, -h) - q) / 2.0;
+                vector<FloatingPointType, 2> x = (vector<FloatingPointType, 2>(h, -h) - q) / 2.0;
 
                 // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
                 if(abs(abs(h/q) - 1.0) < 0.0001)
@@ -170,39 +196,39 @@ namespace shapes
                       // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
                       // So √(1+w) can be approximated by 1+½w
                       // Simplifying later and the fact that w=4p³/q will result in the following.
-                   x = float2(p3/q, -q - p3/q);
+                   x = vector<FloatingPointType, 2>(p3/q, -q - p3/q);
                 }
 
-                float2 uv = sign(x)*pow(abs(x), float2(1.0/3.0,1.0/3.0));
-                float t = uv.x + uv.y - kx;
+                vector<FloatingPointType, 2> uv = sign(x)*pow(abs(x), vector<FloatingPointType, 2>(1.0/3.0,1.0/3.0));
+                FloatingPointType t = uv.x + uv.y - kx;
                 t = clamp( t, 0.0, 1.0 );
 
                 // 1 root
-                float2 qos = c + (2.0*a + b*t)*t;
-                res = float2( length(qos),t);
+                vector<FloatingPointType, 2> qos = C + (2.0*A + B*t)*t;
+                res = vector<FloatingPointType, 2>( length(qos),t);
             }
             else
             {
-                float z = sqrt(-p);
-                float v = acos( q/(p*z*2.0) ) / 3.0;
-                float m = cos(v);
-                float n = sin(v)*1.732050808;
-                float3 t = float3(m + m, -n - m, n - m) * z - kx;
+                FloatingPointType z = sqrt(-p);
+                FloatingPointType v = acos( q/(p*z*2.0) ) / 3.0;
+                FloatingPointType m = cos(v);
+                FloatingPointType n = sin(v)*1.732050808;
+                vector<FloatingPointType, 3> t = vector<FloatingPointType, 3>(m + m, -n - m, n - m) * z - kx;
                 t = clamp( t, 0.0, 1.0 );
 
                 // 3 roots
-                float2 qos = c + (2.0*a + b*t.x)*t.x;
-                float dis = dot(qos,qos);
+                vector<FloatingPointType, 2> qos = C + (2.0*A + B*t.x)*t.x;
+                FloatingPointType dis = dot(qos,qos);
                 
-                res = float2(dis,t.x);
+                res = vector<FloatingPointType, 2>(dis,t.x);
 
-                qos = c + (2.0*a + b*t.y)*t.y;
+                qos = C + (2.0*A + B*t.y)*t.y;
                 dis = dot(qos,qos);
-                if( dis<res.x ) res = float2(dis,t.y );
+                if( dis<res.x ) res = vector<FloatingPointType, 2>(dis,t.y );
 
-                qos = c + (2.0*a + b*t.z)*t.z;
+                qos = C + (2.0*A + B*t.z)*t.z;
                 dis = dot(qos,qos);
-                if( dis<res.x ) res = float2(dis,t.z );
+                if( dis<res.x ) res = vector<FloatingPointType, 2>(dis,t.z );
 
                 res.x = sqrt( res.x );
             }
@@ -210,7 +236,7 @@ namespace shapes
             return res;
         }
 
-        float signedDistance(float2 pos)
+        FloatingPointType signedDistance(vector<FloatingPointType, 2> pos)
         {
             return abs(ud(pos)) - thickness;
         }
@@ -224,13 +250,13 @@ namespace shapes
         float2 P3;
         float thickness;
 
-        static CubicBezier construct(float2 a, float2 b, float2 c, float2 d, float thickness)
+        static CubicBezier construct(float2 A, float2 B, float2 C, float2 D, float thickness)
         {
             CubicBezier ret;
-            ret.P0 = a;
-            ret.P1 = b;
-            ret.P2 = c;
-            ret.P3 = d;
+            ret.P0 = A;
+            ret.P1 = B;
+            ret.P2 = C;
+            ret.P3 = D;
             ret.thickness = thickness;
             return ret;
         }
