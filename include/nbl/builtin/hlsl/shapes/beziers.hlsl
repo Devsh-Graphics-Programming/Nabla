@@ -17,18 +17,17 @@ namespace shapes
     // GH link https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
     // Credits to Doublefresh for hinting there
     // returns the roots, and number of filled in real values under numRealValues
-    template<typename float_t>
-    vector<float_t, 2> SolveQuadratic(vector<float_t, 3> C, out int numRealValues)
+    float2 SolveQuadratic(float3 C, out int numRealValues)
     {
         // bhaskara: x = (-b ± √(b² – 4ac)) / (2a)
-        float_t b = C.y / (2 * C.z);
-        float_t q = C.x / C.z;
-        float_t delta = b * b - q;
+        float b = C.y / (2 * C.z);
+        float q = C.x / C.z;
+        float delta = b * b - q;
 
         if (delta == 0.0) // Δ = 0
         {
             numRealValues = 1;
-            return vector<float_t, 2>(-b, 0.0);
+            return float2(-b, 0.0);
         }
         if (delta < 0) // Δ < 0 (no real values)
         {
@@ -37,9 +36,9 @@ namespace shapes
         }
 
         // Δ > 0 (two distinct real values)
-        float_t sqrtD = sqrt(delta);
+        float sqrtD = sqrt(delta);
         numRealValues = 2;
-        return vector<float_t, 2>(sqrtD - b, sqrtD + b);
+        return float2(sqrtD - b, sqrtD + b);
     }
 
     template<typename float_t>
@@ -808,5 +807,3 @@ namespace shapes
 }
 }
 }
-
-#undef nbl_hlsl_shapes_beziers_VECTOR_TYPES
