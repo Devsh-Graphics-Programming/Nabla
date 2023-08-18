@@ -529,13 +529,6 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
-	endif()
-endif()
-
 add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
 	VERBATIM
