@@ -98,10 +98,24 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
-if (DEFINED ENV{NUMBER_OF_PROCESSORS})
-	set(NBL_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
-else()
-	set(NBL_PARALLEL_BUILD_JOBS 8)
+include(ProcessorCount)
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	ProcessorCount(_NBL_JOBS_AMOUNT_)
+	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+		set(_NBL_JOBS_AMOUNT_ 1)
+	endif()
+endif()
+
+cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
+cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
+
+math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
+math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
+
+if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
+	if(NOT DEFINED _NBL_MEMORY_CONSUMPTION_CHECK_SKIP_)
+		message(FATAL_ERROR "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define '_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_' but be aware - you are doing it on your own risk of possible build failures.")
+	endif()
 endif()
 
 macro(nbl_adjust_flags)
