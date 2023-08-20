@@ -60,8 +60,7 @@ bool subgroupElect() {
 
 // Memory Semantics: AcquireRelease, UniformMemory, WorkgroupMemory, AtomicCounterMemory, ImageMemory
 void subgroupBarrier() {
-	// REVIEW-519: Not sure what to do with this as it acts on Workgroup scope and this produces incorrect behavior. 
-	// We might as well assume subgroupBarrier is simply unsupported, which makes sense since they execute in lockstep anyway.
+	// REVIEW-519: barrier with subgroup scope is not supported  so leave commented out for now 
 	//spirv::controlBarrier(3, 3, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
 }
 

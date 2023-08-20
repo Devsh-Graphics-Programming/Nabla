@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
 
 namespace nbl 
 {
@@ -24,17 +24,17 @@ namespace workgroup
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T Broadcast(in T val, in uint id)
 {
-	if(edgeBarriers)
-		glsl::barrier();
-	
 	SharedAccessor accessor;
+	
+	if(edgeBarriers)
+		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
 	
 	if(gl_LocalInvocationIndex == id) {
 		accessor.broadcast.set(uballotBitfieldCount, val);
 	}
 	
 	if(edgeBarriers)
-		glsl::barrier();
+		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
 	
 	return accessor.broadcast.get(uballotBitfieldCount);
 }
@@ -42,15 +42,16 @@ T Broadcast(in T val, in uint id)
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T BroadcastFirst(in T val)
 {
-	if(edgeBarriers)
-		glsl::barrier();
-	
 	SharedAccessor accessor;
+	
+	if(edgeBarriers)
+		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+	
 	if (Elect())
 		accessor.broadcast.set(uballotBitfieldCount, val);
 	
 	if(edgeBarriers)
-		glsl::barrier();
+		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
 	
 	return accessor.broadcast.get(uballotBitfieldCount);
 }

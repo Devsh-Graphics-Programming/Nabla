@@ -18,13 +18,13 @@ namespace ballot
 template<typename T>
 T subgroupBroadcastFirst(T value)
 {
-	return spirv::subgroupBroadcastFirst(/* Subgroup Scope */ 3, value);
+	return spirv::ballot::subgroupBroadcastFirst(/* Subgroup Scope */ 3, value);
 }
 
 template<typename T>
 T subgroupBroadcast(T value, uint invocationId)
 {
-	return spirv::subgroupBroadcast(/* Subgroup Scope */ 3, value, invocationId);
+	return spirv::ballot::subgroupBroadcast(/* Subgroup Scope */ 3, value, invocationId);
 }
 
 }

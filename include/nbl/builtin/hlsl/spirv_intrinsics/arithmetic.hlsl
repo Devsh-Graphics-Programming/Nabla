@@ -21,33 +21,47 @@ void arithmetic_extcap(){}
 
 namespace arithmetic
 {
+[[vk::ext_instruction(349)]]
+int groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, int value);
+[[vk::ext_instruction(349)]]
+uint groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
+[[vk::ext_instruction(350)]]
+float groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, float value);
+
+[[vk::ext_instruction(351)]]
+int groupMul(uint groupScope, [[vk::ext_literal]] uint operation, int value);
+[[vk::ext_instruction(351)]]
+uint groupMul(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
+[[vk::ext_instruction(352)]]
+float groupMul(uint groupScope, [[vk::ext_literal]] uint operation, float value);
+
 template<typename T>
 [[vk::ext_instruction(359)]]
-T subgroupPrefixAnd(uint scope, [[vk::ext_literal]] uint operation, T value);
+T groupBitwiseAnd(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 template<typename T>
 [[vk::ext_instruction(360)]]
-T subgroupPrefixOr(uint scope, [[vk::ext_literal]] uint operation, T value);
+T groupBitwiseOr(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 template<typename T>
 [[vk::ext_instruction(361)]]
-T subgroupPrefixXor(uint scope, [[vk::ext_literal]] uint operation, T value);
+T groupBitwiseXor(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 // The MIN and MAX operations in SPIR-V have different Ops for each arithmetic type
 // so we implement them distinctly
 [[vk::ext_instruction(353)]]
-int subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, int value);
+int groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, int value);
 [[vk::ext_instruction(354)]]
-uint subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, uint value);
+uint groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
 [[vk::ext_instruction(355)]]
-float subgroupPrefixMin(uint scope, [[vk::ext_literal]] uint operation, float value);
+float groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
 [[vk::ext_instruction(356)]]
-int subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, int value);
+int groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, int value);
 [[vk::ext_instruction(357)]]
-uint subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, uint value);
+uint groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
 [[vk::ext_instruction(358)]]
-float subgroupPrefixMax(uint scope, [[vk::ext_literal]] uint operation, float value);
+float groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
 }
 

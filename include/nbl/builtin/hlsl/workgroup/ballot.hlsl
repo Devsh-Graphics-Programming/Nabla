@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
@@ -35,22 +35,23 @@ namespace workgroup
 template<class SharedAccessor, bool edgeBarriers = true>
 void ballot(in bool value)
 {
-	if(edgeBarriers)
-		glsl::barrier();
-	
 	SharedAccessor accessor;
+	
+	if(edgeBarriers)
+		accessor.main.workgroupExecutionAndMemoryBarrier();
+	
 	uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
 	if(initialize) {
 		accessor.main.set(gl_LocalInvocationIndex, 0u);
 	}
-	glsl::barrier();
+	accessor.main.workgroupExecutionAndMemoryBarrier();
 	if(value) {
 		uint dummy;
 		accessor.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
 	}
 	
 	if(edgeBarriers)
-		glsl::barrier();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 }
 
 /**
@@ -60,14 +61,15 @@ void ballot(in bool value)
 template<class SharedAccessor, bool edgeBarriers = true>
 bool ballotBitExtract(in uint index)
 {
-	if(edgeBarriers)
-		glsl::barrier();
-	
 	SharedAccessor accessor;
+	
+	if(edgeBarriers)
+		accessor.main.workgroupExecutionAndMemoryBarrier();
+	
 	const bool retval = (accessor.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
 	
 	if(edgeBarriers)
-		glsl::barrier();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 	
 	return retval;
 }
@@ -95,7 +97,7 @@ uint ballotBitCount()
 {
 	SharedAccessor accessor;
 	accessor.main.set(uballotBitfieldCount, 0u);
-	glsl::barrier();
+	accessor.main.workgroupExecutionAndMemoryBarrier();
 	if(gl_LocalInvocationIndex < uballotBitfieldCount)
 	{
 		const uint localBallot = accessor.main.get(gl_LocalInvocationIndex);
@@ -103,7 +105,7 @@ uint ballotBitCount()
 		uint dummy;
 		accessor.main.atomicAdd(uballotBitfieldCount, localBallotBitCount, dummy);
 	}
-	glsl::barrier();
+	accessor.main.workgroupExecutionAndMemoryBarrier();
 	return accessor.main.get(uballotBitfieldCount);
 }
 

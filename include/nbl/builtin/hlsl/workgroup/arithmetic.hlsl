@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/glsl_compat.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
@@ -22,13 +22,13 @@ struct reduction
     struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {}; // Yes, inclusive scan subgroup op is used for reduction workgroup ops
     T operator()(T value)
     {
-		glsl::barrier();
+		SharedAccessor accessor;
+		accessor.main.workgroupExecutionAndMemoryBarrier();
         WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(false, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         T result = wsh(value);
-        glsl::barrier();
+        accessor.main.workgroupExecutionAndMemoryBarrier();
         T retVal = Broadcast<uint, SharedAccessor>(result, wsh.lastInvocationInLevel);
-		glsl::barrier();
-		glsl::memoryBarrierShared();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		return retVal;
     }
 };
@@ -39,13 +39,13 @@ struct inclusive_scan
     struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {};
     T operator()(T value)
     {
-		glsl::barrier();
+		SharedAccessor accessor;
+		accessor.main.workgroupExecutionAndMemoryBarrier();
         WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(true, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
         WorkgroupScanTail<T, Binop, SharedAccessor> wst = WorkgroupScanTail<T, Binop, SharedAccessor>::create(false, Binop::identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
 		T retVal = wst();
-		glsl::barrier();
-		glsl::memoryBarrierShared();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		return retVal;
     }
 };
@@ -56,13 +56,13 @@ struct exclusive_scan
     struct inclusive_scan_t : subgroup::inclusive_scan<T, Binop> {}; // Yes, inclusive scan subgroup op is used for exclusive workgroup ops
     T operator()(T value)
     {
-		glsl::barrier();
+		SharedAccessor accessor;
+		accessor.main.workgroupExecutionAndMemoryBarrier();
         WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor> wsh = WorkgroupScanHead<T, inclusive_scan_t, SharedAccessor>::create(true, Binop::identity(), _NBL_HLSL_WORKGROUP_SIZE_);
         wsh(value);
         WorkgroupScanTail<T, Binop, SharedAccessor> wst = WorkgroupScanTail<T, Binop, SharedAccessor>::create(true, Binop::identity(), wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
 		T retVal = wst();
-		glsl::barrier();
-		glsl::memoryBarrierShared();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		return retVal;
     }
 };
@@ -83,7 +83,7 @@ uint ballotScanBitCount(in bool exclusive)
 			localBitfieldBackup = accessor.main.get(gl_LocalInvocationIndex);
 		}
 		// scan hierarchically, invocations with `gl_LocalInvocationIndex >= uballotBitfieldCount` will have garbage here
-		glsl::barrier();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		
 		WSHT wsh = WSHT::create(true, 0u, uballotBitfieldCount);
 		wsh(countbits(localBitfieldBackup));
@@ -93,7 +93,7 @@ uint ballotScanBitCount(in bool exclusive)
 		
 		// fix it (abuse the fact memory is left over)
 		globalCount = _dword != 0u ? accessor.main.get(_dword) : 0u;
-		glsl::barrier();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		
 		// restore because the counting process has changed the ballots in the shared mem
 		// and we might want to use them further
@@ -101,7 +101,7 @@ uint ballotScanBitCount(in bool exclusive)
 		{
 			accessor.main.set(gl_LocalInvocationIndex, localBitfieldBackup);
 		}
-		glsl::barrier();
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 	}
 	const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(gl_LocalInvocationIndex&31u));
 	return globalCount + countbits(localBitfield & mask);
