@@ -530,13 +530,6 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
-	endif()
-endif()
-
 add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
 	VERBATIM
@@ -684,6 +677,14 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
 	if (_NBL_COMPILE_WITH_OPEN_EXR_)
+		# OpenEXR guys, please correct installation targets to avoid warnings!
+		set_target_properties(Half PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(Iex PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IexMath PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IlmImf PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IlmThread PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(Imath PROPERTIES PUBLIC_HEADER "")
+	
 		nbl_install_lib(Half)
 		nbl_install_lib(Iex)
 		nbl_install_lib(IexMath)
