@@ -47,23 +47,8 @@ namespace shapes
         using vec2 = vector<float_t, 2>;
         using vec3 = vector<float_t, 3>;
 
-        struct QuadBezierAnalyticArcLengthCalculator
+        struct ArcLengthPrecomputedValues
         {
-            void calculate(vec2 P0, vec2 P1, vec2 P2)
-            {
-                vec2 A = P0 - 2.0 * P1 + P2;
-                vec2 B = 2.0 * (P1 - P0);
-                vec2 C = P0;
-                lenA2 = dot(A, A);
-                AdotB = dot(A, B);
-
-                a = 4.0 * lenA2;
-                b = 4.0 * AdotB;
-                c = dot(B, B);
-
-                b_over_4a = AdotB / a;
-            }
-
             float_t lenA2;
             float_t AdotB;
 
@@ -77,18 +62,21 @@ namespace shapes
         vec2 P0;
         vec2 P1;
         vec2 P2;
-        QuadBezierAnalyticArcLengthCalculator preCompValues;
+        ArcLengthPrecomputedValues preCompValues;
 
-        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2, bool precomputeArcLenVariables = false)
+        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
         {
             QuadraticBezier ret;
             ret.P0 = P0;
             ret.P1 = P1;
             ret.P2 = P2;
 
-            if (precomputeArcLenVariables)
-                ret.preCompValues.calculate(P0, P1, P2);
+            return ret;
+        }
 
+        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2, float_t lenA2, float_t AdotB, float_t a, float_t b, float_t c, float_t b_over_4a)
+        {
+            QuadraticBezier ret = {P0, P1, P2, lenA2, AdotB, a, b, c, b_over_4a};
             return ret;
         }
 
