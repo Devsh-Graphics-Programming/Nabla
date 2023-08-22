@@ -47,13 +47,48 @@ namespace shapes
         using vec2 = vector<float_t, 2>;
         using vec3 = vector<float_t, 3>;
 
+        struct QuadBezierAnalyticArcLengthCalculator
+        {
+            void calculate(vec2 P0, vec2 P1, vec2 P2)
+            {
+                vec2 A = P0 - 2.0 * P1 + P2;
+                vec2 B = 2.0 * (P1 - P0);
+                vec2 C = P0;
+                lenA2 = dot(A, A);
+                AdotB = dot(A, B);
+
+                a = 4.0 * lenA2;
+                b = 4.0 * AdotB;
+                c = dot(B, B);
+
+                b_over_4a = AdotB / a;
+            }
+
+            float_t lenA2;
+            float_t AdotB;
+
+            float_t a;
+            float_t b;
+            float_t c;
+
+            float_t b_over_4a;
+        };
+
         vec2 P0;
         vec2 P1;
         vec2 P2;
+        QuadBezierAnalyticArcLengthCalculator preCompValues;
 
-        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
+        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2, bool precomputeArcLenVariables = false)
         {
-            QuadraticBezier ret = { P0, P1, P2 };
+            QuadraticBezier ret;
+            ret.P0 = P0;
+            ret.P1 = P1;
+            ret.P2 = P2;
+
+            if (precomputeArcLenVariables)
+                ret.preCompValues.calculate(P0, P1, P2);
+
             return ret;
         }
 
@@ -81,26 +116,14 @@ namespace shapes
 
         float_t calcArcLen(float_t t)
         {
-            vec2 A = P0 - 2.0*P1 + P2;
-            vec2 B = 2.0*(P1 - P0);
-            vec2 C = P0;
-            float_t lenA2 = dot(A,A);
-            float_t AdotB = dot(A,B);
-
-            float_t a = 4.0 * lenA2;
-            float_t b = 4.0 * AdotB;
-            float_t c = dot(B,B);
-
-            float_t b_over_4a = AdotB/a;
-
-            float_t lenTan = sqrt(t*(a*t+b)+c);
+            float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
             float_t retval = 0.5f*t*lenTan;
             // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
-            if (lenA2>=exp2(-23.f))
-                retval += b_over_4a*(lenTan-sqrt(c));
+            if (preCompValues.lenA2>=exp2(-23.f))
+                retval += preCompValues.b_over_4a*(lenTan-sqrt(preCompValues.c));
 
             // sin2 multiplied by length of A and B
-            float det_over_16 = AdotB*AdotB-lenA2*c;
+            float det_over_16 = preCompValues.AdotB* preCompValues.AdotB- preCompValues.lenA2* preCompValues.c;
             // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
             if (det_over_16>=exp2(-23.f))
             {
@@ -149,7 +172,7 @@ namespace shapes
 
         static QuadraticBezierOutline construct(vec2 P0, vec2 P1, vec2 P2, float_t thickness)
         {
-            QuadraticBezier<float_t> bezier = { P0, P1, P2 };
+            QuadraticBezier<float_t> bezier = QuadraticBezier<float_t>::construct(P0, P1, P2);
             QuadraticBezierOutline<float_t> ret = { bezier, thickness };
             return ret;
         }
