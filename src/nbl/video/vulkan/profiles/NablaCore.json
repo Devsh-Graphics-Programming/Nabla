@@ -114,7 +114,6 @@
                     "uniformAndStorageBuffer8BitAccess": true,
                     "shaderInt8": true,
                     "descriptorIndexing": true,
-                    "shaderInputAttachmentArrayDynamicIndexing": true,
                     "shaderUniformTexelBufferArrayDynamicIndexing": true,
                     "shaderStorageTexelBufferArrayDynamicIndexing": true,
                     "shaderSampledImageArrayNonUniformIndexing": true,
@@ -145,9 +144,7 @@
                 "VkPhysicalDeviceProperties": {
                     "sparseProperties": {
                         "residencyStandard2DBlockShape": true,
-                        "residencyStandard2DMultisampleBlockShape": true,
                         "residencyStandard3DBlockShape": true,
-                        "residencyAlignedMipSize": true,
                         "residencyNonResidentStrict": true
                     },
                     "limits": {
@@ -193,10 +190,10 @@
                         "maxDrawIndirectCount": 1073741824,
                         "maxFragmentCombinedOutputResources": 127,
                         "maxFragmentDualSrcAttachments": 1,
-                        "maxFragmentInputComponents": 124,
+                        "maxFragmentInputComponents": 116,
                         "maxFragmentOutputAttachments": 8,
                         "maxFramebufferHeight": 16384,
-                        "maxFramebufferLayers": 2048,
+                        "maxFramebufferLayers": 1024,
                         "maxFramebufferWidth": 16384,
                         "maxGeometryInputComponents": 0,
                         "maxGeometryOutputComponents": 0,
@@ -226,7 +223,7 @@
                         "maxTessellationControlPerPatchOutputComponents": 120,
                         "maxTessellationControlPerVertexInputComponents": 124,
                         "maxTessellationControlPerVertexOutputComponents": 124,
-                        "maxTessellationControlTotalOutputComponents": 4088,
+                        "maxTessellationControlTotalOutputComponents": 2048,
                         "maxTessellationEvaluationInputComponents": 124,
                         "maxTessellationEvaluationOutputComponents": 124,
                         "maxTessellationGenerationLevel": 64,
@@ -236,13 +233,13 @@
                         "maxTexelOffset": 7,
                         "maxUniformBufferRange": 65536,
                         "maxVertexInputAttributeOffset": 2047,
-                        "maxVertexInputAttributes": 31,
+                        "maxVertexInputAttributes": 29,
                         "maxVertexInputBindingStride": 2048,
                         "maxVertexInputBindings": 31,
                         "maxVertexOutputComponents": 124,
                         "maxViewports": 16,
                         "minInterpolationOffset": -0.5,
-                        "minMemoryMapAlignment": 256,
+                        "minMemoryMapAlignment": 4096,
                         "minStorageBufferOffsetAlignment": 64,
                         "minTexelBufferOffsetAlignment": 64,
                         "minTexelGatherOffset": -8,
@@ -251,7 +248,7 @@
                         "mipmapPrecisionBits": 4,
                         "nonCoherentAtomSize": 256,
                         "optimalBufferCopyOffsetAlignment": 256,
-                        "optimalBufferCopyRowPitchAlignment": 64,
+                        "optimalBufferCopyRowPitchAlignment": 128,
                         "pointSizeGranularity": 1,
                         "sampledImageColorSampleCounts": [
                             "VK_SAMPLE_COUNT_1_BIT",
@@ -307,7 +304,10 @@
                         "lineWidthRange": [
                             1,
                             1
-                        ]
+                        ],
+                        "timestampPeriod": 10,
+                        "strictLines": false,
+                        "standardSampleLocations": true
                     }
                 },
                 "VkPhysicalDeviceSubgroupProperties": {
@@ -365,7 +365,7 @@
                     "maxPerStageDescriptorUpdateAfterBindStorageBuffers": 31,
                     "maxPerStageDescriptorUpdateAfterBindSampledImages": 96,
                     "maxPerStageDescriptorUpdateAfterBindStorageImages": 8,
-                    "maxPerStageDescriptorUpdateAfterBindInputAttachments": 96,
+                    "maxPerStageDescriptorUpdateAfterBindInputAttachments": 64,
                     "maxPerStageUpdateAfterBindResources": 127,
                     "maxDescriptorSetUpdateAfterBindSamplers": 80,
                     "maxDescriptorSetUpdateAfterBindUniformBuffers": 90,
@@ -374,7 +374,7 @@
                     "maxDescriptorSetUpdateAfterBindStorageBuffersDynamic": 8,
                     "maxDescriptorSetUpdateAfterBindSampledImages": 480,
                     "maxDescriptorSetUpdateAfterBindStorageImages": 40,
-                    "maxDescriptorSetUpdateAfterBindInputAttachments": 480,
+                    "maxDescriptorSetUpdateAfterBindInputAttachments": 256,
                     "supportedDepthResolveModes": [
                         "VK_RESOLVE_MODE_SAMPLE_ZERO_BIT",
                         "VK_RESOLVE_MODE_MAX_BIT"
@@ -387,7 +387,6 @@
                     "maxTimelineSemaphoreValueDifference": 2147483647,
                     "framebufferIntegerColorSampleCounts": [
                         "VK_SAMPLE_COUNT_1_BIT",
-                        "VK_SAMPLE_COUNT_2_BIT",
                         "VK_SAMPLE_COUNT_4_BIT"
                     ]
                 }
@@ -688,7 +687,6 @@
                         ],
                         "bufferFeatures": [
                             "VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT",
-                            "VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT",
                             "VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT"
                         ]
                     }
@@ -1994,7 +1992,7 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_23_09_21": {
+        "VP_LUNARG_merged_2023_08_23_12_43": {
             "version": 1,
             "api-version": "1.2.250",
             "label": "Nabla Core Profile",
