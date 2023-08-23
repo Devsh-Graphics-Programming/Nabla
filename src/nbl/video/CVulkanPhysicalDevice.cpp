@@ -339,8 +339,13 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
             addToPNextChain(&vulkan12Properties);
             //! Required by Nabla Core Profile
-            if (vk_deviceProperties.apiVersion<VK_MAKE_API_VERSION(0,1,3,0) && !isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
-                return nullptr;
+            if (vk_deviceProperties.apiVersion<VK_MAKE_API_VERSION(0,1,3,0))
+            {
+                if (!isExtensionSupported(VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME))
+                    return nullptr;
+                if (!isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
+                    return nullptr;
+            }
             VkPhysicalDeviceSubgroupSizeControlProperties           subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES };
             addToPNextChain(&subgroupSizeControlProperties);
             //! Provided by Vk 1.3
@@ -1044,6 +1049,11 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             /* Vulkan 1.3 Core  */
 
+            // TODO: check
+            //if (!imageRobustnessFeatures.robustImageAccess)
+            //    return nullptr;
+            features.robustImageAccess = imageRobustnessFeatures.robustImageAccess;
+
             if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME))
             {
                 features.shaderTerminateInvocation = shaderTerminateInvocationFeatures.shaderTerminateInvocation;
@@ -1054,11 +1064,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 features.shaderIntegerDotProduct = shaderIntegerDotProductFeatures.shaderIntegerDotProduct;
                 // [TODO] there's a bunch of fields! https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR.html
                     // RESPONSE FROM ERFAN: That's not features, that's properties
-            }
-
-            if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_IMAGE_ROBUSTNESS_EXTENSION_NAME))
-            {
-                features.robustImageAccess = imageRobustnessFeatures.robustImageAccess;
             }
 
             if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_PIPELINE_CREATION_CACHE_CONTROL_EXTENSION_NAME))
@@ -1091,7 +1096,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 features.accelerationStructure = accelerationFeatures.accelerationStructure;
                 features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
                 features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
-                features.descriptorBindingAccelerationStructureUpdateAfterBind = accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+                if (!accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
+                    return nullptr;
             }
             
             /* RayTracingPipelineFeaturesKHR */
@@ -1957,8 +1963,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             
         if (enabledFeatures.accelerationStructure ||
             enabledFeatures.accelerationStructureIndirectBuild ||
-            enabledFeatures.accelerationStructureHostCommands ||
-            enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
+            enabledFeatures.accelerationStructureHostCommands)
         {
             // IMPLICIT ENABLE: descriptorIndexing -> Already handled because of resolveFeatureDependencies(featuresToEnable);
             // IMPLICIT ENABLE: bufferDeviceAddress -> Already handled because of requirement
@@ -1968,7 +1973,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             accelerationStructureFeatures.accelerationStructure = enabledFeatures.accelerationStructure;
             accelerationStructureFeatures.accelerationStructureIndirectBuild = enabledFeatures.accelerationStructureIndirectBuild;
             accelerationStructureFeatures.accelerationStructureHostCommands = enabledFeatures.accelerationStructureHostCommands;
-            accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = enabledFeatures.descriptorBindingAccelerationStructureUpdateAfterBind;
+            accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = enabledFeatures.accelerationStructure;
             addFeatureToChain(&accelerationStructureFeatures);
         }
             

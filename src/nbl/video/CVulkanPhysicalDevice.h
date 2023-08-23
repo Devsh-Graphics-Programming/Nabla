@@ -51,11 +51,9 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
 
             if (features.accelerationStructure ||
                 features.accelerationStructureIndirectBuild ||
-                features.accelerationStructureHostCommands ||
-                features.descriptorBindingAccelerationStructureUpdateAfterBind)
+                features.accelerationStructureHostCommands)
             {
                 features.accelerationStructure = true;
-                features.descriptorIndexing = true;
                 features.deferredHostOperations = true;
             }
 

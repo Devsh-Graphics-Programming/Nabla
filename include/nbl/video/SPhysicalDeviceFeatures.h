@@ -182,7 +182,7 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.2 Core */
 
-    // [REQUIRE] Device support ubiquitous
+    // [REQUIRE] ROADMAP 2022 and device support ubiquitous
     //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
  
     // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support, exposed as a limit `drawIndirectCount`
@@ -237,9 +237,8 @@ struct SPhysicalDeviceFeatures
     //bool descriptorBindingStorageTexelBufferUpdateAfterBind = true;
     //bool descriptorBindingUpdateUnusedWhilePending = true;
     //bool descriptorBindingPartiallyBound = true;
-    // [REQUIRE] good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool descriptorBindingVariableDescriptorCount = true;
-    // [REQUIRE] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
     //bool runtimeDescriptorArray = true;
     
     // [EXPOSE AS A LIMIT]
@@ -278,6 +277,16 @@ struct SPhysicalDeviceFeatures
     //bool subgroupBroadcastDynamicId = true;
 
     /* Vulkan 1.3 Core */
+
+    /*
+        This feature adds stricter requirements for how out of bounds reads from images are handled.
+        Rather than returning undefined values,
+        most out of bounds reads return R, G, and B values of zero and alpha values of either zero or one.
+        Components not present in the image format may be set to zero
+        or to values based on the format as described in Conversion to RGBA in vulkan specification.
+    */
+    // widely supported but has performance overhead, so remains an optional feature to enable
+    bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
     
     // [DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
     // [DEPRECATED] Vulkan 1.3, Nabla Core Profile:
@@ -452,7 +461,8 @@ struct SPhysicalDeviceFeatures
     bool accelerationStructure = false;
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
-    bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+    // [DO NOT EXPOSE] implied by `accelerationStructure`
+    //bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
             
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
@@ -482,7 +492,7 @@ struct SPhysicalDeviceFeatures
     bool rayTracingPipelineTraceRaysIndirect = false;
     bool rayTraversalPrimitiveCulling = false;
 
-    // [DEPRECATED] Vulkan 1.1 Core
+    // [DEPRECATED] Vulkan 1.1 Core and ROADMAP 2022
     /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion */
 
     // [DEPRECATED] Vulkan 1.2 Core non-optional
@@ -617,16 +627,11 @@ struct SPhysicalDeviceFeatures
     //bool           image2DViewOf3D;
     //bool           sampler2DViewOf3D;
 
-    /*
-        This feature adds stricter requirements for how out of bounds reads from images are handled. 
-        Rather than returning undefined values,
-        most out of bounds reads return R, G, and B values of zero and alpha values of either zero or one.
-        Components not present in the image format may be set to zero 
-        or to values based on the format as described in Conversion to RGBA in vulkan specification.
-    */
-    bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
+    // [DEPRECATED] Vulkan 1.3 core non-optional
+    /* VK_EXT_image_robustness */
 
-    /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block *//* MOVED TO Vulkan 1.3 Core */
+    // [DEPRECATED] Required wholly by ROADMAP 2022 and Nabla Core Profile
+    /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block */
 
     // [TODO] need impl, this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
@@ -1182,7 +1187,6 @@ struct SPhysicalDeviceFeatures
         if (accelerationStructure && !_rhs.accelerationStructure) return false;
         if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
         if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
-        if (descriptorBindingAccelerationStructureUpdateAfterBind && !_rhs.descriptorBindingAccelerationStructureUpdateAfterBind) return false;
         if (rayQuery && !_rhs.rayQuery) return false;
         if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
         if (rayTracingPipelineTraceRaysIndirect && !_rhs.rayTracingPipelineTraceRaysIndirect) return false;

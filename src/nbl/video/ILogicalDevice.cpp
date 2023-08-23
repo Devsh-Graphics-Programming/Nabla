@@ -363,8 +363,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.sparseImageInt64Atomics) addShaderDefineToPool(pool, "NBL_SPARSE_IMAGE_INT64_ATOMICS");
         if (features.accelerationStructure) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE");
         if (features.accelerationStructureIndirectBuild) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_INDIRECT_BUILD");
-        if (features.accelerationStructureHostCommands) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_HOST_COMMANDS");
-        // if (features.descriptorBindingAccelerationStructureUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_ACCELERATION_STRUCTURE_UPDATE_AFTER_BIND"); // shader doesn't need to know about
+        //if (features.accelerationStructureHostCommands) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_HOST_COMMANDS"); // shader doesn't need to know about
         if (features.rayQuery) addShaderDefineToPool(pool, "NBL_RAY_QUERY");
         if (features.rayTracingPipeline) addShaderDefineToPool(pool, "NBL_RAY_TRACING_PIPELINE");
         if (features.rayTracingPipelineTraceRaysIndirect) addShaderDefineToPool(pool, "NBL_RAY_TRACING_PIPELINE_TRACE_RAYS_INDIRECT");
