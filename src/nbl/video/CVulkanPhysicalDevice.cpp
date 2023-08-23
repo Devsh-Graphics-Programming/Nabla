@@ -1023,7 +1023,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!vulkan12Features.runtimeDescriptorArray)
                 return nullptr;
 
-            features.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
+            properties.limits.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
 
             if (!vulkan12Features.scalarBlockLayout)
                 return nullptr;
@@ -1366,9 +1366,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderImageGatherExtended = deviceFeatures.features.shaderImageGatherExtended;
             properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
 
-            properties.limits.vulkanMemoryModel = vulkan12Features.vulkanMemoryModel;
-            properties.limits.vulkanMemoryModelDeviceScope = vulkan12Features.vulkanMemoryModelDeviceScope;
-            properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
             properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
             properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
             
@@ -1823,7 +1820,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.descriptorBindingPartiallyBound = true; // implied by `descriptorIndexing`
         vulkan12Features.descriptorBindingVariableDescriptorCount = true; // ubiquitous
         vulkan12Features.runtimeDescriptorArray = true; // implied by `descriptorIndexing`
-        vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
+        vulkan12Features.samplerFilterMinmax = properties.limits.samplerFilterMinmax;
         vulkan12Features.scalarBlockLayout = true; // ROADMAP 2022
         vulkan12Features.imagelessFramebuffer = false; // decided against
         vulkan12Features.uniformBufferStandardLayout = true; // required anyway

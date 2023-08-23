@@ -242,8 +242,8 @@ struct SPhysicalDeviceFeatures
     // [REQUIRE] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
     //bool runtimeDescriptorArray = true;
     
-    // TODO: Actually implement the sampler flag enums
-    bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
+    // [EXPOSE AS A LIMIT]
+    //bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
 
     // [REQUIRE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
     //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout

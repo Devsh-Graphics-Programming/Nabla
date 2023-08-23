@@ -604,6 +604,9 @@ struct SPhysicalDeviceLimits
     bool shaderInputAttachmentArrayNonUniformIndexing = false;
     bool descriptorBindingUniformBufferUpdateAfterBind = false;
     
+    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
+    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
+    
     // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModel = false;
     bool vulkanMemoryModelDeviceScope = false;
@@ -945,6 +948,7 @@ struct SPhysicalDeviceLimits
         if (shaderStorageImageArrayNonUniformIndexing && !_rhs.shaderStorageImageArrayNonUniformIndexing) return false;
         if (shaderInputAttachmentArrayNonUniformIndexing && !_rhs.shaderInputAttachmentArrayNonUniformIndexing) return false;
         if (descriptorBindingUniformBufferUpdateAfterBind && !_rhs.descriptorBindingUniformBufferUpdateAfterBind) return false;
+        if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
         if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
         if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
         if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
