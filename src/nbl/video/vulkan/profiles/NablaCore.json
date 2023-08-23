@@ -145,7 +145,9 @@
                     "sparseProperties": {
                         "residencyStandard2DBlockShape": true,
                         "residencyStandard3DBlockShape": true,
-                        "residencyNonResidentStrict": true
+                        "residencyNonResidentStrict": true,
+                        "residencyStandard2DMultisampleBlockShape": true,
+                        "residencyAlignedMipSize": true
                     },
                     "limits": {
                         "bufferImageGranularity": 65536,
@@ -304,10 +306,7 @@
                         "lineWidthRange": [
                             1,
                             1
-                        ],
-                        "timestampPeriod": 10,
-                        "strictLines": false,
-                        "standardSampleLocations": true
+                        ]
                     }
                 },
                 "VkPhysicalDeviceSubgroupProperties": {
@@ -1992,7 +1991,7 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_23_12_43": {
+        "VP_LUNARG_merged_2023_08_23_13_03": {
             "version": 1,
             "api-version": "1.2.250",
             "label": "Nabla Core Profile",
