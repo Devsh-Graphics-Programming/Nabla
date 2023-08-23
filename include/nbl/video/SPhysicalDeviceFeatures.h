@@ -159,7 +159,7 @@ struct SPhysicalDeviceFeatures
 
     // [REQUIRE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
-    // 
+
     // [EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
@@ -206,38 +206,41 @@ struct SPhysicalDeviceFeatures
     // [REQUIRE] good device coverage
     //bool shaderInt8 = true;
     
-    // or VK_EXT_descriptor_indexing
-    bool descriptorIndexing = false;  // always enable ?
-    bool shaderInputAttachmentArrayDynamicIndexing = false;
-
-    // on ROADMAP 2022 but need to check stuff first
-    bool shaderUniformTexelBufferArrayDynamicIndexing = false;
-    bool shaderStorageTexelBufferArrayDynamicIndexing = false;
-    bool shaderUniformBufferArrayNonUniformIndexing = false;
-    bool shaderSampledImageArrayNonUniformIndexing = false;
-    bool shaderStorageBufferArrayNonUniformIndexing = false;
-    bool shaderStorageImageArrayNonUniformIndexing = false;
-
-    bool shaderInputAttachmentArrayNonUniformIndexing = false;
-
-    // on ROADMAP 2022 but need to check stuff first
-    bool shaderUniformTexelBufferArrayNonUniformIndexing = false;
-    bool shaderStorageTexelBufferArrayNonUniformIndexing = false;
-
-    bool descriptorBindingUniformBufferUpdateAfterBind = false;
-
-    // on ROADMAP 2022 but need to check stuff first
-    bool descriptorBindingSampledImageUpdateAfterBind = false;
-    bool descriptorBindingStorageImageUpdateAfterBind = false;
-    bool descriptorBindingStorageBufferUpdateAfterBind = false;
-    bool descriptorBindingUniformTexelBufferUpdateAfterBind = false;
-    bool descriptorBindingStorageTexelBufferUpdateAfterBind = false;
-
-    // supported by ROADMAP 2022 but might be expensive to enable for the implementation
-    bool descriptorBindingUpdateUnusedWhilePending = false;
-    bool descriptorBindingPartiallyBound = false;
-    bool descriptorBindingVariableDescriptorCount = false;
-    bool runtimeDescriptorArray = false;
+    // [REQUIRE] ROADMAP 2022
+    //bool descriptorIndexing = true;
+    // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
+    //bool shaderInputAttachmentArrayDynamicIndexing = false;
+    // [REQUIRE] because we also require `descriptorIndexing`
+    //bool shaderUniformTexelBufferArrayDynamicIndexing = true;
+    //bool shaderStorageTexelBufferArrayDynamicIndexing = true;
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support
+    //bool shaderUniformBufferArrayNonUniformIndexing = false;
+    // [REQUIRE] because we also require `descriptorIndexing`
+    //bool shaderSampledImageArrayNonUniformIndexing = true;
+    //bool shaderStorageBufferArrayNonUniformIndexing = true;
+    // [EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support
+    //bool shaderStorageImageArrayNonUniformIndexing = false;
+    // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
+    //bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    // [REQUIRE] because we also require `descriptorIndexing`
+    //bool shaderUniformTexelBufferArrayNonUniformIndexing = true;
+    // [REQUIRE] ROADMAP 2022 and good device support
+    //bool shaderStorageTexelBufferArrayNonUniformIndexing = true;
+    // We have special bits on the Descriptor Layout Bindings and those should decide the overhead, not the enablement of a feature like the following
+    // [EXPOSE AS A LIMIT] not great coverage but still can enable when available
+    //bool descriptorBindingUniformBufferUpdateAfterBind = false;
+    // [REQUIRE] because we also require `descriptorIndexing`
+    //bool descriptorBindingSampledImageUpdateAfterBind = true;
+    //bool descriptorBindingStorageImageUpdateAfterBind = true;
+    //bool descriptorBindingStorageBufferUpdateAfterBind = true;
+    //bool descriptorBindingUniformTexelBufferUpdateAfterBind = true;
+    //bool descriptorBindingStorageTexelBufferUpdateAfterBind = true;
+    //bool descriptorBindingUpdateUnusedWhilePending = true;
+    //bool descriptorBindingPartiallyBound = true;
+    // [REQUIRE] good device support
+    //bool descriptorBindingVariableDescriptorCount = true;
+    // [REQUIRE] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
+    //bool runtimeDescriptorArray = true;
     
     // TODO: Actually implement the sampler flag enums
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
@@ -1114,27 +1117,6 @@ struct SPhysicalDeviceFeatures
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
-        if (descriptorIndexing && !_rhs.descriptorIndexing) return false;
-        if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
-        if (shaderUniformTexelBufferArrayDynamicIndexing && !_rhs.shaderUniformTexelBufferArrayDynamicIndexing) return false;
-        if (shaderStorageTexelBufferArrayDynamicIndexing && !_rhs.shaderStorageTexelBufferArrayDynamicIndexing) return false;
-        if (shaderUniformBufferArrayNonUniformIndexing && !_rhs.shaderUniformBufferArrayNonUniformIndexing) return false;
-        if (shaderSampledImageArrayNonUniformIndexing && !_rhs.shaderSampledImageArrayNonUniformIndexing) return false;
-        if (shaderStorageBufferArrayNonUniformIndexing && !_rhs.shaderStorageBufferArrayNonUniformIndexing) return false;
-        if (shaderStorageImageArrayNonUniformIndexing && !_rhs.shaderStorageImageArrayNonUniformIndexing) return false;
-        if (shaderInputAttachmentArrayNonUniformIndexing && !_rhs.shaderInputAttachmentArrayNonUniformIndexing) return false;
-        if (shaderUniformTexelBufferArrayNonUniformIndexing && !_rhs.shaderUniformTexelBufferArrayNonUniformIndexing) return false;
-        if (shaderStorageTexelBufferArrayNonUniformIndexing && !_rhs.shaderStorageTexelBufferArrayNonUniformIndexing) return false;
-        if (descriptorBindingUniformBufferUpdateAfterBind && !_rhs.descriptorBindingUniformBufferUpdateAfterBind) return false;
-        if (descriptorBindingSampledImageUpdateAfterBind && !_rhs.descriptorBindingSampledImageUpdateAfterBind) return false;
-        if (descriptorBindingStorageImageUpdateAfterBind && !_rhs.descriptorBindingStorageImageUpdateAfterBind) return false;
-        if (descriptorBindingStorageBufferUpdateAfterBind && !_rhs.descriptorBindingStorageBufferUpdateAfterBind) return false;
-        if (descriptorBindingUniformTexelBufferUpdateAfterBind && !_rhs.descriptorBindingUniformTexelBufferUpdateAfterBind) return false;
-        if (descriptorBindingStorageTexelBufferUpdateAfterBind && !_rhs.descriptorBindingStorageTexelBufferUpdateAfterBind) return false;
-        if (descriptorBindingUpdateUnusedWhilePending && !_rhs.descriptorBindingUpdateUnusedWhilePending) return false;
-        if (descriptorBindingPartiallyBound && !_rhs.descriptorBindingPartiallyBound) return false;
-        if (descriptorBindingVariableDescriptorCount && !_rhs.descriptorBindingVariableDescriptorCount) return false;
-        if (runtimeDescriptorArray && !_rhs.runtimeDescriptorArray) return false;
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;

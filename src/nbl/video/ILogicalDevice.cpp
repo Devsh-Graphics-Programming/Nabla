@@ -322,27 +322,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_RESIDENCY");
         if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_MIN_LOD");
         if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_VARIABLE_MULTISAMPLE_RATE");
-        if (features.descriptorIndexing) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_INDEXING");
-        if (features.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
-        if (features.shaderUniformTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");
-        if (features.shaderStorageTexelBufferArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_TEXEL_BUFFER_ARRAY_DYNAMIC_INDEXING");
-        if (features.shaderUniformBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderSampledImageArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_SAMPLED_IMAGE_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderStorageBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderStorageImageArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderInputAttachmentArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderUniformTexelBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_TEXEL_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.shaderStorageTexelBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_TEXEL_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
-        if (features.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_BIND");
-        if (features.descriptorBindingSampledImageUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_SAMPLED_IMAGE_UPDATE_AFTER_BIND");
-        if (features.descriptorBindingStorageImageUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_STORAGE_IMAGE_UPDATE_AFTER_BIND");
-        if (features.descriptorBindingStorageBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_STORAGE_BUFFER_UPDATE_AFTER_BIND");
-        if (features.descriptorBindingUniformTexelBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_TEXEL_BUFFER_UPDATE_AFTER_BIND");
-        if (features.descriptorBindingStorageTexelBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_STORAGE_TEXEL_BUFFER_UPDATE_AFTER_BIND");
-        // if (features.descriptorBindingUpdateUnusedWhilePending) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING"); // shader doesn't need to know about
-        if (features.descriptorBindingPartiallyBound) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_PARTIALLY_BOUND");
-        if (features.descriptorBindingVariableDescriptorCount) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT");
-        if (features.runtimeDescriptorArray) addShaderDefineToPool(pool, "NBL_RUNTIME_DESCRIPTOR_ARRAY");
         if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
         if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
         if (features.shaderDemoteToHelperInvocation) addShaderDefineToPool(pool, "NBL_SHADER_DEMOTE_TO_HELPER_INVOCATION");
@@ -764,6 +743,13 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderSharedInt64Atomics) addShaderDefineToPool(pool, "NBL_SHADER_SHARED_INT64_ATOMICS");
 
         if (limits.shaderFloat16) addShaderDefineToPool(pool, "NBL_SHADER_FLOAT16");
+
+        if (limits.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
+        if (limits.shaderUniformBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
+        if (limits.shaderStorageImageArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING");
+        if (limits.shaderInputAttachmentArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING");
+        // shader doesn't need to know about update-after-bind
+        //if (limits.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_BIND");
 
         if (limits.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL");
         if (limits.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");

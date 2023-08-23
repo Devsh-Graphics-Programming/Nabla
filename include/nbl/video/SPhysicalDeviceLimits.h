@@ -596,6 +596,13 @@ struct SPhysicalDeviceLimits
 
     // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
     bool shaderFloat16 = false;
+
+    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderStorageImageArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
     
     // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModel = false;
@@ -933,6 +940,11 @@ struct SPhysicalDeviceLimits
         if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
         if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
         if (shaderFloat16 && !_rhs.shaderFloat16) return false;
+        if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
+        if (shaderUniformBufferArrayNonUniformIndexing && !_rhs.shaderUniformBufferArrayNonUniformIndexing) return false;
+        if (shaderStorageImageArrayNonUniformIndexing && !_rhs.shaderStorageImageArrayNonUniformIndexing) return false;
+        if (shaderInputAttachmentArrayNonUniformIndexing && !_rhs.shaderInputAttachmentArrayNonUniformIndexing) return false;
+        if (descriptorBindingUniformBufferUpdateAfterBind && !_rhs.descriptorBindingUniformBufferUpdateAfterBind) return false;
         if (vulkanMemoryModel && !_rhs.vulkanMemoryModel) return false;
         if (vulkanMemoryModelDeviceScope && !_rhs.vulkanMemoryModelDeviceScope) return false;
         if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;

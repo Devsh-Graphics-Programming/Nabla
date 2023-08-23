@@ -998,27 +998,30 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!vulkan12Features.shaderInt8)
                 return nullptr;
             
-            features.descriptorIndexing = vulkan12Features.descriptorIndexing;
-            features.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
-            features.shaderUniformTexelBufferArrayDynamicIndexing = vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing;
-            features.shaderStorageTexelBufferArrayDynamicIndexing = vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing;
-            features.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
-            features.shaderSampledImageArrayNonUniformIndexing = vulkan12Features.shaderSampledImageArrayNonUniformIndexing;
-            features.shaderStorageBufferArrayNonUniformIndexing = vulkan12Features.shaderStorageBufferArrayNonUniformIndexing;
-            features.shaderStorageImageArrayNonUniformIndexing = vulkan12Features.shaderStorageImageArrayNonUniformIndexing;
-            features.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
-            features.shaderUniformTexelBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing;
-            features.shaderStorageTexelBufferArrayNonUniformIndexing = vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing;
-            features.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
-            features.descriptorBindingSampledImageUpdateAfterBind = vulkan12Features.descriptorBindingSampledImageUpdateAfterBind;
-            features.descriptorBindingStorageImageUpdateAfterBind = vulkan12Features.descriptorBindingStorageImageUpdateAfterBind;
-            features.descriptorBindingStorageBufferUpdateAfterBind = vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind;
-            features.descriptorBindingUniformTexelBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind;
-            features.descriptorBindingStorageTexelBufferUpdateAfterBind = vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind;
-            features.descriptorBindingUpdateUnusedWhilePending = vulkan12Features.descriptorBindingUpdateUnusedWhilePending;
-            features.descriptorBindingPartiallyBound = vulkan12Features.descriptorBindingPartiallyBound;
-            features.descriptorBindingVariableDescriptorCount = vulkan12Features.descriptorBindingVariableDescriptorCount;
-            features.runtimeDescriptorArray = vulkan12Features.runtimeDescriptorArray;
+            if (!vulkan12Features.descriptorIndexing)
+                return nullptr;
+            // dynamically uniform
+            properties.limits.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
+            if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
+                return nullptr;
+            // not uniform at all
+            properties.limits.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
+            if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing)
+                return nullptr;
+            properties.limits.shaderStorageImageArrayNonUniformIndexing = vulkan12Features.shaderStorageImageArrayNonUniformIndexing;
+            properties.limits.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
+            if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
+                return nullptr;
+            // update after bind
+            properties.limits.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
+            if (!vulkan12Features.descriptorBindingSampledImageUpdateAfterBind || !vulkan12Features.descriptorBindingStorageImageUpdateAfterBind ||
+                !vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
+                !vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUpdateUnusedWhilePending)
+                return nullptr;
+            if (!vulkan12Features.descriptorBindingPartiallyBound || !vulkan12Features.descriptorBindingVariableDescriptorCount)
+                return nullptr;
+            if (!vulkan12Features.runtimeDescriptorArray)
+                return nullptr;
 
             features.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
 
@@ -1799,27 +1802,27 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.shaderSharedInt64Atomics = properties.limits.shaderSharedInt64Atomics;
         vulkan12Features.shaderFloat16 = properties.limits.shaderFloat16;
         vulkan12Features.shaderInt8 = true; // ubiquitous
-        vulkan12Features.descriptorIndexing = enabledFeatures.descriptorIndexing;
-        vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = enabledFeatures.shaderInputAttachmentArrayDynamicIndexing;
-        vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = enabledFeatures.shaderUniformTexelBufferArrayDynamicIndexing;
-        vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = enabledFeatures.shaderStorageTexelBufferArrayDynamicIndexing;
-        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformBufferArrayNonUniformIndexing;
-        vulkan12Features.shaderSampledImageArrayNonUniformIndexing = enabledFeatures.shaderSampledImageArrayNonUniformIndexing;
-        vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageBufferArrayNonUniformIndexing;
-        vulkan12Features.shaderStorageImageArrayNonUniformIndexing = enabledFeatures.shaderStorageImageArrayNonUniformIndexing;
-        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = enabledFeatures.shaderInputAttachmentArrayNonUniformIndexing;
-        vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderUniformTexelBufferArrayNonUniformIndexing;
-        vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = enabledFeatures.shaderStorageTexelBufferArrayNonUniformIndexing;
-        vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformBufferUpdateAfterBind;
-        vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = enabledFeatures.descriptorBindingSampledImageUpdateAfterBind;
-        vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = enabledFeatures.descriptorBindingStorageImageUpdateAfterBind;
-        vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageBufferUpdateAfterBind;
-        vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingUniformTexelBufferUpdateAfterBind;
-        vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = enabledFeatures.descriptorBindingStorageTexelBufferUpdateAfterBind;
-        vulkan12Features.descriptorBindingUpdateUnusedWhilePending = enabledFeatures.descriptorBindingUpdateUnusedWhilePending;
-        vulkan12Features.descriptorBindingPartiallyBound = enabledFeatures.descriptorBindingPartiallyBound;
-        vulkan12Features.descriptorBindingVariableDescriptorCount = enabledFeatures.descriptorBindingVariableDescriptorCount;
-        vulkan12Features.runtimeDescriptorArray = enabledFeatures.runtimeDescriptorArray;
+        vulkan12Features.descriptorIndexing = true; // ROADMAP 2022
+        vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = properties.limits.shaderInputAttachmentArrayDynamicIndexing;
+        vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = properties.limits.shaderUniformBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderSampledImageArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderStorageImageArrayNonUniformIndexing = properties.limits.shaderStorageImageArrayNonUniformIndexing;
+        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = properties.limits.shaderInputAttachmentArrayNonUniformIndexing;
+        vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = true; // ubiquitous
+        vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = properties.limits.descriptorBindingUniformBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingUpdateUnusedWhilePending = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingPartiallyBound = true; // implied by `descriptorIndexing`
+        vulkan12Features.descriptorBindingVariableDescriptorCount = true; // ubiquitous
+        vulkan12Features.runtimeDescriptorArray = true; // implied by `descriptorIndexing`
         vulkan12Features.samplerFilterMinmax = enabledFeatures.samplerFilterMinmax;
         vulkan12Features.scalarBlockLayout = true; // ROADMAP 2022
         vulkan12Features.imagelessFramebuffer = false; // decided against

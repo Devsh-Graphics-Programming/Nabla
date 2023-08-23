@@ -63,32 +63,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             if (features.coverageReductionMode)
                 features.mixedAttachmentSamples = true;
 
-            // TODO: review
-            if (features.shaderInputAttachmentArrayDynamicIndexing ||
-                features.shaderUniformTexelBufferArrayDynamicIndexing ||
-                features.shaderStorageTexelBufferArrayDynamicIndexing ||
-                features.shaderUniformBufferArrayNonUniformIndexing ||
-                features.shaderSampledImageArrayNonUniformIndexing ||
-                features.shaderStorageBufferArrayNonUniformIndexing ||
-                features.shaderStorageImageArrayNonUniformIndexing ||
-                features.shaderInputAttachmentArrayNonUniformIndexing ||
-                features.shaderUniformTexelBufferArrayNonUniformIndexing ||
-                features.shaderStorageTexelBufferArrayNonUniformIndexing ||
-                features.descriptorBindingUniformBufferUpdateAfterBind ||
-                features.descriptorBindingSampledImageUpdateAfterBind ||
-                features.descriptorBindingStorageImageUpdateAfterBind ||
-                features.descriptorBindingStorageBufferUpdateAfterBind ||
-                features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
-                features.descriptorBindingStorageTexelBufferUpdateAfterBind ||
-                features.descriptorBindingUpdateUnusedWhilePending ||
-                features.descriptorBindingPartiallyBound ||
-                features.descriptorBindingVariableDescriptorCount ||
-                features.runtimeDescriptorArray)
-            {
-                // make sure features have their main bool enabled
-                features.descriptorIndexing = true; // IMPLICIT ENABLE Because: descriptorIndexing indicates whether the implementation supports the minimum set of descriptor indexing features
-            }
-
             // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
             if (features.hdrMetadata)
             {
