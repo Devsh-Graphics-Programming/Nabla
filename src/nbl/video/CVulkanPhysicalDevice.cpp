@@ -898,32 +898,57 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             //if (!features.robustBufferAccess && !isExtensionSupported(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME))
                 //return nullptr;
             features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
-            if (!deviceFeatures.features.fullDrawIndexUint32 || !deviceFeatures.features.imageCubeArray || !deviceFeatures.features.independentBlend)
+            
+            if (!deviceFeatures.features.fullDrawIndexUint32)
                 return nullptr;
+            if (!deviceFeatures.features.imageCubeArray)
+                return nullptr;
+            if (!deviceFeatures.features.independentBlend)
+                return nullptr;
+            
             features.geometryShader = deviceFeatures.features.geometryShader;
             features.tessellationShader = deviceFeatures.features.tessellationShader;
-            if (!deviceFeatures.features.sampleRateShading)
+            
+            if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
                 return nullptr;
-            features.dualSrcBlend = deviceFeatures.features.dualSrcBlend;
-            features.logicOp = deviceFeatures.features.logicOp;
-            if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance || !deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
+            
+            if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance)
                 return nullptr;
-            features.fillModeNonSolid = deviceFeatures.features.fillModeNonSolid;
+            
+            if (!deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
+                return nullptr;
+
+            if (!deviceFeatures.features.fillModeNonSolid)
+                return nullptr;
+            
             features.depthBounds = deviceFeatures.features.depthBounds;
+
             features.wideLines = deviceFeatures.features.wideLines;
             features.largePoints = deviceFeatures.features.largePoints;
-            features.alphaToOne = deviceFeatures.features.alphaToOne;
-            features.multiViewport = deviceFeatures.features.multiViewport;
-            if (!deviceFeatures.features.samplerAnisotropy || !deviceFeatures.features.occlusionQueryPrecise)
+
+            if (!deviceFeatures.features.alphaToOne)
+                return nullptr;
+
+            if (!deviceFeatures.features.multiViewport)
+                return nullptr;
+
+            if (!deviceFeatures.features.samplerAnisotropy)
+                return nullptr;
+
+            if (!deviceFeatures.features.occlusionQueryPrecise)
                 return nullptr;
             features.pipelineStatisticsQuery = deviceFeatures.features.pipelineStatisticsQuery;
+
             if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
                 return nullptr;
             features.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
             features.shaderStorageImageWriteWithoutFormat = deviceFeatures.features.shaderStorageImageWriteWithoutFormat; // really want to make this required
+
             if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
                 return nullptr;
-            features.shaderClipDistance = deviceFeatures.features.shaderClipDistance;
+
+            if (!deviceFeatures.features.shaderClipDistance)
+                return nullptr;
             features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
 
             if (!deviceFeatures.features.shaderInt16)
@@ -1327,7 +1352,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             /*
                 !! Enabled by Default, Exposed as Limits:
             */
-            
+            properties.limits.logicOp = deviceFeatures.features.logicOp;
             properties.limits.vertexPipelineStoresAndAtomics = deviceFeatures.features.vertexPipelineStoresAndAtomics;
             properties.limits.fragmentStoresAndAtomics = deviceFeatures.features.fragmentStoresAndAtomics;
             properties.limits.shaderTessellationAndGeometryPointSize = deviceFeatures.features.shaderTessellationAndGeometryPointSize;
@@ -1694,19 +1719,19 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.geometryShader = enabledFeatures.geometryShader;
         vk_deviceFeatures2.features.tessellationShader = enabledFeatures.tessellationShader;
         vk_deviceFeatures2.features.sampleRateShading = true; // ROADMAP 2022
-        vk_deviceFeatures2.features.dualSrcBlend = enabledFeatures.dualSrcBlend;
-        vk_deviceFeatures2.features.logicOp = enabledFeatures.logicOp;
+        vk_deviceFeatures2.features.dualSrcBlend = true; // good device support
+        vk_deviceFeatures2.features.logicOp = properties.limits.logicOp;
         vk_deviceFeatures2.features.multiDrawIndirect = true; // ROADMAP 2022
         vk_deviceFeatures2.features.drawIndirectFirstInstance = true; // ROADMAP 2022
         vk_deviceFeatures2.features.depthClamp = true; // ROADMAP 2022
         vk_deviceFeatures2.features.depthBiasClamp = true; // ROADMAP 2022
-        vk_deviceFeatures2.features.fillModeNonSolid = enabledFeatures.fillModeNonSolid;
+        vk_deviceFeatures2.features.fillModeNonSolid = true; // good device support
         vk_deviceFeatures2.features.depthBounds = enabledFeatures.depthBounds;
         vk_deviceFeatures2.features.wideLines = enabledFeatures.wideLines;
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
-        vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
-        vk_deviceFeatures2.features.multiViewport = enabledFeatures.multiViewport;
-        vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP
+        vk_deviceFeatures2.features.alphaToOne = true; // good device support
+        vk_deviceFeatures2.features.multiViewport = true; // good device support
+        vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP 2022
         // leave defaulted
         //vk_deviceFeatures2.features.textureCompressionETC2;
         //vk_deviceFeatures2.features.textureCompressionASTC_LDR;
@@ -1725,7 +1750,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = properties.limits.shaderStorageImageArrayDynamicIndexing;
-        vk_deviceFeatures2.features.shaderClipDistance = enabledFeatures.shaderClipDistance;
+        vk_deviceFeatures2.features.shaderClipDistance = true; // good device support
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
         vk_deviceFeatures2.features.shaderInt64 = true; // always enable
         vk_deviceFeatures2.features.shaderInt16 = true; // always enable

@@ -312,18 +312,12 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.robustBufferAccess) addShaderDefineToPool(pool, "NBL_ROBUST_BUFFER_ACCESS");
         if (features.geometryShader) addShaderDefineToPool(pool, "NBL_GEOMETRY_SHADER");
         if (features.tessellationShader) addShaderDefineToPool(pool, "NBL_TESSELLATION_SHADER");
-        if (features.dualSrcBlend) addShaderDefineToPool(pool, "NBL_DUAL_SRC_BLEND");
-        if (features.logicOp) addShaderDefineToPool(pool, "NBL_LOGIC_OP");
-        if (features.fillModeNonSolid) addShaderDefineToPool(pool, "NBL_FILL_MODE_NON_SOLID");
         if (features.depthBounds) addShaderDefineToPool(pool, "NBL_DEPTH_BOUNDS");
         if (features.wideLines) addShaderDefineToPool(pool, "NBL_WIDE_LINES");
         if (features.largePoints) addShaderDefineToPool(pool, "NBL_LARGE_POINTS");
-        if (features.alphaToOne) addShaderDefineToPool(pool, "NBL_ALPHA_TO_ONE");
-        if (features.multiViewport) addShaderDefineToPool(pool, "NBL_MULTI_VIEWPORT");
         // if (features.pipelineStatisticsQuery) addShaderDefineToPool(pool, "NBL_PIPELINE_STATISTICS_QUERY"); // shader doesn't need to know about
         if (features.shaderStorageImageReadWithoutFormat) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT");
         if (features.shaderStorageImageWriteWithoutFormat) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT");
-        if (features.shaderClipDistance) addShaderDefineToPool(pool, "NBL_SHADER_CLIP_DISTANCE");
         if (features.shaderCullDistance) addShaderDefineToPool(pool, "NBL_SHADER_CULL_DISTANCE");
         if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_RESIDENCY");
         if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_MIN_LOD");
@@ -740,6 +734,8 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
         addShaderDefineToPool(pool,"NBL_COOPERATIVE_MATRIX_SUPPORTED_STAGES", static_cast<uint32_t>(limits.cooperativeMatrixSupportedStages.value));
 
+
+        if (limits.logicOp) addShaderDefineToPool(pool, "NBL_LOGIC_OP");
 
         if (limits.vertexPipelineStoresAndAtomics) addShaderDefineToPool(pool, "NBL_VERTEX_PIPELINE_STORES_AND_ATOMICS");
         

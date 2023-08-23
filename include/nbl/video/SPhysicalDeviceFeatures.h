@@ -32,42 +32,50 @@ struct SPhysicalDeviceFeatures
 {
     /* Vulkan 1.0 Core  */
 
+    // widely supported but has performance overhead, so remains an optional feature to enable
     bool robustBufferAccess = false;
 
-    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    // [REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
     //bool fullDrawIndexUint32 = true;
  
-    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool imageCubeArray = true;
     //bool independentBlend = true;
 
+    // I have no clue if these cause overheads from simply being enabled
     bool geometryShader    = false;
     bool tessellationShader = false;
 
-    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool sampleRateShading = true;
 
-    // good device support, candidate for promotion
-    bool dualSrcBlend = false;
-    bool logicOp = false;
+    // [REQUIRE] good device support
+    //bool dualSrcBlend = true;
 
-    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
+    // [EXPOSE AS A LIMIT] Somewhat legacy feature
+    //bool logicOp;
+
+    // [REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
     //bool multiDrawIndirect = true;
     //bool drawIndirectFirstInstance = true;
     //bool depthClamp = true;
     //bool depthBiasClamp = true;
 
-    bool fillModeNonSolid = false;
-    bool depthBounds = false;
-    bool wideLines = false;
-    // good device support, candidate for promotion
-    bool largePoints = false;
-    // good device support, candidate for promotion
-    bool alphaToOne = false;
-    // good device support, candidate for promotion, but can we abandon the A11 ?
-    bool multiViewport = false;
+    // [REQUIRE] good device support
+    //bool fillModeNonSolid = true;
 
-    // [DO NOT EXPOSE] Roadmap 2022 requires support for these, device support is ubiquitous
+    // this is kinda like a weird clip-plane that doesn't count towards clip plane count
+    bool depthBounds = false;
+    // good device support, but a somewhat useless feature (constant screenspace width with limits on width)
+    bool wideLines = false;
+    // good device support, but a somewhat useless feature (axis aligned screenspace boxes with limits on size)
+    bool largePoints = false;
+
+    // [REQUIRE] good device support
+    //bool alphaToOne = true;
+    //bool multiViewport = true;
+
+    // [REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous
     // bool samplerAnisotropy = true;
 
     // [DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice
@@ -75,7 +83,7 @@ struct SPhysicalDeviceFeatures
     //bool    textureCompressionASTC_LDR;
     //bool    textureCompressionBC;
  
-    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool occlusionQueryPrecise = true;
 
     bool pipelineStatisticsQuery = false;
@@ -86,7 +94,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderTessellationAndGeometryPointSize;
     //bool shaderImageGatherExtended;
 
-    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderStorageImageExtendedFormats = true;
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
@@ -94,10 +102,10 @@ struct SPhysicalDeviceFeatures
 
     // Intel is a special boy and doesn't support
     bool shaderStorageImageReadWithoutFormat = false;
-    // very good device support, candidate for promotion (does it cause overhead?)
+    // very good device support, candidate for promotion (does it cause overhead?), but also format feature reporting unimplemented yet
     bool shaderStorageImageWriteWithoutFormat = false;
 
-    // [DO NOT EXPOSE] ROADMAP 2022 and good device support
+    // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderUniformBufferArrayDynamicIndexing = true;
     //bool shaderSampledImageArrayDynamicIndexing = true;
     //bool shaderStorageBufferArrayDynamicIndexing = true;
@@ -105,14 +113,15 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support
     //bool shaderStorageImageArrayDynamicIndexing;
 
-    // good device support, candidate for promotion
-    bool shaderClipDistance = false;
+    // [REQUIRE] good device support
+    // bool shaderClipDistance = true;
+
     bool shaderCullDistance = false;
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderFloat64;
 
-    // [ALWAYS ENABLE]
+    // [REQUIRE]
     //bool shaderInt64 = false;
     //bool shaderInt16 = false;
 
@@ -133,7 +142,8 @@ struct SPhysicalDeviceFeatures
     
     // poor support on Apple GPUs
     bool variableMultisampleRate = false;
-    // [DO NOT EXPOSE] Always enabled, good device support.
+
+    // [REQUIRE] Always enabled, good device support.
     // bool inheritedQueries = false;
 
 
@@ -147,8 +157,9 @@ struct SPhysicalDeviceFeatures
     //bool storagePushConstant16 = false;
     //bool storageInputOutput16 = false;
 
-    // [DO NOT EXPOSE] Required to be present when Vulkan 1.1 is supported
+    // [REQUIRE] Required to be present when Vulkan 1.1 is supported
     //bool multiview;
+    // 
     // [EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
@@ -158,13 +169,14 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Under Vulkan 1.1 if `variablePointers` is present it implies `variablePointersStorageBuffer`
     //bool variablePointersStorageBuffer = variablePointers;
     
+    // [DO NOT EXPOSE] not gonna expose until we have a need to
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
-    //bool           protectedMemory; // [DO NOT EXPOSE] not gonna expose until we have a need to
+    //bool           protectedMemory;
 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
 
-    // [REQUIRED] Force Enabled : VK_KHR_shader_draw_parameters
+    // [REQUIRE] Force Enabled : VK_KHR_shader_draw_parameters
     //bool shaderDrawParameters;
 
 
@@ -177,7 +189,7 @@ struct SPhysicalDeviceFeatures
     //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
     // or VK_KHR_8bit_storage:
-    // [ALWAYS ENABLE] good device coverage
+    // [REQUIRE] good device coverage
     //bool storageBuffer8BitAccess = true;
     //bool uniformAndStorageBuffer8BitAccess = true;
     // [EXPOSE AS LIMIT] not great support yet
@@ -191,7 +203,7 @@ struct SPhysicalDeviceFeatures
     // or VK_KHR_shader_float16_int8:
     // [EXPOSE AS LIMIT] not great support yet
     //bool shaderFloat16 = false;
-    // [ALWAYS ENABLE] good device coverage
+    // [REQUIRE] good device coverage
     //bool shaderInt8 = true;
     
     // or VK_EXT_descriptor_indexing
@@ -1092,18 +1104,12 @@ struct SPhysicalDeviceFeatures
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
         if (geometryShader && !_rhs.geometryShader) return false;
         if (tessellationShader && !_rhs.tessellationShader) return false;
-        if (dualSrcBlend && !_rhs.dualSrcBlend) return false;
-        if (logicOp && !_rhs.logicOp) return false;
-        if (fillModeNonSolid && !_rhs.fillModeNonSolid) return false;
         if (depthBounds && !_rhs.depthBounds) return false;
         if (wideLines && !_rhs.wideLines) return false;
         if (largePoints && !_rhs.largePoints) return false;
-        if (alphaToOne && !_rhs.alphaToOne) return false;
-        if (multiViewport && !_rhs.multiViewport) return false;
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
         if (shaderStorageImageWriteWithoutFormat && !_rhs.shaderStorageImageWriteWithoutFormat) return false;
-        if (shaderClipDistance && !_rhs.shaderClipDistance) return false;
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;

@@ -391,6 +391,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 uint16_t transferSrc : 1u;
                 uint16_t transferDst : 1u;
                 uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
+                // TODO: linearFilter, minmaxFilter, read/write without format, depth comparison
 
                 SUsage()
                     : sampledImage(0)

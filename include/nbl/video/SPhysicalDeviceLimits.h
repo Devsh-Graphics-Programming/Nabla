@@ -547,22 +547,26 @@ struct SPhysicalDeviceLimits
     /*  Always enabled, reported as limits */
 
     // Core 1.0 Features
-    // Only A11 doesn't support 
+
+    // mostly just desktops support this
+    bool logicOp = false;
+
+    // All iOS GPUs don't support
     bool vertexPipelineStoresAndAtomics = false;
 
     // Apple GPUs and some Intels don't support
     bool shaderStorageImageMultisample = false;
 
-    // ROADMAP 2022 but poor support on A11 GPUs
+    // ROADMAP 2022 no support on iOS GPUs
     bool fragmentStoresAndAtomics = false;
 
-    // could deduce from tessellation shader being enables
+    // Candidate for promotion, just need to look into Linux and Android
     bool shaderTessellationAndGeometryPointSize = false;
 
     // very good device support, candidate for promotion
     bool shaderImageGatherExtended = false;
 
-    // ROADMAP 2022 but poor support on A11 GPUs
+    // ROADMAP 2022 but no iOS GPU supports
     bool shaderStorageImageArrayDynamicIndexing = false;
     
     // Intel Gen12 and ARC are special-boy drivers (TM)
@@ -920,6 +924,7 @@ struct SPhysicalDeviceLimits
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
         if (spirvVersion > _rhs.spirvVersion) return false;
 
+        if (logicOp && !_rhs.logicOp) return false;
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
