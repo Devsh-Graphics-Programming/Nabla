@@ -270,6 +270,12 @@ struct SPhysicalDeviceFeatures
     //bool vulkanMemoryModelDeviceScope;
     //bool vulkanMemoryModelAvailabilityVisibilityChains;
 
+    // [EXPOSE AS A LIMIT]
+    //bool shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
+    //bool shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
+
+    // [REQUIRED] ubiquitous device support
+    //bool subgroupBroadcastDynamicId = true;
 
     /* Vulkan 1.3 Core */
     
@@ -474,7 +480,9 @@ struct SPhysicalDeviceFeatures
     bool rayTracingPipelineTraceRaysIndirect = false;
     bool rayTraversalPrimitiveCulling = false;
 
-    /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion *//* MOVED TO Vulkan 1.1 Core */
+    // [DEPRECATED] Vulkan 1.1 Core
+    /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion */
+
     /* SeparateDepthStencilLayoutsFeaturesKHR *//* VK_KHR_separate_depth_stencil_layouts *//* MOVED TO Vulkan 1.2 Core */
     /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
 
@@ -482,20 +490,34 @@ struct SPhysicalDeviceFeatures
     bool shaderDeviceClock = false;
     //bool shaderSubgroupClock; // Enabled by Default, Moved to Limits 
 
-    /* VK_KHR_shader_draw_parameters *//* MOVED TO Vulkan 1.1 Core */
-    /* VK_KHR_shader_float16_int8 *//* MOVED TO Vulkan 1.2 Core */
-    /* VK_KHR_shader_integer_dot_product *//* MOVED TO Vulkan 1.3 Core */
-    /* VK_KHR_shader_subgroup_extended_types *//* MOVED TO Vulkan 1.2 Core */
+    // [DEPRECATED] Vulkan 1.1 Core
+    /* VK_KHR_shader_draw_parameters */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHR_shader_float16_int8 */
+
+    // [DEPRECATED] Vulkan 1.3 Core
+    /* VK_KHR_shader_integer_dot_product */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHR_shader_subgroup_extended_types */
 
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
     bool shaderSubgroupUniformControlFlow = false;
-    
-    /* VK_KHR_shader_terminate_invocation *//* MOVED TO Vulkan 1.3 Core */
-    /* VK_KHR_synchronization2 *//* MOVED TO Vulkan 1.3 Core */
-    /* VK_KHR_timeline_semaphore *//* MOVED TO Vulkan 1.2 Core */
-    /* VK_KHR_uniform_buffer_standard_layout *//* MOVED TO Vulkan 1.2 Core */
-    /* VK_KHR_variable_pointers *//* MOVED TO Vulkan 1.1 Core */
-    /* VK_KHR_vulkan_memory_model *//* MOVED TO Vulkan 1.2 Core */
+
+    // [DEPRECATED] Vulkan 1.3 Core
+    /* VK_KHR_shader_terminate_invocation */
+    /* VK_KHR_synchronization2 */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHR_timeline_semaphore */
+    /* VK_KHR_uniform_buffer_standard_layout */
+
+    // [DEPRECATED] Vulkan 1.1 Core
+    /* VK_KHR_variable_pointers */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHR_vulkan_memory_model */
 
     /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
     bool workgroupMemoryExplicitLayout = false;
@@ -504,7 +526,9 @@ struct SPhysicalDeviceFeatures
     bool workgroupMemoryExplicitLayout16BitAccess = false;
 
     /* VK_KHR_zero_initialize_workgroup_memory *//* MOVED TO Vulkan 1.3 Core */
-    /* VK_KHX_multiview *//* see VK_KHR_multiview *//* MOVED TO Vulkan 1.1 Core */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHX_multiview *//* see VK_KHR_multiview */
 
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
     bool computeDerivativeGroupQuads = false;
@@ -735,10 +759,6 @@ struct SPhysicalDeviceFeatures
     //bool shaderEarlyAndLateFragmentTests;
 
     // Enabled by Default, Moved to Limits 
-    //bool           shaderOutputViewportIndex;     // ALIAS: VK_EXT_shader_viewport_index_layer
-    //bool           shaderOutputLayer;             // ALIAS: VK_EXT_shader_viewport_index_layer
-
-    // Enabled by Default, Moved to Limits 
     /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
     //bool           shaderIntegerFunctions2 = false;
 
@@ -914,7 +934,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE]
     /* VK_AMD_memory_overallocation_behavior */
 
-    // [DEPRECATED] Promoted to VK_KHR_maintenance1, core VK 1.1
+    // [DEPRECATED] Promoted to VK_KHR_maintenance1, non-optional core VK 1.1
     /* VK_AMD_negative_viewport_height */
 
     // [DO NOT EXPOSE] Too vendor specific
@@ -995,35 +1015,35 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_deferred_host_operations */
     bool deferredHostOperations = false;
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_device_group */
     /* VK_KHR_device_group_creation */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_external_fence */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_external_memory */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_external_semaphore */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to core non-optional VK 1.1
     /* VK_KHR_get_memory_requirements2 */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_get_physical_device_properties2 */
 
     // [DO NOT EXPOSE] this is "swap with damange" known from EGL, cant be arsed to support
     /* VK_KHR_incremental_present */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_relaxed_block_layout */
 
     // [DO NOT EXPOSE] Leave for later consideration
     /* VK_KHR_shared_presentable_image */
 
-    // [DEPRECATED] Promoted to core VK 1.1
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_storage_buffer_storage_class */
 
     // [DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled
@@ -1041,7 +1061,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] 0 documentation
     /* VK_NV_cuda_kernel_launch */
     
-    // [DEPRECATED] Promoted to KHR_dedicated_allocation, core VK 1.1
+    // [DEPRECATED] Promoted to KHR_dedicated_allocation, non-optional core VK 1.1
     /* VK_NV_dedicated_allocation */
 
     // [DEPRECATED] Promoted to VK_KHR_external_memory_win32 
@@ -1077,18 +1097,16 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */
 
+    // [DEPRECATED] Core 1.2
+    /* VK_EXT_separate_stencil_usage */
+    /* VK_KHR_create_renderpass2 */
+    // [DEPRECATED] implemented on default path and there's no choice in not using it
+    /* VK_KHR_bind_memory2 */
+
     // [TODO] Triage leftover extensions below    
 
     /* VK_NV_present_barrier */
     /* VK_EXT_queue_family_foreign */
-
-    // [DEPRECATED] Core 1.2
-    /* VK_EXT_separate_stencil_usage */
-
-    /* VK_KHR_create_renderpass2 */
-
-    // [DEPRECATED] implemented on default path and there's no choice in not using it
-    /* VK_KHR_bind_memory2 */
 
     // TODO: look into
     /* VK_NV_viewport_array2 */
