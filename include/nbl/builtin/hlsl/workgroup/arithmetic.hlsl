@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"

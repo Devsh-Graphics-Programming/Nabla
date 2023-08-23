@@ -1,8 +1,8 @@
 // Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_INTRINSICS_ARITHMETIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_INTRINSICS_ARITHMETIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_ARITHMETIC_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_ARITHMETIC_INCLUDED_
 
 // For all WaveMultiPrefix* ops, an example can be found here https://github.com/microsoft/DirectXShaderCompiler/blob/4e5440e1ee1f30d1164f90445611328293de08fa/tools/clang/test/HLSLFileCheck/hlsl/intrinsics/wave/prefix/sm_6_5_wave.hlsl
 // However, we prefer to implement them with SPIRV intrinsics to avoid DXC changes in the compiler's emitted code

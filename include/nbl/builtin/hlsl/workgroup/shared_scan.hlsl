@@ -7,7 +7,7 @@
 #include "nbl/builtin/hlsl/workgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/subgroup.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 
 namespace nbl 
 {
@@ -43,25 +43,27 @@ struct WorkgroupScanHead
         SharedAccessor sharedAccessor;
         subgroup::scratchInitialize<SharedAccessor, T>(value, identity, itemCount);
         lastInvocationInLevel = lastInvocation;
-		scanStoreIndex = Broadcast<T, SharedAccessor>(offsetsAndMasks.scanStoreOffset, lastInvocation) + gl_LocalInvocationIndex + 1u;
+		//scanStoreIndex = Broadcast<T, SharedAccessor>(offsetsAndMasks.scanStoreOffset, lastInvocation) + gl_LocalInvocationIndex + 1u;
+		scanStoreIndex = lastInvocation + gl_LocalInvocationIndex + 1u;
 		
         SubgroupOp subgroupOp;
         firstLevelScan = subgroupOp(value);
         T scan = firstLevelScan;
 		
-        const bool isLastSubgroupInvocation = offsetsAndMasks.subgroupInvocation == offsetsAndMasks.subgroupMask; // last invocation in subgroup
+        //const bool isLastSubgroupInvocation = offsetsAndMasks.subgroupInvocation == offsetsAndMasks.subgroupMask; // last invocation in subgroup
+        const bool isLastSubgroupInvocation = glsl::gl_SubgroupInvocationID() == glsl::gl_SubgroupSize() - 1u;
 		
 		// Since we are scanning the RESULT of the initial scan (which paired one input per subgroup invocation) 
 		// every group of 64 invocations has been coallesced into 1 result value. This means that the results of 
 		// the first SubgroupSz^2 invocations will be processed by the first subgroup and so on.
 		// Consequently, those first SubgroupSz^2 invocations will store their results on SubgroupSz scratch slots 
 		// with halfSubgroupSz padding and the next level will follow the same + the previous as an `offset`.
-		const uint offset = (gl_LocalInvocationIndex >> glsl::subgroup::gl_SubgroupSizeLog2()) & ~offsetsAndMasks.subgroupMask;
-		const uint memBegin = (offset >> glsl::subgroup::gl_SubgroupSizeLog2()) * offsetsAndMasks.halfSubgroupSize + offset;
+		const uint offset = (gl_LocalInvocationIndex >> glsl::gl_SubgroupSizeLog2()) & ~offsetsAndMasks.subgroupMask;
+		const uint memBegin = (offset >> glsl::gl_SubgroupSizeLog2()) * offsetsAndMasks.halfSubgroupSize + offset;
         const uint nextLevelStoreIndex = memBegin + offsetsAndMasks.halfSubgroupSize + offsetsAndMasks.subgroupId;
         
 		bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
-        while(lastInvocationInLevel >= glsl::subgroup::gl_SubgroupSize() * glsl::subgroup::gl_SubgroupSize())
+        while(lastInvocationInLevel >= glsl::gl_SubgroupSize() * glsl::gl_SubgroupSize())
     	{
 			sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
     		if(participate)
@@ -72,7 +74,7 @@ struct WorkgroupScanHead
     			}
     		}
     		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-    		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::subgroup::gl_SubgroupSizeLog2());
+    		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
     		if(participate)
     		{
     			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
@@ -83,7 +85,7 @@ struct WorkgroupScanHead
     		if(isScan)
     			scanStoreIndex += lastInvocationInLevel + 1u;
     	}
-    	if(lastInvocationInLevel >= glsl::subgroup::gl_SubgroupSize())
+    	if(lastInvocationInLevel >= glsl::gl_SubgroupSize())
     	{
     		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
     		if(participate)
@@ -92,7 +94,7 @@ struct WorkgroupScanHead
     				sharedAccessor.main.set(nextLevelStoreIndex, scan);
     		}
     		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-    		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::subgroup::gl_SubgroupSizeLog2());
+    		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
     		if(participate)
     		{
     			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
@@ -132,13 +134,13 @@ struct WorkgroupScanTail
         SharedAccessor sharedAccessor;
 		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
 		
-        if(lastInvocation >= glsl::subgroup::gl_SubgroupSize())
+        if(lastInvocation >= glsl::gl_SubgroupSize())
     	{
-			const uint subgroupId = glsl::subgroup::gl_SubgroupID();
-    		uint scanLoadIndex = scanStoreIndex + glsl::subgroup::gl_SubgroupSize();
-    		const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::subgroup::gl_SubgroupSize();
+			const uint subgroupId = glsl::gl_SubgroupID();
+    		uint scanLoadIndex = scanStoreIndex + glsl::gl_SubgroupSize();
+    		const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::gl_SubgroupSize();
     		const uint currentToHighLevel = subgroupId - shiftedInvocationIndex;
-    		for(uint logShift = (firstbithigh(lastInvocation) / glsl::subgroup::gl_SubgroupSizeLog2() - 1u) * glsl::subgroup::gl_SubgroupSizeLog2(); logShift > 0u; logShift -= glsl::subgroup::gl_SubgroupSizeLog2())
+    		for(uint logShift = (firstbithigh(lastInvocation) / glsl::gl_SubgroupSizeLog2() - 1u) * glsl::gl_SubgroupSizeLog2(); logShift > 0u; logShift -= glsl::gl_SubgroupSizeLog2())
     		{
     			uint lastInvocationInLevel = lastInvocation >> logShift;
     			sharedAccessor.main.workgroupExecutionAndMemoryBarrier();

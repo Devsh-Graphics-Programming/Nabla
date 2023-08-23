@@ -4,8 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/subgroup.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/ballot.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
 namespace nbl 
@@ -16,11 +16,11 @@ namespace subgroup
 {
 
 uint ElectedSubgroupInvocationID() {
-	return glsl::ballot::subgroupBroadcastFirst<uint>(glsl::subgroup::gl_SubgroupInvocationID());
+	return glsl::subgroupBroadcastFirst<uint>(glsl::gl_SubgroupInvocationID());
 }
 
 uint ElectedLocalInvocationID() {
-	return glsl::ballot::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
+	return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
 }
 
 }

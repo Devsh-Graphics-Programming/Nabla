@@ -4,8 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/arithmetic.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/shuffle.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 #include "nbl/builtin/hlsl/binops.hlsl"
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 
@@ -33,7 +33,7 @@ struct reduction<T, binops::bitwise_and<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupAnd(x);
+        return glsl::subgroupAnd(x);
     }
 };
 
@@ -42,7 +42,7 @@ struct inclusive_scan<T, binops::bitwise_and<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupInclusiveAnd(x);
+        return glsl::subgroupInclusiveAnd(x);
     }
 };
 
@@ -51,7 +51,7 @@ struct exclusive_scan<T, binops::bitwise_and<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupExclusiveAnd(x);
+        return glsl::subgroupExclusiveAnd(x);
     }
 };
 
@@ -61,7 +61,7 @@ struct reduction<T, binops::bitwise_or<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupOr(x);
+        return glsl::subgroupOr(x);
     }
 };
 
@@ -70,7 +70,7 @@ struct inclusive_scan<T, binops::bitwise_or<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupInclusiveOr(x);
+        return glsl::subgroupInclusiveOr(x);
     }
 };
 
@@ -79,7 +79,7 @@ struct exclusive_scan<T, binops::bitwise_or<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupExclusiveOr(x);
+        return glsl::subgroupExclusiveOr(x);
     }
 };
 
@@ -89,7 +89,7 @@ struct reduction<T, binops::bitwise_xor<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupXor(x);
+        return glsl::subgroupXor(x);
     }
 };
 
@@ -98,7 +98,7 @@ struct inclusive_scan<T, binops::bitwise_xor<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupInclusiveXor(x);
+        return glsl::subgroupInclusiveXor(x);
     }
 };
 
@@ -107,7 +107,7 @@ struct exclusive_scan<T, binops::bitwise_xor<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupExclusiveXor(x);
+        return glsl::subgroupExclusiveXor(x);
     }
 };
 
@@ -117,7 +117,7 @@ struct reduction<T, binops::add<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupAdd(x);
+        return glsl::subgroupAdd(x);
     }
 };
 template<typename T>
@@ -125,7 +125,7 @@ struct inclusive_scan<T, binops::add<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupInclusiveAdd(x);
+        return glsl::subgroupInclusiveAdd(x);
     }
 };
 template<typename T>
@@ -133,7 +133,7 @@ struct exclusive_scan<T, binops::add<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupExclusiveAdd(x);
+        return glsl::subgroupExclusiveAdd(x);
     }
 };
 
@@ -143,7 +143,7 @@ struct reduction<T, binops::mul<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupMul(x);
+        return glsl::subgroupMul(x);
     }
 };
 template<typename T>
@@ -151,7 +151,7 @@ struct exclusive_scan<T, binops::mul<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupInclusiveMul(x);
+        return glsl::subgroupInclusiveMul(x);
     }
 };
 template<typename T>
@@ -159,7 +159,7 @@ struct inclusive_scan<T, binops::mul<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupExclusiveMul(x);
+        return glsl::subgroupExclusiveMul(x);
     }
 };
 
@@ -169,7 +169,7 @@ struct reduction<T, binops::min<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupMin(x);
+        return glsl::subgroupMin(x);
     }
 };
 
@@ -178,7 +178,7 @@ struct inclusive_scan<int, binops::min<int> >
 {
     int operator()(const int x)
     {
-        return glsl::arithmetic::subgroupInclusiveMin(x);
+        return glsl::subgroupInclusiveMin(x);
     }
 };
 
@@ -187,7 +187,7 @@ struct inclusive_scan<uint, binops::min<uint> >
 {
     uint operator()(const uint x)
     {
-        return glsl::arithmetic::subgroupInclusiveMin(x);
+        return glsl::subgroupInclusiveMin(x);
     }
 };
 
@@ -196,7 +196,7 @@ struct inclusive_scan<uint, binops::min<float> >
 {
     float operator()(const float x)
     {
-        return glsl::arithmetic::subgroupInclusiveMin(x);
+        return glsl::subgroupInclusiveMin(x);
     }
 };
 
@@ -205,7 +205,7 @@ struct exclusive_scan<int, binops::min<int> >
 {
     int operator()(const int x)
     {
-        return glsl::arithmetic::subgroupExclusiveMin(x);
+        return glsl::subgroupExclusiveMin(x);
     }
 };
 
@@ -214,7 +214,7 @@ struct exclusive_scan<uint, binops::min<uint> >
 {
     uint operator()(const uint x)
     {
-        return glsl::arithmetic::subgroupExclusiveMin(x);
+        return glsl::subgroupExclusiveMin(x);
     }
 };
 
@@ -223,7 +223,7 @@ struct exclusive_scan<uint, binops::min<float> >
 {
     float operator()(const float x)
     {
-        return glsl::arithmetic::subgroupExclusiveMin(x);
+        return glsl::subgroupExclusiveMin(x);
     }
 };
 
@@ -233,7 +233,7 @@ struct reduction<T, binops::max<T> >
 {
     T operator()(const T x)
     {
-        return glsl::arithmetic::subgroupMax(x);
+        return glsl::subgroupMax(x);
     }
 };
 
@@ -242,7 +242,7 @@ struct inclusive_scan<int, binops::max<int> >
 {
     int operator()(const int x)
     {
-        return glsl::arithmetic::subgroupInclusiveMax(x);
+        return glsl::subgroupInclusiveMax(x);
     }
 };
 
@@ -251,7 +251,7 @@ struct inclusive_scan<uint, binops::max<uint> >
 {
     uint operator()(const uint x)
     {
-        return glsl::arithmetic::subgroupInclusiveMax(x);
+        return glsl::subgroupInclusiveMax(x);
     }
 };
 
@@ -260,7 +260,7 @@ struct inclusive_scan<uint, binops::max<float> >
 {
     float operator()(const float x)
     {
-        return glsl::arithmetic::subgroupInclusiveMax(x);
+        return glsl::subgroupInclusiveMax(x);
     }
 };
 
@@ -269,7 +269,7 @@ struct exclusive_scan<int, binops::max<int> >
 {
     int operator()(const int x)
     {
-        return glsl::arithmetic::subgroupExclusiveMax(x);
+        return glsl::subgroupExclusiveMax(x);
     }
 };
 
@@ -278,7 +278,7 @@ struct exclusive_scan<uint, binops::max<uint> >
 {
     uint operator()(const uint x)
     {
-        return glsl::arithmetic::subgroupExclusiveMax(x);
+        return glsl::subgroupExclusiveMax(x);
     }
 };
 
@@ -287,7 +287,7 @@ struct exclusive_scan<uint, binops::max<float> >
 {
     float operator()(const float x)
     {
-        return glsl::arithmetic::subgroupExclusiveMax(x);
+        return glsl::subgroupExclusiveMax(x);
     }
 };
 
@@ -308,16 +308,16 @@ struct inclusive_scan
     T operator()(T value)
     {
 		Binop op;
-		const uint subgroupInvocation = glsl::subgroup::gl_SubgroupInvocationID();
-		const uint halfSubgroupSize = glsl::subgroup::gl_SubgroupSize() >> 1u;
+		const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+		const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
 		
-		uint rhs = glsl::shuffle::subgroupShuffleUp(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+		uint rhs = glsl::subgroupShuffleUp(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
 		value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
 		
 		[[unroll(5)]]
 		for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
 		{
-			rhs = glsl::shuffle::subgroupShuffleUp(value, step);
+			rhs = glsl::subgroupShuffleUp(value, step);
 			value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
 		}
 		return value;
@@ -330,11 +330,11 @@ struct exclusive_scan
 
     T operator()(T value)
     {
-		const uint subgroupInvocation = glsl::subgroup::gl_SubgroupInvocationID();
+		const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
 		
 		value = impl(value);
 		// store value to smem so we can shuffle it
-		uint left = glsl::shuffle::subgroupShuffleUp(value, 1);
+		uint left = glsl::subgroupShuffleUp(value, 1);
 		value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
 		// return it
 		return value;
@@ -350,7 +350,7 @@ struct reduction
     T operator()(T value)
     {
 		value = impl(value);
-		value = glsl::ballot::subgroupBroadcast(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
+		value = glsl::subgroupBroadcast(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
 		return value;
     }
 	

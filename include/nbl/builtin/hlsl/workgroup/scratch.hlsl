@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_SCRATCH_INCLUDED_
 
 #include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/subgroup.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
@@ -45,16 +45,16 @@ namespace subgroup
 		static ScratchOffsetsAndMasks WithSubgroupOpDefaults()
 		{
 			ScratchOffsetsAndMasks s;
-			s.subgroupMask = glsl::subgroup::gl_SubgroupSize() - 1u;
-			s.halfSubgroupSize = glsl::subgroup::gl_SubgroupSize() >> 1u; // this is also the size of the padding memory
-			s.subgroupInvocation = glsl::subgroup::gl_SubgroupInvocationID();
-			s.subgroupId = glsl::subgroup::gl_SubgroupID();
+			s.subgroupMask = glsl::gl_SubgroupSize() - 1u;
+			s.halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u; // this is also the size of the padding memory
+			s.subgroupInvocation = glsl::gl_SubgroupInvocationID();
+			s.subgroupId = glsl::gl_SubgroupID();
 			s.subgroupElectedLocalInvocation = ElectedLocalInvocationID();
 			s.lastSubgroupInvocation = s.subgroupMask;
-			if(s.subgroupId == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> glsl::subgroup::gl_SubgroupSizeLog2())) {
+			if(s.subgroupId == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> glsl::gl_SubgroupSizeLog2())) {
 				s.lastSubgroupInvocation &= _NBL_HLSL_WORKGROUP_SIZE_ - 1u; // if the workgroup size is not a power of 2, then the lastSubgroupInvocation for the last subgroup of the workgroup will not be equal to the subgroupMask but something smaller
 			}
-			s.subgroupMemoryBegin = s.subgroupElectedLocalInvocation + s.halfSubgroupSize * (s.subgroupElectedLocalInvocation >> glsl::subgroup::gl_SubgroupSizeLog2());
+			s.subgroupMemoryBegin = s.subgroupElectedLocalInvocation + s.halfSubgroupSize * (s.subgroupElectedLocalInvocation >> glsl::gl_SubgroupSizeLog2());
 			s.lastLoadOffset = s.subgroupMemoryBegin + s.subgroupInvocation;
 			s.subgroupPaddingMemoryEnd = s.subgroupMemoryBegin + s.halfSubgroupSize;
 			s.scanStoreOffset = s.subgroupPaddingMemoryEnd + s.subgroupInvocation;
@@ -87,7 +87,7 @@ namespace subgroup
 			scratch.main.set(offsetsAndMasks.lastLoadOffset, identity);
 		}
 		
-		bool isLastSubgroupInWG = ((_NBL_HLSL_WORKGROUP_SIZE_-1u) >> glsl::subgroup::gl_SubgroupSizeLog2()) == offsetsAndMasks.subgroupId;
+		bool isLastSubgroupInWG = ((_NBL_HLSL_WORKGROUP_SIZE_-1u) >> glsl::gl_SubgroupSizeLog2()) == offsetsAndMasks.subgroupId;
 		uint lastSubgroupSize = offsetsAndMasks.lastSubgroupInvocation + 1;
 		if(isLastSubgroupInWG && lastSubgroupSize < offsetsAndMasks.halfSubgroupSize) {
 			// In this case, the workgroup size is such that the last subgroup is smaller than halfSubgroupSize.

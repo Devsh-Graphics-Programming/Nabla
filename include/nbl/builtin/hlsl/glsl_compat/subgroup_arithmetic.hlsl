@@ -1,8 +1,8 @@
 // Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_ARITHMETIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_GLSL_COMPAT_ARITHMETIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_ARITHMETIC_INCLUDED_
+#define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_ARITHMETIC_INCLUDED_
 
 #include "nbl/builtin/hlsl/spirv_intrinsics/arithmetic.hlsl"
 
@@ -11,8 +11,6 @@ namespace nbl
 namespace hlsl
 {
 namespace glsl
-{
-namespace arithmetic
 {
 	
 template<typename T>
@@ -106,7 +104,6 @@ T subgroupExclusiveMax(T value) {
 	return spirv::arithmetic::groupBitwiseMax(3, 2, value);
 }
 
-}
 }
 }
 }
