@@ -279,9 +279,10 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.3 Core */
     
-    // [DO NOT EXPOSE] EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
-    //  or VK_EXT_inline_uniform_block:
+    // [DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
+    // [DEPRECATED] Vulkan 1.3, Nabla Core Profile:
     //bool           inlineUniformBlock;
+    // [DEPRECATED] ROADMAP 2022, Nabla Core Profile:
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
 
     // [DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?
@@ -290,7 +291,7 @@ struct SPhysicalDeviceFeatures
     bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
     bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
     
-    // or VK_EXT_subgroup_size_control
+    // Vulkan 1.3 or VK_EXT_subgroup_size_control
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
@@ -483,8 +484,13 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.1 Core
     /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion */
 
-    /* SeparateDepthStencilLayoutsFeaturesKHR *//* VK_KHR_separate_depth_stencil_layouts *//* MOVED TO Vulkan 1.2 Core */
-    /* ShaderAtomicInt64FeaturesKHR *//* VK_KHR_shader_atomic_int64 *//* MOVED TO Vulkan 1.2 Core */
+    // [DEPRECATED] Vulkan 1.2 Core non-optional
+    /* VK_KHR_separate_depth_stencil_layouts */
+    /* SeparateDepthStencilLayoutsFeaturesKHR */
+
+    // [DEPRECATED] Vulkan 1.2 Core
+    /* VK_KHR_shader_atomic_int64 */
+    /* ShaderAtomicInt64FeaturesKHR */
 
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
     bool shaderDeviceClock = false;
@@ -499,7 +505,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.3 Core
     /* VK_KHR_shader_integer_dot_product */
 
-    // [DEPRECATED] Vulkan 1.2 Core
+    // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_shader_subgroup_extended_types */
 
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
@@ -509,14 +515,14 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shader_terminate_invocation */
     /* VK_KHR_synchronization2 */
 
-    // [DEPRECATED] Vulkan 1.2 Core
+    // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_timeline_semaphore */
     /* VK_KHR_uniform_buffer_standard_layout */
 
     // [DEPRECATED] Vulkan 1.1 Core
     /* VK_KHR_variable_pointers */
 
-    // [DEPRECATED] Vulkan 1.2 Core
+    // [DEPRECATED] Vulkan 1.2 Core but 1.3 non-optional and we require it
     /* VK_KHR_vulkan_memory_model */
 
     /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
@@ -859,7 +865,7 @@ struct SPhysicalDeviceFeatures
     /* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
-    // [DEPRECATED] We now require it with Vulkan 1.2 
+    // [DEPRECATED] We now require it with Vulkan 1.2 and its non-optional
     /* VK_KHR_spirv_1_4 */
 
     // [TODO] handle with a single num
@@ -895,10 +901,10 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Expose when we start to experience slowdowns from validation
     /* VK_EXT_validation_cache */
 
-    // [TODO LATER] Requires API changes and asset converter upgrades; default to it and forbid old API use
+    // [DEPRECATED] Vulkan 1.2 core non-optional
     /* VK_KHR_image_format_list */
 
-    // [TODO LATER] Requires VK_KHR_image_format_list to be enabled for any device-level functionality
+    // [DEPRECATED] Vulkan 1.2 core non-optional
     /* VK_KHR_swapchain_mutable_format */
 
     // [TODO LATER] Used for dx11 interop
@@ -922,7 +928,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Waiting for cross platform
     /* VK_AMD_display_native_hdr */
 
-    // [DEPRECATED] Promoted to KHR version already exposed
+    // [DEPRECATED] Vulkan core 1.2
     /* VK_AMD_draw_indirect_count */
     
     // [DO NOT EXPOSE] 0 documentation
@@ -1097,10 +1103,10 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */
 
-    // [DEPRECATED] Core 1.2
+    // [DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it
     /* VK_EXT_separate_stencil_usage */
     /* VK_KHR_create_renderpass2 */
-    // [DEPRECATED] implemented on default path and there's no choice in not using it
+    // [DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it
     /* VK_KHR_bind_memory2 */
 
     // [TODO] Triage leftover extensions below    
@@ -1135,7 +1141,6 @@ struct SPhysicalDeviceFeatures
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
-        if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;

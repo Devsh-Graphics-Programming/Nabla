@@ -322,7 +322,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.shaderResourceResidency) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_RESIDENCY");
         if (features.shaderResourceMinLod) addShaderDefineToPool(pool, "NBL_SHADER_RESOURCE_MIN_LOD");
         if (features.variableMultisampleRate) addShaderDefineToPool(pool, "NBL_VARIABLE_MULTISAMPLE_RATE");
-        if (features.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
         if (features.bufferDeviceAddressMultiDevice) addShaderDefineToPool(pool, "NBL_BUFFER_DEVICE_ADDRESS_MULTI_DEVICE");
         if (features.shaderDemoteToHelperInvocation) addShaderDefineToPool(pool, "NBL_SHADER_DEMOTE_TO_HELPER_INVOCATION");
         if (features.shaderTerminateInvocation) addShaderDefineToPool(pool, "NBL_SHADER_TERMINATE_INVOCATION");
@@ -683,7 +682,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_SAMPLE_LOCATION_COORDINATE_RANGE_X",limits.sampleLocationCoordinateRange[0]);
         addShaderDefineToPool(pool,"NBL_SAMPLE_LOCATION_COORDINATE_RANGE_Y",limits.sampleLocationCoordinateRange[1]);
 
-        addShaderDefineToPool(pool,"NBL_MIN_IMPORTED_HOST_POINTER_ALIGNMENT",core::min(limits.minImportedHostPointerAlignment, 1u << 30));
+        addShaderDefineToPool(pool,"NBL_MIN_IMPORTED_HOST_POINTER_ALIGNMENT",core::min(limits.minImportedHostPointerAlignment, 1u<<30));
 
         addShaderDefineToPool(pool,"NBL_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_X",limits.minFragmentDensityTexelSize.width);
         addShaderDefineToPool(pool,"NBL_MIN_FRAGMENT_DENSITY_TEXEL_SIZE_Y",limits.minFragmentDensityTexelSize.height);
@@ -750,6 +749,8 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderInputAttachmentArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING");
         // shader doesn't need to know about update-after-bind
         //if (limits.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_BIND");
+
+        if (limits.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
 
         if (limits.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL");
         if (limits.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");
