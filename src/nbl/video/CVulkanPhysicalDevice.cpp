@@ -987,12 +987,16 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!vulkan12Features.samplerMirrorClampToEdge)
                 return nullptr;
 
+            if (!vulkan12Features.storageBuffer8BitAccess || !vulkan12Features.uniformAndStorageBuffer8BitAccess)
+                return nullptr;
             properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
 
             properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
             properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
 
             properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
+            if (!vulkan12Features.shaderInt8)
+                return nullptr;
             
             features.descriptorIndexing = vulkan12Features.descriptorIndexing;
             features.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
