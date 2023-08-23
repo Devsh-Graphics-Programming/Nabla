@@ -182,7 +182,7 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.2 Core */
 
-    // [DO NOT EXPOSE] Device support ubiquitous
+    // [REQUIRE] Device support ubiquitous
     //bool samplerMirrorClampToEdge = true;          // ALIAS: VK_KHR_sampler_mirror_clamp_to_edge
  
     // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support, exposed as a limit `drawIndirectCount`
@@ -242,13 +242,13 @@ struct SPhysicalDeviceFeatures
     // TODO: Actually implement the sampler flag enums
     bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
 
-    // [DO NOT EXPOSE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
+    // [REQUIRE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
     //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
 
     // [DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
     //bool imagelessFramebuffer = false;  // or VK_KHR_imageless_framebuffer
     
-    // [DO NOT EXPOSE] Vulkan 1.2 requires these
+    // [REQUIRE] Vulkan 1.2 requires these
     //bool uniformBufferStandardLayout = true; // or VK_KHR_uniform_buffer_standard_layout
     //bool shaderSubgroupExtendedTypes = true;   // or VK_KHR_shader_subgroup_extended_types
     //bool separateDepthStencilLayouts = true;   // or VK_KHR_separate_depth_stencil_layouts
@@ -285,7 +285,7 @@ struct SPhysicalDeviceFeatures
     bool subgroupSizeControl  = false;
     bool computeFullSubgroups = false;
     
-    // [DO NOT EXPOSE] REQUIRE 
+    // [REQUIRE] REQUIRE 
     //bool           synchronization2;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
