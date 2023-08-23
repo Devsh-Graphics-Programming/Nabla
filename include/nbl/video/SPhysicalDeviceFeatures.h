@@ -291,9 +291,10 @@ struct SPhysicalDeviceFeatures
     bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
     bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
     
-    // Vulkan 1.3 or VK_EXT_subgroup_size_control
-    bool subgroupSizeControl  = false;
-    bool computeFullSubgroups = false;
+    // [REQUIRE] Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control
+    // TODO: implement!
+    //bool subgroupSizeControl  = true;
+    //bool computeFullSubgroups = true;
     
     // [REQUIRE] REQUIRE 
     //bool           synchronization2;                      // or VK_KHR_synchronization2
@@ -1144,8 +1145,6 @@ struct SPhysicalDeviceFeatures
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
-        if (subgroupSizeControl && !_rhs.subgroupSizeControl) return false;
-        if (computeFullSubgroups && !_rhs.computeFullSubgroups) return false;
         if (shaderIntegerDotProduct && !_rhs.shaderIntegerDotProduct) return false;
         if (rasterizationOrderColorAttachmentAccess && !_rhs.rasterizationOrderColorAttachmentAccess) return false;
         if (rasterizationOrderDepthAttachmentAccess && !_rhs.rasterizationOrderDepthAttachmentAccess) return false;

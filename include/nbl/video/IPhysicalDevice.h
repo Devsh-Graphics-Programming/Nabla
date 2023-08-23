@@ -637,33 +637,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             else
                 return 82u; // largest from above
         }
-
-        static inline void getMinMaxSubgroupSizeFromDriverID(E_DRIVER_ID driverID, uint32_t& minSubgroupSize, uint32_t& maxSubgroupSize)
-        {
-            const bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
-            const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
-            const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
-            if(isIntelGPU)
-            {
-                minSubgroupSize = 8u;
-                maxSubgroupSize = 32u;
-            }
-            else if(isAMDGPU)
-            {
-                minSubgroupSize = 32u;
-                maxSubgroupSize = 64u;
-            }
-            else if(isNVIDIAGPU)
-            {
-                minSubgroupSize = 32u;
-                maxSubgroupSize = 32u;
-            }
-            else
-            {
-                minSubgroupSize = 4u;
-                maxSubgroupSize = 64u;
-            }
-        }
         
         IAPIConnection* m_api; // dumb pointer to avoid circ ref
         core::smart_refctd_ptr<system::ISystem> m_system;

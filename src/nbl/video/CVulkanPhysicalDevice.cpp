@@ -338,10 +338,14 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             //! Provided by Vk 1.2
             VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
             addToPNextChain(&vulkan12Properties);
+            //! Required by Nabla Core Profile
+            if (vk_deviceProperties.apiVersion<VK_MAKE_API_VERSION(0,1,3,0) && !isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
+                return nullptr;
+            VkPhysicalDeviceSubgroupSizeControlProperties           subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES };
+            addToPNextChain(&subgroupSizeControlProperties);
             //! Provided by Vk 1.3
             VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
             VkPhysicalDeviceMaintenance4Properties                  maintanance4Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_4_PROPERTIES };
-            VkPhysicalDeviceSubgroupSizeControlProperties           subgroupSizeControlProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_PROPERTIES };
             VkPhysicalDeviceTexelBufferAlignmentProperties          texelBufferAlignmentProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES };
             VkPhysicalDeviceShaderIntegerDotProductProperties       shaderIntegerDotProductProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES };
             //! Extensions
@@ -365,7 +369,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             {
                 addToPNextChain(&vulkan13Properties); // old validation layers might complain about this struct in pNext, all is fine
                 addToPNextChain(&maintanance4Properties); // old validation layers might complain about this struct in pNext, all is fine
-                addToPNextChain(&subgroupSizeControlProperties);
                 addToPNextChain(&texelBufferAlignmentProperties);
                 addToPNextChain(&shaderIntegerDotProductProperties); // old validation layers might complain about this struct in pNext, all is fine
             }
@@ -373,8 +376,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             {
                 if (isExtensionSupported(VK_KHR_MAINTENANCE_4_EXTENSION_NAME))
                     addToPNextChain(&maintanance4Properties);
-                if (isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
-                    addToPNextChain(&subgroupSizeControlProperties);
                 if (isExtensionSupported(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
                     addToPNextChain(&texelBufferAlignmentProperties);
                 if (isExtensionSupported(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME))
@@ -510,19 +511,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 properties.limits.maxBufferSize = vulkan11Properties.maxMemoryAllocationSize;
 
             constexpr uint32_t Roadmap2022MaxSubgroupSize = 4u;
-            if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
-            {
-                properties.limits.minSubgroupSize = subgroupSizeControlProperties.minSubgroupSize;
-                properties.limits.maxSubgroupSize = subgroupSizeControlProperties.maxSubgroupSize;
-                properties.limits.maxComputeWorkgroupSubgroups = subgroupSizeControlProperties.maxComputeWorkgroupSubgroups;
-                properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupSizeControlProperties.requiredSubgroupSizeStages);
-            }
-            else
-            {
-                getMinMaxSubgroupSizeFromDriverID(properties.driverID, properties.limits.minSubgroupSize, properties.limits.maxSubgroupSize);
-            }
-            if (properties.limits.maxSubgroupSize<Roadmap2022MaxSubgroupSize)
+            if (subgroupSizeControlProperties.maxSubgroupSize<Roadmap2022MaxSubgroupSize)
                 return nullptr;
+            properties.limits.minSubgroupSize = subgroupSizeControlProperties.minSubgroupSize;
+            properties.limits.maxSubgroupSize = subgroupSizeControlProperties.maxSubgroupSize;
+            properties.limits.maxComputeWorkgroupSubgroups = subgroupSizeControlProperties.maxComputeWorkgroupSubgroups;
+            properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(subgroupSizeControlProperties.requiredSubgroupSizeStages);
 
             if (vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_TEXEL_BUFFER_ALIGNMENT_EXTENSION_NAME))
             {
@@ -741,9 +735,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             //! Provided by Vk 1.2
             VkPhysicalDeviceVulkan12Features                                vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
             addToPNextChain(&vulkan12Features);
+            //! Required by Nabla Core Profile (checked above though)
+            // VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME
             //! Provided by Vk 1.3
             VkPhysicalDeviceVulkan13Features                                vulkan13Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
-            VkPhysicalDeviceSubgroupSizeControlFeaturesEXT                  subgroupSizeControlFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT };
             VkPhysicalDeviceShaderTerminateInvocationFeatures               shaderTerminateInvocationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES };
             VkPhysicalDeviceShaderIntegerDotProductFeatures                 shaderIntegerDotProductFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES };
             VkPhysicalDeviceBufferDeviceAddressFeaturesKHR                  bufferDeviceAddressFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR };
@@ -792,7 +787,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0))
             {
                 addToPNextChain(&vulkan13Features);
-                addToPNextChain(&subgroupSizeControlFeatures);
                 addToPNextChain(&shaderTerminateInvocationFeatures);
                 addToPNextChain(&shaderIntegerDotProductFeatures);
                 addToPNextChain(&bufferDeviceAddressFeatures);
@@ -803,8 +797,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             }
             else
             {
-                if (isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
-                    addToPNextChain(&subgroupSizeControlFeatures);
                 if (isExtensionSupported(VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME))
                     addToPNextChain(&shaderTerminateInvocationFeatures);
                 if (isExtensionSupported(VK_KHR_SHADER_INTEGER_DOT_PRODUCT_EXTENSION_NAME))
@@ -1051,11 +1043,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
 
             /* Vulkan 1.3 Core  */
-            if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME))
-            {
-                features.subgroupSizeControl  = subgroupSizeControlFeatures.subgroupSizeControl;
-                features.computeFullSubgroups = subgroupSizeControlFeatures.computeFullSubgroups;
-            }
 
             if(vk_deviceProperties.apiVersion>=VK_MAKE_API_VERSION(0,1,3,0)||isExtensionSupported(VK_KHR_SHADER_TERMINATE_INVOCATION_EXTENSION_NAME))
             {
@@ -1860,15 +1847,13 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
                     computeFullSubgroups);
         */
         // But I would need to enable /Zc:preprocessor in compiler So I could use __VA_OPT__ :D
-        if (enabledFeatures.subgroupSizeControl ||
-            enabledFeatures.computeFullSubgroups)
-        {
-            // All Requirements Exist in Vulkan 1.1
-            insertExtensionIfAvailable(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
-            subgroupSizeControlFeatures.subgroupSizeControl = enabledFeatures.subgroupSizeControl;
-            subgroupSizeControlFeatures.computeFullSubgroups = enabledFeatures.computeFullSubgroups;
-            addFeatureToChain(&subgroupSizeControlFeatures);
-        }
+
+        // required
+        extensionsToEnable.insert(VK_EXT_SUBGROUP_SIZE_CONTROL_EXTENSION_NAME);
+        subgroupSizeControlFeatures.subgroupSizeControl = true;
+        subgroupSizeControlFeatures.computeFullSubgroups = true;
+        addFeatureToChain(&subgroupSizeControlFeatures);
+
         //leave defaulted
         //textureCompressionASTCHDRFeatures;
 // TODO: shaderZeroInitializeWorkgroupMemory
