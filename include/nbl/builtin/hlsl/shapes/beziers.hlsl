@@ -62,27 +62,16 @@ namespace shapes
         vec2 P0;
         vec2 P1;
         vec2 P2;
-        ArcLengthPrecomputedValues preCompValues;
 
         static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
         {
-            QuadraticBezier ret;
-            ret.P0 = P0;
-            ret.P1 = P1;
-            ret.P2 = P2;
-
+            QuadraticBezier ret = { P0, P1, P2 };
             return ret;
         }
 
-        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2, float_t lenA2, float_t AdotB, float_t a, float_t b, float_t c, float_t b_over_4a)
+        vec2 evaluate(float_t t)
         {
-            QuadraticBezier ret = {P0, P1, P2, lenA2, AdotB, a, b, c, b_over_4a};
-            return ret;
-        }
-
-        vector<float_t, 2> evaluate(float_t t)
-        {
-            float2 position = 
+            vec2 position = 
                 P0 * (1.0 - t) * (1.0 - t) 
                  + 2.0 * P1 * (1.0 - t) * t
                  +       P2 * t         * t;
@@ -102,7 +91,7 @@ namespace shapes
             return roots.x;
         }
 
-        float_t calcArcLen(float_t t)
+        float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
         {
             float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
             float_t retval = 0.5f*t*lenTan;
@@ -122,7 +111,7 @@ namespace shapes
             return retval;
         }
 
-        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint)
+        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
         {
             float_t xn = hint;
 
@@ -135,14 +124,14 @@ namespace shapes
             const int iterationThreshold = 32;
             for(int n = 0; n < iterationThreshold; n++)
             {
-                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
+                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn, preCompValues);
 
                 if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
                     return xn;
 
                 float_t differentialAtGuess = length(twoA * xn + B);
                     // x_n+1 = x_n - f(x_n)/f'(x_n)
-                xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
+                xn -= (calcArcLen(xn, preCompValues) - arcLen) / differentialAtGuess;
             }
 
             return xn;
