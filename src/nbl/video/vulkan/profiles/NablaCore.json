@@ -21,6 +21,7 @@
                 "VK_KHR_16bit_storage": 1,
                 "VK_KHR_8bit_storage": 1,
                 "VK_KHR_bind_memory2": 1,
+                "VK_KHR_buffer_device_address": 1,
                 "VK_KHR_copy_commands2": 1,
                 "VK_KHR_create_renderpass2": 1,
                 "VK_KHR_dedicated_allocation": 3,
@@ -41,6 +42,7 @@
                 "VK_KHR_multiview": 1,
                 "VK_KHR_push_descriptor": 2,
                 "VK_KHR_relaxed_block_layout": 1,
+                "VK_KHR_sampler_mirror_clamp_to_edge": 3,
                 "VK_KHR_sampler_ycbcr_conversion": 14,
                 "VK_KHR_separate_depth_stencil_layouts": 1,
                 "VK_KHR_shader_draw_parameters": 1,
@@ -110,6 +112,7 @@
                     "shaderDrawParameters": true
                 },
                 "VkPhysicalDeviceVulkan12Features": {
+                    "samplerMirrorClampToEdge": true,
                     "storageBuffer8BitAccess": true,
                     "uniformAndStorageBuffer8BitAccess": true,
                     "shaderInt8": true,
@@ -145,9 +148,7 @@
                     "sparseProperties": {
                         "residencyStandard2DBlockShape": true,
                         "residencyStandard3DBlockShape": true,
-                        "residencyNonResidentStrict": true,
-                        "residencyStandard2DMultisampleBlockShape": true,
-                        "residencyAlignedMipSize": true
+                        "residencyNonResidentStrict": true
                     },
                     "limits": {
                         "bufferImageGranularity": 65536,
@@ -221,7 +222,7 @@
                         "maxSamplerAllocationCount": 4000,
                         "maxSamplerAnisotropy": 16,
                         "maxSamplerLodBias": 4,
-                        "maxStorageBufferRange": 743981056,
+                        "maxStorageBufferRange": 1073741820,
                         "maxTessellationControlPerPatchOutputComponents": 120,
                         "maxTessellationControlPerVertexInputComponents": 124,
                         "maxTessellationControlPerVertexOutputComponents": 124,
@@ -306,11 +307,14 @@
                         "lineWidthRange": [
                             1,
                             1
-                        ]
+                        ],
+                        "timestampPeriod": 1,
+                        "strictLines": true,
+                        "standardSampleLocations": true
                     }
                 },
                 "VkPhysicalDeviceSubgroupProperties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "supportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -321,6 +325,7 @@
                     "supportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -329,7 +334,7 @@
                     "quadOperationsInAllStages": true
                 },
                 "VkPhysicalDeviceVulkan11Properties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "subgroupSupportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -340,6 +345,7 @@
                     "subgroupSupportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -349,7 +355,7 @@
                     "maxMultiviewViewCount": 6,
                     "maxMultiviewInstanceIndex": 134217727,
                     "maxPerSetDescriptors": 572,
-                    "maxMemoryAllocationSize": 743981056
+                    "maxMemoryAllocationSize": 1474838528
                 },
                 "VkPhysicalDeviceVulkan12Properties": {
                     "shaderSignedZeroInfNanPreserveFloat16": true,
@@ -359,21 +365,21 @@
                     "shaderStorageImageArrayNonUniformIndexingNative": true,
                     "shaderInputAttachmentArrayNonUniformIndexingNative": true,
                     "robustBufferAccessUpdateAfterBind": true,
-                    "maxPerStageDescriptorUpdateAfterBindSamplers": 16,
-                    "maxPerStageDescriptorUpdateAfterBindUniformBuffers": 15,
-                    "maxPerStageDescriptorUpdateAfterBindStorageBuffers": 31,
-                    "maxPerStageDescriptorUpdateAfterBindSampledImages": 96,
-                    "maxPerStageDescriptorUpdateAfterBindStorageImages": 8,
-                    "maxPerStageDescriptorUpdateAfterBindInputAttachments": 64,
-                    "maxPerStageUpdateAfterBindResources": 127,
-                    "maxDescriptorSetUpdateAfterBindSamplers": 80,
+                    "maxDescriptorSetUpdateAfterBindInputAttachments": 256,
+                    "maxDescriptorSetUpdateAfterBindSampledImages": 500000,
+                    "maxDescriptorSetUpdateAfterBindSamplers": 500000,
+                    "maxDescriptorSetUpdateAfterBindStorageBuffers": 500000,
+                    "maxDescriptorSetUpdateAfterBindStorageBuffersDynamic": 8,
+                    "maxDescriptorSetUpdateAfterBindStorageImages": 500000,
                     "maxDescriptorSetUpdateAfterBindUniformBuffers": 90,
                     "maxDescriptorSetUpdateAfterBindUniformBuffersDynamic": 8,
-                    "maxDescriptorSetUpdateAfterBindStorageBuffers": 155,
-                    "maxDescriptorSetUpdateAfterBindStorageBuffersDynamic": 8,
-                    "maxDescriptorSetUpdateAfterBindSampledImages": 480,
-                    "maxDescriptorSetUpdateAfterBindStorageImages": 40,
-                    "maxDescriptorSetUpdateAfterBindInputAttachments": 256,
+                    "maxPerStageDescriptorUpdateAfterBindInputAttachments": 64,
+                    "maxPerStageDescriptorUpdateAfterBindSampledImages": 500000,
+                    "maxPerStageDescriptorUpdateAfterBindSamplers": 500000,
+                    "maxPerStageDescriptorUpdateAfterBindStorageBuffers": 500000,
+                    "maxPerStageDescriptorUpdateAfterBindStorageImages": 500000,
+                    "maxPerStageDescriptorUpdateAfterBindUniformBuffers": 15,
+                    "maxPerStageUpdateAfterBindResources": 500000,
                     "supportedDepthResolveModes": [
                         "VK_RESOLVE_MODE_SAMPLE_ZERO_BIT",
                         "VK_RESOLVE_MODE_MAX_BIT"
@@ -1991,7 +1997,7 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_23_13_03": {
+        "VP_LUNARG_merged_2023_08_25_22_23": {
             "version": 1,
             "api-version": "1.2.250",
             "label": "Nabla Core Profile",
@@ -2000,7 +2006,7 @@
             "history": [
                 {
                     "revision": 1,
-                    "date": "2023-08-23",
+                    "date": "2023-08-25",
                     "author": "LunarG Profiles Generation",
                     "comment": "Generated profile"
                 }
