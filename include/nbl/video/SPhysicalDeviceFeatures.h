@@ -88,22 +88,25 @@ struct SPhysicalDeviceFeatures
 
     bool pipelineStatisticsQuery = false;
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits
     //bool vertexPipelineStoresAndAtomics;
     //bool fragmentStoresAndAtomics;
     //bool shaderTessellationAndGeometryPointSize;
+
+    // [REQUIRE] good device support
     //bool shaderImageGatherExtended;
 
     // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderStorageImageExtendedFormats = true;
 
-    // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
+    // [EXPOSE AS LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderStorageImageMultisample;
 
-    // Intel is a special boy and doesn't support
-    bool shaderStorageImageReadWithoutFormat = false;
-    // very good device support, candidate for promotion (does it cause overhead?), but also format feature reporting unimplemented yet
-    bool shaderStorageImageWriteWithoutFormat = false;
+    // TODO: format feature reporting unimplemented yet for both of the below!
+    // [EXPOSE AS LIMIT] always enable, shouldn't cause overhead by just being enabled
+    //bool shaderStorageImageReadWithoutFormat;
+    // [REQUIRE] good device support
+    //bool shaderStorageImageWriteWithoutFormat = true;
 
     // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderUniformBufferArrayDynamicIndexing = true;
@@ -140,8 +143,8 @@ struct SPhysicalDeviceFeatures
     //bool    sparseResidency16Samples;
     //bool    sparseResidencyAliased;
     
-    // poor support on Apple GPUs
-    bool variableMultisampleRate = false;
+    // [EXPOSE AS LIMIT] poor support on Apple GPUs
+    //bool variableMultisampleRate;
 
     // [REQUIRE] Always enabled, good device support.
     // bool inheritedQueries = false;
@@ -173,7 +176,7 @@ struct SPhysicalDeviceFeatures
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
     //bool           protectedMemory;
 
-    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] ROADMAP 2022 Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion;
 
     // [REQUIRE] Force Enabled : VK_KHR_shader_draw_parameters
@@ -218,8 +221,8 @@ struct SPhysicalDeviceFeatures
     // [REQUIRE] because we also require `descriptorIndexing`
     //bool shaderSampledImageArrayNonUniformIndexing = true;
     //bool shaderStorageBufferArrayNonUniformIndexing = true;
-    // [EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support
-    //bool shaderStorageImageArrayNonUniformIndexing = false;
+    // [REQUIRE] ROADMAP 2022
+    //bool shaderStorageImageArrayNonUniformIndexing = true;
     // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
     //bool shaderInputAttachmentArrayNonUniformIndexing = false;
     // [REQUIRE] because we also require `descriptorIndexing`
@@ -261,7 +264,7 @@ struct SPhysicalDeviceFeatures
     // [REQUIRE] Vulkan 1.3 requires
     //bool bufferDeviceAddress = true;
     // [DO NOT EXPOSE] for capture tools not engines
-    //bool           bufferDeviceAddressCaptureReplay;
+    //bool bufferDeviceAddressCaptureReplay;
     bool bufferDeviceAddressMultiDevice = false;
     
     // [EXPOSE AS A LIMIT] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
@@ -294,11 +297,15 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] ROADMAP 2022, Nabla Core Profile:
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
 
+    // [REQUIRE] Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl
+    //bool pipelineCreationCacheControl = true;      // or VK_EXT_pipeline_creation_cache_control
+
     // [DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?
     //bool           privateData;                       // or VK_EXT_private_data
     
-    bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
-    bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
+    // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
+    //bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
+    //bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
     
     // [REQUIRE] Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control
     // TODO: implement!
@@ -310,15 +317,15 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
-    
-    // [TODO] Expose
+
+    // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
     //bool           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     
     // [DO NOT EXPOSE] EVIL
     //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
-    
-    // [EXPOSE AS A LIMIT] TODO move to limits
-    bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
+
+    // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
+    //bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
 
 
 
@@ -330,7 +337,7 @@ struct SPhysicalDeviceFeatures
     bool rasterizationOrderDepthAttachmentAccess = false;
     bool rasterizationOrderStencilAttachmentAccess = false;
     
-    // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
+    // [DO NOT EXPOSE] Vulkan 1.3 non-optional, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* 4444FormatsFeaturesEXT *//* VK_EXT_4444_formats */
 
     // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with `EXT_fragment_shader_interlock` and EXT_shader_tile_image
@@ -397,56 +404,30 @@ struct SPhysicalDeviceFeatures
     //bool           primitiveTopologyListRestart;
     //bool           primitiveTopologyPatchListRestart;
 
-    /* PrivateDataFeatures *//* VK_EXT_private_data *//* MOVED TO Vulkan 1.3 Core */
+    // [DEPRECATED] Vulkan 1.3 core non-optional
+    /* PrivateDataFeatures *//* VK_EXT_private_data */
 
     // [DO NOT EXPOSE] provokingVertexLast will not expose (we always use First Vertex Vulkan-like convention), anything to do with XForm-feedback we don't expose
     /* ProvokingVertexFeaturesEXT *//* VK_EXT_provoking_vertex */
     //bool           provokingVertexLast;
     //bool           transformFeedbackPreservesProvokingVertex;
 
+    // [EXPOSE AS LIMIT]
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-    bool shaderBufferFloat32Atomics = false;
-    bool shaderBufferFloat32AtomicAdd = false;
-    bool shaderBufferFloat64Atomics = false;
-    bool shaderBufferFloat64AtomicAdd = false;
-    bool shaderSharedFloat32Atomics = false;
-    bool shaderSharedFloat32AtomicAdd = false;
-    bool shaderSharedFloat64Atomics = false;
-    bool shaderSharedFloat64AtomicAdd = false;
-    bool shaderImageFloat32Atomics = false;
-    bool shaderImageFloat32AtomicAdd = false;
-    bool sparseImageFloat32Atomics = false;
-    bool sparseImageFloat32AtomicAdd = false;
-
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    bool shaderBufferFloat16Atomics = false;
-    bool shaderBufferFloat16AtomicAdd = false;
-    bool shaderBufferFloat16AtomicMinMax = false;
-    bool shaderBufferFloat32AtomicMinMax = false;
-    bool shaderBufferFloat64AtomicMinMax = false;
-    bool shaderSharedFloat16Atomics = false;
-    bool shaderSharedFloat16AtomicAdd = false;
-    bool shaderSharedFloat16AtomicMinMax = false;
-    bool shaderSharedFloat32AtomicMinMax = false;
-    bool shaderSharedFloat64AtomicMinMax = false;
-    bool shaderImageFloat32AtomicMinMax = false;
-    bool sparseImageFloat32AtomicMinMax = false;
-    
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
-    bool shaderImageInt64Atomics = false;
-    bool sparseImageInt64Atomics = false;
 
     // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
     //bool           transformFeedback;
     //bool           geometryStreams;
 
-    // [TODO LATER] we would have to change the API
+    // [DO NOT EXPOSE] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
     //bool           vertexAttributeInstanceRateDivisor;
     //bool           vertexAttributeInstanceRateZeroDivisor;
 
-    // [DO NOT EXPOSE] too much API Fudjery
+    // [DO NOT EXPOSE] too much API Fudgery
     /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
     //bool           vertexInputDynamicState;
 
@@ -489,7 +470,8 @@ struct SPhysicalDeviceFeatures
     bool rayTracingPipeline = false;
     // bool rayTracingPipelineShaderGroupHandleCaptureReplay; // [DO NOT EXPOSE] for capture tools
     // bool rayTracingPipelineShaderGroupHandleCaptureReplayMixed; // [DO NOT EXPOSE] for capture tools
-    bool rayTracingPipelineTraceRaysIndirect = false;
+    // [DO NOT EXPOSE] Vulkan feature requirements
+    //bool rayTracingPipelineTraceRaysIndirect = rayTracingPipeline;
     bool rayTraversalPrimitiveCulling = false;
 
     // [DEPRECATED] Vulkan 1.1 Core and ROADMAP 2022
@@ -503,9 +485,10 @@ struct SPhysicalDeviceFeatures
     /* VK_KHR_shader_atomic_int64 */
     /* ShaderAtomicInt64FeaturesKHR */
 
+    // [EXPOSE AS LIMIT]
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    bool shaderDeviceClock = false;
-    //bool shaderSubgroupClock; // Enabled by Default, Moved to Limits 
+    //bool shaderDeviceClock;
+    //bool shaderSubgroupClock = shaderDeviceClock;
 
     // [DEPRECATED] Vulkan 1.1 Core
     /* VK_KHR_shader_draw_parameters */
@@ -513,14 +496,14 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core
     /* VK_KHR_shader_float16_int8 */
 
-    // [DEPRECATED] Vulkan 1.3 Core
+    // [DEPRECATED] Vulkan 1.3 Core non-optional
     /* VK_KHR_shader_integer_dot_product */
 
     // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_shader_subgroup_extended_types */
 
+    // [EXPOSE AS LIMIT]
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
-    bool shaderSubgroupUniformControlFlow = false;
 
     // [DEPRECATED] Vulkan 1.3 Core
     /* VK_KHR_shader_terminate_invocation */
@@ -536,24 +519,20 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core but 1.3 non-optional and we require it
     /* VK_KHR_vulkan_memory_model */
 
+    // [EXPOSE AS LIMIT]
     /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
-    bool workgroupMemoryExplicitLayout = false;
-    bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
-    bool workgroupMemoryExplicitLayout8BitAccess = false;
-    bool workgroupMemoryExplicitLayout16BitAccess = false;
 
-    /* VK_KHR_zero_initialize_workgroup_memory *//* MOVED TO Vulkan 1.3 Core */
+    // [DEPRECATED] Vulkan 1.4 Core
+    /* VK_KHR_zero_initialize_workgroup_memory */
 
     // [DEPRECATED] Vulkan 1.2 Core
     /* VK_KHX_multiview *//* see VK_KHR_multiview */
 
+    // [EXPOSE AS LIMIT]
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
-    bool computeDerivativeGroupQuads = false;
-    bool computeDerivativeGroupLinear = false;
 
+    // [EXPOSE AS LIMIT]
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
-    bool cooperativeMatrix = false;
-    bool cooperativeMatrixRobustBufferAccess = false;
 
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
     bool rayTracingMotionBlur = false;
@@ -583,24 +562,20 @@ struct SPhysicalDeviceFeatures
     /* VK_EXT_hdr_metadata */
     bool hdrMetadata = false;
 
-    // [TODO] need impl
+    // [EXPOSE AS LIMIT]
     /* VK_GOOGLE_display_timing */
-    bool displayTiming = false;
 
-    // [TODO] need impl
+    // [DO NOT EXPOSE] Meme extension
     /* VK_AMD_rasterization_order */
-    bool rasterizationOrder = false;
 
+    // [EXPOSE AS LIMIT]
     /* VK_AMD_shader_explicit_vertex_parameter */
-    bool shaderExplicitVertexParameter = false;
 
     // [TODO] need impl
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
 
-    // [TODO] need impl
-    bool pipelineCreationCacheControl = false;      // or VK_EXT_pipeline_creation_cache_control
-
+    // [EXPOSE AS LIMIT]
     // [TODO] need new commandbuffer methods, etc
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
     bool colorWriteEnable = false;
@@ -610,9 +585,8 @@ struct SPhysicalDeviceFeatures
     bool conditionalRendering = false;
     bool inheritedConditionalRendering = false;
 
-    // [TODO] need impl
+    // [EXPOSE AS LIMIT]
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
-    bool deviceMemoryReport = false;
 
     // [TODO] need impl
     /* FragmentDensityMapFeaturesEXT *//* VK_EXT_fragment_density_map */
@@ -635,11 +609,9 @@ struct SPhysicalDeviceFeatures
 
     // [TODO] need impl, this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* LineRasterizationFeaturesEXT *//* VK_EXT_line_rasterization */
-    // GL HINT (remove when implemented): MULTI_SAMPLE_LINE_WIDTH_RANGE (which is necessary for this) is guarded by !IsGLES || Version>=320 no idea is something enables this or not
     bool rectangularLines = false;
     bool bresenhamLines = false;
     bool smoothLines = false;
-    // end of hint
     bool stippledRectangularLines = false;
     bool stippledBresenhamLines = false;
     bool stippledSmoothLines = false;
@@ -651,6 +623,7 @@ struct SPhysicalDeviceFeatures
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
     // [TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features
     bool robustBufferAccess2 = false;
+    // Nabla Core Profile but still a feature because enabling has overhead
     bool robustImageAccess2 = false;
     /*
         ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
@@ -678,10 +651,10 @@ struct SPhysicalDeviceFeatures
     /* ASTCDecodeFeaturesEXT *//* VK_EXT_astc_decode_mode */
     //VkFormat           decodeMode;
 
-    // [TODO] Promoted to VK1.1 core, haven't updated API to match
+    // [TODO] Promoted to VK1.1 non-optional core, haven't updated API to match
     /* VK_KHR_descriptor_update_template */
 
-    // Enabled by Default, Moved to Limits
+    // [DEPRECATED] Vulkan 1.3 non-optional and Nabla Core Profile.
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
 
     // Enabled by Default, Moved to Limits
@@ -1021,7 +994,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
 
-    // [DO NOT EXPOSE] Promoted to VK1.3 core but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
+    // [DO NOT EXPOSE] Promoted to VK 1.3 non-optional core and present inNabla Core Profile, but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
     /* VK_KHR_copy_commands2 */
 
     /* VK_KHR_deferred_host_operations */
@@ -1115,10 +1088,11 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it
     /* VK_KHR_bind_memory2 */
 
-    // [TODO] Triage leftover extensions below    
-
-    /* VK_NV_present_barrier */
+    // Vulkan 1.1 core non-optional
     /* VK_EXT_queue_family_foreign */
+
+    // [TODO] Triage leftover extensions below    
+    /* VK_NV_present_barrier */
 
     // TODO: look into
     /* VK_NV_viewport_array2 */
@@ -1189,7 +1163,6 @@ struct SPhysicalDeviceFeatures
         if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
         if (rayQuery && !_rhs.rayQuery) return false;
         if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
-        if (rayTracingPipelineTraceRaysIndirect && !_rhs.rayTracingPipelineTraceRaysIndirect) return false;
         if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
         if (shaderDeviceClock && !_rhs.shaderDeviceClock) return false;
         if (shaderSubgroupUniformControlFlow && !_rhs.shaderSubgroupUniformControlFlow) return false;
@@ -1214,7 +1187,6 @@ struct SPhysicalDeviceFeatures
         if (rasterizationOrder && !_rhs.rasterizationOrder) return false;
         if (shaderExplicitVertexParameter && !_rhs.shaderExplicitVertexParameter) return false;
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
-        if (pipelineCreationCacheControl && !_rhs.pipelineCreationCacheControl) return false;
         if (colorWriteEnable && !_rhs.colorWriteEnable) return false;
         if (conditionalRendering && !_rhs.conditionalRendering) return false;
         if (inheritedConditionalRendering && !_rhs.inheritedConditionalRendering) return false;

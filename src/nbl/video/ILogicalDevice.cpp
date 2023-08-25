@@ -366,7 +366,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         //if (features.accelerationStructureHostCommands) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_HOST_COMMANDS"); // shader doesn't need to know about
         if (features.rayQuery) addShaderDefineToPool(pool, "NBL_RAY_QUERY");
         if (features.rayTracingPipeline) addShaderDefineToPool(pool, "NBL_RAY_TRACING_PIPELINE");
-        if (features.rayTracingPipelineTraceRaysIndirect) addShaderDefineToPool(pool, "NBL_RAY_TRACING_PIPELINE_TRACE_RAYS_INDIRECT");
         if (features.rayTraversalPrimitiveCulling) addShaderDefineToPool(pool, "NBL_RAY_TRAVERSAL_PRIMITIVE_CULLING");
         if (features.shaderDeviceClock) addShaderDefineToPool(pool, "NBL_SHADER_DEVICE_CLOCK");
         if (features.shaderSubgroupUniformControlFlow) addShaderDefineToPool(pool, "NBL_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW");
@@ -391,7 +390,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (features.rasterizationOrder) addShaderDefineToPool(pool, "NBL_RASTERIZATION_ORDER");
         if (features.shaderExplicitVertexParameter) addShaderDefineToPool(pool, "NBL_SHADER_EXPLICIT_VERTEX_PARAMETER");
         if (features.shaderInfoAMD) addShaderDefineToPool(pool, "NBL_SHADER_INFO_AMD");
-        // if (features.pipelineCreationCacheControl) addShaderDefineToPool(pool, "NBL_PIPELINE_CREATION_CACHE_CONTROL"); // shader doesn't need to know about
         if (features.colorWriteEnable) addShaderDefineToPool(pool, "NBL_COLOR_WRITE_ENABLE");
         if (features.conditionalRendering) addShaderDefineToPool(pool, "NBL_CONDITIONAL_RENDERING");
         if (features.inheritedConditionalRendering) addShaderDefineToPool(pool, "NBL_INHERITED_CONDITIONAL_RENDERING");
