@@ -7,6 +7,7 @@
                 "VK_AMD_negative_viewport_height": 1,
                 "VK_AMD_shader_image_load_store_lod": 1,
                 "VK_AMD_shader_trinary_minmax": 1,
+                "VK_EXT_buffer_device_address": 2,
                 "VK_EXT_debug_marker": 4,
                 "VK_EXT_descriptor_indexing": 2,
                 "VK_EXT_external_memory_host": 1,
@@ -28,6 +29,7 @@
                 "VK_EXT_shader_viewport_index_layer": 1,
                 "VK_EXT_subgroup_size_control": 2,
                 "VK_EXT_texel_buffer_alignment": 1,
+                "VK_EXT_texture_compression_astc_hdr": 1,
                 "VK_EXT_vertex_attribute_divisor": 3,
                 "VK_GOOGLE_display_timing": 1,
                 "VK_IMG_format_pvrtc": 1,
@@ -35,6 +37,7 @@
                 "VK_KHR_16bit_storage": 1,
                 "VK_KHR_8bit_storage": 1,
                 "VK_KHR_bind_memory2": 1,
+                "VK_KHR_buffer_device_address": 1,
                 "VK_KHR_copy_commands2": 1,
                 "VK_KHR_create_renderpass2": 1,
                 "VK_KHR_dedicated_allocation": 3,
@@ -46,6 +49,7 @@
                 "VK_KHR_external_fence": 1,
                 "VK_KHR_external_memory": 1,
                 "VK_KHR_external_semaphore": 1,
+                "VK_KHR_fragment_shader_barycentric": 1,
                 "VK_KHR_get_memory_requirements2": 1,
                 "VK_KHR_image_format_list": 1,
                 "VK_KHR_imageless_framebuffer": 1,
@@ -56,6 +60,7 @@
                 "VK_KHR_portability_subset": 1,
                 "VK_KHR_push_descriptor": 2,
                 "VK_KHR_relaxed_block_layout": 1,
+                "VK_KHR_sampler_mirror_clamp_to_edge": 3,
                 "VK_KHR_sampler_ycbcr_conversion": 14,
                 "VK_KHR_separate_depth_stencil_layouts": 1,
                 "VK_KHR_shader_draw_parameters": 1,
@@ -69,9 +74,15 @@
                 "VK_KHR_timeline_semaphore": 2,
                 "VK_KHR_uniform_buffer_standard_layout": 1,
                 "VK_KHR_variable_pointers": 1,
+                "VK_NV_fragment_shader_barycentric": 1,
                 "VK_NV_glsl_shader": 1
             },
             "features": {
+                "VkPhysicalDeviceBufferDeviceAddressFeaturesEXT": {
+                    "bufferDeviceAddress": true,
+                    "bufferDeviceAddressCaptureReplay": false,
+                    "bufferDeviceAddressMultiDevice": false
+                },
                 "VkPhysicalDeviceDynamicRenderingFeaturesKHR": {
                     "dynamicRendering": true
                 },
@@ -104,6 +115,7 @@
                     "shaderImageGatherExtended": true,
                     "shaderInt16": true,
                     "shaderInt64": true,
+                    "shaderResourceMinLod": true,
                     "shaderResourceResidency": false,
                     "shaderSampledImageArrayDynamicIndexing": true,
                     "shaderStorageBufferArrayDynamicIndexing": true,
@@ -130,6 +142,9 @@
                     "variableMultisampleRate": false,
                     "vertexPipelineStoresAndAtomics": false,
                     "wideLines": false
+                },
+                "VkPhysicalDeviceFragmentShaderBarycentricFeaturesNV": {
+                    "fragmentShaderBarycentric": true
                 },
                 "VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT": {
                     "fragmentShaderSampleInterlock": true,
@@ -160,6 +175,7 @@
                     "shaderSampleRateInterpolationFunctions": true,
                     "tessellationIsolines": false,
                     "tessellationPointMode": false,
+                    "triangleFans": false,
                     "vertexAttributeAccessBeyondStride": true
                 },
                 "VkPhysicalDevicePrivateDataFeaturesEXT": {
@@ -194,6 +210,9 @@
                 "VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT": {
                     "texelBufferAlignment": true
                 },
+                "VkPhysicalDeviceTextureCompressionASTCHDRFeaturesEXT": {
+                    "textureCompressionASTC_HDR": true
+                },
                 "VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT": {
                     "vertexAttributeInstanceRateDivisor": true,
                     "vertexAttributeInstanceRateZeroDivisor": true
@@ -213,6 +232,7 @@
                     "shaderDrawParameters": true
                 },
                 "VkPhysicalDeviceVulkan12Features": {
+                    "samplerMirrorClampToEdge": true,
                     "drawIndirectCount": false,
                     "storageBuffer8BitAccess": true,
                     "uniformAndStorageBuffer8BitAccess": true,
@@ -319,6 +339,9 @@
                     "shaderSignedZeroInfNanPreserveFloat32": true,
                     "shaderSignedZeroInfNanPreserveFloat64": true
                 },
+                "VkPhysicalDeviceFragmentShaderBarycentricPropertiesKHR": {
+                    "triStripVertexOrderIndependentOfProvokingVertex": true
+                },
                 "VkPhysicalDeviceInlineUniformBlockPropertiesEXT": {
                     "maxDescriptorSetInlineUniformBlocks": 120,
                     "maxDescriptorSetUpdateAfterBindInlineUniformBlocks": 120,
@@ -327,7 +350,7 @@
                     "maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks": 30
                 },
                 "VkPhysicalDeviceMaintenance3PropertiesKHR": {
-                    "maxMemoryAllocationSize": 743981056,
+                    "maxMemoryAllocationSize": 1474838528,
                     "maxPerSetDescriptors": 572
                 },
                 "VkPhysicalDeviceMultiviewPropertiesKHR": {
@@ -338,13 +361,7 @@
                     "minVertexInputBindingStrideAlignment": 4
                 },
                 "VkPhysicalDeviceProperties": {
-                    "sparseProperties": {
-                        "residencyStandard2DBlockShape": false,
-                        "residencyStandard2DMultisampleBlockShape": false,
-                        "residencyStandard3DBlockShape": false,
-                        "residencyAlignedMipSize": false,
-                        "residencyNonResidentStrict": false
-                    },
+                    "sparseProperties": {},
                     "limits": {
                         "bufferImageGranularity": 16,
                         "discreteQueuePriorities": 2,
@@ -417,7 +434,7 @@
                         "maxSamplerAllocationCount": 1073741824,
                         "maxSamplerAnisotropy": 16,
                         "maxSamplerLodBias": 4,
-                        "maxStorageBufferRange": 743981056,
+                        "maxStorageBufferRange": 1474838528,
                         "maxTessellationControlPerPatchOutputComponents": 120,
                         "maxTessellationControlPerVertexInputComponents": 124,
                         "maxTessellationControlPerVertexOutputComponents": 124,
@@ -429,7 +446,7 @@
                         "maxTexelBufferElements": 67108864,
                         "maxTexelGatherOffset": 7,
                         "maxTexelOffset": 7,
-                        "maxUniformBufferRange": 743981056,
+                        "maxUniformBufferRange": 1474838528,
                         "maxVertexInputAttributeOffset": 2047,
                         "maxVertexInputAttributes": 31,
                         "maxVertexInputBindingStride": 2048,
@@ -502,10 +519,7 @@
                         "lineWidthRange": [
                             1,
                             1
-                        ],
-                        "timestampPeriod": 1,
-                        "strictLines": false,
-                        "standardSampleLocations": true
+                        ]
                     }
                 },
                 "VkPhysicalDevicePushDescriptorPropertiesKHR": {
@@ -533,7 +547,7 @@
                     "variableSampleLocations": true
                 },
                 "VkPhysicalDeviceSubgroupProperties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "supportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -544,6 +558,7 @@
                     "supportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -553,7 +568,7 @@
                 },
                 "VkPhysicalDeviceSubgroupSizeControlPropertiesEXT": {
                     "maxComputeWorkgroupSubgroups": 256,
-                    "maxSubgroupSize": 4,
+                    "maxSubgroupSize": 32,
                     "minSubgroupSize": 4,
                     "requiredSubgroupSizeStages": []
                 },
@@ -568,7 +583,7 @@
                     "maxVertexAttribDivisor": 1073741824
                 },
                 "VkPhysicalDeviceVulkan11Properties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "subgroupSupportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -579,6 +594,7 @@
                     "subgroupSupportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -588,7 +604,7 @@
                     "maxMultiviewViewCount": 32,
                     "maxMultiviewInstanceIndex": 134217727,
                     "maxPerSetDescriptors": 572,
-                    "maxMemoryAllocationSize": 743981056
+                    "maxMemoryAllocationSize": 1474838528
                 },
                 "VkPhysicalDeviceVulkan12Properties": {
                     "shaderSignedZeroInfNanPreserveFloat16": true,
@@ -3455,7 +3471,7 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_21_23_55": {
+        "VP_LUNARG_merged_2023_08_25_22_06": {
             "version": 1,
             "api-version": "1.2.250",
             "label": "MoltenVK Mobile Baseline",
@@ -3464,7 +3480,7 @@
             "history": [
                 {
                     "revision": 1,
-                    "date": "2023-08-21",
+                    "date": "2023-08-25",
                     "author": "LunarG Profiles Generation",
                     "comment": "Generated profile"
                 }

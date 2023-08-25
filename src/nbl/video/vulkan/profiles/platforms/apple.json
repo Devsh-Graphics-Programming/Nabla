@@ -6,6 +6,7 @@
                 "VK_AMD_gpu_shader_half_float": 2,
                 "VK_AMD_negative_viewport_height": 1,
                 "VK_AMD_shader_trinary_minmax": 1,
+                "VK_EXT_buffer_device_address": 2,
                 "VK_EXT_debug_marker": 4,
                 "VK_EXT_descriptor_indexing": 2,
                 "VK_EXT_external_memory_host": 1,
@@ -31,6 +32,7 @@
                 "VK_KHR_16bit_storage": 1,
                 "VK_KHR_8bit_storage": 1,
                 "VK_KHR_bind_memory2": 1,
+                "VK_KHR_buffer_device_address": 1,
                 "VK_KHR_copy_commands2": 1,
                 "VK_KHR_create_renderpass2": 1,
                 "VK_KHR_dedicated_allocation": 3,
@@ -52,6 +54,7 @@
                 "VK_KHR_portability_subset": 1,
                 "VK_KHR_push_descriptor": 2,
                 "VK_KHR_relaxed_block_layout": 1,
+                "VK_KHR_sampler_mirror_clamp_to_edge": 3,
                 "VK_KHR_sampler_ycbcr_conversion": 14,
                 "VK_KHR_separate_depth_stencil_layouts": 1,
                 "VK_KHR_shader_draw_parameters": 1,
@@ -68,6 +71,11 @@
                 "VK_NV_glsl_shader": 1
             },
             "features": {
+                "VkPhysicalDeviceBufferDeviceAddressFeaturesEXT": {
+                    "bufferDeviceAddress": true,
+                    "bufferDeviceAddressCaptureReplay": false,
+                    "bufferDeviceAddressMultiDevice": false
+                },
                 "VkPhysicalDeviceDynamicRenderingFeaturesKHR": {
                     "dynamicRendering": true
                 },
@@ -99,6 +107,7 @@
                     "shaderImageGatherExtended": true,
                     "shaderInt16": true,
                     "shaderInt64": true,
+                    "shaderResourceMinLod": true,
                     "shaderResourceResidency": false,
                     "shaderSampledImageArrayDynamicIndexing": true,
                     "shaderStorageBufferArrayDynamicIndexing": true,
@@ -198,6 +207,7 @@
                     "shaderDrawParameters": true
                 },
                 "VkPhysicalDeviceVulkan12Features": {
+                    "samplerMirrorClampToEdge": true,
                     "drawIndirectCount": false,
                     "storageBuffer8BitAccess": true,
                     "uniformAndStorageBuffer8BitAccess": true,
@@ -312,7 +322,7 @@
                     "maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks": 13
                 },
                 "VkPhysicalDeviceMaintenance3PropertiesKHR": {
-                    "maxMemoryAllocationSize": 743981056,
+                    "maxMemoryAllocationSize": 1474838528,
                     "maxPerSetDescriptors": 572
                 },
                 "VkPhysicalDeviceMultiviewPropertiesKHR": {
@@ -323,7 +333,13 @@
                     "minVertexInputBindingStrideAlignment": 4
                 },
                 "VkPhysicalDeviceProperties": {
-                    "sparseProperties": {},
+                    "sparseProperties": {
+                        "residencyStandard2DBlockShape": false,
+                        "residencyStandard2DMultisampleBlockShape": false,
+                        "residencyStandard3DBlockShape": false,
+                        "residencyAlignedMipSize": false,
+                        "residencyNonResidentStrict": false
+                    },
                     "limits": {
                         "bufferImageGranularity": 256,
                         "discreteQueuePriorities": 2,
@@ -396,7 +412,7 @@
                         "maxSamplerAllocationCount": 1073741824,
                         "maxSamplerAnisotropy": 16,
                         "maxSamplerLodBias": 4,
-                        "maxStorageBufferRange": 743981056,
+                        "maxStorageBufferRange": 1474838528,
                         "maxTessellationControlPerPatchOutputComponents": 120,
                         "maxTessellationControlPerVertexInputComponents": 124,
                         "maxTessellationControlPerVertexOutputComponents": 124,
@@ -481,7 +497,10 @@
                         "lineWidthRange": [
                             1,
                             1
-                        ]
+                        ],
+                        "timestampPeriod": 1,
+                        "strictLines": true,
+                        "standardSampleLocations": true
                     }
                 },
                 "VkPhysicalDevicePushDescriptorPropertiesKHR": {
@@ -509,7 +528,7 @@
                     "variableSampleLocations": true
                 },
                 "VkPhysicalDeviceSubgroupProperties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "supportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -520,6 +539,7 @@
                     "supportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -529,7 +549,7 @@
                 },
                 "VkPhysicalDeviceSubgroupSizeControlPropertiesEXT": {
                     "maxComputeWorkgroupSubgroups": 16,
-                    "maxSubgroupSize": 4,
+                    "maxSubgroupSize": 32,
                     "minSubgroupSize": 64,
                     "requiredSubgroupSizeStages": []
                 },
@@ -544,7 +564,7 @@
                     "maxVertexAttribDivisor": 1073741824
                 },
                 "VkPhysicalDeviceVulkan11Properties": {
-                    "subgroupSize": 4,
+                    "subgroupSize": 32,
                     "subgroupSupportedStages": [
                         "VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT",
                         "VK_SHADER_STAGE_FRAGMENT_BIT",
@@ -555,6 +575,7 @@
                     "subgroupSupportedOperations": [
                         "VK_SUBGROUP_FEATURE_BASIC_BIT",
                         "VK_SUBGROUP_FEATURE_VOTE_BIT",
+                        "VK_SUBGROUP_FEATURE_ARITHMETIC_BIT",
                         "VK_SUBGROUP_FEATURE_BALLOT_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_BIT",
                         "VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT",
@@ -564,7 +585,7 @@
                     "maxMultiviewViewCount": 32,
                     "maxMultiviewInstanceIndex": 134217727,
                     "maxPerSetDescriptors": 572,
-                    "maxMemoryAllocationSize": 743981056
+                    "maxMemoryAllocationSize": 1474838528
                 },
                 "VkPhysicalDeviceVulkan12Properties": {
                     "shaderSignedZeroInfNanPreserveFloat16": true,
@@ -2670,7 +2691,7 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_21_23_56": {
+        "VP_LUNARG_merged_2023_08_25_22_13": {
             "version": 1,
             "api-version": "1.2.250",
             "label": "MoltenVK Baseline",
@@ -2679,7 +2700,7 @@
             "history": [
                 {
                     "revision": 1,
-                    "date": "2023-08-21",
+                    "date": "2023-08-25",
                     "author": "LunarG Profiles Generation",
                     "comment": "Generated profile"
                 }
