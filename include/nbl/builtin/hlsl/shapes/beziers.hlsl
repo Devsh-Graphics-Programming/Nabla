@@ -42,6 +42,177 @@ namespace shapes
     }
 
     template<typename float_t>
+    struct Quadratic
+    {
+        using vec2 = vector<float_t, 2>;
+        using vec3 = vector<float_t, 3>;
+        
+        struct ArcLengthPrecomputedValues
+        {
+            float_t lenA2;
+            float_t AdotB;
+
+            float_t a;
+            float_t b;
+            float_t c;
+
+            float_t b_over_4a;
+        };
+        
+        vec2 A;
+        vec2 B;
+        vec2 C;
+        
+        static Quadratic construct(vec2 P0, vec2 P1, vec2 P2)
+        {
+            const vec2 A = P0 - 2.0 * P1 + P2;
+            const vec2 B = 2.0f * (P1 - P0);
+            const vec2 C = P0;
+            
+            Quadratic ret = { A, B, C };
+            return ret;
+        }
+        
+        vec2 evaluate(float_t t)
+        {
+            return A * (t * t) + B * t + C;
+        }
+        
+        float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
+        {
+            float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
+            float_t retval = 0.5f*t*lenTan;
+            float_t sqrtc = sqrt(preCompValues.c);
+            
+            // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
+            if (preCompValues.lenA2>=exp2(-23.f))
+                retval += preCompValues.b_over_4a*(lenTan-sqrtc);
+
+            // sin2 multiplied by length of A and B
+            float det_over_16 = preCompValues.AdotB* preCompValues.AdotB- preCompValues.lenA2* preCompValues.c;
+            // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
+            if (det_over_16>=exp2(-23.f))
+            {
+            // TODO: finish by @Przemog
+                //retval += det_over_16*...;
+            }
+
+            return retval;
+        }
+        
+        // TODO: make clipper as 3rd parameter
+        float2 ud(vec2 pos)
+        {            
+            // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
+            // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
+            // p'(0)   = 2(B-A)
+            // p'(1)   = 2(C-B)
+            // p'(1/2) = 2(C-A)
+            
+            vec2 _B = B/2.0f;
+            vec2 _C = C - pos;
+
+            // Reducing Quartic to Cubic Solution
+            float_t kk = 1.0 / dot(A,A);
+            float_t kx = kk * dot(_B,A);
+            float_t ky = kk * (2.0*dot(_B,_B)+dot(_C,A)) / 3.0;
+            float_t kz = kk * dot(_C,_B);      
+
+            vec2 res;
+
+            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
+            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
+            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
+            float_t p = ky - kx*kx;
+            float_t p3 = p*p*p;
+            float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
+            float_t h = q*q + 4.0*p3;
+
+            if(h >= 0.0) 
+            { 
+                h = sqrt(h);
+                vec2 x = (vec2(h, -h) - q) / 2.0;
+
+                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
+                if(abs(abs(h/q) - 1.0) < 0.0001)
+                {
+                   // Approximation of x where h and q are close with no carastrophic cancellation
+                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
+                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
+                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
+                      // So √(1+w) can be approximated by 1+½w
+                      // Simplifying later and the fact that w=4p³/q will result in the following.
+                   x = vec2(p3/q, -q - p3/q);
+                }
+
+                vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0,1.0/3.0));
+                float_t t = uv.x + uv.y - kx;
+                t = clamp( t, 0.0, 1.0 );
+
+                // 1 root
+                vec2 qos = _C + (B + A*t)*t;
+                res = vec2( length(qos),t);
+            }
+            else
+            {
+                float_t z = sqrt(-p);
+                float_t v = acos( q/(p*z*2.0) ) / 3.0;
+                float_t m = cos(v);
+                float_t n = sin(v)*1.732050808;
+                vec3 t = vec3(m + m, -n - m, n - m) * z - kx;
+                t = clamp( t, 0.0, 1.0 );
+
+                // 3 roots
+                vec2 qos = _C + (B + A*t.x)*t.x;
+                float_t dis = dot(qos,qos);
+                
+                res = vec2(dis,t.x);
+
+                qos = _C + (B + A*t.y)*t.y;
+                dis = dot(qos,qos);
+                if( dis<res.x ) res = vec2(dis,t.y );
+
+                qos = _C + (B + A*t.z)*t.z;
+                dis = dot(qos,qos);
+                if( dis<res.x ) res = vec2(dis,t.z );
+
+                res.x = sqrt( res.x );
+            }
+            
+            return res;
+        }
+        
+        float_t signedDistance(vec2 pos, float_t thickness)
+        {
+            return abs(ud(pos)) - thickness;
+        }
+        
+        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
+        {
+            float_t xn = hint;
+
+            if (arcLen <= accuracyThreshold)
+                return arcLen;
+
+                // TODO: implement halley method
+            const int iterationThreshold = 32;
+            for(int n = 0; n < iterationThreshold; n++)
+            {
+                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn, preCompValues);
+
+                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                    return xn;
+
+                float_t differentialAtGuess = length(2.0*A * xn + B);
+                    // x_n+1 = x_n - f(x_n)/f'(x_n)
+                xn -= (calcArcLen(xn, preCompValues) - arcLen) / differentialAtGuess;
+            }
+
+            return xn;
+        }
+    };
+    
+    template<typename float_t>
     struct QuadraticBezier
     {
         using vec2 = vector<float_t, 2>;
@@ -79,6 +250,7 @@ namespace shapes
             return position;
         }
 
+        // TODO [Lucas]: move this function to Quadratic struct
         // https://pomax.github.io/bezierinfo/#yforx
         float_t tForMajorCoordinate(const int major, float_t x) 
         { 
@@ -90,14 +262,16 @@ namespace shapes
             // assert(rootCount == 1);
             return roots.x;
         }
-
+        
         float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
         {
             float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
             float_t retval = 0.5f*t*lenTan;
+            float_t sqrtc = sqrt(preCompValues.c);
+            
             // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
             if (preCompValues.lenA2>=exp2(-23.f))
-                retval += preCompValues.b_over_4a*(lenTan-sqrt(preCompValues.c));
+                retval += preCompValues.b_over_4a*(lenTan-sqrtc);
 
             // sin2 multiplied by length of A and B
             float det_over_16 = preCompValues.AdotB* preCompValues.AdotB- preCompValues.lenA2* preCompValues.c;
@@ -135,115 +309,6 @@ namespace shapes
             }
 
             return xn;
-        }
-    };
-
-    template<typename float_t>
-    struct QuadraticBezierOutline
-    {
-        using vec2 = vector<float_t, 2>;
-        using vec3 = vector<float_t, 3>;
-
-        QuadraticBezier<float_t> bezier;
-        float_t thickness;
-
-        static QuadraticBezierOutline construct(vec2 P0, vec2 P1, vec2 P2, float_t thickness)
-        {
-            QuadraticBezier<float_t> bezier = QuadraticBezier<float_t>::construct(P0, P1, P2);
-            QuadraticBezierOutline<float_t> ret = { bezier, thickness };
-            return ret;
-        }
-
-        // original from https://www.shadertoy.com/view/lsyfWc
-        float2 ud(vec2 pos)
-        {
-            const vec2 P0 = bezier.P0;
-            const vec2 P1 = bezier.P1;
-            const vec2 P2 = bezier.P2;
-                    
-            // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
-            // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
-            // p'(0)   = 2(B-A)
-            // p'(1)   = 2(C-B)
-            // p'(1/2) = 2(C-A)
-                    
-            vec2 A = P1 - P0;
-            vec2 B = P0 - 2.0*P1 + P2;
-            vec2 C = P0 - pos;
-
-            // Reducing Quartic to Cubic Solution
-            float_t kk = 1.0 / dot(B,B);
-            float_t kx = kk * dot(A,B);
-            float_t ky = kk * (2.0*dot(A,A)+dot(C,B)) / 3.0;
-            float_t kz = kk * dot(C,A);      
-
-            vec2 res;
-
-            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
-            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
-            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
-            float_t p = ky - kx*kx;
-            float_t p3 = p*p*p;
-            float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
-            float_t h = q*q + 4.0*p3;
-
-            if(h >= 0.0) 
-            { 
-                h = sqrt(h);
-                vec2 x = (vec2(h, -h) - q) / 2.0;
-
-                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
-                if(abs(abs(h/q) - 1.0) < 0.0001)
-                {
-                   // Approximation of x where h and q are close with no carastrophic cancellation
-                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
-                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
-                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
-                      // So √(1+w) can be approximated by 1+½w
-                      // Simplifying later and the fact that w=4p³/q will result in the following.
-                   x = vec2(p3/q, -q - p3/q);
-                }
-
-                vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0,1.0/3.0));
-                float_t t = uv.x + uv.y - kx;
-                t = clamp( t, 0.0, 1.0 );
-
-                // 1 root
-                vec2 qos = C + (2.0*A + B*t)*t;
-                res = vec2( length(qos),t);
-            }
-            else
-            {
-                float_t z = sqrt(-p);
-                float_t v = acos( q/(p*z*2.0) ) / 3.0;
-                float_t m = cos(v);
-                float_t n = sin(v)*1.732050808;
-                vec3 t = vec3(m + m, -n - m, n - m) * z - kx;
-                t = clamp( t, 0.0, 1.0 );
-
-                // 3 roots
-                vec2 qos = C + (2.0*A + B*t.x)*t.x;
-                float_t dis = dot(qos,qos);
-                
-                res = vec2(dis,t.x);
-
-                qos = C + (2.0*A + B*t.y)*t.y;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = vec2(dis,t.y );
-
-                qos = C + (2.0*A + B*t.z)*t.z;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = vec2(dis,t.z );
-
-                res.x = sqrt( res.x );
-            }
-            
-            return res;
-        }
-
-        float_t signedDistance(vec2 pos)
-        {
-            return abs(ud(pos)) - thickness;
         }
     };
 
