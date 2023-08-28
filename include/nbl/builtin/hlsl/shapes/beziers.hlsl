@@ -44,8 +44,8 @@ namespace shapes
     template<typename float_t>
     struct QuadraticBezier
     {
-        using vec2 = vector<float_t, 2>;
-        using vec3 = vector<float_t, 3>;
+        using float2_t = vector<float_t, 2>;
+        using float3_t = vector<float_t, 3>;
 
         struct ArcLengthPrecomputedValues
         {
@@ -59,19 +59,19 @@ namespace shapes
             float_t b_over_4a;
         };
 
-        vec2 P0;
-        vec2 P1;
-        vec2 P2;
+        float2_t P0;
+        float2_t P1;
+        float2_t P2;
 
-        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
+        static QuadraticBezier construct(float2_t P0, float2_t P1, float2_t P2)
         {
             QuadraticBezier ret = { P0, P1, P2 };
             return ret;
         }
 
-        vec2 evaluate(float_t t)
+        float2_t evaluate(float_t t)
         {
-            vec2 position = 
+            float2_t position = 
                 P0 * (1.0 - t) * (1.0 - t) 
                  + 2.0 * P1 * (1.0 - t) * t
                  +       P2 * t         * t;
@@ -87,7 +87,7 @@ namespace shapes
             float_t b = P1[major] - x;
             float_t c = P2[major] - x;
             int rootCount;
-            vec2 roots = SolveQuadratic(vec3(a, b, c), rootCount);
+            float2_t roots = SolveQuadratic(float3_t(a, b, c), rootCount);
             // assert(rootCount == 1);
             return roots.x;
         }
@@ -121,8 +121,8 @@ namespace shapes
             if (arcLen <= accuracyThreshold)
                 return arcLen;
 
-            vec2 B = 2.0*(P1 - P0);
-            vec2 twoA = 2.0*(P2 - P1) - B;
+            float2_t B = 2.0*(P1 - P0);
+            float2_t twoA = 2.0*(P2 - P1) - B;
 
             const int iterationThreshold = 32;
             for(int n = 0; n < iterationThreshold; n++)
@@ -144,8 +144,8 @@ namespace shapes
     template<typename float_t>
     struct Quadratic
     {
-        using vec2 = vector<float_t, 2>;
-        using vec3 = vector<float_t, 3>;
+        using float2_t = vector<float_t, 2>;
+        using float3_t = vector<float_t, 3>;
         
         struct ArcLengthPrecomputedValues
         {
@@ -159,11 +159,11 @@ namespace shapes
             float_t b_over_4a;
         };
         
-        vec2 A;
-        vec2 B;
-        vec2 C;
+        float2_t A;
+        float2_t B;
+        float2_t C;
         
-        static Quadratic construct(vec2 A, vec2 B, vec2 C)
+        static Quadratic construct(float2_t A, float2_t B, float2_t C)
         {            
             Quadratic ret = { A, B, C };
             return ret;
@@ -171,15 +171,15 @@ namespace shapes
         
         static Quadratic construct(QuadraticBezier<float_t> curve)
         {
-            const vec2 A = curve.P0 - 2.0 * curve.P1 + curve.P2;
-            const vec2 B = 2.0f * (curve.P1 - curve.P0);
-            const vec2 C = curve.P0;
+            const float2_t A = curve.P0 - 2.0 * curve.P1 + curve.P2;
+            const float2_t B = 2.0f * (curve.P1 - curve.P0);
+            const float2_t C = curve.P0;
             
             Quadratic ret = { A, B, C };
             return ret;
         }
         
-        vec2 evaluate(float_t t)
+        float2_t evaluate(float_t t)
         {
             return A * (t * t) + B * t + C;
         }
@@ -207,7 +207,7 @@ namespace shapes
         }
         
         // TODO: make clipper as 3rd parameter
-        float2 ud(vec2 pos)
+        float2 ud(float2_t pos)
         {            
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
@@ -215,8 +215,8 @@ namespace shapes
             // p'(1)   = 2(C-B)
             // p'(1/2) = 2(C-A)
             
-            vec2 _B = B/2.0f;
-            vec2 _C = C - pos;
+            float2_t _B = B/2.0f;
+            float2_t _C = C - pos;
 
             // Reducing Quartic to Cubic Solution
             float_t kk = 1.0 / dot(A,A);
@@ -224,7 +224,7 @@ namespace shapes
             float_t ky = kk * (2.0*dot(_B,_B)+dot(_C,A)) / 3.0;
             float_t kz = kk * dot(_C,_B);      
 
-            vec2 res;
+            float2_t res;
 
             // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
             // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
@@ -237,7 +237,7 @@ namespace shapes
             if(h >= 0.0) 
             { 
                 h = sqrt(h);
-                vec2 x = (vec2(h, -h) - q) / 2.0;
+                float2_t x = (float2_t(h, -h) - q) / 2.0;
 
                 // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
                 if(abs(abs(h/q) - 1.0) < 0.0001)
@@ -248,16 +248,16 @@ namespace shapes
                       // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
                       // So √(1+w) can be approximated by 1+½w
                       // Simplifying later and the fact that w=4p³/q will result in the following.
-                   x = vec2(p3/q, -q - p3/q);
+                   x = float2_t(p3/q, -q - p3/q);
                 }
 
-                vec2 uv = sign(x)*pow(abs(x), vec2(1.0/3.0,1.0/3.0));
+                float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
                 float_t t = uv.x + uv.y - kx;
                 t = clamp( t, 0.0, 1.0 );
 
                 // 1 root
-                vec2 qos = _C + (B + A*t)*t;
-                res = vec2( length(qos),t);
+                float2_t qos = _C + (B + A*t)*t;
+                res = float2_t( length(qos),t);
             }
             else
             {
@@ -265,22 +265,22 @@ namespace shapes
                 float_t v = acos( q/(p*z*2.0) ) / 3.0;
                 float_t m = cos(v);
                 float_t n = sin(v)*1.732050808;
-                vec3 t = vec3(m + m, -n - m, n - m) * z - kx;
+                float3_t t = float3_t(m + m, -n - m, n - m) * z - kx;
                 t = clamp( t, 0.0, 1.0 );
 
                 // 3 roots
-                vec2 qos = _C + (B + A*t.x)*t.x;
+                float2_t qos = _C + (B + A*t.x)*t.x;
                 float_t dis = dot(qos,qos);
                 
-                res = vec2(dis,t.x);
+                res = float2_t(dis,t.x);
 
                 qos = _C + (B + A*t.y)*t.y;
                 dis = dot(qos,qos);
-                if( dis<res.x ) res = vec2(dis,t.y );
+                if( dis<res.x ) res = float2_t(dis,t.y );
 
                 qos = _C + (B + A*t.z)*t.z;
                 dis = dot(qos,qos);
-                if( dis<res.x ) res = vec2(dis,t.z );
+                if( dis<res.x ) res = float2_t(dis,t.z );
 
                 res.x = sqrt( res.x );
             }
@@ -288,7 +288,7 @@ namespace shapes
             return res;
         }
         
-        float_t signedDistance(vec2 pos, float_t thickness)
+        float_t signedDistance(float2_t pos, float_t thickness)
         {
             return abs(ud(pos)).x - thickness;
         }
