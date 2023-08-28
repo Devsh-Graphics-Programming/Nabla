@@ -589,21 +589,28 @@ target_compile_definitions(Nabla
 )
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
+	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
+	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	
+	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	target_include_directories(Nabla PUBLIC "${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+	
 	add_subdirectory(builtin)
 	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
-	add_dependencies(Nabla nblBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ INTERFACE)
 	else()
-		target_link_libraries(Nabla PRIVATE 
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ PRIVATE)
 	endif()
 	
-	# always install builtins (some may be included in cpp regardless if embedded or not)
+	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
+		nblBuiltinResourceData
+		dxcBuiltinResourceData
+	)
+	
+	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
 	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
 		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
@@ -662,6 +669,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
+	nbl_install_builtin_resources(dxcBuiltinResourceData)
 endif()
 
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)

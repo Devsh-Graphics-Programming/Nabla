@@ -21,7 +21,7 @@ set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
-set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers")
+set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" CACHE INTERNAL "")
 if(WIN32)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
 elseif(UNIX)
