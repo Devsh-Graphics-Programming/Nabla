@@ -40,6 +40,106 @@ namespace shapes
         numRealValues = 2;
         return float2(sqrtD - b, sqrtD + b);
     }
+    
+    template<typename float_t>
+    struct QuadraticBezier
+    {
+        using vec2 = vector<float_t, 2>;
+        using vec3 = vector<float_t, 3>;
+
+        struct ArcLengthPrecomputedValues
+        {
+            float_t lenA2;
+            float_t AdotB;
+
+            float_t a;
+            float_t b;
+            float_t c;
+
+            float_t b_over_4a;
+        };
+
+        vec2 P0;
+        vec2 P1;
+        vec2 P2;
+
+        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
+        {
+            QuadraticBezier ret = { P0, P1, P2 };
+            return ret;
+        }
+
+        vec2 evaluate(float_t t)
+        {
+            vec2 position = 
+                P0 * (1.0 - t) * (1.0 - t) 
+                 + 2.0 * P1 * (1.0 - t) * t
+                 +       P2 * t         * t;
+
+            return position;
+        }
+
+        // TODO [Lucas]: move this function to Quadratic struct
+        // https://pomax.github.io/bezierinfo/#yforx
+        float_t tForMajorCoordinate(const int major, float_t x) 
+        { 
+            float_t a = P0[major] - x;
+            float_t b = P1[major] - x;
+            float_t c = P2[major] - x;
+            int rootCount;
+            vec2 roots = SolveQuadratic(vec3(a, b, c), rootCount);
+            // assert(rootCount == 1);
+            return roots.x;
+        }
+        
+        float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
+        {
+            float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
+            float_t retval = 0.5f*t*lenTan;
+            float_t sqrtc = sqrt(preCompValues.c);
+            
+            // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
+            if (preCompValues.lenA2>=exp2(-23.f))
+                retval += preCompValues.b_over_4a*(lenTan-sqrtc);
+
+            // sin2 multiplied by length of A and B
+            float det_over_16 = preCompValues.AdotB* preCompValues.AdotB- preCompValues.lenA2* preCompValues.c;
+            // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
+            if (det_over_16>=exp2(-23.f))
+            {
+            // TODO: finish by @Przemog
+                //retval += det_over_16*...;
+            }
+
+            return retval;
+        }
+
+        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
+        {
+            float_t xn = hint;
+
+            if (arcLen <= accuracyThreshold)
+                return arcLen;
+
+            vec2 B = 2.0*(P1 - P0);
+            vec2 twoA = 2.0*(P2 - P1) - B;
+
+            const int iterationThreshold = 32;
+            for(int n = 0; n < iterationThreshold; n++)
+            {
+                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn, preCompValues);
+
+                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                    return xn;
+
+                float_t differentialAtGuess = length(twoA * xn + B);
+                    // x_n+1 = x_n - f(x_n)/f'(x_n)
+                xn -= (calcArcLen(xn, preCompValues) - arcLen) / differentialAtGuess;
+            }
+
+            return xn;
+        }
+    };
 
     template<typename float_t>
     struct Quadratic
@@ -63,11 +163,17 @@ namespace shapes
         vec2 B;
         vec2 C;
         
-        static Quadratic construct(vec2 P0, vec2 P1, vec2 P2)
+        static Quadratic construct(vec2 A, vec2 B, vec2 C)
+        {            
+            Quadratic ret = { A, B, C };
+            return ret;
+        }
+        
+        static Quadratic construct(QuadraticBezier<float_t> curve)
         {
-            const vec2 A = P0 - 2.0 * P1 + P2;
-            const vec2 B = 2.0f * (P1 - P0);
-            const vec2 C = P0;
+            const vec2 A = curve.P0 - 2.0 * curve.P1 + curve.P2;
+            const vec2 B = 2.0f * (curve.P1 - curve.P0);
+            const vec2 C = curve.P0;
             
             Quadratic ret = { A, B, C };
             return ret;
@@ -184,7 +290,7 @@ namespace shapes
         
         float_t signedDistance(vec2 pos, float_t thickness)
         {
-            return abs(ud(pos)) - thickness;
+            return abs(ud(pos)).x - thickness;
         }
         
         float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
@@ -212,106 +318,6 @@ namespace shapes
         }
     };
     
-    template<typename float_t>
-    struct QuadraticBezier
-    {
-        using vec2 = vector<float_t, 2>;
-        using vec3 = vector<float_t, 3>;
-
-        struct ArcLengthPrecomputedValues
-        {
-            float_t lenA2;
-            float_t AdotB;
-
-            float_t a;
-            float_t b;
-            float_t c;
-
-            float_t b_over_4a;
-        };
-
-        vec2 P0;
-        vec2 P1;
-        vec2 P2;
-
-        static QuadraticBezier construct(vec2 P0, vec2 P1, vec2 P2)
-        {
-            QuadraticBezier ret = { P0, P1, P2 };
-            return ret;
-        }
-
-        vec2 evaluate(float_t t)
-        {
-            vec2 position = 
-                P0 * (1.0 - t) * (1.0 - t) 
-                 + 2.0 * P1 * (1.0 - t) * t
-                 +       P2 * t         * t;
-
-            return position;
-        }
-
-        // TODO [Lucas]: move this function to Quadratic struct
-        // https://pomax.github.io/bezierinfo/#yforx
-        float_t tForMajorCoordinate(const int major, float_t x) 
-        { 
-            float_t a = P0[major] - x;
-            float_t b = P1[major] - x;
-            float_t c = P2[major] - x;
-            int rootCount;
-            vec2 roots = SolveQuadratic(vec3(a, b, c), rootCount);
-            // assert(rootCount == 1);
-            return roots.x;
-        }
-        
-        float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
-        {
-            float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
-            float_t retval = 0.5f*t*lenTan;
-            float_t sqrtc = sqrt(preCompValues.c);
-            
-            // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
-            if (preCompValues.lenA2>=exp2(-23.f))
-                retval += preCompValues.b_over_4a*(lenTan-sqrtc);
-
-            // sin2 multiplied by length of A and B
-            float det_over_16 = preCompValues.AdotB* preCompValues.AdotB- preCompValues.lenA2* preCompValues.c;
-            // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
-            if (det_over_16>=exp2(-23.f))
-            {
-            // TODO: finish by @Przemog
-                //retval += det_over_16*...;
-            }
-
-            return retval;
-        }
-
-        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
-        {
-            float_t xn = hint;
-
-            if (arcLen <= accuracyThreshold)
-                return arcLen;
-
-            vec2 B = 2.0*(P1 - P0);
-            vec2 twoA = 2.0*(P2 - P1) - B;
-
-            const int iterationThreshold = 32;
-            for(int n = 0; n < iterationThreshold; n++)
-            {
-                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn, preCompValues);
-
-                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
-                    return xn;
-
-                float_t differentialAtGuess = length(twoA * xn + B);
-                    // x_n+1 = x_n - f(x_n)/f'(x_n)
-                xn -= (calcArcLen(xn, preCompValues) - arcLen) / differentialAtGuess;
-            }
-
-            return xn;
-        }
-    };
-
     struct CubicBezier
     {
         float2 P0;
