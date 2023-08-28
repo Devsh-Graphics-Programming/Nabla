@@ -12,13 +12,15 @@
 	  "hidden": true,
       "description": "main CI configure preset for inheritance",
       "cacheVariables": {
+		"NBL_CI_MODE": "ON",
         "NBL_UPDATE_GIT_SUBMODULE": "OFF",
 		"NBL_COMPILE_WITH_CUDA": "OFF",
 		"NBL_BUILD_OPTIX": "OFF",
 		"NBL_BUILD_MITSUBA_LOADER": "OFF",
 		"NBL_BUILD_RADEON_RAYS": "OFF",
 		"NBL_RUN_TESTS": "ON",
-		"NBL_CPACK_CI": "ON"
+		"NBL_CPACK_CI": "ON",
+		"_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_": "ON"
       }
     },
 	{

@@ -151,3 +151,19 @@ cmake_path(GET NBL_DXC_RELEASE_DLL FILENAME _NBL_DXC_RELEASE_DLL_NAME_)
 set(DXC_DLL_NAME 
 	$<IF:$<CONFIG:Debug>,${_NBL_DXC_DEBUG_DLL_NAME_},${_NBL_DXC_RELEASE_DLL_NAME_}>
 CACHE INTERNAL "")
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
+	
+	get_filename_component(_DXC_BR_BUNDLE_SEARCH_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+	get_filename_component(_DXC_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
+	get_filename_component(_DXC_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
+	set(DXC_BUILTIN_RESOURCES_DIRECTORY_PATH "${_DXC_BR_BUNDLE_SEARCH_DIRECTORY_}" CACHE INTERNAL "")
+
+	# SPIRV Header in builtin resources, nbl paths as aliases
+	LIST_BUILTIN_RESOURCE(DXC_RESOURCES_TO_EMBED "external/SPIRV-Headers/include/spirv/1.2/spirv.h" "nbl/builtin/hlsl/spirv_intrinsics/spirv.h")
+	LIST_BUILTIN_RESOURCE(DXC_RESOURCES_TO_EMBED "external/SPIRV-Headers/include/spirv/1.2/spirv.hpp" "nbl/builtin/hlsl/spirv_intrinsics/spirv.hpp")
+
+	ADD_CUSTOM_BUILTIN_RESOURCES(dxcBuiltinResourceData DXC_RESOURCES_TO_EMBED "${_DXC_BR_BUNDLE_SEARCH_DIRECTORY_}" "dxc" "dxc::builtin" "${_DXC_BR_OUTPUT_DIRECTORY_HEADER_}" "${_DXC_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
+endif()
+
