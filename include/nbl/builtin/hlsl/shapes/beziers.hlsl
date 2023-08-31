@@ -43,9 +43,9 @@ namespace shapes
 
     struct QuadraticBezier
     {
-        float2 A;
-        float2 B;
-        float2 C;
+        float2 P0;
+        float2 P1;
+        float2 P2;
 
         static QuadraticBezier construct(float2 a, float2 b, float2 c)
         {
@@ -53,20 +53,24 @@ namespace shapes
             return ret;
         }
 
+        float2 A() { return P0 - 2.0*P1 + P2; }
+        float2 B() { return 2.0*(P1 - P0); }
+        float2 C() { return P0; }
+
         float2 evaluate(float t)
         {
-            float2 position = A * (1.0 - t) * (1.0 - t) 
-                      + 2.0 * B * (1.0 - t) * t
-                      +       C * t         * t;
+            float2 position = P0 * (1.0 - t) * (1.0 - t) 
+                      + 2.0 * P1 * (1.0 - t) * t
+                      +       P2 * t         * t;
             return position;
         }
 
         // https://pomax.github.io/bezierinfo/#yforx
         float tForMajorCoordinate(const int major, float x) 
         { 
-            float a = A[major] - x;
-            float b = B[major] - x;
-            float c = C[major] - x;
+            float a = A()[major] - x;
+            float b = B()[major] - x;
+            float c = C()[major] - x;
             int rootCount;
             float2 roots = SolveQuadratic(float3(a, b, c), rootCount);
             // assert(rootCount == 1);
@@ -89,9 +93,9 @@ namespace shapes
         // original from https://www.shadertoy.com/view/lsyfWc
         float ud(float2 pos)
         {
-            const float2 A = bezier.A;
-            const float2 B = bezier.B;
-            const float2 C = bezier.C;
+            const float2 A = bezier.P0;
+            const float2 B = bezier.P1;
+            const float2 C = bezier.P2;
                     
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
