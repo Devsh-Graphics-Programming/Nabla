@@ -156,7 +156,7 @@ namespace shapes
             return retval;
         }
         
-        // TODO: make clipper as 3rd parameter
+        // TODO: to be removed, keeping for reference
         float2 ud(float2_t pos)
         {            
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
@@ -238,7 +238,6 @@ namespace shapes
             return res;
         }
         
-        
         template<typename Clipper>
         float2 ud2(float2_t pos, ArcLengthPrecomputedValues preCompValues, Clipper clipper)
         {            
@@ -266,9 +265,6 @@ namespace shapes
             float_t p3 = p*p*p;
             float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
             float_t h = q*q + 4.0*p3;
-            
-            // dumb af, maybe static calc `arcLen` function, that additionally takes A, B, C as parameters?
-            Quadratic<float_t> quadratic = Quadratic<float_t>::construct(A,B,C);
 
             if(h >= 0.0) 
             { 
@@ -290,7 +286,7 @@ namespace shapes
                 float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
                 float2_t t = uv.x + uv.y - kx;
                 t = clamp( t, 0.0, 1.0 );
-                t = clipper(t.x, quadratic, preCompValues);
+                t = clipper(t.x);
                 
                 // 1 root
                 float2_t qos = CsubPos + (B + A*t.x)*t.x;
@@ -319,10 +315,8 @@ namespace shapes
                 for(uint32_t i = 0u; i < 3u; i++)
                 {
                     t[i] = clamp(t[i], 0.0, 1.0);
-                    t[i] = clipper(t[i].x, quadratic, preCompValues);
+                    t[i] = clipper(t[i].x);
                 }
-
-                // TODO: avoid code duplication
                 
                 // 3 roots
                 float2_t qos = CsubPos + (B + A*t[0].x)*t[0].x;
@@ -365,6 +359,7 @@ namespace shapes
             return res;
         }
         
+        // TODO: to be removed, keeping for reference
         float_t signedDistance(float2_t pos, float_t thickness)
         {
             return abs(ud(pos)).x - thickness;
