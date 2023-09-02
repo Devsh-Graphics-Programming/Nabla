@@ -607,15 +607,18 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
 
-        //! Not thread safe
         IDeviceMemoryAllocation::SExternalMemoryProperties getExternalMemoryProperties(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
             usage &= asset::IBuffer::EUF_ANY; // mask out synthetic flags
             const SBufferPropertyKey key(usage, handleType);
-            auto it = m_externalBufferProperties.find(key);
-            if (it != m_externalBufferProperties.end())
-                return it->second;
+            {
+                std::shared_lock lock(m_externalBufferPropertiesMutex);
+                auto it = m_externalBufferProperties.find(key);
+                if (it != m_externalBufferProperties.end())
+                    return it->second;
+            }
             
+            std::unique_lock lock(m_externalBufferPropertiesMutex);
             return m_externalBufferProperties[key] = getExternalMemoryProperties_impl(usage, handleType);
         }
 
@@ -725,7 +728,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         static_assert(sizeof(SBufferPropertyKey) == sizeof(uint32_t));
         using ExternalBufferPropertyMap = std::unordered_map<SBufferPropertyKey, IDeviceMemoryAllocation::SExternalMemoryProperties, SBufferPropertyKey::Hasher>;
         mutable ExternalBufferPropertyMap m_externalBufferProperties;
-        
+        mutable std::shared_mutex m_externalBufferPropertiesMutex;
+
         using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
         qfam_props_array_t m_qfamProperties;
 

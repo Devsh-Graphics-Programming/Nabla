@@ -111,6 +111,7 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EHT_D3D11_TEXTURE_KMT = 0x00000010,
             EHT_D3D12_HEAP = 0x00000020,
             EHT_D3D12_RESOURCE = 0x00000040,
+            EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
         };
 
         /* ExternalMemoryProperties *//* provided by VK_KHR_external_memory_capabilities */
