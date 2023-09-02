@@ -11,13 +11,11 @@
                 "VK_EXT_memory_budget": 1,
                 "VK_EXT_pipeline_creation_cache_control": 3,
                 "VK_EXT_private_data": 1,
-                "VK_EXT_robustness2": 1,
                 "VK_EXT_scalar_block_layout": 1,
                 "VK_EXT_separate_stencil_usage": 1,
                 "VK_EXT_shader_atomic_float": 1,
                 "VK_EXT_subgroup_size_control": 2,
                 "VK_EXT_texel_buffer_alignment": 1,
-                "VK_EXT_vertex_attribute_divisor": 3,
                 "VK_KHR_16bit_storage": 1,
                 "VK_KHR_8bit_storage": 1,
                 "VK_KHR_bind_memory2": 1,
@@ -108,7 +106,7 @@
                     "variablePointersStorageBuffer": true,
                     "variablePointers": true,
                     "protectedMemory": false,
-                    "samplerYcbcrConversion": true,
+                    "samplerYcbcrConversion": false,
                     "shaderDrawParameters": true
                 },
                 "VkPhysicalDeviceVulkan12Features": {
@@ -191,7 +189,7 @@
                         "maxDescriptorSetUniformBuffersDynamic": 8,
                         "maxDrawIndexedIndexValue": 4294967294,
                         "maxDrawIndirectCount": 1073741824,
-                        "maxFragmentCombinedOutputResources": 127,
+                        "maxFragmentCombinedOutputResources": 16,
                         "maxFragmentDualSrcAttachments": 1,
                         "maxFragmentInputComponents": 116,
                         "maxFragmentOutputAttachments": 8,
@@ -308,8 +306,7 @@
                             1,
                             1
                         ],
-                        "timestampPeriod": 1,
-                        "strictLines": true,
+                        "timestampPeriod": 83.333,
                         "standardSampleLocations": true
                     }
                 },
@@ -361,9 +358,6 @@
                     "shaderSignedZeroInfNanPreserveFloat16": true,
                     "shaderSignedZeroInfNanPreserveFloat32": true,
                     "maxUpdateAfterBindDescriptorsInAllPools": 1048576,
-                    "shaderSampledImageArrayNonUniformIndexingNative": true,
-                    "shaderStorageImageArrayNonUniformIndexingNative": true,
-                    "shaderInputAttachmentArrayNonUniformIndexingNative": true,
                     "robustBufferAccessUpdateAfterBind": true,
                     "maxDescriptorSetUpdateAfterBindInputAttachments": 256,
                     "maxDescriptorSetUpdateAfterBindSampledImages": 500000,
@@ -381,8 +375,7 @@
                     "maxPerStageDescriptorUpdateAfterBindUniformBuffers": 15,
                     "maxPerStageUpdateAfterBindResources": 500000,
                     "supportedDepthResolveModes": [
-                        "VK_RESOLVE_MODE_SAMPLE_ZERO_BIT",
-                        "VK_RESOLVE_MODE_MAX_BIT"
+                        "VK_RESOLVE_MODE_SAMPLE_ZERO_BIT"
                     ],
                     "supportedStencilResolveModes": [
                         "VK_RESOLVE_MODE_SAMPLE_ZERO_BIT"

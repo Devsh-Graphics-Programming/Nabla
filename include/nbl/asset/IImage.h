@@ -852,6 +852,7 @@ class IImage : public IDescriptor
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
+NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_SAMPLE_COUNT_FLAGS)
 
 } // end namespace nbl::asset
 
