@@ -13,6 +13,9 @@ namespace hlsl
 namespace subgroup
 {
 	
+static const uint MinSubgroupSizeLog2 = 4;
+static const uint MinSubgroupSize = 0x1u << MinSubgroupSizeLog2;
+	
 uint LastSubgroupInvocation() {
 	uint lastSubgroupInvocation = glsl::gl_SubgroupSize() - 1u;
 	if(glsl::gl_SubgroupID() == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> glsl::gl_SubgroupSizeLog2())) {

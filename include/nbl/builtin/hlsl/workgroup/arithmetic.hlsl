@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
-#include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
+#include "nbl/builtin/hlsl/workgroup/shared_scan_new.hlsl"
 
 namespace nbl
 {
