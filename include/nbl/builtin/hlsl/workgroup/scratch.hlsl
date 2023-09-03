@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_SCRATCH_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_SCRATCH_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"

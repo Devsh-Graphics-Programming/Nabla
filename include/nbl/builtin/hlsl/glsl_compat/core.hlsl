@@ -1,10 +1,11 @@
 // Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_BASIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_GLSL_COMPAT_BASIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
+#define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "nbl/builtin/hlsl/spirv_intrinsics/basic.hlsl"
+#include "dxc/nbl/builtin/hlsl/spirv_intrinsics/spirv.h"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 
 {
@@ -55,7 +56,7 @@ T atomicCompSwap(inout T ptr, T comparator, T value)
 }
 
 void barrier() {
-	spirv::controlBarrier(2, 2, 0x8 | 0x100);
+	spirv::controlBarrier(SpvScope::SpvScopeWorkgroup, 2, 0x8 | 0x100);
 }
 
 void memoryBarrierShared() {

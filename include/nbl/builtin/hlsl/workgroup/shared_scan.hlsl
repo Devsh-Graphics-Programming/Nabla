@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/workgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 
 namespace nbl 

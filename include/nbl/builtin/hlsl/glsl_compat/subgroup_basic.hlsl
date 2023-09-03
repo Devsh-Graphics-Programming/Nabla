@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/spirv_intrinsics/basic.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 
 {

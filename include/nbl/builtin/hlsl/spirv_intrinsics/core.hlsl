@@ -1,8 +1,8 @@
 // Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_BASIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_BASIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
 namespace nbl 
 {
