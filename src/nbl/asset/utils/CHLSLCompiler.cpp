@@ -5,6 +5,7 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "nbl/builtin/CArchive.h"
+#include "spirv/builtin/CArchive.h"
 #endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 
@@ -76,8 +77,8 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     std::filesystem::path relDir;
     #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
-    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
+    const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
+    const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
