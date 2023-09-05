@@ -65,7 +65,6 @@ class ICPUSampler : public ISampler, public IAsset
         {
             auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
             clone_common(cp.get());
-
             return cp;
         }
 

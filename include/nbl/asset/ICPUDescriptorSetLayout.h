@@ -86,19 +86,14 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return false;
             return true;
         }
+        virtual uint32_t getDependencyCount() const { return  m_samplers->size(); }
 
-        nbl::core::vector<core::smart_refctd_ptr<IAsset>>getMembersToRecurse() const override
-        {
-            nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = {};
-   
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                    assets.push_back((*m_samplers)[i]);
-            }
-            return assets;
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const {
+            
+                return index < getDependencyCount() ? (*m_samplers)[index] : nullptr;
+            
         }
-
+   
 		virtual ~ICPUDescriptorSetLayout() = default;
 };
 

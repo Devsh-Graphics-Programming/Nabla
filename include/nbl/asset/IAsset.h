@@ -220,9 +220,10 @@ class IAsset : virtual public core::IReferenceCounted
 			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && canBeRestoredFrom_impl(_other);
 			if (result)
 				visitChildren(_other,
-					[&result](IAsset* thisChild, IAsset* otherChild) 
+					[&result](IAsset* thisChild, IAsset* otherChild)
 					{
-						result = thisChild->canBeRestoredFrom(otherChild);
+						if (thisChild && otherChild)
+							result = thisChild->canBeRestoredFrom(otherChild);
 						return result;
 					});
 			return result;
@@ -236,7 +237,8 @@ class IAsset : virtual public core::IReferenceCounted
 			bool result = false;
 			if (_levelsBelow) {
 				visitChildren([&result, _levelsBelow](IAsset* thisChild) {
-					result = thisChild->isAnyDependencyDummy(_levelsBelow-1u);
+					if(thisChild)
+						result = thisChild->isAnyDependencyDummy(_levelsBelow-1u);
 					return !result;
 					});
 				result |= isAnyDependencyDummy_impl(_levelsBelow);
@@ -258,7 +260,8 @@ class IAsset : virtual public core::IReferenceCounted
 			hash_impl(value);
 			visitChildren(
 				[&value, temporary_hash_cache](IAsset* _child) {
-					core::hash_combine(value, _child->hash(temporary_hash_cache));
+					if(_child)
+						core::hash_combine(value, _child->hash(temporary_hash_cache));
 					return true;
 				});
 			if(add_to_cache)
@@ -271,7 +274,8 @@ class IAsset : virtual public core::IReferenceCounted
 			convertToDummyObject_impl(referenceLevelsBelowToConvert);
 			if (referenceLevelsBelowToConvert)
 				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
-				thisChild->convertToDummyObject(referenceLevelsBelowToConvert - 1u);
+				if(thisChild)
+					thisChild->convertToDummyObject(referenceLevelsBelowToConvert - 1u);
 			return true;
 					});
 		}
@@ -284,7 +288,7 @@ class IAsset : virtual public core::IReferenceCounted
 			if (result) {
 				visitChildren(_other,
 					[&result](IAsset* thisChild, IAsset* otherChild) {
-						result = thisChild->equals(otherChild);
+							result = thisChild && otherChild ? thisChild->equals(otherChild) : false;
 				return result; //continue only if equal
 					});
 			}
@@ -360,9 +364,8 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-		//! Lists members of type IAsset in order of least expensive to recurse through to most expensive
-		//! TODO maybe use SRange instead?
-		virtual nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const = 0;
+		virtual uint32_t getDependencyCount() const = 0;
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const = 0;
 
 
 	private:
@@ -370,19 +373,19 @@ class IAsset : virtual public core::IReferenceCounted
 
 		template<typename ChildLambda>
 		inline void visitChildren(const IAsset* _other, const ChildLambda& childLambda) const {
-			auto assetMemberList = getMembersToRecurse();
-			auto otherAssetMemberList = _other->getMembersToRecurse();
-			for (size_t i = 0; i < assetMemberList.size(); i++)
-				if(assetMemberList[i] && otherAssetMemberList[i])
-					if (!childLambda(assetMemberList[i].get(), otherAssetMemberList[i].get())) break;
+			int dependencyCount = getDependencyCount();
+			assert(dependencyCount == _other->getDependencyCount());
+			for (size_t i = 0; i < dependencyCount; i++)
+				if (!childLambda(getDependency(i).get(), _other->getDependency(i).get())) 
+					break;
 		}
 
 		template<typename ChildLambda>
 		inline void visitChildren(const ChildLambda& childLambda) const {
-			auto assetMemberList = getMembersToRecurse();
-			for (size_t i = 0; i < assetMemberList.size(); i++)
-				if (assetMemberList[i])
-					if (!childLambda(assetMemberList[i].get())) break;
+			int dependencyCount = getDependencyCount();
+			for (size_t i = 0; i < dependencyCount; i++)
+				if (!childLambda(getDependency(i).get())) 
+					break;
 		}
 		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
 			restoreFromDummy_impl_impl(_other, _levelsBelow);
@@ -390,7 +393,8 @@ class IAsset : virtual public core::IReferenceCounted
 				return;
 			visitChildren(_other,
 				[](IAsset* thisChild, IAsset* otherChild) {
-				thisChild->restoreFromDummy_impl(otherChild);
+				if(thisChild && otherChild)
+					thisChild->restoreFromDummy_impl(otherChild);
 				return true; // continue
 			});
 		}

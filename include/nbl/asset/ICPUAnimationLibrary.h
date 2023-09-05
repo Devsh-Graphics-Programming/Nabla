@@ -124,15 +124,20 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 	protected:
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
-			nbl::core::vector<core::smart_refctd_ptr<IAsset>> members = {};
-			if (m_keyframeStorageBinding.buffer)
-				members.push_back(m_keyframeStorageBinding.buffer);
-			if (m_timestampStorageBinding.buffer)
-				members.push_back(m_timestampStorageBinding.buffer);
-			if (m_animationStorageRange.buffer)
-				members.push_back(m_animationStorageRange.buffer);
-			return members;
+		virtual uint32_t getDependencyCount() const { return 3; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const {
+			switch (index)
+			{
+			case 0:
+				return m_keyframeStorageBinding.buffer;
+			case 1:
+				return	m_timestampStorageBinding.buffer;
+			case 2:
+				return	m_animationStorageRange.buffer;
+			default:
+				return nullptr;
+			}
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override {
