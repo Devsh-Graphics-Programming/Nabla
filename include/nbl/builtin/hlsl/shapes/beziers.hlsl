@@ -16,34 +16,6 @@ namespace hlsl
 {
 namespace shapes
 {
-    // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
-    // GH link https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
-    // Credits to Doublefresh for hinting there
-    // returns the roots, and number of filled in real values under numRealValues
-    float2 SolveQuadratic(float3 C, out int numRealValues)
-    {
-        // bhaskara: x = (-b ± √(b² – 4ac)) / (2a)
-        float b = C.y / (2 * C.z);
-        float q = C.x / C.z;
-        float delta = b * b - q;
-
-        if (delta == 0.0) // Δ = 0
-        {
-            numRealValues = 1;
-            return float2(-b, 0.0);
-        }
-        if (delta < 0) // Δ < 0 (no real values)
-        {
-            numRealValues = 0;
-            return 0.0;
-        }
-
-        // Δ > 0 (two distinct real values)
-        float sqrtD = sqrt(delta);
-        numRealValues = 2;
-        return float2(sqrtD - b, sqrtD + b);
-    }
-    
     template<typename float_t>
     struct QuadraticBezier
     {
@@ -69,19 +41,6 @@ namespace shapes
 
             return position;
         }
-
-        // TODO [Lucas]: move this function to Quadratic struct
-        // https://pomax.github.io/bezierinfo/#yforx
-        float_t tForMajorCoordinate(const int major, float_t x) 
-        { 
-            float_t a = P0[major] - x;
-            float_t b = P1[major] - x;
-            float_t c = P2[major] - x;
-            int rootCount;
-            float2_t roots = SolveQuadratic(float3_t(a, b, c), rootCount);
-            // assert(rootCount == 1);
-            return roots.x;
-        }
     };
 
     template<typename float_t>
@@ -90,22 +49,133 @@ namespace shapes
         using float2_t = vector<float_t, 2>;
         using float3_t = vector<float_t, 3>;
         
-        // These are precompured values to calculate arc length which eventually is an integral of sqrt(a*x^2+b*x+c)
-        struct ArcLengthPrecomputedValues
-        {
-            float_t lenA2;
-            float_t AdotB;
-
-            float_t a;
-            float_t b;
-            float_t c;
-
-            float_t b_over_4a;
-        };
-        
         float2_t A;
         float2_t B;
         float2_t C;
+        
+        struct AnalyticArcLengthCalculator
+        {
+            using float2_t = vector<float_t, 2>;
+        
+            static AnalyticArcLengthCalculator construct(float_t lenA2, float_t AdotB, float_t a, float_t b, float_t  c, float_t b_over_4a)
+            {
+                AnalyticArcLengthCalculator ret = { lenA2, AdotB, a, b, c, b_over_4a };
+                return ret;
+            }
+            
+            // TODO: take quadratic A,B,C instead of control points
+            static AnalyticArcLengthCalculator construct(Quadratic<float_t> quadratic)
+            {
+                AnalyticArcLengthCalculator ret;
+                ret.lenA2 = dot(quadratic.A, quadratic.A);
+                // sqrt(dot(A,A)) sqrt(dot(B,B)) cos(angle between A and B)
+                ret.AdotB = dot(quadratic.A, quadratic.B);
+        
+                ret.a = 4.0 * ret.lenA2;
+                ret.b = 4.0 * ret.AdotB;
+                ret.c = dot(quadratic.B, quadratic.B);
+        
+                ret.b_over_4a = ret.AdotB / ret.a;
+                return ret;
+            }
+            
+            // These are precompured values to calculate arc length which eventually is an integral of sqrt(a*x^2+b*x+c)
+            float_t lenA2;
+            float_t AdotB;
+        
+            // differential arc-length is sqrt((dx/dt)^2+(dy/dt)^2), so for a Quad Bezier
+            // sqrt((2A_x t + B_x)^2+(2A_y t + B_y)^2) == sqrt(4 (A_x^2+A_y^2) t + 4 (A_x B_x+A_y B_y) t + (B_x^2+B_y^2))
+            float_t a;
+            float_t b; // 2 sqrt(a) sqrt(c) cos(angle between A and B)
+            float_t c;
+        
+            float_t b_over_4a;
+            
+            float_t calcArcLen(float_t t)
+            {
+                float_t lenTan = sqrt(t*(a*t+ b)+ c);
+                float_t retval = 0.5*t*lenTan;
+                float_t sqrt_c = sqrt(c);
+                
+                // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
+                // happens when P0, P1, P2 in a straight line and equally spaced
+                if (lenA2 >= exp2(-23.f))
+                {
+#if 1
+                    // implementation might fall apart when beziers folds back on itself and `b = - 2 sqrt(a) sqrt(c)`
+                    // https://www.wolframalpha.com/input?i=%28%28-2Sqrt%5Ba%5DSqrt%5Bc%5D%2B2ax%29+Sqrt%5Bc-2Sqrt%5Ba%5DSqrt%5Bc%5Dx%2Bax%5E2%5D+%2B+2+Sqrt%5Ba%5D+c%29%2F%284a%29
+                    retval += b_over_4a*(lenTan - sqrt_c);
+
+                    // sin2 multiplied by length of A and B
+                    //  |A|^2 * |B|^2 * -(sin(A, B)^2)
+                    float_t det_over_16 = AdotB * AdotB - lenA2 * c;
+                    // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
+                    if (abs(det_over_16)>=exp2(-23.f))
+                    {
+                        float_t sqrt_a = sqrt(a);
+                        float_t subTerm0 = (b * b - 4.0f * a * c) / (8.0f * sqrt_a * sqrt_a * sqrt_a /*i know it can be faster*/);
+                        float_t subTerm1 = log(b + 2.0f * sqrt_a * sqrt_c);
+                        float_t subTerm2 = log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
+                    
+                        retval += subTerm0 * (subTerm1 - subTerm2);
+                    }
+                    
+                    //while(true)
+                    //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
+                    
+#endif
+                    //retval += preCompValues.b_over_4a*(lenTan - sqrt_c);
+                    
+                    //float_t sqrt_a = sqrt(preCompValues.a);
+                    //float_t subTerm0 = (preCompValues.b*preCompValues.b - 4.0f*preCompValues.a*preCompValues.c)/(8.0f*sqrt_a*sqrt_a*sqrt_a/*i know it can be faster*/);
+                    //float_t subTerm1 = log(preCompValues.b + 2*sqrt_a*sqrt_c);
+                    //float_t subTerm2 = log(preCompValues.b + 2*preCompValues.a*t + 2*sqrt_a*lenTan);
+                    
+                    //retval += subTerm0*(subTerm1 - subTerm2);
+                }
+                
+                
+                    // keeping it for now
+                    // TODO: remove
+                //double num = 0.0;
+                //const int steps = 100;
+                //// from 0 to t
+                //const double rcp = double(t) / double(steps);
+                //for (int i = 0; i < steps; i++)
+                //{
+                //    double x = double(i) * rcp + 0.5 * rcp;
+                //    num += sqrt(x * (preCompValues.lenA2 * 4.0 * x + preCompValues.AdotB * 4.0) + preCompValues.c) * rcp;
+                //}
+                //return num;
+
+                return retval;
+            }
+            
+            float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, Quadratic<float_t> quadratic)
+            {
+                float_t xn = hint;
+
+                if (arcLen <= accuracyThreshold)
+                    return arcLen;
+
+                    // TODO: implement halley method
+                const uint32_t iterationThreshold = 32;
+                for(uint32_t n = 0; n < iterationThreshold; n++)
+                {
+                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
+
+                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                        return xn;
+
+                    float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
+                        // x_n+1 = x_n - f(x_n)/f'(x_n)
+                    xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
+                }
+
+                return xn;
+            }
+
+        };
         
         static Quadratic construct(float2_t A, float2_t B, float2_t C)
         {            
@@ -125,121 +195,25 @@ namespace shapes
         
         float2_t evaluate(float_t t)
         {
-            return A * (t * t) + B * t + C;
+            return t * (A * t + B) + C;
         }
         
-        float_t calcArcLen(float_t t, ArcLengthPrecomputedValues preCompValues)
+        struct DefaultClipper
         {
-            float_t lenTan = sqrt(t*(preCompValues.a*t+ preCompValues.b)+ preCompValues.c);
-            float_t retval = 0.5f*t*lenTan;
-            float_t sqrtc = sqrt(preCompValues.c);
-            
-            // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
-            if (preCompValues.lenA2 >= exp2(-23.f))
-                retval += preCompValues.b_over_4a*(lenTan - sqrtc);
-
-            // sin2 multiplied by length of A and B
-            float det_over_16 = preCompValues.AdotB * preCompValues.AdotB - preCompValues.lenA2 * preCompValues.c;
-            // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
-            if (det_over_16>=exp2(-23.f))
+            static DefaultClipper construct()
             {
-                // TODO: optimize, precompute
-                float sqrta = sqrt(preCompValues.a);
-                //retval += det_over_16*...;
-                float subTerm0 = (preCompValues.b*preCompValues.b - 4.0*preCompValues.a*preCompValues.c)/(8.0*sqrta*sqrta*sqrta);
-                float subTerm1 = log(preCompValues.b + 2.0*sqrta*sqrtc);
-                float subTerm2 = log(preCompValues.b + 2.0*preCompValues.a*t + 2.0*sqrta*sqrt(preCompValues.c + preCompValues.b*t + preCompValues.a*t*t));
-                
-                retval += subTerm0 * (subTerm1 - subTerm2);
+                DefaultClipper ret;
+                return ret;
             }
-
-            return retval;
-        }
         
-        // TODO: to be removed, keeping for reference
-        float2 ud(float2_t pos)
-        {            
-            // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
-            // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
-            // p'(0)   = 2(B-A)
-            // p'(1)   = 2(C-B)
-            // p'(1/2) = 2(C-A)
-            
-            float2_t Bdiv2 = B/2.0f;
-            float2_t CsubPos = C - pos;
-
-            // Reducing Quartic to Cubic Solution
-            float_t kk = 1.0 / dot(A,A);
-            float_t kx = kk * dot(Bdiv2,A);
-            float_t ky = kk * (2.0*dot(Bdiv2,Bdiv2)+dot(CsubPos,A)) / 3.0;
-            float_t kz = kk * dot(CsubPos,Bdiv2);      
-
-            float2_t res;
-
-            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
-            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
-            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
-            float_t p = ky - kx*kx;
-            float_t p3 = p*p*p;
-            float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
-            float_t h = q*q + 4.0*p3;
-
-            if(h >= 0.0) 
-            { 
-                h = sqrt(h);
-                float2_t x = (float2_t(h, -h) - q) / 2.0;
-
-                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
-                if(abs(abs(h/q) - 1.0) < 0.0001)
-                {
-                   // Approximation of x where h and q are close with no carastrophic cancellation
-                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
-                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
-                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
-                      // So √(1+w) can be approximated by 1+½w
-                      // Simplifying later and the fact that w=4p³/q will result in the following.
-                   x = float2_t(p3/q, -q - p3/q);
-                }
-
-                float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
-                float_t t = uv.x + uv.y - kx;
-                t = clamp( t, 0.0, 1.0 );
-
-                // 1 root
-                float2_t qos = CsubPos + (B + A*t)*t;
-                res = float2_t( length(qos),t);
-            }
-            else
+            inline float2_t operator()(const float_t t)
             {
-                float_t z = sqrt(-p);
-                float_t v = acos( q/(p*z*2.0) ) / 3.0;
-                float_t m = cos(v);
-                float_t n = sin(v)*1.732050808;
-                float3_t t = float3_t(m + m, -n - m, n - m) * z - kx;
-                t = clamp( t, 0.0, 1.0 );
-
-                // 3 roots
-                float2_t qos = CsubPos + (B + A*t.x)*t.x;
-                float_t dis = dot(qos,qos);
-                
-                res = float2_t(dis,t.x);
-
-                qos = CsubPos + (B + A*t.y)*t.y;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = float2_t(dis,t.y );
-
-                qos = CsubPos + (B + A*t.z)*t.z;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = float2_t(dis,t.z );
-
-                res.x = sqrt( res.x );
+                return clamp(t, 0.0, 1.0);
             }
-            
-            return res;
-        }
+        };
         
         template<typename Clipper>
-        float2 ud2(float2_t pos, ArcLengthPrecomputedValues preCompValues, Clipper clipper)
+        float2 ud(float2_t pos, Clipper clipper)
         {            
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
@@ -285,7 +259,6 @@ namespace shapes
 
                 float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
                 float2_t t = uv.x + uv.y - kx;
-                t = clamp( t, 0.0, 1.0 );
                 t = clipper(t.x);
                 
                 // 1 root
@@ -312,87 +285,30 @@ namespace shapes
                 t[1] = (-n - m) * z - kx;
                 t[2] = (n - m) * z - kx;
                 
+                // 3 roots
+                float_t dis = float_t(0xFFFFFFFFFFFFFFFF);
                 for(uint32_t i = 0u; i < 3u; i++)
                 {
-                    t[i] = clamp(t[i], 0.0, 1.0);
                     t[i] = clipper(t[i].x);
-                }
-                
-                // 3 roots
-                float2_t qos = CsubPos + (B + A*t[0].x)*t[0].x;
-                float_t dis = dot(qos,qos);
-                
-                res = float2_t(dis,t[0].x);
-                
-                if(t[0].x != t[0].y)
-                {
-                    qos = CsubPos + (B + A*t[0].y)*t[0].y;
+                    float2_t qos = CsubPos + (B + A*t[i].x)*t[i].x;
+                    if( dis<res.x ) res = float2_t(dis,t[1].x );
+                    
+                    qos = CsubPos + (B + A*t[i].y)*t[i].y;
                     dis = length(qos);
-                    if(dis < res.x) res = float2_t(dis, t[0].y);
+                    if(dis < res.x) res = float2_t(dis, t[i].y); 
                 }
-
-                qos = CsubPos + (B + A*t[1].x)*t[1].x;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = float2_t(dis,t[1].x );
                 
-                if(t[1].x != t[1].y)
-                {
-                    qos = CsubPos + (B + A*t[1].y)*t[1].y;
-                    dis = length(qos);
-                    if(dis < res.x) res = float2_t(dis, t[1].y);
-                }
-
-                qos = CsubPos + (B + A*t[2].x)*t[2].x;
-                dis = dot(qos,qos);
-                if( dis<res.x ) res = float2_t(dis,t[2].x );
-                
-                if(t[2].x != t[2].y)
-                {
-                    qos = CsubPos + (B + A*t[2].y)*t[2].y;
-                    dis = length(qos);
-                    if(dis < res.x) res = float2_t(dis, t[2].y);
-                }
 
                 res.x = sqrt( res.x );
             }
             
             return res;
         }
-        
-        // TODO: to be removed, keeping for reference
-        float_t signedDistance(float2_t pos, float_t thickness)
-        {
-            return abs(ud(pos)).x - thickness;
-        }
-        
+       
         template<typename Clipper>
-        float_t signedDistance2(float2_t pos, float_t thickness, ArcLengthPrecomputedValues preCompValues, Clipper clipper)
+        float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper = DefaultClipper::construct())
         {
-            return abs(ud2<Clipper>(pos, preCompValues, clipper)).x - thickness;
-        }
-        
-        float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, ArcLengthPrecomputedValues preCompValues)
-        {
-            float_t xn = hint;
-
-            if (arcLen <= accuracyThreshold)
-                return arcLen;
-
-                // TODO: implement halley method
-            const uint32_t iterationThreshold = 32;
-            for(uint32_t n = 0; n < iterationThreshold; n++)
-            {
-                float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn, preCompValues);
-
-                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
-                    return xn;
-
-                float_t differentialAtGuess = length(2.0*A * xn + B);
-                    // x_n+1 = x_n - f(x_n)/f'(x_n)
-                xn -= (calcArcLen(xn, preCompValues) - arcLen) / differentialAtGuess;
-            }
-
-            return xn;
+            return abs(ud<Clipper>(pos, clipper)).x - thickness;
         }
     };
 }
