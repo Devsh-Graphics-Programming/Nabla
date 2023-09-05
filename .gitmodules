@@ -93,3 +93,6 @@
 [submodule "3rdparty/SPIRV-Tools"]
 	path = 3rdparty/SPIRV-Tools
 	url = git@github.com:Devsh-Graphics-Programming/SPIRV-Tools.git
+[submodule "3rdparty/SPIRV-Headers"]
+	path = 3rdparty/SPIRV-Headers
+	url = git@github.com:KhronosGroup/SPIRV-Headers.git
