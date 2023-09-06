@@ -30,6 +30,7 @@ endif()
 option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
 option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
 set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
+get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Tools" ABSOLUTE)
 add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
 
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
@@ -110,7 +111,7 @@ add_subdirectory(dxc/dxc/external/SPIRV-Headers dxc/external/SPIRV-Headers EXCLU
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
-add_subdirectory(dxc/dxc/external/SPIRV-Tools dxc/external/SPIRV-Tools EXCLUDE_FROM_ALL)
+add_subdirectory("${DXC_SPIRV_TOOLS_DIR}" SPIRV-Tools EXCLUDE_FROM_ALL) # note that SPIRV-Tools comes from our fork but headers directly from DXC external directory
 set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
