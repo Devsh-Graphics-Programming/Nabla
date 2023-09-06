@@ -122,22 +122,27 @@ namespace shapes
                     //while(true)
                     //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
                 }
-                
-                
-                    // keeping it for now
-                    // TODO: remove
-                //double num = 0.0;
-                //const int steps = 100;
-                //// from 0 to t
-                //const double rcp = double(t) / double(steps);
-                //for (int i = 0; i < steps; i++)
-                //{
-                //    double x = double(i) * rcp + 0.5 * rcp;
-                //    num += sqrt(x * (preCompValues.lenA2 * 4.0 * x + preCompValues.AdotB * 4.0) + preCompValues.c) * rcp;
-                //}
-                //return num;
 
                 return retval;
+            }
+            
+            // keeping it for now
+                        // TODO: remove
+            float_t calcArcLenNumeric(float_t t)
+            {
+                
+                double num = 0.0;
+                const int steps = 100;
+                    // from 0 to t
+                const double rcp = double(t) / double(steps);
+                for (int i = 0; i < steps; i++)
+                {
+                    double x = double(i) * rcp + 0.5 * rcp;
+                    num += sqrt(x * (lenA2 * 4.0 * x + AdotB * 4.0) + c) * rcp;
+                }
+                
+                return num;
+                
             }
             
             float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, Quadratic<float_t> quadratic)
@@ -202,7 +207,7 @@ namespace shapes
         };
         
         template<typename Clipper>
-        float2 ud(float2_t pos, Clipper clipper)
+        float2 ud(float2_t pos, float_t thickness, Clipper clipper)
         {            
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
@@ -228,6 +233,8 @@ namespace shapes
             float_t p3 = p*p*p;
             float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
             float_t h = q*q + 4.0*p3;
+            
+            const float_t MAX_DISTANCE_SQUARED = (thickness+500.0f)*(thickness+500.0f);
 
             if(h >= 0.0) 
             { 
@@ -247,19 +254,30 @@ namespace shapes
                 }
 
                 float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
-                float2_t t = uv.x + uv.y - kx;
+                float2_t t = uv.x + uv.y - kx;            
+                
+                float2_t tOrigQos = CsubPos + (B + A*t.x)*t.x;
+                res = float2_t(dot(tOrigQos, tOrigQos), t.x);
+                if(res.x > MAX_DISTANCE_SQUARED)
+                {
+                    res.x = sqrt(res.x);
+                    return res;
+                }
+                
                 t = clipper(t.x);
                 
                 // 1 root
                 float2_t qos = CsubPos + (B + A*t.x)*t.x;
-                res = float2_t( length(qos),t.x);
+                res = float2_t(dot(qos,qos),t.x);
                 
                 if(t.x != t.y)
                 {
                     qos = CsubPos + (B + A*t.y)*t.y;
-                    float dis = length(qos);
+                    float dis = dot(qos,qos);
                     if(dis < res.x) res = float2_t(dis, t.y);
                 }
+                
+                res.x = sqrt(res.x);
             }
             else
             {
@@ -275,15 +293,25 @@ namespace shapes
                 t[2] = (n - m) * z - kx;
                 
                 // 3 roots
-                float_t dis = float_t(0xFFFFFFFFFFFFFFFF);
+                float_t dis;
+                res.x = float_t(0xFFFFFFFFFFFFFFFF);
                 for(uint32_t i = 0u; i < 3u; i++)
                 {
+                    float_t tOrigQos = CsubPos + (B + A*t[i].x)*t[i].x;
+                    float_t tOrigDis = dot(tOrigQos, tOrigQos);
+                    if(tOrigDis > MAX_DISTANCE_SQUARED)
+                    {
+                        res.x = tOrigDis;
+                        continue;
+                    }
+                
                     t[i] = clipper(t[i].x);
                     float2_t qos = CsubPos + (B + A*t[i].x)*t[i].x;
-                    if( dis<res.x ) res = float2_t(dis,t[1].x );
+                    dis = dot(qos, qos);
+                    if( dis<res.x ) res = float2_t(dis,t[i].x );
                     
                     qos = CsubPos + (B + A*t[i].y)*t[i].y;
-                    dis = length(qos);
+                    dis = dot(qos, qos);
                     if(dis < res.x) res = float2_t(dis, t[i].y); 
                 }
                 
@@ -297,7 +325,7 @@ namespace shapes
         template<typename Clipper/* = DefaultClipper*/>
         float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper/* = DefaultClipper::construct()*/)
         {
-            return abs(ud<Clipper>(pos, clipper)).x - thickness;
+            return abs(ud<Clipper>(pos, thickness, clipper)).x - thickness;
         }
         
         // TODO: To be deleted probably
