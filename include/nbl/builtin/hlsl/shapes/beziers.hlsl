@@ -234,7 +234,7 @@ namespace shapes
             float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
             float_t h = q*q + 4.0*p3;
             
-            const float_t MAX_DISTANCE_SQUARED = (thickness+500.0f)*(thickness+500.0f);
+            const float_t MAX_DISTANCE_SQUARED = (thickness+1.0f)*(thickness+1.0f);
 
             if(h >= 0.0) 
             { 
