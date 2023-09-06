@@ -94,14 +94,13 @@ namespace shapes
             float_t calcArcLen(float_t t)
             {
                 float_t lenTan = sqrt(t*(a*t+ b)+ c);
-                float_t retval = 0.5*t*lenTan;
+                float_t retval = 0.5f*t*lenTan;
                 float_t sqrt_c = sqrt(c);
                 
                 // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
                 // happens when P0, P1, P2 in a straight line and equally spaced
                 if (lenA2 >= exp2(-23.f))
                 {
-#if 1
                     // implementation might fall apart when beziers folds back on itself and `b = - 2 sqrt(a) sqrt(c)`
                     // https://www.wolframalpha.com/input?i=%28%28-2Sqrt%5Ba%5DSqrt%5Bc%5D%2B2ax%29+Sqrt%5Bc-2Sqrt%5Ba%5DSqrt%5Bc%5Dx%2Bax%5E2%5D+%2B+2+Sqrt%5Ba%5D+c%29%2F%284a%29
                     retval += b_over_4a*(lenTan - sqrt_c);
@@ -113,25 +112,15 @@ namespace shapes
                     if (abs(det_over_16)>=exp2(-23.f))
                     {
                         float_t sqrt_a = sqrt(a);
-                        float_t subTerm0 = (b * b - 4.0f * a * c) / (8.0f * sqrt_a * sqrt_a * sqrt_a /*i know it can be faster*/);
+                        float_t subTerm0 = det_over_16*2.0f/(sqrt_a * sqrt_a * sqrt_a /*i know it can be faster*/);
                         float_t subTerm1 = log(b + 2.0f * sqrt_a * sqrt_c);
                         float_t subTerm2 = log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
-                    
+                        
                         retval += subTerm0 * (subTerm1 - subTerm2);
                     }
                     
                     //while(true)
                     //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
-                    
-#endif
-                    //retval += preCompValues.b_over_4a*(lenTan - sqrt_c);
-                    
-                    //float_t sqrt_a = sqrt(preCompValues.a);
-                    //float_t subTerm0 = (preCompValues.b*preCompValues.b - 4.0f*preCompValues.a*preCompValues.c)/(8.0f*sqrt_a*sqrt_a*sqrt_a/*i know it can be faster*/);
-                    //float_t subTerm1 = log(preCompValues.b + 2*sqrt_a*sqrt_c);
-                    //float_t subTerm2 = log(preCompValues.b + 2*preCompValues.a*t + 2*sqrt_a*lenTan);
-                    
-                    //retval += subTerm0*(subTerm1 - subTerm2);
                 }
                 
                 
@@ -305,10 +294,16 @@ namespace shapes
             return res;
         }
        
-        template<typename Clipper>
-        float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper = DefaultClipper::construct())
+        template<typename Clipper/* = DefaultClipper*/>
+        float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper/* = DefaultClipper::construct()*/)
         {
             return abs(ud<Clipper>(pos, clipper)).x - thickness;
+        }
+        
+        // TODO: To be deleted probably
+        float_t signedDistance(float2_t pos, float_t thickness)
+        {
+            return signedDistance<DefaultClipper>(pos, thickness, DefaultClipper::construct());
         }
     };
 }
