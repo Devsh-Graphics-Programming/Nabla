@@ -3,7 +3,7 @@
 #include "nbl/system/CFileView.h"
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "nbl/builtin/CArchive.h"
-#include "dxc/builtin/CArchive.h"
+#include "spirv/builtin/CArchive.h"
 #endif // _NBL_EMBED_BUILTIN_RESOURCES_
 
 #include "nbl/system/CArchiveLoaderZip.h"
@@ -20,7 +20,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     
     #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
-    mount(core::make_smart_refctd_ptr<dxc::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
