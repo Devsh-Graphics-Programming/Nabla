@@ -97,11 +97,11 @@ protected:
             return true;
         }
 
-        nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
-            nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets;
-            for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
-                assets.push_back(m_descSetLayouts[i]);
-            return assets;
+        virtual uint32_t getDependencyCount() const override { return DESCRIPTOR_SET_COUNT; }
+
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+
+            return index < getDependencyCount() ? m_descSetLayouts[index] : nullptr;
         }
 
         void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override

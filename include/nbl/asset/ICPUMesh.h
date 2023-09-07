@@ -111,12 +111,10 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 			return true;
 		}
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
-		{
-			nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets;
-			for (auto mesh = m_meshBuffers.begin(); mesh != m_meshBuffers.end(); mesh++)
-				assets.push_back((*mesh));
-			return assets;
+		virtual uint32_t getDependencyCount() const override { return m_meshBuffers.size(); }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			return index < getDependencyCount() ?  m_meshBuffers[index] : nullptr;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

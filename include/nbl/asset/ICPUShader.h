@@ -110,7 +110,12 @@ class ICPUShader : public IAsset, public IShader
 			return true;
 		}
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return { m_code }; }
+		virtual uint32_t getDependencyCount() const override { return 1; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override 
+		{
+			return index == 0 ? m_code : nullptr;
+		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
 		{

@@ -73,6 +73,12 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return { m_buffer }; }
 
+        virtual uint32_t getDependencyCount() const override { return  1; }
+
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+                return index == 0 ? m_buffer : nullptr;
+        }
+
 		void hash_impl(size_t& seed) const override {
 			core::hash_combine(seed, m_size);
 			core::hash_combine(seed, m_offset);

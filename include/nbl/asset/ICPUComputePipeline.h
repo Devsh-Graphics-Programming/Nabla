@@ -75,7 +75,13 @@ protected:
         return true;
     }
 
-    nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return { m_shader, m_layout }; }
+    virtual uint32_t getDependencyCount() const override { return 2; }
+
+    virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+        if (index == 0) return m_shader;
+        else if (index == 1) return m_layout;
+        return nullptr;
+    }
 
     bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
     {

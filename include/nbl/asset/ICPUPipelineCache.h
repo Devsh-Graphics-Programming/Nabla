@@ -139,7 +139,11 @@ protected:
 		return true;
 	}
 
-	nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override { return {}; }
+	virtual uint32_t getDependencyCount() const override { return 0; }
+
+	virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+		return nullptr;
+	}
 
 	void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{

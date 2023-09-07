@@ -203,9 +203,11 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
+		virtual uint32_t getDependencyCount() const override { return 1; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override 
 		{
-			return { buffer };
+			return !index ? buffer : nullptr;
 		}
 
 		inline void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override

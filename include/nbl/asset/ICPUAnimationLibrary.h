@@ -124,9 +124,9 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 	protected:
 
-		virtual uint32_t getDependencyCount() const { return 3; }
+		virtual uint32_t getDependencyCount() const override { return 3; }
 
-		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const {
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
 			switch (index)
 			{
 			case 0:

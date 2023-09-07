@@ -120,14 +120,13 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		}
 
 	protected:
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
-		{
-			nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = {};
-			if (m_parentJointIDs.buffer)
-				assets.push_back(m_parentJointIDs.buffer);
-			if (m_defaultTransforms.buffer)
-				assets.push_back(m_defaultTransforms.buffer);
-			return assets;
+
+		virtual uint32_t getDependencyCount() const override { return 2; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			if (index == 0) return m_parentJointIDs.buffer;
+			else if (index == 1) return m_defaultTransforms.buffer;
+			return nullptr;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

@@ -86,12 +86,10 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return false;
             return true;
         }
-        virtual uint32_t getDependencyCount() const { return  m_samplers->size(); }
+        virtual uint32_t getDependencyCount() const override { return  m_samplers->size(); }
 
-        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const {
-            
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
                 return index < getDependencyCount() ? (*m_samplers)[index] : nullptr;
-            
         }
    
 		virtual ~ICPUDescriptorSetLayout() = default;

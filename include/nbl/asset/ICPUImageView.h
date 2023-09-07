@@ -77,10 +77,13 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return true;
 		}
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
-			return { params.image };
+		virtual uint32_t getDependencyCount() const override { return 1; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override
+		{
+			return !index ? params.image : nullptr;
 		}
-		
+
 		virtual void hash_impl(size_t& seed) const override {
 			core::hash_combine(seed, params.flags);
 			core::hash_combine(seed, params.format);

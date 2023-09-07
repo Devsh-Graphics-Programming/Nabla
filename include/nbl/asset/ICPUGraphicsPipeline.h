@@ -25,6 +25,14 @@ public:
     renderpass_independent_t* getRenderpassIndependentPipeline() { return m_params.renderpassIndependent.get(); }
     renderpass_t* getRenderpass() { return m_params.renderpass.get(); }
     SCreationParams& getCreationParameters() { return m_params; }
+protected: 
+
+    virtual uint32_t getDependencyCount() const override { return 1; }
+
+    virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+        return !index ? m_params.renderpass : nullptr;
+    }
+
 };
 
 }

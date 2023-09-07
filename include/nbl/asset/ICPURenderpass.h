@@ -32,11 +32,13 @@ private:
         return false; // TODO
     }
 
-    nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override
-    {
-        // TODO
-        return {};
+    virtual uint32_t getDependencyCount() const override { return 0; }
+
+    virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+
+        return nullptr;
     }
+
 
 };
 

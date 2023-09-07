@@ -148,12 +148,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			return true;
 		}
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
-			nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = { m_layout.get() };
-			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
-				if (m_shaders[i])
-					assets.push_back(m_shaders[i]);
-			return assets;
+		virtual uint32_t getDependencyCount() const override { return GRAPHICS_SHADER_STAGE_COUNT; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override 
+		{
+			return index < getDependencyCount() ? m_shaders[index] : nullptr;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

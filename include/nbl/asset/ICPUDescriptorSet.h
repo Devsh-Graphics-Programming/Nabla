@@ -87,7 +87,48 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 	protected:
 		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) override;
 
-		nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override;
+		inline virtual uint32_t getDependencyCount() const override {
+			uint32_t sum = 0;
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+			{
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
+				auto descriptorCount = m_layout->getTotalDescriptorCount(type);
+				const auto category = getCategoryFromType(type);
+				if (category == IDescriptor::EC_IMAGE)
+					descriptorCount *= 2;
+				sum += descriptorCount;
+			}
+			return sum;
+		}
+
+		inline virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+			{
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
+				auto descriptorCount = m_layout->getTotalDescriptorCount(type);
+				if (descriptorCount == 0ull)
+					continue;
+				
+				const auto category = getCategoryFromType(type);
+				if(category == IDescriptor::EC_IMAGE) descriptorCount *= 2;
+				if (index >= descriptorCount)
+				{
+					index -= descriptorCount;
+					continue;
+				}
+
+				auto descriptorInfos = m_descriptorInfos[t]->begin();
+				if (category == IDescriptor::EC_IMAGE) {
+
+					if ((index & 1))
+						return descriptorInfos[index / 2].info.image.sampler;
+					else
+						return descriptorInfos[index / 2].desc;
+				}
+				return descriptorInfos[index].desc;
+			}
+			return nullptr;
+		}
 
 		inline bool compatible(const IAsset* _other) const { return true; }
 

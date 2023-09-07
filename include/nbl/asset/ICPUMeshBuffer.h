@@ -678,19 +678,18 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
     protected:
                
 
-        nbl::core::vector<core::smart_refctd_ptr<IAsset>> getMembersToRecurse() const override {
-            nbl::core::vector<core::smart_refctd_ptr<IAsset>> assets = {
-                m_descriptorSet,
-                m_inverseBindPoseBufferBinding.buffer,
-                m_jointAABBBufferBinding.buffer,
-                m_pipeline,
-                m_indexBufferBinding.buffer
-            };
-            for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
-                //if (m_vertexBufferBindings[i].buffer)
-                    assets.push_back(m_vertexBufferBindings[i].buffer);
-            return assets;
+        virtual uint32_t getDependencyCount() const override { return MAX_ATTR_BUF_BINDING_COUNT + 5u; }
+
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+            if (index == 0) return m_descriptorSet;
+            else if (index == 1) return m_pipeline;
+            else if (index == 2) return m_inverseBindPoseBufferBinding.buffer;
+            else if (index == 3) return m_jointAABBBufferBinding.buffer;
+            else if (index == 4) return m_indexBufferBinding.buffer;
+            else if (index < getDependencyCount()) return m_vertexBufferBindings[index - 5u].buffer;
+            return nullptr;
         }
+
 };
 
 }
