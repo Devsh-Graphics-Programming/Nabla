@@ -63,7 +63,6 @@ namespace shapes
                 return ret;
             }
             
-            // TODO: take quadratic A,B,C instead of control points
             static AnalyticArcLengthCalculator construct(Quadratic<float_t> quadratic)
             {
                 AnalyticArcLengthCalculator ret;
@@ -119,9 +118,6 @@ namespace shapes
                         retval += subTerm0 * (subTerm1 - subTerm2);
                     }
                 }
-                
-                //while(true)
-                        //vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
 
                 return retval;
             }
@@ -165,9 +161,6 @@ namespace shapes
                         // x_n+1 = x_n - f(x_n)/f'(x_n)
                     xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
                 }
-                
-                //while(true)
-                //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
 
                 return xn;
             }
@@ -218,7 +211,7 @@ namespace shapes
             // p'(1)   = 2(C-B)
             // p'(1/2) = 2(C-A)
             
-            float2_t Bdiv2 = B/2.0f;
+            float2_t Bdiv2 = B*0.5f;
             float2_t CsubPos = C - pos;
 
             // Reducing Quartic to Cubic Solution
@@ -237,10 +230,10 @@ namespace shapes
             float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
             float_t h = q*q + 4.0*p3;
             
-            const float_t MAX_DISTANCE_SQUARED = (thickness+500.0f)*(thickness+500.0f);
+            const float_t MAX_DISTANCE_SQUARED = (thickness+1.0f)*(thickness+1.0f);
 
-            if(h >= 0.0) 
-            { 
+            if(h >= 0.0)
+            {
                 h = sqrt(h);
                 float2_t x = (float2_t(h, -h) - q) / 2.0;
 
@@ -263,7 +256,9 @@ namespace shapes
                 res = float2_t(dot(tOrigQos, tOrigQos), t.x);
                 if(res.x > MAX_DISTANCE_SQUARED)
                 {
+                    t.x = clamp(t.x, 0.0f, 1.0f);
                     res.x = sqrt(res.x);
+                    res.y = t.x;
                     return res;
                 }
                 
@@ -288,23 +283,26 @@ namespace shapes
                 float_t v = acos( q/(p*z*2.0) ) / 3.0;
                 float_t m = cos(v);
                 float_t n = sin(v)*1.732050808;
-                //float3_t t = float3_t(m + m, -n - m, n - m) * z - kx;
                 
                 float2_t t[3];
                 t[0] = (m + m) * z - kx;
                 t[1] = (-n - m) * z - kx;
                 t[2] = (n - m) * z - kx;
                 
+                const float_t FLOAT_MAX = 3.40282e+38;
+                
                 // 3 roots
                 float_t dis;
-                res.x = float_t(0xFFFFFFFFFFFFFFFF);
+                res.x = FLOAT_MAX;
                 for(uint32_t i = 0u; i < 3u; i++)
                 {
-                    float_t tOrigQos = CsubPos + (B + A*t[i].x)*t[i].x;
+                    float_t orig_t = clamp(t[i].x, 0.0f, 1.0f);
+                    float2_t tOrigQos = CsubPos + (B + A*orig_t)*orig_t;
                     float_t tOrigDis = dot(tOrigQos, tOrigQos);
                     if(tOrigDis > MAX_DISTANCE_SQUARED)
                     {
-                        res.x = tOrigDis;
+                        if(tOrigDis < res.x)
+                            res = float2_t(tOrigDis, orig_t);
                         continue;
                     }
                 
@@ -312,16 +310,17 @@ namespace shapes
                     
                     float2_t qos = CsubPos + (B + A*t[i].x)*t[i].x;
                     dis = dot(qos, qos);
-                    if( dis<res.x ) res = float2_t(dis,t[i].x );
+                    if( dis<res.x ) 
+                        res = float2_t(dis,t[i].x);
                     
                     if(t[i].x != t[i].y)
                     {
                         qos = CsubPos + (B + A*t[i].y)*t[i].y;
                         dis = dot(qos, qos);
-                        if(dis < res.x) res = float2_t(dis, t[i].y); 
+                        if(dis < res.x) 
+                            res = float2_t(dis, t[i].y); 
                     }
                 }
-                
 
                 res.x = sqrt( res.x );
             }
@@ -332,7 +331,7 @@ namespace shapes
         template<typename Clipper/* = DefaultClipper*/>
         float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper/* = DefaultClipper::construct()*/)
         {
-            return abs(ud<Clipper>(pos, thickness, clipper)).x - thickness;
+            return ud<Clipper>(pos, thickness, clipper).x - thickness;
         }
         
         // TODO: To be deleted probably
