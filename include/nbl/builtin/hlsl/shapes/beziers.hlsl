@@ -118,10 +118,10 @@ namespace shapes
                         
                         retval += subTerm0 * (subTerm1 - subTerm2);
                     }
-                    
-                    //while(true)
-                    //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
                 }
+                
+                //while(true)
+                        //vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
 
                 return retval;
             }
@@ -165,6 +165,9 @@ namespace shapes
                         // x_n+1 = x_n - f(x_n)/f'(x_n)
                     xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
                 }
+                
+                //while(true)
+                //    vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u);
 
                 return xn;
             }
@@ -234,7 +237,7 @@ namespace shapes
             float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
             float_t h = q*q + 4.0*p3;
             
-            const float_t MAX_DISTANCE_SQUARED = (thickness+1.0f)*(thickness+1.0f);
+            const float_t MAX_DISTANCE_SQUARED = (thickness+500.0f)*(thickness+500.0f);
 
             if(h >= 0.0) 
             { 
@@ -306,13 +309,17 @@ namespace shapes
                     }
                 
                     t[i] = clipper(t[i].x);
+                    
                     float2_t qos = CsubPos + (B + A*t[i].x)*t[i].x;
                     dis = dot(qos, qos);
                     if( dis<res.x ) res = float2_t(dis,t[i].x );
                     
-                    qos = CsubPos + (B + A*t[i].y)*t[i].y;
-                    dis = dot(qos, qos);
-                    if(dis < res.x) res = float2_t(dis, t[i].y); 
+                    if(t[i].x != t[i].y)
+                    {
+                        qos = CsubPos + (B + A*t[i].y)*t[i].y;
+                        dis = dot(qos, qos);
+                        if(dis < res.x) res = float2_t(dis, t[i].y); 
+                    }
                 }
                 
 
