@@ -128,15 +128,6 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			else if (index == 1) return m_defaultTransforms.buffer;
 			return nullptr;
 		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			if (m_parentJointIDs.buffer && m_parentJointIDs.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-
-			return m_defaultTransforms.buffer && m_defaultTransforms.buffer->isAnyDependencyDummy(_levelsBelow);
-		}
 };
 
 }
