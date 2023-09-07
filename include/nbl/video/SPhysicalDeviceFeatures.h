@@ -94,7 +94,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderTessellationAndGeometryPointSize;
 
     // [REQUIRE] good device support
-    //bool shaderImageGatherExtended;
+    //bool shaderImageGatherExtended = true;
 
     // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderStorageImageExtendedFormats = true;
@@ -125,8 +125,8 @@ struct SPhysicalDeviceFeatures
     //bool shaderFloat64;
 
     // [REQUIRE]
-    //bool shaderInt64 = false;
-    //bool shaderInt16 = false;
+    //bool shaderInt64 = true;
+    //bool shaderInt16 = true;
 
     // poor support on Apple GPUs
     bool shaderResourceResidency = false;
@@ -147,21 +147,21 @@ struct SPhysicalDeviceFeatures
     //bool variableMultisampleRate;
 
     // [REQUIRE] Always enabled, good device support.
-    // bool inheritedQueries = false;
+    // bool inheritedQueries = true;
 
 
     /* Vulkan 1.1 Core */
 
     // [REQUIRED] Force Enabled : ALIAS VK_KHR_16bit_storage
-    //bool storageBuffer16BitAccess = false;
-    //bool uniformAndStorageBuffer16BitAccess = false;
+    //bool storageBuffer16BitAccess = true;
+    //bool uniformAndStorageBuffer16BitAccess = true;
   
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
-    //bool storagePushConstant16 = false;
-    //bool storageInputOutput16 = false;
+    //bool storagePushConstant16;
+    //bool storageInputOutput16;
 
     // [REQUIRE] Required to be present when Vulkan 1.1 is supported
-    //bool multiview;
+    //bool multiview = true;
 
     // [EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these
     //bool multiviewGeometryShader;
@@ -174,13 +174,13 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] not gonna expose until we have a need to
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
-    //bool           protectedMemory;
+    //bool           protectedMemory = false;
 
     // [DO NOT EXPOSE] ROADMAP 2022 Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
-    //bool           samplerYcbcrConversion;
+    //bool           samplerYcbcrConversion = false;
 
     // [REQUIRE] Force Enabled : VK_KHR_shader_draw_parameters
-    //bool shaderDrawParameters;
+    //bool shaderDrawParameters = true;
 
 
     /* Vulkan 1.2 Core */
@@ -196,42 +196,41 @@ struct SPhysicalDeviceFeatures
     //bool storageBuffer8BitAccess = true;
     //bool uniformAndStorageBuffer8BitAccess = true;
     // [EXPOSE AS LIMIT] not great support yet
-    //bool storagePushConstant8 = false;
+    //bool storagePushConstant8;
  
-    // Enabled by Default, Moved to Limits
-    // or VK_KHR_shader_atomic_int64:
-    //bool shaderBufferInt64Atomics = false;
-    //bool shaderSharedInt64Atomics = false;
+    // [EXPOSE AS LIMIT] or VK_KHR_shader_atomic_int64:
+    //bool shaderBufferInt64Atomics;
+    //bool shaderSharedInt64Atomics;
 
     // or VK_KHR_shader_float16_int8:
     // [EXPOSE AS LIMIT] not great support yet
-    //bool shaderFloat16 = false;
+    //bool shaderFloat16;
     // [REQUIRE] good device coverage
     //bool shaderInt8 = true;
     
     // [REQUIRE] ROADMAP 2022
     //bool descriptorIndexing = true;
     // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
-    //bool shaderInputAttachmentArrayDynamicIndexing = false;
+    //bool shaderInputAttachmentArrayDynamicIndexing;
     // [REQUIRE] because we also require `descriptorIndexing`
     //bool shaderUniformTexelBufferArrayDynamicIndexing = true;
     //bool shaderStorageTexelBufferArrayDynamicIndexing = true;
     // [EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support
-    //bool shaderUniformBufferArrayNonUniformIndexing = false;
+    //bool shaderUniformBufferArrayNonUniformIndexing;
     // [REQUIRE] because we also require `descriptorIndexing`
     //bool shaderSampledImageArrayNonUniformIndexing = true;
     //bool shaderStorageBufferArrayNonUniformIndexing = true;
     // [REQUIRE] ROADMAP 2022
     //bool shaderStorageImageArrayNonUniformIndexing = true;
     // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
-    //bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    //bool shaderInputAttachmentArrayNonUniformIndexing;
     // [REQUIRE] because we also require `descriptorIndexing`
     //bool shaderUniformTexelBufferArrayNonUniformIndexing = true;
     // [REQUIRE] ROADMAP 2022 and good device support
     //bool shaderStorageTexelBufferArrayNonUniformIndexing = true;
     // We have special bits on the Descriptor Layout Bindings and those should decide the overhead, not the enablement of a feature like the following
     // [EXPOSE AS A LIMIT] not great coverage but still can enable when available
-    //bool descriptorBindingUniformBufferUpdateAfterBind = false;
+    //bool descriptorBindingUniformBufferUpdateAfterBind;
     // [REQUIRE] because we also require `descriptorIndexing`
     //bool descriptorBindingSampledImageUpdateAfterBind = true;
     //bool descriptorBindingStorageImageUpdateAfterBind = true;
@@ -245,7 +244,7 @@ struct SPhysicalDeviceFeatures
     //bool runtimeDescriptorArray = true;
     
     // [EXPOSE AS A LIMIT]
-    //bool samplerFilterMinmax = false;   // ALIAS: VK_EXT_sampler_filter_minmax
+    //bool samplerFilterMinmax;   // ALIAS: VK_EXT_sampler_filter_minmax
 
     // [REQUIRE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
     //bool scalarBlockLayout = true;     // or VK_EXT_scalar_block_layout
@@ -267,9 +266,10 @@ struct SPhysicalDeviceFeatures
     //bool bufferDeviceAddressCaptureReplay;
     bool bufferDeviceAddressMultiDevice = false;
     
-    // [EXPOSE AS A LIMIT] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
-    //bool vulkanMemoryModel;
-    //bool vulkanMemoryModelDeviceScope;
+    // [REQUIRE] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model
+    //bool vulkanMemoryModel = true;
+    //bool vulkanMemoryModelDeviceScope = true;
+    // [EXPOSE AS A LIMIT] ROADMAP2022 wants them, but device support low
     //bool vulkanMemoryModelAvailabilityVisibilityChains;
 
     // [EXPOSE AS A LIMIT]
@@ -324,7 +324,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] EVIL
     //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
 
-    // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
+    // [REQUIRE] Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway
     //bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
 
 
