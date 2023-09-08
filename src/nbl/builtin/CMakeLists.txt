@@ -1,5 +1,3 @@
-find_package (Python3 COMPONENTS Interpreter REQUIRED)
-
 include("${CMAKE_CURRENT_SOURCE_DIR}/utils.cmake")
 
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/acceleration_structures.glsl")
