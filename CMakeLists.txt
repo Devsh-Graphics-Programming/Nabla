@@ -307,18 +307,19 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 find_package(Git REQUIRED)
+find_package (Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
 
 NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
-
-option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 add_subdirectory(src/nbl)
 

@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_BARYCENTRIC_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BARYCENTRIC_UTILS_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat/cpp_compat.h>
+
 namespace nbl
 {
 namespace hlsl
@@ -11,7 +13,7 @@ namespace hlsl
 namespace barycentric
 {
 
-float2 reconstructBarycentrics(in float3 positionRelativeToV0, in float2x3 edges)
+float2 reconstructBarycentrics(NBL_CONST_REF_ARG(float3) positionRelativeToV0, NBL_CONST_REF_ARG(float2x3) edges)
 {
     const float e0_2 = dot(edges[0], edges[0]);
     const float e0e1 = dot(edges[0], edges[1]);
@@ -24,12 +26,12 @@ float2 reconstructBarycentrics(in float3 positionRelativeToV0, in float2x3 edges
     const float rcp_dep = 1.f / (e0_2 * e1_2 - e0e1 * e0e1);
     return protoBary * rcp_dep;
 }
-float2 reconstructBarycentrics(in float3 pointPosition, in float3x3 vertexPositions)
+float2 reconstructBarycentrics(NBL_CONST_REF_ARG(float3) pointPosition, NBL_CONST_REF_ARG(float3x3) vertexPositions)
 {
     return reconstructBarycentrics(pointPosition - vertexPositions[2], float2x3(vertexPositions[0] - vertexPositions[2], vertexPositions[1] - vertexPositions[2]));
 }
 
-float3 expand(in float2 compactBarycentrics)
+float3 expand(NBL_CONST_REF_ARG(float2) compactBarycentrics)
 {
     return float3(compactBarycentrics.xy,1.f-compactBarycentrics.x-compactBarycentrics.y);
 }
