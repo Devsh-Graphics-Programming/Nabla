@@ -36,6 +36,8 @@ class IGPUAnimationLibrary final : public asset::IAnimationLibrary<IGPUBuffer>
 
 		template<typename... Args>
 		inline IGPUAnimationLibrary(Args&&... args) : base_t(std::forward<Args>(args)...) {}
+
+		using asset_t = asset::ICPUAnimationLibrary;
 };
 
 } // end namespace video

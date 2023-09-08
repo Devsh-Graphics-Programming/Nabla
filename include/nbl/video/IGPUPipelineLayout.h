@@ -32,6 +32,8 @@ class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
         ) : IBackendObject(std::move(dev)), base_t(_pcRangesBegin,_pcRangesEnd,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
+        using asset_t = asset::ICPUPipelineLayout;
+
     protected:
         virtual ~IGPUPipelineLayout() = default;
 };

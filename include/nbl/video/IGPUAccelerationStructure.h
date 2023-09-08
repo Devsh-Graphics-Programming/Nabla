@@ -19,6 +19,9 @@ namespace nbl::video
 class IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
 {
 	public:
+
+		using asset_t = asset::ICPUAccelerationStructure;
+
 		struct SCreationParams
 		{
 			enum class FLAGS : uint8_t
@@ -161,6 +164,9 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		using Base = asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
 
 	public:
+
+		using asset_t = asset::ICPUBottomLevelAccelerationStructure;
+
 		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceFeatures& enabledFeatures)
 		{
 			if (!Base::validBuildFlags(flags))
@@ -366,6 +372,8 @@ template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer
 class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>
 {
 	public:
+		using asset_t = asset::ICPUTopLevelAccelerationStructure;
+
 		struct SCreationParams : IGPUAccelerationStructure::SCreationParams
 		{
 			// only relevant if `flag` contain `MOTION_BIT`

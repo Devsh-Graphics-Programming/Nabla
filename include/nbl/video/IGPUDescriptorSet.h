@@ -23,6 +23,9 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 		using base_t = asset::IDescriptorSet<const IGPUDescriptorSetLayout>;
 
 	public:
+
+        using asset_t = asset::ICPUDescriptorSet;
+
         struct SWriteDescriptorSet
         {
             //smart pointer not needed here

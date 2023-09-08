@@ -43,6 +43,8 @@ class IGPURenderpassIndependentPipeline : public IBackendObject, public asset::I
 			asset::SRasterizationParams rasterization;
 		};
 
+		using asset_t = asset::ICPURenderpassIndependentPipeline;
+
 	protected:
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };

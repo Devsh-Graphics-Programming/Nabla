@@ -23,6 +23,8 @@ class IGPUSampler : public asset::ISampler, public IBackendObject
         // OpenGL: const GLuint* handle
         // Vulkan: const VkSampler
         virtual const void* getNativeHandle() const = 0;
+
+        using asset_t = asset::ICPUSampler;
 };
 
 }

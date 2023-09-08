@@ -34,6 +34,8 @@ class IGPUComputePipeline : public IBackendObject, public asset::IComputePipelin
             int32_t basePipelineIndex;
         };
 
+        using asset_t = asset::ICPUComputePipeline;
+
     protected:
         virtual ~IGPUComputePipeline() = default;
 

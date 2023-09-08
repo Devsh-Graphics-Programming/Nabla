@@ -22,7 +22,7 @@ performed by the GPU and not wholly by the driver, so look for them in IGPUComma
 class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 {
 	public:
-		using asset_t = asset::IBuffer;
+		using asset_t = asset::ICPUBuffer;
 
 		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{

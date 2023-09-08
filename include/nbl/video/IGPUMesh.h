@@ -44,6 +44,8 @@ class IGPUMesh final : public asset::IMesh<IGPUMeshBuffer>
 			auto begin = reinterpret_cast<IGPUMeshBuffer* const*>(m_meshBuffers->data());
 			return core::SRange<IGPUMeshBuffer* const>(begin,begin+m_meshBuffers->size());
 		}
+
+		using asset_t = asset::ICPUMesh;
 };
 
 }

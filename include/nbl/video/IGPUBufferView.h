@@ -28,6 +28,7 @@ public:
     // Vulkan: const VkBufferView*
     virtual const void* getNativeHandle() const = 0;
 
+    using asset_t = asset::ICPUBufferView;
 protected:
     virtual ~IGPUBufferView() = default;
 };

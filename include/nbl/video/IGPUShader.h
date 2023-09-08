@@ -21,6 +21,9 @@ namespace nbl::video
 
 class IGPUShader : public asset::IShader, public IBackendObject
 {
+    public:
+        using asset_t = asset::ICPUShader;
+
     protected:
         explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             const IShader::E_SHADER_STAGE shaderStage,

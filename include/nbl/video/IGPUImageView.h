@@ -23,6 +23,7 @@ class IGPUImageView : public asset::IImageView<IGPUImage>, public IBackendObject
 		// Vulkan: const VkImageView*
 		virtual const void* getNativeHandle() const = 0;
 
+		using asset_t = asset::ICPUImageView;
 	protected:
 		IGPUImageView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)), IBackendObject(std::move(dev)) {}
 		virtual ~IGPUImageView() = default;
