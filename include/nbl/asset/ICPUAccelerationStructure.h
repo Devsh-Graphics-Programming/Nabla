@@ -131,46 +131,42 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 		
+		
+	protected:
+		virtual ~ICPUBottomLevelAccelerationStructure() = default;
+
 		//!
 		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUBottomLevelAccelerationStructure*>(_other);
-			if (other->m_buildFlags!=m_buildFlags)
+			if (other->m_buildFlags != m_buildFlags)
 				return false;
-			if (other->getGeometryCount()!=getGeometryCount())
+			if (other->getGeometryCount() != getGeometryCount())
 				return false;
 			const uint32_t geometryCount = getGeometryCount();
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 			{
-				for (auto i=0u; i<geometryCount; i++)
+				for (auto i = 0u; i < geometryCount; i++)
 				{
 					const auto& src = other->m_AABBGeoms->operator[](i);
 					const auto& dst = m_AABBGeoms->operator[](i);
-					if (dst.stride!=src.stride || dst.geometryFlags!=src.geometryFlags)
+					if (dst.stride != src.stride || dst.geometryFlags != src.geometryFlags)
 						return false;
 				}
 			}
 			else
 			{
-				for (auto i=0u; i<geometryCount; i++)
+				for (auto i = 0u; i < geometryCount; i++)
 				{
 					const auto& src = other->m_triangleGeoms->operator[](i);
 					const auto& dst = m_triangleGeoms->operator[](i);
-					if (dst.maxVertex!=src.maxVertex || dst.vertexStride!=src.vertexStride || dst.vertexFormat!=src.vertexFormat || dst.indexType!=src.indexType || dst.geometryFlags!=src.geometryFlags)
+					if (dst.maxVertex != src.maxVertex || dst.vertexStride != src.vertexStride || dst.vertexFormat != src.vertexFormat || dst.indexType != src.indexType || dst.geometryFlags != src.geometryFlags)
 						return false;
 				}
 			}
 			return true;
 		}
 
-	protected:
-		virtual ~ICPUBottomLevelAccelerationStructure() = default;
-
-		bool compatible(const IAsset* _other) const override {
-			_NBL_TODO();
-			return true;
-
-		}
 
 		virtual uint32_t getDependencyCount() const override { return m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT) ? m_AABBGeoms->size() : m_triangleGeoms->size() * 3; }
 
