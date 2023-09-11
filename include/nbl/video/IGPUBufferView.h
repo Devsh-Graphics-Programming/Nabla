@@ -29,6 +29,8 @@ public:
     virtual const void* getNativeHandle() const = 0;
 
     using asset_t = asset::ICPUBufferView;
+    //using patchable_params_t = TODO;
+
 protected:
     virtual ~IGPUBufferView() = default;
 };

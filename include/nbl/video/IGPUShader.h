@@ -23,7 +23,7 @@ class IGPUShader : public asset::IShader, public IBackendObject
 {
     public:
         using asset_t = asset::ICPUShader;
-
+        //using patchable_params_t = TODO;
     protected:
         explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             const IShader::E_SHADER_STAGE shaderStage,

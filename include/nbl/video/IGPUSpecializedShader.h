@@ -26,7 +26,7 @@ class IGPUSpecializedShader : public asset::ISpecializedShader, public IBackendO
 		virtual asset::IShader::E_SHADER_STAGE getStage() const = 0;
 
 		using asset_t = asset::ICPUSpecializedShader;
-
+		//using patchable_params_t = TODO none;
 	protected:
 		virtual ~IGPUSpecializedShader() = default;
 };

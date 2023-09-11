@@ -246,7 +246,8 @@ class IAsset : virtual public core::IReferenceCounted
 			return result;
 		}
 		
-		inline size_t hash(std::unordered_map<IAsset*, size_t>*temporary_hash_cache = nullptr) const
+		using hash_cache_t = std::unordered_map<IAsset*, size_t>;
+		inline size_t hash(hash_cache_t* temporary_hash_cache = nullptr) const
 		{
 			bool add_to_cache = false;
 			if (temporary_hash_cache)

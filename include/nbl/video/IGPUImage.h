@@ -35,7 +35,9 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 				static_cast<asset::IImage::SCreationParams&>(*this) = rhs;
 				return *this;
 			}
-		};
+		};		
+		using patchable_params_t = SCreationParams;
+
 
 		//!
 		inline TILING getTiling() const {return m_tiling;}

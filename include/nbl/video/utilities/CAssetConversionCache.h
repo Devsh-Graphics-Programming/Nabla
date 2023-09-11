@@ -23,100 +23,89 @@
 namespace nbl::video
 {
 
-    class CAssetConversionCache : public core::IReferenceCounted
-    {
-    public:
-        template<class GPUObject> requires GPUObject::asset_t
-            class CTypedAssetCache
-        {
-        public:
-            struct Value
-            {
-                // for turning LVHC entry into PTSC
-                inline Value(const GPUObject::patchable_params_t& _overrides, core::smart_refctd_ptr<const GPUObject::asset_t>&& _asset, const size_t assetHash)
-                    : hashValueAtInsert(assetHash), asset(std::move(_asset)), overrides(_overrides)
-                {
-                    core::combine_hash(hashValueAtInsert, overrides);
-                }
-                inline Value(const GPUObject::patchable_params_t& _overrides, const GPUObject::asset_t* const _asset)
-                    : Value(overrides, core::smart_refctd_ptr<const GPUObject::asset_t>(_asset), _asset->hash()) {}
+	class CAssetConversionCache final : public core::IReferenceCounted
+	{
+	public:
+			template<class GPUObject> //requires GPUObject::asset_t
+			class CTypedAssetCache
+			{
+			public:
 
-                inline bool stale(IAsset::hash_cache_t* pAHC = nullptr) const
-                {
-                    size_t hash = asset->hash(pAHC);
-                    core::combine_hash(hash, overrides);
-                    return hash != hashValueAtInsert;
-                }
+				struct ReverseValue
+				{
+					size_t hashValueAtInsert;
+					core::smart_refctd_ptr<const GPUObject::asset_t> asset;
+				};
 
-                size_t hashValueAtInsert;
-                const GPUObject::asset_t* asset;
-                GPUObject::patchable_params_t converted;
-            };
+				struct Value
+				{
+					// for turning LVHC entry into PTSC
+					inline Value(const GPUObject::patchable_params_t& _overrides, core::smart_refctd_ptr<const GPUObject::asset_t>&& _asset, const size_t assetHash)
+						: hashValueAtInsert(assetHash), asset(std::move(_asset)), overrides(_overrides)
+					{
+						core::combine_hash(hashValueAtInsert, overrides);
+					}
+					inline Value(const GPUObject::patchable_params_t& _overrides, const GPUObject::asset_t* const _asset)
+						: Value(_overrides, core::smart_refctd_ptr<const GPUObject::asset_t>(_asset), _asset->hash()) {}
 
-        protected:
-            struct ReverseValue
-            {
-                ReverseValue(const Value&);
+					inline Value(const ReverseValue& _reverseValue) : hashValueAtInsert(_reverseValue.hashValueAtInsert), asset(_reverseValue.asset.get()) {}
 
-                size_t hashValueAtInsert;
-                core::smart_refctd_ptr<const GPUObject::asset_t> asset;
-            }
-            struct Hasher
-            {
-                using is_transparent = void;
+					inline bool stale(asset::IAsset::hash_cache_t* pAHC = nullptr) const
+					{
+						size_t hash = asset->hash(pAHC);
+						core::combine_hash(hash, overrides);
+						return hash != hashValueAtInsert;
+					}
 
-                static inline size_t operator()(const Value& key)
-                {
-                    return key.hashValueAtInsert;
-                }
-            };
-            struct Equals
-            {
-                using is_transparent = void;
+					size_t hashValueAtInsert;
+					const GPUObject::asset_t* asset;
+					GPUObject::patchable_params_t overrides;
+				};
 
-                static inline bool operator()(const Value& lhs, const Value& rhs)
-                {
-                    // if this redundant?
-                    if (lhs.hashValueAtInsert != rhs.hashValueAtInsert)
-                        return false;
+			protected:
+				struct Hasher
+				{
+					using is_transparent = void;
 
-                    if (lhs.overrides != rhs.overrides)
-                        return false;
+					inline size_t operator()(const Value& key)
+					{
+						return key.hashValueAtInsert;
+					}
+				};
+				struct Equals
+				{
+					using is_transparent = void;
 
-                    if (!lhs.asset)
-                        return !rhs.asset;
-                    return key.asset->equals(rhs.asset);
-                }
+					inline bool operator()(const Value& lhs, const Value& rhs)
+					{
+						// is this redundant?
+						if (lhs.hashValueAtInsert != rhs.hashValueAtInsert)
+							return false;
 
-                // clear before every insert/iterator invalidation op
-                // consume after every find/insert
-                //core::vector<decltype(m_storage::find)> m_staleItemsDetected;
-            };
-            core::unordered_map<Value, std::atomic<const GPUObject*>, Hasher, Equals> m_storage;
-            core::unordered_map<core::smart_refctd_ptr<const GPUObject>, ReverseValue> m_reverseMap;
-        };
+						if (lhs.overrides != rhs.overrides)
+							return false;
 
-    protected: 
+						if (!lhs.asset)
+							return !rhs.asset;
+						return key.asset->equals(rhs.asset);
+					}
 
+					// clear before every insert/iterator invalidation op
+					// consume after every find/insert
+					//core::vector<decltype(m_storage::find)> m_staleItemsDetected;
+				};
+				core::unordered_map<Value, std::atomic<const GPUObject*>, Hasher, Equals> m_storage;
+				core::unordered_map<core::smart_refctd_ptr<const GPUObject>, ReverseValue> m_reverseMap;
+			};
 
-        template <class... GPUObjects>
-        class caches_t
-        {
-            std::tuple<CTypedAssetCache<GPUObjects>...> data;
-        };
-        //caches_t<IGPUBuffer> m_caches;
-
-        CTypedAssetCache<IGPUBuffer> m_cache;
-
-    };
+	protected:
 
 
+		template <class... GPUObjects>
+		using caches_t = std::tuple<CTypedAssetCache<GPUObjects>...>;
+		caches_t<IGPUBuffer, IGPUBufferView, IGPUImage, IGPUImageView, IGPUSampler, IGPUShader, IGPUSpecializedShader, IGPUDescriptorSet, IGPUDescriptorSetLayout, IGPUPipelineLayout, IGPURenderpassIndependentPipeline, IGPUMeshBuffer, IGPUComputePipeline, IGPUMesh, IGPUAnimationLibrary, IGPUAccelerationStructure> m_caches;
 
-    //define conversion order 
-    // same order as iasset type
-    // 
-    //bucket assets by type
-    // 
-    //change func name to getDeps and change return type to range
+
+	};
 }
 #endif

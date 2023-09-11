@@ -33,6 +33,7 @@ class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<
         ) : IBackendObject(std::move(dev)), base_t(_pcRangesBegin,_pcRangesEnd,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
         using asset_t = asset::ICPUPipelineLayout;
+        //using patchable_params_t = TODO none;
 
     protected:
         virtual ~IGPUPipelineLayout() = default;

@@ -25,7 +25,9 @@ class IGPUSampler : public asset::ISampler, public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
         using asset_t = asset::ICPUSampler;
-};
+        using patchable_params_t = SParams;
+};		
+
 
 }
 

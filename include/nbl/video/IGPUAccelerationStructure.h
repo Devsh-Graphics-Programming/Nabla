@@ -35,6 +35,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 			asset::SBufferRange<IGPUBuffer> bufferRange;
 			core::bitflag<FLAGS> flags = FLAGS::NONE;
 		};
+		using patchable_params_t = SCreationParams;
 		inline const SCreationParams& getCreationParams() const {return m_params;}
 
 #if 0 // TODO: need a non-refcounting `SBufferBinding` and `SBufferRange` variants first

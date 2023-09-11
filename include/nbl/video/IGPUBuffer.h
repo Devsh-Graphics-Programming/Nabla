@@ -23,7 +23,6 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 {
 	public:
 		using asset_t = asset::ICPUBuffer;
-
 		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
 			SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
@@ -32,6 +31,7 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 				return *this;
 			}
 		};
+		using patchable_params_t = SCreationParams;
 
 		//
 		inline E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }

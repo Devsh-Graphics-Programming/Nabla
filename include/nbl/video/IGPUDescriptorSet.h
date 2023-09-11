@@ -25,7 +25,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 	public:
 
         using asset_t = asset::ICPUDescriptorSet;
-
+        //using patchable_params_t = TODO none;
         struct SWriteDescriptorSet
         {
             //smart pointer not needed here

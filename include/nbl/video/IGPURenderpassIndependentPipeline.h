@@ -44,6 +44,7 @@ class IGPURenderpassIndependentPipeline : public IBackendObject, public asset::I
 		};
 
 		using asset_t = asset::ICPURenderpassIndependentPipeline;
+		using patchable_params_t = SCreationParams;
 
 	protected:
 		virtual ~IGPURenderpassIndependentPipeline() = default;

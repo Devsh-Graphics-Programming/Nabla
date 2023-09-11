@@ -35,7 +35,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IComputePipelin
         };
 
         using asset_t = asset::ICPUComputePipeline;
-
+        //using patchable_params_t = TODO none;
     protected:
         virtual ~IGPUComputePipeline() = default;
 

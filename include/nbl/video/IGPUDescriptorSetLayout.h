@@ -40,6 +40,7 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         inline bool canUpdateAfterBind() const { return m_canUpdateAfterBind; }
         
         using asset_t = asset::ICPUDescriptorSetLayout;
+        //using patchable_params_t = TODO none;
 
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;

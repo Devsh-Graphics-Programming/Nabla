@@ -46,6 +46,7 @@ class IGPUMesh final : public asset::IMesh<IGPUMeshBuffer>
 		}
 
 		using asset_t = asset::ICPUMesh;
+		//using patchable_params_t = TODO none;
 };
 
 }

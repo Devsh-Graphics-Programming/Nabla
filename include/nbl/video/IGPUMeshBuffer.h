@@ -23,6 +23,7 @@ class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptor
         using base_t::base_t;
 
         using asset_t = asset::ICPUMeshBuffer;
+        //using patchable_params_t = TODO none;
 };
 
 } // end namespace nbl::video
