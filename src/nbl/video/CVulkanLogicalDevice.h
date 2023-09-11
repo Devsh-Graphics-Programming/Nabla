@@ -46,7 +46,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // in the future we'll make proper Vulkan allocators and RAII free functions to pass into Vulkan API calls
         using memory_pool_mt_t = core::CMemoryPool<core::PoolAddressAllocator<uint32_t>,core::default_aligned_allocator,true,uint32_t>;
         
-        CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const VkInstance vkinst, const SCreationParams& params);
+        CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
         // sync sutff
         inline IQueue::RESULT waitIdle() const override
@@ -758,7 +758,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IGPUCommandPool> createCommandPool_impl(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags) override;
 
 
-        VkDevice m_vkdev;
+        const VkDevice m_vkdev;
         CVulkanDeviceFunctionTable m_devf;
     
         constexpr static inline uint32_t NODES_PER_BLOCK_DEFERRED_OP = 4096u;
