@@ -141,7 +141,7 @@ namespace shapes
                 
             }
             
-            float_t calcArcLenInverse(float_t arcLen, float_t accuracyThreshold, float_t hint, Quadratic<float_t> quadratic)
+            float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 float_t xn = hint;
 
@@ -166,6 +166,8 @@ namespace shapes
             }
 
         };
+        
+        using ArcLenCalculator = AnalyticArcLengthCalculator;
         
         static Quadratic construct(float2_t A, float2_t B, float2_t C)
         {            
@@ -198,7 +200,8 @@ namespace shapes
         
             inline float2_t operator()(const float_t t)
             {
-                return clamp(t, 0.0, 1.0);
+                const float_t ret = clamp(t, 0.0, 1.0);
+                return float2_t(ret, ret);
             }
         };
         
