@@ -1,20 +1,17 @@
-#ifndef _NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED_
-#define _NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED_
+#ifndef __NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED__
+#define __NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED__
 
-
-#include "nbl/core/IReferenceCounted.h"
-
-#include <type_traits>
 
 #include "nbl/video/EApiType.h"
 
+#include <type_traits>
 
 namespace nbl::video
 {
 
 class ILogicalDevice;
 
-class IBackendObject : public virtual core::IReferenceCounted
+class IBackendObject
 {
     public:
         constexpr static inline size_t MAX_DEBUG_NAME_LENGTH = 255ull;
@@ -68,7 +65,7 @@ class IBackendObject : public virtual core::IReferenceCounted
         const char* getObjectDebugName() const { return m_debugName; }
 
     protected:
-        virtual ~IBackendObject() = default;
+        virtual ~IBackendObject();
 
     private:
         const core::smart_refctd_ptr<const ILogicalDevice> m_originDevice;

@@ -1,5 +1,4 @@
-#ifndef _NBL_VIDEO_C_VULKAN_COMMAND_POOL_H_INCLUDED_
-#define _NBL_VIDEO_C_VULKAN_COMMAND_POOL_H_INCLUDED_
+#ifndef __NBL_C_VULKAN_COMMAND_POOL_H_INCLUDED__
 
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/core/containers/CMemoryPool.h"
@@ -13,26 +12,24 @@ namespace nbl::video
 
 class CVulkanCommandPool final : public IGPUCommandPool
 {
-    public:
-        CVulkanCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags, const uint32_t queueFamilyIndex, const VkCommandPool vk_commandPool)
-            : IGPUCommandPool(std::move(dev), flags, queueFamilyIndex), m_vkCommandPool(vk_commandPool) {}
+public:
+    CVulkanCommandPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags, uint32_t queueFamilyIndex, VkCommandPool vk_commandPool)
+        : IGPUCommandPool(std::move(dev), flags.value, queueFamilyIndex), m_vkCommandPool(vk_commandPool)
+    {}
+    
+	inline const void* getNativeHandle() const override {return &m_vkCommandPool;}
+    VkCommandPool getInternalObject() const {return m_vkCommandPool;}
 
-        void trim() override;
-
-	    inline const void* getNativeHandle() const override {return &m_vkCommandPool;}
-        VkCommandPool getInternalObject() const {return m_vkCommandPool;}
+    ~CVulkanCommandPool();
 	
-        void setObjectDebugName(const char* label) const override;
+    void setObjectDebugName(const char* label) const override;
 
-    private:
-        ~CVulkanCommandPool();
+private:
+    bool reset_impl() override;
 
-        bool createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger);
-
-        bool reset_impl() override;
-
-        const VkCommandPool m_vkCommandPool;
+    VkCommandPool m_vkCommandPool;
 };
 
 }
+#define __NBL_C_VULKAN_COMMAND_POOL_H_INCLUDED__
 #endif

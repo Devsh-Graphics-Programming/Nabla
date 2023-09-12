@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_PIPELINE_H_INCLUDED_
-#define _NBL_ASSET_I_PIPELINE_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_PIPELINE_H_INCLUDED__
+#define __NBL_ASSET_I_PIPELINE_H_INCLUDED__
 
 #include <utility>
 
@@ -11,7 +12,6 @@
 namespace nbl::asset
 {
 
-// TODO: move to HLSL header
 struct DrawArraysIndirectCommand_t
 {
 	uint32_t  count;
@@ -52,7 +52,7 @@ struct DispatchIndirectCommand_t
 */
 
 template<typename LayoutType>
-class IPipeline
+class IPipeline : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_PIPELINE_CREATION : uint32_t
@@ -69,7 +69,9 @@ class IPipeline
 
 	protected:
 		IPipeline(core::smart_refctd_ptr<LayoutType>&& _layout) :
-			m_layout(std::move(_layout)) {}
+			m_layout(std::move(_layout))
+		{
+		}
 		virtual ~IPipeline() = default;
 
 		core::smart_refctd_ptr<LayoutType> m_layout;

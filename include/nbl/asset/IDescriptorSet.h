@@ -1,6 +1,7 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 #define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
@@ -32,7 +33,7 @@ class IAccelerationStructure;
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to remove this inheritance and see what happens
+class IDescriptorSet : public virtual core::IReferenceCounted
 {
 	public:
 		using layout_t = LayoutType;
@@ -43,13 +44,15 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
 
+					static constexpr inline size_t WholeBuffer = ~0ull;
+
 					auto operator<=>(const SBufferInfo&) const = default;
                 };
                 struct SImageInfo
                 {
 					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                    IImage::LAYOUT imageLayout;
+                    IImage::E_LAYOUT imageLayout;
                 };
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
@@ -73,7 +76,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				{
 					desc = binding.buffer;
 					info.buffer.offset = binding.offset;
-					info.buffer.size = SBufferRange<BufferType>::WholeBuffer;
+					info.buffer.size = SBufferInfo::WholeBuffer;
 				}
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
@@ -111,7 +114,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image = {nullptr,IImage::LAYOUT::UNDEFINED};
+						info.image = {nullptr,IImage::EL_UNDEFINED};
 					desc = std::move(other.desc);
 					if (desc)
 					{

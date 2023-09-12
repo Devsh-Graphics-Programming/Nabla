@@ -25,6 +25,8 @@ class CSubpassKiln
 
         static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
         {
+            featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
+            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
         }
 
         // for finding upper and lower bounds of subpass drawcalls
@@ -189,7 +191,7 @@ class CSubpassKiln
         template<typename draw_call_order_t=DefaultOrder>
         void bake(IGPUCommandBuffer* cmdbuf, const IGPURenderpass* renderpass, const uint32_t subpassIndex, const IGPUBuffer* drawIndirectBuffer, const IGPUBuffer* drawCountBuffer)
         {
-            assert(cmdbuf&&renderpass&&subpassIndex<renderpass->getSubpassCount() && drawIndirectBuffer);
+            assert(cmdbuf&&renderpass&&subpassIndex<renderpass->getSubpasses().size()&&drawIndirectBuffer);
             if (m_needsSorting!=draw_call_order_t::typeID)
             {
                 std::sort(m_drawCallMetadataStorage.begin(),m_drawCallMetadataStorage.end(), typename draw_call_order_t::less());
@@ -202,7 +204,13 @@ class CSubpassKiln
             if (begin==end)
                 return;
 
-            bake_impl(cmdbuf->getOriginDevice()->getPhysicalDevice()->getLimits().indirectDrawCount, drawIndirectBuffer, drawCountBuffer)(cmdbuf, begin, end);
+            const auto& features = cmdbuf->getOriginDevice()->getEnabledFeatures();
+            const bool drawCountEnabled = features.drawIndirectCount;
+
+            if (features.multiDrawIndirect)
+                bake_impl<true>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
+            else
+                bake_impl<false>(drawCountEnabled,drawIndirectBuffer,drawCountBuffer)(cmdbuf,begin,end);
         }
 
     protected:
@@ -210,6 +218,7 @@ class CSubpassKiln
         uint64_t m_needsSorting = DefaultOrder::invalidTypeID;
 
         using call_iterator = typename decltype(m_drawCallMetadataStorage)::const_iterator;
+        template<bool multiDrawEnabled>
         struct bake_impl
         {
             public:
@@ -266,7 +275,7 @@ class CSubpassKiln
                             const auto unmodifiedBindingCount = [&]() -> uint32_t
                             {
                                 for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-                                if (it->vertexBufferBindings[i]!=vertexBindings[i])
+                                if (it->vertexBufferBindings[i].buffer.get()!=vertexBindingBuffers[i] || it->vertexBufferBindings[i].offset!=vertexBindingOffsets[i])
                                     return i;
                                 return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
                             }();
@@ -277,10 +286,13 @@ class CSubpassKiln
                                     return i+1u;
                                 return unmodifiedBindingCount;
                             }();
-                            const auto newBindingCount = nonNullBindingEnd-unmodifiedBindingCount;
-                            std::copy_n(it->vertexBufferBindings+unmodifiedBindingCount,newBindingCount,vertexBindings);
+                            for (auto i=unmodifiedBindingCount; i<nonNullBindingEnd; i++)
+                            {
+                                vertexBindingBuffers[i] = it->vertexBufferBindings[i].buffer.get();
+                                vertexBindingOffsets[i] = it->vertexBufferBindings[i].offset;
+                            }
                             if (nonNullBindingEnd!=unmodifiedBindingCount)
-                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,newBindingCount,vertexBindings+unmodifiedBindingCount);
+                                cmdbuf->bindVertexBuffers(unmodifiedBindingCount,nonNullBindingEnd-unmodifiedBindingCount,vertexBindingBuffers+unmodifiedBindingCount,vertexBindingOffsets+unmodifiedBindingCount);
                             // change index bindings iff dirty
                             if (it->indexBufferBinding.get()!=indexBuffer || it->indexType!=indexType)
                             {
@@ -290,10 +302,10 @@ class CSubpassKiln
                                         [[fallthrough]];
                                     case asset::EIT_32BIT:
                                         indexType = static_cast<asset::E_INDEX_TYPE>(it->indexType);
-                                        cmdbuf->bindIndexBuffer({0ull,it->indexBufferBinding},indexType);
+                                        cmdbuf->bindIndexBuffer(it->indexBufferBinding.get(),0ull,indexType);
                                         break;
                                     default:
-                                        cmdbuf->bindIndexBuffer({},asset::EIT_UNKNOWN);
+                                        cmdbuf->bindIndexBuffer(nullptr,0ull,asset::EIT_UNKNOWN);
                                         indexType = asset::EIT_UNKNOWN;
                                         break;
                                 }
@@ -301,23 +313,33 @@ class CSubpassKiln
                             }
                             // now we're ready to record a few drawcalls
                             const bool indexed = indexType!=asset::EIT_UNKNOWN;
-                            asset::SBufferBinding<const IGPUBuffer> indirectBinding = {it->drawCallOffset,drawIndirectBuffer};
-                            const uint32_t drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
-                            if (drawCountBuffer && it->drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
+                            const uint32_t drawCallOffset=it->drawCallOffset, drawCountOffset=it->drawCountOffset, drawMaxCount=it->drawMaxCount, drawCommandStride=it->drawCommandStride;
+                            if (drawCountBuffer && drawCountOffset!=IDrawIndirectAllocator::invalid_draw_count_ix)
                             {
-                                assert(drawCountEnabled);
-                                asset::SBufferBinding<const IGPUBuffer> countBinding = {it->drawCountOffset,drawCountBuffer};
+                                assert(drawCountEnabled && multiDrawEnabled);
                                 if (indexed)
-                                    cmdbuf->drawIndexedIndirectCount(indirectBinding,countBinding,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndexedIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
                                 else
-                                    cmdbuf->drawIndirectCount(indirectBinding,countBinding,drawMaxCount,drawCommandStride);
+                                    cmdbuf->drawIndirectCount(drawIndirectBuffer,drawCallOffset,drawCountBuffer,drawCountOffset,drawMaxCount,drawCommandStride);
                             }
                             else
                             {
                                 if (indexed)
-                                    cmdbuf->drawIndexedIndirect(indirectBinding,drawMaxCount,drawCommandStride);
+                                {
+                                    if constexpr (multiDrawEnabled)
+                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    else
+                                    for (auto i=0u; i<drawMaxCount; i++)
+                                        cmdbuf->drawIndexedIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawElementsIndirectCommand_t));
+                                }
                                 else
-                                    cmdbuf->drawIndirect(indirectBinding,drawMaxCount,drawCommandStride);
+                                {
+                                    if constexpr (multiDrawEnabled)
+                                        cmdbuf->drawIndirect(drawIndirectBuffer,drawCallOffset,drawMaxCount,drawCommandStride);
+                                    else
+                                    for (auto i=0u; i<drawMaxCount; i++)
+                                        cmdbuf->drawIndirect(drawIndirectBuffer,i*drawCommandStride+drawCallOffset,1u,sizeof(asset::DrawArraysIndirectCommand_t));
+                                }
                             }
                         }
                     }
@@ -325,14 +347,15 @@ class CSubpassKiln
             private:
                 //
                 const bool drawCountEnabled;
-                core::smart_refctd_ptr<const IGPUBuffer> drawIndirectBuffer;
-                core::smart_refctd_ptr<const IGPUBuffer> drawCountBuffer;
+                const IGPUBuffer* drawIndirectBuffer;
+                const IGPUBuffer* drawCountBuffer;
                 //
                 const IGPUGraphicsPipeline* pipeline = nullptr;
                 const uint8_t* pushConstants = nullptr;
                 const IGPUDescriptorSet* descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {nullptr};
                 const IGPUPipelineLayout* layout = nullptr;
-                asset::SBufferBinding<const IGPUBuffer> vertexBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+                const IGPUBuffer* vertexBindingBuffers[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {nullptr};
+                size_t vertexBindingOffsets[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {0ull};
                 asset::E_INDEX_TYPE indexType = asset::EIT_UNKNOWN;
                 const IGPUBuffer* indexBuffer = nullptr;
         };

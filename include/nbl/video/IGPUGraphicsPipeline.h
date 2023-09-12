@@ -1,5 +1,5 @@
-#ifndef _NBL_I_GPU_GRAPHICS_PIPELINE_H_INCLUDED_
-#define _NBL_I_GPU_GRAPHICS_PIPELINE_H_INCLUDED_
+#ifndef __NBL_I_GPU_GRAPHICS_PIPELINE_H_INCLUDED__
+#define __NBL_I_GPU_GRAPHICS_PIPELINE_H_INCLUDED__
 
 
 #include "nbl/asset/IGraphicsPipeline.h"
@@ -11,15 +11,15 @@
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline,IGPURenderpass>
+class IGPUGraphicsPipeline : public core::IReferenceCounted, public asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline, IGPURenderpass>, public IBackendObject
 {
-        using base_t = asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline,IGPURenderpass>;
+        using base_t = asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline, IGPURenderpass>;
 
     protected:
         ~IGPUGraphicsPipeline() = default;
 
     public:
-        IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), base_t(std::move(params)) {}
+        IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : base_t(std::move(params)), IBackendObject(std::move(dev)) {}
 };
 
 }

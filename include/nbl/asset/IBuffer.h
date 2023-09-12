@@ -69,48 +69,37 @@ NBL_ENUM_ADD_BITWISE_OPERATORS(IBuffer::E_USAGE_FLAGS)
 template<class BufferType>
 struct SBufferBinding
 {
-	size_t offset = 0ull;
-	core::smart_refctd_ptr<BufferType> buffer = nullptr;
-
-	
-	inline operator SBufferBinding<const BufferType>&() {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
-	inline operator const SBufferBinding<const BufferType>&() const {return *reinterpret_cast<const SBufferBinding<const BufferType>*>(this);}
-
-	inline bool isValid() const
+	bool isValid() const
 	{
 		return buffer && (offset<buffer->getSize());
 	}
 
-	inline bool operator==(const SBufferBinding<const BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset; }
-	inline bool operator!=(const SBufferBinding<const BufferType>& rhs) const { return !operator==(rhs); }
+	uint64_t offset = 0ull;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+
+	inline bool operator==(const SBufferBinding<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset; }
+	inline bool operator!=(const SBufferBinding<BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 template<typename BufferType>
 struct SBufferRange
 {
-	static constexpr inline size_t WholeBuffer = ~0ull;
-
-	size_t offset = 0ull;
-	size_t size = WholeBuffer;
-	core::smart_refctd_ptr<BufferType> buffer = nullptr;
-	
-	
-	inline operator SBufferRange<const BufferType>&() {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
-	inline operator const SBufferRange<const BufferType>&() const {return *reinterpret_cast<const SBufferRange<const BufferType>*>(this);}
+	// Temp Fix, If you want to uncomment this then fix every example having compile issues -> add core::smart_refctd_ptr around the buffer to be an r-value ref
+	// SBufferRange(const size_t& _offset, const size_t& _size, core::smart_refctd_ptr<BufferType>&& _buffer)
+	// 	: offset(_offset), size(_size), buffer(core::smart_refctd_ptr<BufferType>(_buffer)) {}
+	// SBufferRange() : offset(0ull), size(0ull), buffer(nullptr) {}
 
 	inline bool isValid() const
 	{
-		if (!buffer || offset>=buffer->getSize() || size==0ull)
-			return false;
-		return actualSize()<=buffer->getSize()-offset;
+		return buffer && size && (offset+size<=buffer->getSize());
 	}
 
-	inline size_t actualSize() const
-	{
-		return size!=WholeBuffer ? size:buffer->getSize();
-	}
-	inline bool operator==(const SBufferRange<const BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && actualSize()==rhs.actualSize(); }
-	inline bool operator!=(const SBufferRange<const BufferType>& rhs) const { return !operator==(rhs); }
+	size_t offset = 0ull;
+	size_t size = 0ull;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+
+	inline bool operator==(const SBufferRange<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && size==rhs.size; }
+	inline bool operator!=(const SBufferRange<BufferType>& rhs) const { return !operator==(rhs); }
 };
 
 }

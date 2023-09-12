@@ -1,7 +1,7 @@
-#ifndef _NBL_VIDEO_C_VULKAN_EVENT_H_INCLUDED_
-#define _NBL_VIDEO_C_VULKAN_EVENT_H_INCLUDED_
+#ifndef __NBL_C_VULKAN_EVENT_H_INCLUDED__
+#define __NBL_C_VULKAN_EVENT_H_INCLUDED__
 
-#include "nbl/video/IEvent.h"
+#include "nbl/video/IGPUEvent.h"
 
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -11,21 +11,22 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class CVulkanEvent final : public IEvent
+class CVulkanEvent : public IGPUEvent
 {
-    public:
-        inline CVulkanEvent(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const CREATE_FLAGS flags, const VkEvent vk_event)
-            : IEvent(std::move(dev), flags), m_vkEvent(vk_event) {}
-        ~CVulkanEvent();
+public:
+    CVulkanEvent(
+        core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+        E_CREATE_FLAGS flags,
+        VkEvent vk_event)
+        : IGPUEvent(std::move(dev), flags), m_vkEvent(vk_event)
+    {}
 
-        STATUS getEventStatus_impl() const override;
-        STATUS resetEvent_impl() override;
-        STATUS setEvent_impl() override;
+    ~CVulkanEvent();
 
-        inline VkEvent getInternalObject() const { return m_vkEvent; }
+    inline VkEvent getInternalObject() const { return m_vkEvent; }
 
-    private:
-        VkEvent m_vkEvent;
+private:
+    VkEvent m_vkEvent;
 };
 
 }

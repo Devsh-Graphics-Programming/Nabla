@@ -1,12 +1,14 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
-#define _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
+
+#ifndef __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
+#define __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
 
 
 #include "nbl/asset/asset.h"
 
+#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUCommandPool.h"
 
 
@@ -19,7 +21,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::CREATE_FLAGS _flags, const uint32_t capacity);
+		ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity);
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
@@ -124,7 +126,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 		// TODO: after CommandPool resetting, get rid of these 
 		const uint32_t m_queueFamilyIx;
-		const IGPUCommandPool::CREATE_FLAGS m_flags;
+		const IGPUCommandPool::E_CREATE_FLAGS m_flags;
 };
 
 }

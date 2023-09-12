@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
-#define _NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
+
+#ifndef __NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
@@ -18,9 +19,10 @@ namespace nbl::video
 /*
 	@see IRenderpassIndependentPipeline
 */
-class IGPURenderpassIndependentPipeline : public IBackendObject, public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader,IGPUPipelineLayout>
+
+class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
-		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader,IGPUPipelineLayout>;
+		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
 	public:
 		IGPURenderpassIndependentPipeline(
@@ -31,7 +33,9 @@ class IGPURenderpassIndependentPipeline : public IBackendObject, public asset::I
 			const asset::SBlendParams& _blendParams,
 			const asset::SPrimitiveAssemblyParams& _primAsmParams,
 			const asset::SRasterizationParams& _rasterParams
-		) : IBackendObject(std::move(dev)), base_t(std::move(_layout),_shadersBegin,_shadersEnd,_vertexInputParams,_blendParams,_primAsmParams,_rasterParams) {}
+		) : base_t(std::move(_layout), _shadersBegin, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams), IBackendObject(std::move(dev))
+		{
+		}
 
 		struct SCreationParams
 		{

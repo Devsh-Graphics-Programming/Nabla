@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED_
-#define _NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
+#define __NBL_ASSET_I_SPECIALIZED_SHADER_H_INCLUDED__
 
 #include "nbl/core/decl/Types.h"
 #include "nbl/core/SRange.h"
@@ -49,7 +50,7 @@ namespace nbl::asset
 	could have been a long time ago.
 */
 
-class ISpecializedShader : public virtual core::IReferenceCounted // TODO: do we need this inheritance?
+class ISpecializedShader : public virtual core::IReferenceCounted
 {
 	public:
 		//! Parameter class used in constructor of ISpecializedShader

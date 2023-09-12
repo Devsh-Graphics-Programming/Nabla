@@ -4,9 +4,9 @@
 
 namespace nbl::video
 {
-IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit)
+IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
     {
@@ -18,8 +18,8 @@ IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     // Use the last command buffer in intendedNextSubmit, it should be in recording state
     auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
 
-    assert(cmdbuf->getState() == IGPUCommandBuffer::STATE::RECORDING && cmdbuf->isResettable());
-    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
+    assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
+    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
  
@@ -103,7 +103,7 @@ IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         {
             // but first submit the already buffered up copies and whatever previously recorded into the command buffer
             cmdbuf->end();
-            IQueue::SSubmitInfo submit = intendedNextSubmit;
+            IGPUQueue::SSubmitInfo submit = intendedNextSubmit;
             submit.signalSemaphoreCount = 0u;
             submit.pSignalSemaphores = nullptr;
             assert(submit.isValid());
@@ -118,8 +118,8 @@ IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
             m_defaultUploadBuffer->cull_frees();
             // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
             m_device->resetFences(1u, &submissionFence);
-            cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
-            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+            cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
+            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
             continue;
         }
         else
@@ -162,8 +162,8 @@ IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo
 )
 {
     if(!submitInfo.isValid())
@@ -183,8 +183,8 @@ void IUtilities::updateImageViaStagingBufferAutoSubmit(
 }
 
 void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo
 )
 {
     if(!submitInfo.isValid())
@@ -233,7 +233,9 @@ ImageRegionIterator::ImageRegionIterator(
     if (asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
-    if (!(queueFamilyProps.queueFlags&(IQueue::FAMILY_FLAGS::COMPUTE_BIT|IQueue::FAMILY_FLAGS::GRAPHICS_BIT)))
+    bool queueSupportsCompute = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_COMPUTE_BIT);
+    bool queueSupportsGraphics = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_GRAPHICS_BIT);
+    if ((queueSupportsGraphics || queueSupportsCompute) == false)
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))

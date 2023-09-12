@@ -25,6 +25,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
 
         static void enablePreferredFeatures(const SPhysicalDeviceFeatures& availableFeatures, SPhysicalDeviceFeatures& featuresToEnable)
         {
+            featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
         }
 
         // easy dont care creation
@@ -33,9 +34,10 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             if (!params.device || params.drawCommandCapacity==0u)
                 return nullptr;
 
-            const auto& limits = params.device->getPhysicalDevice()->getLimits();
-            if (!limits.drawIndirectCount)
+            const auto& features = params.device->getEnabledFeatures();
+            if (!features.drawIndirectCount)
                 params.drawCountCapacity = 0;
+            const auto& limits = params.device->getPhysicalDevice()->getLimits();
             
             ExplicitBufferCreationParameters explicit_params;
 

@@ -1,14 +1,13 @@
-#ifndef _NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED_
-#define _NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED_
+#ifndef __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
 
 #include <volk.h>
 
 namespace nbl::video
 {
 
-constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 2, 0);
+static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
 
-inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
+static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
 {
     switch (in)
     {
@@ -214,7 +213,7 @@ inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
     }
 }
 
-inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in)
+static inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in)
 {
     ISurface::SColorSpace result = { asset::ECP_COUNT, asset::EOTF_UNKNOWN };
 
@@ -320,7 +319,7 @@ inline ISurface::SColorSpace getColorSpaceFromVkColorSpaceKHR(VkColorSpaceKHR in
     return result;
 }
 
-inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentModeKHR in)
+static inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentModeKHR in)
 {
     switch (in)
     {
@@ -337,138 +336,29 @@ inline ISurface::E_PRESENT_MODE getPresentModeFromVkPresentModeKHR(VkPresentMode
     }
 }
 
-//
-inline VkPipelineStageFlagBits2 getVkPipelineStageFlagsFromPipelineStageFlags(core::bitflag<asset::PIPELINE_STAGE_FLAGS> stages)
-{
-    VkPipelineStageFlagBits2 retval = VK_PIPELINE_STAGE_2_NONE;
-    using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
-    // we want to "recoup" general flags first because they don't check capabilities for individual bits
-    auto stripCompoundFlags = [&stages,&retval](const core::bitflag<stage_flags_t> compound, const VkPipelineStageFlagBits2 vkFlag)
-    {
-        if (stages.hasFlags(compound))
-        {
-            retval |= vkFlag;
-            stages &= ~compound;
-        }
-    };
-    stripCompoundFlags(stage_flags_t::ALL_COMMANDS_BITS,VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
-    stripCompoundFlags(stage_flags_t::ALL_TRANSFER_BITS,VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT);
-    stripCompoundFlags(stage_flags_t::ALL_GRAPHICS_BITS,VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT);
-    stripCompoundFlags(stage_flags_t::PRE_RASTERIZATION_SHADERS_BITS,VK_PIPELINE_STAGE_2_PRE_RASTERIZATION_SHADERS_BIT);
-
-    // now proceed normally
-    if (stages.hasFlags(stage_flags_t::HOST_BIT)) retval |= VK_PIPELINE_STAGE_2_HOST_BIT;
-    if (stages.hasFlags(stage_flags_t::COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_COPY_BIT;
-    if (stages.hasFlags(stage_flags_t::CLEAR_BIT)) retval |= VK_PIPELINE_STAGE_2_CLEAR_BIT;
-    //    if (stages.hasFlags(stage_flags_t::MICROMAP_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_COPY_BIT_KHR;
-    if (stages.hasFlags(stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)) retval |= VK_PIPELINE_STAGE_2_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
-    if (stages.hasFlags(stage_flags_t::COMMAND_PREPROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_COMMAND_PREPROCESS_BIT_NV;
-    if (stages.hasFlags(stage_flags_t::CONDITIONAL_RENDERING_BIT)) retval |= VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT)) retval |= VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT;
-    if (stages.hasFlags(stage_flags_t::COMPUTE_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
-    if (stages.hasFlags(stage_flags_t::INDEX_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_INDEX_INPUT_BIT;
-    if (stages.hasFlags(stage_flags_t::VERTEX_ATTRIBUTE_INPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT;
-    if (stages.hasFlags(stage_flags_t::VERTEX_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT;
-    if (stages.hasFlags(stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TESSELLATION_CONTROL_SHADER_BIT;
-    if (stages.hasFlags(stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TESSELLATION_EVALUATION_SHADER_BIT;
-    if (stages.hasFlags(stage_flags_t::GEOMETRY_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_GEOMETRY_SHADER_BIT;
-//    if (stages.hasFlags(stage_flags_t::TASK_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_TASK_SHADER_BIT_EXT;
-//    if (stages.hasFlags(stage_flags_t::MESH_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_MESH_SHADER_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_DENSITY_PROCESS_BIT_EXT;
-    if (stages.hasFlags(stage_flags_t::SHADING_RATE_ATTACHMENT_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
-    if (stages.hasFlags(stage_flags_t::EARLY_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT;
-    if (stages.hasFlags(stage_flags_t::FRAGMENT_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
-    if (stages.hasFlags(stage_flags_t::LATE_FRAGMENT_TESTS_BIT)) retval |= VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
-    if (stages.hasFlags(stage_flags_t::COLOR_ATTACHMENT_OUTPUT_BIT)) retval |= VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    if (stages.hasFlags(stage_flags_t::RAY_TRACING_SHADER_BIT)) retval |= VK_PIPELINE_STAGE_2_RAY_TRACING_SHADER_BIT_KHR;
-    if (stages.hasFlags(stage_flags_t::RESOLVE_BIT)) retval |= VK_PIPELINE_STAGE_2_RESOLVE_BIT;
-    if (stages.hasFlags(stage_flags_t::BLIT_BIT)) retval |= VK_PIPELINE_STAGE_2_BLIT_BIT;
-//    if (stages.hasFlags(stage_flags_t::VIDEO_DECODE)) retval |= VK_PIPELINE_STAGE_2_VIDEO_DECODE_BIT_KHR;
-//    if (stages.hasFlags(stage_flags_t::VIDEO_ENCODE)) retval |= VK_PIPELINE_STAGE_2_VIDEO_ENCODE_BIT_KHR;
-//    if (stages.hasFlags(stage_flags_t::OPTICAL_FLOW)) retval |= VK_PIPELINE_STAGE_2_OPTICAL_FLOW_BIT_NV;
-
-    return retval;
-}
-
-inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::ACCESS_FLAGS> accesses)
-{
-    VkAccessFlagBits2 retval = VK_ACCESS_2_NONE;
-    using access_flags_t = asset::ACCESS_FLAGS;
-    // we want to "recoup" general flags first because they don't check capabilities for individual bits
-    auto stripCompoundFlags = [&accesses,&retval](const core::bitflag<access_flags_t> compound, const VkAccessFlagBits2 vkFlag)
-    {
-        if (accesses.hasFlags(compound))
-        {
-            retval |= vkFlag;
-            accesses &= ~compound;
-        }
-    };
-    stripCompoundFlags(access_flags_t::MEMORY_READ_BITS,VK_ACCESS_2_MEMORY_READ_BIT);
-    stripCompoundFlags(access_flags_t::MEMORY_WRITE_BITS,VK_ACCESS_2_MEMORY_WRITE_BIT);
-    stripCompoundFlags(access_flags_t::SHADER_READ_BITS,VK_ACCESS_2_SHADER_READ_BIT);
-    stripCompoundFlags(access_flags_t::SHADER_WRITE_BITS,VK_ACCESS_2_SHADER_WRITE_BIT);
-
-    // now proceed normally
-    if (accesses.hasFlags(access_flags_t::HOST_READ_BIT)) retval |= VK_ACCESS_2_HOST_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::HOST_WRITE_BIT)) retval |= VK_ACCESS_2_HOST_WRITE_BIT;
-    if (accesses.hasFlags(access_flags_t::TRANSFER_READ_BIT)) retval |= VK_ACCESS_2_TRANSFER_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::TRANSFER_WRITE_BIT)) retval |= VK_ACCESS_2_TRANSFER_WRITE_BIT;
-//    if (accesses.hasFlags(access_flags_t::MICROMAP_READ_BIT)) retval |= VK_ACCESS_2_MICROMAP_READ_BIT_EXT;
-//    if (accesses.hasFlags(access_flags_t::MICROMAP_WRITE_BIT)) retval |= VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT;
-    if (accesses.hasFlags(access_flags_t::ACCELERATION_STRUCTURE_READ_BIT)) retval |= VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-    if (accesses.hasFlags(access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT)) retval |= VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
-    if (accesses.hasFlags(access_flags_t::COMMAND_PREPROCESS_READ_BIT)) retval |= VK_ACCESS_2_COMMAND_PREPROCESS_READ_BIT_NV;
-    if (accesses.hasFlags(access_flags_t::COMMAND_PREPROCESS_WRITE_BIT)) retval |= VK_ACCESS_2_COMMAND_PREPROCESS_WRITE_BIT_NV;
-    if (accesses.hasFlags(access_flags_t::CONDITIONAL_RENDERING_READ_BIT)) retval |= VK_ACCESS_2_CONDITIONAL_RENDERING_READ_BIT_EXT;
-    if (accesses.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT)) retval |= VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::UNIFORM_READ_BIT)) retval |= VK_ACCESS_2_UNIFORM_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::SAMPLED_READ_BIT)) retval |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::STORAGE_READ_BIT)) retval |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::STORAGE_WRITE_BIT)) retval |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
-    if (accesses.hasFlags(access_flags_t::INDEX_READ_BIT)) retval |= VK_ACCESS_2_INDEX_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::VERTEX_ATTRIBUTE_READ_BIT)) retval |= VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::FRAGMENT_DENSITY_MAP_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_DENSITY_MAP_READ_BIT_EXT;
-    if (accesses.hasFlags(access_flags_t::SHADING_RATE_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
-    if (accesses.hasFlags(access_flags_t::INPUT_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)) retval |= VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    if (accesses.hasFlags(access_flags_t::COLOR_ATTACHMENT_READ_BIT)) retval |= VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT;
-    if (accesses.hasFlags(access_flags_t::COLOR_ATTACHMENT_WRITE_BIT)) retval |= VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
-    if (accesses.hasFlags(access_flags_t::SHADER_BINDING_TABLE_READ_BIT)) retval |= VK_ACCESS_2_SHADER_BINDING_TABLE_READ_BIT_KHR;
-//    if (accesses.hasFlags(access_flags_t::VIDEO_DECODE_READ_BIT)) retval |= VK_ACCESS_2_VIDEO_DECODE_READ_BIT_KHR;
-//    if (accesses.hasFlags(access_flags_t::VIDEO_DECODE_WRITE_BIT)) retval |= VK_ACCESS_2_VIDEO_DECODE_WRITE_BIT_KHR;
-//    if (accesses.hasFlags(access_flags_t::VIDEO_ENCODE_READ_BIT)) retval |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
-//    if (accesses.hasFlags(access_flags_t::VIDEO_ENCODE_WRITE_BIT)) retval |= VK_ACCESS_2_VIDEO_ENCODE_READ_BIT_KHR;
-//    if (accesses.hasFlags(access_flags_t::OPTICAL_FLOW_READ_BIT)) retval |= VK_ACCESS_2_OPTICAL_FLOW_READ_BIT_NV;
-//    if (accesses.hasFlags(access_flags_t::OPTICAL_FLOW_WRITE_BIT)) retval |= VK_ACCESS_2_OPTICAL_FLOW_WRITE_BIT_NV;
-
-    return retval;
-}
-
-inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<IGPUShader::E_SHADER_STAGE> in)
+static inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<asset::IShader::E_SHADER_STAGE> in)
 {
     VkShaderStageFlags ret = 0u;
-    if(in.hasFlags(IGPUShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    if(in.hasFlags(IGPUShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
-    if(in.hasFlags(IGPUShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
-    if(in.hasFlags(IGPUShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
-    if(in.hasFlags(IGPUShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
-    if(in.hasFlags(IGPUShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(IGPUShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(asset::IShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(asset::IShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(asset::IShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(asset::IShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(asset::IShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(asset::IShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(asset::IShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(asset::IShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 
-inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
+static inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
 {
     switch (in)
     {
@@ -673,38 +563,27 @@ inline VkFormat getVkFormatFromFormat(asset::E_FORMAT in)
     case asset::E_FORMAT::EF_UNKNOWN:
         return VK_FORMAT_MAX_ENUM;
     }
+#ifdef UNMAINTAINABLE_CODE
+    if (in <= asset::EF_BC7_SRGB_BLOCK)
+        return static_cast<VkFormat>(in);
+
+    if (in >= asset::EF_ETC2_R8G8B8_UNORM_BLOCK && in <= asset::EF_EAC_R11G11_SNORM_BLOCK)
+        return static_cast<VkFormat>(in - 28u);
+
+    if (in >= asset::EF_ASTC_4x4_UNORM_BLOCK && in <= asset::EF_ASTC_12x12_SRGB_BLOCK)
+        return static_cast<VkFormat>(in + 10u);
+
+    if (in >= asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG && in <= asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG)
+        return static_cast<VkFormat>(in + 1000053815u);
+
+    if (in >= asset::EF_G8_B8_R8_3PLANE_420_UNORM && in <= asset::EF_G8_B8_R8_3PLANE_444_UNORM)
+        return static_cast<VkFormat>(in + 1000155809);
+
+    return VK_FORMAT_MAX_ENUM;
+#endif
 }
 
-inline VkImageLayout getVkImageLayoutFromImageLayout(asset::IImage::LAYOUT in)
-{
-    using layout_t = asset::IImage::LAYOUT;
-    switch (in)
-    {
-        case layout_t::UNDEFINED:
-            return VK_IMAGE_LAYOUT_UNDEFINED;
-        case layout_t::GENERAL:
-            return VK_IMAGE_LAYOUT_GENERAL;
-        case layout_t::READ_ONLY_OPTIMAL:
-            return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
-        case layout_t::ATTACHMENT_OPTIMAL:
-            return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-        case layout_t::TRANSFER_SRC_OPTIMAL:
-            return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        case layout_t::TRANSFER_DST_OPTIMAL:
-            return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        case layout_t::PREINITIALIZED:
-            return VK_IMAGE_LAYOUT_PREINITIALIZED;
-        case layout_t::PRESENT_SRC:
-            return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        case layout_t::SHARED_PRESENT:
-            return VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR;
-        default:
-            assert(!"IMAGE LAYOUT NOT SUPPORTED!");
-            return VK_IMAGE_LAYOUT_UNDEFINED;
-    }
-}
-
-inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
+static inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
 {
     if (in.primary == asset::ECP_SRGB && in.eotf == asset::EOTF_sRGB)
         return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -757,69 +636,39 @@ inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in
     return VK_COLOR_SPACE_MAX_ENUM_KHR;
 }
 
-inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<IGPUBuffer::E_USAGE_FLAGS> in)
+static inline VkBufferUsageFlags getVkBufferUsageFlagsFromBufferUsageFlags(const core::bitflag<asset::IBuffer::E_USAGE_FLAGS> in)
 {
     VkBufferUsageFlags ret = 0u;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
-    if(in.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) ret |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_UNIFORM_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_STORAGE_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_VERTEX_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_INDIRECT_BUFFER_BIT)) ret |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT)) ret |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    //if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT;
+    //if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT)) ret |= VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_CONDITIONAL_RENDERING_BIT_EXT)) ret |= VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) ret |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+    if(in.hasFlags(asset::IBuffer::E_USAGE_FLAGS::EUF_SHADER_BINDING_TABLE_BIT)) ret |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
     return ret;
 }
 
-inline VkImageUsageFlags getVkImageUsageFlagsFromImageUsageFlags(const core::bitflag<IGPUImage::E_USAGE_FLAGS> in, const bool depthStencilFormat)
-{
-    VkImageUsageFlags ret = 0u;
-    if (in.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)) ret |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    if (in.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)) ret |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    if (in.hasFlags(IGPUImage::EUF_SAMPLED_BIT)) ret |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    if (in.hasFlags(IGPUImage::EUF_STORAGE_BIT)) ret |= VK_IMAGE_USAGE_STORAGE_BIT;
-    if (in.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)) ret |= depthStencilFormat ? VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT:VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (in.hasFlags(IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
-    if (in.hasFlags(IGPUImage::EUF_INPUT_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-    if (in.hasFlags(IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
-    if (in.hasFlags(IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
-    return ret;
-}
-
-inline core::bitflag<IGPUImage::E_USAGE_FLAGS> getImageUsageFlagsFromVkImageUsageFlags(const VkImageUsageFlags in)
-{
-    core::bitflag<IGPUImage::E_USAGE_FLAGS> ret = IGPUImage::EUF_NONE;
-    if (in&VK_IMAGE_USAGE_TRANSFER_SRC_BIT) ret |= IGPUImage::EUF_TRANSFER_SRC_BIT;
-    if (in&VK_IMAGE_USAGE_TRANSFER_DST_BIT) ret |= IGPUImage::EUF_TRANSFER_DST_BIT;
-    if (in&VK_IMAGE_USAGE_SAMPLED_BIT) ret |= IGPUImage::EUF_SAMPLED_BIT;
-    if (in&VK_IMAGE_USAGE_STORAGE_BIT) ret |= IGPUImage::EUF_STORAGE_BIT;
-    if (in&(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT|VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) ret |= IGPUImage::EUF_RENDER_ATTACHMENT_BIT;
-    if (in&VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT) ret |= IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT;
-    if (in&VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) ret |= IGPUImage::EUF_INPUT_ATTACHMENT_BIT;
-    if (in&VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR) ret |= IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT;
-    if (in&VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT) ret |= IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
-    return ret;
-}
-
-inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const IGPUSampler::E_TEXTURE_CLAMP in)
+static inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const asset::ISampler::E_TEXTURE_CLAMP in)
 {
     switch (in)
     {
-    case IGPUSampler::ETC_REPEAT:
+    case asset::ISampler::ETC_REPEAT:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case IGPUSampler::ETC_CLAMP_TO_EDGE:
+    case asset::ISampler::ETC_CLAMP_TO_EDGE:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case IGPUSampler::ETC_CLAMP_TO_BORDER:
+    case asset::ISampler::ETC_CLAMP_TO_BORDER:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    case IGPUSampler::ETC_MIRROR:
+    case asset::ISampler::ETC_MIRROR:
         return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
     default:
         assert(!"ADDRESS MODE NOT SUPPORTED!");
@@ -827,7 +676,7 @@ inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const IGPUSampler::E_TE
     }
 }
 
-inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> getDebugCallbackFlagsFromLogLevelMask(const core::bitflag<system::ILogger::E_LOG_LEVEL> logLevelMask)
+static inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> getDebugCallbackFlagsFromLogLevelMask(const core::bitflag<system::ILogger::E_LOG_LEVEL> logLevelMask)
 {
     std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFlagsEXT> result = { 0, 0 };
     auto& sev = result.first;
@@ -858,27 +707,32 @@ inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFla
     return result;
 }
 
-inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
+static inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
 {
     return static_cast<VkBlendFactor>(in);
 }
 
-inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
+static inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
 {
     return static_cast<VkBlendOp>(in);
 }
 
-inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
+static inline VkLogicOp getVkLogicOpFromLogicOp(const asset::E_LOGIC_OP in)
 {
     return static_cast<VkLogicOp>(in);
 }
 
-inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
+static inline VkColorComponentFlags getVkColorComponentFlagsFromColorWriteMask(const uint64_t in)
 {
     return static_cast<VkColorComponentFlags>(in);
 }
 
-inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
+static inline VkPipelineStageFlags getVkPipelineStageFlagsFromPipelineStageFlags(const asset::E_PIPELINE_STAGE_FLAGS in)
+{
+    return static_cast<VkPipelineStageFlags>(in);
+}
+
+static inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> in)
 {
     VkMemoryPropertyFlags ret = 0u;
     if(in.hasFlags(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_DEVICE_LOCAL_BIT))
@@ -902,7 +756,7 @@ inline VkMemoryPropertyFlags getVkMemoryPropertyFlagsFromMemoryPropertyFlags(con
     return ret;
 }
 
-inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
+static inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlagsFromVkMemoryPropertyFlags(const VkMemoryPropertyFlags in)
 {
     core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> ret(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE);
 
@@ -929,7 +783,7 @@ inline core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> getMemory
     return ret;
 }
 
-inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
+static inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const asset::IDescriptor::E_TYPE descriptorType)
 {
     switch (descriptorType)
     {
@@ -958,8 +812,7 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
 }
-
-inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
+static inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
 {
     if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
     if (in == VK_DRIVER_ID_AMD_OPEN_SOURCE) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_OPEN_SOURCE;
@@ -988,4 +841,5 @@ inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId i
 
 }
 
+#define __NBL_VIDEO_C_VULKAN_COMMON_H_INCLUDED__
 #endif

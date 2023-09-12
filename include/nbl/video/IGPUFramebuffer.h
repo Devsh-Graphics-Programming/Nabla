@@ -1,6 +1,8 @@
-#ifndef _NBL_VIDEO_I_GPU_FRAMEBUFFER_H_INCLUDED_
-#define _NBL_VIDEO_I_GPU_FRAMEBUFFER_H_INCLUDED_
+#ifndef __NBL_I_GPU_FRAMEBUFFER_H_INCLUDED__
+#define __NBL_I_GPU_FRAMEBUFFER_H_INCLUDED__
 
+
+#include "nbl/core/IReferenceCounted.h"
 
 #include "nbl/asset/IFramebuffer.h"
 
@@ -11,12 +13,12 @@
 namespace nbl::video
 {
 
-class IGPUFramebuffer : public IBackendObject, public asset::IFramebuffer<IGPURenderpass,IGPUImageView>
+class IGPUFramebuffer : public asset::IFramebuffer<IGPURenderpass, IGPUImageView>, public core::IReferenceCounted, public IBackendObject
 {
-        using base_t = asset::IFramebuffer<IGPURenderpass,IGPUImageView>;
+        using base_t = asset::IFramebuffer<IGPURenderpass, IGPUImageView>;
 
     public:
-        IGPUFramebuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), base_t(std::move(params)) {}
+        IGPUFramebuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : base_t(std::move(params)), IBackendObject(std::move(dev)) {}
 
     protected:
         virtual ~IGPUFramebuffer() = default;

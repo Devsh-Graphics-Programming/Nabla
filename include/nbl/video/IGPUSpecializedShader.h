@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED_
-#define _NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED_
+
+#ifndef __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 
 #include "nbl/asset/IShader.h" // only because of m_stage member
 #include "nbl/asset/ISpecializedShader.h"

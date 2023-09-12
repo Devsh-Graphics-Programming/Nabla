@@ -1,6 +1,7 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _NBL_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 #define _NBL_EXT_BLUR_C_BLUR_PERFORMER_INCLUDED_
 
@@ -9,11 +10,21 @@
 #include "nbl/core/IReferenceCounted.h"
 #include <nabla.h>
 
+namespace nbl {
+    namespace video {
+        class IVideoDriver;
+        class IGPUBuffer;
+        class ITexture;
+    }
+}
 
-namespace nbl::ext::Blur
+namespace nbl
+{
+namespace ext
+{
+namespace Blur
 {
 
-#if 0 // TODO: redo
 class CBlurPerformer : public core::IReferenceCounted
 {
     struct ImageBindingData
@@ -217,8 +228,9 @@ private:
     static constexpr uint32_t s_MIN_DS_FACTOR = 1u;
     static constexpr uint32_t s_MAX_DS_FACTOR = 16u;
 };
-#endif
 
+}
+}
 }
 
 #endif

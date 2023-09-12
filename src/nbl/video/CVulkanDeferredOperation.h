@@ -12,45 +12,48 @@ class ILogicalDevice;
 
 class CVulkanDeferredOperation : public IDeferredOperation
 {
-    public:
-        CVulkanDeferredOperation(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkDeferredOperationKHR vkDeferredOp)
-            : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp) { }
+public:
+    CVulkanDeferredOperation(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkDeferredOperationKHR vkDeferredOp)
+        : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp)
+    { }
 
-        uint32_t getMaxConcurrency() const override;
-        bool isPending() const override;
+public:
 
-        static void* operator new(size_t size) noexcept = delete;
-        static void* operator new[](size_t size) noexcept = delete;
-        static void* operator new(size_t size, std::align_val_t al) noexcept = delete;
-        static void* operator new[](size_t size, std::align_val_t al) noexcept = delete;
+    ~CVulkanDeferredOperation();
+    
+    bool join() override;
+    uint32_t getMaxConcurrency() override;
+    E_STATUS getStatus() override;
+    E_STATUS joinAndWait() override;
 
-        static inline void* operator new(size_t size, void* where) noexcept
-        {
-            return where; // done
-        }
+    static void* operator new(size_t size) noexcept = delete;
+    static void* operator new[](size_t size) noexcept = delete;
+    static void* operator new(size_t size, std::align_val_t al) noexcept = delete;
+    static void* operator new[](size_t size, std::align_val_t al) noexcept = delete;
 
-        static inline void operator delete (void* ptr, void* place) noexcept
-        {
-            assert(false && "don't use");
-        }
+    static inline void* operator new(size_t size, void* where) noexcept
+    {
+        return where; // done
+    }
 
-        static void* operator new[](size_t size, void* where) noexcept = delete;
-        static void operator delete(void* ptr) noexcept;
-        static void operator delete[](void* ptr) noexcept = delete;
-        static inline void operator delete(void* ptr, size_t size) noexcept
-        {
-            operator delete(ptr); //roll back to own operator with no size
-        }
-        static void operator delete[](void* ptr, size_t size) noexcept = delete;
+    static inline void operator delete (void* ptr, void* place) noexcept
+    {
+        assert(false && "don't use");
+    }
 
-        inline VkDeferredOperationKHR getInternalObject() const { return m_deferredOp; }
+    static void* operator new[](size_t size, void* where) noexcept = delete;
+    static void operator delete(void* ptr) noexcept;
+    static void operator delete[](void* ptr) noexcept = delete;
+    static void operator delete(void* ptr, size_t size) noexcept
+    {
+        operator delete(ptr); //roll back to own operator with no size
+    }
+    static void operator delete[](void* ptr, size_t size) noexcept = delete;
 
-    private:
-        ~CVulkanDeferredOperation();
+    inline VkDeferredOperationKHR getInternalObject() const { return m_deferredOp; }
 
-        STATUS execute_impl() override;
-
-        VkDeferredOperationKHR m_deferredOp;
+private:
+    VkDeferredOperationKHR m_deferredOp;
 };
 
 }

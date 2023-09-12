@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_ASSET_H_INCLUDED_
-#define _NBL_ASSET_I_ASSET_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
+#define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 
@@ -97,19 +98,20 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
 			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
 			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
-			ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE = 1ull<<16,	//!< asset::ICPUBottomLevelAccelerationStructure
-			ET_TOP_LEVEL_ACCELERATION_STRUCTURE = 1ull<<17,		//!< asset::ICPUTopLevelAccelerationStructure
-			ET_SUB_MESH = 1ull<<18,							    //!< DEPRECATED asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<19,								    //!< DEPRECATED asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
+			ET_SUB_MESH = 1ull<<16,							    //!< asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<17,								    //!< asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<18,                     //!< asset::ICPUComputePipeline
+			ET_EVENT = 1ull<<19,								//!< asset::ICPUEvent
+			ET_COMMAND_BUFFER = 1ull<<20,						//!< asset::ICPUCommandBuffer
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_ACCELERATION_STRUCTURE = 1ull<<23,				//!< asset::ICPUAccelerationStructure
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
 			ET_TERMINATING_ZERO = 0
 		};
-		constexpr static size_t ET_STANDARD_TYPES_COUNT = 23u;
+		constexpr static size_t ET_STANDARD_TYPES_COUNT = 24u;
 
 		//! To be implemented by derived classes. Returns a type of an Asset
 		virtual E_TYPE getAssetType() const = 0;
@@ -179,7 +181,6 @@ class IAsset : virtual public core::IReferenceCounted
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		// TODO: `_other` should probably be const qualified!
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			if (_other == nullptr)
