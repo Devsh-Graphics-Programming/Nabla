@@ -598,6 +598,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_subdirectory(builtin)
 	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
 	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData)
+	add_dependencies(dxcBuiltinResourceData nblBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
 		set(_NBL_LINK_QUALIFIER_ INTERFACE)
