@@ -157,7 +157,7 @@ CACHE INTERNAL "")
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
 	
-	get_filename_component(_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}/dxc/external/SPIRV-Headers/include" ABSOLUTE)
+	get_filename_component(_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${DXC_SPIRV_HEADERS_DIR}/include" ABSOLUTE)
     get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
     get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 
