@@ -116,7 +116,7 @@ namespace nbl::video
 		capabilities.supportedTransforms = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.supportedTransforms);
 		capabilities.currentTransform = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.currentTransform);
 		capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(vk_surfaceCapabilities.surfaceCapabilities.supportedCompositeAlpha);
-		capabilities.supportedUsageFlags = static_cast<asset::IImage::E_USAGE_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.supportedUsageFlags);
+		capabilities.supportedUsageFlags = getImageUsageFlagsFromVkImageUsageFlags(vk_surfaceCapabilities.surfaceCapabilities.supportedUsageFlags);
 
 		return true;
 	}

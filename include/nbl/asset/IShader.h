@@ -1,7 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_SHADER_H_INCLUDED_
 #define _NBL_ASSET_I_SHADER_H_INCLUDED_
 
@@ -29,7 +28,7 @@ namespace nbl::asset
 	to Specialized Shader constructor.
 */
 
-class IShader : public virtual core::IReferenceCounted
+class IShader : public virtual core::IReferenceCounted // TODO: do we need this inheritance?
 {
 	public:
 		// TODO: make this enum class
@@ -70,9 +69,9 @@ class IShader : public virtual core::IReferenceCounted
 
 		inline const std::string& getFilepathHint() const { return m_filepathHint; }
 
-protected:
-	E_SHADER_STAGE m_shaderStage;
-	std::string m_filepathHint;
+	protected:
+		E_SHADER_STAGE m_shaderStage;
+		std::string m_filepathHint;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)

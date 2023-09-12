@@ -17,24 +17,24 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
 
     core::smart_refctd_ptr<ILogicalDevice> m_logicalDevice;
 
-    static inline core::smart_refctd_ptr<IGPUCommandBuffer> createTransferCommandBuffer(ILogicalDevice* logicalDevice, IGPUQueue* queue)
+    static inline core::smart_refctd_ptr<IGPUCommandBuffer> createTransferCommandBuffer(ILogicalDevice* logicalDevice, IQueue* queue)
     {
         const auto queueFamilyIndex = queue->getFamilyIndex();
-        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IPhysicalDevice::EQF_TRANSFER_BIT).value);
+        assert((logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queueFamilyIndex].queueFlags&IQueue::FAMILY_FLAGS::TRANSFER_BIT).value);
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
         core::smart_refctd_ptr<IGPUCommandBuffer> gpuCommandBuffer;
         {
-            auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::ECF_RESET_COMMAND_BUFFER_BIT);
-            logicalDevice->createCommandBuffers(gpuCommandPool.get(),IGPUCommandBuffer::EL_PRIMARY,1u,&gpuCommandBuffer);
+            auto gpuCommandPool = logicalDevice->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+            logicalDevice->createCommandBuffers(gpuCommandPool.get(),IGPUCommandBuffer::LEVEL::PRIMARY,1u,&gpuCommandBuffer);
             assert(gpuCommandBuffer);
             // buffer should hold onto pool with refcounted backlink
         }
-        gpuCommandBuffer->begin(IGPUCommandBuffer::EU_NONE);
+        gpuCommandBuffer->begin(IGPUCommandBuffer::USAGE::NONE);
         return gpuCommandBuffer;
     }
     static inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(
-        ILogicalDevice* logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IGPUQueue* queue, const asset::ICPUImage* _cpuimg,
+        ILogicalDevice* logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fence, IQueue* queue, const asset::ICPUImage* _cpuimg,
         uint32_t& waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
         video::IUtilities* utilities
     )
@@ -43,32 +43,17 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IG
         {
             IGPUImage::SCreationParams cpuImageParams = {};
             cpuImageParams = _cpuimg->getCreationParameters();
-            cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-
-            // TODO: Look at issue #167 on Nabla repo, at some point
-            IGPUBuffer::SCreationParams bufferCreationParams = {};
-            bufferCreationParams.size = _cpuimg->getBuffer()->getSize();
-            auto gpuTexelBuffer = logicalDevice->createBuffer(std::move(bufferCreationParams));	
-            auto mreqs = gpuTexelBuffer->getMemoryReqs();
-            mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto gpubufMem = logicalDevice->allocate(mreqs, gpuTexelBuffer.get());
-
-            uint32_t signalSemaphoreCount=0u;
-            IGPUSemaphore* const* semaphoresToSignal = nullptr;
-            utilities->updateBufferRangeViaStagingBuffer(
-                cmdbuf,fence,queue,asset::SBufferRange<IGPUBuffer>{0u,gpuTexelBuffer->getSize(),gpuTexelBuffer},_cpuimg->getBuffer()->getPointer(),
-                waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore
-            );
 
             auto regions = _cpuimg->getRegions();
             assert(regions.size());
-            gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin());
+            assert(false); // TODO: redo completely with streaming update
+            //gpuImage = utilities->createFilledDeviceLocalImageOnDedMem(cmdbuf,std::move(cpuImageParams),gpuTexelBuffer.get(),regions.size(),regions.begin(),IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL);
         }
 
         return gpuImage;
     }
     void from_CPU_ctor_impl(
-        IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
+        IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
         uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
         video::IUtilities* utilities
     )
@@ -118,7 +103,7 @@ protected:
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
     public:
-        IGPUVTResidentStorage(ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, const cpu_counterpart_t* _cpuStorage,
+        IGPUVTResidentStorage(ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IQueue* queue, const cpu_counterpart_t* _cpuStorage,
             uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, video::IUtilities* utilities
         ) :
             storage_base_t(
@@ -225,8 +210,8 @@ public:
         The queue must have TRANSFER capability
     */
     IGPUVirtualTexture(
-        ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
-        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::E_PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
+        ILogicalDevice* _logicalDevice, IGPUCommandBuffer* cmdbuf, IGPUFence* fenceToSignal, IQueue* queue, asset::ICPUVirtualTexture* _cpuvt,
+        uint32_t &waitSemaphoreCount, IGPUSemaphore* const* &semaphoresToWaitBeforeExecution, const asset::PIPELINE_STAGE_FLAGS* &stagesToWaitForPerSemaphore,
         video::IUtilities* utilities
     ) :
         base_t(
@@ -247,8 +232,8 @@ public:
         The queue must have TRANSFER capability
     */
     IGPUVirtualTexture(
-        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IGPUQueue* queue, asset::ICPUVirtualTexture* _cpuvt, video::IUtilities* utilities,
-        uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::E_PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
+        ILogicalDevice* _logicalDevice, IGPUFence* fenceToSignal, IQueue* queue, asset::ICPUVirtualTexture* _cpuvt, video::IUtilities* utilities,
+        uint32_t waitSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToWaitBeforeExecution=nullptr, const asset::PIPELINE_STAGE_FLAGS* stagesToWaitForPerSemaphore=nullptr,
         const uint32_t signalSemaphoreCount=0u, IGPUSemaphore* const* semaphoresToSignal=nullptr
     ) :
         base_t(
@@ -265,7 +250,7 @@ public:
         from_CPU_ctor_impl(cmdbuf.get(),fenceToSignal,queue,_cpuvt,waitSemaphoreCount,semaphoresToWaitBeforeExecution,stagesToWaitForPerSemaphore, utilities);
         cmdbuf->end();
 
-        IGPUQueue::SSubmitInfo info;
+        IQueue::SSubmitInfo info;
         info.commandBufferCount = 1u;
         info.commandBuffers = &cmdbuf.get();
         info.waitSemaphoreCount = waitSemaphoreCount;
