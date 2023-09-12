@@ -242,7 +242,7 @@ struct SRasterizationParams
 		alphaToOneEnable = false;
 		depthTestEnable = true;
 		depthWriteEnable = true;
-		depthBoundsTestEnable = false;
+		//depthBoundsTestEnable = false;
 		stencilTestEnable = false;
 	}
 
@@ -266,7 +266,8 @@ struct SRasterizationParams
         uint16_t alphaToOneEnable : 1;
         uint16_t depthTestEnable : 1;
         uint16_t depthWriteEnable : 1;
-        uint16_t depthBoundsTestEnable : 1;
+        // this needs a min and max depth bound to be defined too
+        //uint16_t depthBoundsTestEnable : 1;
         uint16_t stencilTestEnable : 1;
     } PACK_STRUCT;
 
@@ -287,7 +288,7 @@ struct SRasterizationParams
         bf = core::bitfieldInsert(bf, alphaToOneEnable, 6, 1);
         bf = core::bitfieldInsert(bf, depthTestEnable, 7, 1);
         bf = core::bitfieldInsert(bf, depthWriteEnable, 8, 1);
-        bf = core::bitfieldInsert(bf, depthBoundsTestEnable, 9, 1);
+        //bf = core::bitfieldInsert(bf, depthBoundsTestEnable, 9, 1);
         bf = core::bitfieldInsert(bf, stencilTestEnable, 10, 1);
 
         reinterpret_cast<uint16_t*>(bf_dst)[0] = bf;
@@ -466,29 +467,6 @@ static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SB
 
 #include "nbl/nblunpack.h"
 
-//TODO put into legacy namespace later
-/*
-enum E_VERTEX_ATTRIBUTE_ID
-{
-    EVAI_ATTR0 = 0,
-    EVAI_ATTR1,
-    EVAI_ATTR2,
-    EVAI_ATTR3,
-    EVAI_ATTR4,
-    EVAI_ATTR5,
-    EVAI_ATTR6,
-    EVAI_ATTR7,
-    EVAI_ATTR8,
-    EVAI_ATTR9,
-    EVAI_ATTR10,
-    EVAI_ATTR11,
-    EVAI_ATTR12,
-    EVAI_ATTR13,
-    EVAI_ATTR14,
-    EVAI_ATTR15,
-    EVAI_COUNT
-};
-*/
 
 //! Base class for Renderpass Independent Pipeline - Graphics Pipeline
 /*

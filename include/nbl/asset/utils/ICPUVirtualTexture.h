@@ -538,7 +538,7 @@ public:
                 return false; // TODO: Log
 
             auto& info = pgtInfos.begin()[0];
-            info.info.image.imageLayout = IImage::EL_UNDEFINED;
+            info.info.image.imageLayout = IImage::LAYOUT::UNDEFINED;
             info.info.image.sampler = nullptr;
             info.desc = core::smart_refctd_ptr<ICPUImageView>(getPageTableView());
         }
@@ -554,7 +554,7 @@ public:
             {
                 auto& info = infos.begin()[i];
 
-                info.info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                info.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
                 info.info.image.sampler = nullptr;
                 info.desc = views.begin()[i].view;
             }

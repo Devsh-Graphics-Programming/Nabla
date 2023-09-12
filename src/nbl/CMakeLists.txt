@@ -191,6 +191,7 @@ set(NBL_UI_SOURCES
 set(NBL_ASSET_SOURCES	
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
@@ -278,20 +279,22 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
 
+# Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
 	
 # Vulkan
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeviceMemoryBacked.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
@@ -316,6 +319,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp

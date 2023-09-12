@@ -31,12 +31,8 @@ class ICPUImage final : public IImage, public IAsset
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
             clone_common(cp.get());
 
-            auto regionsCount = regions->size();
-            if(regionsCount > 0)
-            {
-                cp->regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(regionsCount);
-                std::copy_n(regions->begin(), regionsCount, cp->regions->begin());
-            }
+            if(regions && !regions->empty())
+                cp->regions = core::make_refctd_dynamic_array<decltype(regions)>(*regions);
 
             cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
 

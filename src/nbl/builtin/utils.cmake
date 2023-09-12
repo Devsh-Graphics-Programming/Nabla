@@ -114,7 +114,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
-			message(FATAL_ERROR "!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			message(FATAL_ERROR "${NBL_BUILTIN_RESOURCE_ABS_PATH} does not exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")

@@ -5,33 +5,31 @@
 #define _NBL_VIDEO_GPU_IMAGE_H_INCLUDED_
 
 
-#include "dimension2d.h"
-#include "IDeviceMemoryBacked.h"
-
 #include "nbl/asset/IImage.h"
 
+#include "dimension2d.h"
+
 #include "nbl/video/IGPUBuffer.h"
-#include "nbl/video/decl/IBackendObject.h"
 
 
 namespace nbl::video
 {
 
-class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBackendObject
+class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 {
 	public:
-		enum E_TILING : uint8_t
+		enum class TILING : uint8_t
 		{
-			ET_OPTIMAL,
-			ET_LINEAR
+			OPTIMAL,
+			LINEAR
 		};
 		struct SCreationParams : asset::IImage::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
-			E_TILING tiling : 1 = ET_OPTIMAL;
+			TILING tiling : 1 = TILING::OPTIMAL;
 			// No `initialLayout` due to https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-initialLayout-00993
 			uint8_t preinitialized : 1 = false;
 
-			SCreationParams& operator =(const asset::IImage::SCreationParams& rhs)
+			SCreationParams& operator=(const asset::IImage::SCreationParams& rhs)
 			{
 				static_cast<asset::IImage::SCreationParams&>(*this) = rhs;
 				return *this;
@@ -39,7 +37,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 		};
 
 		//!
-		inline E_TILING getTiling() const {return m_tiling;}
+		inline TILING getTiling() const {return m_tiling;}
 
 		//!
 		inline bool isPreinitialized() const { return m_preinitialized; }
@@ -143,21 +141,18 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked, public IBack
 			return true;
 		}
 
-		// OpenGL: const GLuint* handle of a texture target
 		// Vulkan: const VkImage*
 		virtual const void* getNativeHandle() const = 0;
 
 	protected:
-		const E_TILING m_tiling : 1;
+		const TILING m_tiling : 1;
 		const uint8_t m_preinitialized : 1;
 
 		_NBL_INTERFACE_CHILD(IGPUImage) {}
 
 		//! constructor
-		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-			SCreationParams&& _params
-		) : IImage(_params), IDeviceMemoryBacked(std::move(_params),reqs), IBackendObject(std::move(dev)), m_tiling(_params.tiling), m_preinitialized(_params.preinitialized) {}
+		IGPUImage(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
+			: IImage(_params), IDeviceMemoryBacked(std::move(dev),std::move(_params),reqs), m_tiling(_params.tiling), m_preinitialized(_params.preinitialized) {}
 };
 
 

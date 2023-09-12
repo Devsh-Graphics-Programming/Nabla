@@ -32,7 +32,7 @@ class IAccelerationStructure;
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted
+class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to remove this inheritance and see what happens
 {
 	public:
 		using layout_t = LayoutType;
@@ -43,15 +43,13 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
 
-					static constexpr inline size_t WholeBuffer = ~0ull;
-
 					auto operator<=>(const SBufferInfo&) const = default;
                 };
                 struct SImageInfo
                 {
 					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
                     core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                    IImage::E_LAYOUT imageLayout;
+                    IImage::LAYOUT imageLayout;
                 };
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
@@ -75,7 +73,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				{
 					desc = binding.buffer;
 					info.buffer.offset = binding.offset;
-					info.buffer.size = SBufferInfo::WholeBuffer;
+					info.buffer.size = SBufferRange<BufferType>::WholeBuffer;
 				}
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
@@ -113,7 +111,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
 					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image = {nullptr,IImage::EL_UNDEFINED};
+						info.image = {nullptr,IImage::LAYOUT::UNDEFINED};
 					desc = std::move(other.desc);
 					if (desc)
 					{
