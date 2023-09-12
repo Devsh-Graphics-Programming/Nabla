@@ -293,19 +293,19 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
     // [DEPRECATED] Vulkan 1.3, Nabla Core Profile:
-    //bool           inlineUniformBlock;
+    //bool           inlineUniformBlock = false;
     // [DEPRECATED] ROADMAP 2022, Nabla Core Profile:
-    //bool           descriptorBindingInlineUniformBlockUpdateAfterBind;
+    //bool           descriptorBindingInlineUniformBlockUpdateAfterBind = false;
 
     // [REQUIRE] Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl
     //bool pipelineCreationCacheControl = true;      // or VK_EXT_pipeline_creation_cache_control
 
     // [DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?
-    //bool           privateData;                       // or VK_EXT_private_data
+    //bool           privateData = false;                       // or VK_EXT_private_data
     
     // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
-    //bool shaderDemoteToHelperInvocation = false;    // or VK_EXT_shader_demote_to_helper_invocation
-    //bool shaderTerminateInvocation = false;         // or VK_KHR_shader_terminate_invocation
+    //bool shaderDemoteToHelperInvocation;    // or VK_EXT_shader_demote_to_helper_invocation
+    //bool shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
     
     // [REQUIRE] Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control
     // TODO: implement!
@@ -313,7 +313,7 @@ struct SPhysicalDeviceFeatures
     //bool computeFullSubgroups = true;
     
     // [REQUIRE] REQUIRE 
-    //bool           synchronization2;                      // or VK_KHR_synchronization2
+    //bool           synchronization2 = true;                      // or VK_KHR_synchronization2
     
     // [DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice
     //bool           textureCompressionASTC_HDR;            // or VK_EXT_texture_compression_astc_hdr
@@ -322,16 +322,16 @@ struct SPhysicalDeviceFeatures
     //bool           shaderZeroInitializeWorkgroupMemory;   // or VK_KHR_zero_initialize_workgroup_memory
     
     // [DO NOT EXPOSE] EVIL
-    //bool           dynamicRendering;                      // or VK_KHR_dynamic_rendering
+    //bool           dynamicRendering = false;                      // or VK_KHR_dynamic_rendering
 
     // [REQUIRE] Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway
-    //bool shaderIntegerDotProduct = false;               // or VK_KHR_shader_integer_dot_product
+    //bool shaderIntegerDotProduct = true;               // or VK_KHR_shader_integer_dot_product
 
 
 
     /* Vulkan Extensions */
 
-    // [TODO] need impl
+    // [TODO] need impl or just expose `shader_tile_image` instead?
     /* RasterizationOrderAttachmentAccessFeaturesARM *//* VK_ARM_rasterization_order_attachment_access */
     bool rasterizationOrderColorAttachmentAccess = false;
     bool rasterizationOrderDepthAttachmentAccess = false;
@@ -364,13 +364,13 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicStateFeaturesEXT *//* VK_EXT_extended_dynamic_state */
-    //bool           extendedDynamicState;
+    //bool           extendedDynamicState = false;
     
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicState2FeaturesEXT *//* VK_EXT_extended_dynamic_state2 */
-    //bool           extendedDynamicState2;
-    //bool           extendedDynamicState2LogicOp;
-    //bool           extendedDynamicState2PatchControlPoints;
+    //bool           extendedDynamicState2 = false;
+    //bool           extendedDynamicState2LogicOp = false;
+    //bool           extendedDynamicState2PatchControlPoints = false;
 
     /* FragmentShaderInterlockFeaturesEXT *//* VK_EXT_fragment_shader_interlock */
     bool fragmentShaderSampleInterlock = false;
@@ -379,7 +379,7 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] pointless to implement currently
     /* ImageViewMinLodFeaturesEXT *//* VK_EXT_image_view_min_lod */
-    //bool           minLod;
+    //bool           minLod = false;
 
     // [TODO] need impl
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
@@ -387,11 +387,11 @@ struct SPhysicalDeviceFeatures
     
     // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
-    //bool           multiDraw;
+    //bool           multiDraw = false;
 
     // [DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first
     /* PageableDeviceLocalMemoryFeaturesEXT *//* VK_EXT_pageable_device_local_memory */
-    //bool           pageableDeviceLocalMemory;
+    //bool           pageableDeviceLocalMemory = false;
 
     // [DO NOT EXPOSE] requires and relates to EXT_transform_feedback which we'll never expose
     /* PrimitivesGeneratedQueryFeaturesEXT *//* VK_EXT_primitives_generated_query */
@@ -443,7 +443,7 @@ struct SPhysicalDeviceFeatures
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
     // [DO NOT EXPOSE] implied by `accelerationStructure`
-    //bool descriptorBindingAccelerationStructureUpdateAfterBind = false;
+    //bool descriptorBindingAccelerationStructureUpdateAfterBind = accelerationStructure;
             
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
@@ -531,25 +531,26 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS LIMIT]
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
 
-    // [EXPOSE AS LIMIT]
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
+    // [EXPOSE AS LIMIT] redundant
+    //bool cooperativeMatrix = limits.cooperativeMatrixSupportedStages.any();
+    // leaving as a feature because of overhead
+    bool cooperativeMatrixRobustBufferAccess = false;
 
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
     bool rayTracingMotionBlur = false;
     bool rayTracingMotionBlurPipelineTraceRaysIndirect = false;
 
-    // [TODO] need impl
+    // [TODO] need impl or waaay too vendor specific?
     /* CoverageReductionModeFeaturesNV *//* VK_NV_coverage_reduction_mode */
-    bool coverageReductionMode = false;
+    //bool coverageReductionMode = false;
 
     // [TODO] need impl
     /* DeviceGeneratedCommandsFeaturesNV *//* VK_NV_device_generated_commands */
     bool deviceGeneratedCommands = false;
 
-    // [TODO] need impl
+    // [DEPRECATED] Expose the KHR extension instead
     /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
-    bool taskShader = false;
-    bool meshShader = false;
 
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
     bool representativeFragmentTest = false;
@@ -571,14 +572,12 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS LIMIT]
     /* VK_AMD_shader_explicit_vertex_parameter */
 
-    // [TODO] need impl
+    // [TODO] need impl, also expose as a limit?
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
 
     // [EXPOSE AS LIMIT]
-    // [TODO] need new commandbuffer methods, etc
     /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
-    bool colorWriteEnable = false;
 
     // [TODO] now we need API to deal with queries and begin/end conditional blocks
     /* ConditionalRenderingFeaturesEXT *//* VK_EXT_conditional_rendering */
@@ -657,7 +656,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.3 non-optional and Nabla Core Profile.
     /* TexelBufferAlignmentFeaturesEXT *//* VK_EXT_texel_buffer_alignment */
 
-    // Enabled by Default, Moved to Limits
+    // [TODO] Investigate
     /* VK_NV_sample_mask_override_coverage */
 
     // [DEPRECATED] Superseded by `clustered` subgroup ops
@@ -1150,15 +1149,12 @@ struct SPhysicalDeviceFeatures
         if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
         if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
 
+        if (cooperativeMatrixRobustBufferAccess && !_rhs.cooperativeMatrixRobustBufferAccess) return false;
+
         if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
         if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
 
-        if (coverageReductionMode && !_rhs.coverageReductionMode) return false;
-
         if (deviceGeneratedCommands && !_rhs.deviceGeneratedCommands) return false;
-
-        if (taskShader && !_rhs.taskShader) return false;
-        if (meshShader && !_rhs.meshShader) return false;
 
         if (representativeFragmentTest && !_rhs.representativeFragmentTest) return false;
 
@@ -1167,8 +1163,6 @@ struct SPhysicalDeviceFeatures
         if (hdrMetadata && !_rhs.hdrMetadata) return false;
 
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
-
-        if (colorWriteEnable && !_rhs.colorWriteEnable) return false;
 
         if (conditionalRendering && !_rhs.conditionalRendering) return false;
         if (inheritedConditionalRendering && !_rhs.inheritedConditionalRendering) return false;
@@ -1181,7 +1175,6 @@ struct SPhysicalDeviceFeatures
         if (rectangularLines && !_rhs.rectangularLines) return false;
         if (bresenhamLines && !_rhs.bresenhamLines) return false;
         if (smoothLines && !_rhs.smoothLines) return false;
-
         if (stippledRectangularLines && !_rhs.stippledRectangularLines) return false;
         if (stippledBresenhamLines && !_rhs.stippledBresenhamLines) return false;
         if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
