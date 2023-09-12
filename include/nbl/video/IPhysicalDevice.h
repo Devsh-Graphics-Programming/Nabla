@@ -17,10 +17,12 @@
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
 
-#include "SPhysicalDeviceLimits.h"
-#include "SPhysicalDeviceFeatures.h"
+#include "nbl/video/SPhysicalDeviceLimits.h"
+#include "nbl/video/SPhysicalDeviceFeatures.h"
+
 
 #include <type_traits>
+
 
 namespace nbl::video
 {

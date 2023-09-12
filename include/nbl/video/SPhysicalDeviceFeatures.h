@@ -455,7 +455,7 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives
     /* PresentIdFeaturesKHR *//* VK_KHR_present_id */
-    //bool           presentId;
+    //bool           presentId = false || presentWait;
     
     // [DO NOT EXPOSE] won't expose, this extension is poop, I should have a Fence-andQuery-like object to query the presentation timestamp, not a blocking call that may unblock after an arbitrary delay from the present
     /* PresentWaitFeaturesKHR *//* VK_KHR_present_wait */
@@ -531,11 +531,8 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS LIMIT]
     /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
 
+    // [DEPRECATED] replaced by VK_KHR_cooperative_matrix
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
-    // [EXPOSE AS LIMIT] redundant
-    //bool cooperativeMatrix = limits.cooperativeMatrixSupportedStages.any();
-    // leaving as a feature because of overhead
-    bool cooperativeMatrixRobustBufferAccess = false;
 
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
     bool rayTracingMotionBlur = false;
@@ -1087,8 +1084,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it
     /* VK_KHR_bind_memory2 */
 
-    // Vulkan 1.1 core non-optional
-    /* VK_EXT_queue_family_foreign */
+    // [EXPOSE AS A LIMIT] VK_EXT_queue_family_foreign
 
     // [TODO] Triage leftover extensions below    
     /* VK_NV_present_barrier */
@@ -1097,10 +1093,23 @@ struct SPhysicalDeviceFeatures
     /* VK_NV_viewport_array2 */
     /* VK_EXT_image_compression_control */
     /* VK_EXT_image_compression_control_swapchain */
-    /* VK_EXT_multisampled_render_to_single_sampled */
+    /* VK_EXT_multisampled_render_to_single_sampled probably only useful for stencil-K-routed OIT*/
     /* VK_EXT_pipeline_properties */
+    /* VK_EXT_external_memory_acquire_unmodified */
+    /* VK_EXT_rasterization_order_attachment_access */
+    /* VK_ARM_shader_core_builtins */
 
-    // TODO: how many new extensions since we last looked?
+    // TODO: implement
+    /* VK_NV_optical_flow */
+    /* VK_KHR_ray_tracing_position_fetch */
+
+    /* CooperativeMatrixFeaturesKHR *//* VK_KHR_cooperative_matrix */
+    // [EXPOSE AS LIMIT] redundant
+    //bool cooperativeMatrix = limits.cooperativeMatrixSupportedStages.any();
+    // leaving as a feature because of overhead
+    bool cooperativeMatrixRobustBufferAccess = false;
+
+    // Eternal TODO: how many new extensions since we last looked? (We're up to ext number 548)
     
     /* Nabla */
     // No Nabla Specific Features for now
@@ -1148,8 +1157,6 @@ struct SPhysicalDeviceFeatures
 
         if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
         if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
-
-        if (cooperativeMatrixRobustBufferAccess && !_rhs.cooperativeMatrixRobustBufferAccess) return false;
 
         if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
         if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
@@ -1199,6 +1206,8 @@ struct SPhysicalDeviceFeatures
         if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
 
         if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
+
+        if (cooperativeMatrixRobustBufferAccess && !_rhs.cooperativeMatrixRobustBufferAccess) return false;
 
         return true;
     }

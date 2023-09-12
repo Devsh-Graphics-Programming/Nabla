@@ -407,9 +407,6 @@ struct SPhysicalDeviceLimits
     uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
     uint32_t           maxRayHitAttributeSize = 0u;
 
-    /* CooperativeMatrixPropertiesNV *//* VK_NV_cooperative_matrix */
-    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
-
     // [TODO LATER] not in header (previous comment: too much effort)
     /* GraphicsPipelineLibraryPropertiesEXT *//* provided by VK_EXT_graphics_pipeline_library */
     //bool           graphicsPipelineLibraryFastLinking = false;
@@ -563,6 +560,9 @@ struct SPhysicalDeviceLimits
     //! uint32_t              maxVertexInputBindings;
     //! uint32_t              maxVertexInputAttributeOffset;
     //! uint32_t              maxVertexInputBindingStride;
+
+    /* CooperativeMatrixPropertiesKHR  *//* VK_KHR_cooperative_matrix */
+    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
 
     /*  Always enabled if available, reported as limits */
@@ -741,6 +741,9 @@ struct SPhysicalDeviceLimits
 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     bool imageFootprint = false;
+
+    /* VK_EXT_queue_family_foreign */
+    bool queueFamilyForeign = false;
 
 
     /* Nabla */
@@ -1035,10 +1038,10 @@ struct SPhysicalDeviceLimits
         if (shaderGroupHandleAlignment < _rhs.shaderGroupHandleAlignment) return false;
         if (maxRayHitAttributeSize > _rhs.maxRayHitAttributeSize) return false;
 
-        if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
-
         if (robustStorageBufferAccessSizeAlignment < _rhs.robustStorageBufferAccessSizeAlignment) return false;
         if (robustUniformBufferAccessSizeAlignment < _rhs.robustUniformBufferAccessSizeAlignment) return false;
+
+        if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
 
 
 
@@ -1170,6 +1173,8 @@ struct SPhysicalDeviceLimits
         if (shaderIntegerFunctions2 && _rhs.shaderIntegerFunctions2) return false;
 
         if (imageFootprint && !_rhs.imageFootprint) return false;
+
+        if (queueFamilyForeign && !_rhs.queueFamilyForeign) return false;
 
 
 

@@ -28,23 +28,26 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
         //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
         inline void resolveFeatureDependencies(SFeatures& features) const
         {
-            // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`: this dependancy needs the extension to be enabled not individual features, so this will be handled later on when enabling features before vkCreateDevice
-            if (features.rayTracingMotionBlur ||
-                features.rayTracingMotionBlurPipelineTraceRaysIndirect)
+            // There is metadata in vk.xml describing some aspects of promotion, especially requires, promotedto and deprecatedby attributes of <extension> tags.
+            // However, the metadata does not yet fully describe this scenario.
+            // In the future, we may extend the XML schema to describe the full set of extensions and versions satisfying a dependency
+
+            // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`:
+            // this dependancy needs the extension to be enabled not individual features,
+            // so this will be handled later on when enabling features before vkCreateDevice
+
+            if (features.rayTracingMotionBlur || features.rayTracingMotionBlurPipelineTraceRaysIndirect)
             {
                 features.rayTracingMotionBlur = true;
                 features.rayTracingPipeline = true;
             }
 
-            if (features.rayTracingPipeline ||
-                features.rayTracingPipelineTraceRaysIndirect ||
-                features.rayTraversalPrimitiveCulling)
+            if (features.rayTraversalPrimitiveCulling)
             {
-                features.rayTracingPipeline = true;
-                features.accelerationStructure = true;
+                features.rayQuery = true;
             }
 
-            if (features.rayQuery)
+            if (features.rayTracingPipeline || features.rayQuery)
             {
                 features.accelerationStructure = true;
             }
@@ -54,22 +57,13 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
                 features.accelerationStructureHostCommands)
             {
                 features.accelerationStructure = true;
+                // make VK_KHR_deferred_host_operations an interaction instead of a required extension (later went back on this)
+                // VK_KHR_deferred_host_operations is required again
                 features.deferredHostOperations = true;
             }
 
-            // VK_NV_coverage_reduction_mode requires VK_NV_framebuffer_mixed_samples
-            if (features.coverageReductionMode)
-                features.mixedAttachmentSamples = true;
-
             // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
             if (features.hdrMetadata)
-            {
-                features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
-                // And VK_KHR_swapchain requires VK_KHR_surface instance extension
-            }
-        
-            // VK_GOOGLE_display_timing Requires VK_KHR_swapchain to be enabled
-            if (features.displayTiming)
             {
                 features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
                 // And VK_KHR_swapchain requires VK_KHR_surface instance extension
@@ -80,20 +74,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             {
                 features.fragmentDensityMap = true;
             }
-
-            if (features.workgroupMemoryExplicitLayoutScalarBlockLayout ||
-                features.workgroupMemoryExplicitLayout8BitAccess ||
-                features.workgroupMemoryExplicitLayout16BitAccess)
-            {
-                // make sure features have their main bool enabled!
-                features.workgroupMemoryExplicitLayout = true;
-            }
-        
-            if (features.cooperativeMatrixRobustBufferAccess)
-            {
-                // make sure features have their main bool enabled!
-                features.cooperativeMatrix = true;
-            }
         
             if (features.inheritedConditionalRendering)
             {
@@ -101,8 +81,7 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
                 features.conditionalRendering = true;
             }
         
-            if (features.fragmentDensityMapDynamic ||
-                features.fragmentDensityMapNonSubsampledImages)
+            if (features.fragmentDensityMapDynamic || features.fragmentDensityMapNonSubsampledImages)
             {
                 // make sure features have their main bool enabled!
                 features.fragmentDensityMap = true;
