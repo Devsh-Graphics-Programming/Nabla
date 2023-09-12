@@ -21,8 +21,8 @@ set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
-get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Tools" ABSOLUTE)
-get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SPIRV-Headers" ABSOLUTE)
+get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
+get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
 
 set(SPIRV-Headers_SOURCE_DIR "${DXC_SPIRV_HEADERS_DIR}" CACHE INTERNAL "")
 if(WIN32)
@@ -118,6 +118,7 @@ set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
+set_property(TARGET SPIRV-Tools-opt PROPERTY CXX_STANDARD 17)
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
