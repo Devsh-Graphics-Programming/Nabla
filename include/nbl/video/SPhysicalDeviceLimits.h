@@ -192,6 +192,7 @@ struct SPhysicalDeviceLimits
 
     uint8_t     maxMultiviewViewCount = 6u;
     uint32_t    maxMultiviewInstanceIndex = (1u<<27u)-1u;
+
     //bool        protectedNoFault = false;
     
     uint32_t maxPerSetDescriptors = 572u;
@@ -201,7 +202,6 @@ struct SPhysicalDeviceLimits
     /* Vulkan 1.2 Core  */
 //    VkShaderFloatControlsIndependence denormBehaviorIndependence; // TODO: need to implement ways to set them
 //    VkShaderFloatControlsIndependence roundingModeIndependence;   // TODO: need to implement ways to set them
-
     //bool shaderSignedZeroInfNanPreserveFloat16 = true;
     //bool shaderSignedZeroInfNanPreserveFloat32 = true;
     bool shaderSignedZeroInfNanPreserveFloat64 = false;
@@ -277,7 +277,7 @@ struct SPhysicalDeviceLimits
     uint8_t                                         minSubgroupSize = 64u;
     uint8_t                                         maxSubgroupSize = 4u;
     uint32_t                                        maxComputeWorkgroupSubgroups = 16u;
-    core::bitflag<asset::IShader::E_SHADER_STAGE>   requiredSubgroupSizeStages = asset::IShader::E_SHADER_STAGE::ESS_ALL;
+    core::bitflag<asset::IShader::E_SHADER_STAGE>   requiredSubgroupSizeStages = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN; // also None
 
     // [DO NOT EXPOSE]: we won't expose inline uniform blocks right now
     //constexpr static inline MinInlineUniformBlockSize = 0x1u<<8u; 
@@ -329,6 +329,9 @@ struct SPhysicalDeviceLimits
     size_t maxBufferSize = MinMaxSSBOSize; // or VK_KHR_maintenance4
 
 
+    /* Nabla Core Profile Extensions*/
+    uint32_t minImportedHostPointerAlignment = 0x1u<<16u;
+
 
     /* Vulkan Extensions */
 
@@ -352,11 +355,9 @@ struct SPhysicalDeviceLimits
 
     // [DO NOT EXPOSE] we would have to change the API
     /* VertexAttributeDivisorPropertiesEXT *//* provided by VK_EXT_vertex_attribute_divisor */
-    //uint32_t maxVertexAttribDivisor = 0;
 
     // [DO NOT EXPOSE] Vendor specific extension introducing a new shader stage
     /* SubpassShadingPropertiesHUAWEI *//* VK_HUAWEI_subpass_shading */
-    //uint32_t maxSubpassShadingWorkgroupSizeAspectRatio = 0;
 
     // [DEPRECATED] Vulkan 1.3 core now
     /* ShaderIntegerDotProductProperties *//* VK_KHR_shader_integer_dot_product */
@@ -378,8 +379,8 @@ struct SPhysicalDeviceLimits
     VkExtent2D                                          maxSampleLocationGridSize = { 0u, 0u };
     float                                               sampleLocationCoordinateRange[2] = {1.f, 0.f};
 
+    // [NABLA CORE PROFILE]
     /* ExternalMemoryHostPropertiesEXT *//* provided by VK_EXT_external_memory_host */
-    uint32_t minImportedHostPointerAlignment = 0x1u<<16u;
     
     /* FragmentDensityMapPropertiesEXT *//* provided by VK_EXT_fragment_density_map */
     VkExtent2D          minFragmentDensityTexelSize = {~0u, ~0u};
@@ -604,10 +605,6 @@ struct SPhysicalDeviceLimits
     bool multiviewGeometryShader = false;
     bool multiviewTessellationShader = false;
 
-    // Core 1.1 Features or VK_KHR_variable_pointers
-    // the only reason I'm not requiring it is because it doesn't seem to help HLSL/DXC in any way
-    bool variablePointers = false;
-
     // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
     bool drawIndirectCount = false;
 
@@ -643,11 +640,6 @@ struct SPhysicalDeviceLimits
 
     // Vulkan 1.3 non-optional requires but poor support
     bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
-
-    // [TODO] MORE: Use multiple booleans that represent what `VK_KHR_maintenance4` adds support for, instead of single bool;
-    // see description in https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VK_KHR_maintenance4.html
-    /* VkPhysicalDeviceMaintenance4Features *//* VK_KHR_maintenance4 */
-    bool workgroupSizeFromSpecConstant = false;
 
 
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
@@ -752,7 +744,7 @@ struct SPhysicalDeviceLimits
     bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0u; //  its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0u; //  These are maximum number of invocations you could expect to execute simultaneously on this device.
-    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_5;
+    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 
     // utility functions
     // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
@@ -981,6 +973,9 @@ struct SPhysicalDeviceLimits
         if (maxBufferSize > _rhs.maxBufferSize) return false;
 
 
+        if (minImportedHostPointerAlignment < _rhs.minImportedHostPointerAlignment) return false;
+
+
         // don't compare certain things, they don't make your device better or worse
         //if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
         if (maxExtraPrimitiveOverestimationSize > _rhs.maxExtraPrimitiveOverestimationSize) return false;
@@ -1011,8 +1006,6 @@ struct SPhysicalDeviceLimits
         if (maxSampleLocationGridSize.width > _rhs.maxSampleLocationGridSize.width) return false;
         if (maxSampleLocationGridSize.height > _rhs.maxSampleLocationGridSize.height) return false;
         if (sampleLocationCoordinateRange[0] < _rhs.sampleLocationCoordinateRange[0] || sampleLocationCoordinateRange[1] > _rhs.sampleLocationCoordinateRange[1]) return false;
-
-        if (minImportedHostPointerAlignment < _rhs.minImportedHostPointerAlignment) return false;
 
         if (minFragmentDensityTexelSize.width < _rhs.minFragmentDensityTexelSize.width) return false;
         if (minFragmentDensityTexelSize.height < _rhs.minFragmentDensityTexelSize.height) return false;
@@ -1070,8 +1063,6 @@ struct SPhysicalDeviceLimits
         if (multiviewGeometryShader && !_rhs.multiviewGeometryShader) return false;
         if (multiviewTessellationShader && !_rhs.multiviewTessellationShader) return false;
 
-        if (variablePointers && !_rhs.variablePointers) return false;
-
 
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
 
@@ -1099,8 +1090,6 @@ struct SPhysicalDeviceLimits
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
 
         if (shaderZeroInitializeWorkgroupMemory && !_rhs.shaderZeroInitializeWorkgroupMemory) return false;
-
-        if (workgroupSizeFromSpecConstant && !_rhs.workgroupSizeFromSpecConstant) return false;
 
 
         if (shaderBufferFloat32AtomicAdd && _rhs.shaderBufferFloat32AtomicAdd) return false;

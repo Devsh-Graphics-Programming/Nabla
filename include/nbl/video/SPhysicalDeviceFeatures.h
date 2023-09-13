@@ -37,8 +37,6 @@ struct SPhysicalDeviceFeatures
 
     // [REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
     //bool fullDrawIndexUint32 = true;
- 
-    // [REQUIRE] ROADMAP 2022 and good device support
     //bool imageCubeArray = true;
     //bool independentBlend = true;
 
@@ -48,7 +46,7 @@ struct SPhysicalDeviceFeatures
 
     // [REQUIRE] ROADMAP 2022 and good device support
     //bool sampleRateShading = true;
-
+ 
     // [REQUIRE] good device support
     //bool dualSrcBlend = true;
 
@@ -66,6 +64,7 @@ struct SPhysicalDeviceFeatures
 
     // this is kinda like a weird clip-plane that doesn't count towards clip plane count
     bool depthBounds = false;
+
     // good device support, but a somewhat useless feature (constant screenspace width with limits on width)
     bool wideLines = false;
     // good device support, but a somewhat useless feature (axis aligned screenspace boxes with limits on size)
@@ -102,9 +101,10 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS LIMIT] Cannot be always enabled cause Intel ARC is handicapped
     //bool shaderStorageImageMultisample;
 
-    // TODO: format feature reporting unimplemented yet for both of the below!
+    // TODO: format feature reporting unimplemented yet for both of the below! (should we move to usage reporting?)
     // [EXPOSE AS LIMIT] always enable, shouldn't cause overhead by just being enabled
     //bool shaderStorageImageReadWithoutFormat;
+ 
     // [REQUIRE] good device support
     //bool shaderStorageImageWriteWithoutFormat = true;
 
@@ -167,10 +167,9 @@ struct SPhysicalDeviceFeatures
     //bool multiviewGeometryShader;
     //bool multiviewTessellationShader;
 
-    // [EXPOSE AS A LIMIT] Its just a shader capability
-    //bool variablePointers;
-    // [DO NOT EXPOSE] Under Vulkan 1.1 if `variablePointers` is present it implies `variablePointersStorageBuffer`
-    //bool variablePointersStorageBuffer = variablePointers;
+    // [REQUIRE] Will eventually be required by HLSL202x if it implements references or pointers (even the non-generic type) 
+    //bool variablePointers = true;
+    //bool variablePointersStorageBuffer = true;
     
     // [DO NOT EXPOSE] not gonna expose until we have a need to
     /* or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1 */
@@ -990,7 +989,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Promoted to VK_KHR_performance_query, VK1.1 core
     /* VK_INTEL_performance_query */
 
-    // [DO NOT EXPOSE] Promoted to VK 1.3 non-optional core and present inNabla Core Profile, but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
+    // [DO NOT EXPOSE] Promoted to VK 1.3 non-optional core and present in Nabla Core Profile, but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension
     /* VK_KHR_copy_commands2 */
 
     /* VK_KHR_deferred_host_operations */
