@@ -68,6 +68,9 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+// DXC compile flags
+#cmakedefine DXC_COMPILE_FLAGS "@DXC_COMPILE_FLAGS@"
+
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #define _NBL_EG_PRFNT_LEVEL @_NBL_EG_PRFNT_LEVEL@
 #if _NBL_EG_PRFNT_LEVEL == 1
