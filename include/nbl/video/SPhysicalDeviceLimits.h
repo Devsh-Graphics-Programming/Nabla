@@ -707,7 +707,7 @@ struct SPhysicalDeviceLimits
     /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
     bool deviceMemoryReport = false;
 
-    bool gpuShaderHalfFloat = false; /* VK_AMD_gpu_shader_half_float */
+    bool gpuShaderHalfFloatAMD = false; /* VK_AMD_gpu_shader_half_float */
     
     bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
     
@@ -1139,7 +1139,7 @@ struct SPhysicalDeviceLimits
 
         if (deviceMemoryReport && !_rhs.deviceMemoryReport) return false;
 
-        if (gpuShaderHalfFloat && !_rhs.gpuShaderHalfFloat) return false;
+        if (gpuShaderHalfFloatAMD && !_rhs.gpuShaderHalfFloatAMD) return false;
 
         if (shaderImageLoadStoreLod && !_rhs.shaderImageLoadStoreLod) return false;
 
