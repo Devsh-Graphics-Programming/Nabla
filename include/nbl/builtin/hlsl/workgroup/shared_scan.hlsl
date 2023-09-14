@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 
-#include "nbl/builtin/hlsl/workgroup/scratch.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
@@ -39,17 +38,14 @@ struct WorkgroupScanHead
 
     T operator()(T value)
     {
-        subgroup::ScratchOffsetsAndMasks offsetsAndMasks = subgroup::ScratchOffsetsAndMasks::WithSubgroupOpDefaults();
+		const uint subgroupMask = glsl::gl_SubgroupSize() - 1u;
         SharedAccessor sharedAccessor;
-        subgroup::scratchInitialize<SharedAccessor, T>(value, identity, itemCount);
         lastInvocationInLevel = lastInvocation;
-		scanStoreIndex = Broadcast<T, SharedAccessor>(offsetsAndMasks.scanStoreOffset, lastInvocation) + gl_LocalInvocationIndex + 1u;
 		
         SubgroupOp subgroupOp;
         firstLevelScan = subgroupOp(value);
         T scan = firstLevelScan;
 		
-        //const bool isLastSubgroupInvocation = offsetsAndMasks.subgroupInvocation == offsetsAndMasks.subgroupMask; // last invocation in subgroup
         const bool isLastSubgroupInvocation = glsl::gl_SubgroupInvocationID() == glsl::gl_SubgroupSize() - 1u;
 		
 		// Since we are scanning the RESULT of the initial scan (which paired one input per subgroup invocation) 
@@ -57,10 +53,11 @@ struct WorkgroupScanHead
 		// the first SubgroupSz^2 invocations will be processed by the first subgroup and so on.
 		// Consequently, those first SubgroupSz^2 invocations will store their results on SubgroupSz scratch slots 
 		// with halfSubgroupSz padding and the next level will follow the same + the previous as an `offset`.
-		const uint offset = (gl_LocalInvocationIndex >> glsl::gl_SubgroupSizeLog2()) & ~offsetsAndMasks.subgroupMask;
-		const uint memBegin = (offset >> glsl::gl_SubgroupSizeLog2()) * offsetsAndMasks.halfSubgroupSize + offset;
-        const uint nextLevelStoreIndex = memBegin + offsetsAndMasks.halfSubgroupSize + offsetsAndMasks.subgroupId;
-        
+		const uint offset = (gl_LocalInvocationIndex >> glsl::gl_SubgroupSizeLog2()) & ~subgroupMask; // For subgroupSz = 64, first 4095 invocations get offset 0, 4096-8191 offset 64, then 128 etc.
+		const uint memBegin = offset;
+        uint nextLevelStoreIndex = memBegin + glsl::gl_SubgroupID();
+        scanStoreIndex = gl_LocalInvocationIndex;
+		
 		bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
         while(lastInvocationInLevel >= glsl::gl_SubgroupSize() * glsl::gl_SubgroupSize())
     	{
@@ -68,7 +65,7 @@ struct WorkgroupScanHead
     		if(participate)
     		{
     			if (any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
-    			{
+    			{ // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
     				sharedAccessor.main.set(nextLevelStoreIndex, scan);
     			}
     		}
@@ -76,27 +73,32 @@ struct WorkgroupScanHead
     		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
     		if(participate)
     		{
-    			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
+    			const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
     			scan = subgroupOp(prevLevelScan);
-    			if(isScan)
+				if(isScan)
+				{
     				sharedAccessor.main.set(scanStoreIndex, scan);
+				}
     		}
-    		if(isScan)
-    			scanStoreIndex += lastInvocationInLevel + 1u;
+			if(isScan)
+			{
+				scanStoreIndex += lastInvocationInLevel + 1u;
+			}
     	}
     	if(lastInvocationInLevel >= glsl::gl_SubgroupSize())
     	{
     		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
     		if(participate)
     		{
-    			if(any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
+    			if(any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation))) {
     				sharedAccessor.main.set(nextLevelStoreIndex, scan);
+				}
     		}
     		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
     		participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
     		if(participate)
     		{
-    			const uint prevLevelScan = sharedAccessor.main.get(offsetsAndMasks.scanStoreOffset);
+    			const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
 				scan = subgroupOp(prevLevelScan);
     			if(isScan) {
     				sharedAccessor.main.set(scanStoreIndex, scan);
@@ -133,9 +135,9 @@ struct WorkgroupScanTail
         SharedAccessor sharedAccessor;
 		sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
 		
+		const uint subgroupId = glsl::gl_SubgroupID();
         if(lastInvocation >= glsl::gl_SubgroupSize())
     	{
-			const uint subgroupId = glsl::gl_SubgroupID();
     		uint scanLoadIndex = scanStoreIndex + glsl::gl_SubgroupSize();
     		const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::gl_SubgroupSize();
     		const uint currentToHighLevel = subgroupId - shiftedInvocationIndex;
@@ -154,19 +156,20 @@ struct WorkgroupScanTail
 			
     		if(gl_LocalInvocationIndex <= lastInvocation && subgroupId != 0u)
     		{
-    			const uint higherLevelExclusive = sharedAccessor.main.get(scanLoadIndex + currentToHighLevel - 1u);
+    			const uint higherLevelExclusive = sharedAccessor.main.get(subgroupId - 1u);
     			firstLevelScan = binop(higherLevelExclusive, firstLevelScan);
     		}
     	}
 		
     	if(isExclusive)
     	{
-    		if(gl_LocalInvocationIndex < lastInvocation)
-    		{
-    			sharedAccessor.main.set(gl_LocalInvocationIndex + 1u, firstLevelScan);
-    		}
 			sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-    		return any(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(gl_LocalInvocationIndex) : identity;
+			firstLevelScan = glsl::subgroupShuffleUp(firstLevelScan, 1u);
+			if(glsl::subgroupElect())
+			{ // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
+				firstLevelScan = sharedAccessor.main.get(subgroupId - 1u);
+			}
+			return all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? firstLevelScan : identity;
     	}
     	else
     	{

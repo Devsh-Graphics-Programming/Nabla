@@ -14,8 +14,6 @@ namespace hlsl
 namespace spirv
 {
 
-namespace arithmetic
-{
 [[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
 [[vk::ext_instruction(349)]]
 int groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, int value);
@@ -72,8 +70,6 @@ uint groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, uint v
 [[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
 [[vk::ext_instruction(358)]]
 float groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, float value);
-
-}
 
 }
 }

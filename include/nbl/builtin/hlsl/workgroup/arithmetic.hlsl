@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
-#include "nbl/builtin/hlsl/workgroup/shared_scan_new.hlsl"
+#include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
 
 namespace nbl
 {
@@ -88,7 +88,10 @@ uint ballotScanBitCount(in bool exclusive)
 		wsh(countbits(localBitfieldBackup));
 		
 		WSTT wst = WSTT::create(true, 0u, wsh.firstLevelScan, wsh.lastInvocation, wsh.scanStoreIndex);
-		wst();
+		uint bitscan = wst();
+		
+		accessor.main.set(gl_LocalInvocationIndex, bitscan);
+		accessor.main.workgroupExecutionAndMemoryBarrier();
 		
 		// fix it (abuse the fact memory is left over)
 		globalCount = _dword != 0u ? accessor.main.get(_dword) : 0u;

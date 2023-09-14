@@ -10,9 +10,6 @@ namespace hlsl
 {
 namespace spirv
 {
-
-namespace ballot
-{
 template<typename T>
 [[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
 [[vk::ext_instruction(/* OpGroupNonUniformBroadcastFirst */ 338)]]
@@ -22,7 +19,6 @@ template<typename T>
 [[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
 [[vk::ext_instruction(/* OpGroupNonUniformBroadcast */ 337)]]
 T subgroupBroadcast(uint executionScope, T value, uint invocationId);
-}
 }
 }
 }

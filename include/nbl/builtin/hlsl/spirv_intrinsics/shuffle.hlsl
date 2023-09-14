@@ -10,8 +10,6 @@ namespace hlsl
 {
 namespace spirv
 {
-namespace shuffle
-{
 template<typename T>
 [[vk::ext_instruction(/* OpGroupNonUniformShuffle */ 345)]]
 T groupShuffle(uint executionScope, T value, uint invocationId);
@@ -27,7 +25,6 @@ template<typename T>
 [[vk::ext_instruction(/* OpGroupNonUniformShuffleDown */ 348)]]
 T groupShuffleDown(uint executionScope, T value, uint delta);
 #endif
-}
 }
 }
 }

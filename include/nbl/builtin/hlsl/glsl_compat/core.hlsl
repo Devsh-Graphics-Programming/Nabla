@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "dxc/spirv/1.2/spirv.h"
+//#include "spirv/1.2/spirv.h"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 
@@ -56,7 +56,7 @@ T atomicCompSwap(inout T ptr, T comparator, T value)
 }
 
 void barrier() {
-	spirv::controlBarrier(SpvScope::SpvScopeWorkgroup, 2, 0x8 | 0x100);
+	spirv::controlBarrier(2, 2, 0x8 | 0x100);
 }
 
 void memoryBarrierShared() {

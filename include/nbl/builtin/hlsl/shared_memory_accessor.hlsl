@@ -35,7 +35,8 @@ template<class NumberSharedMemoryAccessor>
 struct SharedMemoryAdaptor
 {
 	NumberSharedMemoryAccessor accessor;
-
+    uint offset;
+    
     uint get(const uint ix) { return accessor.get(ix); }
 	void get(const uint ix, out uint value) { value = accessor.get(ix);}
     void get(const uint ix, out uint2 value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}

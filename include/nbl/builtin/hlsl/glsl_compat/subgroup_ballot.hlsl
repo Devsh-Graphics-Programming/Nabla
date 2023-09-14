@@ -16,13 +16,13 @@ namespace glsl
 template<typename T>
 T subgroupBroadcastFirst(T value)
 {
-	return spirv::ballot::subgroupBroadcastFirst<T>(/* Subgroup Scope */ 3, value);
+	return spirv::subgroupBroadcastFirst<T>(/* Subgroup Scope */ 3, value);
 }
 
 template<typename T>
 T subgroupBroadcast(T value, uint invocationId)
 {
-	return spirv::ballot::subgroupBroadcast<T>(/* Subgroup Scope */ 3, value, invocationId);
+	return spirv::subgroupBroadcast<T>(/* Subgroup Scope */ 3, value, invocationId);
 }
 
 }

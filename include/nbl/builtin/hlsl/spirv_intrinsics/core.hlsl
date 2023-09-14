@@ -11,11 +11,11 @@ namespace hlsl
 namespace spirv
 {
 [[vk::ext_instruction(/* OpGroupNonUniformElect */ 333)]]
-bool subgroupElect([[vk::ext_literal]] uint executionScope);
+bool subgroupElect(uint executionScope);
 
 #pragma region ATOMICS
 template<typename T>
-T atomicAdd(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicAdd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicIAdd */ 234)]]
 int atomicAdd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -24,7 +24,7 @@ template<>
 uint atomicAdd([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicAnd(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicAnd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicAnd */ 240)]]
 int atomicAnd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -33,7 +33,7 @@ template<>
 uint atomicAnd([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicOr(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicOr([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicOr */ 241)]]
 int atomicOr([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -42,7 +42,7 @@ template<>
 uint atomicOr([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicXor(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicXor([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicXor */ 242)]]
 int atomicXor([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -51,7 +51,7 @@ template<>
 uint atomicXor([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicMin(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicMin([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicSMin */ 236)]]
 int atomicMin([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -60,7 +60,7 @@ template<>
 uint atomicMin([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicMax(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicMax([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicSMax */ 238)]]
 int atomicMax([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -69,7 +69,7 @@ template<>
 uint atomicMax([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
 
 template<typename T>
-T atomicExchange(T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicExchange([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
 [[vk::ext_instruction(/* OpAtomicExchange */ 229)]]
 int atomicExchange([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
@@ -82,7 +82,7 @@ float atomicExchange([[vk::ext_reference]] float ptr, uint memoryScope, uint mem
 
 
 template<typename T>
-T atomicCompSwap(T ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, T value, T comparator);
+T atomicCompSwap([[vk::ext_reference]] T ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, T value, T comparator);
 template<>
 [[vk::ext_instruction(/* OpAtomicCompareExchange */ 230)]]
 int atomicCompSwap([[vk::ext_reference]] int ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, int value, int comparator);
