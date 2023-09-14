@@ -331,12 +331,12 @@ struct SPhysicalDeviceFeatures
     /* Vulkan Extensions */
 
     // [DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled
-/* VK_KHR_surface */
+    /* VK_KHR_surface */
 
-/* Extensions Exposed as Features: */
+    /* Extensions Exposed as Features: */
 
-/* VK_KHR_swapchain */
-/* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
+    /* VK_KHR_swapchain */
+    /* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
 
     // [DO NOT EXPOSE] We don't support yet
