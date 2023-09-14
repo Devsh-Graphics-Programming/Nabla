@@ -12,16 +12,16 @@ namespace hlsl
 {
 namespace subgroup
 {
-	
+    
 static const uint MinSubgroupSizeLog2 = 4;
 static const uint MinSubgroupSize = 0x1u << MinSubgroupSizeLog2;
-	
+    
 uint LastSubgroupInvocation() {
-	uint lastSubgroupInvocation = glsl::gl_SubgroupSize() - 1u;
-	if(glsl::gl_SubgroupID() == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> glsl::gl_SubgroupSizeLog2())) {
-		lastSubgroupInvocation &= _NBL_HLSL_WORKGROUP_SIZE_ - 1u; // if the workgroup size is not a power of 2, then the lastSubgroupInvocation for the last subgroup of the workgroup will not be equal to the subgroupMask but something smaller
-	}
-	return lastSubgroupInvocation;
+    uint lastSubgroupInvocation = glsl::gl_SubgroupSize() - 1u;
+    if(glsl::gl_SubgroupID() == ((_NBL_HLSL_WORKGROUP_SIZE_ - 1u) >> glsl::gl_SubgroupSizeLog2())) {
+        lastSubgroupInvocation &= _NBL_HLSL_WORKGROUP_SIZE_ - 1u; // if the workgroup size is not a power of 2, then the lastSubgroupInvocation for the last subgroup of the workgroup will not be equal to the subgroupMask but something smaller
+    }
+    return lastSubgroupInvocation;
 }
 
 }

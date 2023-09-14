@@ -34,23 +34,23 @@ namespace workgroup
 template<class SharedAccessor, bool edgeBarriers = true>
 void ballot(in bool value)
 {
-	SharedAccessor accessor;
-	
-	if(edgeBarriers)
-		accessor.main.workgroupExecutionAndMemoryBarrier();
-	
-	uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
-	if(initialize) {
-		accessor.main.set(gl_LocalInvocationIndex, 0u);
-	}
-	accessor.main.workgroupExecutionAndMemoryBarrier();
-	if(value) {
-		uint dummy;
-		accessor.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
-	}
-	
-	if(edgeBarriers)
-		accessor.main.workgroupExecutionAndMemoryBarrier();
+    SharedAccessor accessor;
+    
+    if(edgeBarriers)
+        accessor.main.workgroupExecutionAndMemoryBarrier();
+    
+    uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
+    if(initialize) {
+        accessor.main.set(gl_LocalInvocationIndex, 0u);
+    }
+    accessor.main.workgroupExecutionAndMemoryBarrier();
+    if(value) {
+        uint dummy;
+        accessor.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+    }
+    
+    if(edgeBarriers)
+        accessor.main.workgroupExecutionAndMemoryBarrier();
 }
 
 /**
@@ -60,23 +60,23 @@ void ballot(in bool value)
 template<class SharedAccessor, bool edgeBarriers = true>
 bool ballotBitExtract(in uint index)
 {
-	SharedAccessor accessor;
-	
-	if(edgeBarriers)
-		accessor.main.workgroupExecutionAndMemoryBarrier();
-	
-	const bool retval = (accessor.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
-	
-	if(edgeBarriers)
-		accessor.main.workgroupExecutionAndMemoryBarrier();
-	
-	return retval;
+    SharedAccessor accessor;
+    
+    if(edgeBarriers)
+        accessor.main.workgroupExecutionAndMemoryBarrier();
+    
+    const bool retval = (accessor.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
+    
+    if(edgeBarriers)
+        accessor.main.workgroupExecutionAndMemoryBarrier();
+    
+    return retval;
 }
 
 template<class SharedAccessor, bool edgeBarriers = true>
 bool inverseBallot()
 {
-	return ballotBitExtract<SharedAccessor, edgeBarriers>(gl_LocalInvocationIndex);
+    return ballotBitExtract<SharedAccessor, edgeBarriers>(gl_LocalInvocationIndex);
 }
 
 /**
@@ -94,18 +94,18 @@ bool inverseBallot()
 template<class SharedAccessor>
 uint ballotBitCount()
 {
-	SharedAccessor accessor;
-	accessor.main.set(uballotBitfieldCount, 0u);
-	accessor.main.workgroupExecutionAndMemoryBarrier();
-	if(gl_LocalInvocationIndex < uballotBitfieldCount)
-	{
-		const uint localBallot = accessor.main.get(gl_LocalInvocationIndex);
-		const uint localBallotBitCount = countbits(localBallot);
-		uint dummy;
-		accessor.main.atomicAdd(uballotBitfieldCount, localBallotBitCount, dummy);
-	}
-	accessor.main.workgroupExecutionAndMemoryBarrier();
-	return accessor.main.get(uballotBitfieldCount);
+    SharedAccessor accessor;
+    accessor.main.set(uballotBitfieldCount, 0u);
+    accessor.main.workgroupExecutionAndMemoryBarrier();
+    if(gl_LocalInvocationIndex < uballotBitfieldCount)
+    {
+        const uint localBallot = accessor.main.get(gl_LocalInvocationIndex);
+        const uint localBallotBitCount = countbits(localBallot);
+        uint dummy;
+        accessor.main.atomicAdd(uballotBitfieldCount, localBallotBitCount, dummy);
+    }
+    accessor.main.workgroupExecutionAndMemoryBarrier();
+    return accessor.main.get(uballotBitfieldCount);
 }
 
 }

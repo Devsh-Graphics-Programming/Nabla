@@ -16,11 +16,11 @@ namespace subgroup
 {
 
 uint ElectedSubgroupInvocationID() {
-	return glsl::subgroupBroadcastFirst<uint>(glsl::gl_SubgroupInvocationID());
+    return glsl::subgroupBroadcastFirst<uint>(glsl::gl_SubgroupInvocationID());
 }
 
 uint ElectedLocalInvocationID() {
-	return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
+    return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
 }
 
 }

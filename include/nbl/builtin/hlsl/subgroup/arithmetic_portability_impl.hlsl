@@ -295,32 +295,32 @@ struct exclusive_scan<uint, binops::max<float> >
 #else
 namespace portability
 {
-	
+    
 // WARNING
 // THIS PORTABILITY IMPLEMENTATION USES SHUFFLE OPS
 // Shuffles where you attempt to read an invactive lane, return garbage, 
 // which means that our portability reductions and prefix sums will also return garbage/UB/UV
 // Always use the native subgroup_arithmetic extensions if supported
-	
+    
 template<typename T, class Binop>
 struct inclusive_scan
 {
     T operator()(T value)
     {
-		Binop op;
-		const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-		const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
-		
-		uint rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-		value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
-		
-		[[unroll(5)]]
-		for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
-		{
-			rhs = glsl::subgroupShuffleUp<T>(value, step);
-			value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
-		}
-		return value;
+        Binop op;
+        const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
+        
+        uint rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+        value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
+        
+        [[unroll(5)]]
+        for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
+        {
+            rhs = glsl::subgroupShuffleUp<T>(value, step);
+            value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
+        }
+        return value;
     }
 };
 
@@ -330,18 +330,18 @@ struct exclusive_scan
 
     T operator()(T value)
     {
-		const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-		
-		value = impl(value);
-		// store value to smem so we can shuffle it
-		uint left = glsl::subgroupShuffleUp<T>(value, 1);
-		value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-		// return it
-		return value;
+        const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        
+        value = impl(value);
+        // store value to smem so we can shuffle it
+        uint left = glsl::subgroupShuffleUp<T>(value, 1);
+        value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
+        // return it
+        return value;
     }
 
 // protected:
-	inclusive_scan<T, Binop> impl;
+    inclusive_scan<T, Binop> impl;
 };
 
 template<typename T, class Binop>
@@ -349,11 +349,11 @@ struct reduction
 {
     T operator()(T value)
     {
-		value = impl(value);
-		value = glsl::subgroupBroadcast<T>(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
-		return value;
+        value = impl(value);
+        value = glsl::subgroupBroadcast<T>(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
+        return value;
     }
-	
+    
 // protected:
     inclusive_scan<T, Binop> impl;
 };

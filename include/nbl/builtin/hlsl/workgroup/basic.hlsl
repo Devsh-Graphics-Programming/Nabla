@@ -11,13 +11,13 @@ namespace hlsl
 {
 namespace workgroup
 {
-	static const uint MaxWorkgroupSizeLog2 = 11;
-	static const uint MaxWorkgroupSize = 0x1u << MaxWorkgroupSizeLog2;
-	
-	bool Elect()
-	{
-		return gl_LocalInvocationIndex==0u;
-	}
+    static const uint MaxWorkgroupSizeLog2 = 11;
+    static const uint MaxWorkgroupSize = 0x1u << MaxWorkgroupSizeLog2;
+    
+    bool Elect()
+    {
+        return gl_LocalInvocationIndex==0u;
+    }
 }
 }
 }

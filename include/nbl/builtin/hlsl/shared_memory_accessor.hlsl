@@ -18,7 +18,7 @@ struct BroadcastScratchProxy
     {
         return BROADCAST_MEM[ix];
     }
-	
+    
     void set(uint ix, uint value)
     {
         BROADCAST_MEM[ix] = value;
@@ -34,11 +34,11 @@ struct BroadcastScratchProxy {};
 template<class NumberSharedMemoryAccessor>
 struct SharedMemoryAdaptor
 {
-	NumberSharedMemoryAccessor accessor;
+    NumberSharedMemoryAccessor accessor;
     uint offset;
     
     uint get(const uint ix) { return accessor.get(ix); }
-	void get(const uint ix, out uint value) { value = accessor.get(ix);}
+    void get(const uint ix, out uint value) { value = accessor.get(ix);}
     void get(const uint ix, out uint2 value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
     void get(const uint ix, out uint3 value) { value = uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_));}
     void get(const uint ix, out uint4 value) { value = uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_));}
@@ -53,7 +53,7 @@ struct SharedMemoryAdaptor
     void get(const uint ix, out float3 value) { value = asfloat(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
     void get(const uint ix, out float4 value) { value = asfloat(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
 
-	void set(const uint ix, const uint value) {accessor.set(ix, value);}
+    void set(const uint ix, const uint value) {accessor.set(ix, value);}
     void set(const uint ix, const uint2 value) {
         accessor.set(ix, value.x);
         accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y);
@@ -104,53 +104,53 @@ struct SharedMemoryAdaptor
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
-	void atomicAnd(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicAnd(ix, value);
-	}
-	void atomicAnd(const uint ix, const int value, out int orig) {
-	   orig = asint(accessor.atomicAnd(ix, asuint(value)));
-	}
-	void atomicAnd(const uint ix, const float value, out float orig) {
-	   orig = asfloat(accessor.atomicAnd(ix, asuint(value)));
-	}
-	void atomicOr(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicOr(ix, value);
-	}
-	void atomicOr(const uint ix, const int value, out int orig) {
-	   orig = asint(accessor.atomicOr(ix, asuint(value)));
-	}
-	void atomicOr(const uint ix, const float value, out float orig) {
-	   orig = asfloat(accessor.atomicOr(ix, asuint(value)));
-	}
-	void atomicXor(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicXor(ix, value);
-	}
-	void atomicXor(const uint ix, const int value, out int orig) {
-	   orig = asint(accessor.atomicXor(ix, asuint(value)));
-	}
-	void atomicXor(const uint ix, const float value, out float orig) {
-	   orig = asfloat(accessor.atomicXor(ix, asuint(value)));
-	}
-	void atomicAdd(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicAdd(ix, value);
-	}
-	void atomicMin(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicMin(ix, value);
-	}
-	void atomicMax(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicMax(ix, value);
-	}
-	void atomicExchange(const uint ix, const uint value, out uint orig) {
-	   orig = accessor.atomicExchange(ix, value);
-	}
-	void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
-	   orig = accessor.atomicCompSwap(ix, comp, value);
-	}
-	
-	void workgroupExecutionAndMemoryBarrier() {
-		glsl::barrier();
-		glsl::memoryBarrierShared();
-	}
+    void atomicAnd(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicAnd(ix, value);
+    }
+    void atomicAnd(const uint ix, const int value, out int orig) {
+       orig = asint(accessor.atomicAnd(ix, asuint(value)));
+    }
+    void atomicAnd(const uint ix, const float value, out float orig) {
+       orig = asfloat(accessor.atomicAnd(ix, asuint(value)));
+    }
+    void atomicOr(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicOr(ix, value);
+    }
+    void atomicOr(const uint ix, const int value, out int orig) {
+       orig = asint(accessor.atomicOr(ix, asuint(value)));
+    }
+    void atomicOr(const uint ix, const float value, out float orig) {
+       orig = asfloat(accessor.atomicOr(ix, asuint(value)));
+    }
+    void atomicXor(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicXor(ix, value);
+    }
+    void atomicXor(const uint ix, const int value, out int orig) {
+       orig = asint(accessor.atomicXor(ix, asuint(value)));
+    }
+    void atomicXor(const uint ix, const float value, out float orig) {
+       orig = asfloat(accessor.atomicXor(ix, asuint(value)));
+    }
+    void atomicAdd(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicAdd(ix, value);
+    }
+    void atomicMin(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicMin(ix, value);
+    }
+    void atomicMax(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicMax(ix, value);
+    }
+    void atomicExchange(const uint ix, const uint value, out uint orig) {
+       orig = accessor.atomicExchange(ix, value);
+    }
+    void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
+       orig = accessor.atomicCompSwap(ix, comp, value);
+    }
+    
+    void workgroupExecutionAndMemoryBarrier() {
+        glsl::barrier();
+        glsl::memoryBarrierShared();
+    }
 };
 
 }

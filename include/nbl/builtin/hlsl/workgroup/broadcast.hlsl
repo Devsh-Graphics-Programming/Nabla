@@ -23,36 +23,36 @@ namespace workgroup
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T Broadcast(in T val, in uint id)
 {
-	SharedAccessor accessor;
-	
-	if(edgeBarriers)
-		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-	
-	if(gl_LocalInvocationIndex == id) {
-		accessor.broadcast.set(uballotBitfieldCount, val);
-	}
-	
-	if(edgeBarriers)
-		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-	
-	return accessor.broadcast.get(uballotBitfieldCount);
+    SharedAccessor accessor;
+    
+    if(edgeBarriers)
+        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    
+    if(gl_LocalInvocationIndex == id) {
+        accessor.broadcast.set(uballotBitfieldCount, val);
+    }
+    
+    if(edgeBarriers)
+        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    
+    return accessor.broadcast.get(uballotBitfieldCount);
 }
 
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
 T BroadcastFirst(in T val)
 {
-	SharedAccessor accessor;
-	
-	if(edgeBarriers)
-		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-	
-	if (Elect())
-		accessor.broadcast.set(uballotBitfieldCount, val);
-	
-	if(edgeBarriers)
-		accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-	
-	return accessor.broadcast.get(uballotBitfieldCount);
+    SharedAccessor accessor;
+    
+    if(edgeBarriers)
+        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    
+    if (Elect())
+        accessor.broadcast.set(uballotBitfieldCount, val);
+    
+    if(edgeBarriers)
+        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    
+    return accessor.broadcast.get(uballotBitfieldCount);
 }
 
 }

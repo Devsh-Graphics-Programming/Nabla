@@ -17,11 +17,11 @@ struct bitwise_and
     {
         return lhs&rhs;
     }
-	
-	static T identity()
-	{
-		return ~0;
-	}
+    
+    static T identity()
+    {
+        return ~0;
+    }
 };
 
 template<typename T>
@@ -31,11 +31,11 @@ struct bitwise_or
     {
         return lhs|rhs;
     }
-	
-	static T identity()
-	{
-		return 0;
-	}
+    
+    static T identity()
+    {
+        return 0;
+    }
 };
 
 template<typename T>
@@ -45,11 +45,11 @@ struct bitwise_xor
     {
         return lhs^rhs;
     }
-	
-	static T identity()
-	{
-		return 0;
-	}
+    
+    static T identity()
+    {
+        return 0;
+    }
 };
 
 template<typename T>
@@ -59,11 +59,11 @@ struct add
     {
         return lhs+rhs;
     }
-	
-	static T identity()
-	{
-		return 0;
-	}
+    
+    static T identity()
+    {
+        return 0;
+    }
 };
 
 template<typename T>
@@ -73,11 +73,11 @@ struct mul
     {
         return lhs*rhs;
     }
-	
-	static T identity()
-	{
-		return 1;
-	}
+    
+    static T identity()
+    {
+        return 1;
+    }
 };
 
 template<typename T>
@@ -121,14 +121,14 @@ struct min
 {
     T operator()(const T lhs, const T rhs)
     {
-		comparator_lt_t<T> comp;
+        comparator_lt_t<T> comp;
         return comp(lhs, rhs) ? lhs : rhs;
     }
 
-	static T identity()
-	{
-		return ~0;
-	}
+    static T identity()
+    {
+        return ~0;
+    }
 };
 
 template<typename T>
@@ -136,14 +136,14 @@ struct max
 {
     T operator()(const T lhs, const T rhs)
     {
-		comparator_gt_t<T> comp;
+        comparator_gt_t<T> comp;
         return comp(lhs, rhs) ? lhs : rhs;
     }
 
-	static T identity()
-	{
-		return 0;
-	}
+    static T identity()
+    {
+        return 0;
+    }
 };
 
 }
