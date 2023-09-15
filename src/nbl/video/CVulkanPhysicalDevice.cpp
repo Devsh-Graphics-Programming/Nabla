@@ -253,1051 +253,1059 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     if (!isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
         return nullptr;
 
+    // Basic stuff for constructing pNext chains
+    VkBaseInStructure* pNextTail;
+    auto setPNextChainTail = [&pNextTail](void* structure) -> void {pNextTail = reinterpret_cast<VkBaseInStructure*>(structure);};
+    auto addToPNextChain = [&pNextTail](void* structure) -> void
     {
-        // Basic stuff for constructing pNext chains
-        VkBaseInStructure* pNextTail;
-        auto setPNextChainTail = [&pNextTail](void* structure) -> void {pNextTail = reinterpret_cast<VkBaseInStructure*>(structure);};
-        auto addToPNextChain = [&pNextTail](void* structure) -> void
-        {
-            auto toAdd = reinterpret_cast<VkBaseInStructure*>(structure);
-            pNextTail->pNext = toAdd;
-            pNextTail = toAdd;
-        };
-        auto finalizePNextChain = [&pNextTail]() -> void
-        {
-            pNextTail->pNext = nullptr;
-        };
+        auto toAdd = reinterpret_cast<VkBaseInStructure*>(structure);
+        pNextTail->pNext = toAdd;
+        pNextTail = toAdd;
+    };
+    auto finalizePNextChain = [&pNextTail]() -> void
+    {
+        pNextTail->pNext = nullptr;
+    };
 
-        // Get physical device's limits/properties
-        {
-            VkPhysicalDeviceProperties2 deviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-            setPNextChainTail(&deviceProperties2);
-            // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
-            VkPhysicalDeviceVulkan11Properties                      vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
-            addToPNextChain(&vulkan11Properties);
-            //! Declare all the property structs before so they don't go out of scope
-            //! Provided by Vk 1.2
-            VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
-            addToPNextChain(&vulkan12Properties);
-            //! Provided by Vk 1.3
-            VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
-            addToPNextChain(&vulkan13Properties);
-            //! Required by Nabla Core Profile
-            VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
-            addToPNextChain(&externalMemoryHostPropertiesEXT);
-            //! Extensions
-            VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
-            VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
-            VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
-            VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
-            VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
-            VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
-            VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
-            VkPhysicalDevicePCIBusInfoPropertiesEXT                 PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
-            VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+    // Get physical device's limits/properties
+    {
+        VkPhysicalDeviceProperties2 deviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+        setPNextChainTail(&deviceProperties2);
+        // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
+        VkPhysicalDeviceVulkan11Properties                      vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
+        addToPNextChain(&vulkan11Properties);
+        //! Declare all the property structs before so they don't go out of scope
+        //! Provided by Vk 1.2
+        VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
+        addToPNextChain(&vulkan12Properties);
+        //! Provided by Vk 1.3
+        VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
+        addToPNextChain(&vulkan13Properties);
+        //! Required by Nabla Core Profile
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
+        addToPNextChain(&externalMemoryHostPropertiesEXT);
+        //! Extensions
+        VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
+        VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
+        VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
+        VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
+        VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
+        VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
+        VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
+        VkPhysicalDevicePCIBusInfoPropertiesEXT                 PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
+        VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
 #if 0 // TODO
-            VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
+        VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
 #endif
-            VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
-            VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
-            //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
-            if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
-                addToPNextChain(&conservativeRasterizationProperties);
-            if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
-                addToPNextChain(&discardRectangleProperties);
-            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-                addToPNextChain(&lineRasterizationPropertiesEXT);
-            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
-                addToPNextChain(&accelerationStructureProperties);
-            if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
-                addToPNextChain(&sampleLocationsProperties);
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
-                addToPNextChain(&fragmentDensityMapProperties);
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
-                addToPNextChain(&fragmentDensityMap2Properties);
-            if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
-                addToPNextChain(&PCIBusInfoProperties);
-            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
-                addToPNextChain(&rayTracingPipelineProperties);
+        VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
+        VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
+        //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
+        if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
+            addToPNextChain(&conservativeRasterizationProperties);
+        if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
+            addToPNextChain(&discardRectangleProperties);
+        if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            addToPNextChain(&lineRasterizationPropertiesEXT);
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+            addToPNextChain(&accelerationStructureProperties);
+        if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
+            addToPNextChain(&sampleLocationsProperties);
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            addToPNextChain(&fragmentDensityMapProperties);
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            addToPNextChain(&fragmentDensityMap2Properties);
+        if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
+            addToPNextChain(&PCIBusInfoProperties);
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
+            addToPNextChain(&rayTracingPipelineProperties);
 #if 0 // TODO
-            if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
-                addToPNextChain(&cooperativeMatrixProperties);
+        if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
+            addToPNextChain(&cooperativeMatrixProperties);
 #endif
-            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-                addToPNextChain(&shaderSMBuiltinsProperties);
-            if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
-                addToPNextChain(&shaderCoreProperties2AMD);
-            // call
-            finalizePNextChain();
-            vkGetPhysicalDeviceProperties2(vk_physicalDevice,&deviceProperties2);
+        if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            addToPNextChain(&shaderSMBuiltinsProperties);
+        if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
+            addToPNextChain(&shaderCoreProperties2AMD);
+        // call
+        finalizePNextChain();
+        vkGetPhysicalDeviceProperties2(vk_physicalDevice,&deviceProperties2);
 
-            /* Vulkan 1.1 Core  */
-            memcpy(properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
-            memcpy(properties.driverUUID, vulkan11Properties.driverUUID, VK_UUID_SIZE);
-            memcpy(properties.deviceLUID, vulkan11Properties.deviceLUID, VK_LUID_SIZE);
-            properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
-            properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
+        /* Vulkan 1.1 Core  */
+        memcpy(properties.deviceUUID, vulkan11Properties.deviceUUID, VK_UUID_SIZE);
+        memcpy(properties.driverUUID, vulkan11Properties.driverUUID, VK_UUID_SIZE);
+        memcpy(properties.deviceLUID, vulkan11Properties.deviceLUID, VK_LUID_SIZE);
+        properties.deviceNodeMask = vulkan11Properties.deviceNodeMask;
+        properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
 
-            properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
-            properties.limits.subgroupOpsShaderStages = static_cast<IGPUShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
-            // ROADMAP 2022 would also like ARITHMETIC and QUAD
-            constexpr uint32_t NablaSubgroupOperationMask = VK_SUBGROUP_FEATURE_BASIC_BIT|VK_SUBGROUP_FEATURE_VOTE_BIT|VK_SUBGROUP_FEATURE_BALLOT_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
-            if ((vulkan11Properties.subgroupSupportedOperations&NablaSubgroupOperationMask)!=NablaSubgroupOperationMask)
-            {
-                logger.log(
-                    "Not enumerating VkPhysicalDevice %p because its supported subgroup op bitmask is %d and we require at least %d!",
-                    system::ILogger::ELL_INFO, vk_physicalDevice, vulkan11Properties.subgroupSupportedOperations, NablaSubgroupOperationMask
-                );
-                return nullptr;
-            }
-            properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
-            properties.limits.shaderSubgroupClustered = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
-            properties.limits.shaderSubgroupQuad = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
-            properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
-
-            properties.limits.pointClippingBehavior = static_cast<SLimits::E_POINT_CLIPPING_BEHAVIOR>(vulkan11Properties.pointClippingBehavior);
-
-            properties.limits.maxMultiviewViewCount = vulkan11Properties.maxMultiviewViewCount;
-            properties.limits.maxMultiviewInstanceIndex = vulkan11Properties.maxMultiviewInstanceIndex;
-
-            //vulkan11Properties.protectedNoFault;
-
-            properties.limits.maxPerSetDescriptors = vulkan11Properties.maxPerSetDescriptors;
-            properties.limits.maxMemoryAllocationSize = vulkan11Properties.maxMemoryAllocationSize;
-
-
-            /* Vulkan 1.2 Core  */
-            properties.driverID = getDriverIdFromVkDriverId(vulkan12Properties.driverID);
-            memcpy(properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
-            memcpy(properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
-            properties.conformanceVersion.major = vulkan12Properties.conformanceVersion.major;
-            properties.conformanceVersion.minor = vulkan12Properties.conformanceVersion.minor;
-            properties.conformanceVersion.subminor = vulkan12Properties.conformanceVersion.subminor;
-            properties.conformanceVersion.patch = vulkan12Properties.conformanceVersion.patch;
-            
-            // Helper bools :D
-            const bool isIntelGPU = (properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
-            const bool isAMDGPU = (properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
-            const bool isNVIDIAGPU = (properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
-
-            //vulkan12Properties.denormBehaviorIndependence;
-            //vulkan12Properties.denormBehaviorIndependence;
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
-                return nullptr;
-            properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
-            properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
-            properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
-            properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
-            properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
-            properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
-            properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
-            properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
-            properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
-            properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
-            properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
-            properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
-            properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
-            
-            // descriptor indexing
-            properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
-            properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
-            properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
-            if (!vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative)
-                return nullptr;
-            properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
-            properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
-            if (!vulkan12Properties.robustBufferAccessUpdateAfterBind)
-                return nullptr;
-            properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs               = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageBuffers;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindImages              = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSampledImages;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages       = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageImages;
-            properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments    = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindInputAttachments;
-            properties.limits.maxPerStageUpdateAfterBindResources                     = vulkan12Properties.maxPerStageUpdateAfterBindResources;
-            properties.limits.maxDescriptorSetUpdateAfterBindSamplers                 = vulkan12Properties.maxDescriptorSetUpdateAfterBindSamplers;
-            properties.limits.maxDescriptorSetUpdateAfterBindUBOs                     = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffers;
-            properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs        = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic;
-            properties.limits.maxDescriptorSetUpdateAfterBindSSBOs                    = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffers;
-            properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs       = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic;
-            properties.limits.maxDescriptorSetUpdateAfterBindImages                   = vulkan12Properties.maxDescriptorSetUpdateAfterBindSampledImages;
-            properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageImages;
-            properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = vulkan12Properties.maxDescriptorSetUpdateAfterBindInputAttachments;
-
-            properties.limits.supportedDepthResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedDepthResolveModes);
-            properties.limits.supportedStencilResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedStencilResolveModes);
-            properties.limits.independentResolveNone = vulkan12Properties.independentResolveNone;
-            properties.limits.independentResolve = vulkan12Properties.independentResolve;
-
-            // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
-            properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
-
-            constexpr uint64_t ROADMAP2022TimelineSemahoreValueDifference = (0x1ull<<31u)-1ull;
-            if (vulkan12Properties.maxTimelineSemaphoreValueDifference<=ROADMAP2022TimelineSemahoreValueDifference)
-                return nullptr;
-
-            // don't deal with vulkan12PRoperties.framebufferIntegerColorSampleCounts, TODO report in usage
-
-
-            /* Vulkan 1.3 Core  */
-            properties.limits.minSubgroupSize = vulkan13Properties.minSubgroupSize;
-            properties.limits.maxSubgroupSize = vulkan13Properties.maxSubgroupSize;
-            properties.limits.maxComputeWorkgroupSubgroups = vulkan13Properties.maxComputeWorkgroupSubgroups;
-            properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan13Properties.requiredSubgroupSizeStages&VK_SHADER_STAGE_ALL);
-
-            // don't real with inline uniform blocks yet
-
-            properties.limits.integerDotProduct8BitUnsignedAccelerated = vulkan13Properties.integerDotProduct8BitUnsignedAccelerated;
-            properties.limits.integerDotProduct8BitSignedAccelerated = vulkan13Properties.integerDotProduct8BitSignedAccelerated;
-            properties.limits.integerDotProduct8BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct8BitMixedSignednessAccelerated;
-            properties.limits.integerDotProduct4x8BitPackedUnsignedAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedUnsignedAccelerated;
-            properties.limits.integerDotProduct4x8BitPackedSignedAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedSignedAccelerated;
-            properties.limits.integerDotProduct4x8BitPackedMixedSignednessAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedMixedSignednessAccelerated;
-            properties.limits.integerDotProduct16BitUnsignedAccelerated = vulkan13Properties.integerDotProduct16BitUnsignedAccelerated;
-            properties.limits.integerDotProduct16BitSignedAccelerated = vulkan13Properties.integerDotProduct16BitSignedAccelerated;
-            properties.limits.integerDotProduct16BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct16BitMixedSignednessAccelerated;
-            properties.limits.integerDotProduct32BitUnsignedAccelerated = vulkan13Properties.integerDotProduct32BitUnsignedAccelerated;
-            properties.limits.integerDotProduct32BitSignedAccelerated = vulkan13Properties.integerDotProduct32BitSignedAccelerated;
-            properties.limits.integerDotProduct32BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct32BitMixedSignednessAccelerated;
-            properties.limits.integerDotProduct64BitUnsignedAccelerated = vulkan13Properties.integerDotProduct64BitUnsignedAccelerated;
-            properties.limits.integerDotProduct64BitSignedAccelerated = vulkan13Properties.integerDotProduct64BitSignedAccelerated;
-            properties.limits.integerDotProduct64BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct64BitMixedSignednessAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating8BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitSignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating16BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitSignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating32BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitSignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating64BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitSignedAccelerated;
-            properties.limits.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
-
-            properties.limits.storageTexelBufferOffsetAlignmentBytes = vulkan13Properties.storageTexelBufferOffsetAlignmentBytes;
-            // vulkan13Properties.storageTexelBufferOffsetSingleTexelAlignment;
-            properties.limits.uniformTexelBufferOffsetAlignmentBytes = vulkan13Properties.uniformTexelBufferOffsetAlignmentBytes;
-            // vulkan13Properties.uniformTexelBufferOffsetSingleTexelAlignment;
-
-            properties.limits.maxBufferSize = vulkan13Properties.maxBufferSize;
-
-            
-            //! Nabla Core Extensions
-            properties.limits.minImportedHostPointerAlignment = externalMemoryHostPropertiesEXT.minImportedHostPointerAlignment;
-
-
-            //! Extensions
-            if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
-            {
-                properties.limits.primitiveOverestimationSize = conservativeRasterizationProperties.primitiveOverestimationSize;
-                properties.limits.maxExtraPrimitiveOverestimationSize = conservativeRasterizationProperties.maxExtraPrimitiveOverestimationSize;
-                properties.limits.extraPrimitiveOverestimationSizeGranularity = conservativeRasterizationProperties.extraPrimitiveOverestimationSizeGranularity;
-                properties.limits.primitiveUnderestimation = conservativeRasterizationProperties.primitiveUnderestimation;
-                properties.limits.conservativePointAndLineRasterization = conservativeRasterizationProperties.conservativePointAndLineRasterization;
-                properties.limits.degenerateTrianglesRasterized = conservativeRasterizationProperties.degenerateTrianglesRasterized;
-                properties.limits.degenerateLinesRasterized = conservativeRasterizationProperties.degenerateLinesRasterized;
-                properties.limits.fullyCoveredFragmentShaderInputVariable = conservativeRasterizationProperties.fullyCoveredFragmentShaderInputVariable;
-                properties.limits.conservativeRasterizationPostDepthCoverage = conservativeRasterizationProperties.conservativeRasterizationPostDepthCoverage;
-            }
-            
-            if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
-                properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
-
-            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-                properties.limits.lineSubPixelPrecisionBits = lineRasterizationPropertiesEXT.lineSubPixelPrecisionBits;
-
-            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
-            {
-                properties.limits.maxAccelerationStructureGeometryCount = accelerationStructureProperties.maxGeometryCount;
-                properties.limits.maxAccelerationStructureInstanceCount = accelerationStructureProperties.maxInstanceCount;
-                properties.limits.maxAccelerationStructurePrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
-                properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
-                properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
-                properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
-                properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
-                properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
-            }
-
-            if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
-            {
-                properties.limits.variableSampleLocations = sampleLocationsProperties.variableSampleLocations;
-                properties.limits.sampleLocationSubPixelBits = sampleLocationsProperties.sampleLocationSubPixelBits;
-                properties.limits.sampleLocationSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(sampleLocationsProperties.sampleLocationSampleCounts);
-                properties.limits.maxSampleLocationGridSize = sampleLocationsProperties.maxSampleLocationGridSize;
-                properties.limits.sampleLocationCoordinateRange[0] = sampleLocationsProperties.sampleLocationCoordinateRange[0];
-                properties.limits.sampleLocationCoordinateRange[1] = sampleLocationsProperties.sampleLocationCoordinateRange[1];
-            }
-
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
-            {
-                properties.limits.minFragmentDensityTexelSize = fragmentDensityMapProperties.minFragmentDensityTexelSize;
-                properties.limits.maxFragmentDensityTexelSize = fragmentDensityMapProperties.maxFragmentDensityTexelSize;
-                properties.limits.fragmentDensityInvocations = fragmentDensityMapProperties.fragmentDensityInvocations;
-            }
-
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
-            {
-                properties.limits.subsampledLoads = fragmentDensityMap2Properties.subsampledLoads;
-                properties.limits.subsampledCoarseReconstructionEarlyAccess = fragmentDensityMap2Properties.subsampledCoarseReconstructionEarlyAccess;
-                properties.limits.maxSubsampledArrayLayers = fragmentDensityMap2Properties.maxSubsampledArrayLayers;
-                properties.limits.maxDescriptorSetSubsampledSamplers = fragmentDensityMap2Properties.maxDescriptorSetSubsampledSamplers;
-            }
-            
-            if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
-            {
-                properties.limits.pciDomain   = PCIBusInfoProperties.pciDomain;
-                properties.limits.pciBus      = PCIBusInfoProperties.pciBus;
-                properties.limits.pciDevice   = PCIBusInfoProperties.pciDevice;
-                properties.limits.pciFunction = PCIBusInfoProperties.pciFunction;
-            }
-
-            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
-            {
-                if (rayTracingPipelineProperties.shaderGroupHandleSize!=32)
-                {
-                    logger.log("Not enumerating VkPhysicalDevice %p because it reports limits of exact-type contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                    return nullptr;
-                }
-                properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
-                properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
-                properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
-                properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
-                properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
-                properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
-            }
-#if 0 //TODO
-            if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
-                properties.limits.cooperativeMatrixSupportedStages = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
-#endif
-
-
-            //! Nabla
-            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-                properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
-            else if(isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
-                properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
-            //else if (isExtensionSupported(VK_ARM_..._EXTENSION_NAME)) TODO implement the ARM equivalent
-            else 
-                properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(properties.driverID);
-            
-            properties.limits.dispatchBase = true;
-            properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
-            properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
-            
-            auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(properties.driverID);
-            if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-            {
-                constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
-                invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
-            }
-            properties.limits.maxResidentInvocations = properties.limits.computeUnits*invocationsPerComputeUnit;
-
-            /*
-                [NO NABLA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
-                [NO NABLA SUPPORT] A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
-                [NO NABLA SUPPORT] A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
-                A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
-            */
-            properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
-        }
-
-
-        // Get physical device's features
-        SPhysicalDeviceFeatures features = {};
-        
-        // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
-        // Table 51. Extension Feature Aliases (vkspec 1.3.211)
-        // Extension                               Feature(s)
-        // VK_KHR_shader_draw_parameters           shaderDrawParameters
-        // VK_KHR_draw_indirect_count              drawIndirectCount
-        // VK_KHR_sampler_mirror_clamp_to_edge     samplerMirrorClampToEdge
-        // VK_EXT_descriptor_indexing              descriptorIndexing
-        // VK_EXT_sampler_filter_minmax            samplerFilterMinmax
-        // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
-        // but we enable them all from Vulkan1XFeatures anyway!
-
-        // Extensions
+        properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
+        properties.limits.subgroupOpsShaderStages = static_cast<IGPUShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+        // ROADMAP 2022 would also like ARITHMETIC and QUAD
+        constexpr uint32_t NablaSubgroupOperationMask = VK_SUBGROUP_FEATURE_BASIC_BIT|VK_SUBGROUP_FEATURE_VOTE_BIT|VK_SUBGROUP_FEATURE_BALLOT_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
+        if ((vulkan11Properties.subgroupSupportedOperations&NablaSubgroupOperationMask)!=NablaSubgroupOperationMask)
         {
-            VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
-            setPNextChainTail(&deviceFeatures);
-            // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Features`
-            VkPhysicalDeviceVulkan11Features                                vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-            addToPNextChain(&vulkan11Features);
-            //! Declare all the property structs before so they don't go out of scope
-            //! Provided by Vk 1.2
-            VkPhysicalDeviceVulkan12Features                                vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-            addToPNextChain(&vulkan12Features);
-            //! Provided by Vk 1.3
-            VkPhysicalDeviceVulkan13Features                                vulkan13Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
-            addToPNextChain(&vulkan13Features);
-            //! Nabla Core Profile Features
-            VkPhysicalDeviceRobustness2FeaturesEXT                          robustness2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT };
-            addToPNextChain(&robustness2Features);
-            //! Extensions as Features
-            VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
-            VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT };
-            VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT };
-            VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
-            VkPhysicalDeviceRayTracingPipelineFeaturesKHR                   rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
-            VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV };
-            VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV };
-            VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV            representativeFragmentTestFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV };
-            VkPhysicalDeviceConditionalRenderingFeaturesEXT                 conditionalRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT };
-            VkPhysicalDeviceFragmentDensityMapFeaturesEXT                   fragmentDensityMapFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT };
-            VkPhysicalDeviceFragmentDensityMap2FeaturesEXT                  fragmentDensityMap2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT };
-            VkPhysicalDeviceLineRasterizationFeaturesEXT                    lineRasterizationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT };
-            VkPhysicalDeviceMemoryPriorityFeaturesEXT                       memoryPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT };
-            VkPhysicalDevicePerformanceQueryFeaturesKHR                     performanceQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR };
-            VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR         pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR };
-            VkPhysicalDeviceCoherentMemoryFeaturesAMD                       coherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD };
-#if 0
-            VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
-#endif
-            if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
-                addToPNextChain(&rasterizationOrderAttachmentAccessFeatures);
-            if (isExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
-                addToPNextChain(&fragmentShaderInterlockFeatures);
-            if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
-                addToPNextChain(&indexTypeUint8Features);
-            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
-                addToPNextChain(&accelerationFeatures);
-            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
-                addToPNextChain(&rayTracingPipelineFeatures);
-            if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
-                addToPNextChain(&rayTracingMotionBlurFeatures);
-            if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
-                addToPNextChain(&deviceGeneratedCommandsFeatures);
-            if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
-                addToPNextChain(&representativeFragmentTestFeatures);
-            if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
-                addToPNextChain(&conditionalRenderingFeatures);
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
-                addToPNextChain(&fragmentDensityMapFeatures);
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
-                addToPNextChain(&fragmentDensityMap2Features);
-            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-                addToPNextChain(&lineRasterizationFeatures);
-            if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
-                addToPNextChain(&memoryPriorityFeatures);
-            if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
-                addToPNextChain(&performanceQueryFeatures);
-            if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
-                addToPNextChain(&pipelineExecutablePropertiesFeatures);
-            if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
-                addToPNextChain(&coherentMemoryFeatures);
-            //! NAbla Core Profile Limits
-            VkPhysicalDeviceShaderAtomicFloatFeaturesEXT                    shaderAtomicFloatFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT };
-            addToPNextChain(&shaderAtomicFloatFeatures);
-            //! Extensions as Limits
-            VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT                   shaderAtomicFloat2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT };
-            VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shaderImageAtomicInt64Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT };
-            VkPhysicalDeviceShaderClockFeaturesKHR                          shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR };
-            VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR };
-            VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR };
-            VkPhysicalDeviceComputeShaderDerivativesFeaturesNV              computeShaderDerivativesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV };
-            VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
-            VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT };
-            VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV };
-            VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR            fragmentShaderBarycentricFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
-            VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesAMD      shaderEarlyAndLateFragmentTestsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_FEATURES_AMD };
-            VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL            intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL };
-            VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV };
-            if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME))
-                addToPNextChain(&shaderAtomicFloat2Features);
-            if (isExtensionSupported(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME))
-                addToPNextChain(&shaderImageAtomicInt64Features);
-            if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
-                addToPNextChain(&shaderClockFeatures);
-            if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
-                addToPNextChain(&subgroupUniformControlFlowFeatures);
-            if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
-                addToPNextChain(&workgroupMemoryExplicitLayout);
-            if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
-                addToPNextChain(&computeShaderDerivativesFeatures);
-            if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
-                addToPNextChain(&colorWriteEnableFeatures);
-            if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
-                addToPNextChain(&deviceMemoryReportFeatures);
-            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-                addToPNextChain(&shaderSMBuiltinsFeatures);
-            if (isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME))
-                addToPNextChain(&fragmentShaderBarycentricFeatures);
-            if (isExtensionSupported(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME))
-                addToPNextChain(&shaderEarlyAndLateFragmentTestsFeatures);
-            if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
-                addToPNextChain(&intelShaderIntegerFunctions2);
-            if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
-                addToPNextChain(&shaderImageFootprintFeatures);
-            // call
-            finalizePNextChain();
-            vkGetPhysicalDeviceFeatures2(vk_physicalDevice,&deviceFeatures);
-
-
-            /* Vulkan 1.0 Core  */
-            features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
-            
-            if (!deviceFeatures.features.fullDrawIndexUint32)
-                return nullptr;
-            if (!deviceFeatures.features.imageCubeArray)
-                return nullptr;
-            if (!deviceFeatures.features.independentBlend)
-                return nullptr;
-            
-            features.geometryShader = deviceFeatures.features.geometryShader;
-            features.tessellationShader = deviceFeatures.features.tessellationShader;
-            
-            if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
-                return nullptr;
-            properties.limits.logicOp = deviceFeatures.features.logicOp;
-            
-            if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance)
-                return nullptr;
-            if (!deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
-                return nullptr;
-
-            if (!deviceFeatures.features.fillModeNonSolid)
-                return nullptr;
-            
-            features.depthBounds = deviceFeatures.features.depthBounds;
-
-            features.wideLines = deviceFeatures.features.wideLines;
-            features.largePoints = deviceFeatures.features.largePoints;
-
-            if (!deviceFeatures.features.alphaToOne)
-                return nullptr;
-
-            if (!deviceFeatures.features.multiViewport)
-                return nullptr;
-
-            if (!deviceFeatures.features.samplerAnisotropy)
-                return nullptr;
-
-            // no checking of deviceFeatures.features.textureCompression...
-
-            if (!deviceFeatures.features.occlusionQueryPrecise)
-                return nullptr;
-            features.pipelineStatisticsQuery = deviceFeatures.features.pipelineStatisticsQuery;
-
-            properties.limits.vertexPipelineStoresAndAtomics = deviceFeatures.features.vertexPipelineStoresAndAtomics;
-            properties.limits.fragmentStoresAndAtomics = deviceFeatures.features.fragmentStoresAndAtomics;
-            properties.limits.shaderTessellationAndGeometryPointSize = deviceFeatures.features.shaderTessellationAndGeometryPointSize;
-            
-            if (!deviceFeatures.features.shaderImageGatherExtended)
-                return nullptr;
-            if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
-                return nullptr;
-            properties.limits.shaderStorageImageMultisample = deviceFeatures.features.shaderStorageImageMultisample;
-            properties.limits.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
-            if (!deviceFeatures.features.shaderStorageImageWriteWithoutFormat)
-                return nullptr;
-
-            if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
-                return nullptr;
-            properties.limits.shaderStorageImageArrayDynamicIndexing = deviceFeatures.features.shaderStorageImageArrayDynamicIndexing;
-
-            if (!deviceFeatures.features.shaderClipDistance)
-                return nullptr;
-            features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
-
-            properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
-            if (!deviceFeatures.features.shaderInt16)
-                return nullptr;
-            if (!deviceFeatures.features.shaderInt64)
-                return nullptr;
-
-            features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;
-            features.shaderResourceMinLod = deviceFeatures.features.shaderResourceMinLod;
-
-            // TODO sparse stuff
-
-            properties.limits.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
-            if (!deviceFeatures.features.inheritedQueries)
-                return nullptr;
-            
-
-            /* Vulkan 1.1 Core  */
-            if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
-                return nullptr;
-            properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
-            properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
-
-            if (!vulkan11Features.multiview)
-                return nullptr;
-            properties.limits.multiviewGeometryShader = vulkan11Features.multiviewGeometryShader;
-            properties.limits.multiviewTessellationShader = vulkan11Features.multiviewTessellationShader;
-
-            if (!vulkan11Features.variablePointers || !vulkan11Features.variablePointersStorageBuffer)
-                return nullptr;
-
-            // could check protectedMemory and YcbcrConversion but no point in doing so yet
-            
-            if (!vulkan11Features.shaderDrawParameters)
-                return nullptr;
-
-            
-            /* Vulkan 1.2 Core  */
-            if (!vulkan12Features.samplerMirrorClampToEdge)
-                return nullptr;
-
-            properties.limits.drawIndirectCount = vulkan12Features.drawIndirectCount;
-
-            if (!vulkan12Features.storageBuffer8BitAccess || !vulkan12Features.uniformAndStorageBuffer8BitAccess)
-                return nullptr;
-            properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
-
-            properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
-            properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
-
-            properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
-            if (!vulkan12Features.shaderInt8)
-                return nullptr;
-            
-            if (!vulkan12Features.descriptorIndexing)
-                return nullptr;
-            // dynamically uniform
-            properties.limits.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
-            if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
-                return nullptr;
-            // not uniform at all
-            properties.limits.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
-            if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
-                return nullptr;
-            properties.limits.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
-            if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
-                return nullptr;
-            // update after bind
-            properties.limits.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
-            if (!vulkan12Features.descriptorBindingSampledImageUpdateAfterBind || !vulkan12Features.descriptorBindingStorageImageUpdateAfterBind ||
-                !vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
-                !vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUpdateUnusedWhilePending)
-                return nullptr;
-            if (!vulkan12Features.descriptorBindingPartiallyBound || !vulkan12Features.descriptorBindingVariableDescriptorCount)
-                return nullptr;
-            if (!vulkan12Features.runtimeDescriptorArray)
-                return nullptr;
-
-            properties.limits.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
-
-            if (!vulkan12Features.scalarBlockLayout)
-                return nullptr;
-            
-            // not checking imageless Framebuffer
-
-            if (!vulkan12Features.uniformBufferStandardLayout)
-                return nullptr;
-
-            if (!vulkan12Features.shaderSubgroupExtendedTypes)
-                return nullptr;
-            
-            if (!vulkan12Features.separateDepthStencilLayouts)
-                return nullptr;
-            
-            if (!vulkan12Features.hostQueryReset)
-                return nullptr;
-            
-            if (!vulkan12Features.timelineSemaphore)
-                return nullptr;
-
-            if (!vulkan12Features.bufferDeviceAddress)
-                return nullptr;
-            features.bufferDeviceAddressMultiDevice = vulkan12Features.bufferDeviceAddressMultiDevice;
-
-            if (!vulkan12Features.vulkanMemoryModel || !vulkan12Features.vulkanMemoryModelDeviceScope)
-                return nullptr;
-            properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
-
-            properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
-            properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
-
-            if (!vulkan12Features.subgroupBroadcastDynamicId)
-                return nullptr;
-
-
-            /* Vulkan 1.3 Core  */
-            features.robustImageAccess = vulkan13Features.robustImageAccess;
-
-            // not checking inline uniform blocks yet
-
-            if (!vulkan13Features.pipelineCreationCacheControl)
-                return nullptr;
-
-            // not checking privateData
-
-            properties.limits.shaderDemoteToHelperInvocation = vulkan13Features.shaderDemoteToHelperInvocation;
-            properties.limits.shaderTerminateInvocation = vulkan13Features.shaderTerminateInvocation;
-
-            if (!vulkan13Features.subgroupSizeControl || !vulkan13Features.computeFullSubgroups)
-                return nullptr;
-
-            if (!vulkan13Features.synchronization2)
-                return nullptr;
-
-            // not checking textureCompressionASTC_HDR
-
-            properties.limits.shaderZeroInitializeWorkgroupMemory = vulkan13Features.shaderZeroInitializeWorkgroupMemory;
-
-            // not checking dynamicRendering
-
-            if (!vulkan13Features.shaderIntegerDotProduct)
-                return nullptr;
-            if (!vulkan13Features.maintenance4)
-                return nullptr;
-
-
-            /* Nabla Core Profile as Features */
-            features.robustBufferAccess2 = robustness2Features.robustBufferAccess2;
-            features.robustImageAccess2 = robustness2Features.robustImageAccess2;
-            features.nullDescriptor = robustness2Features.nullDescriptor;
-
-
-            /* Vulkan Extensions as Features */
-            if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
-            {
-                features.rasterizationOrderColorAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess;
-                features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
-                features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
-            }
-
-            if (isExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
-            {
-                features.fragmentShaderPixelInterlock = fragmentShaderInterlockFeatures.fragmentShaderPixelInterlock;
-                features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
-                features.fragmentShaderShadingRateInterlock = fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock;
-            }
-
-            if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
-                features.indexTypeUint8 = indexTypeUint8Features.indexTypeUint8;
-
-            if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
-            {
-                features.accelerationStructure = accelerationFeatures.accelerationStructure;
-                features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
-                features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
-                if (!accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
-                {
-                    logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                    return nullptr;
-                }
-            }
-
-            features.rayQuery = isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME);
-
-            if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
-            {
-                features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
-                if (!rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect)
-                {
-                    logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                    return nullptr;
-                }
-                if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
-                {
-                    logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                    return nullptr;
-                }
-                features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
-            }
-
-            if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
-            {
-                features.rayTracingMotionBlur = rayTracingMotionBlurFeatures.rayTracingMotionBlur;
-                features.rayTracingMotionBlurPipelineTraceRaysIndirect = rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
-            }
-
-            if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
-                features.deviceGeneratedCommands = deviceGeneratedCommandsFeatures.deviceGeneratedCommands;
-
-            if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
-                features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
-
-            features.mixedAttachmentSamples = isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME);
-
-            features.hdrMetadata = isExtensionSupported(VK_EXT_HDR_METADATA_EXTENSION_NAME);
-
-            features.shaderInfoAMD = isExtensionSupported(VK_AMD_SHADER_INFO_EXTENSION_NAME);
-
-            if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
-            {
-                features.conditionalRendering = conditionalRenderingFeatures.conditionalRendering;
-                features.inheritedConditionalRendering = conditionalRenderingFeatures.inheritedConditionalRendering;
-            }
-
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
-            {
-                features.fragmentDensityMap = fragmentDensityMapFeatures.fragmentDensityMap;
-                features.fragmentDensityMapDynamic = fragmentDensityMapFeatures.fragmentDensityMapDynamic;
-                features.fragmentDensityMapNonSubsampledImages = fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages;
-            }
-
-            if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
-            {
-                features.fragmentDensityMapDeferred = fragmentDensityMap2Features.fragmentDensityMapDeferred;
-            }
-
-            if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-            {
-                features.rectangularLines = lineRasterizationFeatures.rectangularLines;
-                features.bresenhamLines = lineRasterizationFeatures.bresenhamLines;
-                features.smoothLines = lineRasterizationFeatures.smoothLines;
-                features.stippledRectangularLines = lineRasterizationFeatures.stippledRectangularLines;
-                features.stippledBresenhamLines = lineRasterizationFeatures.stippledBresenhamLines;
-                features.stippledSmoothLines = lineRasterizationFeatures.stippledSmoothLines;
-            }
-
-            if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
-                features.memoryPriority = memoryPriorityFeatures.memoryPriority;
-
-            if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
-            {
-                features.performanceCounterQueryPools = performanceQueryFeatures.performanceCounterQueryPools;
-                features.performanceCounterMultipleQueryPools = performanceQueryFeatures.performanceCounterMultipleQueryPools;
-            }
-
-            if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
-                features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
-
-            if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
-                features.deviceCoherentMemory = coherentMemoryFeatures.deviceCoherentMemory;
-
-            features.bufferMarkerAMD = isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
-
-            features.geometryShaderPassthrough = isExtensionSupported(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
-
-            if (isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
-                features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
-
-            features.deferredHostOperations = isExtensionSupported(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-#if 0
-            if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
-                features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
-#endif
-
-
-            /* Nabla Core Profile as Limits */
-            if (!shaderAtomicFloatFeatures.shaderBufferFloat32Atomics)
-                return nullptr;
-            properties.limits.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
-            properties.limits.shaderBufferFloat64Atomics = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
-            properties.limits.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
-            if (!shaderAtomicFloatFeatures.shaderSharedFloat32Atomics)
-                return nullptr;
-            properties.limits.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
-            properties.limits.shaderSharedFloat64Atomics = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
-            properties.limits.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
-            properties.limits.shaderImageFloat32Atomics = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
-            properties.limits.shaderImageFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
-            properties.limits.sparseImageFloat32Atomics = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
-            properties.limits.sparseImageFloat32AtomicAdd = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
-
-
-            /* Vulkan Extensions as Limits */
-            if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME))
-            {
-                properties.limits.shaderBufferFloat16Atomics = shaderAtomicFloat2Features.shaderBufferFloat16Atomics;
-                properties.limits.shaderBufferFloat16AtomicAdd = shaderAtomicFloat2Features.shaderBufferFloat16AtomicAdd;
-                properties.limits.shaderBufferFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat16AtomicMinMax;
-                properties.limits.shaderBufferFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat32AtomicMinMax;
-                properties.limits.shaderBufferFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat64AtomicMinMax;
-                properties.limits.shaderSharedFloat16Atomics = shaderAtomicFloat2Features.shaderSharedFloat16Atomics;
-                properties.limits.shaderSharedFloat16AtomicAdd = shaderAtomicFloat2Features.shaderSharedFloat16AtomicAdd;
-                properties.limits.shaderSharedFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat16AtomicMinMax;
-                properties.limits.shaderSharedFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat32AtomicMinMax;
-                properties.limits.shaderSharedFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat64AtomicMinMax;
-                properties.limits.shaderImageFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderImageFloat32AtomicMinMax;
-                properties.limits.sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax;
-            }
-
-            if (isExtensionSupported(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME))
-            {
-                properties.limits.shaderImageInt64Atomics = shaderImageAtomicInt64Features.shaderImageInt64Atomics;
-                properties.limits.sparseImageInt64Atomics = shaderImageAtomicInt64Features.sparseImageInt64Atomics;
-            }
-
-            if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
-            {
-                if (!shaderClockFeatures.shaderSubgroupClock)
-                    return nullptr;
-                properties.limits.shaderDeviceClock = shaderClockFeatures.shaderDeviceClock;
-            }
-
-            if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
-                properties.limits.shaderSubgroupUniformControlFlow = subgroupUniformControlFlowFeatures.shaderSubgroupUniformControlFlow;
-
-            if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
-            {
-                properties.limits.workgroupMemoryExplicitLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout;
-                properties.limits.workgroupMemoryExplicitLayoutScalarBlockLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayoutScalarBlockLayout;
-                properties.limits.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
-                properties.limits.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
-            }
-
-            if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
-            {
-                properties.limits.computeDerivativeGroupQuads = computeShaderDerivativesFeatures.computeDerivativeGroupQuads;
-                properties.limits.computeDerivativeGroupLinear = computeShaderDerivativesFeatures.computeDerivativeGroupLinear;
-            }
-
-            properties.limits.displayTiming = isExtensionSupported(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
-
-            properties.limits.shaderExplicitVertexParameter = isExtensionSupported(VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME);
-
-            if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
-                properties.limits.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
-
-            if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
-                properties.limits.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
-
-            properties.limits.gpuShaderHalfFloatAMD = isExtensionSupported(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME);
-
-            properties.limits.shaderImageLoadStoreLod = isExtensionSupported(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
-
-            properties.limits.shaderTrinaryMinmax = isExtensionSupported(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
-
-            properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
-
-            properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
-
-            properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
-
-            properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
-
-            if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-                properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
-
-            if (isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME))
-                properties.limits.fragmentShaderBarycentric = fragmentShaderBarycentricFeatures.fragmentShaderBarycentric;
-            
-            if (isExtensionSupported(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME))
-                properties.limits.shaderEarlyAndLateFragmentTests = shaderEarlyAndLateFragmentTestsFeatures.shaderEarlyAndLateFragmentTests;
-
-            if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
-                properties.limits.shaderIntegerFunctions2 = intelShaderIntegerFunctions2.shaderIntegerFunctions2;
-            
-            if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
-                properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
-
-            properties.limits.queueFamilyForeign = isExtensionSupported(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
-        }
-
-        // we compare all limits against the defaults easily!
-        const SPhysicalDeviceLimits NablaCoreProfile = {};
-        if (!NablaCoreProfile.isSubsetOf(properties.limits))
-        {
-            logger.log("Not enumerating VkPhysicalDevice %p because its limits do not satisfy Nabla Core Profile!", system::ILogger::ELL_INFO, vk_physicalDevice);
+            logger.log(
+                "Not enumerating VkPhysicalDevice %p because its supported subgroup op bitmask is %d and we require at least %d!",
+                system::ILogger::ELL_INFO, vk_physicalDevice, vulkan11Properties.subgroupSupportedOperations, NablaSubgroupOperationMask
+            );
             return nullptr;
         }
+        properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
+        properties.limits.shaderSubgroupClustered = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
+        properties.limits.shaderSubgroupQuad = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_QUAD_BIT;
+        properties.limits.shaderSubgroupQuadAllStages = vulkan11Properties.subgroupQuadOperationsInAllStages;
 
-        // Get physical device's memory properties
-        SMemoryProperties memoryProperties = {};
+        properties.limits.pointClippingBehavior = static_cast<SLimits::E_POINT_CLIPPING_BEHAVIOR>(vulkan11Properties.pointClippingBehavior);
+
+        properties.limits.maxMultiviewViewCount = vulkan11Properties.maxMultiviewViewCount;
+        properties.limits.maxMultiviewInstanceIndex = vulkan11Properties.maxMultiviewInstanceIndex;
+
+        //vulkan11Properties.protectedNoFault;
+
+        properties.limits.maxPerSetDescriptors = vulkan11Properties.maxPerSetDescriptors;
+        properties.limits.maxMemoryAllocationSize = vulkan11Properties.maxMemoryAllocationSize;
+
+
+        /* Vulkan 1.2 Core  */
+        properties.driverID = getDriverIdFromVkDriverId(vulkan12Properties.driverID);
+        memcpy(properties.driverName, vulkan12Properties.driverName, VK_MAX_DRIVER_NAME_SIZE);
+        memcpy(properties.driverInfo, vulkan12Properties.driverInfo, VK_MAX_DRIVER_INFO_SIZE);
+        properties.conformanceVersion.major = vulkan12Properties.conformanceVersion.major;
+        properties.conformanceVersion.minor = vulkan12Properties.conformanceVersion.minor;
+        properties.conformanceVersion.subminor = vulkan12Properties.conformanceVersion.subminor;
+        properties.conformanceVersion.patch = vulkan12Properties.conformanceVersion.patch;
+            
+        // Helper bools :D
+        const bool isIntelGPU = (properties.driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || properties.driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
+        const bool isAMDGPU = (properties.driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || properties.driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
+        const bool isNVIDIAGPU = (properties.driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
+
+        //vulkan12Properties.denormBehaviorIndependence;
+        //vulkan12Properties.denormBehaviorIndependence;
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+            return nullptr;
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
+            return nullptr;
+        properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
+        properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
+        properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
+        properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
+        properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
+        properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
+        properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
+        properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
+        properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
+        properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
+        properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
+        properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
+        properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
+            
+        // descriptor indexing
+        properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
+        properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
+        properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
+        if (!vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative)
+            return nullptr;
+        properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
+        properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
+        if (!vulkan12Properties.robustBufferAccessUpdateAfterBind)
+            return nullptr;
+        properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindSSBOs               = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageBuffers;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindImages              = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSampledImages;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindStorageImages       = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindStorageImages;
+        properties.limits.maxPerStageDescriptorUpdateAfterBindInputAttachments    = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindInputAttachments;
+        properties.limits.maxPerStageUpdateAfterBindResources                     = vulkan12Properties.maxPerStageUpdateAfterBindResources;
+        properties.limits.maxDescriptorSetUpdateAfterBindSamplers                 = vulkan12Properties.maxDescriptorSetUpdateAfterBindSamplers;
+        properties.limits.maxDescriptorSetUpdateAfterBindUBOs                     = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffers;
+        properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetUBOs        = vulkan12Properties.maxDescriptorSetUpdateAfterBindUniformBuffersDynamic;
+        properties.limits.maxDescriptorSetUpdateAfterBindSSBOs                    = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffers;
+        properties.limits.maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs       = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageBuffersDynamic;
+        properties.limits.maxDescriptorSetUpdateAfterBindImages                   = vulkan12Properties.maxDescriptorSetUpdateAfterBindSampledImages;
+        properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageImages;
+        properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = vulkan12Properties.maxDescriptorSetUpdateAfterBindInputAttachments;
+
+        properties.limits.supportedDepthResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedDepthResolveModes);
+        properties.limits.supportedStencilResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedStencilResolveModes);
+        properties.limits.independentResolveNone = vulkan12Properties.independentResolveNone;
+        properties.limits.independentResolve = vulkan12Properties.independentResolve;
+
+        // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
+        properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
+
+        constexpr uint64_t ROADMAP2022TimelineSemahoreValueDifference = (0x1ull<<31u)-1ull;
+        if (vulkan12Properties.maxTimelineSemaphoreValueDifference<=ROADMAP2022TimelineSemahoreValueDifference)
+            return nullptr;
+
+        // don't deal with vulkan12PRoperties.framebufferIntegerColorSampleCounts, TODO report in usage
+
+
+        /* Vulkan 1.3 Core  */
+        properties.limits.minSubgroupSize = vulkan13Properties.minSubgroupSize;
+        properties.limits.maxSubgroupSize = vulkan13Properties.maxSubgroupSize;
+        properties.limits.maxComputeWorkgroupSubgroups = vulkan13Properties.maxComputeWorkgroupSubgroups;
+        properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan13Properties.requiredSubgroupSizeStages&VK_SHADER_STAGE_ALL);
+
+        // don't real with inline uniform blocks yet
+
+        properties.limits.integerDotProduct8BitUnsignedAccelerated = vulkan13Properties.integerDotProduct8BitUnsignedAccelerated;
+        properties.limits.integerDotProduct8BitSignedAccelerated = vulkan13Properties.integerDotProduct8BitSignedAccelerated;
+        properties.limits.integerDotProduct8BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct8BitMixedSignednessAccelerated;
+        properties.limits.integerDotProduct4x8BitPackedUnsignedAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedUnsignedAccelerated;
+        properties.limits.integerDotProduct4x8BitPackedSignedAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedSignedAccelerated;
+        properties.limits.integerDotProduct4x8BitPackedMixedSignednessAccelerated = vulkan13Properties.integerDotProduct4x8BitPackedMixedSignednessAccelerated;
+        properties.limits.integerDotProduct16BitUnsignedAccelerated = vulkan13Properties.integerDotProduct16BitUnsignedAccelerated;
+        properties.limits.integerDotProduct16BitSignedAccelerated = vulkan13Properties.integerDotProduct16BitSignedAccelerated;
+        properties.limits.integerDotProduct16BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct16BitMixedSignednessAccelerated;
+        properties.limits.integerDotProduct32BitUnsignedAccelerated = vulkan13Properties.integerDotProduct32BitUnsignedAccelerated;
+        properties.limits.integerDotProduct32BitSignedAccelerated = vulkan13Properties.integerDotProduct32BitSignedAccelerated;
+        properties.limits.integerDotProduct32BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct32BitMixedSignednessAccelerated;
+        properties.limits.integerDotProduct64BitUnsignedAccelerated = vulkan13Properties.integerDotProduct64BitUnsignedAccelerated;
+        properties.limits.integerDotProduct64BitSignedAccelerated = vulkan13Properties.integerDotProduct64BitSignedAccelerated;
+        properties.limits.integerDotProduct64BitMixedSignednessAccelerated = vulkan13Properties.integerDotProduct64BitMixedSignednessAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitUnsignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating8BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitSignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitUnsignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating16BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitSignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitUnsignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating32BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitSignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitUnsignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating64BitSignedAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitSignedAccelerated;
+        properties.limits.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = vulkan13Properties.integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated;
+
+        properties.limits.storageTexelBufferOffsetAlignmentBytes = vulkan13Properties.storageTexelBufferOffsetAlignmentBytes;
+        // vulkan13Properties.storageTexelBufferOffsetSingleTexelAlignment;
+        properties.limits.uniformTexelBufferOffsetAlignmentBytes = vulkan13Properties.uniformTexelBufferOffsetAlignmentBytes;
+        // vulkan13Properties.uniformTexelBufferOffsetSingleTexelAlignment;
+
+        properties.limits.maxBufferSize = vulkan13Properties.maxBufferSize;
+
+            
+        //! Nabla Core Extensions
+        properties.limits.minImportedHostPointerAlignment = externalMemoryHostPropertiesEXT.minImportedHostPointerAlignment;
+
+
+        //! Extensions
+        if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
         {
-            VkPhysicalDeviceMemoryProperties2 vk_physicalDeviceMemoryProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,nullptr};
-            vkGetPhysicalDeviceMemoryProperties2(vk_physicalDevice,&vk_physicalDeviceMemoryProperties);
-            memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypeCount;
-            for (uint32_t i=0; i<memoryProperties.memoryTypeCount; ++i)
-            {
-                memoryProperties.memoryTypes[i].heapIndex = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].heapIndex;
-                memoryProperties.memoryTypes[i].propertyFlags = getMemoryPropertyFlagsFromVkMemoryPropertyFlags(vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].propertyFlags);
-            }
-            memoryProperties.memoryHeapCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeapCount;
-            for (uint32_t i=0; i<memoryProperties.memoryHeapCount; ++i)
-            {
-                memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].size;
-                memoryProperties.memoryHeaps[i].flags = static_cast<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].flags);
-            }
+            properties.limits.primitiveOverestimationSize = conservativeRasterizationProperties.primitiveOverestimationSize;
+            properties.limits.maxExtraPrimitiveOverestimationSize = conservativeRasterizationProperties.maxExtraPrimitiveOverestimationSize;
+            properties.limits.extraPrimitiveOverestimationSizeGranularity = conservativeRasterizationProperties.extraPrimitiveOverestimationSizeGranularity;
+            properties.limits.primitiveUnderestimation = conservativeRasterizationProperties.primitiveUnderestimation;
+            properties.limits.conservativePointAndLineRasterization = conservativeRasterizationProperties.conservativePointAndLineRasterization;
+            properties.limits.degenerateTrianglesRasterized = conservativeRasterizationProperties.degenerateTrianglesRasterized;
+            properties.limits.degenerateLinesRasterized = conservativeRasterizationProperties.degenerateLinesRasterized;
+            properties.limits.fullyCoveredFragmentShaderInputVariable = conservativeRasterizationProperties.fullyCoveredFragmentShaderInputVariable;
+            properties.limits.conservativeRasterizationPostDepthCoverage = conservativeRasterizationProperties.conservativeRasterizationPostDepthCoverage;
         }
+            
+        if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
+            properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
+
+        if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            properties.limits.lineSubPixelPrecisionBits = lineRasterizationPropertiesEXT.lineSubPixelPrecisionBits;
+
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+        {
+            properties.limits.maxAccelerationStructureGeometryCount = accelerationStructureProperties.maxGeometryCount;
+            properties.limits.maxAccelerationStructureInstanceCount = accelerationStructureProperties.maxInstanceCount;
+            properties.limits.maxAccelerationStructurePrimitiveCount = accelerationStructureProperties.maxPrimitiveCount;
+            properties.limits.maxPerStageDescriptorAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorAccelerationStructures;
+            properties.limits.maxPerStageDescriptorUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxPerStageDescriptorUpdateAfterBindAccelerationStructures;
+            properties.limits.maxDescriptorSetAccelerationStructures = accelerationStructureProperties.maxDescriptorSetAccelerationStructures;
+            properties.limits.maxDescriptorSetUpdateAfterBindAccelerationStructures = accelerationStructureProperties.maxDescriptorSetUpdateAfterBindAccelerationStructures;
+            properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
+        }
+
+        if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
+        {
+            properties.limits.variableSampleLocations = sampleLocationsProperties.variableSampleLocations;
+            properties.limits.sampleLocationSubPixelBits = sampleLocationsProperties.sampleLocationSubPixelBits;
+            properties.limits.sampleLocationSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(sampleLocationsProperties.sampleLocationSampleCounts);
+            properties.limits.maxSampleLocationGridSize = sampleLocationsProperties.maxSampleLocationGridSize;
+            properties.limits.sampleLocationCoordinateRange[0] = sampleLocationsProperties.sampleLocationCoordinateRange[0];
+            properties.limits.sampleLocationCoordinateRange[1] = sampleLocationsProperties.sampleLocationCoordinateRange[1];
+        }
+
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+        {
+            properties.limits.minFragmentDensityTexelSize = fragmentDensityMapProperties.minFragmentDensityTexelSize;
+            properties.limits.maxFragmentDensityTexelSize = fragmentDensityMapProperties.maxFragmentDensityTexelSize;
+            properties.limits.fragmentDensityInvocations = fragmentDensityMapProperties.fragmentDensityInvocations;
+        }
+
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+        {
+            properties.limits.subsampledLoads = fragmentDensityMap2Properties.subsampledLoads;
+            properties.limits.subsampledCoarseReconstructionEarlyAccess = fragmentDensityMap2Properties.subsampledCoarseReconstructionEarlyAccess;
+            properties.limits.maxSubsampledArrayLayers = fragmentDensityMap2Properties.maxSubsampledArrayLayers;
+            properties.limits.maxDescriptorSetSubsampledSamplers = fragmentDensityMap2Properties.maxDescriptorSetSubsampledSamplers;
+        }
+            
+        if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
+        {
+            properties.limits.pciDomain   = PCIBusInfoProperties.pciDomain;
+            properties.limits.pciBus      = PCIBusInfoProperties.pciBus;
+            properties.limits.pciDevice   = PCIBusInfoProperties.pciDevice;
+            properties.limits.pciFunction = PCIBusInfoProperties.pciFunction;
+        }
+
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
+        {
+            if (rayTracingPipelineProperties.shaderGroupHandleSize!=32)
+            {
+                logger.log("Not enumerating VkPhysicalDevice %p because it reports limits of exact-type contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+                return nullptr;
+            }
+            properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
+            properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
+            properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;
+            properties.limits.maxRayDispatchInvocationCount = rayTracingPipelineProperties.maxRayDispatchInvocationCount;
+            properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
+            properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
+        }
+#if 0 //TODO
+        if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
+            properties.limits.cooperativeMatrixSupportedStages = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
+#endif
+
+
+        //! Nabla
+        if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
+        else if(isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
+            properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
+        //else if (isExtensionSupported(VK_ARM_..._EXTENSION_NAME)) TODO implement the ARM equivalent
+        else 
+            properties.limits.computeUnits = getMaxComputeUnitsFromDriverID(properties.driverID);
+            
+        properties.limits.dispatchBase = true;
+        properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
+        properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
+            
+        auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(properties.driverID);
+        if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+        {
+            constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
+            invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
+        }
+        properties.limits.maxResidentInvocations = properties.limits.computeUnits*invocationsPerComputeUnit;
+
+        /*
+            [NO NABLA SUPPORT] Vulkan 1.0 implementation must support the 1.0 version of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL. If the VK_KHR_spirv_1_4 extension is enabled, the implementation must additionally support the 1.4 version of SPIR-V.
+            [NO NABLA SUPPORT] A Vulkan 1.1 implementation must support the 1.0, 1.1, 1.2, and 1.3 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+            [NO NABLA SUPPORT] A Vulkan 1.2 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+            A Vulkan 1.3 implementation must support the 1.0, 1.1, 1.2, 1.3, 1.4, and 1.5 versions of SPIR-V and the 1.0 version of the SPIR-V Extended Instructions for GLSL.
+        */
+        properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
+    }
+
+
+    // Get physical device's features
+    SPhysicalDeviceFeatures features = {};
         
-        // and family props
-        qfam_props_array_t qfamProperties;
+    // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
+    // Table 51. Extension Feature Aliases (vkspec 1.3.211)
+    // Extension                               Feature(s)
+    // VK_KHR_shader_draw_parameters           shaderDrawParameters
+    // VK_KHR_draw_indirect_count              drawIndirectCount
+    // VK_KHR_sampler_mirror_clamp_to_edge     samplerMirrorClampToEdge
+    // VK_EXT_descriptor_indexing              descriptorIndexing
+    // VK_EXT_sampler_filter_minmax            samplerFilterMinmax
+    // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
+    // but we enable them all from Vulkan1XFeatures anyway!
+
+    // Extensions
+    {
+        VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+        setPNextChainTail(&deviceFeatures);
+        // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Features`
+        VkPhysicalDeviceVulkan11Features                                vulkan11Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
+        addToPNextChain(&vulkan11Features);
+        //! Declare all the property structs before so they don't go out of scope
+        //! Provided by Vk 1.2
+        VkPhysicalDeviceVulkan12Features                                vulkan12Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+        addToPNextChain(&vulkan12Features);
+        //! Provided by Vk 1.3
+        VkPhysicalDeviceVulkan13Features                                vulkan13Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+        addToPNextChain(&vulkan13Features);
+        //! Nabla Core Profile Features
+        VkPhysicalDeviceRobustness2FeaturesEXT                          robustness2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT };
+        addToPNextChain(&robustness2Features);
+        //! Extensions as Features
+        VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
+        VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT              fragmentShaderInterlockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT };
+        VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT };
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR                accelerationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+        VkPhysicalDeviceRayTracingPipelineFeaturesKHR                   rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+        VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV };
+        VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV };
+        VkPhysicalDeviceRepresentativeFragmentTestFeaturesNV            representativeFragmentTestFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_REPRESENTATIVE_FRAGMENT_TEST_FEATURES_NV };
+        VkPhysicalDeviceConditionalRenderingFeaturesEXT                 conditionalRenderingFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT };
+        VkPhysicalDeviceFragmentDensityMapFeaturesEXT                   fragmentDensityMapFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_FEATURES_EXT };
+        VkPhysicalDeviceFragmentDensityMap2FeaturesEXT                  fragmentDensityMap2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_FEATURES_EXT };
+        VkPhysicalDeviceLineRasterizationFeaturesEXT                    lineRasterizationFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT };
+        VkPhysicalDeviceMemoryPriorityFeaturesEXT                       memoryPriorityFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PRIORITY_FEATURES_EXT };
+        VkPhysicalDevicePerformanceQueryFeaturesKHR                     performanceQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR };
+        VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR         pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR };
+        VkPhysicalDeviceCoherentMemoryFeaturesAMD                       coherentMemoryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COHERENT_MEMORY_FEATURES_AMD };
+#if 0
+        VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
+#endif
+        if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
+            addToPNextChain(&rasterizationOrderAttachmentAccessFeatures);
+        if (isExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
+            addToPNextChain(&fragmentShaderInterlockFeatures);
+        if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
+            addToPNextChain(&indexTypeUint8Features);
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+            addToPNextChain(&accelerationFeatures);
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
+            addToPNextChain(&rayTracingPipelineFeatures);
+        if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
+            addToPNextChain(&rayTracingMotionBlurFeatures);
+        if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
+            addToPNextChain(&deviceGeneratedCommandsFeatures);
+        if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
+            addToPNextChain(&representativeFragmentTestFeatures);
+        if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
+            addToPNextChain(&conditionalRenderingFeatures);
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+            addToPNextChain(&fragmentDensityMapFeatures);
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+            addToPNextChain(&fragmentDensityMap2Features);
+        if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+            addToPNextChain(&lineRasterizationFeatures);
+        if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+            addToPNextChain(&memoryPriorityFeatures);
+        if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
+            addToPNextChain(&performanceQueryFeatures);
+        if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
+            addToPNextChain(&pipelineExecutablePropertiesFeatures);
+        if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
+            addToPNextChain(&coherentMemoryFeatures);
+        //! NAbla Core Profile Limits
+        VkPhysicalDeviceShaderAtomicFloatFeaturesEXT                    shaderAtomicFloatFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT };
+        addToPNextChain(&shaderAtomicFloatFeatures);
+        //! Extensions as Limits
+        VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT                   shaderAtomicFloat2Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT };
+        VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shaderImageAtomicInt64Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT };
+        VkPhysicalDeviceShaderClockFeaturesKHR                          shaderClockFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR };
+        VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR };
+        VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR };
+        VkPhysicalDeviceComputeShaderDerivativesFeaturesNV              computeShaderDerivativesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV };
+        VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
+        VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT };
+        VkPhysicalDeviceShaderSMBuiltinsFeaturesNV                      shaderSMBuiltinsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV };
+        VkPhysicalDeviceFragmentShaderBarycentricFeaturesKHR            fragmentShaderBarycentricFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_BARYCENTRIC_FEATURES_KHR };
+        VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesAMD      shaderEarlyAndLateFragmentTestsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_FEATURES_AMD };
+        VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL            intelShaderIntegerFunctions2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL };
+        VkPhysicalDeviceShaderImageFootprintFeaturesNV                  shaderImageFootprintFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_FOOTPRINT_FEATURES_NV };
+        if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME))
+            addToPNextChain(&shaderAtomicFloat2Features);
+        if (isExtensionSupported(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME))
+            addToPNextChain(&shaderImageAtomicInt64Features);
+        if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
+            addToPNextChain(&shaderClockFeatures);
+        if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
+            addToPNextChain(&subgroupUniformControlFlowFeatures);
+        if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
+            addToPNextChain(&workgroupMemoryExplicitLayout);
+        if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
+            addToPNextChain(&computeShaderDerivativesFeatures);
+        if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
+            addToPNextChain(&colorWriteEnableFeatures);
+        if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
+            addToPNextChain(&deviceMemoryReportFeatures);
+        if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            addToPNextChain(&shaderSMBuiltinsFeatures);
+        if (isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME))
+            addToPNextChain(&fragmentShaderBarycentricFeatures);
+        if (isExtensionSupported(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME))
+            addToPNextChain(&shaderEarlyAndLateFragmentTestsFeatures);
+        if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
+            addToPNextChain(&intelShaderIntegerFunctions2);
+        if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
+            addToPNextChain(&shaderImageFootprintFeatures);
+        // call
+        finalizePNextChain();
+        vkGetPhysicalDeviceFeatures2(vk_physicalDevice,&deviceFeatures);
+
+
+        /* Vulkan 1.0 Core  */
+        features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
+            
+        if (!deviceFeatures.features.fullDrawIndexUint32)
+            return nullptr;
+        if (!deviceFeatures.features.imageCubeArray)
+            return nullptr;
+        if (!deviceFeatures.features.independentBlend)
+            return nullptr;
+            
+        features.geometryShader = deviceFeatures.features.geometryShader;
+        features.tessellationShader = deviceFeatures.features.tessellationShader;
+            
+        if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
+            return nullptr;
+        properties.limits.logicOp = deviceFeatures.features.logicOp;
+            
+        if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance)
+            return nullptr;
+        if (!deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
+            return nullptr;
+
+        if (!deviceFeatures.features.fillModeNonSolid)
+            return nullptr;
+            
+        features.depthBounds = deviceFeatures.features.depthBounds;
+
+        features.wideLines = deviceFeatures.features.wideLines;
+        features.largePoints = deviceFeatures.features.largePoints;
+
+        if (!deviceFeatures.features.alphaToOne)
+            return nullptr;
+
+        if (!deviceFeatures.features.multiViewport)
+            return nullptr;
+
+        if (!deviceFeatures.features.samplerAnisotropy)
+            return nullptr;
+
+        // no checking of deviceFeatures.features.textureCompression...
+
+        if (!deviceFeatures.features.occlusionQueryPrecise)
+            return nullptr;
+        features.pipelineStatisticsQuery = deviceFeatures.features.pipelineStatisticsQuery;
+
+        properties.limits.vertexPipelineStoresAndAtomics = deviceFeatures.features.vertexPipelineStoresAndAtomics;
+        properties.limits.fragmentStoresAndAtomics = deviceFeatures.features.fragmentStoresAndAtomics;
+        properties.limits.shaderTessellationAndGeometryPointSize = deviceFeatures.features.shaderTessellationAndGeometryPointSize;
+            
+        if (!deviceFeatures.features.shaderImageGatherExtended)
+            return nullptr;
+        if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
+            return nullptr;
+        properties.limits.shaderStorageImageMultisample = deviceFeatures.features.shaderStorageImageMultisample;
+        properties.limits.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
+        if (!deviceFeatures.features.shaderStorageImageWriteWithoutFormat)
+            return nullptr;
+
+        if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
+            return nullptr;
+        properties.limits.shaderStorageImageArrayDynamicIndexing = deviceFeatures.features.shaderStorageImageArrayDynamicIndexing;
+
+        if (!deviceFeatures.features.shaderClipDistance)
+            return nullptr;
+        features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
+
+        properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
+        if (!deviceFeatures.features.shaderInt16)
+            return nullptr;
+        if (!deviceFeatures.features.shaderInt64)
+            return nullptr;
+
+        features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;
+        features.shaderResourceMinLod = deviceFeatures.features.shaderResourceMinLod;
+
+        // TODO sparse stuff
+
+        properties.limits.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
+        if (!deviceFeatures.features.inheritedQueries)
+            return nullptr;
+            
+
+        /* Vulkan 1.1 Core  */
+        if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
+            return nullptr;
+        properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
+        properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
+
+        if (!vulkan11Features.multiview)
+            return nullptr;
+        properties.limits.multiviewGeometryShader = vulkan11Features.multiviewGeometryShader;
+        properties.limits.multiviewTessellationShader = vulkan11Features.multiviewTessellationShader;
+
+        if (!vulkan11Features.variablePointers || !vulkan11Features.variablePointersStorageBuffer)
+            return nullptr;
+
+        // could check protectedMemory and YcbcrConversion but no point in doing so yet
+            
+        if (!vulkan11Features.shaderDrawParameters)
+            return nullptr;
+
+            
+        /* Vulkan 1.2 Core  */
+        if (!vulkan12Features.samplerMirrorClampToEdge)
+            return nullptr;
+
+        properties.limits.drawIndirectCount = vulkan12Features.drawIndirectCount;
+
+        if (!vulkan12Features.storageBuffer8BitAccess || !vulkan12Features.uniformAndStorageBuffer8BitAccess)
+            return nullptr;
+        properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
+
+        properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
+        properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
+
+        properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
+        if (!vulkan12Features.shaderInt8)
+            return nullptr;
+            
+        if (!vulkan12Features.descriptorIndexing)
+            return nullptr;
+        // dynamically uniform
+        properties.limits.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
+        if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
+            return nullptr;
+        // not uniform at all
+        properties.limits.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
+        if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
+            return nullptr;
+        properties.limits.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
+        if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
+            return nullptr;
+        // update after bind
+        properties.limits.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
+        if (!vulkan12Features.descriptorBindingSampledImageUpdateAfterBind || !vulkan12Features.descriptorBindingStorageImageUpdateAfterBind ||
+            !vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
+            !vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUpdateUnusedWhilePending)
+            return nullptr;
+        if (!vulkan12Features.descriptorBindingPartiallyBound || !vulkan12Features.descriptorBindingVariableDescriptorCount)
+            return nullptr;
+        if (!vulkan12Features.runtimeDescriptorArray)
+            return nullptr;
+
+        properties.limits.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
+
+        if (!vulkan12Features.scalarBlockLayout)
+            return nullptr;
+            
+        // not checking imageless Framebuffer
+
+        if (!vulkan12Features.uniformBufferStandardLayout)
+            return nullptr;
+
+        if (!vulkan12Features.shaderSubgroupExtendedTypes)
+            return nullptr;
+            
+        if (!vulkan12Features.separateDepthStencilLayouts)
+            return nullptr;
+            
+        if (!vulkan12Features.hostQueryReset)
+            return nullptr;
+            
+        if (!vulkan12Features.timelineSemaphore)
+            return nullptr;
+
+        if (!vulkan12Features.bufferDeviceAddress)
+            return nullptr;
+        features.bufferDeviceAddressMultiDevice = vulkan12Features.bufferDeviceAddressMultiDevice;
+
+        if (!vulkan12Features.vulkanMemoryModel || !vulkan12Features.vulkanMemoryModelDeviceScope)
+            return nullptr;
+        properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
+
+        properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
+        properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
+
+        if (!vulkan12Features.subgroupBroadcastDynamicId)
+            return nullptr;
+
+
+        /* Vulkan 1.3 Core  */
+        features.robustImageAccess = vulkan13Features.robustImageAccess;
+
+        // not checking inline uniform blocks yet
+
+        if (!vulkan13Features.pipelineCreationCacheControl)
+            return nullptr;
+
+        // not checking privateData
+
+        properties.limits.shaderDemoteToHelperInvocation = vulkan13Features.shaderDemoteToHelperInvocation;
+        properties.limits.shaderTerminateInvocation = vulkan13Features.shaderTerminateInvocation;
+
+        if (!vulkan13Features.subgroupSizeControl || !vulkan13Features.computeFullSubgroups)
+            return nullptr;
+
+        if (!vulkan13Features.synchronization2)
+            return nullptr;
+
+        // not checking textureCompressionASTC_HDR
+
+        properties.limits.shaderZeroInitializeWorkgroupMemory = vulkan13Features.shaderZeroInitializeWorkgroupMemory;
+
+        // not checking dynamicRendering
+
+        if (!vulkan13Features.shaderIntegerDotProduct)
+            return nullptr;
+        if (!vulkan13Features.maintenance4)
+            return nullptr;
+
+
+        /* Nabla Core Profile as Features */
+        features.robustBufferAccess2 = robustness2Features.robustBufferAccess2;
+        features.robustImageAccess2 = robustness2Features.robustImageAccess2;
+        features.nullDescriptor = robustness2Features.nullDescriptor;
+
+
+        /* Vulkan Extensions as Features */
+        if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
         {
-            core::vector<VkQueueFamilyProperties2> qfamprops;
+            features.rasterizationOrderColorAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess;
+            features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
+            features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
+        }
+
+        if (isExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME))
+        {
+            features.fragmentShaderPixelInterlock = fragmentShaderInterlockFeatures.fragmentShaderPixelInterlock;
+            features.fragmentShaderSampleInterlock = fragmentShaderInterlockFeatures.fragmentShaderSampleInterlock;
+            features.fragmentShaderShadingRateInterlock = fragmentShaderInterlockFeatures.fragmentShaderShadingRateInterlock;
+        }
+
+        if (isExtensionSupported(VK_EXT_INDEX_TYPE_UINT8_EXTENSION_NAME))
+            features.indexTypeUint8 = indexTypeUint8Features.indexTypeUint8;
+
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+        {
+            features.accelerationStructure = accelerationFeatures.accelerationStructure;
+            features.accelerationStructureIndirectBuild = accelerationFeatures.accelerationStructureIndirectBuild;
+            features.accelerationStructureHostCommands = accelerationFeatures.accelerationStructureHostCommands;
+            if (!accelerationFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
             {
-                uint32_t qfamCount = 0u;
-                vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,nullptr);
-                qfamprops.resize(qfamCount,{VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr});
-                vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,qfamprops.data());
-            }
-            qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamprops.size());
-            auto outIt = qfamProperties->begin();
-            for (auto in : qfamprops)
-            {
-                const auto& vkqf = in.queueFamilyProperties;
-                outIt->queueCount = vkqf.queueCount;
-                outIt->queueFlags = static_cast<IQueue::FAMILY_FLAGS>(vkqf.queueFlags);
-                outIt->timestampValidBits = vkqf.timestampValidBits;
-                outIt->minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
-                outIt++;
+                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+                return nullptr;
             }
         }
 
-        // Set Format Usages
-        for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+        features.rayQuery = isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
         {
-            const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
-            bool skip = false;
-            switch (format)
+            features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
+            if (!rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect)
             {
-                case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
-                case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
-                case asset::EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
-                case asset::EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
-                case asset::EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
-                case asset::EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
-                case asset::EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
-                case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
-                    if (!isExtensionSupported(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME))
-                        skip = true;
-                    break;
+                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+                return nullptr;
             }
-            if (skip)
-                continue;
-
-            VkFormatProperties2 vk_formatProps = {VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,nullptr};
-            vkGetPhysicalDeviceFormatProperties2(vk_physicalDevice,getVkFormatFromFormat(format),&vk_formatProps);
-
-            // TODO: Upgrade to `VkFormatFeatureFlags2`
-            const VkFormatFeatureFlags linearTilingFeatures = vk_formatProps.formatProperties.linearTilingFeatures;
-            const VkFormatFeatureFlags optimalTilingFeatures = vk_formatProps.formatProperties.optimalTilingFeatures;
-            const VkFormatFeatureFlags bufferFeatures = vk_formatProps.formatProperties.bufferFeatures;
-
-            m_linearTilingUsages[format] = {};
-            m_linearTilingUsages[format].sampledImage = (linearTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) ? 1 : 0;
-            m_linearTilingUsages[format].storageImage = (linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].storageImageAtomic = (linearTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].attachment = (linearTilingFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)) ? 1 : 0;
-            m_linearTilingUsages[format].attachmentBlend = (linearTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].blitSrc = (linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].blitDst = (linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].transferSrc = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT) ? 1 : 0;
-            m_linearTilingUsages[format].transferDst = (linearTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT) ? 1 : 0;
-            // m_linearTilingUsages[format].log2MaxSmples = ; // Todo(Erfan)
-            
-            m_optimalTilingUsages[format] = {};
-            m_optimalTilingUsages[format].sampledImage = optimalTilingFeatures & (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT) ? 1 : 0;
-            m_optimalTilingUsages[format].storageImage = optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].storageImageAtomic = optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].attachment = optimalTilingFeatures & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) ? 1 : 0;
-            m_optimalTilingUsages[format].attachmentBlend = optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].blitSrc = optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].blitDst = optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].transferSrc = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_SRC_BIT ? 1 : 0;
-            m_optimalTilingUsages[format].transferDst = optimalTilingFeatures & VK_FORMAT_FEATURE_TRANSFER_DST_BIT ? 1 : 0;
-            // m_optimalTilingUsages[format].log2MaxSmples = ; // Todo(Erfan)
-            
-            m_bufferUsages[format] = {};
-            m_bufferUsages[format].vertexAttribute = (bufferFeatures & VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) ? 1 : 0;
-            m_bufferUsages[format].bufferView = (bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) ? 1 : 0;
-            m_bufferUsages[format].storageBufferView = (bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT) ? 1 : 0;
-            m_bufferUsages[format].storageBufferViewAtomic = (bufferFeatures & VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT) ? 1 : 0;
-            m_bufferUsages[format].accelerationStructureVertex = (bufferFeatures & VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR) ? 1 : 0;
+            if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
+            {
+                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+                return nullptr;
+            }
+            features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
-#endif        
+
+        if (isExtensionSupported(VK_NV_RAY_TRACING_MOTION_BLUR_EXTENSION_NAME))
+        {
+            features.rayTracingMotionBlur = rayTracingMotionBlurFeatures.rayTracingMotionBlur;
+            features.rayTracingMotionBlurPipelineTraceRaysIndirect = rayTracingMotionBlurFeatures.rayTracingMotionBlurPipelineTraceRaysIndirect;
+        }
+
+        if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
+            features.deviceGeneratedCommands = deviceGeneratedCommandsFeatures.deviceGeneratedCommands;
+
+        if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
+            features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
+
+        features.mixedAttachmentSamples = isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME);
+
+        features.hdrMetadata = isExtensionSupported(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+
+        features.shaderInfoAMD = isExtensionSupported(VK_AMD_SHADER_INFO_EXTENSION_NAME);
+
+        if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
+        {
+            features.conditionalRendering = conditionalRenderingFeatures.conditionalRendering;
+            features.inheritedConditionalRendering = conditionalRenderingFeatures.inheritedConditionalRendering;
+        }
+
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
+        {
+            features.fragmentDensityMap = fragmentDensityMapFeatures.fragmentDensityMap;
+            features.fragmentDensityMapDynamic = fragmentDensityMapFeatures.fragmentDensityMapDynamic;
+            features.fragmentDensityMapNonSubsampledImages = fragmentDensityMapFeatures.fragmentDensityMapNonSubsampledImages;
+        }
+
+        if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
+        {
+            features.fragmentDensityMapDeferred = fragmentDensityMap2Features.fragmentDensityMapDeferred;
+        }
+
+        if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
+        {
+            features.rectangularLines = lineRasterizationFeatures.rectangularLines;
+            features.bresenhamLines = lineRasterizationFeatures.bresenhamLines;
+            features.smoothLines = lineRasterizationFeatures.smoothLines;
+            features.stippledRectangularLines = lineRasterizationFeatures.stippledRectangularLines;
+            features.stippledBresenhamLines = lineRasterizationFeatures.stippledBresenhamLines;
+            features.stippledSmoothLines = lineRasterizationFeatures.stippledSmoothLines;
+        }
+
+        if (isExtensionSupported(VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME))
+            features.memoryPriority = memoryPriorityFeatures.memoryPriority;
+
+        if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
+        {
+            features.performanceCounterQueryPools = performanceQueryFeatures.performanceCounterQueryPools;
+            features.performanceCounterMultipleQueryPools = performanceQueryFeatures.performanceCounterMultipleQueryPools;
+        }
+
+        if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
+            features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
+
+        if (isExtensionSupported(VK_AMD_DEVICE_COHERENT_MEMORY_EXTENSION_NAME))
+            features.deviceCoherentMemory = coherentMemoryFeatures.deviceCoherentMemory;
+
+        features.bufferMarkerAMD = isExtensionSupported(VK_AMD_BUFFER_MARKER_EXTENSION_NAME);
+
+        features.geometryShaderPassthrough = isExtensionSupported(VK_NV_GEOMETRY_SHADER_PASSTHROUGH_EXTENSION_NAME);
+
+        if (isExtensionSupported(VK_KHR_SWAPCHAIN_EXTENSION_NAME))
+            features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+
+        features.deferredHostOperations = isExtensionSupported(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+#if 0
+        if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
+            features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
+#endif
+
+
+        /* Nabla Core Profile as Limits */
+        if (!shaderAtomicFloatFeatures.shaderBufferFloat32Atomics)
+            return nullptr;
+        properties.limits.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
+        properties.limits.shaderBufferFloat64Atomics = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
+        properties.limits.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
+        if (!shaderAtomicFloatFeatures.shaderSharedFloat32Atomics)
+            return nullptr;
+        properties.limits.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
+        properties.limits.shaderSharedFloat64Atomics = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
+        properties.limits.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
+        properties.limits.shaderImageFloat32Atomics = shaderAtomicFloatFeatures.shaderImageFloat32Atomics;
+        properties.limits.shaderImageFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
+        properties.limits.sparseImageFloat32Atomics = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
+        properties.limits.sparseImageFloat32AtomicAdd = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
+
+
+        /* Vulkan Extensions as Limits */
+        if (isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_2_EXTENSION_NAME))
+        {
+            properties.limits.shaderBufferFloat16Atomics = shaderAtomicFloat2Features.shaderBufferFloat16Atomics;
+            properties.limits.shaderBufferFloat16AtomicAdd = shaderAtomicFloat2Features.shaderBufferFloat16AtomicAdd;
+            properties.limits.shaderBufferFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat16AtomicMinMax;
+            properties.limits.shaderBufferFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat32AtomicMinMax;
+            properties.limits.shaderBufferFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderBufferFloat64AtomicMinMax;
+            properties.limits.shaderSharedFloat16Atomics = shaderAtomicFloat2Features.shaderSharedFloat16Atomics;
+            properties.limits.shaderSharedFloat16AtomicAdd = shaderAtomicFloat2Features.shaderSharedFloat16AtomicAdd;
+            properties.limits.shaderSharedFloat16AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat16AtomicMinMax;
+            properties.limits.shaderSharedFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat32AtomicMinMax;
+            properties.limits.shaderSharedFloat64AtomicMinMax = shaderAtomicFloat2Features.shaderSharedFloat64AtomicMinMax;
+            properties.limits.shaderImageFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderImageFloat32AtomicMinMax;
+            properties.limits.sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax;
+        }
+
+        if (isExtensionSupported(VK_EXT_SHADER_IMAGE_ATOMIC_INT64_EXTENSION_NAME))
+        {
+            properties.limits.shaderImageInt64Atomics = shaderImageAtomicInt64Features.shaderImageInt64Atomics;
+            properties.limits.sparseImageInt64Atomics = shaderImageAtomicInt64Features.sparseImageInt64Atomics;
+        }
+
+        if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
+        {
+            if (!shaderClockFeatures.shaderSubgroupClock)
+                return nullptr;
+            properties.limits.shaderDeviceClock = shaderClockFeatures.shaderDeviceClock;
+        }
+
+        if (isExtensionSupported(VK_KHR_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_EXTENSION_NAME))
+            properties.limits.shaderSubgroupUniformControlFlow = subgroupUniformControlFlowFeatures.shaderSubgroupUniformControlFlow;
+
+        if (isExtensionSupported(VK_KHR_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_EXTENSION_NAME))
+        {
+            properties.limits.workgroupMemoryExplicitLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout;
+            properties.limits.workgroupMemoryExplicitLayoutScalarBlockLayout = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayoutScalarBlockLayout;
+            properties.limits.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
+            properties.limits.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
+        }
+
+        if (isExtensionSupported(VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME))
+        {
+            properties.limits.computeDerivativeGroupQuads = computeShaderDerivativesFeatures.computeDerivativeGroupQuads;
+            properties.limits.computeDerivativeGroupLinear = computeShaderDerivativesFeatures.computeDerivativeGroupLinear;
+        }
+
+        properties.limits.displayTiming = isExtensionSupported(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME);
+
+        properties.limits.shaderExplicitVertexParameter = isExtensionSupported(VK_AMD_SHADER_EXPLICIT_VERTEX_PARAMETER_EXTENSION_NAME);
+
+        if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
+            properties.limits.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
+
+        if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
+            properties.limits.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
+
+        properties.limits.gpuShaderHalfFloatAMD = isExtensionSupported(VK_AMD_GPU_SHADER_HALF_FLOAT_EXTENSION_NAME);
+
+        properties.limits.shaderImageLoadStoreLod = isExtensionSupported(VK_AMD_SHADER_IMAGE_LOAD_STORE_LOD_EXTENSION_NAME);
+
+        properties.limits.shaderTrinaryMinmax = isExtensionSupported(VK_AMD_SHADER_TRINARY_MINMAX_EXTENSION_NAME);
+
+        properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
+
+        properties.limits.shaderStencilExport = isExtensionSupported(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
+
+        properties.limits.decorateString = isExtensionSupported(VK_GOOGLE_DECORATE_STRING_EXTENSION_NAME);
+
+        properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
+
+        if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
+            properties.limits.shaderSMBuiltins = shaderSMBuiltinsFeatures.shaderSMBuiltins;
+
+        if (isExtensionSupported(VK_KHR_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME))
+            properties.limits.fragmentShaderBarycentric = fragmentShaderBarycentricFeatures.fragmentShaderBarycentric;
+            
+        if (isExtensionSupported(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME))
+            properties.limits.shaderEarlyAndLateFragmentTests = shaderEarlyAndLateFragmentTestsFeatures.shaderEarlyAndLateFragmentTests;
+
+        if (isExtensionSupported(VK_INTEL_SHADER_INTEGER_FUNCTIONS_2_EXTENSION_NAME))
+            properties.limits.shaderIntegerFunctions2 = intelShaderIntegerFunctions2.shaderIntegerFunctions2;
+            
+        if (isExtensionSupported(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME))
+            properties.limits.imageFootprint = shaderImageFootprintFeatures.imageFootprint;
+
+        properties.limits.queueFamilyForeign = isExtensionSupported(VK_EXT_QUEUE_FAMILY_FOREIGN_EXTENSION_NAME);
+    }
+
+    // we compare all limits against the defaults easily!
+    const SPhysicalDeviceLimits NablaCoreProfile = {};
+    if (!NablaCoreProfile.isSubsetOf(properties.limits))
+    {
+        logger.log("Not enumerating VkPhysicalDevice %p because its limits do not satisfy Nabla Core Profile!", system::ILogger::ELL_INFO, vk_physicalDevice);
+        return nullptr;
+    }
+
+    // Get physical device's memory properties
+    SMemoryProperties memoryProperties = {};
+    {
+        VkPhysicalDeviceMemoryProperties2 vk_physicalDeviceMemoryProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,nullptr};
+        vkGetPhysicalDeviceMemoryProperties2(vk_physicalDevice,&vk_physicalDeviceMemoryProperties);
+        memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypeCount;
+        for (uint32_t i=0; i<memoryProperties.memoryTypeCount; ++i)
+        {
+            memoryProperties.memoryTypes[i].heapIndex = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].heapIndex;
+            memoryProperties.memoryTypes[i].propertyFlags = getMemoryPropertyFlagsFromVkMemoryPropertyFlags(vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypes[i].propertyFlags);
+        }
+        memoryProperties.memoryHeapCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeapCount;
+        for (uint32_t i=0; i<memoryProperties.memoryHeapCount; ++i)
+        {
+            memoryProperties.memoryHeaps[i].size = vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].size;
+            memoryProperties.memoryHeaps[i].flags = static_cast<IDeviceMemoryAllocation::E_MEMORY_HEAP_FLAGS>(vk_physicalDeviceMemoryProperties.memoryProperties.memoryHeaps[i].flags);
+        }
+    }
+        
+    // and family props
+    qfam_props_array_t qfamProperties;
+    {
+        core::vector<VkQueueFamilyProperties2> qfamprops;
+        {
+            uint32_t qfamCount = 0u;
+            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,nullptr);
+            qfamprops.resize(qfamCount,{VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr});
+            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,qfamprops.data());
+        }
+        qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamprops.size());
+        auto outIt = qfamProperties->begin();
+        for (auto in : qfamprops)
+        {
+            const auto& vkqf = in.queueFamilyProperties;
+            outIt->queueCount = vkqf.queueCount;
+            outIt->queueFlags = static_cast<IQueue::FAMILY_FLAGS>(vkqf.queueFlags);
+            outIt->timestampValidBits = vkqf.timestampValidBits;
+            outIt->minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
+            outIt++;
+        }
+    }
+
+    // Set Format Usages
+    SFormatImageUsages linearTilingUsages;
+    SFormatImageUsages optimalTilingUsages;
+    SFormatBufferUsages bufferUsages;
+    auto anyFlag = [](const VkFormatFeatureFlagBits2 features, const VkFormatFeatureFlagBits2 flags)->bool{return features&flags;};
+    auto convert = [anyFlag](const VkFormatFeatureFlagBits2 features)->SFormatImageUsages::SUsage
+    {
+        SFormatImageUsages::SUsage retval = {};
+        retval.sampledImage = anyFlag(features, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT);
+        retval.linearlySampledImage = anyFlag(features, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_LINEAR_BIT);
+        retval.storageImage = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT);
+        retval.storageImageAtomic = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_IMAGE_ATOMIC_BIT);
+        retval.attachment = anyFlag(features, VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT);
+        retval.attachmentBlend = anyFlag(features, VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BLEND_BIT);
+        retval.blitSrc = anyFlag(features, VK_FORMAT_FEATURE_2_BLIT_SRC_BIT);
+        retval.blitDst = anyFlag(features, VK_FORMAT_FEATURE_2_BLIT_DST_BIT);
+        retval.transferSrc = anyFlag(features, VK_FORMAT_FEATURE_2_TRANSFER_SRC_BIT);
+        retval.transferDst = anyFlag(features, VK_FORMAT_FEATURE_2_TRANSFER_DST_BIT);
+//        retval.videoDecodeOutput = anyFlag(features, VK_FORMAT_FEATURE_2_VIDEO_DECODE_OUTPUT_BIT_KHR);
+//        retval.videoDecodeDPB = anyFlag(features, VK_FORMAT_FEATURE_2_VIDEO_DECODE_DPB_BIT_KHR);
+//        retval.videoEncodeInput = anyFlag(features, VK_FORMAT_FEATURE_2_VIDEO_ENCODE_INPUT_BIT_KHR);
+//        retval.videoEncodeDPB = anyFlag(features, VK_FORMAT_FEATURE_2_VIDEO_ENCODE_DPB_BIT_KHR);
+        retval.storageImageLoadWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
+        retval.storageImageStoreWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
+        retval.depthCompareSampledImage = anyFlag(features, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT);
+//        retval.hostImageTransfer = anyFlag(features, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT);
+        //retval.log2MaxSmples = ; // Todo(Erfan)
+        return retval;
+    };
+    for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+    {
+        const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(i);
+        bool skip = false;
+        switch (format)
+        {
+            case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
+            case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
+            case asset::EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
+            case asset::EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
+            case asset::EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
+            case asset::EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
+            case asset::EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
+            case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
+                if (!isExtensionSupported(VK_IMG_FORMAT_PVRTC_EXTENSION_NAME))
+                    skip = true;
+                break;
+        }
+        if (skip)
+            continue;
+
+        VkFormatProperties3 vk_formatProps = {VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3,nullptr};
+        VkFormatProperties2 dummy = {VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,&vk_formatProps};
+        vkGetPhysicalDeviceFormatProperties2(vk_physicalDevice,getVkFormatFromFormat(format),&dummy);
+
+        linearTilingUsages[format] = convert(vk_formatProps.linearTilingFeatures);
+        optimalTilingUsages[format] = convert(vk_formatProps.optimalTilingFeatures);
+
+        const VkFormatFeatureFlags2 bufferFeatures = vk_formatProps.bufferFeatures;
+        bufferUsages[format] = {};
+        bufferUsages[format].vertexAttribute = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_VERTEX_BUFFER_BIT);
+        bufferUsages[format].bufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_UNIFORM_TEXEL_BUFFER_BIT);
+        bufferUsages[format].storageBufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_BIT);
+        bufferUsages[format].storageBufferViewAtomic = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_ATOMIC_BIT);
+        bufferUsages[format].accelerationStructureVertex = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR);
+        bufferUsages[format].storageBufferViewLoadWithoutFormat = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
+        bufferUsages[format].storageBufferViewStoreWithoutFormat = anyFlag(bufferFeatures, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
+//        bufferUsages[format].opticalFlowImage = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_IMAGE_BIT_NV);
+//        bufferUsages[format].opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
+//        bufferUsages[format].opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
+    }
+      
     return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>(sys),api,rdoc,vk_physicalDevice));
 }
 
