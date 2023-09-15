@@ -515,21 +515,10 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_MAX_FRAMEBUFFER_HEIGHT",limits.maxFramebufferHeight);
         addShaderDefineToPool(pool,"NBL_MAX_FRAMEBUFFER_LAYERS",limits.maxFramebufferLayers);
         // TODO: for enums we should also define the values we'd be checking for (but not inject here as a macro)
-        addShaderDefineToPool(pool,"NBL_FRAMEBUFFER_COLOR_SAMPLE_COUNTS",static_cast<uint32_t>(limits.framebufferColorSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_FRAMEBUFFER_DEPTH_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferDepthSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_FRAMEBUFFER_STENCIL_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferStencilSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_FRAMEBUFFER_NO_ATTACHMENTS_SAMPLE_COUNTS", static_cast<uint32_t>(limits.framebufferNoAttachmentsSampleCounts.value));
         addShaderDefineToPool(pool,"NBL_MAX_COLOR_ATTACHMENTS",limits.maxColorAttachments);
-
-        addShaderDefineToPool(pool,"NBL_SAMPLED_IMAGE_COLOR_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageColorSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_SAMPLED_IMAGE_INTEGER_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageIntegerSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_SAMPLED_IMAGE_DEPTH_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageDepthSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_SAMPLED_IMAGE_STENCIL_SAMPLE_COUNTS", static_cast<uint32_t>(limits.sampledImageStencilSampleCounts.value));
-        addShaderDefineToPool(pool,"NBL_STORAGE_IMAGE_SAMPLE_COUNTS", static_cast<uint32_t>(limits.storageImageSampleCounts.value));
 
         addShaderDefineToPool(pool,"NBL_MAX_SAMPLE_MASK_WORDS",limits.maxSampleMaskWords);
 
-        addShaderDefineToPool(pool,"NBL_TIMESTAMP_COMPUTE_AND_GRAPHICS",limits.timestampComputeAndGraphics);
         addShaderDefineToPool(pool,"NBL_TIMESTAMP_PERIOD_IN_NANO_SECONDS",limits.timestampPeriodInNanoSeconds);
 
         addShaderDefineToPool(pool,"NBL_MAX_CLIP_DISTANCES",limits.maxClipDistances);
@@ -581,10 +570,8 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_MAX_UPDATE_AFTER_BIND_DESCRIPTORS_IN_ALL_POOLS",limits.maxUpdateAfterBindDescriptorsInAllPools);
         if (limits.shaderUniformBufferArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
         if (limits.shaderSampledImageArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_SAMPLED_IMAGE_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
-        if (limits.shaderStorageBufferArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
         if (limits.shaderStorageImageArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
         if (limits.shaderInputAttachmentArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
-        if (limits.robustBufferAccessUpdateAfterBind) addShaderDefineToPool(pool,"NBL_ROBUST_BUFFER_ACCESS_UPDATE_AFTER_BIND");
         if (limits.quadDivergentImplicitLod) addShaderDefineToPool(pool,"NBL_QUAD_DIVERGENT_IMPLICIT_LOD");
         addShaderDefineToPool(pool,"NBL_MAX_PER_STAGE_DESCRIPTOR_UPDATE_AFTER_BIND_SAMPLERS",limits.maxPerStageDescriptorUpdateAfterBindSamplers);
         addShaderDefineToPool(pool,"NBL_MAX_PER_STAGE_DESCRIPTOR_UPDATE_AFTER_BIND_UBOS",limits.maxPerStageDescriptorUpdateAfterBindUBOs);
@@ -602,7 +589,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool,"NBL_MAX_DESCRIPTOR_SET_UPDATE_AFTER_BIND_STORAGE_IMAGES",limits.maxDescriptorSetUpdateAfterBindStorageImages);
         addShaderDefineToPool(pool,"NBL_MAX_DESCRIPTOR_SET_UPDATE_AFTER_BIND_INPUT_ATTACHMENTS",limits.maxDescriptorSetUpdateAfterBindInputAttachments);
 
-        if (limits.filterMinmaxSingleComponentFormats) addShaderDefineToPool(pool,"NBL_FILTER_MINMAX_SINGLE_COMPONENT_FORMATS");
         if (limits.filterMinmaxImageComponentMapping) addShaderDefineToPool(pool,"NBL_FILTER_MINMAX_IMAGE_COMPONENT_MAPPING");
     
         addShaderDefineToPool(pool,"NBL_MIN_SUBGROUP_SIZE",limits.minSubgroupSize);
@@ -628,8 +614,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
         // addShaderDefineToPool(pool,"NBL_MAX_DISCARD_RECTANGLES",limits.maxDiscardRectangles); // shader doesn't need to know about
         addShaderDefineToPool(pool,"NBL_LINE_SUB_PIXEL_PRECISION_BITS",limits.lineSubPixelPrecisionBits);
-        addShaderDefineToPool(pool,"NBL_MAX_VERTEX_ATTRIB_DIVISOR",limits.maxVertexAttribDivisor);
-        addShaderDefineToPool(pool,"NBL_MAX_SUBPASS_SHADING_WORKGROUP_SIZE_ASPECT_RATIO",limits.maxSubpassShadingWorkgroupSizeAspectRatio);
 
         if (limits.integerDotProduct8BitUnsignedAccelerated) addShaderDefineToPool(pool,"NBL_INTEGER_DOT_PRODUCT_8BIT_UNSIGNED_ACCELERATED");
         if (limits.integerDotProduct8BitSignedAccelerated) addShaderDefineToPool(pool,"NBL_INTEGER_DOT_PRODUCT_8BIT_SIGNED_ACCELERATED");
@@ -698,7 +682,6 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         // addShaderDefineToPool(pool,"NBL_PCI_DEVICE",limits.pciDevice);
         // addShaderDefineToPool(pool,"NBL_PCI_FUNCTION",limits.pciFunction);
 
-        addShaderDefineToPool(pool,"NBL_SHADER_GROUP_HANDLE_SIZE",limits.shaderGroupHandleSize);
         addShaderDefineToPool(pool,"NBL_MAX_RAY_RECURSION_DEPTH",limits.maxRayRecursionDepth);
         addShaderDefineToPool(pool,"NBL_MAX_SHADER_GROUP_STRIDE",limits.maxShaderGroupStride);
         addShaderDefineToPool(pool,"NBL_SHADER_GROUP_BASE_ALIGNMENT",limits.shaderGroupBaseAlignment);
@@ -720,16 +703,12 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
         if (limits.shaderTessellationAndGeometryPointSize) addShaderDefineToPool(pool, "NBL_SHADER_TESSELLATION_AND_GEOMETRY_POINT_SIZE");
 
-        if (limits.shaderImageGatherExtended) addShaderDefineToPool(pool, "NBL_SHADER_IMAGE_GATHER_EXTENDED");
-
         if (limits.shaderStorageImageArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_ARRAY_DYNAMIC_INDEXING");
 
         if (limits.shaderFloat64) addShaderDefineToPool(pool, "NBL_SHADER_FLOAT64");
 
         if (limits.storagePushConstant16) addShaderDefineToPool(pool, "NBL_STORAGE_PUSH_CONSTANT_16");
         if (limits.storageInputOutput16) addShaderDefineToPool(pool, "NBL_STORAGE_INPUT_OUTPUT_16");
-
-        if (limits.variablePointers) addShaderDefineToPool(pool, "NBL_VARIABLE_POINTERS");
 
         if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_DRAW_INDIRECT_COUNT");
 
@@ -742,23 +721,18 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
         if (limits.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
         if (limits.shaderUniformBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
-        if (limits.shaderStorageImageArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING");
         if (limits.shaderInputAttachmentArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING");
         // shader doesn't need to know about update-after-bind
         //if (limits.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_BIND");
 
         if (limits.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
 
-        if (limits.vulkanMemoryModel) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL");
-        if (limits.vulkanMemoryModelDeviceScope) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL_DEVICE_SCOPE");
         if (limits.vulkanMemoryModelAvailabilityVisibilityChains) addShaderDefineToPool(pool, "NBL_VULKAN_MEMORY_MODEL_AVAILABILITY_VISIBILITY_CHAINS");
 
         if (limits.shaderOutputViewportIndex) addShaderDefineToPool(pool,"NBL_SHADER_OUTPUT_VIEWPORT_INDEX");
         if (limits.shaderOutputLayer) addShaderDefineToPool(pool,"NBL_SHADER_OUTPUT_LAYER");
 
         if (limits.shaderIntegerFunctions2) addShaderDefineToPool(pool,"NBL_SHADER_INTEGER_FUNCTIONS_2");
-
-        if (limits.shaderSubgroupClock) addShaderDefineToPool(pool,"NBL_SHADER_SUBGROUP_CLOCK");
         
         if (limits.imageFootprint) addShaderDefineToPool(pool,"NBL_IMAGE_FOOTPRINT");
         // if (limits.texelBufferAlignment) addShaderDefineToPool(pool,"NBL_TEXEL_BUFFER_ALIGNMENT"); // shader doesn't need to know about that
@@ -767,7 +741,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
 
 //        if (limits.workgroupSizeFromSpecConstant) addShaderDefineToPool(pool,"NBL_WORKGROUP_SIZE_FROM_SPEC_CONSTANT");
         
-        if (limits.gpuShaderHalfFloat) addShaderDefineToPool(pool,"NBL_AMD_GPU_SHADER_HALF_FLOAT");
+        if (limits.gpuShaderHalfFloatAMD) addShaderDefineToPool(pool,"NBL_AMD_GPU_SHADER_HALF_FLOAT");
 
         if (limits.shaderImageLoadStoreLod) addShaderDefineToPool(pool,"NBL_SHADER_IMAGE_LOAD_STORE_LOD");
 
