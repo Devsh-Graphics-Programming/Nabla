@@ -57,6 +57,7 @@ namespace nbl::asset::impl
         {
             shaderc_include_result* res = new shaderc_include_result;
             std::string res_str;
+            bool result = false;
 
             std::filesystem::path relDir;
             #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -79,11 +80,11 @@ namespace nbl::asset::impl
                 name = std::filesystem::absolute(name);
 
             if (_type == shaderc_include_type_relative)
-                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source, res_str);
             else //shaderc_include_type_standard
-                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source, res_str);
 
-            if (!res_str.size()) {
+            if (!result) {
                 const char* error_str = "Could not open file";
                 res->content_length = strlen(error_str);
                 res->content = new char[res->content_length + 1u];
