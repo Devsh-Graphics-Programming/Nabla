@@ -1859,68 +1859,68 @@ struct SPhysicalDeviceFeatures
 				
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
+        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
+
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
-        
+
         if (geometryShader && !_rhs.geometryShader) return false;
         if (tessellationShader && !_rhs.tessellationShader) return false;
-        
+
         if (depthBounds && !_rhs.depthBounds) return false;
         if (wideLines && !_rhs.wideLines) return false;
         if (largePoints && !_rhs.largePoints) return false;
 
         if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
-        
+
         if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
-        
+
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
-        
-        
+
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
 
-
         if (robustImageAccess && !_rhs.robustImageAccess) return false;
-
-
-        if (rasterizationOrderColorAttachmentAccess && !_rhs.rasterizationOrderColorAttachmentAccess) return false;
-        if (rasterizationOrderDepthAttachmentAccess && !_rhs.rasterizationOrderDepthAttachmentAccess) return false;
-        if (rasterizationOrderStencilAttachmentAccess && !_rhs.rasterizationOrderStencilAttachmentAccess) return false;
-
-        if (fragmentShaderSampleInterlock && !_rhs.fragmentShaderSampleInterlock) return false;
-        if (fragmentShaderPixelInterlock && !_rhs.fragmentShaderPixelInterlock) return false;
-        if (fragmentShaderShadingRateInterlock && !_rhs.fragmentShaderShadingRateInterlock) return false;
-
-        if (indexTypeUint8 && !_rhs.indexTypeUint8) return false;
-
-        if (accelerationStructure && !_rhs.accelerationStructure) return false;
-        if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
-        if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
-
-        if (rayQuery && !_rhs.rayQuery) return false;
-
-        if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
-        if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
-
-        if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
-        if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
-
-        if (deviceGeneratedCommands && !_rhs.deviceGeneratedCommands) return false;
-
-        if (representativeFragmentTest && !_rhs.representativeFragmentTest) return false;
-
-        if (mixedAttachmentSamples && !_rhs.mixedAttachmentSamples) return false;
-
-        if (hdrMetadata && !_rhs.hdrMetadata) return false;
 
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
 
         if (conditionalRendering && !_rhs.conditionalRendering) return false;
         if (inheritedConditionalRendering && !_rhs.inheritedConditionalRendering) return false;
 
+        if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
+
+        if (hdrMetadata && !_rhs.hdrMetadata) return false;
+
+        if (performanceCounterQueryPools && !_rhs.performanceCounterQueryPools) return false;
+        if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
+
+        if (mixedAttachmentSamples && !_rhs.mixedAttachmentSamples) return false;
+
+        if (accelerationStructure && !_rhs.accelerationStructure) return false;
+        if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
+        if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
+
+        if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
+
+        if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
+
+        if (rayQuery && !_rhs.rayQuery) return false;
+
+        if (representativeFragmentTest && !_rhs.representativeFragmentTest) return false;
+
+        if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
+
         if (fragmentDensityMap && !_rhs.fragmentDensityMap) return false;
         if (fragmentDensityMapDynamic && !_rhs.fragmentDensityMapDynamic) return false;
         if (fragmentDensityMapNonSubsampledImages && !_rhs.fragmentDensityMapNonSubsampledImages) return false;
         if (fragmentDensityMapDeferred && !_rhs.fragmentDensityMapDeferred) return false;
+
+        if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
+
+        if (memoryPriority && !_rhs.memoryPriority) return false;
+
+        if (fragmentShaderSampleInterlock && !_rhs.fragmentShaderSampleInterlock) return false;
+        if (fragmentShaderPixelInterlock && !_rhs.fragmentShaderPixelInterlock) return false;
+        if (fragmentShaderShadingRateInterlock && !_rhs.fragmentShaderShadingRateInterlock) return false;
 
         if (rectangularLines && !_rhs.rectangularLines) return false;
         if (bresenhamLines && !_rhs.bresenhamLines) return false;
@@ -1929,26 +1929,25 @@ struct SPhysicalDeviceFeatures
         if (stippledBresenhamLines && !_rhs.stippledBresenhamLines) return false;
         if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
 
-        if (memoryPriority && !_rhs.memoryPriority) return false;
+        if (indexTypeUint8 && !_rhs.indexTypeUint8) return false;
 
-        if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
-        if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
-        if (nullDescriptor && !_rhs.nullDescriptor) return false;
-
-        if (performanceCounterQueryPools && !_rhs.performanceCounterQueryPools) return false;
-        if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
+        if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
 
         if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
 
-        if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
+        if (deviceGeneratedCommands && !_rhs.deviceGeneratedCommands) return false;
 
-        if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
+        if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
+        if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
 
-        if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
+        if (nullDescriptor && !_rhs.nullDescriptor) return false;
 
-        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
+        if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
+        if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
 
-        if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
+        if (rasterizationOrderColorAttachmentAccess && !_rhs.rasterizationOrderColorAttachmentAccess) return false;
+        if (rasterizationOrderDepthAttachmentAccess && !_rhs.rasterizationOrderDepthAttachmentAccess) return false;
+        if (rasterizationOrderStencilAttachmentAccess && !_rhs.rasterizationOrderStencilAttachmentAccess) return false;
 
         if (cooperativeMatrixRobustBufferAccess && !_rhs.cooperativeMatrixRobustBufferAccess) return false;
 
