@@ -330,6 +330,34 @@ function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
+macro(nbl_generate_conf_files)
+	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
+	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
+	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+
+	set(_NBL_DEBUG 0)
+	set(_NBL_RELWITHDEBINFO 0)
+
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Release>)
+
+	set(_NBL_DEBUG 0)
+	set(_NBL_RELWITHDEBINFO 1)
+	
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:RelWithDebInfo>)
+
+	set(_NBL_DEBUG 1)
+	set(_NBL_RELWITHDEBINFO 0)
+
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
+
+	unset(NBL_CONF_DIR_DEBUG)
+	unset(NBL_CONF_DIR_RELEASE)
+	unset(NBL_CONF_DIR_RELWITHDEBINFO)
+endmacro()
+
 ###########################################
 # Nabla install rules, directory structure:
 #
