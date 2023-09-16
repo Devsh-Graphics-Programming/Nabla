@@ -1251,7 +1251,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE]
     /* DiagnosticsConfigFeaturesNV *//* VK_NV_device_diagnostics_config */
-    //bool           diagnosticsConfig;
 
     // [DO NOT EXPOSE] absorbed into VK_EXT_load_store_op_none
     /* VK_QCOM_render_pass_store_ops */
@@ -1859,7 +1858,6 @@ struct SPhysicalDeviceFeatures
 				
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
-        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
 
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
 
@@ -1880,6 +1878,8 @@ struct SPhysicalDeviceFeatures
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
 
         if (robustImageAccess && !_rhs.robustImageAccess) return false;
+
+        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
 
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
 
