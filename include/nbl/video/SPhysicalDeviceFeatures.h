@@ -333,8 +333,6 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled
     /* VK_KHR_surface */
 
-    /* Extensions Exposed as Features: */
-
     /* VK_KHR_swapchain */
     /* Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation */
     core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
@@ -345,22 +343,12 @@ struct SPhysicalDeviceFeatures
     // [TODO] handle with a single num
     /* VK_KHR_display_swapchain */
 
-    // [DO NOT EXPOSE] We don't support yet
+    //[DO NOT EXPOSE] OS-specific we enable implicitly as we detect the platform
     // VK_KHR_xlib_surface
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_xcb_surface
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_wayland_surface
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_mir_surface
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_android_surface
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_win32_surface
 
     // [DO NOT EXPOSE] supported=disabled
@@ -375,25 +363,23 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Will expose some day
     /* VK_EXT_depth_range_unrestricted */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] deprecated by Vulkan 1.2
     // VK_KHR_sampler_mirror_clamp_to_edge
 
     // [DO NOT EXPOSE] Vendor specific, superceeded by VK_EXT_filter_cubic, won't expose for a long time
     /* VK_IMG_filter_cubic */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_17
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_18
 
     // [DO NOT EXPOSE] Meme extension
     /* VK_AMD_rasterization_order */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_20
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits
     /* VK_AMD_shader_trinary_minmax */
 
     // [EXPOSE AS LIMIT]
@@ -414,13 +400,11 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Promoted to KHR_dedicated_allocation, non-optional core VK 1.1
     /* VK_NV_dedicated_allocation */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_28
 
     // [DO NOT EXPOSE] ever because of our disdain for XForm feedback
     /* TransformFeedbackFeaturesEXT *//* VK_EXT_transform_feedback */
-    //bool           transformFeedback;
-    //bool           geometryStreams;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_NVX_binary_import
@@ -428,16 +412,14 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_NVX_image_view_handle
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_32
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_33
 
     // [DEPRECATED] Vulkan core 1.2
     /* VK_AMD_draw_indirect_count */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_35
 
     // [DEPRECATED] Promoted to VK_KHR_maintenance1, non-optional core VK 1.1
@@ -465,22 +447,20 @@ struct SPhysicalDeviceFeatures
     /* VK_AMD_shader_info */
     bool shaderInfoAMD = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_44
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_dynamic_rendering
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_46
 
     // Enabled by Default, Moved to Limits
     /* VK_AMD_shader_image_load_store_lod */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NVX_extension_48
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GOOGLE_extension_49
 
     // [DO NOT EXPOSE] We don't support yet
@@ -488,12 +468,11 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] for a very long time
     /* CornerSampledImageFeaturesNV *//* VK_NV_corner_sampled_image */
-    //bool           cornerSampledImage;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_private_vendor_info
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_53
 
     // [DO NOT EXPOSE] We don't support yet
@@ -519,7 +498,6 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] Promoted to non-optional core VK 1.1
     /* VK_KHR_device_group */
-    /* VK_KHR_device_group_creation */
 
     // [DEPRECATED] by VK_EXT_validation_features
     // VK_EXT_validation_flags
@@ -549,7 +527,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_maintenance1
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     // VK_KHR_device_group_creation
 
     // [DO NOT EXPOSE] We don't support yet
@@ -630,16 +608,6 @@ struct SPhysicalDeviceFeatures
     // The only reason its not a limit is because it needs geometryShader to be enabled
     bool geometryShaderPassthrough = false;
 
-    // TODO: look into
-    /* VK_NV_viewport_array2 */
-    /* VK_EXT_image_compression_control */
-    /* VK_EXT_image_compression_control_swapchain */
-    /* VK_EXT_multisampled_render_to_single_sampled probably only useful for stencil-K-routed OIT*/
-    /* VK_EXT_pipeline_properties */
-    /* VK_EXT_external_memory_acquire_unmodified */
-    /* VK_EXT_rasterization_order_attachment_access */
-    /* VK_ARM_shader_core_builtins */
-
     // [DO NOT EXPOSE] We don't support yet
     // VK_NVX_multiview_per_view_attributes
 
@@ -649,7 +617,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_discard_rectangles
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_101
 
     // [DO NOT EXPOSE] We don't support yet
@@ -657,9 +625,8 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] only useful for D3D emulators
     /* DepthClipEnableFeaturesEXT *//* VK_EXT_depth_clip_enable */
-    //bool           depthClipEnable;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_104
 
     // [DO NOT EXPOSE] We don't support yet
@@ -669,19 +636,17 @@ struct SPhysicalDeviceFeatures
     /* VK_EXT_hdr_metadata */
     bool hdrMetadata = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_IMG_extension_107
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_IMG_extension_108
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_imageless_framebuffer
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it
     // VK_KHR_create_renderpass2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_IMG_extension_111
 
     // [DO NOT EXPOSE] Leave for later consideration
@@ -706,7 +671,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_maintenance2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_119
 
     // [DO NOT EXPOSE] We don't support yet
@@ -730,7 +695,7 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Requires exposing external memory first
     /* VK_EXT_external_memory_dma_buf */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [EXPOSE AS A LIMIT] 
     // VK_EXT_queue_family_foreign
 
     // [DO NOT EXPOSE] We don't support yet
@@ -751,13 +716,13 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Just check for `shaderInt16` and related `16BitAccess` limits
     /* VK_AMD_gpu_shader_int16 */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_134
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_AMDX_shader_enqueue
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_136
 
     // [TODO] need impl
@@ -770,16 +735,14 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Required wholly by ROADMAP 2022 and Nabla Core Profile
     /* InlineUniformBlockFeaturesEXT *//* VK_EXT_inline_uniform_block */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_140
 
     // Enabled by Default, Moved to Limits
     /* VK_EXT_shader_stencil_export */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_142
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_143
 
     // [DO NOT EXPOSE] We don't support yet
@@ -799,7 +762,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with `EXT_fragment_shader_interlock` and EXT_shader_tile_image
     /* BlendOperationAdvancedFeaturesEXT *//* VK_EXT_blend_operation_advanced */
-    //bool           advancedBlendCoherentOperations;
 
     // [TODO LATER] Requires API changes
     /* VK_NV_fragment_coverage_to_color */
@@ -822,10 +784,10 @@ struct SPhysicalDeviceFeatures
     /* RayQueryFeaturesKHR *//* VK_KHR_ray_query */
     bool rayQuery = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_152
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [ALIASED TO] VK_AMD_mixed_attachment_samples
     // VK_NV_framebuffer_mixed_samples
 
     // [DO NOT EXPOSE] For now. For 2D ui
@@ -840,13 +802,13 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.1 Core and ROADMAP 2022
     /* SamplerYcbcrConversionFeaturesKHR *//* VK_KHR_sampler_ycbcr_conversion */
 
-    // [DO NOT EXPOSE] We don't support yet
-    // VK_KHR_bind_memory2
+    // [DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it
+    /* VK_KHR_bind_memory2 */
 
     // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_image_drm_format_modifier */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_160
 
     // [TODO LATER] Expose when we start to experience slowdowns from validation
@@ -862,8 +824,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future, also has interactions with fragment density maps
     /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
-    //bool           shadingRateImage;
-    //bool           shadingRateCoarseSampleOrder;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_ray_tracing
@@ -871,7 +831,7 @@ struct SPhysicalDeviceFeatures
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
     bool representativeFragmentTest = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_168
 
     // [DO NOT EXPOSE] We don't support yet
@@ -886,10 +846,8 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful
     /* VK_QCOM_render_pass_shader_resolve */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_QCOM_extension_173
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_174
 
     // [DO NOT EXPOSE] We don't support yet
@@ -898,7 +856,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_shader_subgroup_extended_types */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_177
 
     // [DO NOT EXPOSE] We don't support yet
@@ -920,7 +878,7 @@ struct SPhysicalDeviceFeatures
     //bool shaderDeviceClock;
     //bool shaderSubgroupClock = shaderDeviceClock;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_183
 
     // [DO NOT EXPOSE] Too vendor specific
@@ -932,7 +890,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_shader_core_properties
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_187
 
     // [DO NOT EXPOSE] We don't support yet
@@ -947,8 +905,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
-    //bool           vertexAttributeInstanceRateDivisor;
-    //bool           vertexAttributeInstanceRateZeroDivisor;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_frame_token
@@ -956,13 +912,9 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] would like to expose, but too much API to change
     /* VK_EXT_pipeline_creation_feedback */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_GOOGLE_extension_194
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GOOGLE_extension_195
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GOOGLE_extension_196
 
     // [DO NOT EXPOSE] We don't support yet
@@ -988,9 +940,8 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Deprecated
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
-    //bool           fragmentShaderBarycentric;
 
-    // Enabled by Default, Moved to Limits 
+    // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits 
     /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
     //bool           imageFootprint;
 
@@ -1004,9 +955,8 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_timeline_semaphore */
-    /* VK_KHR_uniform_buffer_standard_layout */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_209
 
     // Enabled by Default, Moved to Limits 
@@ -1030,9 +980,8 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] Vulkan 1.3 Core
     /* VK_KHR_shader_terminate_invocation */
-    /* VK_KHR_synchronization2 */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_GOOGLE_extension_217
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1046,16 +995,14 @@ struct SPhysicalDeviceFeatures
     /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
     bool fragmentDensityMapDeferred = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_220
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_221
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_scalar_block_layout
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_223
 
     // [TODO]
@@ -1069,36 +1016,27 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentShadingRateFeaturesKHR *//* VK_KHR_fragment_shading_rate */
-    //bool           pipelineFragmentShadingRate;
-    //bool           primitiveFragmentShadingRate;
-    //bool           attachmentFragmentShadingRate;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_shader_core_properties2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_229
 
     // [TODO] need impl/more research
     /* CoherentMemoryFeaturesAMD *//* VK_AMD_device_coherent_memory */
     bool deviceCoherentMemory = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_231
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_232
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_233
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_234
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_shader_image_atomic_int64
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_236
 
     // [DEPRECATED] We now require it with Vulkan 1.2 and its non-optional
@@ -1116,16 +1054,13 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] insane oxymoron, dedicated means dedicated, not aliased, won't expose
     /* DedicatedAllocationImageAliasingFeaturesNV *//* VK_NV_dedicated_allocation_image_aliasing */
-    //bool           dedicatedAllocationImageAliasing;
 
     // [DEPRECATED] Vulkan 1.2 Core non-optional
     /* VK_KHR_separate_depth_stencil_layouts */
     /* SeparateDepthStencilLayoutsFeaturesKHR */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_INTEL_extension_243
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_MESA_extension_244
 
     // [DEPRECATED] by VK_KHR_buffer_device_address
@@ -1136,16 +1071,12 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it
     /* VK_EXT_separate_stencil_usage */
-    /* VK_KHR_create_renderpass2 */
-    // [DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it
-    /* VK_KHR_bind_memory2 */
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_validation_features
 
     // [DO NOT EXPOSE] won't expose, this extension is poop, I should have a Fence-andQuery-like object to query the presentation timestamp, not a blocking call that may unblock after an arbitrary delay from the present
     /* PresentWaitFeaturesKHR *//* VK_KHR_present_wait */
-    //bool           presentWait;
 
     // [DEPRECATED] replaced by VK_KHR_cooperative_matrix
     /* CooperativeMatrixFeaturesNV *//* VK_NV_cooperative_matrix */
@@ -1161,15 +1092,12 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] Expose nothing to do with video atm
     /* YcbcrImageArraysFeaturesEXT *//* VK_EXT_ycbcr_image_arrays */
-    //bool           ycbcrImageArrays;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Vulkan 1.2 Core non-optional
     // VK_KHR_uniform_buffer_standard_layout
 
     // [DO NOT EXPOSE] provokingVertexLast will not expose (we always use First Vertex Vulkan-like convention), anything to do with XForm-feedback we don't expose
     /* ProvokingVertexFeaturesEXT *//* VK_EXT_provoking_vertex */
-    //bool           provokingVertexLast;
-    //bool           transformFeedbackPreservesProvokingVertex;
 
     // [TODO LATER] Requires API changes
     /* VK_EXT_full_screen_exclusive */
@@ -1199,26 +1127,21 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] MOVED TO Vulkan 1.2 Core
     /* HostQueryResetFeatures *//* VK_EXT_host_query_reset */
-
-    // [DO NOT EXPOSE] We don't support yet
+    
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_GGP_extension_263
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_BRCM_extension_264
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_BRCM_extension_265
 
     // [TODO] need impl
     /* IndexTypeUint8FeaturesEXT *//* VK_EXT_index_type_uint8 */
     bool indexTypeUint8 = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_267
 
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicStateFeaturesEXT *//* VK_EXT_extended_dynamic_state */
-    //bool           extendedDynamicState = false;
 
     /* VK_KHR_deferred_host_operations */
     bool deferredHostOperations = false;
@@ -1233,7 +1156,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_map_memory2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_INTEL_extension_273
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1254,9 +1177,8 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] won't expose, the existing inheritance of state is enough
     /* InheritedViewportScissorFeaturesNV *//* VK_NV_inherited_viewport_scissor */
-    //bool           inheritedViewportScissor2D;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_280
 
     // [DEPRECATED] Vulkan 1.3 Core non-optional
@@ -1290,10 +1212,8 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorFeaturesEXT *//* VK_EXT_custom_border_color */
-    //bool           customBorderColors;
-    //bool           customBorderColorWithoutFormat;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_289
 
     // [DO NOT EXPOSE] 0 documentation
@@ -1302,12 +1222,10 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_pipeline_library
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_292
 
-    // [EXPOSE AS A LIMIT] VK_EXT_queue_family_foreign
-
-    // [TODO] Triage leftover extensions below    
+    // [DO NOT EXPOSE] Triage leftover extensions below    
     /* VK_NV_present_barrier */
 
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits
@@ -1315,18 +1233,17 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives
     /* PresentIdFeaturesKHR *//* VK_KHR_present_id */
-    //bool           presentId = false || presentWait;
 
     // [DEPRECATED] Vulkan 1.3 core non-optional
     /* PrivateDataFeatures *//* VK_EXT_private_data */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_297
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_pipeline_creation_cache_control
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_299
 
     // [TODO] Provisional
@@ -1339,28 +1256,18 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] absorbed into VK_EXT_load_store_op_none
     /* VK_QCOM_render_pass_store_ops */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_QCOM_extension_303
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_304
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_305
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_306
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_307
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_308
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_object_refresh
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_QCOM_extension_310
 
     // [DO NOT EXPOSE] 0 documentation
@@ -1369,28 +1276,22 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Expose when we support MoltenVK
     /* VK_EXT_metal_objects */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_313
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_314
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Vulkan 1.3 Core
     // VK_KHR_synchronization2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_316
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_descriptor_buffer
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_318
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_319
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_320
 
     // [TODO] this one isn't in the headers yet
@@ -1407,17 +1308,15 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS LIMIT]
     /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_325
 
-    // [DEPRECATED] Vulkan 1.4 Core
+    // [DEPRECATED] Vulkan 1.3 Core
     /* VK_KHR_zero_initialize_workgroup_memory */
 
     // [DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before
-    /* FragmentShadingRateEnumsFeaturesNV *//* VK_NV_fragment_shading_rate_enums */
-    //bool           fragmentShadingRateEnums;
-    //bool           supersampleFragmentShadingRates;
-    //bool           noInvocationFragmentShadingRates;
+    /* VK_NV_fragment_shading_rate_enums */
+
 
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
     bool rayTracingMotionBlur = false;
@@ -1426,13 +1325,13 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_mesh_shader
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_330
 
     // [DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     /* Ycbcr2Plane444FormatsFeaturesEXT *//* VK_EXT_ycbcr_2plane_444_formats */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_332
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1441,7 +1340,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_335
 
     // [DEPRECATED] Vulkan 1.3 core non-optional
@@ -1471,7 +1370,7 @@ struct SPhysicalDeviceFeatures
     bool rasterizationOrderDepthAttachmentAccess = false;
     bool rasterizationOrderStencilAttachmentAccess = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_ARM_extension_344
 
     // [DO NOT EXPOSE] wont expose yet (or ever), requires VK_KHR_sampler_ycbcr_conversion
@@ -1483,19 +1382,15 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_directfb_surface
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_350
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_351
 
     // [DO NOT EXPOSE] its a D3D special use extension, shouldn't expose
-    /* MutableDescriptorTypeFeaturesVALVE *//* VK_VALVE_mutable_descriptor_type */
-    //bool           mutableDescriptorType;
+    /* VK_VALVE_mutable_descriptor_type */
 
     // [DO NOT EXPOSE] too much API Fudgery
-    /* VertexInputDynamicStateFeaturesEXT *//* VK_EXT_vertex_input_dynamic_state */
-    //bool           vertexInputDynamicState;
+    /* VK_EXT_vertex_input_dynamic_state */
 
     // [DO NOT EXPOSE] Too "intrinsically linux"
     /* VK_EXT_physical_device_drm */
@@ -1504,34 +1399,24 @@ struct SPhysicalDeviceFeatures
     // VK_EXT_device_address_binding_report
 
     // [DO NOT EXPOSE] EVER, VULKAN DEPTH RANGE ONLY!
-    /* DepthClipControlFeaturesEX *//* VK_EXT_depth_clip_control */
-    //bool           depthClipControl;
+    /* VK_EXT_depth_clip_control */
 
     // [DO NOT EXPOSE]
-    /* PrimitiveTopologyListRestartFeaturesEXT *//* VK_EXT_primitive_topology_list_restart */
-    //bool           primitiveTopologyListRestart;
-    //bool           primitiveTopologyPatchListRestart;
+    /* VK_EXT_primitive_topology_list_restart */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_358
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_359
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_360
 
+    // [DEPRECATED] Promoted to non - optional Core 1.3, we always use it!
+    /* VK_KHR_format_feature_flags2 */ // Promoted to core 1.3;
     // [TODO]
     // lots of support for anything that isn't mobile (list of unsupported devices since the extension was published: https://pastebin.com/skZAbL4F)
-    /* VK_KHR_format_feature_flags2 */ // Promoted to core 1.3;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_362
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_363
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_FUCHSIA_extension_364
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1543,15 +1428,12 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_FUCHSIA_buffer_collection
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_FUCHSIA_extension_368
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_369
 
     // [DO NOT EXPOSE]
     /* SubpassShadingFeaturesHUAWEI *//* VK_HUAWEI_subpass_shading */
-    // bool           subpassShading;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_HUAWEI_invocation_mask
@@ -1572,8 +1454,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_frame_boundary
 
-    // [DO NOT EXPOSE] We don't support yet
-    // VK_EXT_multisampled_render_to_single_sampled
+    // [DO NOT EXPOSE] We don't support yet, probably only useful for stencil-K-routed OIT
+    // VK_EXT_multisampled_render_to_single_sampled 
 
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicState2FeaturesEXT *//* VK_EXT_extended_dynamic_state2 */
@@ -1584,10 +1466,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_QNX_screen_surface
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_380
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_381
 
     // [EXPOSE AS LIMIT]
@@ -1599,13 +1479,9 @@ struct SPhysicalDeviceFeatures
     //bool           primitivesGeneratedQueryWithRasterizerDiscard;
     //bool           primitivesGeneratedQueryWithNonZeroStreams;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_384
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_MESA_extension_385
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GOOGLE_extension_386
 
     // [TODO LATER] when released in the SDK:
@@ -1629,16 +1505,14 @@ struct SPhysicalDeviceFeatures
     // Lets enable `rayTracingMaintenance1`and `rayTracingPipelineTraceRaysIndirect2` whenever required by the above.
     /* VK_KHR_ray_tracing_maintenance1 *//* added in vk 1.3.213, the SDK isn't released yet at this moment :D */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_388
 
     // [DEPRECATED] absorbed into KHR_global_priority
     /* VK_EXT_global_priority_query */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_390
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_391
 
     // [DO NOT EXPOSE] pointless to implement currently
@@ -1666,78 +1540,56 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_displacement_micromap
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_JUICE_extension_399
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_JUICE_extension_400
 
     // [TODO LATER] needs to figure out how extending our LOAD_OP enum would affect the GL backend
     /* VK_EXT_load_store_op_none */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_FB_extension_402
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_FB_extension_403
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_FB_extension_404
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_HUAWEI_cluster_culling_shader
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_HUAWEI_extension_406
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_extension_407
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_extension_408
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_extension_409
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_extension_410
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_GGP_extension_411
 
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* BorderColorSwizzleFeaturesEXT *//* VK_EXT_border_color_swizzle */
-    //bool           borderColorSwizzle;
-    //bool           borderColorSwizzleFromImage;
 
     // [DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first
     /* PageableDeviceLocalMemoryFeaturesEXT *//* VK_EXT_pageable_device_local_memory */
-    //bool           pageableDeviceLocalMemory = false;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_maintenance4
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_HUAWEI_extension_415
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_ARM_shader_core_properties
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_417
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_ARM_extension_418
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_image_sliced_view_of_3d
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_420
 
     // [DO NOT EXPOSE] This extension is only intended for use in specific embedded environments with known implementation details, and is therefore undocumented.
     /* DescriptorSetHostMappingFeaturesVALVE *//* VK_VALVE_descriptor_set_host_mapping */
-    //bool           descriptorSetHostMapping;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_depth_clamp_zero_one
@@ -1745,15 +1597,12 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Never expose this, it was a mistake for that GL quirk to exist in the first place
     /* VK_EXT_non_seamless_cube_map */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_ARM_extension_424
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_ARM_extension_425
 
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
     /* FragmentDensityMapOffsetFeaturesQCOM *//* VK_QCOM_fragment_density_map_offset */
-    //bool           fragmentDensityMapOffset;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_copy_memory_indirect
@@ -1764,92 +1613,63 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_device_generated_commands_compute
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_430
 
     // [DO NOT EXPOSE] no idea what real-world beneficial use case would be
     /* LinearColorAttachmentFeaturesNV *//* VK_NV_linear_color_attachment */
-    //bool           linearColorAttachment;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_432
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_433
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_GOOGLE_surfaceless_query
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_435
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_application_parameters
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_437
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_image_compression_control_swapchain
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_SEC_extension_439
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_440
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_image_processing
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_COREAVI_extension_442
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_COREAVI_extension_443
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_COREAVI_extension_444
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_COREAVI_extension_445
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_COREAVI_extension_446
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_COREAVI_extension_447
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_SEC_extension_448
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_SEC_extension_449
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_SEC_extension_450
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_SEC_extension_451
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_452
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_ARM_extension_453
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_external_memory_acquire_unmodified
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_GOOGLE_extension_455
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extended_dynamic_state3
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_457
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_458
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1858,10 +1678,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_LUNARG_direct_driver_loading
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_461
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_462
 
     // [DO NOT EXPOSE] stupid to expose, it would be extremely dumb to want to provide some identifiers instead of VkShaderModule outside of some emulator which has no control over pipeline combo explosion
@@ -1872,7 +1690,6 @@ struct SPhysicalDeviceFeatures
 
     // TODO: implement
     /* VK_NV_optical_flow */
-    /* VK_KHR_ray_tracing_position_fetch */
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_legacy_dithering
@@ -1880,49 +1697,27 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_pipeline_protected_access
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_468
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_ANDROID_extension_469
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_470
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_maintenance5
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_472
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_473
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_474
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_475
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_476
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_477
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_478
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_AMD_extension_479
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_480
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_481
 
-    // [DO NOT EXPOSE] We don't support yet
+    // TODO: implement
     // VK_KHR_ray_tracing_position_fetch
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1937,10 +1732,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_SEC_amigo_profiling
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_487
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_488
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1952,22 +1745,16 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_ray_tracing_invocation_reorder
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_492
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_493
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_494
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_mutable_descriptor_type
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_496
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_497
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1979,22 +1766,12 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_dynamic_rendering_unused_attachments
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_501
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_502
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_503
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_504
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_505
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_NV_extension_506
 
     /* CooperativeMatrixFeaturesKHR *//* VK_KHR_cooperative_matrix */
@@ -2003,37 +1780,21 @@ struct SPhysicalDeviceFeatures
     // leaving as a feature because of overhead
     bool cooperativeMatrixRobustBufferAccess = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_508
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_509
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_MESA_extension_510
-
+    // 
     // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_multiview_per_view_render_areas
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_512
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_513
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_514
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_515
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_516
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_517
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_MESA_extension_518
 
     // [DO NOT EXPOSE] We don't support yet
@@ -2048,25 +1809,17 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_filter_cubic_clamp
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_523
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_524
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_attachment_feedback_loop_dynamic_state
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_526
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_527
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_528
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_529
 
     // [DO NOT EXPOSE] We don't support yet
@@ -2075,55 +1828,27 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_MSFT_layered_driver
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_532
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_533
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_534
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_535
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_QCOM_extension_536
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_537
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_538
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_539
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_540
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_541
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_542
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_extension_543
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_544
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_545
-
-    // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_extension_546
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_descriptor_pool_overallocation
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_QCOM_extension_548
 
 
