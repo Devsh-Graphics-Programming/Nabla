@@ -97,10 +97,31 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
-if (DEFINED ENV{NUMBER_OF_PROCESSORS})
-	set(NBL_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
-else()
-	set(NBL_PARALLEL_BUILD_JOBS 8)
+include(ProcessorCount)
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	ProcessorCount(_NBL_JOBS_AMOUNT_)
+	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+		set(_NBL_JOBS_AMOUNT_ 1)
+	endif()
+endif()
+
+cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
+cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
+
+if(NBL_CI_MODE)
+	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
+	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
+		set(_NBL_JOBS_AMOUNT_ "${_CI_NBL_JOBS_AMOUNT_}")
+	endif()
+endif()
+
+math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
+math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
+
+if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
+	if(NOT DEFINED _NBL_MEMORY_CONSUMPTION_CHECK_SKIP_)
+		message(FATAL_ERROR "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define '_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_' but be aware - you are doing it on your own risk of possible build failures.")
+	endif()
 endif()
 
 macro(nbl_adjust_flags)
@@ -194,21 +215,21 @@ macro(nbl_adjust_flags)
 		
 		# debug
 		string(REPLACE "/W3" "/W0" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}" )
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}" )
 		string(REPLACE "/W3" "/W0" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP${_NBL_JOBS_AMOUNT_} /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}")
 		
 		# release
 		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}") # for some reason simply replacing /GS -> /GS- doesn't work... so it vanishes here and appears a few lines below!
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
 		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
 		
 		# relWithDebInfo
 		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP /Gy /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP${_NBL_JOBS_AMOUNT_} /Gy /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
 		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP /Gy /Zc:wchar_t /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy /Zc:wchar_t /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
 		
 		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
 		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
@@ -286,18 +307,19 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 find_package(Git REQUIRED)
+find_package (Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
 
 NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
-
-option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 add_subdirectory(src/nbl)
 

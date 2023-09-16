@@ -530,13 +530,6 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
-	endif()
-endif()
-
 add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
 	VERBATIM
@@ -596,21 +589,29 @@ target_compile_definitions(Nabla
 )
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
+	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
+	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	
+	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	target_include_directories(Nabla PUBLIC "${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+	
 	add_subdirectory(builtin)
 	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
-	add_dependencies(Nabla nblBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData)
+	add_dependencies(dxcBuiltinResourceData nblBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ INTERFACE)
 	else()
-		target_link_libraries(Nabla PRIVATE 
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ PRIVATE)
 	endif()
 	
-	# always install builtins (some may be included in cpp regardless if embedded or not)
+	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
+		nblBuiltinResourceData
+		dxcBuiltinResourceData
+	)
+	
+	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
 	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
 		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
@@ -669,6 +670,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
+	nbl_install_builtin_resources(dxcBuiltinResourceData)
 endif()
 
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
@@ -684,6 +686,14 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
 	if (_NBL_COMPILE_WITH_OPEN_EXR_)
+		# OpenEXR guys, please correct installation targets to avoid warnings!
+		set_target_properties(Half PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(Iex PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IexMath PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IlmImf PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(IlmThread PROPERTIES PUBLIC_HEADER "")
+		set_target_properties(Imath PROPERTIES PUBLIC_HEADER "")
+	
 		nbl_install_lib(Half)
 		nbl_install_lib(Iex)
 		nbl_install_lib(IexMath)
