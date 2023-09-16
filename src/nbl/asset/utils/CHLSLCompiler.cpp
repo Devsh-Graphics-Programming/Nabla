@@ -3,10 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
-#endif // _NBL_EMBED_BUILTIN_RESOURCES_
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -74,9 +74,9 @@ static tcpp::IInputStream* getInputStreamInclude(
 )
 {
     std::string res_str;
-
+    bool result = false;
     std::filesystem::path relDir;
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
     const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
@@ -89,19 +89,28 @@ static tcpp::IInputStream* getInputStreamInclude(
     }
     #else
     const bool reqBuiltin = false;
-    #endif // _NBL_EMBED_BUILTIN_RESOURCES_
+    #endif // NBL_EMBED_BUILTIN_RESOURCES
     std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
-    if (isRelative)
-        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
-    else //shaderc_include_type_standard
-        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
 
-    if (!res_str.size()) {
-        return new tcpp::StringInputStream("#error File not found");
+    if (isRelative)
+        result = inclFinder->getIncludeRelative(relDir, requestedSource, res_str);
+    else //shaderc_include_type_standard
+        result = inclFinder->getIncludeStandard(relDir, requestedSource, res_str);
+
+    if (!result) 
+    {
+        
+        std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
+        re.append("include");
+        re.push_back(isRelative ? '\"' : '<');
+        re.append(requestedSource);
+        re.push_back(isRelative ? '\"' : '>');
+        includeStack.push_back(includeStack.back());
+        return new tcpp::StringInputStream(re);
     }
 
     // Figure out what line in the current file this #include was

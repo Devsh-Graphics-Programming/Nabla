@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
-#endif // _NBL_EMBED_BUILTIN_RESOURCES_
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include <sstream>
 #include <regex>
@@ -57,9 +57,10 @@ namespace nbl::asset::impl
         {
             shaderc_include_result* res = new shaderc_include_result;
             std::string res_str;
+            bool result = false;
 
             std::filesystem::path relDir;
-            #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+            #ifdef NBL_EMBED_BUILTIN_RESOURCES
             const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
             const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
@@ -72,18 +73,18 @@ namespace nbl::asset::impl
             }
             #else
             const bool reqBuiltin = false;
-            #endif // _NBL_EMBED_BUILTIN_RESOURCES_
+            #endif // NBL_EMBED_BUILTIN_RESOURCES
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
 
             if (std::filesystem::exists(name) && !reqBuiltin)
                 name = std::filesystem::absolute(name);
 
             if (_type == shaderc_include_type_relative)
-                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source, res_str);
             else //shaderc_include_type_standard
-                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source, res_str);
 
-            if (!res_str.size()) {
+            if (!result) {
                 const char* error_str = "Could not open file";
                 res->content_length = strlen(error_str);
                 res->content = new char[res->content_length + 1u];
