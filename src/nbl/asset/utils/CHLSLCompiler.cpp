@@ -73,8 +73,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-    std::string res_str;
-    bool result = false;
+
     std::filesystem::path relDir;
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
@@ -95,20 +94,23 @@ static tcpp::IInputStream* getInputStreamInclude(
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
-
+    std::optional<std::string> result;
     if (isRelative)
-        result = inclFinder->getIncludeRelative(relDir, requestedSource, res_str);
+        result = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        result = inclFinder->getIncludeStandard(relDir, requestedSource, res_str);
+        result = inclFinder->getIncludeStandard(relDir, requestedSource);
 
     if (!result) 
     {
-        
+        /*
+            Alternative could be found in the commit 2a66b4b20c579ea730aa3dd8af707847c01def64
+            if ever HLSL gets system headers we might just want to let includes be includes and 
+            DXC handle everything else we don't know about
+        */
         std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
-        re.append("include");
-        re.push_back(isRelative ? '\"' : '<');
+        re.append("error ");
         re.append(requestedSource);
-        re.push_back(isRelative ? '\"' : '>');
+        re.append(" not found");
         includeStack.push_back(includeStack.back());
         return new tcpp::StringInputStream(re);
     }
@@ -121,6 +123,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         (includeStack.size() > 1 ? leadingLinesImports : 0);
     auto lastItemInIncludeStack = includeStack.back();
 
+    auto& res_str = *result;
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
@@ -368,7 +371,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     std::vector<LPCWSTR> arguments = {
         L"-spirv",
-        L"-HV", L"2021",
+        L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
     };
 
