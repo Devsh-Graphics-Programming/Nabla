@@ -3,10 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
-#endif // _NBL_EMBED_BUILTIN_RESOURCES_
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -76,7 +76,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::string res_str;
 
     std::filesystem::path relDir;
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
     const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
@@ -89,7 +89,7 @@ static tcpp::IInputStream* getInputStreamInclude(
     }
     #else
     const bool reqBuiltin = false;
-    #endif // _NBL_EMBED_BUILTIN_RESOURCES_
+    #endif // NBL_EMBED_BUILTIN_RESOURCES
     std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)

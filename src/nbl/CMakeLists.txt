@@ -126,8 +126,6 @@ if (NBL_COMPILE_WITH_CUDA)
 	endif()
 endif()
 
-set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
-
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
@@ -415,6 +413,9 @@ if(_NBL_BUILD_DPL_)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
 
+# boost
+target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
+
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
 		${CMAKE_THREAD_LIBS_INIT}
@@ -584,14 +585,19 @@ target_compile_definitions(Nabla
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	
 	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
-	target_include_directories(Nabla PUBLIC "${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	
+	target_include_directories(Nabla PUBLIC 
+		"${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+	)
 	
 	add_subdirectory(builtin)
 	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
-	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData)
-	add_dependencies(dxcBuiltinResourceData nblBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
 		set(_NBL_LINK_QUALIFIER_ INTERFACE)
@@ -602,6 +608,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
 		nblBuiltinResourceData
 		dxcBuiltinResourceData
+		boostBuiltinResourceData
 	)
 	
 	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
@@ -664,6 +671,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
 	nbl_install_builtin_resources(dxcBuiltinResourceData)
+	nbl_install_builtin_resources(boostBuiltinResourceData)
 endif()
 
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
