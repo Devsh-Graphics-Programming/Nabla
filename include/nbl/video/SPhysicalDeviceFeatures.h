@@ -959,7 +959,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_KHR_extension_209
 
-    // Enabled by Default, Moved to Limits 
+    // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits 
     /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
     //bool           shaderIntegerFunctions2 = false;
 
@@ -1458,9 +1458,6 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
     /* ExtendedDynamicState2FeaturesEXT *//* VK_EXT_extended_dynamic_state2 */
-    //bool           extendedDynamicState2 = false;
-    //bool           extendedDynamicState2LogicOp = false;
-    //bool           extendedDynamicState2PatchControlPoints = false;
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_QNX_screen_surface
@@ -1516,11 +1513,9 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] pointless to implement currently
     /* ImageViewMinLodFeaturesEXT *//* VK_EXT_image_view_min_lod */
-    //bool           minLod = false;
 
     // [DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported
     /* MultiDrawFeaturesEXT *//* VK_EXT_multi_draw */
-    //bool           multiDraw = false;
 
     // [TODO] Investigate later
     /* Image2DViewOf3DFeaturesEXT *//* VK_EXT_image_2d_view_of_3d */
