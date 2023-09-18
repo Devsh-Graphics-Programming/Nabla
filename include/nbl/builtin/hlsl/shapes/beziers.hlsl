@@ -10,6 +10,12 @@
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
 
+#define SHADER_CRASHING_ASSERT(expr) \
+    do { \
+        [branch] if (!(expr)) \
+          vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
+    } while(true)
+
 namespace nbl
 {
 namespace hlsl
@@ -35,8 +41,8 @@ namespace shapes
         float2_t evaluate(float_t t)
         {
             float2_t position = 
-                P0 * (1.0 - t) * (1.0 - t) 
-                 + 2.0 * P1 * (1.0 - t) * t
+                P0 * (1.0f - t) * (1.0f - t) 
+                 + 2.0f * P1 * (1.0f - t) * t
                  +       P2 * t         * t;
 
             return position;
@@ -70,8 +76,8 @@ namespace shapes
                 // sqrt(dot(A,A)) sqrt(dot(B,B)) cos(angle between A and B)
                 ret.AdotB = dot(quadratic.A, quadratic.B);
         
-                ret.a = 4.0 * ret.lenA2;
-                ret.b = 4.0 * ret.AdotB;
+                ret.a = 4.0f * ret.lenA2;
+                ret.b = 4.0f * ret.AdotB;
                 ret.c = dot(quadratic.B, quadratic.B);
         
                 ret.b_over_4a = ret.AdotB / ret.a;
@@ -87,46 +93,57 @@ namespace shapes
             float_t a;
             float_t b; // 2 sqrt(a) sqrt(c) cos(angle between A and B)
             float_t c;
-        
+            
+
             float_t b_over_4a;
             
-            float_t calcArcLen(float_t t)
+            float_t _calcArcLen(float_t _t)
             {
-                float_t lenTan = sqrt(t*(a*t+ b)+ c);
-                float_t retval = 0.5f*t*lenTan;
+                float_t t = clamp(_t, 0.0, 1.0);
+            
+                float_t lenTan = sqrt(t*(a*t + b) + c);
+                float_t retval = t*lenTan;
                 float_t sqrt_c = sqrt(c);
                 
                 // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
                 // happens when P0, P1, P2 in a straight line and equally spaced
-                if (lenA2 >= exp2(-23.f))
+                if (lenA2 >= exp2(-19.0f)*c)
                 {
+                    retval *= 0.5f;
                     // implementation might fall apart when beziers folds back on itself and `b = - 2 sqrt(a) sqrt(c)`
                     // https://www.wolframalpha.com/input?i=%28%28-2Sqrt%5Ba%5DSqrt%5Bc%5D%2B2ax%29+Sqrt%5Bc-2Sqrt%5Ba%5DSqrt%5Bc%5Dx%2Bax%5E2%5D+%2B+2+Sqrt%5Ba%5D+c%29%2F%284a%29
                     retval += b_over_4a*(lenTan - sqrt_c);
-
+                    
                     // sin2 multiplied by length of A and B
                     //  |A|^2 * |B|^2 * -(sin(A, B)^2)
-                    float_t det_over_16 = AdotB * AdotB - lenA2 * c;
+                    float_t lenAB2 = lenA2 * c;
+                    float_t lenABcos2 = AdotB * AdotB;
                     // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
-                    if (abs(det_over_16)>=exp2(-23.f))
+                    // " (1.f+exp2(-23))* " is making sure the difference we compute later is large enough to not cancel/truncate to 0 or worse, go negative (which it analytically shouldn't be able to do)
+                    if (lenAB2>(1.0f+exp2(-19.0f))*lenABcos2)
                     {
+                        float_t det_over_16 = lenAB2 - lenABcos2;
                         float_t sqrt_a = sqrt(a);
-                        float_t subTerm0 = det_over_16*2.0f/(sqrt_a * sqrt_a * sqrt_a /*i know it can be faster*/);
+                        float_t subTerm0 = (det_over_16*2.0f)/(a/rsqrt(a));
+                        
                         float_t subTerm1 = log(b + 2.0f * sqrt_a * sqrt_c);
                         float_t subTerm2 = log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
                         
-                        retval += subTerm0 * (subTerm1 - subTerm2);
+                        //if (subTerm1 > -exp2(63.f))
+                        //    SHADER_CRASHING_ASSERT(subTerm2>=subTerm1);
+                        
+                        retval -= subTerm0 * (subTerm1 - subTerm2);
                     }
                 }
+                
 
                 return retval;
             }
             
             // keeping it for now
                         // TODO: remove
-            float_t calcArcLenNumeric(float_t t)
+            float_t calcArcLen(float_t t)
             {
-                
                 double num = 0.0;
                 const int steps = 100;
                     // from 0 to t
@@ -177,7 +194,7 @@ namespace shapes
         
         static Quadratic constructFromBezier(QuadraticBezier<float_t> curve)
         {
-            const float2_t A = curve.P0 - 2.0 * curve.P1 + curve.P2;
+            const float2_t A = curve.P0 - 2.0f * curve.P1 + curve.P2;
             const float2_t B = 2.0f * (curve.P1 - curve.P0);
             const float2_t C = curve.P0;
             
@@ -207,128 +224,119 @@ namespace shapes
         
         template<typename Clipper>
         float2 ud(float2_t pos, float_t thickness, Clipper clipper)
-        {            
+        {
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
             // p'(0)   = 2(B-A)
             // p'(1)   = 2(C-B)
             // p'(1/2) = 2(C-A)
             
+            // exponent so large it would wipe the mantissa on any relative operation
+            const float_t PARAMETER_THRESHOLD = exp2(24);
+            const float_t MAX_DISTANCE_SQUARED = (thickness+1.0f)*(thickness+1.0f);
+            float_t candidateT[3u];
+            
             float2_t Bdiv2 = B*0.5f;
             float2_t CsubPos = C - pos;
-
-            // Reducing Quartic to Cubic Solution
-            float_t kk = 1.0 / dot(A,A);
-            float_t kx = kk * dot(Bdiv2,A);
-            float_t ky = kk * (2.0*dot(Bdiv2,Bdiv2)+dot(CsubPos,A)) / 3.0;
-            float_t kz = kk * dot(CsubPos,Bdiv2);      
-
-            float2_t res;
-
-            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
-            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
-            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
-            float_t p = ky - kx*kx;
-            float_t p3 = p*p*p;
-            float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
-            float_t h = q*q + 4.0*p3;
+            float_t Alen2 = dot(A, A);
             
-            const float_t MAX_DISTANCE_SQUARED = (thickness+1.0f)*(thickness+1.0f);
-
-            if(h >= 0.0)
+            // if A = 0, solve linear instead
+            if(Alen2 < exp2(-23.0f)*dot(B,B))
             {
-                h = sqrt(h);
-                float2_t x = (float2_t(h, -h) - q) / 2.0;
-
-                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
-                if(abs(abs(h/q) - 1.0) < 0.0001)
-                {
-                   // Approximation of x where h and q are close with no carastrophic cancellation
-                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
-                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
-                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
-                      // So √(1+w) can be approximated by 1+½w
-                      // Simplifying later and the fact that w=4p³/q will result in the following.
-                   x = float2_t(p3/q, -q - p3/q);
-                }
-
-                float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
-                float2_t t = uv.x + uv.y - kx;            
-                
-                float2_t tOrigQos = CsubPos + (B + A*t.x)*t.x;
-                res = float2_t(dot(tOrigQos, tOrigQos), t.x);
-                if(res.x > MAX_DISTANCE_SQUARED)
-                {
-                    t.x = clamp(t.x, 0.0f, 1.0f);
-                    res.x = sqrt(res.x);
-                    res.y = t.x;
-                    return res;
-                }
-                
-                t = clipper(t.x);
-                
-                // 1 root
-                float2_t qos = CsubPos + (B + A*t.x)*t.x;
-                res = float2_t(dot(qos,qos),t.x);
-                
-                if(t.x != t.y)
-                {
-                    qos = CsubPos + (B + A*t.y)*t.y;
-                    float dis = dot(qos,qos);
-                    if(dis < res.x) res = float2_t(dis, t.y);
-                }
-                
-                res.x = sqrt(res.x);
+                candidateT[0] = abs(dot(2.0f*Bdiv2,CsubPos))/dot(2.0f*Bdiv2,2.0f*Bdiv2);
+                candidateT[1] = PARAMETER_THRESHOLD;
+                candidateT[2] = PARAMETER_THRESHOLD;
             }
             else
             {
-                float_t z = sqrt(-p);
-                float_t v = acos( q/(p*z*2.0) ) / 3.0;
-                float_t m = cos(v);
-                float_t n = sin(v)*1.732050808;
-                
-                float2_t t[3];
-                t[0] = (m + m) * z - kx;
-                t[1] = (-n - m) * z - kx;
-                t[2] = (n - m) * z - kx;
-                
-                const float_t FLOAT_MAX = 3.40282e+38;
-                
-                // 3 roots
-                float_t dis;
-                res.x = FLOAT_MAX;
-                for(uint32_t i = 0u; i < 3u; i++)
-                {
-                    float_t orig_t = clamp(t[i].x, 0.0f, 1.0f);
-                    float2_t tOrigQos = CsubPos + (B + A*orig_t)*orig_t;
-                    float_t tOrigDis = dot(tOrigQos, tOrigQos);
-                    if(tOrigDis > MAX_DISTANCE_SQUARED)
-                    {
-                        if(tOrigDis < res.x)
-                            res = float2_t(tOrigDis, orig_t);
-                        continue;
-                    }
-                
-                    t[i] = clipper(t[i].x);
-                    
-                    float2_t qos = CsubPos + (B + A*t[i].x)*t[i].x;
-                    dis = dot(qos, qos);
-                    if( dis<res.x ) 
-                        res = float2_t(dis,t[i].x);
-                    
-                    if(t[i].x != t[i].y)
-                    {
-                        qos = CsubPos + (B + A*t[i].y)*t[i].y;
-                        dis = dot(qos, qos);
-                        if(dis < res.x) 
-                            res = float2_t(dis, t[i].y); 
-                    }
-                }
+                // Reducing Quartic to Cubic Solution
+                float_t kk = 1.0 / Alen2;
+                float_t kx = kk * dot(Bdiv2,A);
+                float_t ky = kk * (2.0*dot(Bdiv2,Bdiv2)+dot(CsubPos,A)) / 3.0;
+                float_t kz = kk * dot(CsubPos,Bdiv2);
 
-                res.x = sqrt( res.x );
+                // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
+                // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
+                // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
+                float_t p = ky - kx*kx;
+                float_t p3 = p*p*p;
+                float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
+                float_t h = q*q + 4.0*p3;
+            
+                if(h < 0.0)
+                {
+                    // 3 roots
+                    float_t z = sqrt(-p);
+                    float_t v = acos( q/(p*z*2.0) ) / 3.0;
+                    float_t m = cos(v);
+                    float_t n = sin(v)*1.732050808;
+                    
+                    candidateT[0] = (m + m) * z - kx;
+                    candidateT[1] = (-n - m) * z - kx;
+                    candidateT[2] = (n - m) * z - kx;
+                }
+                else
+                {
+                    // 1 root
+                    h = sqrt(h);
+                    float2_t x = (float2_t(h, -h) - q) / 2.0;
+
+                    // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
+                    if(abs(abs(h/q) - 1.0) < 0.0001)
+                    {
+                       // Approximation of x where h and q are close with no carastrophic cancellation
+                       // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
+                          // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
+                          // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
+                          // So √(1+w) can be approximated by 1+½w
+                          // Simplifying later and the fact that w=4p³/q will result in the following.
+                       x = float2_t(p3/q, -q - p3/q);
+                    }
+
+                    float2_t uv = sign(x)*pow(abs(x), float2_t(1.0/3.0,1.0/3.0));
+                    candidateT[0u] = uv.x + uv.y - kx;
+                    candidateT[1u] = PARAMETER_THRESHOLD;
+                    candidateT[2u] = PARAMETER_THRESHOLD;
+                }
             }
             
-            return res;
+            float2_t retval = float2_t(MAX_DISTANCE_SQUARED, 0.0f);
+            float2_t cand[2];
+            [[unroll(3)]]
+            for(uint32_t i = 0; i < 3; i++)
+            {
+                cand[0] = evaluateSDFCandidate(candidateT[i], CsubPos);
+                
+                if(cand[0].x < retval.x)
+                {
+                    float2_t newTs = clipper(cand[0].y);
+                    
+                    if (newTs[0] != cand[0].y)
+                    {
+                        cand[0] = evaluateSDFCandidate(newTs[0], CsubPos);
+                        // two candidates as result of clipping
+                        if (newTs[1] != newTs[0])
+                        {
+                            cand[1] = evaluateSDFCandidate(newTs[1], CsubPos);
+                            if (cand[1].x<retval.x)
+                                retval = cand[1];
+                        }
+                    }
+                    // either way we might need to swap
+                    if (cand[0].x < retval.x)
+                        retval = cand[0];
+                }
+            }
+            
+            // TODO: sqrt outside of the function
+            retval.x = sqrt(retval.x);
+            return retval;
+        }
+        
+        float2_t evaluateSDFCandidate(float_t candidate, float2_t newC)
+        {
+            float2_t qos = candidate * (A * candidate + B) + newC;
+            return float2_t(dot(qos, qos), candidate);
         }
        
         template<typename Clipper/* = DefaultClipper*/>
