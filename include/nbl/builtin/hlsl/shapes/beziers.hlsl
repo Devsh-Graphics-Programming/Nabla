@@ -97,10 +97,8 @@ namespace shapes
 
             float_t b_over_4a;
             
-            float_t _calcArcLen(float_t _t)
+            float_t calcArcLen(float_t t)
             {
-                float_t t = clamp(_t, 0.0, 1.0);
-            
                 float_t lenTan = sqrt(t*(a*t + b) + c);
                 float_t retval = t*lenTan;
                 float_t sqrt_c = sqrt(c);
@@ -142,7 +140,7 @@ namespace shapes
             
             // keeping it for now
                         // TODO: remove
-            float_t calcArcLen(float_t t)
+            float_t _calcArcLen(float_t t)
             {
                 double num = 0.0;
                 const int steps = 100;
