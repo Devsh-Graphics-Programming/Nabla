@@ -172,7 +172,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
         uint32_t getDirectVRAMAccessMemoryTypeBits() const
         {
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT|IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT|IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
             return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
         }
         //! HostVisible: Mappable for write/read
@@ -243,35 +243,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             !! Same goes for `vkGetPhysicalDeviceSparseImageFormatProperties2`
         */
-
-        /* FormatProperties2 
-                - VkDrmFormatModifierPropertiesListEXT(linux stuff)
-                - VkDrmFormatModifierPropertiesList2EXT(linux stuff)
-
-                [TODO][SOON] Add new flags to our own enum and implement for all backends
-                - VkFormatProperties3: (available in Vulkan Core 1.1)
-                    Basically same as VkFromatProperties but the flag type is VkFormatFeatureFlagBits2
-                    VkFormatFeatureFlagBits2 is basically compensating for the fuckup when `VkFormatFeatureFlagBits` could only have 31 flags
-                    this type is VkFlags64 and added two extra flags, namely:
-                        1. VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR and VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR 
-                            indicate that an implementation supports respectively reading and writing
-                            a given VkFormat through storage operations without specifying the format in the shader.
-
-                        2. VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR indicates that an implementation supports 
-                            depth comparison performed by OpImage*Dref* instructions on a given VkFormat.
-                            Previously the result of executing a OpImage*Dref* instruction on an image view,
-                            where the format was not one of the depth/stencil formats with a depth component,
-                            was undefined. This bit clarifies on which formats such instructions can be used.
-
-                - VkVideoDecodeH264ProfileEXT(video stuff)
-                - VkVideoDecodeH265ProfileEXT(video stuff)
-                - VkVideoEncodeH264ProfileEXT(video stuff)
-                - VkVideoEncodeH265ProfileEXT(video stuff)
-                - VkVideoProfileKHR (video stuff)
-                - VkVideoProfilesKHR(video stuff)
-        */
-
-        //
         struct SFormatBufferUsages
         {
             struct SUsage
@@ -419,8 +390,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SFormatImageUsages
         {
-            // TODO: should memset everything to 0 on default constructor?
-
             struct SUsage
             {
                 uint32_t sampledImage : 1; // samplerND
@@ -724,7 +693,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
     protected:
-        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api);
+        using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;
+        IPhysicalDevice(
+            core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* _api,
+            const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
+            const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
+        );
 
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
 
@@ -736,9 +710,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
             if (isNVIDIAGPU)
-                return 32u * 48u; // RTX 3090 (32 Threads/Warp * 48 Warp/SM)
+                return 32u * 64u; // Hopper (32 Threads/Warp *  Warps/SM)
             else if (isAMDGPU)
-                return 32u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+                return 32u * 1024u; // RDNA2 (32 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/thread-mapping.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/intel-processors-with-intel-uhd-graphics.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
@@ -755,28 +729,27 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
             if (isNVIDIAGPU) // NVIDIA SM
-                return 82u; // RTX 3090
+                return 144u; // RTX 4090
             else if (isAMDGPU) // AMD Compute Units
-                return 80u; // RX 6900XT
-            else if (isIntelGPU) // Intel DSS (or XC = new abbrevation)
+                return 220u; // AMD Instinct (TM) MI250X
+            else if (isIntelGPU) // Intel DSS (or XC = new abbrevation) or is it 128 ?
                 return 64u; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
             else
-                return 82u; // largest from above
+                return 220u; // largest from above
         }
-        
-        IAPIConnection* m_api; // dumb pointer to avoid circ ref
-        core::smart_refctd_ptr<system::ISystem> m_system;
 
-        SProperties m_properties = {};
-        SFeatures m_features = {};
-        SMemoryProperties m_memoryProperties = {};
+        const core::smart_refctd_ptr<system::ISystem> m_system;
+        IAPIConnection* const m_api; // dumb pointer to avoid circ ref
 
-        using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
-        qfam_props_array_t m_qfamProperties;
+        const SProperties m_properties = {};
+        const SFeatures m_features = {};
+        const SMemoryProperties m_memoryProperties = {};
 
-        SFormatImageUsages m_linearTilingUsages = {};
-        SFormatImageUsages m_optimalTilingUsages = {};
-        SFormatBufferUsages m_bufferUsages = {};
+        const qfam_props_array_t m_qfamProperties;
+
+        const SFormatImageUsages m_linearTilingUsages = {};
+        const SFormatImageUsages m_optimalTilingUsages = {};
+        const SFormatBufferUsages m_bufferUsages = {};
 
         struct SBufferFormatPromotionRequestHash
         {

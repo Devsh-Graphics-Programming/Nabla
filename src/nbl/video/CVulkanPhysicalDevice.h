@@ -21,8 +21,9 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
         inline IDebugCallback* getDebugCallback() const override { return m_api->getDebugCallback(); }
 
     protected:
-        inline CVulkanPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice)
-            : IPhysicalDevice(std::move(sys),api), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice) {}
+        template<typename... Args>
+        inline CVulkanPhysicalDevice(Args&&... args, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice)
+            : IPhysicalDevice(std::forward(args)...), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice) {}
     
         //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
         //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.

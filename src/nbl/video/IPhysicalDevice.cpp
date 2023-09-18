@@ -3,9 +3,12 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api) :
-    m_system(std::move(s)), m_api(api)
-{}
+IPhysicalDevice::IPhysicalDevice(
+    core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* _api,
+    const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
+    const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
+) : m_system(std::move(_system)), m_api(_api), m_properties(_properties), m_features(_features), m_memoryProperties(_memoryProperties),
+    m_qfamProperties(std::move(_qfamProperties)), m_linearTilingUsages(_linearTilingUsages), m_optimalTilingUsages(_optimalTilingUsages), m_bufferUsages(_bufferUsages) {}
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
