@@ -2,7 +2,7 @@
 #ifndef _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat/matrix.h>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 
 namespace nbl::hlsl
 {
