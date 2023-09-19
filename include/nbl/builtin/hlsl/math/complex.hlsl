@@ -1,8 +1,7 @@
 
-// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_BUILTIN_HLSL_MATH_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_COMPLEX_INCLUDED_
 
@@ -17,18 +16,10 @@ namespace math
 {
 
 
-typedef uint complex16_t;
-
-complex16_t complex16_t_conjugate(in complex16_t complex)
-{
-    return complex^0x80000000u;
-}
-
-
-
 template<typename vector_t>
 struct complex_t
 {
+	// TODO: do it properly as an `exp` and `exp2` overload/shadow func
 	complex_t<vector_t> expImaginary(in float _theta)
 	{
 		complex_t<vector_t> result;
@@ -73,7 +64,7 @@ struct complex_t
 };
 
 
-
+// TODO: move to its own header
 namespace fft
 {
 
