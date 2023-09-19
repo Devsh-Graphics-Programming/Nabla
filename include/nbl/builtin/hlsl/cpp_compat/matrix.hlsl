@@ -8,7 +8,7 @@
 #include <stdint.h>
 #endif
 
-#include <nbl/builtin/hlsl/cpp_compat/vector.h>
+#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
 namespace nbl::hlsl
 {
@@ -23,7 +23,7 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::operator[];
 
     template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M) && X <= N && Y <= M>>
-    matrix(matrix<T, X, Y> const& m) : Base(m)
+    explicit matrix(matrix<T, X, Y> const& m) : Base(m)
     {
     }
 
@@ -32,7 +32,6 @@ struct matrix final : private glm::mat<N,M,T>
 
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
-    
     
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
@@ -60,6 +59,9 @@ using float3x2 = matrix<float, 3, 2>;
 using float2x4 = matrix<float, 2, 4>;
 using float2x3 = matrix<float, 2, 3>;
 using float2x2 = matrix<float, 2, 2>;
+
+static_assert(!std::is_convertible_v<glm::mat4, float4x4>);
+static_assert(!std::is_convertible_v<float4x4, glm::mat4>);
 
 
 #endif
