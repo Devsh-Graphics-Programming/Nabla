@@ -90,3 +90,6 @@
 [submodule "examples_tests"]
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+[submodule "3rdparty/dxc/dxc"]
+	path = 3rdparty/dxc/dxc
+	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git

@@ -16,10 +16,26 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
-
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
+# DXC
+option(_NBL_COMPILE_WITH_DXC_ "Build Nabla with DXC" ON)
+option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
+option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
+set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
+if(_NBL_COMPILE_WITH_DXC_)
+	message(STATUS "_NBL_COMPILE_WITH_DXC_ enabled, Nabla will be built with DXC!")
+	add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
+	
+	if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+		message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
+	endif()
+else()
+	if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+		message(WARNING "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, but _NBL_COMPILE_WITH_DXC_ is turned off! DXC compile tests won't be executed...")
+	endif()
+endif()
 
 # volk
 set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
