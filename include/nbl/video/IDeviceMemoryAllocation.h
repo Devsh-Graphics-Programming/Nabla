@@ -168,6 +168,8 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         const bool m_dedicated;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS)
+
 } // end namespace nbl::video
 
 #endif

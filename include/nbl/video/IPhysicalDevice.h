@@ -172,7 +172,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         //! Requires EMPF_DEVICE_LOCAL_BIT, EMPF_HOST_READABLE_BIT, EMPF_HOST_WRITABLE_BIT from MemoryTypes
         uint32_t getDirectVRAMAccessMemoryTypeBits() const
         {
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT) | IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT | IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> requiredFlags = IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT|IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT|IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT;
             return getMemoryTypeBitsFromMemoryTypeFlags(requiredFlags);
         }
         //! HostVisible: Mappable for write/read
@@ -243,44 +243,20 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             !! Same goes for `vkGetPhysicalDeviceSparseImageFormatProperties2`
         */
-
-        /* FormatProperties2 
-                - VkDrmFormatModifierPropertiesListEXT(linux stuff)
-                - VkDrmFormatModifierPropertiesList2EXT(linux stuff)
-
-                [TODO][SOON] Add new flags to our own enum and implement for all backends
-                - VkFormatProperties3: (available in Vulkan Core 1.1)
-                    Basically same as VkFromatProperties but the flag type is VkFormatFeatureFlagBits2
-                    VkFormatFeatureFlagBits2 is basically compensating for the fuckup when `VkFormatFeatureFlagBits` could only have 31 flags
-                    this type is VkFlags64 and added two extra flags, namely:
-                        1. VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR and VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR 
-                            indicate that an implementation supports respectively reading and writing
-                            a given VkFormat through storage operations without specifying the format in the shader.
-
-                        2. VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR indicates that an implementation supports 
-                            depth comparison performed by OpImage*Dref* instructions on a given VkFormat.
-                            Previously the result of executing a OpImage*Dref* instruction on an image view,
-                            where the format was not one of the depth/stencil formats with a depth component,
-                            was undefined. This bit clarifies on which formats such instructions can be used.
-
-                - VkVideoDecodeH264ProfileEXT(video stuff)
-                - VkVideoDecodeH265ProfileEXT(video stuff)
-                - VkVideoEncodeH264ProfileEXT(video stuff)
-                - VkVideoEncodeH265ProfileEXT(video stuff)
-                - VkVideoProfileKHR (video stuff)
-                - VkVideoProfilesKHR(video stuff)
-        */
-
-        //
         struct SFormatBufferUsages
         {
             struct SUsage
             {
-                uint8_t vertexAttribute : 1u; // vertexAtrtibute binding
-                uint8_t bufferView : 1u; // samplerBuffer
-                uint8_t storageBufferView : 1u; // imageBuffer
-                uint8_t storageBufferViewAtomic : 1u; // imageBuffer
-                uint8_t accelerationStructureVertex : 1u;
+                uint16_t vertexAttribute : 1; // vertexAtrtibute binding
+                uint16_t bufferView : 1; // samplerBuffer
+                uint16_t storageBufferView : 1; // imageBuffer
+                uint16_t storageBufferViewAtomic : 1; // imageBuffer
+                uint16_t accelerationStructureVertex : 1;
+                uint16_t storageBufferViewLoadWithoutFormat : 1;
+                uint16_t storageBufferViewStoreWithoutFormat : 1;
+                uint16_t opticalFlowImage : 1;
+                uint16_t opticalFlowVector : 1;
+                uint16_t opticalFlowCost : 1;
 
                 SUsage()
                     : vertexAttribute(0)
@@ -288,15 +264,25 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , storageBufferView(0)
                     , storageBufferViewAtomic(0)
                     , accelerationStructureVertex(0)
+                    , storageBufferViewLoadWithoutFormat(0)
+                    , storageBufferViewStoreWithoutFormat(0)
+                    , opticalFlowImage(0)
+                    , opticalFlowVector(0)
+                    , opticalFlowCost(0)
                 {}
 
+                // Fields with 0 are deduced as false. User may patch it up later
                 SUsage(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usages) 
                     : vertexAttribute(usages.hasFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT))
                     , bufferView(usages.hasFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT))
                     , storageBufferView(usages.hasFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT))
-                    , accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
-                    // Deduced as false. User may patch it up later
                     , storageBufferViewAtomic(0)
+                    , accelerationStructureVertex(usages.hasFlags(asset::IBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
+                    , storageBufferViewLoadWithoutFormat(0)
+                    , storageBufferViewStoreWithoutFormat(0)
+                    , opticalFlowImage(0)
+                    , opticalFlowVector(0)
+                    , opticalFlowCost(0)
                 {}
 
                 inline SUsage operator & (const SUsage& other) const
@@ -307,6 +293,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.storageBufferView = storageBufferView & other.storageBufferView;
                     result.storageBufferViewAtomic = storageBufferViewAtomic & other.storageBufferViewAtomic;
                     result.accelerationStructureVertex = accelerationStructureVertex & other.accelerationStructureVertex;
+                    result.storageBufferViewLoadWithoutFormat = storageBufferViewLoadWithoutFormat & other.storageBufferViewLoadWithoutFormat;
+                    result.storageBufferViewStoreWithoutFormat = storageBufferViewStoreWithoutFormat & other.storageBufferViewStoreWithoutFormat;
+                    result.opticalFlowImage = opticalFlowImage & other.opticalFlowImage;
+                    result.opticalFlowVector = opticalFlowVector & other.opticalFlowVector;
+                    result.opticalFlowCost = opticalFlowCost & other.opticalFlowCost;
                     return result;
                 }
 
@@ -318,6 +309,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.storageBufferView = storageBufferView | other.storageBufferView;
                     result.storageBufferViewAtomic = storageBufferViewAtomic | other.storageBufferViewAtomic;
                     result.accelerationStructureVertex = accelerationStructureVertex | other.accelerationStructureVertex;
+                    result.storageBufferViewLoadWithoutFormat = storageBufferViewLoadWithoutFormat | other.storageBufferViewLoadWithoutFormat;
+                    result.storageBufferViewStoreWithoutFormat = storageBufferViewStoreWithoutFormat | other.storageBufferViewStoreWithoutFormat;
+                    result.opticalFlowImage = opticalFlowImage | other.opticalFlowImage;
+                    result.opticalFlowVector = opticalFlowVector | other.opticalFlowVector;
+                    result.opticalFlowCost = opticalFlowCost | other.opticalFlowCost;
                     return result;
                 }
 
@@ -329,6 +325,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.storageBufferView = storageBufferView ^ other.storageBufferView;
                     result.storageBufferViewAtomic = storageBufferViewAtomic ^ other.storageBufferViewAtomic;
                     result.accelerationStructureVertex = accelerationStructureVertex ^ other.accelerationStructureVertex;
+                    result.storageBufferViewLoadWithoutFormat = storageBufferViewLoadWithoutFormat ^ other.storageBufferViewLoadWithoutFormat;
+                    result.storageBufferViewStoreWithoutFormat = storageBufferViewStoreWithoutFormat ^ other.storageBufferViewStoreWithoutFormat;
+                    result.opticalFlowImage = opticalFlowImage ^ other.opticalFlowImage;
+                    result.opticalFlowVector = opticalFlowVector ^ other.opticalFlowVector;
+                    result.opticalFlowCost = opticalFlowCost ^ other.opticalFlowCost;
                     return result;
                 }
 
@@ -339,6 +340,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     if (storageBufferView && !other.storageBufferView) return false;
                     if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
                     if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
+                    if (storageBufferViewLoadWithoutFormat && !other.storageBufferViewLoadWithoutFormat) return false;
+                    if (storageBufferViewStoreWithoutFormat && !other.storageBufferViewStoreWithoutFormat) return false;
+                    if (opticalFlowImage && !other.opticalFlowImage) return false;
+                    if (opticalFlowVector && !other.opticalFlowVector) return false;
+                    if (opticalFlowCost && !other.opticalFlowCost) return false;
                     return true;
                 }
 
@@ -349,7 +355,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                         (bufferView == other.bufferView) &&
                         (storageBufferView == other.storageBufferView) &&
                         (storageBufferViewAtomic == other.storageBufferViewAtomic) &&
-                        (accelerationStructureVertex == other.accelerationStructureVertex);
+                        (accelerationStructureVertex == other.accelerationStructureVertex) &&
+                        (storageBufferViewLoadWithoutFormat == other.storageBufferViewLoadWithoutFormat) &&
+                        (storageBufferViewStoreWithoutFormat == other.storageBufferViewStoreWithoutFormat) &&
+                        (opticalFlowImage == other.opticalFlowImage) &&
+                        (opticalFlowVector == other.opticalFlowVector) &&
+                        (opticalFlowCost == other.opticalFlowCost);
                 }
             };
             
@@ -379,24 +390,36 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SFormatImageUsages
         {
-            // TODO: should memset everything to 0 on default constructor?
-
             struct SUsage
             {
-                uint16_t sampledImage : 1u; // samplerND
-                uint16_t storageImage : 1u; // imageND
-                uint16_t storageImageAtomic : 1u;
-                uint16_t attachment : 1u; // color, depth, stencil can be infferred from the format itself
-                uint16_t attachmentBlend : 1u;
-                uint16_t blitSrc : 1u;
-                uint16_t blitDst : 1u;
-                uint16_t transferSrc : 1u;
-                uint16_t transferDst : 1u;
-                uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
-                // TODO: linearFilter, minmaxFilter, read/write without format, depth comparison
+                uint32_t sampledImage : 1; // samplerND
+                uint32_t linearlySampledImage : 1; // samplerND with a sampler that has LINEAR or bitSrc with linear Filter
+                uint32_t minmaxSampledImage : 1; // samplerND with a sampler that MINMAX
+                // no cubic filter exposed
+                uint32_t storageImage : 1; // imageND
+                uint32_t storageImageAtomic : 1;
+                uint32_t attachment : 1; // color, depth, stencil can be infferred from the format itself
+                uint32_t attachmentBlend : 1;
+                uint32_t blitSrc : 1;
+                uint32_t blitDst : 1;
+                uint32_t transferSrc : 1;
+                uint32_t transferDst : 1;
+                // TODO: chroma midpoint/cosited samples, ycbcr conversion, disjoint, fragment density map, shading rate,
+                uint32_t videoDecodeOutput : 1;
+                uint32_t videoDecodeDPB : 1;
+                uint32_t videoEncodeInput : 1;
+                uint32_t videoEncodeDPB : 1;
+                uint32_t storageImageLoadWithoutFormat : 1;
+                uint32_t storageImageStoreWithoutFormat : 1;
+                uint32_t depthCompareSampledImage : 1;
+                uint32_t hostImageTransfer : 1;
+                // others
+                uint32_t log2MaxSamples : 3; // 0 means cant use as a multisample image format
 
                 SUsage()
                     : sampledImage(0)
+                    , linearlySampledImage(0)
+                    , minmaxSampledImage(0)
                     , storageImage(0)
                     , storageImageAtomic(0)
                     , attachment(0)
@@ -405,27 +428,47 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , blitDst(0)
                     , transferSrc(0)
                     , transferDst(0)
+                    , videoDecodeOutput(0)
+                    , videoDecodeDPB(0)
+                    , videoEncodeInput(0)
+                    , videoEncodeDPB(0)
+                    , storageImageLoadWithoutFormat(0)
+                    , storageImageStoreWithoutFormat(0)
+                    , depthCompareSampledImage(0)
+                    , hostImageTransfer(0)
                     , log2MaxSamples(0)
                 {}
 
+                // Fields with 0 are deduced as false. User may patch it up later
                 SUsage(core::bitflag<IGPUImage::E_USAGE_FLAGS> usages):
-                    log2MaxSamples(0),
                     sampledImage(usages.hasFlags(IGPUImage::EUF_SAMPLED_BIT)),
+                    linearlySampledImage(0),
+                    minmaxSampledImage(0),
                     storageImage(usages.hasFlags(IGPUImage::EUF_STORAGE_BIT)),
-                    transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
-                    transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
+                    storageImageAtomic(0),
                     attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
-                    attachmentBlend(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)/*&& TODO: is Float or Normalized Format*/),
-                    // Deduced as false. User may patch it up later
+                    attachmentBlend(0),
                     blitSrc(0),
                     blitDst(0),
-                    storageImageAtomic(0)
+                    transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
+                    transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
+                    videoDecodeOutput(0),
+                    videoDecodeDPB(0),
+                    videoEncodeInput(0),
+                    videoEncodeDPB(0),
+                    storageImageLoadWithoutFormat(0),
+                    storageImageStoreWithoutFormat(0),
+                    depthCompareSampledImage(0),
+                    hostImageTransfer(0),
+                    log2MaxSamples(0)
                 {}
 
                 inline SUsage operator & (const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage & other.sampledImage;
+                    result.linearlySampledImage = linearlySampledImage & other.linearlySampledImage;
+                    result.minmaxSampledImage = minmaxSampledImage & other.minmaxSampledImage;
                     result.storageImage = storageImage & other.storageImage;
                     result.storageImageAtomic = storageImageAtomic & other.storageImageAtomic;
                     result.attachment = attachment & other.attachment;
@@ -434,7 +477,15 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.blitDst = blitDst & other.blitDst;
                     result.transferSrc = transferSrc & other.transferSrc;
                     result.transferDst = transferDst & other.transferDst;
-                    result.log2MaxSamples = log2MaxSamples & other.log2MaxSamples;
+                    result.videoDecodeOutput = videoDecodeOutput & other.videoDecodeOutput;
+                    result.videoDecodeDPB = videoDecodeDPB & other.videoDecodeDPB;
+                    result.videoEncodeInput = videoEncodeInput & other.videoEncodeInput;
+                    result.videoEncodeDPB = videoEncodeDPB & other.videoEncodeDPB;
+                    result.storageImageLoadWithoutFormat = storageImageLoadWithoutFormat & other.storageImageLoadWithoutFormat;
+                    result.storageImageStoreWithoutFormat = storageImageStoreWithoutFormat & other.storageImageStoreWithoutFormat;
+                    result.depthCompareSampledImage = depthCompareSampledImage & other.depthCompareSampledImage;
+                    result.hostImageTransfer = hostImageTransfer & other.hostImageTransfer;
+                    result.log2MaxSamples = std::min(log2MaxSamples,other.log2MaxSamples);
                     return result;
                 }
 
@@ -442,6 +493,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 {
                     SUsage result;
                     result.sampledImage = sampledImage | other.sampledImage;
+                    result.linearlySampledImage = linearlySampledImage | other.linearlySampledImage;
+                    result.minmaxSampledImage = minmaxSampledImage | other.minmaxSampledImage;
                     result.storageImage = storageImage | other.storageImage;
                     result.storageImageAtomic = storageImageAtomic | other.storageImageAtomic;
                     result.attachment = attachment | other.attachment;
@@ -450,14 +503,25 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.blitDst = blitDst | other.blitDst;
                     result.transferSrc = transferSrc | other.transferSrc;
                     result.transferDst = transferDst | other.transferDst;
-                    result.log2MaxSamples = log2MaxSamples | other.log2MaxSamples;
+                    result.videoDecodeOutput = videoDecodeOutput | other.videoDecodeOutput;
+                    result.videoDecodeDPB = videoDecodeDPB | other.videoDecodeDPB;
+                    result.videoEncodeInput = videoEncodeInput | other.videoEncodeInput;
+                    result.videoEncodeDPB = videoEncodeDPB | other.videoEncodeDPB;
+                    result.storageImageLoadWithoutFormat = storageImageLoadWithoutFormat | other.storageImageLoadWithoutFormat;
+                    result.storageImageStoreWithoutFormat = storageImageStoreWithoutFormat | other.storageImageStoreWithoutFormat;
+                    result.depthCompareSampledImage = depthCompareSampledImage | other.depthCompareSampledImage;
+                    result.hostImageTransfer = hostImageTransfer | other.hostImageTransfer;
+                    result.log2MaxSamples = std::max(log2MaxSamples,other.log2MaxSamples);
                     return result;
                 }
 
+                // TODO: do we even need this operator?
                 inline SUsage operator ^ (const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage ^ other.sampledImage;
+                    result.linearlySampledImage = linearlySampledImage ^ other.linearlySampledImage;
+                    result.minmaxSampledImage = minmaxSampledImage ^ other.minmaxSampledImage;
                     result.storageImage = storageImage ^ other.storageImage;
                     result.storageImageAtomic = storageImageAtomic ^ other.storageImageAtomic;
                     result.attachment = attachment ^ other.attachment;
@@ -466,6 +530,15 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     result.blitDst = blitDst ^ other.blitDst;
                     result.transferSrc = transferSrc ^ other.transferSrc;
                     result.transferDst = transferDst ^ other.transferDst;
+                    result.videoDecodeOutput = videoDecodeOutput ^ other.videoDecodeOutput;
+                    result.videoDecodeDPB = videoDecodeDPB ^ other.videoDecodeDPB;
+                    result.videoEncodeInput = videoEncodeInput ^ other.videoEncodeInput;
+                    result.transferDst = videoEncodeDPB ^ other.videoEncodeDPB;
+                    // does this operator even make sense!?
+                    result.storageImageLoadWithoutFormat = storageImageLoadWithoutFormat ^ other.storageImageLoadWithoutFormat;
+                    result.storageImageStoreWithoutFormat = storageImageStoreWithoutFormat ^ other.storageImageStoreWithoutFormat;
+                    result.depthCompareSampledImage = depthCompareSampledImage ^ other.depthCompareSampledImage;
+                    result.hostImageTransfer = hostImageTransfer ^ other.hostImageTransfer;
                     result.log2MaxSamples = log2MaxSamples ^ other.log2MaxSamples;
                     return result;
                 }
@@ -473,6 +546,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 inline bool operator<(const SUsage& other) const
                 {
                     if (sampledImage && !other.sampledImage) return false;
+                    if (linearlySampledImage && !other.linearlySampledImage) return false;
+                    if (minmaxSampledImage && !other.minmaxSampledImage) return false;
                     if (storageImage && !other.storageImage) return false;
                     if (storageImageAtomic && !other.storageImageAtomic) return false;
                     if (attachment && !other.attachment) return false;
@@ -481,6 +556,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     if (blitDst && !other.blitDst) return false;
                     if (transferSrc && !other.transferSrc) return false;
                     if (transferDst && !other.transferDst) return false;
+                    if (videoDecodeOutput && !other.videoDecodeOutput) return false;
+                    if (videoDecodeDPB && !other.videoDecodeDPB) return false;
+                    if (videoEncodeInput && !other.videoEncodeInput) return false;
+                    if (videoEncodeDPB && !other.videoEncodeDPB) return false;
+                    if (other.storageImageLoadWithoutFormat && !storageImageLoadWithoutFormat) return false;
+                    if (other.storageImageStoreWithoutFormat && !storageImageStoreWithoutFormat) return false;
+                    if (other.depthCompareSampledImage && !depthCompareSampledImage) return false;
+                    if (other.hostImageTransfer && !hostImageTransfer) return false;
                     if (other.log2MaxSamples < log2MaxSamples) return false;
                     return true;
                 }
@@ -489,6 +572,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 {
                     return
                         (sampledImage == other.sampledImage) &&
+                        (linearlySampledImage == other.linearlySampledImage) &&
+                        (minmaxSampledImage == other.minmaxSampledImage) &&
                         (storageImage == other.storageImage) &&
                         (storageImageAtomic == other.storageImageAtomic) &&
                         (attachment == other.attachment) &&
@@ -497,6 +582,14 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                         (blitDst == other.blitDst) &&
                         (transferSrc == other.transferSrc) &&
                         (transferDst == other.transferDst) &&
+                        (videoDecodeOutput == other.videoDecodeOutput) &&
+                        (videoDecodeDPB == other.videoDecodeDPB) &&
+                        (videoEncodeInput == other.videoEncodeInput) &&
+                        (videoEncodeDPB == other.videoEncodeDPB) &&
+                        (storageImageLoadWithoutFormat == other.storageImageLoadWithoutFormat) &&
+                        (storageImageStoreWithoutFormat == other.storageImageStoreWithoutFormat) &&
+                        (depthCompareSampledImage == other.depthCompareSampledImage) &&
+                        (hostImageTransfer == other.hostImageTransfer) &&
                         (log2MaxSamples == other.log2MaxSamples);
                 }
             };
@@ -600,7 +693,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
     protected:
-        IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api);
+        using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;
+        IPhysicalDevice(
+            core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* _api,
+            const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
+            const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
+        );
 
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
 
@@ -612,9 +710,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
             if (isNVIDIAGPU)
-                return 32u * 48u; // RTX 3090 (32 Threads/Warp * 48 Warp/SM)
+                return 32u * 64u; // Hopper (32 Threads/Warp *  Warps/SM)
             else if (isAMDGPU)
-                return 32u * 1024u; // RX 6900XT (64 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
+                return 32u * 1024u; // RDNA2 (32 Threads/Wave * 1024 Waves/CU) https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/thread-mapping.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/intel-processors-with-intel-uhd-graphics.html
             // https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
@@ -631,28 +729,27 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             const bool isAMDGPU = (driverID == E_DRIVER_ID::EDI_AMD_OPEN_SOURCE || driverID == E_DRIVER_ID::EDI_AMD_PROPRIETARY);
             const bool isNVIDIAGPU = (driverID == E_DRIVER_ID::EDI_NVIDIA_PROPRIETARY);
             if (isNVIDIAGPU) // NVIDIA SM
-                return 82u; // RTX 3090
+                return 144u; // RTX 4090
             else if (isAMDGPU) // AMD Compute Units
-                return 80u; // RX 6900XT
-            else if (isIntelGPU) // Intel DSS (or XC = new abbrevation)
+                return 220u; // AMD Instinct (TM) MI250X
+            else if (isIntelGPU) // Intel DSS (or XC = new abbrevation) or is it 128 ?
                 return 64u; // Iris Xe HPG (DG2) https://www.intel.com/content/www/us/en/develop/documentation/oneapi-gpu-optimization-guide/top/xe-arch.html
             else
-                return 82u; // largest from above
+                return 220u; // largest from above
         }
-        
-        IAPIConnection* m_api; // dumb pointer to avoid circ ref
-        core::smart_refctd_ptr<system::ISystem> m_system;
 
-        SProperties m_properties = {};
-        SFeatures m_features = {};
-        SMemoryProperties m_memoryProperties = {};
+        const core::smart_refctd_ptr<system::ISystem> m_system;
+        IAPIConnection* const m_api; // dumb pointer to avoid circ ref
 
-        using qfam_props_array_t = core::smart_refctd_dynamic_array<SQueueFamilyProperties>;
-        qfam_props_array_t m_qfamProperties;
+        const SProperties m_properties = {};
+        const SFeatures m_features = {};
+        const SMemoryProperties m_memoryProperties = {};
 
-        SFormatImageUsages m_linearTilingUsages = {};
-        SFormatImageUsages m_optimalTilingUsages = {};
-        SFormatBufferUsages m_bufferUsages = {};
+        const qfam_props_array_t m_qfamProperties;
+
+        const SFormatImageUsages m_linearTilingUsages = {};
+        const SFormatImageUsages m_optimalTilingUsages = {};
+        const SFormatBufferUsages m_bufferUsages = {};
 
         struct SBufferFormatPromotionRequestHash
         {
