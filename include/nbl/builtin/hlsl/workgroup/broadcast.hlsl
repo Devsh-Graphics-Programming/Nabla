@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 
+#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 
 namespace nbl 
@@ -21,10 +22,8 @@ namespace workgroup
  * and then all invocations access that index.
  */
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
-T Broadcast(in T val, in uint id)
+T Broadcast(in T val, NBL_REF_ARG(SharedAccessor) accessor, in uint id)
 {
-    SharedAccessor accessor;
-    
     if(edgeBarriers)
         accessor.broadcast.workgroupExecutionAndMemoryBarrier();
     
@@ -39,9 +38,8 @@ T Broadcast(in T val, in uint id)
 }
 
 template<typename T, class SharedAccessor, bool edgeBarriers = true>
-T BroadcastFirst(in T val)
+T BroadcastFirst(in T val, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SharedAccessor accessor;
     
     if(edgeBarriers)
         accessor.broadcast.workgroupExecutionAndMemoryBarrier();

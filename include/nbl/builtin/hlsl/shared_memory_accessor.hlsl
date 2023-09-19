@@ -10,32 +10,10 @@ namespace nbl
 {
 namespace hlsl
 {
-
-#ifdef BROADCAST_MEM
-struct BroadcastScratchProxy
-{
-    uint get(uint ix)
-    {
-        return BROADCAST_MEM[ix];
-    }
-    
-    void set(uint ix, uint value)
-    {
-        BROADCAST_MEM[ix] = value;
-    }
-};
-#else
-struct BroadcastScratchProxy {};
-#endif
-
-// REVIEW:  Bank conflict avoidance. It seems the offset for each index should be SUBGROUP_SIZE,
-//          not WORKGROUP_SIZE (assuming banks == SUBGROUP_SIZE)
-
 template<class NumberSharedMemoryAccessor>
 struct SharedMemoryAdaptor
 {
     NumberSharedMemoryAccessor accessor;
-    uint offset;
     
     uint get(const uint ix) { return accessor.get(ix); }
     void get(const uint ix, out uint value) { value = accessor.get(ix);}

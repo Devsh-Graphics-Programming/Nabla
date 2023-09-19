@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 
+#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
@@ -18,28 +19,26 @@ namespace workgroup
 template<typename T, class SubgroupOp, class SharedAccessor>
 struct WorkgroupScanHead
 {
-    bool isScan;
     T identity;
     T firstLevelScan;
+    T lastLevelScan;
     uint itemCount;
     uint lastInvocation;
     uint lastInvocationInLevel;
-    uint scanStoreIndex;
+    uint scanLoadIndex;
 
-    static WorkgroupScanHead create(bool isScan, T identity, uint itemCount)
+    static WorkgroupScanHead create(T identity, uint itemCount)
     {
         WorkgroupScanHead<T, SubgroupOp, SharedAccessor> wsh;
-        wsh.isScan = isScan;
         wsh.identity = identity;
         wsh.itemCount = itemCount;
         wsh.lastInvocation = itemCount - 1u;
         return wsh;
     }
 
-    T operator()(T value)
+    void operator()(T value, NBL_REF_ARG(SharedAccessor) sharedAccessor)
     {
         const uint subgroupMask = glsl::gl_SubgroupSize() - 1u;
-        SharedAccessor sharedAccessor;
         lastInvocationInLevel = lastInvocation;
         
         SubgroupOp subgroupOp;
@@ -52,21 +51,20 @@ struct WorkgroupScanHead
         // every group of 64 invocations has been coallesced into 1 result value. This means that the results of 
         // the first SubgroupSz^2 invocations will be processed by the first subgroup and so on.
         // Consequently, those first SubgroupSz^2 invocations will store their results on SubgroupSz scratch slots 
-        // with halfSubgroupSz padding and the next level will follow the same + the previous as an `offset`.
-        const uint offset = (gl_LocalInvocationIndex >> glsl::gl_SubgroupSizeLog2()) & ~subgroupMask; // For subgroupSz = 64, first 4095 invocations get offset 0, 4096-8191 offset 64, then 128 etc.
-        const uint memBegin = offset;
-        uint nextLevelStoreIndex = memBegin + glsl::gl_SubgroupID();
-        scanStoreIndex = gl_LocalInvocationIndex;
+        // and the next level will follow the same + the previous as an `offset`.
+        
+        scanLoadIndex = gl_LocalInvocationIndex;
+        const uint loadStoreIndexDiff = scanLoadIndex - glsl::gl_SubgroupID();
         
         bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
         while(lastInvocationInLevel >= glsl::gl_SubgroupSize() * glsl::gl_SubgroupSize())
         {
-            sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
+            // REVIEW-519: Refactor to use ping-ponging if possible in order to minimize barrier usage. Worth it? How common is WGSZ > 4096
             if(participate)
             {
                 if (any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
                 { // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
-                    sharedAccessor.main.set(nextLevelStoreIndex, scan);
+                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For subgroupSz = 64, first 4095 invocations store index is [0,63], 4096-8191 [64,127] etc.
                 }
             }
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
@@ -75,72 +73,59 @@ struct WorkgroupScanHead
             {
                 const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
                 scan = subgroupOp(prevLevelScan);
-                if(isScan)
-                {
-                    sharedAccessor.main.set(scanStoreIndex, scan);
-                }
+                sharedAccessor.main.set(scanLoadIndex, scan);
             }
-            if(isScan)
-            {
-                scanStoreIndex += lastInvocationInLevel + 1u;
-            }
+            scanLoadIndex += lastInvocationInLevel + 1u;
         }
         if(lastInvocationInLevel >= glsl::gl_SubgroupSize())
         {
-            sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
             if(participate)
             {
                 if(any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation))) {
-                    sharedAccessor.main.set(nextLevelStoreIndex, scan);
+                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan);
                 }
             }
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
             participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
             {
-                const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
+                const uint prevLevelScan = sharedAccessor.main.get(scanLoadIndex);
                 scan = subgroupOp(prevLevelScan);
-                if(isScan) {
-                    sharedAccessor.main.set(scanStoreIndex, scan);
-                }
             }
         }
-        return scan;
+        lastLevelScan = scan; // only invocations of gl_LocalInvocationIndex < gl_SubgroupSize will have correct values, rest will have garbage
     }
 };
 
-template<typename T, class Binop, class SharedAccessor>
+template<typename T, class Binop, class ScanHead, class SharedAccessor, bool isExclusive>
 struct WorkgroupScanTail
 {
-    bool isExclusive;
     T identity;
-    T firstLevelScan;
-    uint lastInvocation;
-    uint scanStoreIndex;
+    ScanHead head;
 
-    static WorkgroupScanTail create(bool isExclusive, T identity, T firstLevelScan, uint lastInvocation, uint scanStoreIndex)
+    static WorkgroupScanTail create(T identity, ScanHead head)
     {
-        WorkgroupScanTail<T, Binop, SharedAccessor> wst;
-        wst.isExclusive = isExclusive;
-        wst.identity = identity;
-        wst.firstLevelScan = firstLevelScan;
-        wst.lastInvocation = lastInvocation;
-        wst.scanStoreIndex = scanStoreIndex;
-        return wst;
+        WorkgroupScanTail<T, Binop, ScanHead, SharedAccessor, isExclusive> tail;
+        tail.identity = identity;
+        tail.head = head;
+        return tail;
     }
 
-    T operator()()
+    T operator()(NBL_REF_ARG(SharedAccessor) sharedAccessor)
     {
         Binop binop;
-        SharedAccessor sharedAccessor;
-        sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-        
+        uint lastInvocation = head.lastInvocation;
+        uint firstLevelScan = head.firstLevelScan;
         const uint subgroupId = glsl::gl_SubgroupID();
+        
         if(lastInvocation >= glsl::gl_SubgroupSize())
         {
-            uint scanLoadIndex = scanStoreIndex + glsl::gl_SubgroupSize();
+            uint scanLoadIndex = head.scanLoadIndex + glsl::gl_SubgroupSize();
             const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::gl_SubgroupSize();
             const uint currentToHighLevel = subgroupId - shiftedInvocationIndex;
+            
+            sharedAccessor.main.set(head.scanLoadIndex, head.lastLevelScan);
+
             for(uint logShift = (firstbithigh(lastInvocation) / glsl::gl_SubgroupSizeLog2() - 1u) * glsl::gl_SubgroupSizeLog2(); logShift > 0u; logShift -= glsl::gl_SubgroupSizeLog2())
             {
                 uint lastInvocationInLevel = lastInvocation >> logShift;
@@ -167,9 +152,9 @@ struct WorkgroupScanTail
             firstLevelScan = glsl::subgroupShuffleUp(firstLevelScan, 1u);
             if(glsl::subgroupElect())
             { // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
-                firstLevelScan = sharedAccessor.main.get(subgroupId - 1u);
+                firstLevelScan = all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(subgroupId - 1u) : identity;
             }
-            return all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? firstLevelScan : identity;
+            return firstLevelScan;
         }
         else
         {

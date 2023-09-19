@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/workgroup/shared_ballot.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
 
@@ -14,6 +14,16 @@ namespace hlsl
 {
 namespace workgroup
 {
+namespace impl
+{
+uint getDWORD(uint invocation)
+{
+    return invocation >> 5;
+}
+}
+// uballotBitfieldCount essentially means 'how many DWORDs are needed to store ballots in bitfields, for each invocation of the workgroup'
+// can't use getDWORD because we want the static const to be treated as 'constexpr'
+static const uint uballotBitfieldCount = (_NBL_HLSL_WORKGROUP_SIZE_+31) >> 5; // in case WGSZ is not a multiple of 32 we might miscalculate the DWORDs after the right-shift by 5 which is why we add 31
 
 /**
  * Simple ballot function.
@@ -31,14 +41,9 @@ namespace workgroup
  * For each invocation index, we can find its respective DWORD index in the accessor array 
  * by calling the getDWORD function.
  */
-template<class SharedAccessor, bool edgeBarriers = true>
-void ballot(in bool value)
+template<class SharedAccessor>
+void ballot(const bool value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SharedAccessor accessor;
-    
-    if(edgeBarriers)
-        accessor.main.workgroupExecutionAndMemoryBarrier();
-    
     uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
     if(initialize) {
         accessor.main.set(gl_LocalInvocationIndex, 0u);
@@ -46,66 +51,24 @@ void ballot(in bool value)
     accessor.main.workgroupExecutionAndMemoryBarrier();
     if(value) {
         uint dummy;
-        accessor.main.atomicOr(getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+        accessor.main.atomicOr(impl::getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
     }
-    
-    if(edgeBarriers)
-        accessor.main.workgroupExecutionAndMemoryBarrier();
+}
+
+template<class SharedAccessor>
+bool ballotBitExtract(const uint index, NBL_REF_ARG(SharedAccessor) accessor)
+{
+    return (accessor.main.get(impl::getDWORD(index)) & (1u << (index & 31u))) != 0u;
 }
 
 /**
  * Once we have assigned ballots in the shared array, we can 
  * extract any invocation's ballot value using this function.
  */
-template<class SharedAccessor, bool edgeBarriers = true>
-bool ballotBitExtract(in uint index)
-{
-    SharedAccessor accessor;
-    
-    if(edgeBarriers)
-        accessor.main.workgroupExecutionAndMemoryBarrier();
-    
-    const bool retval = (accessor.main.get(getDWORD(index)) & (1u << (index & 31u))) != 0u;
-    
-    if(edgeBarriers)
-        accessor.main.workgroupExecutionAndMemoryBarrier();
-    
-    return retval;
-}
-
-template<class SharedAccessor, bool edgeBarriers = true>
-bool inverseBallot()
-{
-    return ballotBitExtract<SharedAccessor, edgeBarriers>(gl_LocalInvocationIndex);
-}
-
-/**
- * Gives us the sum of all ballots for the workgroup.
- *
- * Only the first few invocations are used for performing the sum 
- * since we only have `uballotBitfieldCount` amount of Uints that we need 
- * to add together.
- * 
- * We add them all in the shared array index after the last DWORD 
- * that is used for the ballots. For example, if we have 128 workgroup size,
- * then the array index in which we accumulate the sum is `4` since 
- * indexes 0..3 are used for ballots.
- */ 
 template<class SharedAccessor>
-uint ballotBitCount()
+bool inverseBallot(NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SharedAccessor accessor;
-    accessor.main.set(uballotBitfieldCount, 0u);
-    accessor.main.workgroupExecutionAndMemoryBarrier();
-    if(gl_LocalInvocationIndex < uballotBitfieldCount)
-    {
-        const uint localBallot = accessor.main.get(gl_LocalInvocationIndex);
-        const uint localBallotBitCount = countbits(localBallot);
-        uint dummy;
-        accessor.main.atomicAdd(uballotBitfieldCount, localBallotBitCount, dummy);
-    }
-    accessor.main.workgroupExecutionAndMemoryBarrier();
-    return accessor.main.get(uballotBitfieldCount);
+    return ballotBitExtract<SharedAccessor>(gl_LocalInvocationIndex, accessor);
 }
 
 }

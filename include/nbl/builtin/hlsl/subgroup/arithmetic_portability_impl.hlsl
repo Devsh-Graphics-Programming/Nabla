@@ -331,17 +331,14 @@ struct exclusive_scan
     T operator()(T value)
     {
         const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-        
-        value = impl(value);
+        inclusive_scan<T, Binop> inclusiveScan;
+        value = inclusiveScan(value);
         // store value to smem so we can shuffle it
         uint left = glsl::subgroupShuffleUp<T>(value, 1);
         value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
         // return it
         return value;
     }
-
-// protected:
-    inclusive_scan<T, Binop> impl;
 };
 
 template<typename T, class Binop>
@@ -349,13 +346,11 @@ struct reduction
 {
     T operator()(T value)
     {
-        value = impl(value);
+        inclusive_scan<T, Binop> inclusiveScan;
+        value = inclusiveScan(value);
         value = glsl::subgroupBroadcast<T>(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
         return value;
     }
-    
-// protected:
-    inclusive_scan<T, Binop> impl;
 };
 }
 #endif

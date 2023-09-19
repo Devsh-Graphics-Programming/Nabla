@@ -6,8 +6,11 @@
 
 // REVIEW-519: We said 1:1 with STL, does that mean without nbl::hlsl namespace so that code can be interoperable with CPP?
 //  Additionally there is a type_traits.hlsl header at the root folder. Delete?
-namespace std
+namespace nbl
 {
+namespace hlsl
+{
+
 template<class T, T v>
 struct integral_constant
 {
@@ -16,6 +19,6 @@ struct integral_constant
     using type = integral_constant;
 };
 
-
+}
 }
 #endif
