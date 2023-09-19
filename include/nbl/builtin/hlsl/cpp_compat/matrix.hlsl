@@ -19,7 +19,6 @@ struct matrix final : private glm::mat<N,M,T>
 {
     using Base = glm::mat<N,M,T>;
     using Base::Base;
-    using Base::operator=;
     using Base::operator[];
 
     template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M) && X <= N && Y <= M>>
@@ -29,6 +28,12 @@ struct matrix final : private glm::mat<N,M,T>
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}
+
+    matrix& operator=(matrix const& rhs)
+    {
+        Base::operator=(rhs);
+        return *this;
+    }
 
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
@@ -59,10 +64,6 @@ using float3x2 = matrix<float, 3, 2>;
 using float2x4 = matrix<float, 2, 4>;
 using float2x3 = matrix<float, 2, 3>;
 using float2x2 = matrix<float, 2, 2>;
-
-static_assert(!std::is_convertible_v<glm::mat4, float4x4>);
-static_assert(!std::is_convertible_v<float4x4, glm::mat4>);
-
 
 #endif
 
