@@ -21,34 +21,25 @@ namespace workgroup
  * We save the value in the shared array in the uballotBitfieldCount index 
  * and then all invocations access that index.
  */
-template<typename T, class SharedAccessor, bool edgeBarriers = true>
+template<typename T, class SharedAccessor>
 T Broadcast(in T val, NBL_REF_ARG(SharedAccessor) accessor, in uint id)
 {
-    if(edgeBarriers)
-        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-    
     if(gl_LocalInvocationIndex == id) {
         accessor.broadcast.set(uballotBitfieldCount, val);
     }
     
-    if(edgeBarriers)
-        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    accessor.broadcast.workgroupExecutionAndMemoryBarrier();
     
     return accessor.broadcast.get(uballotBitfieldCount);
 }
 
-template<typename T, class SharedAccessor, bool edgeBarriers = true>
+template<typename T, class SharedAccessor>
 T BroadcastFirst(in T val, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    
-    if(edgeBarriers)
-        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-    
     if (Elect())
         accessor.broadcast.set(uballotBitfieldCount, val);
     
-    if(edgeBarriers)
-        accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    accessor.broadcast.workgroupExecutionAndMemoryBarrier();
     
     return accessor.broadcast.get(uballotBitfieldCount);
 }
