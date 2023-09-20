@@ -132,7 +132,7 @@
 namespace nbl::hlsl::type_traits
 {
 
-#if 1 //def __HLSL_VERSION // HLSL
+#if __HLSL_VERSION // HLSL
 
 template<class T, T val>
 struct integral_constant {
