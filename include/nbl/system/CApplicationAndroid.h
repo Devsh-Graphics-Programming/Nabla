@@ -16,7 +16,7 @@ namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_ANDROID_
 
-class NBL_API CApplicationAndroid : public IApplicationFramework
+class CApplicationAndroid : public IApplicationFramework
 {
     public:
         void onStateSaved(android_app* params)
@@ -53,7 +53,8 @@ class NBL_API CApplicationAndroid : public IApplicationFramework
             const system::path& _localInputCWD,
             const system::path& _localOutputCWD,
             const system::path& _sharedInputCWD,
-            const system::path& _sharedOutputCWD) : IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD),  eventPoller(params, this), m_app(params), m_env(env)
+            const system::path& _sharedOutputCWD
+        ) : IApplicationFramework(_localInputCWD, _localOutputCWD, _sharedInputCWD, _sharedOutputCWD),  eventPoller(params, this), m_app(params), m_env(env)
         {
             params->onAppCmd = handleCommand;
             params->onInputEvent = handleInput;
@@ -106,8 +107,9 @@ class NBL_API CApplicationAndroid : public IApplicationFramework
             int events;
             bool keepPolling = true;
         public:
-            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : app(_app), framework(_framework) {
-                start();
+            CEventPoller(android_app* _app, CApplicationAndroid* _framework) : base_t(base_t::start_on_construction), app(_app), framework(_framework)
+            {
+                waitForInitComplete();
             }
         protected:
             void init() {

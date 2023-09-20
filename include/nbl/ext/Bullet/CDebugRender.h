@@ -24,7 +24,7 @@ namespace Bullet3
 
 
 
-class NBL_API CDebugRender : public btIDebugDraw
+class CDebugRender : public btIDebugDraw
 {
 public:
     CDebugRender(nbl::video::IVideoDriver *driver);

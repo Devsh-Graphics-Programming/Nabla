@@ -16,7 +16,7 @@ namespace nbl
 			The wang hash function has quite similar distribution to white noise.
 		*/
 
-		class NBL_API CWhiteNoiseDither : public CDither<CWhiteNoiseDither>
+		class CWhiteNoiseDither : public CDither<CWhiteNoiseDither>
 		{
 			public:
 				CWhiteNoiseDither() {}

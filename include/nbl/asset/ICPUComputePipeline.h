@@ -19,7 +19,7 @@ namespace asset
     @see IComputePipeline
 */
 
-class NBL_API ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
+class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
 {
     using base_t = IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 

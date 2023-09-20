@@ -12,7 +12,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUSampler : public asset::ISampler, public IBackendObject
+class IGPUSampler : public asset::ISampler, public IBackendObject
 {
     protected:
         virtual ~IGPUSampler() = default;

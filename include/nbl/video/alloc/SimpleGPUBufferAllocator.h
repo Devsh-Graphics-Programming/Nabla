@@ -16,7 +16,7 @@ namespace nbl::video
 //! TODO: Use a GPU heap allocator instead of buffer directly -- after move to Vulkan only
 //!     Vulkan and OpenGL should have different implementations
 //!     We should probably split GPUBuffer from Memory allocation (fake it on OpenGL)
-class NBL_API SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
+class SimpleGPUBufferAllocator : public GPUMemoryAllocatorBase
 {
     protected:
         IDriverMemoryBacked::SDriverMemoryRequirements  mBufferMemReqs;

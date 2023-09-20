@@ -20,7 +20,7 @@ namespace ext
 namespace Bullet3
 {
 
-class NBL_API CInstancedMotionState : public IMotionStateBase{
+class CInstancedMotionState : public IMotionStateBase{
 public:
     inline CInstancedMotionState() {}
     inline CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index)

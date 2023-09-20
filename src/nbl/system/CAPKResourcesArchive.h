@@ -22,7 +22,7 @@ class CAPKResourcesArchive final : public CFileArchive
 	protected:
 		static core::vector<SListEntry> computeItems(const std::string& asset_path, ANativeActivity* activity, JNIEnv* jniEnv);
 
-		file_buffer_t getFileBuffer(const IFileArchive::SListEntry* item) override;
+		file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) override;
 		
 
 		AAssetManager* m_mgr;

@@ -17,7 +17,7 @@
 
 namespace nbl::asset
 {
-class NBL_API IAccelerationStructure : public IDescriptor
+class IAccelerationStructure : public IDescriptor
 {
 	public:
 		enum E_TYPE : uint32_t

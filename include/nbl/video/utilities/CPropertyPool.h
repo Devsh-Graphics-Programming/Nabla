@@ -13,7 +13,7 @@ namespace nbl::video
 
     
 template<template<class...> class allocator=core::allocator, typename... Properties>
-class NBL_API CPropertyPool final : public IPropertyPool
+class CPropertyPool final : public IPropertyPool
 {
         using this_t = CPropertyPool<allocator,Properties...>;
 

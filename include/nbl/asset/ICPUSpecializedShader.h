@@ -19,7 +19,7 @@ namespace asset
 	@see IAsset
 */
 
-class NBL_API ICPUSpecializedShader : public IAsset, public ISpecializedShader
+class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 {
 	protected:
 		virtual ~ICPUSpecializedShader() = default;

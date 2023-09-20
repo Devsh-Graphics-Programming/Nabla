@@ -11,6 +11,8 @@
 */
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
+#include "nbl/asset/IDescriptor.h"
+#include "nbl/core/util/to_underlying.h"
 
 #include <compare>
 
@@ -30,7 +32,7 @@ namespace asset
 
 	But we can provide useful metadata from the loader.
 */
-class NBL_API IRenderpassIndependentPipelineMetadata : public core::Interface
+class IRenderpassIndependentPipelineMetadata : public core::Interface
 {
 	public:
 		//! A common struct to unify the metadata declarations.
@@ -103,16 +105,15 @@ class NBL_API IRenderpassIndependentPipelineMetadata : public core::Interface
 
 				auto operator<=>(const PushConstant&) const = default;
 			};
-
-			enum E_TYPE
+			enum class E_TYPE: uint8_t 
 			{
-				ET_COMBINED_IMAGE_SAMPLER = EDT_COMBINED_IMAGE_SAMPLER,
-				ET_STORAGE_IMAGE = EDT_STORAGE_IMAGE,
-				ET_UNIFORM_TEXEL_BUFFER = EDT_UNIFORM_TEXEL_BUFFER,
-				ET_STORAGE_TEXEL_BUFFER = EDT_STORAGE_TEXEL_BUFFER,
-				ET_UNIFORM_BUFFER = EDT_UNIFORM_BUFFER,
-				ET_STORAGE_BUFFER = EDT_STORAGE_BUFFER,
-				ET_INPUT_ATTACHMENT = EDT_INPUT_ATTACHMENT,
+				ET_COMBINED_IMAGE_SAMPLER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER),
+				ET_STORAGE_IMAGE = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_IMAGE),
+				ET_UNIFORM_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER),
+				ET_STORAGE_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER),
+				ET_UNIFORM_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_UNIFORM_BUFFER),
+				ET_STORAGE_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_BUFFER),
+				ET_INPUT_ATTACHMENT = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT),
 				ET_PUSH_CONSTANT = 11
 			};
 			E_TYPE type;

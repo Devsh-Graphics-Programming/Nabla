@@ -3,6 +3,7 @@
 
 #include "nbl/video/IQueryPool.h"
 
+#define VK_NO_PROTOTYPES
 #include <volk.h>
 
 namespace nbl::video

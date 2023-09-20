@@ -7,7 +7,7 @@
 namespace nbl::system
 {
 
-class NBL_API CFileLogger : public IThreadsafeLogger
+class CFileLogger : public IThreadsafeLogger
 {
 	public:
 		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const bool append, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::defaultLogMask())
@@ -21,9 +21,9 @@ class NBL_API CFileLogger : public IThreadsafeLogger
 		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override
 		{
 			const auto str = constructLogString(fmt, logLevel, args);
-			ISystem::future_t<size_t> future;
-			m_file->write(future,str.data(),m_pos,str.length());
-			m_pos += future.get(); // need to use the future to make sure op is actually executed :(
+			IFile::success_t succ;
+			m_file->write(succ,str.data(),m_pos,str.length());
+			m_pos += succ.getBytesProcessed();
 		}
 
 		core::smart_refctd_ptr<IFile> m_file;

@@ -1,5 +1,5 @@
-#ifndef __NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED__
-#define __NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED__
+#ifndef _NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED_
+#define _NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED_
 
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/ICPUImageView.h"
@@ -10,7 +10,7 @@ namespace nbl::asset
 {
 
 //! `isotropicNormalization` makes filter to use max value of all channels for normalization instead of per-channel max
-class NBL_API CDerivativeMapCreator
+class CDerivativeMapCreator
 {
 	public:
 		CDerivativeMapCreator() = delete;

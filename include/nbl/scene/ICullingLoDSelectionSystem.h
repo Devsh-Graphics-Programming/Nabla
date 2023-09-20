@@ -13,9 +13,19 @@
 namespace nbl::scene
 {
 
-class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
+class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
+		static void enableRequiredFeautres(video::SPhysicalDeviceFeatures& featuresToEnable)
+		{
+		}
+
+		static void enablePreferredFeatures(const video::SPhysicalDeviceFeatures& availableFeatures, video::SPhysicalDeviceFeatures& featuresToEnable)
+		{
+			featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
+			featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
+		}
+
 		//
 		#define nbl_glsl_DispatchIndirectCommand_t asset::DispatchIndirectCommand_t
 		#define uint uint32_t
@@ -49,7 +59,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 
 			video::IGPUBuffer::SCreationParams params = {};
 			params.size = sizeof(contents);
-			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT;
+			params.usage = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT)|asset::IBuffer::EUF_INDIRECT_BUFFER_BIT|asset::IBuffer::EUF_TRANSFER_DST_BIT;
 			return utils->createFilledDeviceLocalBufferOnDedMem(queue,std::move(params),&contents);
 		}
 
@@ -150,14 +160,14 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto InputDescriptorBindingCount = 8u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -172,14 +182,14 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().multiDrawIndirect;
-			withMDICounts &= device->getPhysicalDevice()->getFeatures().drawIndirectCount;
+			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
+			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
 			{
 				bindings[i].binding = i;
-				bindings[i].type = asset::EDT_STORAGE_BUFFER;
+				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
@@ -204,7 +214,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[InputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[InputDescriptorBindingCount] =
@@ -224,11 +234,11 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = InputDescriptorBindingCount;
-				if (_layout->getBindings().size()==InputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==InputDescriptorBindingCount)
 				{
 					assert(drawCountsToScan.buffer && drawCountsToScan.size!=0ull);
 				}
@@ -249,7 +259,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 		)
 		{
 			auto _layout = layout.get();
-			auto ds = device->createDescriptorSet(pool,std::move(layout));
+			auto ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[OutputDescriptorBindingCount];
 				video::IGPUDescriptorSet::SDescriptorInfo infos[OutputDescriptorBindingCount] =
@@ -265,11 +275,11 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				uint32_t count = OutputDescriptorBindingCount;
-				if (_layout->getBindings().size()==OutputDescriptorBindingCount)
+				if (_layout->getTotalBindingCount()==OutputDescriptorBindingCount)
 				{
 					assert(drawCallCounts.buffer && drawCallCounts.size!=0ull);
 				}
@@ -420,7 +430,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 
 #			if 0
 			// drawcall compaction
-			if (params.transientOutputDS->getLayout()->getBindings().size()==OutputDescriptorBindingCount)
+			if (params.transientOutputDS->getLayout()->getTotalBindingCount()==OutputDescriptorBindingCount)
 			{
 				cmdbuf->bindComputePipeline(drawCompact.get());
 				cmdbuf->dispatchIndirect(indirectRange.buffer.get(),indirectRange.offset+offsetof(DispatchIndirectParams,drawCompact));
@@ -477,16 +487,26 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				return nullptr;
 			
 			using shader_source_and_path = std::pair<core::smart_refctd_ptr<asset::ICPUShader>,system::path>;
-			auto getShader = [device](auto uniqueString) -> shader_source_and_path
+			auto getShader = [device]<core::StringLiteral Path>() -> shader_source_and_path
 			{
 				auto system = device->getPhysicalDevice()->getSystem();
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>(); 
+
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				auto glslFile = loadBuiltinData(Path.value);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl),asset::IShader::buffer_contains_glsl_t{}, asset::IShader::ESS_COMPUTE, decltype(uniqueString)::value), decltype(uniqueString)::value};
+				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, Path.value), Path.value};
 			};
 			auto overrideShader = [device,&cwdForShaderCompilation,workgroupSize,_scanner](shader_source_and_path&& baseShader, std::string additionalCode)
 			{
@@ -498,14 +518,14 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 				baseShader.first->setFilePathHint(path.string());
 				baseShader.first->setShaderStage(asset::IShader::ESS_COMPUTE);
 				auto shader =  device->createShader(
-					asset::IGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
+					asset::CGLSLCompiler::createOverridenCopy(baseShader.first.get(),"\n%s\n",additionalCode.c_str())
 				);
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
 			const std::string workgroupSizeDef = "\n#define _NBL_GLSL_WORKGROUP_SIZE_ _NBL_GLSL_CULLING_LOD_SELECTION_CULL_WORKGROUP_SIZE_\n";
 			
-			auto firstShader = getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")());
+			auto firstShader = getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_cull_and_lod_select.comp")>();
 			auto instanceCullAndLoDSelect = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceCullAndLoDSelectLayout),
 				overrideShader(std::move(firstShader),workgroupSizeDef+perViewPerInstanceDefinition+cullAndLoDSelectFuncDefinitions)
@@ -523,7 +543,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			
 			auto instanceDrawCull = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceDrawCullLayout),
-				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")()),workgroupSizeDef+perViewPerInstanceDefinition)
+				overrideShader(getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_draw_cull.comp")>(),workgroupSizeDef+perViewPerInstanceDefinition)
 			);
 
 			auto drawInstanceCountPrefixSum = device->createComputePipeline(
@@ -538,7 +558,7 @@ class NBL_API ICullingLoDSelectionSystem : public virtual core::IReferenceCounte
 			);
 			auto instanceRefCountingSortScatter = device->createComputePipeline(
 				nullptr,core::smart_refctd_ptr(instanceRefCountingSortPipelineLayout),
-				overrideShader(getShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")()),workgroupSizeDef)
+				overrideShader(getShader.operator()<core::StringLiteral("nbl/builtin/glsl/culling_lod_selection/instance_ref_counting_sort_scatter.comp")>(),workgroupSizeDef)
 			);
 
 			//auto drawCompact = ?;

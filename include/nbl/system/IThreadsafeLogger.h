@@ -7,7 +7,7 @@
 
 namespace nbl::system
 {
-class NBL_API IThreadsafeLogger : public ILogger
+class IThreadsafeLogger : public ILogger
 {
 	mutable std::mutex m_mutex;
 public:

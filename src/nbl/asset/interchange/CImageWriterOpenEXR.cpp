@@ -65,10 +65,9 @@ namespace nbl::asset::impl
 
 			virtual void write(const char c[/*n*/], int n) override
 			{
-				system::ISystem::future_t<size_t> future;
-				nblFile->write(future, c, fileOffset, n);
-				const auto bytesWritten = future.get();
-				fileOffset += bytesWritten;
+				system::IFile::success_t success;
+				nblFile->write(success, c, fileOffset, n);
+				fileOffset += success.getBytesProcessed();
 			}
 
 			//---------------------------------------------------------
@@ -114,7 +113,7 @@ namespace nbl::asset::impl
 constexpr uint8_t availableChannels = 4;
 
 template<typename ilmType>
-bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, system::IFile* _file)
+bool createAndWriteImage(std::array<ilmType*,availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, system::IFile* _file)
 {
 	const auto& creationParams = image->getCreationParameters();
 	auto getIlmType = [&creationParams]()
@@ -142,7 +141,8 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 		channelPixelsPtr = _NBL_NEW_ARRAY(ilmType, width * height);
 
 	const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
-	auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
+	// have to use `std::function` cause MSVC is borderline retarded and feel the need to instantiate separate Lambda types for each reference!?
+	auto writeTexel = std::function([&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
 	{
 		assert(texelCoord.w==0u && texelCoord.z==0u);
 
@@ -154,7 +154,7 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 			ilmType channelPixel = *(reinterpret_cast<const ilmType*>(texelPtr) + channelIndex);
 			*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
 		}
-	};
+	});
 
 	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel),true>;
 	typename StreamToEXR::state_type state(writeTexel,image,nullptr);

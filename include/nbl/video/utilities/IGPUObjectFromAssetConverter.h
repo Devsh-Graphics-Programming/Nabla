@@ -33,7 +33,7 @@ inline constexpr bool is_const_iterator_v =
     (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
 
 template<class AssetType>
-struct NBL_API AssetBundleIterator
+struct AssetBundleIterator
 {
         using iterator_category = std::random_access_iterator_tag;
         using difference_type = std::ptrdiff_t;
@@ -82,7 +82,7 @@ struct NBL_API AssetBundleIterator
 
 
 
-class NBL_API IGPUObjectFromAssetConverter
+class IGPUObjectFromAssetConverter
 {
     public:
 
@@ -380,7 +380,7 @@ class NBL_API IGPUObjectFromAssetConverter
 };
 
 
-class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
+class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
 {
     public:
         using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
@@ -396,7 +396,7 @@ class NBL_API CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFro
 
 // need to specialize outside because of GCC
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
     inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
@@ -405,7 +405,7 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
             asset::SBlendParams::serializedSize()+
             asset::SRasterizationParams::serializedSize()+
             asset::SPrimitiveAssemblyParams::serializedSize()+
-            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
+            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT+//shaders
             sizeof(void*);//layout
         uint8_t mem[bytesToHash]{};
         uint32_t offset = 0u;
@@ -418,9 +418,9 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
         _ppln->getPrimitiveAssemblyParams().serialize(mem+offset);
         offset += sizeof(asset::SPrimitiveAssemblyParams);
         const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
-        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++i)
             shaders[i] = _ppln->getShaderAtIndex(i);
-        offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT*sizeof(void*);
+        offset += asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT*sizeof(void*);
         reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
 
         const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
@@ -429,7 +429,7 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassInd
     }
 };
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
     inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
@@ -448,13 +448,13 @@ struct NBL_API IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeli
 };
 
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct NBL_API IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
     bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
@@ -494,7 +494,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
         submit.waitSemaphoreCount = 0u;
         submit.pWaitDstStageMask = nullptr;
         submit.pWaitSemaphores = nullptr;
-        uint32_t waitSemaphoreCount = 0u;
     }
     
     assert(cmdbuf && cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING);
@@ -539,9 +538,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
                 bufrng.size = cpubuffer->getSize();
                 bufrng.buffer = gpubuffer;
                 output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-                _params.utilities->updateBufferRangeViaStagingBuffer(
-                    cmdbuf.get(),fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpubuffer->getPointer(),
-                    submit.waitSemaphoreCount,submit.pWaitSemaphores,submit.pWaitDstStageMask
+                submit = _params.utilities->updateBufferRangeViaStagingBuffer(
+                    bufrng,cpubuffer->getPointer(),
+                    _params.perQueue[EQU_TRANSFER].queue, fence.get(), submit
                 );
             }
         }
@@ -590,7 +589,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
 namespace impl
 {
 template<typename MapIterator>
-struct NBL_API CustomBoneNameIterator
+struct CustomBoneNameIterator
 {
         inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
         inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}
@@ -786,16 +785,13 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImage> >(assetCount);
 
-    // This should be the other way round because if a queue supports either compute or graphics
-    // but not the other way round
+    // TODO: This should be the other way round because if a queue supports either compute or graphics but not the other way round
     const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
     const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
 
     bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
 
     bool needToGenMips = false;
-    core::vector<IGPUCommandBuffer::SImageMemoryBarrier> imgMemBarriers;
-    imgMemBarriers.reserve(assetCount);
     
     core::unordered_map<const asset::ICPUImage*, core::smart_refctd_ptr<IGPUBuffer>> img2gpubuf;
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
@@ -848,11 +844,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         }
     }
 
-    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool {
-        if (img->getRegions().size() == 0u)
+    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool
+    {
+        if (img->getRegions().empty())
             return false;
         auto format = img->getCreationParameters().format;
         if (asset::isIntegerFormat(format) || asset::isBlockCompressionFormat(format))
+            return false;
+        // its enough to define a single mipmap region above the base level to prevent automatic computation
+        for (auto& region : img->getRegions())
+        if (region.imageSubresource.mipLevel)
             return false;
         return true;
     };
@@ -866,103 +867,34 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         submit_transfer.pWaitSemaphores = nullptr;
         submit_transfer.pWaitDstStageMask = nullptr;
     }
-    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* img) -> void
+    auto cmdUpload = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg) -> void
     {
-#define USE_NEW_IMAGE_UPLOAD_UTL2
+        IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
+        toTransferDst.barrier.srcAccessMask = asset::EAF_NONE;
+        toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
+        toTransferDst.oldLayout = asset::IImage::EL_UNDEFINED;
+        toTransferDst.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
+        toTransferDst.srcQueueFamilyIndex = transferFamIx;
+        toTransferDst.dstQueueFamilyIndex = transferFamIx;
+        toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(gpuimg);
+        toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
+        toTransferDst.subresourceRange.baseMipLevel = 0u;
+        toTransferDst.subresourceRange.levelCount = gpuimg->getCreationParameters().mipLevels;
+        toTransferDst.subresourceRange.baseArrayLayer = 0u;
+        toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
 
-#if defined(USE_NEW_IMAGE_UPLOAD_UTL)
-            IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
-            toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-            toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            toTransferDst.oldLayout = asset::IImage::EL_UNDEFINED;
-            toTransferDst.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-            toTransferDst.srcQueueFamilyIndex = transferFamIx;
-            toTransferDst.dstQueueFamilyIndex = transferFamIx;
-            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
-            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
-            toTransferDst.subresourceRange.baseMipLevel = 0u;
-            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
-            toTransferDst.subresourceRange.baseArrayLayer = 0u;
-            toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
-
-            cmdbuf_transfer->pipelineBarrier(
-                asset::EPSF_TRANSFER_BIT,
-                asset::EPSF_TRANSFER_BIT,
-                asset::EDF_NONE,
-                0u, nullptr,
-                0u, nullptr,
-                1u, &toTransferDst);
+        cmdbuf_transfer->pipelineBarrier(
+            asset::EPSF_TRANSFER_BIT,
+            asset::EPSF_TRANSFER_BIT,
+            asset::EDF_NONE,
+            0u, nullptr,
+            0u, nullptr,
+            1u, &toTransferDst);
             
-            auto regions = cpuimg->getRegions();
-            _params.utilities->updateImageViaStagingBuffer(
-                cmdbuf_transfer.get(), transfer_fence.get(), _params.perQueue[EQU_TRANSFER].queue,
-                cpuimg->getBuffer(), regions, img, asset::IImage::EL_TRANSFER_DST_OPTIMAL,
-                submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask);
-#else
-        if (auto found = img2gpubuf.find(cpuimg); found != img2gpubuf.end())
-        {
-            auto buf = found->second;
-            assert(buf->getCreationParams().size == cpuimg->getBuffer()->getSize());
-
-            asset::SBufferRange<IGPUBuffer> bufrng;
-            bufrng.buffer = buf;
-            bufrng.offset = 0u;
-            bufrng.size = buf->getCreationParams().size;
-
-            _params.utilities->updateBufferRangeViaStagingBuffer(
-                cmdbuf_transfer.get(),transfer_fence.get(),_params.perQueue[EQU_TRANSFER].queue,bufrng,cpuimg->getBuffer()->getPointer(),
-                submit_transfer.waitSemaphoreCount,submit_transfer.pWaitSemaphores,submit_transfer.pWaitDstStageMask
-            );
-            IGPUCommandBuffer::SBufferMemoryBarrier barrier;
-            barrier.buffer = buf;
-            barrier.offset = bufrng.offset;
-            barrier.size = bufrng.size;
-            barrier.srcQueueFamilyIndex = transferFamIx;
-            barrier.dstQueueFamilyIndex = transferFamIx;
-            barrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
-            barrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-
-            IGPUCommandBuffer::SImageMemoryBarrier toTransferDst = {};
-            toTransferDst.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0u);
-            toTransferDst.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-            toTransferDst.oldLayout = asset::IImage::EL_UNDEFINED;
-            toTransferDst.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-            toTransferDst.srcQueueFamilyIndex = transferFamIx;
-            toTransferDst.dstQueueFamilyIndex = transferFamIx;
-            toTransferDst.image = core::smart_refctd_ptr<video::IGPUImage>(img);
-            toTransferDst.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT; // this probably shoudn't be hardcoded
-            toTransferDst.subresourceRange.baseMipLevel = 0u;
-            toTransferDst.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
-            toTransferDst.subresourceRange.baseArrayLayer = 0u;
-            toTransferDst.subresourceRange.layerCount = cpuimg->getCreationParameters().arrayLayers;
-
-            cmdbuf_transfer->pipelineBarrier(
-                asset::EPSF_TRANSFER_BIT,
-                asset::EPSF_TRANSFER_BIT,
-                asset::EDF_NONE,
-                0u, nullptr,
-                1u, &barrier,
-                1u, &toTransferDst);
-
-            // Note: cpuimg->getRegions() doesn't give correct values for this because they
-            // get set by the asset loader which doesn't have enough information about what
-            // kind of subresources will be created for this resource.
-            // For this function we want the entirety of ICPUImage converted to IGPUImage,
-            // so our SBufferCopy should reflect that
-            asset::IImage::SBufferCopy copyRegion = {};
-            copyRegion.bufferOffset = 0ull;
-            copyRegion.bufferRowLength = cpuimg->getCreationParameters().extent.width;
-            copyRegion.bufferImageHeight = 0u;
-            copyRegion.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT; // Todo(achal): all bits?
-            copyRegion.imageSubresource.mipLevel = 0u;
-            copyRegion.imageSubresource.baseArrayLayer = 0u;
-            copyRegion.imageSubresource.layerCount = cpuimg->getCreationParameters().arrayLayers;
-            copyRegion.imageOffset = { 0u,0u,0u };
-            copyRegion.imageExtent = cpuimg->getCreationParameters().extent;
-
-            cmdbuf_transfer->copyBufferToImage(buf.get(), img, asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &copyRegion);
-        }
-#endif
+        auto regions = cpuimg->getRegions();
+        submit_transfer = _params.utilities->updateImageViaStagingBuffer(
+            cpuimg->getBuffer(), cpuimg->getCreationParameters().format, gpuimg, asset::IImage::EL_TRANSFER_DST_OPTIMAL, regions,
+            _params.perQueue[EQU_TRANSFER].queue, transfer_fence.get(), submit_transfer);
     };
     auto cmdComputeMip = [&](const asset::ICPUImage* cpuimg, IGPUImage* gpuimg, asset::IImage::E_LAYOUT newLayout) -> void
     {
@@ -1047,6 +979,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             blitRegion.dstSubresource.mipLevel = i;
             blitRegion.dstOffsets[1] = { mipWidth, mipHeight, mipDepth };
 
+            // TODO: Remove the requirement that the transfer queue has graphics caps,
             cmdbuf_transfer->blitImage(gpuimg, asset::IImage::EL_TRANSFER_SRC_OPTIMAL, gpuimg,
                 asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1u, &blitRegion, asset::ISampler::ETF_LINEAR);
 
@@ -1089,20 +1022,64 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
         IGPUImage::SCreationParams params = {};
         params = cpuimg->getCreationParameters();
         params.initialLayout = asset::IImage::EL_UNDEFINED;
+        
+        IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
+        promotionRequest.originalFormat = params.format;
+        promotionRequest.usages = {};
 
-        const bool integerFmt = asset::isIntegerFormat(params.format);
-        if (!integerFmt)
+        // override the mip-count if its not an integer format and there was no mip-pyramid specified 
+        if (params.mipLevels==1u && !asset::isIntegerFormat(params.format))
             params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
-        if (cpuimg->getRegions().size() && !(params.usage.value & asset::IImage::EUF_TRANSFER_DST_BIT))
+        if (cpuimg->getRegions().size())
             params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
+        
+        const bool computeMips = needToCompMipsForThisImg(cpuimg);
+        if (computeMips)
+        {
+            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT; // this is for blit
+            // I'm already adding usage flags for mip-mapping compute shader
+            params.usage |= asset::IImage::EUF_SAMPLED_BIT; // to read source mips
+            // but we don't add the STORAGE USAGE
+            // TODO: will change when we do the blit on compute shader.
+            promotionRequest.usages.blitDst = true;
+            promotionRequest.usages.blitSrc = true;
+        }
+        
+        auto physDev = _params.device->getPhysicalDevice();
+        promotionRequest.usages = promotionRequest.usages | params.usage;
+        auto newFormat = physDev->promoteImageFormat(promotionRequest, video::IGPUImage::ET_OPTIMAL);
+        auto newFormatIsStorable = physDev->getImageFormatUsagesOptimalTiling()[newFormat].storageImage;
+        
+        // If Format Promotion failed try the same usages but with linear tiling.
+        if (newFormat == asset::EF_UNKNOWN)
+        {
+            newFormat = physDev->promoteImageFormat(promotionRequest, video::IGPUImage::ET_LINEAR);
+            newFormatIsStorable = physDev->getImageFormatUsagesLinearTiling()[newFormat].storageImage;
+            params.tiling = video::IGPUImage::ET_LINEAR;
+        }
 
-        if (needToCompMipsForThisImg(cpuimg))
-            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT;
+        assert(newFormat != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
+        params.format = newFormat;
+
+        // now add the STORAGE USAGE
+        if (computeMips)
+        {
+            // formats like SRGB etc. can't be stored to
+            params.usage |= asset::IImage::EUF_STORAGE_BIT;
+            // but image views with formats that are store-able can be created
+            if (!newFormatIsStorable)
+            {
+                params.flags |= asset::IImage::ECF_MUTABLE_FORMAT_BIT;
+                params.flags |= asset::IImage::ECF_EXTENDED_USAGE_BIT;
+                if (asset::isBlockCompressionFormat(newFormat))
+                    params.flags |= asset::IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
+            }
+        }
 
         auto gpuimg = _params.device->createImage(std::move(params));
         auto gpuimgMemReqs = gpuimg->getMemoryReqs();
-        gpuimgMemReqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+        gpuimgMemReqs.memoryTypeBits &= physDev->getDeviceLocalMemoryTypeBits();
         auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
 
 		res->operator[](i) = std::move(gpuimg);
@@ -1143,12 +1120,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
             if (needToCompMipsForThisImg(cpuimg))
             {
-                // Todo(achal): Remove this API check once OpenGL(ES) does its format usage reporting correctly
-                if (_params.device->getAPIType() == EAT_VULKAN)
-                {
-                    assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimal(cpuimg->getCreationParameters().format).sampledImage);
-                    assert(asset::isFloatingPointFormat(cpuimg->getCreationParameters().format) || asset::isNormalizedFormat(cpuimg->getCreationParameters().format)); // // for blits, can lift are polyphase compute
-                }
+                assert(_params.device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[gpuimg->getCreationParameters().format].sampledImage);
+                assert(asset::isFloatingPointFormat(gpuimg->getCreationParameters().format) || asset::isNormalizedFormat(gpuimg->getCreationParameters().format));
                 cmdComputeMip(cpuimg, gpuimg, newLayout);
             }
             else
@@ -1320,7 +1293,7 @@ inline created_gpu_object_array<asset::ICPUPipelineLayout> IGPUObjectFromAssetCo
 
 inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUObjectFromAssetConverter::create(const asset::ICPURenderpassIndependentPipeline** const _begin, const asset::ICPURenderpassIndependentPipeline** const _end, SParams& _params)
 {
-    constexpr size_t SHADER_STAGE_COUNT = asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT;
+    constexpr size_t GRAPHICS_SHADER_STAGE_COUNT = asset::ICPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT;
 
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> >(assetCount);
@@ -1328,15 +1301,15 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
     core::vector<const asset::ICPUPipelineLayout*> cpuLayouts;
     cpuLayouts.reserve(assetCount);
     core::vector<const asset::ICPUSpecializedShader*> cpuShaders;
-    cpuShaders.reserve(assetCount * SHADER_STAGE_COUNT);
+    cpuShaders.reserve(assetCount * GRAPHICS_SHADER_STAGE_COUNT);
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         const asset::ICPURenderpassIndependentPipeline* cpuppln = _begin[i];
         cpuLayouts.push_back(cpuppln->getLayout());
 
-        for (size_t s = 0ull; s < SHADER_STAGE_COUNT; ++s)
-            if (const asset::ICPUSpecializedShader* shdr = cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
+        for (size_t s = 0ull; s < GRAPHICS_SHADER_STAGE_COUNT; ++s)
+            if (const asset::ICPUSpecializedShader* shdr = cpuppln->getShaderAtIndex(s))
                 cpuShaders.push_back(shdr);
     }
 
@@ -1353,10 +1326,10 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
 
         IGPUPipelineLayout* layout = (*gpuLayouts)[layoutRedirs[i]].get();
 
-        IGPUSpecializedShader* shaders[SHADER_STAGE_COUNT]{};
+        IGPUSpecializedShader* shaders[GRAPHICS_SHADER_STAGE_COUNT]{};
         size_t local_shdr_count = 0ull;
-        for (size_t s = 0ull; s < SHADER_STAGE_COUNT; ++s)
-            if (cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
+        for (size_t s = 0ull; s < GRAPHICS_SHADER_STAGE_COUNT; ++s)
+            if (cpuppln->getShaderAtIndex(s))
                 shaders[local_shdr_count++] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
         (*res)[i] = _params.device->createRenderpassIndependentPipeline(
@@ -1378,32 +1351,28 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSetLayout> >(assetCount);
 
-    core::vector<asset::ICPUSampler*> cpuSamplers;//immutable samplers
+    // This is a descriptor set layout function, we only care about immutable samplers here.
+    core::vector<const asset::ICPUSampler*> cpuSamplers;
     size_t maxSamplers = 0ull;
-    size_t maxBindingsPerDescSet = 0ull;
-    size_t maxSamplersPerDescSet = 0u;
+    size_t maxBindingsPerLayout = 0ull;
+    size_t maxSamplersPerLayout = 0ull;
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        size_t samplersInDS = 0u;
-        for (const auto& bnd : dsl->getBindings()) {
-            const uint32_t samplerCnt = bnd.samplers ? bnd.count : 0u;
-            maxSamplers += samplerCnt;
-            samplersInDS += samplerCnt;
-        }
-        maxBindingsPerDescSet = core::max<size_t>(maxBindingsPerDescSet, dsl->getBindings().size());
-        maxSamplersPerDescSet = core::max<size_t>(maxSamplersPerDescSet, samplersInDS);
+        const auto samplerCount = dsl->getImmutableSamplerRedirect().getTotalCount();
+        maxSamplers += samplerCount;
+
+        maxBindingsPerLayout = core::max<size_t>(maxBindingsPerLayout, dsl->getTotalBindingCount());
+        maxSamplersPerLayout = core::max<size_t>(maxSamplersPerLayout, samplerCount);
     }
     cpuSamplers.reserve(maxSamplers);
 
     for (auto dsl : core::SRange<const asset::ICPUDescriptorSetLayout*>(_begin, _end))
     {
-        for (const auto& bnd : dsl->getBindings())
+        const auto& samplers = dsl->getImmutableSamplers();
+        if (!samplers.empty())
         {
-            if (bnd.samplers)
-            {
-                for (uint32_t i = 0u; i < bnd.count; ++i)
-                    cpuSamplers.push_back(bnd.samplers[i].get());
-            }
+            for (auto& sampler : samplers)
+                cpuSamplers.push_back(sampler.get());
         }
     }
 
@@ -1412,33 +1381,53 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSetLayout**
     size_t gpuSmplrIter = 0ull;
 
     using gpu_bindings_array_t = core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>;
-    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerDescSet);
+    auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerLayout);
+
     using samplers_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>;
-    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerDescSet * maxBindingsPerDescSet);
+    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerLayout);
+
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         core::smart_refctd_ptr<IGPUSampler>* smplr_ptr = tmpSamplers->data();
         const asset::ICPUDescriptorSetLayout* cpudsl = _begin[i];
-        size_t bndIter = 0ull;
-        for (const auto& bnd : cpudsl->getBindings())
-        {
-            IGPUDescriptorSetLayout::SBinding gpubnd;
-            gpubnd.binding = bnd.binding;
-            gpubnd.type = bnd.type;
-            gpubnd.count = bnd.count;
-            gpubnd.stageFlags = bnd.stageFlags;
-            gpubnd.samplers = nullptr;
 
-            if (bnd.samplers)
+        size_t gpuBindingCount = 0ull;
+        const auto& samplerBindingRedirect = cpudsl->getImmutableSamplerRedirect();
+        const auto samplerBindingCount = samplerBindingRedirect.getBindingCount();
+        for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            const auto& descriptorBindingRedirect = cpudsl->getDescriptorRedirect(type);
+            const auto declaredBindingCount = descriptorBindingRedirect.getBindingCount();
+
+            for (uint32_t b = 0; b < declaredBindingCount; ++b)
             {
-                for (uint32_t s = 0u; s < gpubnd.count; ++s)
-                    smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
-                gpubnd.samplers = smplr_ptr;
-                smplr_ptr += gpubnd.count;
+                auto& gpuBinding = tmpBindings->begin()[gpuBindingCount++];
+                gpuBinding.binding = descriptorBindingRedirect.getBinding(b).data;
+                gpuBinding.type = type;
+                gpuBinding.count = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                gpuBinding.stageFlags = descriptorBindingRedirect.getStageFlags(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                gpuBinding.samplers = nullptr;
+
+                // If this DS layout has any immutable samplers..
+                if ((gpuBinding.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && (samplerBindingCount > 0))
+                {
+                    // If this binding number has any immutable samplers..
+                    if (samplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ gpuBinding.binding }).data == samplerBindingRedirect.Invalid)
+                        continue;
+
+                    // Copy in tmpSamplers.
+                    for (uint32_t s = 0; s < gpuBinding.count; ++s)
+                        smplr_ptr[s] = (*gpuSamplers)[redirs[gpuSmplrIter++]];
+
+                    gpuBinding.samplers = smplr_ptr;
+                    smplr_ptr += gpuBinding.count;
+                }
             }
-            (*tmpBindings)[bndIter++] = gpubnd;
         }
-        (*res)[i] = _params.device->createDescriptorSetLayout((*tmpBindings).data(), (*tmpBindings).data() + bndIter);
+        assert(gpuBindingCount == cpudsl->getTotalBindingCount());
+
+        (*res)[i] = _params.device->createDescriptorSetLayout(tmpBindings->begin(), tmpBindings->begin() + gpuBindingCount);
     }
 
     return res;
@@ -1544,13 +1533,6 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImageView> >(assetCount);
 
-    asset::CConvertFormatImageFilter promoteFormatFilter;
-    asset::CConvertFormatImageFilter<>::state_type filterState = {};
-    filterState.inBaseLayer = 0u;
-    filterState.inOffset = { 0, 0, 0 };
-    filterState.outBaseLayer = 0u;
-    filterState.outOffset = { 0, 0, 0 };
-
     core::vector<asset::ICPUImage*> cpuDeps;
     cpuDeps.reserve(res->size());
 
@@ -1563,106 +1545,56 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
     core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
 
-#if 1
-    core::vector<core::smart_refctd_ptr<asset::ICPUImage>> promotedImages(cpuDeps.size(), nullptr); // not tightly packed, this is temp storage, these really need to stay alive until their GPU counterparts are created
-    for (size_t i = 0ull; i < cpuDeps.size(); ++i)
-    {
-        const asset::ICPUImage::SCreationParams& imageCreationParams = cpuDeps[i]->getCreationParameters();
-
-        core::bitflag<asset::E_FORMAT_FEATURE> requiredFormatFeatures = static_cast<asset::E_FORMAT_FEATURE>(asset::EFF_TRANSFER_DST_BIT | asset::EFF_BLIT_SRC_BIT | asset::EFF_BLIT_DST_BIT);
-
-        IPhysicalDevice::SFormatImageUsage requiredFormatUsages = {};
-        requiredFormatUsages.transferDst = 1;
-        requiredFormatUsages.blitDst = 1;
-        requiredFormatUsages.blitSrc = 1;
-
-        const core::bitflag<asset::IImage::E_USAGE_FLAGS> imageUsageFlags = cpuDeps[i]->getImageUsageFlags();
-        if ((imageUsageFlags & asset::IImage::EUF_TRANSFER_SRC_BIT).value)
-            requiredFormatUsages.transferSrc = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_SAMPLED_BIT).value)
-            requiredFormatUsages.sampledImage = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_STORAGE_BIT).value)
-            requiredFormatUsages.storageImage = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_COLOR_ATTACHMENT_BIT).value)
-            requiredFormatUsages.attachment = 1;
-        if ((imageUsageFlags & asset::IImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT).value)
-            requiredFormatUsages.attachment = 1;
-        
-        const auto format = imageCreationParams.format;
-
-        if(format != asset::EF_R8G8B8_SRGB)
-            continue; // This Temporary format promotion code only works for this format
-
-        bool formatSupported = false;
-        {
-            const auto formatUsages = _params.utilities->getLogicalDevice()->getPhysicalDevice()->getImageFormatUsagesOptimal(format);
-            formatSupported = ((formatUsages & requiredFormatUsages) == requiredFormatUsages);
-        }
-
-        if (!formatSupported)
-        {
-            // promote
-            assert((format == asset::EF_R8G8B8_SRGB) && "Don't know how to promote other formats!");
-
-            const asset::E_FORMAT promotedFormat = asset::EF_R8G8B8A8_SRGB;
-            {
-                asset::ICPUImage::SCreationParams creationParams = imageCreationParams;
-                creationParams.format = promotedFormat;
-                promotedImages[i] = asset::ICPUImage::create(std::move(creationParams));
-
-                asset::TexelBlockInfo info(promotedFormat);
-
-                size_t bufferSize = 0ull;
-                auto inImageRegions = cpuDeps[i]->getRegions();
-                for (auto r = cpuDeps[i]->getRegions().begin(); r != cpuDeps[i]->getRegions().end(); ++r)
-                {
-                    auto mipLevel = static_cast<uint32_t>(std::distance(cpuDeps[i]->getRegions().begin(), r));
-                    auto localExtent = cpuDeps[i]->getMipSize(mipLevel);
-                    auto levelSize = info.roundToBlockSize(localExtent);
-
-                    const auto memSize = (levelSize[0] * levelSize[1] * levelSize[2] * imageCreationParams.arrayLayers) * asset::getBytesPerPixel(promotedFormat);
-                    assert(memSize.getNumerator() % memSize.getDenominator() == 0u);
-                    bufferSize += memSize.getIntegerApprox();
-                }
-                core::smart_refctd_ptr<asset::ICPUBuffer> promotedImageBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferSize);
-                promotedImages[i]->setBufferAndRegions(std::move(promotedImageBuffer), cpuDeps[i]->getRegionArray());
-            }
-            assert(promotedImages[i]);
-
-            filterState.extent = imageCreationParams.extent;
-            filterState.inImage = cpuDeps[i];
-            filterState.layerCount = imageCreationParams.arrayLayers;
-            filterState.outImage = promotedImages[i].get();
-
-            for (uint32_t level = 0u; level < imageCreationParams.mipLevels; ++level)
-            {
-                filterState.inMipLevel = level;
-                filterState.outMipLevel = level;
-
-                bool filterSuccess = promoteFormatFilter.execute(&filterState);
-                assert(filterSuccess);
-            }
-
-            cpuDeps[i] = promotedImages[i].get();
-        }
-    }
-#endif
-        
     auto gpuDeps = getGPUObjectsFromAssets<asset::ICPUImage>(cpuDeps.data(), cpuDeps.data() + cpuDeps.size(), _params);
-
+    const auto physDev = _params.device->getPhysicalDevice();
+    const auto& optimalUsages = physDev->getImageFormatUsagesOptimalTiling();
+    const auto& linearUsages = physDev->getImageFormatUsagesLinearTiling();
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
         if (gpuDeps->begin()[redirs[i]])
         {
-            const asset::ICPUImageView::SCreationParams& cpuparams = _begin[i]->getCreationParameters();
+            const auto& cpuParams = _begin[i]->getCreationParameters();
+
             IGPUImageView::SCreationParams params = {};
-            params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
+            params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuParams.flags);
+            params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuParams.viewType);
             params.image = (*gpuDeps)[redirs[i]];
-            params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
-            params.format = params.image->getCreationParameters().format;
-            memcpy(&params.components, &cpuparams.components, sizeof(params.components));
-            params.subresourceRange = cpuparams.subresourceRange;
-            params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
+            const auto& gpuImgParams = params.image->getCreationParameters();
+            // override the view's format if the source image got promoted, a bit crude, but don't want to scratch my head about how to promote the views and guess semantics
+            const bool formatGotPromoted = asset::getFormatClass(cpuParams.format)!=asset::getFormatClass(gpuImgParams.format);
+            params.format = formatGotPromoted ? gpuImgParams.format:cpuParams.format;
+            params.subUsages = cpuParams.subUsages;
+            // TODO: In Asset Converter 2.0 we'd pass through all descriptor sets etc and propagate the adding usages backwards to views, but here we need to trim the image's usages instead
+            {
+                IPhysicalDevice::SFormatImageUsages::SUsage validUsages(gpuImgParams.usage);
+                if (params.image->getTiling()!=IGPUImage::ET_LINEAR)
+                    validUsages = validUsages & optimalUsages[params.format];
+                else
+                    validUsages = validUsages & linearUsages[params.format];
+                // add them after trimming
+                if (validUsages.sampledImage)
+                    params.subUsages |= IGPUImage::EUF_SAMPLED_BIT;
+                if (validUsages.storageImage)
+                    params.subUsages |= IGPUImage::EUF_STORAGE_BIT;
+                if (validUsages.attachment)
+                {
+                    if (asset::isDepthOrStencilFormat(params.format))
+                        params.subUsages |= IGPUImage::EUF_DEPTH_STENCIL_ATTACHMENT_BIT;
+                    else
+                        params.subUsages |= IGPUImage::EUF_COLOR_ATTACHMENT_BIT;
+                }
+                if (validUsages.transferSrc)
+                    params.subUsages |= IGPUImage::EUF_TRANSFER_SRC_BIT;
+                if (validUsages.transferDst)
+                    params.subUsages |= IGPUImage::EUF_TRANSFER_DST_BIT;
+                // stuff thats not dependent on device caps
+                const auto uncappedUsages = IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT|IGPUImage::EUF_INPUT_ATTACHMENT_BIT|IGPUImage::EUF_SHADING_RATE_IMAGE_BIT_NV|IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT_EXT;
+                params.subUsages |= gpuImgParams.usage&uncappedUsages;
+            }
+            memcpy(&params.components, &cpuParams.components, sizeof(params.components));
+            params.subresourceRange = cpuParams.subresourceRange;
+            // TODO: Undo this, make all loaders set the level and layer counts on image views to `ICPUImageView::remaining_...`
+            params.subresourceRange.levelCount = gpuImgParams.mipLevels-params.subresourceRange.baseMipLevel;
             (*res)[i] = _params.device->createImageView(std::move(params));
         }
     }
@@ -1677,16 +1609,16 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
     struct BindingDescTypePair_t{
         uint32_t binding;
-        asset::E_DESCRIPTOR_TYPE descType;
+        asset::IDescriptor::E_TYPE descType;
         size_t count;
     };
-    auto isBufferDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufferDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
         switch (t) {
-        case EDT_UNIFORM_BUFFER: [[fallthrough]];
-        case EDT_STORAGE_BUFFER: [[fallthrough]];
-        case EDT_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
-        case EDT_STORAGE_BUFFER_DYNAMIC:
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
+        case IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
             return true;
             break;
         default:
@@ -1694,15 +1626,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             break;
         }
     };
-    auto isBufviewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isBufviewDesc = [](asset::IDescriptor::E_TYPE t) {
         using namespace asset;
-        return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_UNIFORM_TEXEL_BUFFER;
+        return t==IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER || t==IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
     };
-    auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
+    auto isSampledImgViewDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     };
-    auto isStorageImgDesc = [](asset::E_DESCRIPTOR_TYPE t) {
-        return t==asset::EDT_STORAGE_IMAGE;
+    auto isStorageImgDesc = [](asset::IDescriptor::E_TYPE t) {
+        return t==asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
     };
 
 	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
@@ -1718,24 +1650,27 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
 		cpuLayouts.push_back(cpuds->getLayout());
-              
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const uint32_t cnt = cpuds->getDescriptors(j).size();
-			if (cnt)
-				maxWriteCount++;
-			descCount += cnt;
 
-			const auto type = cpuds->getDescriptorsType(j);
-			if (isBufferDesc(type))
-				bufCount += cnt;
-			else if (isBufviewDesc(type))
-				bufviewCount += cnt;
-			else if (isSampledImgViewDesc(type))
-				sampledImgViewCount += cnt;
-			else if (isStorageImgDesc(type))
-				storageImgViewCount += cnt;
-		}
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            
+            // Since one binding can have multiple descriptors which will all be updated with a single SWriteDescriptorSet,
+            // we add the binding count here not the descriptor count.
+            maxWriteCount += cpuds->getLayout()->getDescriptorRedirect(type).getBindingCount();
+
+            const auto count = cpuds->getLayout()->getTotalDescriptorCount(type);
+            descCount += count;
+
+            if (isBufferDesc(type))
+                bufCount += count;
+            else if (isBufviewDesc(type))
+                bufCount += count;
+            else if (isSampledImgViewDesc(type))
+                sampledImgViewCount += count;
+            else if (isStorageImgDesc(type))
+                storageImgViewCount += count;
+        }
     }
 	
     core::vector<asset::ICPUBuffer*> cpuBuffers;
@@ -1749,50 +1684,56 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         const asset::ICPUDescriptorSet* cpuds = _begin[i];
-		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-		{
-			const auto type = cpuds->getDescriptorsType(j);
-			for (const auto& info : cpuds->getDescriptors(j))
-			{
-				if (isBufferDesc(type))
-				{
-					auto cpuBuf = static_cast<asset::ICPUBuffer*>(info.desc.get());
-					if(type == asset::EDT_UNIFORM_BUFFER || type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-					else if(type == asset::EDT_STORAGE_BUFFER || type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-					cpuBuffers.push_back(cpuBuf);
-				}
-				else if (isBufviewDesc(type))
-				{
-					auto cpuBufView = static_cast<asset::ICPUBufferView*>(info.desc.get());
-					auto cpuBuf = cpuBufView->getUnderlyingBuffer();
-					if(cpuBuf && type == asset::EDT_UNIFORM_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-					else if(cpuBuf && type == asset::EDT_STORAGE_TEXEL_BUFFER)
-						cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-					cpuBufviews.push_back(cpuBufView);
-				}
-				else if (isSampledImgViewDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
-					cpuImgViews.push_back(cpuImgView);
-					if (info.image.sampler)
-					    cpuSamplers.push_back(info.image.sampler.get());
-				}
-				else if (isStorageImgDesc(type))
-				{
-					auto cpuImgView = static_cast<asset::ICPUImageView*>(info.desc.get());
-					auto cpuImg = cpuImgView->getCreationParameters().image;
-					if(cpuImg)
-						cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
-					cpuImgViews.push_back(cpuImgView);
-				}
-			}
-		}
+
+        for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+        {
+            const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+            if (cpuds->getDescriptorInfoStorage(type).empty())
+                continue;
+
+            for (uint32_t d = 0u; d < cpuds->getLayout()->getTotalDescriptorCount(type); ++d)
+            {
+                auto* info = cpuds->getDescriptorInfoStorage(type).begin() + d;
+                auto descriptor = info->desc.get();
+                if (isBufferDesc(type))
+                {
+                    auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
+                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
+                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
+                    cpuBuffers.push_back(cpuBuf);
+                }
+                else if (isBufviewDesc(type))
+                {
+                    auto cpuBufView = static_cast<asset::ICPUBufferView*>(descriptor);
+                    auto cpuBuf = cpuBufView->getUnderlyingBuffer();
+                    if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
+                    else if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER)
+                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
+                    cpuBufviews.push_back(cpuBufView);
+                }
+                else if (isSampledImgViewDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                    if (info->info.image.sampler)
+                        cpuSamplers.push_back(info->info.image.sampler.get());
+                }
+                else if (isStorageImgDesc(type))
+                {
+                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
+                    auto cpuImg = cpuImgView->getCreationParameters().image;
+                    if (cpuImg)
+                        cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
+                    cpuImgViews.push_back(cpuImgView);
+                }
+            }
+        }
     }
 
 	using redirs_t = core::vector<size_t>;
@@ -1821,80 +1762,91 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		for (ptrdiff_t i = 0u; i < assetCount; i++)
 		{
 			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
-			res->operator[](i) = _params.device->createDescriptorSet(dsPool.get(), core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			res->operator[](i) = dsPool->createDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
 			auto gpuds = res->operator[](i).get();
 
             const asset::ICPUDescriptorSet* cpuds = _begin[i];
-			for (uint32_t j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
-			{
-				auto descriptors = cpuds->getDescriptors(j);
-				if (descriptors.size()==0u)
-					continue;
 
-				const auto type = cpuds->getDescriptorsType(j);
-				write_it->dstSet = gpuds;
-				write_it->binding = j;
-				write_it->arrayElement = 0;
-				write_it->count = descriptors.size();
-				write_it->descriptorType = type;
-				write_it->info = &(*info);
-                bool allDescriptorsPresent = true;
-				for (const auto& desc : descriptors)
-				{
-					if (isBufferDesc(type))
-					{
-						core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi]>=gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
-                        if (buffer)
-                        {
-                            info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-                            info->buffer.offset = desc.buffer.offset + buffer->getOffset();
-                            info->buffer.size = desc.buffer.size;
-                        }
-                        else
-                        {
-                            info->desc = nullptr;
-                            info->buffer.offset = 0u;
-                            info->buffer.size = 0u;
-                        }
-                        ++bi;
-					}
-                    else if (isBufviewDesc(type))
+            for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+            {
+                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+
+                const auto& descriptorBindingRedirect = cpuds->getLayout()->getDescriptorRedirect(type);
+                const auto& mutableSamplerBindingRedirect = cpuds->getLayout()->getMutableSamplerRedirect();
+
+                for (uint32_t b = 0u; b < descriptorBindingRedirect.getBindingCount(); ++b)
+                {
+                    write_it->dstSet = gpuds;
+                    write_it->binding = descriptorBindingRedirect.getBinding(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
+                    write_it->arrayElement = 0u;
+
+                    const uint32_t descriptorCount = descriptorBindingRedirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b });
+                    write_it->count = descriptorCount;
+                    write_it->descriptorType = type;
+                    write_it->info = &(*info);
+
+                    const uint32_t offset = descriptorBindingRedirect.getStorageOffset(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ b }).data;
+
+                    // It is better to use getDescriptorInfoStorage over getDescriptorInfos, because the latter does a binary search
+                    // over the bindings, which is not really required given we have the index of binding number (since we're iterating
+                    // over all the declared bindings).
+                    auto descriptorInfos = cpuds->getDescriptorInfoStorage(type);
+
+                    // Iterate through each descriptor in this binding to fill the info structs
+                    bool allDescriptorsPresent = true;
+                    for (uint32_t d = 0u; d < descriptorCount; ++d)
                     {
-                        info->desc = bufviewRedirs[bvi]>=gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
-                        ++bvi;
-                    }
-					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
-					{
-						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
-                        ++ivi;
-						// TODO: This should be set in the loader (or whoever is creating
-                        // the descriptor)
-                        if (info->image.imageLayout == asset::IImage::EL_UNDEFINED)
+                        if (isBufferDesc(type))
                         {
-                            if (isStorageImgDesc(type))
+                            core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi] >= gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
+                            if (buffer)
                             {
-                                info->image.imageLayout = asset::IImage::EL_GENERAL;
+                                info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
+                                info->info.buffer.offset = descriptorInfos.begin()[offset+d].info.buffer.offset + buffer->getOffset();
+                                info->info.buffer.size = descriptorInfos.begin()[offset+d].info.buffer.size;
                             }
                             else
                             {
-                                const auto imageFormat = static_cast<asset::ICPUImageView*>(info->desc.get())->getCreationParameters().format;
-                                info->image.imageLayout = isDepthOrStencilFormat(imageFormat) ? asset::IImage::EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL : asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                                info->desc = nullptr;
+                                info->info.buffer.offset = 0u;
+                                info->info.buffer.size = 0u;
+                            }
+                            ++bi;
+                        }
+                        else if (isBufviewDesc(type))
+                        {
+                            info->desc = bufviewRedirs[bvi] >= gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
+                            ++bvi;
+                        }
+                        else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
+                        {
+                            info->desc = imgViewRedirs[ivi] >= gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                            ++ivi;
+                            info->info.image.imageLayout = descriptorInfos[offset + d].info.image.imageLayout;
+                            assert(info->info.image.imageLayout != asset::IImage::EL_UNDEFINED);
 
-                                if (desc.image.sampler)
-							        info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                            if (!isStorageImgDesc(type))
+                            {
+                                const bool isMutableSamplerBinding = (mutableSamplerBindingRedirect.findBindingStorageIndex(asset::ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write_it->binding }).data != mutableSamplerBindingRedirect.Invalid);
+                                if (isMutableSamplerBinding)
+                                {
+                                    assert(descriptorInfos.begin()[offset + d].info.image.sampler);
+                                    info->info.image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+                                }
                             }
                         }
-					}
-                    allDescriptorsPresent = allDescriptorsPresent && info->desc;
-					info++;
-				}
-                if (allDescriptorsPresent)
-                    write_it++;
-			}
+                        allDescriptorsPresent = allDescriptorsPresent && info->desc;
+                        info++;
+                    }
+
+                    if (allDescriptorsPresent)
+                        write_it++;
+                }
+            }
 		}
 	}
 
-	_params.device->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
+    _params.device->updateDescriptorSets(write_it - writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }

@@ -127,8 +127,8 @@ namespace nbl::ui
 			params.callback = core::smart_refctd_ptr(ctx->callback);
 			framework->setWindow(ctx->wndManager->createWindow(std::move(params)));
 
-			if(windowWasCreatedBefore)
-				framework->recreateSurface();
+			// if(windowWasCreatedBefore)
+			// 	framework->recreateSurface();
 
 			break;
 		}

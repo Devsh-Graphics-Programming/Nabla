@@ -24,7 +24,7 @@ namespace MitsubaLoader
 
 //! A class to derive mitsuba mesh loader metadata objects from
 
-class NBL_API CMitsubaMetadata : public asset::IAssetMetadata
+class CMitsubaMetadata : public asset::IAssetMetadata
 {
 	public:
 		class CID

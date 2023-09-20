@@ -20,7 +20,7 @@ namespace nbl::video
 	@see IRenderpassIndependentPipeline
 */
 
-class NBL_API IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
+class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public IBackendObject
 {
 		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 
@@ -40,7 +40,7 @@ class NBL_API IGPURenderpassIndependentPipeline : public asset::IRenderpassIndep
 		struct SCreationParams
 		{
 			core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[SHADER_STAGE_COUNT];
+			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[GRAPHICS_SHADER_STAGE_COUNT];
 			asset::SVertexInputParams vertexInput;
 			asset::SBlendParams blend;
 			asset::SPrimitiveAssemblyParams primitiveAssembly;

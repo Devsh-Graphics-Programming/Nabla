@@ -136,7 +136,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
         StreamingTransientDataBufferMT(Args... args) : m_composed(std::forward<Args>(args)...) {}
 
         //
-        inline bool needsManualFlushOrInvalidate()
+        inline bool needsManualFlushOrInvalidate() const
         {
             return m_composed.needsManualFlushOrInvalidate();
         }

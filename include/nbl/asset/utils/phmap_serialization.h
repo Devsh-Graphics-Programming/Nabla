@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class NBL_API CBufferPhmapOutputArchive
+class CBufferPhmapOutputArchive
 {
 	public:
 		CBufferPhmapOutputArchive(const SBufferRange<ICPUBuffer>& _buffer)

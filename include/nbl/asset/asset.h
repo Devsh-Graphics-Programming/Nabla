@@ -39,15 +39,12 @@
 #include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 
 // shaders
-#include "nbl/asset/ISPIR_VProgram.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/utils/ShaderRes.h"
-#include "nbl/asset/utils/IIncluder.h"
-#include "nbl/asset/utils/IIncludeHandler.h"
-#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
-#include "nbl/asset/utils/IGLSLCompiler.h"
-#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/IShaderCompiler.h"
+#include "nbl/asset/utils/CGLSLCompiler.h"
+#include "nbl/asset/utils/CSPIRVIntrospector.h"
 
 // pipelines
 

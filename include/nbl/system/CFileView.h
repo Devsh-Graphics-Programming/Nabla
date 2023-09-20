@@ -8,7 +8,7 @@
 namespace nbl::system
 {
 
-class NBL_API IFileView : public IFile
+class IFileView : public IFile
 {
 	public:
 		size_t getSize() const override final
@@ -35,7 +35,7 @@ class NBL_API IFileView : public IFile
 };
 
 template<typename allocator_t>
-class NBL_API CFileView : public IFileView
+class CFileView : public IFileView
 {
 		// what do I even need this "friend" for?
 		friend class CAPKResourcesArchive;
@@ -71,7 +71,7 @@ class CNullAllocator;
 
 //
 template<>
-class NBL_API CFileView<CNullAllocator> : public IFileView
+class CFileView<CNullAllocator> : public IFileView
 {
 	public:
 		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize) :

@@ -69,7 +69,7 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBin
 
 
 core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
-	IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+	CGLSLCompiler* compilerToAddBuiltinIncludeTo,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
 	E_OPERATOR _operator, bool usingLumaMeter, ext::LumaMeter::CLumaMeter::E_METERING_MODE meterMode, float minLuma, float maxLuma,

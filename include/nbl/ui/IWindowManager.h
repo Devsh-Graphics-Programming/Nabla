@@ -1,37 +1,31 @@
-#ifndef _NBL_UI_I_WINDOWMANAGER_
-#define _NBL_UI_I_WINDOWMANAGER_
+#ifndef _NBL_UI_I_WINDOWMANAGER_INCLUDED_
+#define _NBL_UI_I_WINDOWMANAGER_INCLUDED_
 
-#include <nbl/core/IReferenceCounted.h>
-#include "IWindow.h"
+#include "nbl/ui/IWindow.h"
 
 namespace nbl::ui
 {
 
-struct SDisplayInfo
-{
-	int32_t x;
-	int32_t y;
-	uint32_t resX;
-	uint32_t resY;
-	std::string name; // this one is really more of a placeholder right now
-};
-
-class NBL_API2 IWindowManager : public core::IReferenceCounted
+class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 {
 	public:
 		virtual core::smart_refctd_ptr<IWindow> createWindow(IWindow::SCreationParams&& creationParams) = 0;
-		virtual SDisplayInfo getPrimaryDisplayInfo() const = 0;
 
-		virtual bool setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) = 0;
-		virtual bool setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) = 0;
-		virtual bool setWindowRotation_impl(IWindow* window, bool landscape) = 0;
-		virtual bool setWindowVisible_impl(IWindow* window, bool visible) = 0;
-		virtual bool setWindowMaximized_impl(IWindow* window, bool maximized) = 0;
+		//!
+		struct SDisplayInfo
+		{
+			int32_t x;
+			int32_t y;
+			uint32_t resX;
+			uint32_t resY;
+			std::string name; // this one is really more of a placeholder right now
+		};
+		virtual SDisplayInfo getPrimaryDisplayInfo() const = 0;
 
 		inline bool setWindowSize(IWindow* window, const uint32_t width, const uint32_t height)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || cb && !cb->onWindowResized(window, width, height))
+			if (window->getManager() != this || !window->isResizable())
 				return false;
 
 			return setWindowSize_impl(window, width, height);
@@ -40,7 +34,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		inline bool setWindowPosition(IWindow* window, const int32_t x, const int32_t y)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || cb && !cb->onWindowMoved(window, x, y))
+			if (window->getManager() != this || !window->isResizable())
 				return false;
 
 			return setWindowPosition_impl(window, x, y);
@@ -51,7 +45,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 			// TODO
 			/*
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->canRotate() || landscape == window->isRotationLandscape() || cb && !cb->onWindowRotated(window))
+			if (window->getManager() != this || !window->canRotate() || landscape == window->isRotationLandscape())
 				return false;
 
 			return setWindowRotation_impl(window, landscape);
@@ -62,7 +56,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		inline bool show(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || !window->isHidden() || cb && !cb->onWindowShown(window))
+			if (window->getManager() != this || !window->isResizable() || !window->isHidden())
 				return false;
 
 			return setWindowVisible_impl(window, true);
@@ -71,7 +65,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		inline bool hide(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isHidden() || cb && !cb->onWindowHidden(window))
+			if (window->getManager() != this || !window->isResizable() || window->isHidden())
 				return false;
 
 			return setWindowVisible_impl(window, false);
@@ -80,7 +74,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		inline bool maximize(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isMaximized() || cb && !cb->onWindowMaximized(window))
+			if (window->getManager() != this || !window->isResizable() || window->isMaximized())
 				return false;
 
 			return setWindowMaximized_impl(window, true);
@@ -89,7 +83,7 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 		inline bool minimize(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isMinimized() || cb && !cb->onWindowMinimized(window))
+			if (window->getManager() != this || !window->isResizable() || window->isMinimized())
 				return false;
 
 			return setWindowMaximized_impl(window, false);
@@ -99,6 +93,12 @@ class NBL_API2 IWindowManager : public core::IReferenceCounted
 
 	protected:
 		virtual ~IWindowManager() = default;
+
+		virtual bool setWindowSize_impl(IWindow* window, uint32_t width, uint32_t height) = 0;
+		virtual bool setWindowPosition_impl(IWindow* window, int32_t x, int32_t y) = 0;
+		virtual bool setWindowRotation_impl(IWindow* window, bool landscape) = 0;
+		virtual bool setWindowVisible_impl(IWindow* window, bool visible) = 0;
+		virtual bool setWindowMaximized_impl(IWindow* window, bool maximized) = 0;
 };
 
 }

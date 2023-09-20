@@ -15,7 +15,7 @@ namespace OptiX
 {
 
 template <typename T>
-struct NBL_API SbtRecord
+struct SbtRecord
 {
 	alignas(OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
 	T data;

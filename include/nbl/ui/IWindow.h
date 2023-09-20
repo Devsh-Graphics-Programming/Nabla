@@ -34,6 +34,10 @@ class IWindow : public core::IReferenceCounted
             //! Indicates whether mouse is hovering over the window even if the window is not active
             ECF_MOUSE_FOCUS = 1u << 8,
             ECF_ALWAYS_ON_TOP = 1u << 9,
+            //! If disabled, the maximize button is grayed out
+            ECF_CAN_MAXIMIZE = 1u << 10,
+            //! If disabled, the minimize button is grayed out
+            ECF_CAN_MINIMIZE = 1u << 11,
 
             ECF_NONE = 0
         };
@@ -41,6 +45,7 @@ class IWindow : public core::IReferenceCounted
         class IEventCallback : public core::IReferenceCounted
         {
             public:
+                // TODO: rethink our boolean returns
                 [[nodiscard]] inline bool onWindowShown(IWindow* w)
                 {
                     auto canShow = onWindowShown_impl();
@@ -107,6 +112,7 @@ class IWindow : public core::IReferenceCounted
                 {
                     return onWindowClosed_impl();
                 }
+
                 inline void onGainedMouseFocus(IWindow* w)
                 {
                     onGainedMouseFocus_impl();
@@ -160,18 +166,9 @@ class IWindow : public core::IReferenceCounted
                 NBL_API2 virtual void onKeyboardConnected_impl(core::smart_refctd_ptr<IKeyboardEventChannel>&& kbch) {}
                 NBL_API2 virtual void onKeyboardDisconnected_impl(IKeyboardEventChannel* mch) {}
         };
-        struct SCreationParams
-        {
-            //IWindow(core::smart_refctd_ptr<IEventCallback>&& _cb, core::smart_refctd_ptr<system::ISystem>&& _sys, uint32_t _w = 0u, uint32_t _h = 0u, E_CREATE_FLAGS _flags = static_cast<E_CREATE_FLAGS>(0)) :
-            core::smart_refctd_ptr<IEventCallback> callback;
-            core::smart_refctd_ptr<system::ISystem> system;
-            int32_t x, y;
-            uint32_t width = 0u, height = 0u;
-            E_CREATE_FLAGS flags = static_cast<E_CREATE_FLAGS>(0);
-            uint32_t eventChannelCapacityLog2[IInputEventChannel::ET_COUNT];
-            std::string windowCaption;
-        };
-        friend struct IEventCallback;
+
+        friend class IEventCallback;
+        inline void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
 
         inline bool isFullscreen()        { return (m_flags.value & ECF_FULLSCREEN); }
         inline bool isHidden()            { return (m_flags.value & ECF_HIDDEN); }
@@ -183,6 +180,9 @@ class IWindow : public core::IReferenceCounted
         inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
         inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
         inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isMaximizable()       { return (m_flags.value & ECF_CAN_MAXIMIZE); }
+
+        inline core::bitflag<E_CREATE_FLAGS> getFlags() { return m_flags; }
 
         inline uint32_t getWidth() const { return m_width; }
         inline uint32_t getHeight() const { return m_height; }
@@ -191,28 +191,33 @@ class IWindow : public core::IReferenceCounted
 
         NBL_API2 virtual IClipboardManager* getClipboardManager() = 0;
         NBL_API2 virtual ICursorControl* getCursorControl() = 0;
-        NBL_API2 virtual IWindowManager* getManager() = 0;
+        NBL_API2 virtual IWindowManager* getManager() const = 0;
 
         inline IEventCallback* getEventCallback() const { return m_cb.get(); }
 
         NBL_API2 virtual void setCaption(const std::string_view& caption) = 0;
+
+        struct SCreationParams
+        {
+            core::smart_refctd_ptr<IEventCallback> callback;
+            int32_t x, y;
+            uint32_t width = 0u, height = 0u;
+            E_CREATE_FLAGS flags = E_CREATE_FLAGS::ECF_NONE;
+            uint32_t eventChannelCapacityLog2[IInputEventChannel::ET_COUNT];
+            std::string windowCaption;
+        };
     protected:
         // TODO need to update constructors of all derived CWindow* classes
         inline IWindow(SCreationParams&& params) :
-            m_cb(std::move(params.callback)), m_sys(std::move(params.system)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
+            m_cb(std::move(params.callback)), m_width(params.width), m_height(params.height), m_x(params.x), m_y(params.y), m_flags(params.flags)
         {
-
         }
-
-        NBL_API2 virtual ~IWindow() = default;
+        inline virtual ~IWindow() = default;
 
         core::smart_refctd_ptr<IEventCallback> m_cb;
-        core::smart_refctd_ptr<system::ISystem> m_sys;
         uint32_t m_width = 0u, m_height = 0u;
         int32_t m_x, m_y; // gonna add it here until further instructions XD
         core::bitflag<E_CREATE_FLAGS> m_flags = static_cast<E_CREATE_FLAGS>(0u);
-    public:
-        inline void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
 };
 
 }

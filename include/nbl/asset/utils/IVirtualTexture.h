@@ -23,7 +23,7 @@
 namespace nbl::asset
 {
 
-class NBL_API IVirtualTextureBase
+class IVirtualTextureBase
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
@@ -42,7 +42,7 @@ public:
 };
 
 template <typename image_view_t, typename sampler_t>
-class NBL_API IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
+class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
     using this_type = IVirtualTexture<image_view_t, sampler_t>;
 protected:
@@ -514,9 +514,10 @@ protected:
 
         }
 
-        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u)
+        // TODO: refactor into the `_impl` pattern, and always add the MUTABLE FORMAT creation flag
+        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u/*, TODO: const IImage::E_USAGE_FLAGS usages=IImage::EUF_SAMPLED_BIT, const bool extendedUsage=false*/)
         {
-            assert(_layers != 0u);
+            assert(_layers != 0u); // Why the F have the default be 0 then!?
 
             const bool uninitialized = (tileAlctr.get_align_offset() == phys_pg_addr_alctr_t::invalid_address);
             if (uninitialized)
@@ -543,14 +544,16 @@ protected:
             return x | (y<<SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer<<SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
         }
 
-        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
+        // last parameter default means to inherit all usages for a view from the main image
+        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format, const IImage::E_USAGE_FLAGS usages=IImage::EUF_NONE) const
         {
             auto found = m_viewsCache.find(_format);
             if (found!=m_viewsCache.end())
                 return found->second;
 
-            typename image_view_t::SCreationParams params;
+            typename image_view_t::SCreationParams params = {};
             params.flags = static_cast<typename IImageView<image_t>::E_CREATE_FLAGS>(0);
+            params.subUsages = usages;
             params.format = _format;
             params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
             params.subresourceRange.baseArrayLayer = 0u;
@@ -1046,7 +1049,7 @@ protected:
             bnd.binding = _binding;
             bnd.count = _count;
             bnd.stageFlags = asset::IShader::ESS_ALL;
-            bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+            bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             bnd.samplers = _samplers;
         };
 
@@ -1086,12 +1089,12 @@ protected:
         writes[0].binding = _pgtBinding;
         writes[0].arrayElement = 0u;
         writes[0].count = 1u;
-        writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+        writes[0].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
         writes[0].dstSet = _dstSet;
         writes[0].info = info;
         info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
-        info[0].image.imageLayout = IImage::EL_UNDEFINED;
-        info[0].image.sampler = nullptr; //samplers are left for user to specify at will
+        info[0].info.image.imageLayout = IImage::EL_UNDEFINED;
+        info[0].info.image.sampler = nullptr; //samplers are left for user to specify at will
 
         uint32_t i = 1u, j = 1u;
         if (getFloatViews().size())
@@ -1099,14 +1102,14 @@ protected:
             writes[i].binding = _fsamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getFloatViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getFloatViews().begin()[j-j0].view;
-                info[j].image.imageLayout = IImage::EL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }
@@ -1115,14 +1118,14 @@ protected:
             writes[i].binding = _isamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getIntViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getIntViews().begin()[j-j0].view;
-                info[j].image.imageLayout = IImage::EL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }
@@ -1131,14 +1134,14 @@ protected:
             writes[i].binding = _usamplersBinding;
             writes[i].arrayElement = 0u;
             writes[i].count = getUintViews().size();
-            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].descriptorType = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             writes[i].dstSet = _dstSet;
             writes[i].info = info+j;
             for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
             {
                 info[j].desc = getUintViews().begin()[j-j0].view;
-                info[j].image.imageLayout = IImage::EL_UNDEFINED;
-                info[j].image.sampler = nullptr;
+                info[j].info.image.imageLayout = IImage::EL_UNDEFINED;
+                info[j].info.image.sampler = nullptr;
             }
             ++i;
         }

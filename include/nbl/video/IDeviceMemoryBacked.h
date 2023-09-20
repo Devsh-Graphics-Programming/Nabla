@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 //! If you bound an "exotic" memory object to the resource, you might require "special" cleanups in the destructor
-struct ICleanup
+struct NBL_API2 ICleanup
 {
     virtual ~ICleanup() = 0;
 };

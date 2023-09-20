@@ -12,7 +12,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUEvent : public asset::IEvent, public core::IReferenceCounted, public IBackendObject
+class IGPUEvent : public asset::IEvent, public core::IReferenceCounted, public IBackendObject
 {
     public:
         explicit IGPUEvent(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_CREATE_FLAGS flags) : asset::IEvent(flags), IBackendObject(std::move(dev))

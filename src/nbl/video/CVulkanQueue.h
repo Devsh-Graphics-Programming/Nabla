@@ -25,6 +25,10 @@ public:
     bool startCapture() override;
     bool endCapture() override;
 
+    bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+    bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+    bool endDebugMarker() override;
+
 private:
     renderdoc_api_t* m_rdoc_api;
 	VkInstance m_vkInstance;

@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUPipelineCache : public core::IReferenceCounted, public IBackendObject
+class IGPUPipelineCache : public core::IReferenceCounted, public IBackendObject
 {
 	protected:
 		virtual ~IGPUPipelineCache() = default;

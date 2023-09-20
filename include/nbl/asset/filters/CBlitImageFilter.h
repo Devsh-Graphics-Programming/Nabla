@@ -15,15 +15,13 @@
 #include "nbl/asset/filters/dithering/CWhiteNoiseDither.h"
 #include "nbl/asset/filters/CBlitUtilities.h"
 
-#include "nbl/asset/filters/kernels/kernels.h"
-
 #include "nbl/asset/format/decodePixels.h"
 
 namespace nbl::asset
 {
 
-template<typename value_type, typename Swizzle, typename Dither, typename Normalization, bool Clamp>
-class NBL_API CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
+template<typename Swizzle, typename Dither, typename Normalization, bool Clamp>
+class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>, public CBasicImageFilterCommon
 {
 	public:
 		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Swizzle,Dither,Normalization,Clamp>::state_type
@@ -78,48 +76,83 @@ class NBL_API CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilte
 };
 
 // copy while filtering the input into the output, a rare filter where the input and output extents can be different, still works one mip level at a time
-template<typename Swizzle=DefaultSwizzle, typename Dither=CWhiteNoiseDither, typename Normalization=void, bool Clamp=true, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX, typename lut_value_type = typename KernelX::value_type>
-class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelY::value_type,Swizzle,Dither,Normalization,Clamp>
+template<
+	typename Swizzle				= DefaultSwizzle,
+	typename Dither					= CWhiteNoiseDither,
+	typename Normalization			= void,
+	bool Clamp						= true,
+	typename BlitUtilities			= CBlitUtilities<>>
+class CBlitImageFilter :
+	public CImageFilter<CBlitImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>,
+	public CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>
 {
 	public:
-		using blit_utils_t = CBlitUtilities<KernelX, KernelY, KernelZ>;
+		using blit_utils_t = BlitUtilities;
+		static_assert(std::is_base_of_v<IBlitUtilities, blit_utils_t>, "Only template instantiations of CBlitUtilitiesare allowed as theBlitUtilities template argument!");
+		using lut_value_t = blit_utils_t::lut_value_type;
 
 	private:
-		using value_type = typename KernelX::value_type;
-		using base_t = CBlitImageFilterBase<value_type,Swizzle,Dither,Normalization,Clamp>;
+		using value_t = blit_utils_t::value_type;
+		using base_t = CBlitImageFilterBase<Swizzle, Dither, Normalization, Clamp>;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = blit_utils_t::MaxChannels;
+		static inline constexpr auto ChannelCount = blit_utils_t::ChannelCount;
 
 	public:
-		// we'll probably never remove this requirement
-		static_assert(KernelX::is_separable&&KernelY::is_separable&&KernelZ::is_separable,"Alpha Handling requires high precision and multipass filtering!");
-
 		virtual ~CBlitImageFilter() {}
 
+		enum E_SCRATCH_USAGE
+		{
+			ESU_SCALED_KERNEL_PHASED_LUT = 0,
+			ESU_DECODE_WRITE = 1,
+			ESU_BLIT_X_AXIS_READ = ESU_DECODE_WRITE,
+			ESU_BLIT_X_AXIS_WRITE = 2,
+			ESU_BLIT_Y_AXIS_READ = ESU_BLIT_X_AXIS_WRITE,
+			ESU_BLIT_Y_AXIS_WRITE = 3,
+			ESU_BLIT_Z_AXIS_READ = ESU_BLIT_Y_AXIS_WRITE,
+			ESU_BLIT_Z_AXIS_WRITE = 4,
+			ESU_ALPHA_HISTOGRAM = 5,
+			ESU_COUNT
+		};
 		class CState : public IImageFilter::IState, public base_t::CStateBase
 		{
 			public:
-				CState(KernelX&& kernel_x, KernelY&& kernel_y, KernelZ&& kernel_z) :
-					kernelX(std::move(kernel_x)), kernelY(std::move(kernel_y)), kernelZ(std::move(kernel_z))
+				CState(blit_utils_t::convolution_kernels_t&& _kernels) : kernels(std::move(_kernels))
 				{
 					inOffsetBaseLayer = core::vectorSIMDu32();
 					inExtentLayerCount = core::vectorSIMDu32();
 					outOffsetBaseLayer = core::vectorSIMDu32();
 					outExtentLayerCount = core::vectorSIMDu32();
 				}
-				CState() : CState(KernelX(), KernelY(), KernelZ())
+
+				CState(const typename blit_utils_t::convolution_kernels_t& _kernels) : kernels(_kernels)
 				{
+					inOffsetBaseLayer = core::vectorSIMDu32();
+					inExtentLayerCount = core::vectorSIMDu32();
+					outOffsetBaseLayer = core::vectorSIMDu32();
+					outExtentLayerCount = core::vectorSIMDu32();
 				}
+
 				CState(const CState& other) : IImageFilter::IState(), base_t::CStateBase{other},
-					inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),
-					kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
+					inMipLevel(other.inMipLevel), outMipLevel(other.outMipLevel), inImage(other.inImage), outImage(other.outImage), kernels(other.kernels)
 				{
 					inOffsetBaseLayer = other.inOffsetBaseLayer;
 					inExtentLayerCount = other.inExtentLayerCount;
 					outOffsetBaseLayer = other.outOffsetBaseLayer;
 					outExtentLayerCount = other.outExtentLayerCount;
 				}
+
 				virtual ~CState() {}
+
+				inline bool recomputeScaledKernelPhasedLUT()
+				{
+					if (!base_t::CStateBase::scratchMemory || !inImage)
+						return false;
+					const size_t offset = getScratchOffset(this,ESU_SCALED_KERNEL_PHASED_LUT);
+					const auto inType = inImage->getCreationParameters().type;
+					const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount,outExtentLayerCount,inType,kernels);
+					auto* lut = base_t::CStateBase::scratchMemory+offset;
+					return blit_utils_t::computeScaledKernelPhasedLUT(lut,inExtentLayerCount,outExtentLayerCount,inType, kernels);
+				}
 
 				union
 				{
@@ -158,49 +191,28 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					};
 				};
 				
-				uint32_t							inMipLevel = 0u;
-				uint32_t							outMipLevel = 0u;
-				ICPUImage*							inImage = nullptr;
-				ICPUImage*							outImage = nullptr;
-				KernelX								kernelX;
-				KernelY								kernelY;
-				KernelZ								kernelZ;
-				uint32_t							alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
+				uint32_t								inMipLevel = 0u;
+				uint32_t								outMipLevel = 0u;
+				ICPUImage*								inImage = nullptr;
+				ICPUImage*								outImage = nullptr;
+				blit_utils_t::convolution_kernels_t		kernels;
+				uint32_t								alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
 		};
 		using state_type = CState;
-
-		enum E_SCRATCH_USAGE
-		{
-			ESU_SCALED_KERNEL_PHASED_LUT = 0,
-			ESU_DECODE_WRITE = 1,
-			ESU_BLIT_X_AXIS_READ=ESU_DECODE_WRITE,
-			ESU_BLIT_X_AXIS_WRITE=2,
-			ESU_BLIT_Y_AXIS_READ = ESU_BLIT_X_AXIS_WRITE,
-			ESU_BLIT_Y_AXIS_WRITE = 3,
-			ESU_BLIT_Z_AXIS_READ = ESU_BLIT_Y_AXIS_WRITE,
-			ESU_BLIT_Z_AXIS_WRITE = 4,
-			ESU_ALPHA_HISTOGRAM = 5,
-			ESU_COUNT
-		};
 
 		//! Call `getScratchOffset(state, ESU_COUNT)` to get the total scratch size needed.
 		static inline uint32_t getScratchOffset(const state_type* state, const E_SCRATCH_USAGE usage)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
-			
-			const auto scaledKernelX = asset::IBlitUtilities::constructScaledKernel(state->kernelX, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelY = asset::IBlitUtilities::constructScaledKernel(state->kernelY, state->inExtentLayerCount, state->outExtentLayerCount);
-			const auto scaledKernelZ = asset::IBlitUtilities::constructScaledKernel(state->kernelZ, state->inExtentLayerCount, state->outExtentLayerCount);
 
-			const size_t scaledKernelPhasedLUTSize = blit_utils_t::template getScaledKernelPhasedLUTSize<lut_value_type>(state->inExtentLayerCount, state->outExtentLayerCount, inType,
-				state->kernelX, state->kernelY, state->kernelZ);
+			const auto windowSize = blit_utils_t::getWindowSize(inType, state->kernels);
+			const size_t scaledKernelPhasedLUTSize = blit_utils_t::getScaledKernelPhasedLUTSize(state->inExtentLayerCount, state->outExtentLayerCount, inType, windowSize);
 
-			const auto real_window_size = blit_utils_t::getRealWindowSize(inType, scaledKernelX, scaledKernelY, scaledKernelZ);
 			core::vectorSIMDi32 intermediateExtent[3];
-			getIntermediateExtents(intermediateExtent, state, real_window_size);
+			getIntermediateExtents(intermediateExtent, state, windowSize);
 			assert(intermediateExtent[0].x == intermediateExtent[2].x);
 
-			uint32_t pingBufferElementCount = (state->inExtent.width + real_window_size[0]) * m_maxParallelism; // decode
+			uint32_t pingBufferElementCount = (state->inExtent.width + windowSize[0]) * m_maxParallelism; // decode
 			uint32_t pongBufferElementCount = intermediateExtent[0].x * intermediateExtent[0].y * intermediateExtent[0].z; // x-axis filter output
 
 			const uint32_t yWriteElementCount = intermediateExtent[1].x * intermediateExtent[1].y * intermediateExtent[1].z;
@@ -227,14 +239,14 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			case ESU_BLIT_X_AXIS_WRITE:
 				[[fallthrough]];
 			case ESU_BLIT_Z_AXIS_WRITE:
-				return scaledKernelPhasedLUTSize + pingBufferElementCount * MaxChannels * sizeof(value_type);
+				return scaledKernelPhasedLUTSize + pingBufferElementCount * ChannelCount * sizeof(value_t);
 
 			case ESU_ALPHA_HISTOGRAM:
-				return scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount)*MaxChannels*sizeof(value_type);
+				return scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount)*ChannelCount*sizeof(value_t);
 				
 			default: // ESU_COUNT
 			{
-				size_t totalScratchSize = scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount) * MaxChannels * sizeof(value_type);
+				size_t totalScratchSize = scaledKernelPhasedLUTSize + (pingBufferElementCount + pongBufferElementCount) * ChannelCount * sizeof(value_t);
 				if (state->alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 					totalScratchSize += kAlphaHistogramSize*m_maxParallelism;
 				return totalScratchSize;
@@ -258,6 +270,9 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			if (state->inLayerCount!=state->outLayerCount)
 				return false;
 
+			if (state->alphaChannel > ChannelCount)
+				return false;
+
 			IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->inLayerCount };
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(subresource, {state->inOffset,state->inExtent}, state->inImage))
 				return false;
@@ -278,7 +293,11 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			if (isBlockCompressionFormat(outFormat))
 				return false;
 
-			return state->kernelX.validate(state->inImage,state->outImage)&&state->kernelY.validate(state->inImage,state->outImage)&&state->kernelZ.validate(state->inImage,state->outImage);
+			const auto& kernelX = std::get<0>(state->kernels);
+			const auto& kernelY = std::get<1>(state->kernels);
+			const auto& kernelZ = std::get<2>(state->kernels);
+
+			return (kernelX.validate(state->inImage, state->outImage) && kernelY.validate(state->inImage, state->outImage) && kernelZ.validate(state->inImage, state->outImage));
 		}
 
 		// CBlitUtilities::computeScaledKernelPhasedLUT stores the kernel entries, in the LUT, in reverse, which are then forward iterated to compute the CONVOLUTION.
@@ -326,15 +345,10 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			const bool needsNormalization = !std::is_void_v<Normalization> || coverageSemantic;
 			const auto alphaRefValue = state->alphaRefValue;
 			const auto alphaChannel = state->alphaChannel;
-			
-			// prepare kernel
-			const auto scaledKernelX = blit_utils_t::constructScaledKernel(state->kernelX, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelY = blit_utils_t::constructScaledKernel(state->kernelY, inExtentLayerCount, outExtentLayerCount);
-			const auto scaledKernelZ = blit_utils_t::constructScaledKernel(state->kernelZ, inExtentLayerCount, outExtentLayerCount);
 
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
-			const auto real_window_size = blit_utils_t::getRealWindowSize(inImageType,scaledKernelX,scaledKernelY,scaledKernelZ);
+			const auto real_window_size = blit_utils_t::getWindowSize(inImageType,state->kernels);
 			core::vectorSIMDi32 intermediateExtent[3];
 			getIntermediateExtents(intermediateExtent, state, real_window_size);
 			const core::vectorSIMDi32 intermediateLastCoord[3] = {
@@ -342,28 +356,28 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 				intermediateExtent[1]-core::vectorSIMDi32(1,1,1,0),
 				intermediateExtent[2]-core::vectorSIMDi32(1,1,1,0)
 			};
-			value_type* const intermediateStorage[3] = {
-				reinterpret_cast<value_type*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_X_AXIS_WRITE)),
-				reinterpret_cast<value_type*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Y_AXIS_WRITE)),
-				reinterpret_cast<value_type*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Z_AXIS_WRITE))
+			value_t* const intermediateStorage[3] = {
+				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_X_AXIS_WRITE)),
+				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Y_AXIS_WRITE)),
+				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Z_AXIS_WRITE))
 			};
 			const core::vectorSIMDu32 intermediateStrides[3] = {
-				core::vectorSIMDu32(MaxChannels*intermediateExtent[0].y,MaxChannels,MaxChannels*intermediateExtent[0].x*intermediateExtent[0].y,0u),
-				core::vectorSIMDu32(MaxChannels*intermediateExtent[1].y*intermediateExtent[1].z,MaxChannels*intermediateExtent[1].z,MaxChannels,0u),
-				core::vectorSIMDu32(MaxChannels,MaxChannels*intermediateExtent[2].x,MaxChannels*intermediateExtent[2].x*intermediateExtent[2].y,0u)
+				core::vectorSIMDu32(ChannelCount*intermediateExtent[0].y,ChannelCount,ChannelCount*intermediateExtent[0].x*intermediateExtent[0].y,0u),
+				core::vectorSIMDu32(ChannelCount*intermediateExtent[1].y*intermediateExtent[1].z,ChannelCount*intermediateExtent[1].z,ChannelCount,0u),
+				core::vectorSIMDu32(ChannelCount,ChannelCount*intermediateExtent[2].x,ChannelCount*intermediateExtent[2].x*intermediateExtent[2].y,0u)
 			};
 			// storage
 			core::RandomSampler sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-			auto storeToTexel = [state,nonPremultBlendSemantic,alphaChannel,outFormat](value_type* const sample, void* const dstPix, const core::vectorSIMDu32& localOutPos) -> void
+			auto storeToTexel = [state,nonPremultBlendSemantic,alphaChannel,outFormat](value_t* const sample, void* const dstPix, const core::vectorSIMDu32& localOutPos) -> void
 			{
 				if (nonPremultBlendSemantic && sample[alphaChannel]>FLT_MIN*1024.0*512.0)
 				{
-					for (auto i=0; i<MaxChannels; i++)
+					for (auto i=0; i<ChannelCount; i++)
 					if (i!=alphaChannel)
 						sample[i] /= sample[alphaChannel];
 				}
 
-				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
+				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, ChannelCount);
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg,state](
@@ -371,7 +385,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			) -> void
 			{
 				assert(needsNormalization);
-				value_type coverageScale = 1.0;
+				value_t coverageScale = 1.0;
 				if (coverageSemantic) // little thing for the coverage adjustment trick suggested by developer of The Witness
 				{
 					const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
@@ -387,20 +401,20 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 
 					struct DummyTexelType
 					{
-						double texel[MaxChannels];
+						double texel[ChannelCount];
 					};
-					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*MaxChannels), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
+					std::for_each(policy, reinterpret_cast<DummyTexelType*>(intermediateStorage[axis]), reinterpret_cast<DummyTexelType*>(intermediateStorage[axis] + outputTexelCount*ChannelCount), [&sampler, outFormat, &histograms, &scratchHelper, alphaChannel, state](const DummyTexelType& dummyTexel)
 					{
-						const uint32_t index = scratchHelper.alloc<is_seq_policy_v>();
+						const uint32_t index = scratchHelper.template alloc<is_seq_policy_v>();
 
-						value_type texelAlpha = dummyTexel.texel[alphaChannel];
-						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_type>(outFormat, alphaChannel, texelAlpha) / double(~0u));
+						value_t texelAlpha = dummyTexel.texel[alphaChannel];
+						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_t>(outFormat, alphaChannel, texelAlpha) / double(~0u));
 
 						const uint32_t binIndex = uint32_t(core::round(core::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
 						assert(binIndex < state->alphaBinCount);
 						histograms[index*state->alphaBinCount+binIndex]++;
 
-						scratchHelper.free<is_seq_policy_v>(index);
+						scratchHelper.template free<is_seq_policy_v>(index);
 					});
 
 					uint32_t* mergedHistogram = histograms;
@@ -420,10 +434,10 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 					void* const dstPix = outData+writeBlockArrayOffset;
 					const core::vectorSIMDu32 localOutPos = writeBlockPos - outOffsetLayer;
 
-					value_type sample[MaxChannels];
+					value_t sample[ChannelCount];
 					const size_t offset = IImage::SBufferCopy::getLocalByteOffset(localOutPos, intermediateStrides[axis]);
 					const auto* first = intermediateStorage[axis]+offset;
-					std::copy(first,first+MaxChannels,sample);
+					std::copy(first,first+ChannelCount,sample);
 
 					sample[alphaChannel] *= coverageScale;
 					storeToTexel(sample,dstPix,localOutPos);
@@ -440,19 +454,22 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
 			const auto fScale = fInExtent.preciseDivision(fOutExtent);
 			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
-			const auto startCoord =  [&halfTexelOffset,&scaledKernelX,&scaledKernelY,&scaledKernelZ]() -> core::vectorSIMDi32
+			const auto startCoord =  [&halfTexelOffset,state]() -> core::vectorSIMDi32
 			{
-				return core::vectorSIMDi32(scaledKernelX.getWindowMinCoord(halfTexelOffset).x,scaledKernelY.getWindowMinCoord(halfTexelOffset).y,scaledKernelZ.getWindowMinCoord(halfTexelOffset).z,0);
+				return core::vectorSIMDi32(
+					std::get<0>(state->kernels).getWindowMinCoord(halfTexelOffset.x),
+					std::get<1>(state->kernels).getWindowMinCoord(halfTexelOffset.y),
+					std::get<2>(state->kernels).getWindowMinCoord(halfTexelOffset.z),0);
 			}();
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 
 			core::vectorSIMDu32 phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
 			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
-			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets<lut_value_type>(phaseCount, real_window_size);
+			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets(phaseCount, real_window_size);
 			constexpr auto MaxAxisCount = 3;
-			lut_value_type* scaledKernelPhasedLUTPixel[MaxAxisCount];
+			lut_value_t* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
-				scaledKernelPhasedLUTPixel[i] = reinterpret_cast<lut_value_type*>(state->scratchMemory + getScratchOffset(state, ESU_SCALED_KERNEL_PHASED_LUT) + axisOffsets[i]);
+				scaledKernelPhasedLUTPixel[i] = reinterpret_cast<lut_value_t*>(state->scratchMemory + getScratchOffset(state, ESU_SCALED_KERNEL_PHASED_LUT) + axisOffsets[i]);
 
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
@@ -472,25 +489,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						return;
 
 					const bool lastPass = inImageType==axis;
-					const auto windowSize = kernel.getWindowSize()[axis];
-
-					IImageFilterKernel::ScaleFactorUserData scale(1.f/fScale[axis]);
-					const IImageFilterKernel::ScaleFactorUserData* otherScale = nullptr;
-					switch (axis)
-					{
-						case IImage::ET_1D:
-							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(state->kernelX.getUserData());
-							break;
-						case IImage::ET_2D:
-							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(state->kernelY.getUserData());
-							break;
-						case IImage::ET_3D:
-							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(state->kernelZ.getUserData());
-							break;
-					}
-					if (otherScale)
-					for (auto k=0; k<MaxChannels; k++)
-						scale.factor[k] *= otherScale->factor[k];
+					const auto windowSize = kernel.getWindowSize();
 	
 					// z y x output along x
 					// z x y output along y
@@ -515,7 +514,7 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						// we need some tmp memory for threads in the first pass so that they dont step on each other
 						uint32_t decode_offset;
 						// whole line plus window borders
-						value_type* lineBuffer;
+						value_t* lineBuffer;
 						core::vectorSIMDi32 localTexCoord(0);
 						localTexCoord[loopCoordID[0]] = batchCoord[0];
 						localTexCoord[loopCoordID[1]] = batchCoord[1];
@@ -524,15 +523,15 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 						else
 						{
 							const auto inputEnd = inExtent.width+real_window_size.x;
-							decode_offset = scratchHelper.alloc<is_seq_policy_v>();
-							lineBuffer = intermediateStorage[1]+decode_offset*MaxChannels*inputEnd;
+							decode_offset = scratchHelper.template alloc<is_seq_policy_v>();
+							lineBuffer = intermediateStorage[1]+decode_offset*ChannelCount*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
-								core::vectorSIMDu32 inBlockCoord(0u);
+								core::vectorSIMDu32 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
-									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),inBlockCoord),
+									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),blockLocalTexelCoord),
 									nullptr,
 									nullptr,
 									nullptr
@@ -540,15 +539,13 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 								if (!srcPix[0])
 									continue;
 
-								auto sample = lineBuffer+i*MaxChannels;
-								value_type swizzledSample[MaxChannels];
+								auto sample = lineBuffer+i*ChannelCount;
 
-								// TODO: make sure there is no leak due to MaxChannels!
-								base_t::template onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
 
 								if (nonPremultBlendSemantic)
 								{
-									for (auto i=0; i<MaxChannels; i++)
+									for (auto i=0; i<ChannelCount; i++)
 									if (i!=alphaChannel)
 										sample[i] *= sample[alphaChannel];
 								}
@@ -561,15 +558,15 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 							}
 						}
 
-						auto getWeightedSample = [scaledKernelPhasedLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_type
+						auto getWeightedSample = [scaledKernelPhasedLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_t
 						{
-							value_type kernelWeight;
-							if constexpr (std::is_same_v<lut_value_type, uint16_t>)
-								kernelWeight = value_type(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel]));
+							value_t kernelWeight;
+							if constexpr (std::is_same_v<lut_value_t, uint16_t>)
+								kernelWeight = value_t(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel]));
 							else
-								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * MaxChannels + channel];
+								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel];
 
-							return kernelWeight * lineBuffer[(windowCoord[axis] - windowMinCoord[axis]) * MaxChannels + channel];
+							return kernelWeight * lineBuffer[(windowCoord - windowMinCoord[axis]) * ChannelCount + channel];
 						};
 
 						uint32_t phaseIndex = 0;
@@ -580,26 +577,24 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
 
 							// do the filtering
-							core::vectorSIMDf tmp;
-							tmp[axis] = float(i)+0.5f;
-							core::vectorSIMDi32 windowCoord(0);
-							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
+							float tmp = float(i)+0.5f;
+							int32_t windowCoord = kernel.getWindowMinCoord(tmp*fScale[axis], tmp);
 
-							for (auto ch = 0; ch < MaxChannels; ++ch)
+							for (auto ch = 0; ch < ChannelCount; ++ch)
 								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);
 
 							for (auto h=1; h<windowSize; h++)
 							{
-								windowCoord[axis]++;
+								windowCoord++;
 
-								for (auto ch = 0; ch < MaxChannels; ch++)
+								for (auto ch = 0; ch < ChannelCount; ch++)
 									value[ch] += getWeightedSample(windowCoord, phaseIndex, h, ch);
 							}
 							if (lastPass)
 							{
 								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer+vLayer;
 								if (needsNormalization)
-									state->normalization.prepass(value,localOutPos,0u,0u,MaxChannels);
+									state->normalization.prepass(value,localOutPos,0u,0u,ChannelCount);
 								else // store to image, we're done
 								{
 									core::vectorSIMDu32 dummy(0u);
@@ -611,19 +606,19 @@ class NBL_API CBlitImageFilter : public CImageFilter<CBlitImageFilter<Swizzle,Di
 								phaseIndex = 0;
 						}
 						if (axis == IImage::ET_1D)
-							scratchHelper.free<is_seq_policy_v>(decode_offset);
-							// free_decode_scratch(decode_offset);
+							scratchHelper.template free<is_seq_policy_v>(decode_offset);
 					});
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
+					{
+						state->normalization.finalize<value_t>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
+					}
 				};
-				// filter in X-axis
-				filterAxis(IImage::ET_1D,scaledKernelX);
-				// filter in Y-axis
-				filterAxis(IImage::ET_2D,scaledKernelY);
-				// filter in Z-axis
-				filterAxis(IImage::ET_3D,scaledKernelZ);
+				
+				filterAxis(IImage::ET_1D, std::get<0>(state->kernels));
+				filterAxis(IImage::ET_2D, std::get<1>(state->kernels));
+				filterAxis(IImage::ET_3D, std::get<2>(state->kernels));
 			}
 			return true;
 		}

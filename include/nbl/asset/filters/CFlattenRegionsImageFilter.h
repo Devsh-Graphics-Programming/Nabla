@@ -18,7 +18,7 @@ namespace asset
 {
 
 // respecifies the image in terms of the least amount of region entries
-class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilter>, public CBasicImageFilterCommon
+class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilter>, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CFlattenRegionsImageFilter() {}
@@ -45,8 +45,9 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 			if (inParams.samples!=IImage::ESCF_1_BIT)
 				return false;
 
-			// TODO: remove this later when we can actually write/encode to block formats
-			if (isBlockCompressionFormat(inParams.format))
+			// Reject formats that can have more than one valid aspect masks, which are only depth-stencil formats.
+			const auto inFormat = state->inImage->getCreationParameters().format;
+			if (asset::isDepthOrStencilFormat(inFormat) && !asset::isDepthOnlyFormat(inFormat) && !asset::isStencilOnlyFormat(inFormat))
 				return false;
 
 			return true;
@@ -62,6 +63,9 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 			const auto& inParams = inImg->getCreationParameters();
 			auto respecifyRegions = [&state,&inImg,&inParams]() -> void
 			{
+				// Currently, we reject formats that can have more than one valid aspect masks.
+				const auto aspectMask = inImg->getRegions().begin()[0].imageSubresource.aspectMask;
+
 				state->outImage = ICPUImage::create(IImage::SCreationParams(inParams));
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(inParams.mipLevels);
 				size_t bufferSize = 0ull;
@@ -74,7 +78,7 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 					rit->bufferOffset = bufferSize;
 					rit->bufferRowLength = localExtent.x; // could round up to multiple of 8 bytes in the future
 					rit->bufferImageHeight = localExtent.y;
-					rit->imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					rit->imageSubresource.aspectMask = aspectMask;
 					rit->imageSubresource.mipLevel = mipLevel;
 					rit->imageSubresource.baseArrayLayer = 0u;
 					rit->imageSubresource.layerCount = inParams.arrayLayers;
@@ -88,6 +92,7 @@ class NBL_API CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsIm
 				auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 				state->outImage->setBufferAndRegions(std::move(buffer),std::move(regions));
 			};
+
 			auto* outImg = state->outImage.get();
 			if (outImg)
 			{

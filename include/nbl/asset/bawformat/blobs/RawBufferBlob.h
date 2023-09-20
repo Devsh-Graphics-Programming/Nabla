@@ -15,7 +15,7 @@ namespace asset
 class ICPUBuffer;
 
 #include "nbl/nblpack.h"
-struct NBL_API NBL_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
+struct NBL_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
 {};
 #include "nbl/nblunpack.h"
 
@@ -24,7 +24,7 @@ using RawBufferBlobV2 = RawBufferBlobV1;
 using RawBufferBlobV3 = RawBufferBlobV2;
 
 template<>
-struct NBL_API CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV3 type; };
+struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV3 type; };
 
 }
 } // nbl::asset

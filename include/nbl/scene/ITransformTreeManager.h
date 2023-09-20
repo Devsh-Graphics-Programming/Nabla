@@ -25,7 +25,7 @@ namespace nbl::scene
 #undef int
 #undef uint
 
-class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
+class ITransformTreeManager : public virtual core::IReferenceCounted
 {
 		template<uint32_t BindingCount>
 		static inline auto createDescriptorSetLayout(video::ILogicalDevice* device)
@@ -33,7 +33,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			video::IGPUDescriptorSetLayout::SBinding bnd[BindingCount];
 			bnd[0].binding = 0u;
 			bnd[0].count = 1u;
-			bnd[0].type = asset::EDT_STORAGE_BUFFER;
+			bnd[0].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bnd[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bnd[0].samplers = nullptr;
 			for (auto i = 1u; i < BindingCount; i++)
@@ -54,13 +54,13 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			for (auto i = 0u; i < BindingCount; i++)
 			{
 				infos[i].desc = std::move(bufferBindings[i].buffer);
-				infos[i].buffer.offset = bufferBindings[i].offset;
-				infos[i].buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				infos[i].info.buffer.offset = bufferBindings[i].offset;
+				infos[i].info.buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
 				writes[i].dstSet = set;
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			device->updateDescriptorSets(BindingCount, writes, 0u, nullptr);
@@ -102,27 +102,36 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-        static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
-        {
+		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
-			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
+			auto createShader = [&system,&device]<core::StringLiteral Path>(asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				auto glslFile = loadBuiltinData(Path.value);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, "????"));
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "????"));
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
-			auto updateRelativeSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")());
-			auto recomputeGlobalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_update.comp")());
-			auto recomputeGlobalAndNormalSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")());
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/transform_tree/debug.vert")(),asset::IShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::IShader::ESS_FRAGMENT);
+			auto updateRelativeSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/relative_transform_update.comp")>();
+			auto recomputeGlobalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_update.comp")>();
+			auto recomputeGlobalAndNormalSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/global_transform_and_normal_matrix_update.comp")>();
+			auto debugDrawVertexSpec = createShader.operator()<core::StringLiteral("nbl/builtin/glsl/transform_tree/debug.vert")>(asset::IShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader.operator()<core::StringLiteral("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(asset::IShader::ESS_FRAGMENT);
 			if (!updateRelativeSpec || !recomputeGlobalSpec || !recomputeGlobalAndNormalSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
@@ -175,7 +184,7 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			
 			video::IGPUBuffer::SCreationParams debugIndexBufferCreationParams = {};
 			debugIndexBufferCreationParams.size = tmp.size();
-			debugIndexBufferCreationParams.usage = core::bitflag<video::IGPUBuffer::E_USAGE_FLAGS>(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT);
+			debugIndexBufferCreationParams.usage = core::bitflag(video::IGPUBuffer::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT) | video::IGPUBuffer::E_USAGE_FLAGS::EUF_INDEX_BUFFER_BIT;
 			auto debugIndexBuffer = utils->createFilledDeviceLocalBufferOnDedMem(uploadQueue,std::move(debugIndexBufferCreationParams),fillData);
 
 			auto updateLocalDsLayout = createUpdateLocalTransformsDescriptorSetLayout(device);
@@ -200,8 +209,8 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 				std::move(pipelinesWithoutNormalMatrices),std::move(pipelinesWithNormalMatrices),
 				std::move(defaultFillValues),std::move(debugIndexBuffer)
 			);
-            return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
-        }
+			return core::smart_refctd_ptr<ITransformTreeManager>(ttm,core::dont_grab);
+		}
 
 		static inline constexpr uint32_t TransferCount = 4u;
 		struct RequestBase
@@ -788,9 +797,9 @@ class NBL_API ITransformTreeManager : public virtual core::IReferenceCounted
 			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layouts->get(),&layouts->get()+3u);
 
 			DescriptorSets descSets;
-			descSets.updateLocal = device->createDescriptorSet(pool.get(),std::move(layouts[0]));
-			descSets.recomputeGlobal = device->createDescriptorSet(pool.get(),std::move(layouts[1]));
-			descSets.debugDraw = device->createDescriptorSet(pool.get(),std::move(layouts[2]));
+			descSets.updateLocal = pool->createDescriptorSet(std::move(layouts[0]));
+			descSets.recomputeGlobal = pool->createDescriptorSet(std::move(layouts[1]));
+			descSets.debugDraw = pool->createDescriptorSet(std::move(layouts[2]));
 			return descSets;
 		}
 	protected:

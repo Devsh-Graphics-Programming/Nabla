@@ -15,7 +15,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
+class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
 {
 	public:
 		//! These are not absolute constants, just the most common situation, there may be setups of assets/resources with completely different relationships.

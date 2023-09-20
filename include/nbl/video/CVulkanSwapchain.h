@@ -22,7 +22,7 @@ public:
         m_vkSwapchainKHR(swapchain), m_imgMemRequirements(std::move(imgMemRequirements))
     {}
 
-    static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+    NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
     ~CVulkanSwapchain();
 

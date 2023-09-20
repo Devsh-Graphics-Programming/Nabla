@@ -15,26 +15,28 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
-option(_NBL_COMPILE_WITH_DXC_ "Build Nabla with DXC" ON)
+get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
+get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
+
+set(SPIRV-Headers_SOURCE_DIR "${DXC_SPIRV_HEADERS_DIR}" CACHE INTERNAL "")
+if(WIN32)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
+elseif(UNIX)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
+endif()
 option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
 option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
 set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
-if(_NBL_COMPILE_WITH_DXC_)
-	message(STATUS "_NBL_COMPILE_WITH_DXC_ enabled, Nabla will be built with DXC!")
-	add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
-	
-	if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-		message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
-	endif()
-else()
-	if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-		message(WARNING "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, but _NBL_COMPILE_WITH_DXC_ is turned off! DXC compile tests won't be executed...")
-	endif()
+add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
+
+if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
+	message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
 endif()
 
 # volk
@@ -52,28 +54,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
-
-# TODO: redo
-find_package(OpenGL OPTIONAL_COMPONENTS EGL)
-find_package(Wayland)  # TODO: remove, load Wayland dynamically
-#[[if (OpenGL_EGL_FOUND)
-	message(FATAL_ERROR "FOUND EGL!!")
-else()
-	message(FATAL_ERROR "COULDNT FIND EGL!!")
-endif()]]
-# EGL
-set(EGL_NO_GLEW ON CACHE INTERNAL "" FORCE)
-if (OpenGL_EGL_FOUND AND UNIX AND NOT APPLE)
-	# TODO: This Cannot work like that!
-	set(EGL_PASSTHROUGH ON FORCE)
-	if (WAYLAND_CLIENT_FOUND)
-		set(EGL_USE_WAYLAND ON FORCE)
-		message(FATAL_ERROR "Using Wayland backend!!!")
-	endif()
-endif()
-# all of the above fuckery can be dismissed
-add_subdirectory(EGL/EGL)
-
+# boost
+add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -127,18 +109,18 @@ set(ZLIB_LIBRARY # for PNGLIB purposes
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 CACHE INTERNAL "" FORCE)
 
-
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
-add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
+add_subdirectory("${DXC_SPIRV_HEADERS_DIR}" SPIRV-Headers EXCLUDE_FROM_ALL)
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
-add_subdirectory(SPIRV-Tools SPIRV-Tools EXCLUDE_FROM_ALL)
+add_subdirectory("${DXC_SPIRV_TOOLS_DIR}" SPIRV-Tools EXCLUDE_FROM_ALL)
 set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
+set_property(TARGET SPIRV-Tools-opt PROPERTY CXX_STANDARD 17)
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
@@ -253,6 +235,47 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+if(NBL_BUILD_IMGUI)
+	add_library(imgui STATIC
+		"imgui/imconfig.h"
+		"imgui/imgui_demo.cpp"
+		"imgui/imgui_draw.cpp"
+		"imgui/imgui_internal.h"
+		"imgui/imgui_tables.cpp"
+		"imgui/imgui_widgets.cpp"
+		"imgui/imgui.cpp"
+		"imgui/imgui.h"
+		"imgui/misc/cpp/imgui_stdlib.cpp"
+		"imgui/misc/cpp/imgui_stdlib.h"
+		"imgui/imstb_rectpack.h"
+		"imgui/imstb_textedit.h"
+		"imgui/imstb_truetype.h"
+	)
+	target_include_directories(imgui
+		PUBLIC "imgui"
+		PUBLIC "imgui/misc/cpp"
+		PUBLIC "imgui/backends"
+	)
+
+	# ImPlot
+	add_library(implot STATIC
+		"implot/implot.h"
+		"implot/implot_internal.h"
+		"implot/implot.cpp"
+		"implot/implot_items.cpp"
+	)
+	target_include_directories(implot
+		PUBLIC "imgui"
+	)
+	target_link_libraries(implot PUBLIC imgui)
+	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
+	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	if(MSVC)
+		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
+	else()
+		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
+	endif()
+endif()
 
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
@@ -338,8 +361,7 @@ set(NBL_3RDPARTY_TARGETS
 				GenericCodeGen
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt
-				egl 
+				SPIRV-Tools-opt 
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
@@ -362,6 +384,9 @@ endif()
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
+if (NBL_BUILD_IMGUI)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
@@ -374,23 +399,11 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		endif()
 endforeach()
 
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
+add_custom_target(3rdparty)
+add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 ## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./include/parallel-hashmap
-	CONFIGURATIONS Release
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./debug/include/parallel-hashmap
-	CONFIGURATIONS Debug
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./relwithdebinfo/include/parallel-hashmap
-	CONFIGURATIONS RelWithDebInfo
-)
+nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")

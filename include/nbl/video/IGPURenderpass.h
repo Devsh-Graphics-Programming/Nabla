@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPURenderpass : public asset::IRenderpass, public core::IReferenceCounted, public IBackendObject
+class IGPURenderpass : public asset::IRenderpass, public core::IReferenceCounted, public IBackendObject
 {
         using base_t = asset::IRenderpass;
 

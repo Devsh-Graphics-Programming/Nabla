@@ -19,7 +19,7 @@ namespace OptiX
 class IContext;
 
 
-class NBL_API IProgramGroup final : public core::IReferenceCounted
+class IProgramGroup final : public core::IReferenceCounted
 {
 	public:
 		inline OptixProgramGroup getOptiXHandle() {return programGroup;}

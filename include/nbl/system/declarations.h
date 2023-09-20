@@ -1,7 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
 #define __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
 
@@ -23,9 +22,13 @@
 
 //whole system
 #if defined(_NBL_PLATFORM_WINDOWS_)
+#	include "nbl/system/CColoredStdoutLoggerWin32.h"
 #	include "nbl/system/CSystemWin32.h"
 #elif defined(_NBL_PLATFORM_LINUX_)
+#	include "nbl/system/CColoredStdoutLoggerANSI.h"
 #	include "nbl/system/CSystemLinux.h"
+#else
+	#error "Unsupported Platform"
 #endif // TODO more platforms (android)
 
 #endif

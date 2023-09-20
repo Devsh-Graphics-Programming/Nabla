@@ -16,6 +16,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
 
 core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 {
+    // TODO: assert enabled swapchain/surface feature in logical device, otherwise vkCreateSwapchainKHR is not a valid function pointer and is going to crash 
     if (params.surface->getAPIType() != EAT_VULKAN)
         return nullptr;
 

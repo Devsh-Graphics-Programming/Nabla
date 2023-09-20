@@ -11,7 +11,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
+class IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImageView, IGPUSampler>
 {
     using base_t = asset::IVirtualTexture<IGPUImageView, IGPUSampler>;
 
@@ -41,7 +41,7 @@ class NBL_API IGPUVirtualTexture final : public asset::IVirtualTexture<IGPUImage
     {
         core::smart_refctd_ptr<IGPUImage> gpuImage;
         {
-            IGPUImage::SCreationParams cpuImageParams;
+            IGPUImage::SCreationParams cpuImageParams = {};
             cpuImageParams = _cpuimg->getCreationParameters();
             cpuImageParams.initialLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
 
@@ -157,7 +157,7 @@ protected:
             const uint32_t tilesPerDim = getTilesPerDim();
             const uint32_t extent = tileExtent * tilesPerDim;
 
-            IGPUImage::SCreationParams params;
+            IGPUImage::SCreationParams params = {};
             params.extent = { extent, extent, 1u };
             params.format = imageFormat;
             params.arrayLayers = _layers;
@@ -165,7 +165,7 @@ protected:
             params.type = asset::IImage::ET_2D;
             params.samples = asset::IImage::ESCF_1_BIT;
             params.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0);
-            // TODO: final layout should be readonly (if there's transfer necessary, then we start in transfer dst) and usage is shader sampled texture
+            // TODO: final layout should be readonly (if there's transfer necessary, then we start in transfer dst)
 
             image = m_logicalDevice->createImage(std::move(params));
             m_logicalDevice->allocate(image->getMemoryReqs(), image.get());

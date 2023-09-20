@@ -60,12 +60,13 @@
 #include "nbl/core/parallel/unlock_guard.h"
 // string
 #include "nbl/core/string/stringutil.h"
-#include "nbl/core/string/UniqueStringLiteralType.h"
+#include "nbl/core/string/StringLiteral.h"
 // other useful things
 #include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/IBuffer.h"
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/StorageTrivializer.h"
 #include "nbl/core/SRAIIBasedExiter.h"
 #include "nbl/core/SRange.h"
 #include "nbl/core/Byteswap.h"

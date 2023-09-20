@@ -15,7 +15,7 @@ namespace nbl::core
 namespace impl
 {
 
-class NBL_API CCircularBufferCommonBase
+class CCircularBufferCommonBase
 {
 protected:
     // Instead of atomics for flags, we could use more memory (1 byte per flag)
@@ -31,7 +31,7 @@ protected:
 };
 
 template <typename T>
-class NBL_API CConstantRuntimeSizedCircularBufferBase : public CCircularBufferCommonBase
+class CConstantRuntimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
 protected:
     static constexpr inline auto Alignment = alignof(T);
@@ -94,7 +94,7 @@ private:
 
 
 template <typename T, size_t S>
-class NBL_API CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
+class CCompileTimeSizedCircularBufferBase : public CCircularBufferCommonBase
 {
     static_assert(core::isPoT(S), "Circular buffer capacity must be PoT!");
 
@@ -146,7 +146,7 @@ private:
 // TODO: Reimplement with per-element C++20 atomic waits and a ticket lock (for ordered overwrites)
 // https://cdn.discordapp.com/attachments/593903264987349057/872793258042986496/100543_449723386_Bryce_Adelstein_Lelbach_The_C20_synchronization_library.pdf
 template <typename Base, bool AllowOverflows = true>
-class NBL_API CCircularBufferBase : public Base
+class CCircularBufferBase : public Base
 {
     using this_type = CCircularBufferBase<Base>;
     using base_t = Base;
@@ -375,7 +375,7 @@ public:
 }
 
 template <typename T, size_t S, bool AllowOverflows = true>
-class NBL_API CCompileTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>, AllowOverflows>
+class CCompileTimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>, AllowOverflows>
 {
     using base_t = impl::CCircularBufferBase<impl::CCompileTimeSizedCircularBufferBase<T, S>>;
 
@@ -384,7 +384,7 @@ public:
 };
 
 template <typename T, bool AllowOverflows = true>
-class NBL_API CConstantRuntimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>, AllowOverflows>
+class CConstantRuntimeSizedCircularBuffer : public impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>, AllowOverflows>
 {
     using base_t = impl::CCircularBufferBase<impl::CConstantRuntimeSizedCircularBufferBase<T>>;
 

@@ -8,7 +8,7 @@
 namespace nbl::ext::OIT
 {
 
-class NBL_API COIT
+class COIT
 {
     public:
         static inline constexpr auto ColorImageFormat = NBL_GLSL_OIT_IMG_FORMAT_COLOR;
@@ -61,7 +61,7 @@ class NBL_API COIT
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.tiling = asset::IImage::ET_OPTIMAL;
+                    params.tiling = video::IGPUImage::ET_OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
@@ -74,9 +74,10 @@ class NBL_API COIT
                     if (!img || !imgMem.isValid())
                         return nullptr;
 
-                    video::IGPUImageView::SCreationParams vparams;
+                    video::IGPUImageView::SCreationParams vparams = {};
                     vparams.format = params.format;
                     vparams.flags = static_cast<decltype(vparams.flags)>(0);
+                    //vparams.subUsages = ? ? ? ; TODO
                     vparams.viewType = decltype(vparams.viewType)::ET_2D;
                     vparams.subresourceRange.baseArrayLayer = 0u;
                     vparams.subresourceRange.layerCount = 1u;
@@ -107,7 +108,7 @@ class NBL_API COIT
             resolve_glsl += "#define NBL_GLSL_SPINLOCK_IMAGE_BINDING " + std::to_string(spinlockBnd) + "\n";
             resolve_glsl += "#include <nbl/builtin/glsl/ext/OIT/resolve.frag>\n";
 
-            const bool hasInterlock = dev->getPhysicalDevice()->getFeatures().fragmentShaderPixelInterlock;
+            const bool hasInterlock = dev->getEnabledFeatures().fragmentShaderPixelInterlock;
             // TODO bring back
 #if 0
             if (hasInterlock)
@@ -116,7 +117,7 @@ class NBL_API COIT
 #endif
                 m_images.spinlock = createOITImage(SpinlockImageFormat);
 
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, "oit_resolve.frag");
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(resolve_glsl.c_str(), asset::IShader::ESS_FRAGMENT, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "oit_resolve.frag");
             auto shader = dev->createShader(std::move(cpushader));
             if (!shader)
                 return false;
@@ -169,7 +170,7 @@ class NBL_API COIT
                 bnd.count = 1u;
                 bnd.samplers = nullptr;
                 bnd.stageFlags = asset::IShader::ESS_FRAGMENT;
-                bnd.type = asset::EDT_STORAGE_IMAGE;
+                bnd.type = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
             }
 
             return bindingCount;
@@ -192,7 +193,7 @@ class NBL_API COIT
                 w.arrayElement = 0u;
                 w.binding = b[i];
                 w.count = 1u;
-                w.descriptorType = asset::EDT_STORAGE_IMAGE;
+                w.descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
                 w.dstSet = dstset;
                 w.info = &info;
 

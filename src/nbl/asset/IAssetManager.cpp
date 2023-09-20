@@ -5,7 +5,11 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CHLSLLoader.h"
 #include "nbl/asset/interchange/CSPVLoader.h"
+
+#include <array>
+#include <nbl/core/string/StringLiteral.h>	
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
 #include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
@@ -121,7 +125,8 @@ void IAssetManager::initializeMeshTools()
 {
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
-    m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_system.get());
+    if (!m_compilerSet)
+        m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -171,6 +176,7 @@ void IAssetManager::addLoadersAndWriters()
 #endif
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
@@ -224,47 +230,59 @@ void IAssetManager::insertBuiltinAssets()
 									asset::IShader::E_SHADER_STAGE type,
 									std::initializer_list<const char*> paths) -> void
 		{
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize());
+            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize() + 1u);
             memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::buffer_contains_glsl_t{}, type, paths.begin()[0]);
+            char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
+            bufferAsChar[data->getSize()] = '\0';
+
+            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
 		auto fileSystem = getSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
+        auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+        {
+            nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+            fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+            if (future.wait())
+                return future.copy();
+            return nullptr;
+        };
+
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/specialized_shader/fullscreentriangle.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/specialized_shader/fullscreentriangle.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::IShader::ESS_FRAGMENT, 
 			{
                 "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
             });
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_color/specialized_shader.vert"),
 			asset::IShader::ESS_VERTEX,
 			{
                 "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"),
 			asset::IShader::ESS_FRAGMENT,
 			{   
                 "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
             });
-		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
+		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"),
 			asset::IShader::ESS_FRAGMENT,
 			{
                 "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
@@ -280,7 +298,7 @@ void IAssetManager::insertBuiltinAssets()
     binding1.count = 1u;
     binding1.binding = 0u;
     binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-    binding1.type = asset::EDT_UNIFORM_BUFFER;
+    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
     addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
@@ -291,7 +309,7 @@ void IAssetManager::insertBuiltinAssets()
 
     asset::ICPUDescriptorSetLayout::SBinding binding3;
     binding3.binding = 0u;
-    binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
+    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
     binding3.samplers = nullptr;
@@ -345,7 +363,7 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_COLOR_ATTACHMENT_BIT | asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_STORAGE_BIT);
+        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT);
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
@@ -357,6 +375,7 @@ void IAssetManager::insertBuiltinAssets()
 
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
         asset::ICPUImage::SBufferCopy& region = regions->front();
+        region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
         region.imageSubresource.mipLevel = 0u;
         region.imageSubresource.baseArrayLayer = 0u;
         region.imageSubresource.layerCount = 1u;
@@ -370,11 +389,11 @@ void IAssetManager::insertBuiltinAssets()
     
     //image views
     {
-        asset::ICPUImageView::SCreationParams info;
+        asset::ICPUImageView::SCreationParams info = {};
+        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
         info.format = dummy2dImage->getCreationParameters().format;
         info.image = dummy2dImage;
         info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
-        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
         info.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
         info.subresourceRange.baseArrayLayer = 0u;
         info.subresourceRange.layerCount = 1u;
@@ -394,7 +413,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
@@ -403,14 +422,15 @@ void IAssetManager::insertBuiltinAssets()
     {
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
-            auto desc = ds1->getDescriptors(0u).begin();
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
-            desc->desc = std::move(ubo);
-            desc->buffer.offset = 0ull;
-            desc->buffer.size = UBO_SZ;
+
+            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            descriptorInfos.begin()[0].desc = std::move(ubo);
+            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
+            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");
@@ -423,7 +443,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);

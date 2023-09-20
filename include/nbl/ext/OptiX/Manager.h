@@ -50,7 +50,7 @@ inline OptixPixelFormat irrFormatToOptiX(asset::E_FORMAT format)
 }
 
 
-class NBL_API Manager final : public core::IReferenceCounted
+class Manager final : public core::IReferenceCounted
 {
 	public:
 		//

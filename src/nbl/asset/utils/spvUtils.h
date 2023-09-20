@@ -18,8 +18,8 @@ namespace asset
         switch (_em)
         {
 			case ExecutionModelVertex: return IShader::ESS_VERTEX;
-			case ExecutionModelTessellationControl: return IShader::ESS_TESSELATION_CONTROL;
-			case ExecutionModelTessellationEvaluation: return IShader::ESS_TESSELATION_EVALUATION;
+			case ExecutionModelTessellationControl: return IShader::ESS_TESSELLATION_CONTROL;
+			case ExecutionModelTessellationEvaluation: return IShader::ESS_TESSELLATION_EVALUATION;
 			case ExecutionModelGeometry: return IShader::ESS_GEOMETRY;
 			case ExecutionModelFragment: return IShader::ESS_FRAGMENT;
 			case ExecutionModelGLCompute: return IShader::ESS_COMPUTE;
@@ -32,8 +32,8 @@ namespace asset
         switch (_ss)
         {
 			case IShader::ESS_VERTEX: return ExecutionModelVertex;
-			case IShader::ESS_TESSELATION_CONTROL: return ExecutionModelTessellationControl;
-			case IShader::ESS_TESSELATION_EVALUATION: return ExecutionModelTessellationEvaluation;
+			case IShader::ESS_TESSELLATION_CONTROL: return ExecutionModelTessellationControl;
+			case IShader::ESS_TESSELLATION_EVALUATION: return ExecutionModelTessellationEvaluation;
 			case IShader::ESS_GEOMETRY: return ExecutionModelGeometry;
 			case IShader::ESS_FRAGMENT: return ExecutionModelFragment;
 			case IShader::ESS_COMPUTE: return ExecutionModelGLCompute;

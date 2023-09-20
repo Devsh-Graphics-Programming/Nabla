@@ -19,7 +19,7 @@ namespace asset
 
 //! Helper class for creating geometry on the fly.
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
-class NBL_API IGeometryCreator : public core::IReferenceCounted
+class IGeometryCreator : public core::IReferenceCounted
 {
 		_NBL_INTERFACE_CHILD(IGeometryCreator) {}
 	public:

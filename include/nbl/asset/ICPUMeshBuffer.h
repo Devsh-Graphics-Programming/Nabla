@@ -55,7 +55,7 @@ namespace impl
     }
 }
 
-class NBL_API ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
+class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
 {
         using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>;
         // knowing the position attribute ID is important for AABB computations etc.

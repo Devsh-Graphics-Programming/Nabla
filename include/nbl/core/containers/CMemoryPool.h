@@ -12,7 +12,7 @@ namespace nbl::core
 {
 
 template <class AddressAllocator, template<class> class DataAllocator, bool isThreadSafe, typename... Args>
-class NBL_API CMemoryPool : public Uncopyable
+class CMemoryPool : public Uncopyable
 {
 public:
     using addr_allocator_type = AddressAllocator;
@@ -47,7 +47,7 @@ public:
 
         using traits_t = std::allocator_traits<DataAllocator<T>>;
         DataAllocator<T> data_alctr;
-        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_pod_v<T>)
+        if constexpr (sizeof...(FuncArgs)!=0u || !std::is_trivial_v<T>)
         {
             for (uint32_t i = 0u; i < n; ++i)
                 traits_t::construct(data_alctr, reinterpret_cast<T*>(ptr) + i, std::forward<FuncArgs>(args)...);

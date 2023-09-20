@@ -42,6 +42,10 @@ if(NOT DEFINED _NABLA_DLL_NAME_)
 	message(FATAL_ERROR  "_NABLA_DLL_NAME_ variable must be specified for this script!")
 endif()
 
+if(NOT DEFINED _DXC_DLL_NAME_)
+	message(FATAL_ERROR  "_DXC_DLL_NAME_ variable must be specified for this script!")
+endif()
+
 if(NOT DEFINED _NABLA_INSTALL_DIR_)
 	message(FATAL_ERROR  "_NABLA_INSTALL_DIR_ variable must be specified for this script!")
 endif()

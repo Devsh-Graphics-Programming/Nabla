@@ -13,7 +13,7 @@
 namespace nbl::video
 {
 
-class NBL_API IGPUFramebuffer : public asset::IFramebuffer<IGPURenderpass, IGPUImageView>, public core::IReferenceCounted, public IBackendObject
+class IGPUFramebuffer : public asset::IFramebuffer<IGPURenderpass, IGPUImageView>, public core::IReferenceCounted, public IBackendObject
 {
         using base_t = asset::IFramebuffer<IGPURenderpass, IGPUImageView>;
 
