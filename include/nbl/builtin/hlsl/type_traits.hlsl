@@ -237,7 +237,7 @@ template <class T>
 struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 
 template <class T>
-struct is_aggregate : is_aggregate<T> {};
+struct is_aggregate : is_compound<T> {};
 
 #else // C++
 
