@@ -132,6 +132,20 @@
 namespace nbl::hlsl::type_traits
 {
 
+namespace impl
+{
+    
+template<template<class> class Trait, class T>
+struct base_type_forwarder : Trait<T> {};
+
+template<template<class> class Trait, class T, uint16_t N>
+struct base_type_forwarder<Trait,vector<T,N> > : Trait<T> {};
+
+template<template<class> class Trait, class T, uint16_t N, uint16_t M>
+struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
+
+}
+
 #if __HLSL_VERSION // HLSL
 
 template<class T, T val>
@@ -173,15 +187,15 @@ struct is_array : bool_constant<false> {};
 template<class T, uint32_t count>
 struct is_array<T[count]> : bool_constant<true>{};
 
-// TODO: decide whether matricies and vectors qualify for these implementations
 namespace impl
 {
 
 template<class T>
 struct is_unsigned : bool_constant<
+    is_same<T, bool>::value ||
     is_same<T, uint16_t>::value ||
     is_same<T, uint32_t>::value ||
-    is_same<T, uint64_t>::value ||
+    is_same<T, uint64_t>::value
 > {};
 
 template<class T>
@@ -202,10 +216,8 @@ struct is_floating_point : bool_constant<
     is_same<T, double>::value
 > {};
 
-// Is bool signed?
 template<class T>
 struct is_signed : bool_constant<
-    /*is_same<T, bool>::value ||*/
     is_same<T, int16_t>::value ||
     is_same<T, int32_t>::value ||
     is_same<T, int64_t>::value ||
@@ -214,12 +226,23 @@ struct is_signed : bool_constant<
 
 }
 
+template<class T> 
+struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, T> {};
+
+template<class T> 
+struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
+
+template<class T> 
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
+
+template<class T> 
+struct is_signed : impl::base_type_forwarder<impl::is_signed, T> {};
+
 template<class T>
 struct is_scalar : bool_constant<
     impl::is_integral<T>::value || 
     impl::is_floating_point<T>::value
 > {};
-
 
 template<class T>
 struct is_const : bool_constant<false> {};
@@ -263,10 +286,20 @@ template<class T>
 using is_scalar = std::is_scalar<T>;
 
 template<class T>
-using is_signed = std::is_signed<T>;
+struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
 
 template<class T>
-using is_unsigned = std::is_unsigned<T>;
+struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
+
+template<class T>
+struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
+
+template<class T>
+struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
+
+static_assert(is_floating_point<float4>::value);
+static_assert(is_integral<int1>::value);
+static_assert(is_unsigned<uint2>::value);
 
 template<class T>
 using is_const = std::is_const<T>;
