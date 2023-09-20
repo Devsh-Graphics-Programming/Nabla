@@ -312,7 +312,7 @@ option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
-option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" OFF)
+option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 find_package(Git REQUIRED)
 find_package (Python3 COMPONENTS Interpreter REQUIRED)
