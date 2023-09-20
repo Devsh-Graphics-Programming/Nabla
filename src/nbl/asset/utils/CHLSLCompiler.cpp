@@ -73,7 +73,6 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-    std::string res_str;
 
     std::filesystem::path relDir;
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -95,13 +94,25 @@ static tcpp::IInputStream* getInputStreamInclude(
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
+    std::optional<std::string> result;
     if (isRelative)
-        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
+        result = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
+        result = inclFinder->getIncludeStandard(relDir, requestedSource);
 
-    if (!res_str.size()) {
-        return new tcpp::StringInputStream("#error File not found");
+    if (!result) 
+    {
+        /*
+            Alternative could be found in the commit 2a66b4b20c579ea730aa3dd8af707847c01def64
+            if ever HLSL gets system headers we might just want to let includes be includes and 
+            DXC handle everything else we don't know about
+        */
+        std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
+        re.append("error ");
+        re.append(requestedSource);
+        re.append(" not found");
+        includeStack.push_back(includeStack.back());
+        return new tcpp::StringInputStream(re);
     }
 
     // Figure out what line in the current file this #include was
@@ -112,6 +123,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         (includeStack.size() > 1 ? leadingLinesImports : 0);
     auto lastItemInIncludeStack = includeStack.back();
 
+    auto& res_str = *result;
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
@@ -359,7 +371,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     std::vector<LPCWSTR> arguments = {
         L"-spirv",
-        L"-HV", L"2021",
+        L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
     };
 

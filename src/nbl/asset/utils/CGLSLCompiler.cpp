@@ -56,7 +56,6 @@ namespace nbl::asset::impl
             size_t _include_depth) override
         {
             shaderc_include_result* res = new shaderc_include_result;
-            std::string res_str;
 
             std::filesystem::path relDir;
             #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -78,12 +77,17 @@ namespace nbl::asset::impl
             if (std::filesystem::exists(name) && !reqBuiltin)
                 name = std::filesystem::absolute(name);
 
+            std::optional<std::string> result;
             if (_type == shaderc_include_type_relative)
-                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+            {
+                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+            }
             else //shaderc_include_type_standard
-                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+            {
+                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+            }
 
-            if (!res_str.size()) {
+            if (!result) {
                 const char* error_str = "Could not open file";
                 res->content_length = strlen(error_str);
                 res->content = new char[res->content_length + 1u];
@@ -92,6 +96,7 @@ namespace nbl::asset::impl
                 res->source_name = "";
             }
             else {
+                auto& res_str = *result;
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
                 disableGlDirectives(res_str);
