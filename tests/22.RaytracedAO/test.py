@@ -1,377 +1,347 @@
-from operator import eq
-import os
-import subprocess
 import shutil
-import filecmp
-from datetime import datetime
+from enum import Enum
+import sys
+import os
 from pathlib import *
 
-NBL_IMAGEMAGICK_EXE = Path('@_NBL_IMAGEMAGICK_EXE_@')
-NBL_PATHTRACER_EXE = Path('@_NBL_PATHTRACER_EXE_@')
-NBL_REFDATA_PATH = '@NBL_ROOT_PATH@'+'/ci/22.RaytracedAO' # TODO: change `ci` to `tests/reference_data`
-NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
-NBL_ERROR_THRESHOLD = "0.05" #relative error between reference and generated images, value between 1.0 and 0.0
-NBL_ERROR_TOLERANCE_COUNT = 96   #TODO: make this relative to image resolution
+current = os.path.dirname(os.path.realpath(__file__))
  
-def get_git_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}" rev-parse origin/ditt').decode('ascii').strip()
+# Getting the parent directory name
+# where the current directory is present.
+parent = os.path.dirname(current)
+ 
+# adding the parent directory to
+# the sys.path.
+sys.path.append(parent)
+ 
+# now we can import the module in the parent
+# directory.
+from CITest import *
 
-def get_submodule_revision_hash() -> str:
-    return subprocess.check_output(f'git -C "{NBL_REFDATA_PATH}/references/private" rev-parse origin/master').decode('ascii').strip()
-
-class Inputs:
-    def __init__(self, 
-                input_file: Path,
-                ref_url: str,
-                diff_imgs_url: str,
-                result_imgs_url: str,
-                summary_html_filepath: Path,
-                references_dir: str,
-                diff_images_dir: str,
-                storage_dir: str) -> None:
-        self.input_file_path = Path(input_file).absolute()
-        self.ref_url = ref_url
-        self.diff_imgs_url = diff_imgs_url
-        self.result_imgs_url = result_imgs_url
-        self.summary_html_filepath = Path(summary_html_filepath).absolute()
-        self.references_dir = Path(references_dir).absolute()
-        self.diff_images_dir = Path(diff_images_dir).absolute()
-        self.storage_dir = Path(storage_dir).absolute()
-
-NBL_SCENES_INPUTS = [ 
-    Inputs(
-            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/mitsuba/public_test_scenes.txt',
-            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/public/index.html', 
-            ref_url='https://github.com/Devsh-Graphics-Programming/Nabla-Ci/tree/'+ get_git_revision_hash() + '/22.RaytracedAO/references/public',
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public/difference-images',
-            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/public',
-            references_dir=f'{NBL_REFDATA_PATH}/references/public',
-            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/public/difference-images',
-            storage_dir= f'{NBL_REFDATA_PATH}/renders/public'),
-
-        Inputs(
-            input_file='@NBL_ROOT_PATH@'+'/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt',
-            summary_html_filepath=f'{NBL_REFDATA_PATH}/renders/private/index.html', 
-            ref_url='https://github.com/Devsh-Graphics-Programming/Ditt-Reference-Renders/tree/' + get_submodule_revision_hash(),
-            diff_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private/difference-images',
-            result_imgs_url = 'https://artifactory.devsh.eu/Ditt/ci/data/renders/private',
-            references_dir=f'{NBL_REFDATA_PATH}/references/private',
-            diff_images_dir=f'{NBL_REFDATA_PATH}/renders/private/difference-images',
-            storage_dir= f'{NBL_REFDATA_PATH}/renders/private') 
-]
-CLOSE_TO_ZERO = "0.00001"         
-CI_PASS_STATUS = True
+EPSILON = "0.00001"         
+NBL_REF_LDS_CACHE_FILENAME = 'LowDiscrepancySequenceCache.bin'
+PUT_REFERENCES_IN_FOLDERS = True
+PUT_DIFFERENCES_IN_FOLDERS = True
+PUT_RENDERS_IN_FOLDERS = True
 
 
-def htmlHead(scenes_input: Inputs):
-    HTML = '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    </head>
-    <body>
+class ErrorThresholdType(Enum):
+    ABSOLUTE = 1
+    RELATIVE_TO_RESOLUTION = 2
+
+class RendersTest(CITest):
+    # self.executable 
+    # self.input 
+    # self.print_warnings
+    # self.nabla_repo_root_dir
     
-    <h2>Ditt Render Scenes job status</h2>
-    '''
-    HTML += f'''
-    <p>Relative error threshold is set to <strong>{float(NBL_ERROR_THRESHOLD)*100.0}%</strong></p>
-    <p>Created at {datetime.now()} </p>
-    <table class="table table-bordered">
-      <tr class="thead-dark">
-        <th>Render</th>
-        <th>Pass status</th>
-        <th colspan="3" scope="colgroup">Input</th>
-        <th colspan="3" scope="colgroup">Albedo</th>
-        <th colspan="3" scope="colgroup">Normal</th>
-        <th colspan="3" scope="colgroup">Denoised</th>
-        <th colspan="1" scope="colgroup">Options</th>
-      </tr>
-    '''
-    htmlFile = open(scenes_input.summary_html_filepath, "w+")
-    htmlFile.write(HTML)
+    # render tests need working directories to exist
+    def _validate_filepaths(self):
+        if not super()._validate_filepaths():
+            return False
+        if not self.data_renders_abs_dir.exists():
+            os.makedirs(self.data_renders_abs_dir)
 
-    return HTML
-
-def htmlFoot(_cacheChanged : bool, scenes_input : Inputs):
-    HTML = '</table>'
-
-    if _cacheChanged:
-        HTML += '''
-        <h2 style="color: red;">FAILED PASS: Low Discrepancy Sequence Cache has been overwritten by a new one!</h2>
-        '''
-    else:
-        executor = f'git hash-object {scenes_input.references_dir}/{NBL_REF_LDS_CACHE_FILENAME}'
-        hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
-        HTML += f'''
-        <h2 style="color: green;">LDS Cache hash: {hash}</h2>'''
-    HTML += '''
-    <div id="exrPreview" style="height: 80%; padding-bottom: 61.4%; position: relative"></div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/15.6.1/react-dom.js"></script>
-    <script src="https://artifactory.devsh.eu/Ditt/ci/data/js/jeri.js"></script>
-    <script>
-        async function configForImage(renderName) {
-            return {
-                title: 'exrPreview',
-                children: [
-                    { title: 'Render result', image: rendersUrl + '/Render_' + renderName + '.exr' },
-                    { title: 'Render denoised', image: rendersUrl + '/Render_' + renderName + '_denoised.exr' },
-                    { title: 'Render albedo', image: rendersUrl + '/Render_' + renderName + '_albedo.exr'},
-                    { title: 'Render normal', image: rendersUrl + '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Reference result', image: referenceUrl + renderName+ '/Render_' + renderName + '.exr' },
-                    { title: 'Reference denoised', image: referenceUrl + renderName+ '/Render_' + renderName + '_denoised.exr' },
-                    { title: 'Reference albedo', image: referenceUrl + renderName+ '/Render_' + renderName + '_albedo.exr'},
-                    { title: 'Reference normal', image:referenceUrl + renderName+  '/Render_' + renderName + '_normal.exr'},
-                    { title: 'Difference noisy', image: differencesUrl + '/' + renderName + '_diff.exr' },
-                    { title: 'Difference denoised', image: differencesUrl + '/' + renderName + '_denoised_diff.exr' },
-                    { title: 'Difference albedo', image: differencesUrl + '/' + renderName + '_albedo_diff.exr'},
-                    { title: 'Difference normal', image: differencesUrl + '/' + renderName + '_normal_diff.exr'}
-                ]
-            };
-        }
-
-        const exrPreview = document.getElementById('exrPreview')
-        function compareImageBtnCallback(renderName) {
-            configForImage(renderName).then( (data)=>Jeri.renderViewer(exrPreview,data ));
-            exrPreview.scrollIntoView({ behavior: "smooth", block: "start"});
-        }
-    '''
-    HTML += f'''
-        const referenceUrl= '{scenes_input.result_imgs_url}/references/';
-        const rendersUrl= '{scenes_input.result_imgs_url}';
-        const differencesUrl= '{scenes_input.diff_imgs_url}';
-    </script>
-    </body>
-    </html>
-    '''
-    htmlFile = open(scenes_input.summary_html_filepath, "a")
-    htmlFile.write(HTML)
-    htmlFile.close()
-
-def get_render_filename(line : str):
-    words = line.replace('"', '').strip().split(" ")
-    zip = (os.path.splitext(str(Path(" ".join(words[0:-1])).name))[0] + "_") if len(words) > 1 else "" 
-    return zip + os.path.splitext(Path(words[-1]).name)[0]
-
-
-def cmp_files(inputParams, destinationReferenceCache, generatedReferenceCache, cmpSavedHash=False, cmpByteByByte = False):
-    if cmpByteByByte:
-        return  filecmp.cmp(destinationReferenceCache, generatedReferenceCache)
-    executor1 = f'git hash-object {generatedReferenceCache}'
-    executor2 = f'git hash-object {destinationReferenceCache}'
-    hgen = subprocess.run(executor1, capture_output=True).stdout.decode().strip()
-    href = subprocess.run(executor2, capture_output=True).stdout.decode().strip()
-    res = hgen == href
-    if cmpSavedHash:
-        file = str(inputParams.references_dir)+'/LDSCacheHash.txt'
-        if Path(file).is_file():
-            with open(file, "r") as f:
-                res = res and hgen == f.readline().strip()
-    return res
-
-
-def run_all_tests(inputParamList):
-    ci_pass_status = True
-    if NBL_PATHTRACER_EXE.is_file():
-
-        os.chdir(NBL_PATHTRACER_EXE.parent.absolute()) 
-
-        for inputParams in inputParamList:
-            
-            if not inputParams.references_dir.is_dir():
-                os.makedirs(inputParams.references_dir)
-
-            if not inputParams.storage_dir.is_dir():
-                os.makedirs(inputParams.storage_dir)
+        if not self.data_references_abs_dir.exists():
+            os.makedirs(self.data_references_abs_dir)
                 
-            if not inputParams.diff_images_dir.is_dir():
-                os.makedirs(inputParams.diff_images_dir)
-
-         
-            NBL_DUMMY_CACHE_CASE = not bool(Path(str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).is_file())
-            generatedReferenceCache = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + NBL_REF_LDS_CACHE_FILENAME
-            destinationReferenceCache = str(inputParams.references_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
-            cacheChanged = False
-
-            sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
-            executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
-            subprocess.run(executor, capture_output=True)
-                
-            # if we start the path tracer first time
-            if NBL_DUMMY_CACHE_CASE:
-                shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            # fail CI if the reference cache is different that current generated cache
-            elif not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
-                cacheChanged = True
-                ci_pass_status = False
-                continue
-
-            input_filepath = inputParams.input_file_path
-            if not input_filepath.is_file():
-                print(f'Scenes input {str(input_filepath)} does not exist!')
-                continue
+        if not self.data_diffs_abs_dir.exists():
+            os.makedirs(self.data_diffs_abs_dir)
         
-            with open(input_filepath.absolute()) as aFile:
-                inputLines = aFile.readlines()
+        if not self.references_repo_dir.exists():
+            if self.print_warnings:
+                print(f"[WARNING] References repository dir does not exist {self.references_repo_dir}")
+            return False
 
-            htmlHead(inputParams)
-            for line in inputLines:
-                if list(line)[0] != ';':
-                    try:
-                        renderName = get_render_filename(line)
-                        undenoisedTargetName = 'Render_' + renderName
-                       
-                        scene = line.strip()
+    # constructor
+    def __init__(self, 
+                test_name: str,
+                executable_filepath: str, 
+                input_filepath: str, 
+                nabla_repo_root_dir: str, 
+                image_magick_exe: str,
+                references_repo_dir: str,
+                profile,
+                data_dir = "/examples_tests/22.RaytracedAO/bin",
+                renders_dir_name = "renders",
+                references_dir_name = "references",
+                diff_images_dir_name = "diff_images",
+                error_threshold_type = ErrorThresholdType.ABSOLUTE,
+                error_threshold_value = 0.05,
+                allowed_error_pixel_count = 100.0,
+                ssim_error_threshold_value = 0.0001,
+                print_warnings = True
+                ):
+        super().__init__(test_name, executable_filepath, input_filepath, nabla_repo_root_dir, print_warnings)
+        self.references_repo_dir = Path(references_repo_dir)
+        self.data_dir = Path(str(self.nabla_repo_root_dir.absolute()) + data_dir)
+        self.data_renders_rel_dir = "/" + renders_dir_name + "/" + profile
+        self.data_renders_abs_dir = Path(str(self.data_dir.absolute()) + self.data_renders_rel_dir)
+        self.data_references_rel_dir = "/" + references_dir_name + "/" + profile
+        self.data_references_abs_dir = Path(str(self.data_dir.absolute())+ self.data_references_rel_dir)
+        self.data_diffs_rel_dir = "/" + diff_images_dir_name + "/" + profile
+        self.data_diffs_abs_dir = Path(str(self.data_dir.absolute())+ self.data_diffs_rel_dir)
+        self.image_magick_exe = image_magick_exe
+        self.error_threshold_type = error_threshold_type
+        self.error_threshold_value = error_threshold_value
+        self.allowed_error_pixel_count = allowed_error_pixel_count
+        self.ssim_error_threshold_value = float(ssim_error_threshold_value)
+        self.cout_json_regex = re.compile(r"(?<=\[JSON\] )(.+[\n\r]*)+(?=[\n\r]*\[ENDJSON\])")
 
-                        destinationReferenceUndenoisedTargetName = str(inputParams.references_dir) + '/' + renderName + '/' + undenoisedTargetName
-                    
-                        NBL_DUMMY_RENDER_CASE = not bool(Path(destinationReferenceUndenoisedTargetName + '.exr').is_file())
+    def __get_lds_hash(self):
+        executor = f'git hash-object {NBL_REF_LDS_CACHE_FILENAME}'
+        return subprocess.run(executor, capture_output=True).stdout.decode().strip()
+    
+    def __get_ref_repo_hash(self):
+        return get_git_revision_hash(self.references_repo_dir)
+        
+    def _impl_run_dummy_case(self):
+        reference_lds_cache_exists = bool(Path(str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).exists())
 
-                        executor = str(NBL_PATHTRACER_EXE.absolute()) + ' -SCENE=' + scene + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
-                        subprocess.run(executor, capture_output=True)
+        generatedReferenceCache = NBL_REF_LDS_CACHE_FILENAME
+        destinationReferenceCache = str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
+        sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
+        executor = str(self.executable.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
+        subprocess.run(executor, capture_output=True)
 
-                        outputDiffTerminators = ['', '_albedo', '_normal', '_denoised']
-                        HTML_CELLS = []
-                        PASSED_ALL = True
-                        storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
+        if not reference_lds_cache_exists:
+            if self.print_warnings:
+                print(f"[WARNING] LDS cache does not exist")
+            shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+            return True
 
-                        generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + undenoisedTargetName
-                        if not Path(generatedUndenoisedTargetName+".exr").is_file():
-                            generatedUndenoisedTargetName = str(NBL_PATHTRACER_EXE.parent.absolute()) + '/' + renderName
-                        referenceDir = str(inputParams.storage_dir) + '/references/' + renderName + '/'
-                        if not Path(referenceDir).is_dir():
-                            os.makedirs(referenceDir)
+        elif not self._cmp_files(destinationReferenceCache, generatedReferenceCache):
+                if self.print_warnings:
+                    print(f"[WARNING] LDS cache does not match with reference")
+                return False
 
-                        for diffTerminator in outputDiffTerminators:
-                            try:
-                                imageDiffFilePath = str(inputParams.diff_images_dir) + '/' + renderName + diffTerminator + "_diff.exr"
-                                imageRefFilepath = destinationReferenceUndenoisedTargetName + diffTerminator + '.exr'
-                                imageGenFilepath = generatedUndenoisedTargetName + diffTerminator + '.exr'
-                                refStorageFilepathstr = referenceDir + undenoisedTargetName + diffTerminator + '.exr' 
-                                
-                                if not Path(imageGenFilepath).is_file():
-                                    HTML_CELL = f'''
-                                    <td scope="col">
-                                        <td scope="col">Failed to produce render</td>
-                                        <td style="color: red;">CRITICAL</td>
-                                    </td>
-                                    '''
-                                    HTML_CELLS.append(HTML_CELL)
-                                    ci_pass_status = False
-                                    PASSED_ALL = False
-                                    continue
-                                # if we render first time a scene then we need to have a reference of this scene for following ci checks
-                                if NBL_DUMMY_RENDER_CASE:
-
-                                    HTML_CELL = f'''
-                                    <td scope="col">
-                                        <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
-                                        <td scope="col">No references</td>
-                                        <td style="color: orange;">PASSED</td>
-                                    </td>
-                                    '''
-                                    HTML_CELLS.append(HTML_CELL)
-                                    shutil.copy(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
-                                    #fix to CORS in preview
-                                    shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', refStorageFilepathstr)
-                                    continue
-
-                                if diffTerminator =='_denoised':
-                                    diffValueCommandParams = f' compare -metric SSIM "{imageRefFilepath}" "{imageGenFilepath}" "{imageDiffFilePath}"'
-                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
-                                    magickDiffValProcess = subprocess.run(executor, capture_output=True)
-                                    similiarity = float(magickDiffValProcess.stderr.decode().strip())
-                                    DIFF_PASS = 1.0-similiarity <= float(NBL_ERROR_THRESHOLD)
-                                    TAB3 = "Similiarity: "+ str(similiarity*100.0) + "%" 
-                                else:
-                                    #create difference image for debugging
-                                    diffImageCommandParams = f' "{imageRefFilepath}" "{imageGenFilepath}" -fx "abs(u-v)" -alpha off "{imageDiffFilePath}"'
-                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffImageCommandParams
-                                    subprocess.run(executor, capture_output=False)
-
-                                    #calculate the amount of pixels whose relative errors are above NBL_ERROR_THRESHOLD
-                                    #logic operators in image magick return 1.0 if true, 0.0 if false 
-                                    #image magick convert -compose divide does not work with HDRI, this requiring use of -fx 
-                                    diffValueCommandParams = f" {imageRefFilepath} {imageGenFilepath}  -define histogram:unique-colors=true -fx \"(min(u,v)>{CLOSE_TO_ZERO})?((abs(u-v)/min(u,v))>{NBL_ERROR_THRESHOLD}):(max(u,v)>{CLOSE_TO_ZERO})\" -format %c histogram:info:" 
-                                    executor = str(NBL_IMAGEMAGICK_EXE.absolute()) + diffValueCommandParams
-                                    magickDiffValProcess = subprocess.run(executor, capture_output=True)
-                                
-                                    #first histogram line is the amount of black pixels - the correct ones
-                                    #second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
-                                    histogramOutputLines = magickDiffValProcess.stdout.decode().splitlines()
-                                    errorPixelCount = histogramOutputLines[-1].split()[0][:-1] if len(histogramOutputLines) > 1 else "0"
-
-                                    # threshold for an error, for now we fail CI when the difference is greater then NBL_ERROR_TOLERANCE_COUNT
-                                    DIFF_PASS = float(errorPixelCount) <= NBL_ERROR_TOLERANCE_COUNT
-                                    TAB3 = "Errors: " + str(errorPixelCount)
-
-                                shutil.move(generatedUndenoisedTargetName + diffTerminator +'.exr', storageFilepath + diffTerminator + '.exr')
-                                
-                                #fix to CORS in preview
-                                shutil.copy(imageRefFilepath, refStorageFilepathstr)
-                                
-                                Diff_Filename= renderName + diffTerminator + "_diff.exr"
-                                HTML_CELL = f'''
-                                <td scope="col">
-                                <a href="{inputParams.diff_imgs_url}/{Diff_Filename}">(Difference)</a><br>
-                                <a href="{inputParams.ref_url}/{renderName}/Render_{renderName}{diffTerminator}.exr">(Reference)</a><br>
-                                <a href="{inputParams.result_imgs_url}/{undenoisedTargetName}{diffTerminator}.exr">(Result)</a>
-                                <td scope="col">{TAB3}</td>
-                                {'<td style="color: green;">PASSED</td>' if DIFF_PASS else '<td style="color: red;">FAILED</td>'}
-                                </td>
-                                '''
-                                if not DIFF_PASS:
-                                    ci_pass_status = False
-                                    PASSED_ALL = False
-                                print (f'\t\t{renderName}{diffTerminator}   {"PASSED" if DIFF_PASS else "FAILED"}')
-
-                            except Exception as ex:
-                                
-                                print(f"Exception occured inside an innermost loop during rendering {renderName}{diffTerminator}: {str(ex)}")
-
-                            HTML_CELLS.append(HTML_CELL)
-                        
-                        #write to file in append mode 
-                        HTML = f'''
-                        <tr>
-                        <td>{renderName}</td>
-                        {'<td style="color: green;">PASSED</td>' if PASSED_ALL else '<td style="color: red;">FAILED</td>'}
-                        ''' + ' '.join(HTML_CELLS)  + f'''
-                        <td scope="col"><button type="button" class="btn" onclick="compareImageBtnCallback('{renderName}');">Compare</button></td>
-
-                        </tr>
-                        '''
-                        print (f'Overall {renderName}   {"PASSED" if PASSED_ALL else "FAILED"}')
+        if self.print_warnings:
+                print(f"[NOTE] LDS cache matches with reference")
+        return True
 
 
-                        storageFilepath = str(inputParams.storage_dir) + '/' + undenoisedTargetName
-                    except Exception as ex:
-                        HTML = f'''<tr style="color: red;">CRASHED</tr>'''
-                        print(f"Critical exception occured during rendering {line}: {str(ex)}")
-                        ci_pass_status = False
-                        break
-                    htmlFile = open(inputParams.summary_html_filepath, "a")
-                    htmlFile.write(HTML)
-                    htmlFile.close()
+    
+    def __find_json_in_console_output(self, console_output):
+        match = self.cout_json_regex.search(console_output)
+        if match:
+            # parse json into a dictionary
+            jsonstring = match.group()
+            return json.loads(jsonstring)
+        elif self.print_warnings:
+            print(f"[WARNING] No json output found in pathtracer cout")
+        return None
 
 
-            if not cmp_files(inputParams,destinationReferenceCache, generatedReferenceCache):
-                cacheChanged = True
-                ci_pass_status = False
-            htmlFoot(cacheChanged, inputParams)
-    else:
-        print('Path tracer executable does not exist!')
-        exit(-1)
-    return ci_pass_status
+    def __append_before_extension(self, filepath, text):
+        filename, extension = os.path.splitext(filepath)
+        return filename+text+extension
+
+
+    def __ssim_test(self, render, reference, difference = None):
+        if difference is None:
+            difference = "null:" # image magick syntax to not save reference
+        else:
+            difference = f'"{difference}"'
+        command_params = f' compare -metric SSIM "{render}" "{reference}" {difference}'
+        command = self.image_magick_exe + command_params
+        magickDiffValProcess = subprocess.run(command, capture_output=True)
+        similiarity = float(magickDiffValProcess.stderr.decode().strip())
+        return 1.0-similiarity
+    
+    
+    def __image_pixel_count(self, image):
+        params = f' convert "{image}" -format "%[fx:w*h]" info:'
+        executor =  self.image_magick_exe + params
+        pixel_count = float(subprocess.run(executor, capture_output=True).stdout.decode().strip())
+        return pixel_count
+
+
+    def __histogram_test(self, render, reference, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type):
+        params = f" {render} {reference} -define histogram:unique-colors=true -fx \"(min(u,v)>{epsilon})?((abs(u-v)/min(u,v))>{error_threshold_value}):(max(u,v)>{epsilon})\" -format %c histogram:info:" 
+        executor = self.image_magick_exe + params
+        error_counter_process = subprocess.run(executor, capture_output=True)
+
+        # first histogram line is the amount of black pixels - the correct ones
+        # second (and last) line is amount of white - pixels whose rel err is above NBL_ERROR_THRESHOLD
+        histogram_output_lines = error_counter_process.stdout.decode().splitlines()
+        error_pixel_count = histogram_output_lines[-1].split()[0][:-1] if len(histogram_output_lines) > 1 else "0"
+        if error_threshold_type == ErrorThresholdType.ABSOLUTE:
+            passing = float(error_pixel_count) <= float(allowed_error_pixel_count)
+            details = f"Errors: {error_pixel_count} / {allowed_error_pixel_count}"
+        if self.error_threshold_type == ErrorThresholdType.RELATIVE_TO_RESOLUTION:
+            pixel_count = self.__image_pixel_count(str(self.working_dir)+"/"+render)
+            error_ratio = float(error_pixel_count) / pixel_count
+            passing = error_ratio <= float(allowed_error_pixel_count)
+            allowed_error_count = int(float(allowed_error_pixel_count) * pixel_count)
+            details = f"Errors: {error_pixel_count} ({error_ratio*100.0:.3f}%) / {allowed_error_count} ({float(allowed_error_pixel_count)*100:.3f}%)"
+        return passing, details
+
+
+    def __create_diff_image(self, render, reference, difference):
+        params = f' "{reference}" "{render}" -fx "abs(u-v)" -alpha off "{difference}"'
+        command = self.image_magick_exe + params
+        subprocess.run(command, capture_output=False)
+
+
+    def __parse_input_line(self, input_line : str):
+        OPTION_PREFIX = "--"
+        options = {}
+        available_options = [('abs',0),('rel',0),('errcount',1),('errpixel',1),('errssim',1),('epsilon',1)]
+        while (input_line.startswith(OPTION_PREFIX)):
+            input_line = input_line[len(OPTION_PREFIX)::]
+            #parse option
+            for op in available_options:
+                if input_line.startswith(op[0]):
+                    input_line = input_line[len(op[0])::].strip()
+                    argv = None
+                    if op[1] > 0:
+                        index = 0
+                        for _ in range(op[1]):
+                            index = input_line.index(" ", index) + 1
+                        argv = input_line.split(" ",)[::op[1]]
+                        input_line = input_line[index::].strip()
+                    options[op[0]] = argv
+                    break
+        return input_line.strip("\n\r "), options            
+
+    # run a test for a single line of input for pathtracer
+    def _impl_run_single(self, input_args:str) -> dict:
+        executable_arg, options = self.__parse_input_line(input_args)
+
+        # get scene options, either custom or default 
+        epsilon = options.get('epsilon', [EPSILON])[0]
+        error_threshold_value = options.get('errpixel',[self.error_threshold_value])[0]
+        allowed_error_pixel_count = options.get('errcount',[self.allowed_error_pixel_count])[0]
+        ssim_error_threshold_value = options.get('errssim',[self.ssim_error_threshold_value])[0]
+        error_threshold_type = ErrorThresholdType.RELATIVE_TO_RESOLUTION if 'rel' in options else ErrorThresholdType.ABSOLUTE if 'abs' in options else self.error_threshold_type
+        if 'abs' in options and 'rel' in options: # idiot check
+            if self.print_warnings:
+                print(f"[ERROR] Scene option contain both --rel and bot --abs.")
+
+        results_images = []
+        result_status = True
+        result_color = "green"
+        scene_name = None
+        raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + executable_arg + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
+        console_output = subprocess.run(raytracer_bash_command, capture_output=True).stdout.decode().strip()
+        raytracer_generated_files = self.__find_json_in_console_output(console_output)
+        if raytracer_generated_files is not None:
+            for render_type, filepath in raytracer_generated_files.items():
+                render_type = render_type.strip().removeprefix("output_")
+                results_image = {
+                    "identifier": render_type,
+                    "filename": filepath.split("/")[-1].split("\\")[-1]
+                }
+                if scene_name is None:
+                    scene_name = results_image["filename"].split(".")[0].replace('/', '_').replace('\\','_').removeprefix("Render_")
+                    ref_subdir = (('/'+scene_name) if PUT_REFERENCES_IN_FOLDERS else '') 
+                    diff_subdir = (('/'+scene_name) if PUT_DIFFERENCES_IN_FOLDERS else '') 
+                    render_subdir = (('/'+scene_name) if PUT_RENDERS_IN_FOLDERS else '') 
+                reference_filepath = Path(str(self.references_repo_dir) + ref_subdir + '/' + filepath)
+
+                reference_store_filepath = Path(str(self.data_references_abs_dir) + ref_subdir + '/' + filepath)
+                if not reference_store_filepath.parent.exists():
+                    os.makedirs(reference_store_filepath.parent)
+                reference_store_filepath_rel = self.data_references_rel_dir + ref_subdir + '/' + filepath
+
+                render_storage_filepath = Path(str(self.data_renders_abs_dir) + render_subdir + '/' + filepath)
+                if not render_storage_filepath.parent.exists():
+                    os.makedirs(render_storage_filepath.parent)
+                render_store_filepath_rel = self.data_renders_rel_dir + render_subdir + '/' + filepath
+
+                difference_filename = self.__append_before_extension(filepath,"_diff")
+                difference_filepath = Path(str(self.data_diffs_abs_dir) + diff_subdir + '/' + difference_filename)
+                if not difference_filepath.parent.exists():
+                    os.makedirs(difference_filepath.parent)
+                difference_store_filepath_rel = self.data_diffs_rel_dir + diff_subdir + '/' + difference_filename
+
+                reference_exists = reference_filepath.exists()
+
+                if not reference_exists:
+                    if self.print_warnings:
+                        print(f"[WARNING] File {filepath} does not have a reference")
+                    results_image["status"] = "passed"
+                    results_image["status_color"] = "orange"
+                    results_image["details"] = "Missing reference" 
+                    result_color = "orange"
+                    results_image["render"] = str(render_store_filepath_rel) 
+                
+                    shutil.copy(filepath, reference_store_filepath)
+                    shutil.move(filepath, render_storage_filepath)
+                else: 
+                    status = True
+                    if render_type == "denoised":
+                        ssim_diff = self.__ssim_test(filepath, reference_filepath)
+                        results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
+                        status = ssim_error_threshold_value > ssim_diff
+                    else:
+                        status, details = self.__histogram_test(filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
+                        results_image["details"] = details
+                    self.__create_diff_image(filepath, reference_filepath, difference_filepath)
+                    results_image["render"] = render_store_filepath_rel
+                    results_image["reference"] = reference_store_filepath_rel
+                    results_image["difference"] = difference_store_filepath_rel
+                    if not status:
+                        results_image["status"] = "failed"
+                        results_image["status_color"] = "red"
+                        result_status = False
+                        result_color = "red"
+                    else:
+                        results_image["status"] = "passed"
+                        results_image["status_color"] = "green"
+                    shutil.copy(reference_filepath, reference_store_filepath)
+                    shutil.move(filepath, render_storage_filepath)
+                results_images.append(results_image)
+        return {
+            'status': 'passed' if result_status else 'failed',
+            'status_color': result_color,
+            'scene_name': scene_name,
+            'array': results_images
+        }
+    
+
+    # add additional information to the json
+    def _impl_append_summary(self, summary: dict):
+        summary["lds_cache_hash"] = self.__get_lds_hash()
+        summary["error_threshold_type"] =  "absolute" if self.error_threshold_type == ErrorThresholdType.ABSOLUTE else "relative"
+        summary["error_threshold_value"] = str(self.error_threshold_value)
+        summary["allowed_error_pixel_count"] = str(self.allowed_error_pixel_count)
+        summary["ssim_error_threshold_value"] = str(self.ssim_error_threshold_value)
+        summary["reference_repo_hash"] = self.__get_ref_repo_hash()
+    
+    
+
+
+def run_all_tests(args):
+    # test public scenes
+    CI_PASS_STATUS_1 = RendersTest(test_name="public",
+                    profile="public",
+                    executable_filepath=args[0],
+                    input_filepath=args[1],
+                    nabla_repo_root_dir=args[3],
+                    image_magick_exe=args[4],
+                    references_repo_dir=args[5],
+                    error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
+                    allowed_error_pixel_count=0.0001).run()
+    
+    #test private scenes
+    CI_PASS_STATUS_2 = RendersTest(test_name="private",
+                    profile="private",
+                    executable_filepath=args[0],
+                    input_filepath=args[2],
+                    nabla_repo_root_dir=args[3],
+                    image_magick_exe=args[4],
+                    references_repo_dir=args[6],
+                    error_threshold_type=ErrorThresholdType.RELATIVE_TO_RESOLUTION,
+                    allowed_error_pixel_count=0.0001).run()
+
+    # check if both were successful
+    if not (CI_PASS_STATUS_1 and CI_PASS_STATUS_2):
+        print('CI failed')
+        exit(-2)
+    print('CI done')
+    exit()
+
 
 if __name__ == '__main__':
-    CI_PASS_STATUS=run_all_tests(NBL_SCENES_INPUTS)
-    print('CI done')
-
-
-if not CI_PASS_STATUS:
-    exit(-2)
+    run_all_tests(sys.argv[1::])
