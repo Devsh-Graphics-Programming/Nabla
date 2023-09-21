@@ -45,7 +45,7 @@ class CGlobalNormalizationState
 				const auto val = decodeBuffer[channel];
 				if constexpr (std::is_floating_point_v<Tdec>)
 				{
-					core::atomic_fetch_max(oldMinValue+channel,val);
+					core::atomic_fetch_min(oldMinValue+channel,val);
 					core::atomic_fetch_max(oldMaxValue+channel,val);
 				}
 			}
