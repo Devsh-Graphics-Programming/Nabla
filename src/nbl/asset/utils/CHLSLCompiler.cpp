@@ -61,7 +61,7 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-static tcpp::IInputStream* getInputStreamInclude(
+static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     const IShaderCompiler::CIncludeFinder* inclFinder,
     const system::ISystem* fs,
     uint32_t maxInclCnt,
@@ -112,7 +112,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         re.append(requestedSource);
         re.append(" not found");
         includeStack.push_back(includeStack.back());
-        return new tcpp::StringInputStream(re);
+        return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
 
     // Figure out what line in the current file this #include was
@@ -134,7 +134,7 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
 
-    return new tcpp::StringInputStream(std::move(res_str));
+    return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::move(res_str)));
 }
 
 class DxcCompilationResult
@@ -241,15 +241,15 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // Keep track of the line in the original file where each #include was on each level of the include stack
     std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
+    
+    tcpp::Lexer lexer(tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(code)));
 
-    tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
-    tcpp::Lexer lexer(codeIs);
-    tcpp::Preprocessor proc(
-        lexer,
-        [&](auto errorInfo) {
+    tcpp::Preprocessor::TPreprocessorConfigInfo info;
+    {
+        info.mOnErrorCallback = [&](auto errorInfo) {
             preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-        },
-        [&](auto path, auto isSystemPath) {
+        };
+        info.mOnIncludeCallback = [&](auto path, auto isSystemPath) {
             if (preprocessOptions.includeFinder)
             {
                 return getInputStreamInclude(
@@ -260,12 +260,15 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
-                return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
+                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler")));
             }
-        },
-        [&]() {
+        };
+        info.mOnPopIncludeCallback = [&]() {
             lineOffsetStack.pop_back();
-        }
+        };
+    }
+    tcpp::Preprocessor proc(
+        lexer, info        
     );
 
     proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
