@@ -113,7 +113,6 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
         re.append(" not found");
         includeStack.push_back(includeStack.back());
         return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
-        return new tcpp::StringInputStream(re);
     }
 
     // Figure out what line in the current file this #include was
