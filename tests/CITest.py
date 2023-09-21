@@ -22,7 +22,7 @@ class CITest:
 
     # optional override
     def _impl_run_dummy_case(self):
-        return True
+        return None
 
     # optional override
     def _impl_append_summary(self, summary: dict):
@@ -110,14 +110,15 @@ class CITest:
         test_results = []
         failures = 0
         ci_pass_status = True
-
-        dummy_run_result = self._impl_run_dummy_case()
-        summary["dummy_run_status"] = 'passed' if dummy_run_result else 'failed' 
         summary["results"] = test_results
 
-        if not dummy_run_result:
-            ci_pass_status = False
-        else:
+        dummy_run_result = self._impl_run_dummy_case()
+        if dummy_run_result is not None:
+            summary["dummy_run_status"] = 'passed' if dummy_run_result else 'failed' 
+            if not dummy_run_result:
+                ci_pass_status = False
+        
+        if not ((dummy_run_result is not None) and (not ci_pass_status)):
             input_lines = self._get_input_lines()
             summary["num_of_tests"] = len(input_lines)
             testnum = 0
