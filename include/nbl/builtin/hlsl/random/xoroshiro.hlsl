@@ -6,40 +6,69 @@
 #ifndef _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 #define _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 
-#include <nbl/builtin/hlsl/math/functions.hlsl>
+//#include <nbl/builtin/hlsl/math/functions.hlsl>
 
+// TODO[Przemek]: include functions.hlsl instead
+uint32_t rotl(NBL_CONST_REF_ARG(uint32_t) x, NBL_CONST_REF_ARG(uint32_t) k)
+{
+   return (x<<k) | (x>>(32u-k));
+}
 
 namespace nbl
 {
 namespace hlsl
 {
 
-#define xoroshiro64star_state_t uint2
-#define xoroshiro64starstar_state_t uint2
+typedef uint2 xoroshiro64star_state_t;
+typedef uint2 xoroshiro64starstar_state_t;
 
-void xoroshiro64_state_advance(inout uint2 state)
+namespace impl
 {
-	state[1] ^= state[0];
-	state[0] = math::rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
-	state[1] = math::rotl(state[1], 13u); // c
+	uint2 xoroshiro64_state_advance(uint2 state)
+	{
+		state[1] ^= state[0];
+		state[0] = rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
+		state[1] = rotl(state[1], 13u); // c
+		
+		return state;
+	}
 }
 
-uint xoroshiro64star(inout xoroshiro64starstar_state_t state)
+struct Xoroshriro64Star
 {
-	const uint result = state[0]*0x9E3779BBu;
+	static Xoroshriro64Star construct(uint2 initialState)
+	{
+		return { initialState };
+	}
+	
+	uint32_t operator()()
+	{
+		const uint32_t result = state[0]*0x9E3779BBu;
+		state = impl::xoroshiro64_state_advance(state);
 
-    xoroshiro64_state_advance(state);
+		return result;
+	}
 
-	return result;
-}
-uint xoroshiro64starstar(inout xoroshiro64starstar_state_t state)
+	uint2 state;
+};
+
+struct Xoroshriro64StarStar
 {
-	const uint result = math::rotl(state[0]*0x9E3779BBu,5u)*5u;
-    
-    xoroshiro64_state_advance(state);
+	static Xoroshriro64StarStar construct(uint2 initialState)
+	{
+		return { initialState };
+	}
+	
+	uint32_t operator()()
+	{
+		const uint32_t result = rotl(state[0]*0x9E3779BBu,5u)*5u;
+	    state = impl::xoroshiro64_state_advance(state);
+	
+		return result;
+	}
 
-	return result;
-}
+	uint2 state;
+};
 
 }
 }
