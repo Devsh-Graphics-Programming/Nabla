@@ -58,7 +58,7 @@
 	url = https://github.com/AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
-	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
+	url = https://github.com/Devsh-Graphics-Programming/freetype.git
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
 	url = https://github.com/AcademySoftwareFoundation/openexr.git
