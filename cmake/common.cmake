@@ -529,6 +529,39 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
+function(NBL_PROJECT_HANDLE_JSON_CONFIG)
+	set(_NBL_JSON_CONFIG_FILEPATH_ "${CMAKE_CURRENT_SOURCE_DIR}/config.json")
+	
+	if(EXISTS ${_NBL_JSON_CONFIG_FILEPATH_})
+		file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config.json" _NBL_JSON_CONFIG_CONTENT_)
+		
+		string(JSON _NBL_JSON_DEPENDENCIES_LIST_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_CONFIG_CONTENT_} dependencies)
+		string(JSON _NBL_JSON_DEPENDENCIES_LIST_LEN_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH ${_NBL_JSON_CONFIG_CONTENT_} dependencies)
+		string(JSON _NBL_JSON_DEPENDENCIES_LIST_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE ${_NBL_JSON_CONFIG_CONTENT_} dependencies)
+		
+		if(NOT _NBL_JSON_DEPENDENCIES_LIST_TYPE_ STREQUAL ARRAY) # validate
+			message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \"dependecies\" field is not an array.")
+		endif()
+
+		if(_NBL_JSON_DEPENDENCIES_LIST_LEN_ GREATER_EQUAL 1)
+			math(EXPR _NBL_STOP_ "${_NBL_JSON_DEPENDENCIES_LIST_LEN_}-1")
+			
+			foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+				string(JSON _NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_} ${_NBL_IDX_})
+				
+				get_filename_component(_NBL_JSON_DEPENDENCY_FILEPATH_ "${CMAKE_CURRENT_SOURCE_DIR}/${_NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_}" ABSOLUTE) # json config file may reference files but relative to itself
+				
+				if(NOT EXISTS "${_NBL_JSON_DEPENDENCY_FILEPATH_}") # validate
+					message(FATAL_ERROR "Declared \"${_NBL_JSON_CONFIG_FILEPATH_}\"'s dependecies[${_NBL_IDX_}] element = \"${_NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_DEPENDENCY_FILEPATH_}\". Note that filepaths in json configs are resolved relative to them.")
+				endif()
+			endforeach()
+		endif()
+		
+		# TODO: go through profile array and handle unique dependencies
+		# TODO: create per project install rules with filtered media references, use install "Media" compoment to have proper install logic
+	endif()
+endfunction()
+
 # links builtin resource target to a target
 # @_TARGET_@ is target name builtin resource target will be linked to
 # @_BS_TARGET_@ is a builtin resource target
