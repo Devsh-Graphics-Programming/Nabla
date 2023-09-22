@@ -695,7 +695,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
     protected:
         using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;
         IPhysicalDevice(
-            core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* _api,
+            core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* const _api,
             const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
             const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
         );
