@@ -48,7 +48,7 @@ class ConsoleOutputTest(CITest):
 
 def run_all_tests(args):
     # test public scenes
-    CI_PASS_STATUS = ConsoleOutputTest(*args)
+    CI_PASS_STATUS = ConsoleOutputTest(*args).run()
 
     # check if both were successful
     if not (CI_PASS_STATUS):
