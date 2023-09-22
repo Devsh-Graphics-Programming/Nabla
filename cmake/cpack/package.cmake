@@ -18,6 +18,7 @@ else()
 	set(CPACK_PACKAGE_NAME "nabla-d")
 endif()
 
+list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
 set(CPACK_PACKAGE_VENDOR "DevshGraphicsProgramming.org")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nabla")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
@@ -40,7 +41,6 @@ if(NBL_CPACK_CI)
 	
 	set(CPACK_PACKAGE_VERSION "${_SHA}")
 else()
-	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
 	set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 endif()
 
