@@ -12,7 +12,7 @@ from CITest import *
 class ConsoleOutputTest(CITest):
 
     def _get_input_lines(self):
-        return [self.executable_args]
+        return [self.input_filepath]
 
     def __init__(self, 
                 test_name: str,
