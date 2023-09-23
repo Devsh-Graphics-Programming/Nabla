@@ -36,7 +36,7 @@ namespace impl
 
 struct Xoroshriro64Star
 {
-	static Xoroshriro64Star construct(uint2 initialState)
+	static Xoroshriro64Star construct(xoroshiro64star_state_t initialState)
 	{
 		return { initialState };
 	}
@@ -49,12 +49,12 @@ struct Xoroshriro64Star
 		return result;
 	}
 
-	uint2 state;
+	xoroshiro64star_state_t state;
 };
 
 struct Xoroshriro64StarStar
 {
-	static Xoroshriro64StarStar construct(uint2 initialState)
+	static Xoroshriro64StarStar construct(xoroshiro64starstar_state_t initialState)
 	{
 		return { initialState };
 	}
@@ -67,7 +67,7 @@ struct Xoroshriro64StarStar
 		return result;
 	}
 
-	uint2 state;
+	xoroshiro64starstar_state_t state;
 };
 
 }
