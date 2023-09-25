@@ -1,10 +1,10 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
+
 cmake_minimum_required(VERSION 3.26)
-#policies
 cmake_policy(SET CMP0112 NEW)
-#
+
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
@@ -307,11 +307,15 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
+option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
+set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
+get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
+				
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 find_package(Git REQUIRED)
