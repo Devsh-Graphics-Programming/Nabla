@@ -91,6 +91,8 @@ class CITest:
     
 
     def _save_json(self, jsonFilename, dict):
+        if self.print_warnings:
+            print("[INFO] Saving json file to " + str(Path(jsonFilename).absolute()))
         jsonobj = json.dumps(dict, indent = 2)
         file = open(jsonFilename, "w")
         file.write(jsonobj)
@@ -139,10 +141,10 @@ class CITest:
                         summary["pass_status"] = "pending/failed"
                         failures = failures + 1
                         if self.print_warnings:
-                            print(f"[INFO] Render input {line} is not passing the tests!")
+                            print(f"[WARN] input {line} is not passing the tests!")
                     else:
                         if self.print_warnings:
-                            print(f"[INFO] Render input {line} PASSED")
+                            print(f"[INFO] input {line} PASSED")
                     test_results.append(result)
                     self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
                 except Exception as ex:

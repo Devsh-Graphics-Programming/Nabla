@@ -12,7 +12,7 @@ from CITest import *
 class ConsoleOutputTest(CITest):
 
     def _get_input_lines(self):
-        return [self.input_filepath]
+        return [self.input]
 
     def __init__(self, 
                 test_name: str,
@@ -29,9 +29,10 @@ class ConsoleOutputTest(CITest):
     # run a test for a single line of input for pathtracer
     def _impl_run_single(self, input_args:str) -> dict:
         with open(self.input, "r") as file:
-            expected = file.read()
+            expected = file.read().strip().replace('\r','') 
+            #deleting \r from both to make sure neither are CRLF 
 
-        console_output = subprocess.run([self.executable, input_args] ,capture_output=True).stdout.decode().strip()
+        console_output = subprocess.run([self.executable, input_args] ,capture_output=True).stdout.decode().strip().replace('\r','')
         if(console_output != expected):
             return {
                 'status': 'failed',
@@ -52,7 +53,7 @@ def run_all_tests(args):
 
     # check if both were successful
     if not (CI_PASS_STATUS):
-        print('CI failed')
+        print('CI failed, output did not match the file')
         exit(-2)
     print('CI done')
     exit()

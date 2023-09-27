@@ -1,0 +1,26 @@
+LRU cache unit test
+Testing large cache...
+Printing LRU cache contents
+key-value: '0', '0'	 next: 3735928559 | curr: 0 | prev: 3735928559
+Testing insert with const key, const val...
+Printing LRU cache contents
+key-value: '10', 'c'	 next: 3735928559 | curr: 0 | prev: 1
+key-value: '11', 'd'	 next: 0 | curr: 1 | prev: 2
+key-value: '12', 'e'	 next: 1 | curr: 2 | prev: 3
+key-value: '13', 'f'	 next: 2 | curr: 3 | prev: 3735928559
+Printing LRU cache contents
+key-value: '10', 'c'	 next: 1 | curr: 0 | prev: 3
+key-value: '13', 'f'	 next: 0 | curr: 3 | prev: 3735928559
+Printing LRU cache contents
+key-value: '510', 'five hundred and ten'	 next: 3735928559 | curr: 1 | prev: 2
+key-value: '52', 'fifty two'	 next: 1 | curr: 2 | prev: 3
+key-value: '21', 'key is 21'	 next: 2 | curr: 3 | prev: 4
+key-value: '22', 'key is 22'	 next: 3 | curr: 4 | prev: 0
+key-value: '23', 'key is 23'	 next: 4 | curr: 0 | prev: 3735928559
+Printing LRU cache contents
+key-value: '52', 'fifty two'	 next: 3735928559 | curr: 2 | prev: 3
+key-value: '21', 'key is 21'	 next: 2 | curr: 3 | prev: 4
+key-value: '22', 'key is 22'	 next: 3 | curr: 4 | prev: 0
+key-value: '23', 'key is 23'	 next: 4 | curr: 0 | prev: 1
+key-value: '112', 'key is 112'	 next: 0 | curr: 1 | prev: 3735928559
+all good

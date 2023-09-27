@@ -7,6 +7,10 @@
 
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
 
+#ifdef _NBL_DEBUG
+#include "ILogger.h"
+#endif
+
 namespace nbl
 {
 namespace core
@@ -138,15 +142,20 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		}
 
 	#ifdef _NBL_DEBUG
-		inline void print()
+		inline void print(core::smart_refctd_ptr<nbl::ILogger> logger)
 		{
-			auto node = m_list.getBegin();
-			while (true)
+			logger->log("Printing LRU cache contents");
+			auto nodeAddr = m_list.getLastAddress();
+			auto cap = m_list.getCapacity();
+			int n = 0;
+			while(n++ < cap && nodeAddr != invalid_iterator )
 			{
-				std::cout <<"k:" << node->data.first << "    v:" << node->data.second << std::endl;
-				if (node->next == invalid_iterator)
-					break;
-				node = m_list.get(node->next);
+				auto node = m_list.get(nodeAddr);
+				std::ostringstream stringStream;
+				stringStream << "key-value: '" << node->data.first << "', '" << node->data.second << "'\t next: " << node->next << " | curr: " << nodeAddr << " | prev: " << node->prev;
+				logger->log(stringStream.str());
+				nodeAddr = node->prev;
+				node = m_list.get(node->prev);
 			}
 		}
 	#endif // _NBL_DEBUG
