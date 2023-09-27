@@ -590,6 +590,54 @@ function(nbl_project_handle_json_config)
 	if(EXISTS ${_NBL_JSON_CONFIG_FILEPATH_})
 		file(READ "${CMAKE_CURRENT_SOURCE_DIR}/config.json" _NBL_JSON_CONFIG_CONTENT_)
 
+		# ".enableParallelBuild" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_CONFIG_CONTENT_}")
+		
+		# ".threadsPerBuildProcess" number
+		NBL_JSON_READ_VALIDATE_POPULATE("" threadsPerBuildProcess NUMBER "${_NBL_JSON_CONFIG_CONTENT_}")
+		
+		# ".isExecuted" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" isExecuted BOOLEAN "${_NBL_JSON_CONFIG_CONTENT_}")
+		
+		# ".scriptPath" string
+		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_CONFIG_CONTENT_}")
+		
+		# ".cmake" object
+		NBL_JSON_READ_VALIDATE_POPULATE("" cmake OBJECT "${_NBL_JSON_CONFIG_CONTENT_}")
+		
+		# ".cmake.buildModes array"
+		NBL_JSON_READ_VALIDATE_POPULATE("" buildModes ARRAY "${_NBL_JSON_CMAKE_CONTENT_}")
+		
+		# ".cmake.requiredOptions array"
+		NBL_JSON_READ_VALIDATE_POPULATE("" requiredOptions ARRAY "${_NBL_JSON_CMAKE_CONTENT_}")
+
+		# ".profiles" array
+		NBL_JSON_READ_VALIDATE_POPULATE("" profiles ARRAY "${_NBL_JSON_CONFIG_CONTENT_}")
+			
+		if(_NBL_JSON_PROFILES_LEN_ GREATER_EQUAL 1)
+			math(EXPR _NBL_STOP_ "${_NBL_JSON_PROFILES_LEN_}-1")
+			
+			foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+				string(JSON _NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_PROFILES_CONTENT_} ${_NBL_IDX_})
+				set(_NBL_JSON_FIELD_TRAVERSAL_ "profiles[${_NBL_IDX_}]")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.backend" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" backend STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.platform" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" platform STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.buildModes" array
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" buildModes ARRAY "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+		
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.runConfiguration" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" runConfiguration STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.gpuArchitectures" array
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" gpuArchitectures ARRAY "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+			endforeach()
+		endif()
+
 		# ".dependencies" array
 		NBL_JSON_READ_VALIDATE_POPULATE("" dependencies ARRAY "${_NBL_JSON_CONFIG_CONTENT_}")
 		NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES(".dependencies" "${_NBL_JSON_DEPENDENCIES_CONTENT_}")
