@@ -22,6 +22,14 @@ using add_pointer = std::add_pointer<T>;
 #define NBL_REF_ARG(T) nbl::hlsl::add_reference<T>::type
 #define NBL_CONST_REF_ARG(T) nbl::hlsl::add_reference<std::add_const_t<T>>::type
 
+// TODO[Przemog]: is there smarter way to do that? 
+// TODO[Przemog]: move functions below to other file (in cpp_compat drectory?)
+template<typename T, typename U>
+inline T lerp(const T& lhs, const T& rhs, const U& t)
+{
+    return glm::mix(lhs, rhs, t);
+}
+
 #else
 
 #define ARROW .arrow().
@@ -51,5 +59,7 @@ struct add_pointer
 #define NBL_CONST_REF_ARG(T) const in T
 
 #endif
+
+#include "promote.hlsl"
 
 #endif

@@ -56,19 +56,16 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
     return glm::greaterThanEqual<N, T>(lhs, rhs);
 }
 
-//template<typename T, uint16_t N>
-//glm::vec<N, bool> operator==(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
-//{
-//    return glm::equal<N, T>(lhs, rhs);
-//}
-
-//template<typename T, uint16_t N>
-//glm::vec<N, bool> operator!=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
-//{
-//    return notEqual<N, T>(lhs, rhs);
-//}
+// TODO[Przemek]: implement hlsl version of this function
+template<typename T>
+struct ValueType
+{
+    typedef T::value_type type;
+};
 
 #endif
+
+
 
 }
 
