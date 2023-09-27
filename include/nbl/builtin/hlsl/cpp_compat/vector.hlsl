@@ -27,6 +27,46 @@ using uint3 = vector<uint32_t, 3>;
 using uint2 = vector<uint32_t, 2>;
 using uint1 = vector<uint32_t, 1>;
 
+using bool4 = vector<bool, 4>;
+using bool3 = vector<bool, 3>;
+using bool2 = vector<bool, 2>;
+using bool1 = vector<bool, 1>;
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator<(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return glm::lessThan<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator>(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return glm::greaterThan<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator<=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return glm::lessThanEqual<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator>=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return glm::greaterThanEqual<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator==(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return glm::equal<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, T> operator!=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+{
+    return notEqual<N, T>(lhs, rhs);
+}
 
 #endif
 
