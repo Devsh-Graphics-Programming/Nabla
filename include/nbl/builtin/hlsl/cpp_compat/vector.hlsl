@@ -33,40 +33,40 @@ using bool2 = vector<bool, 2>;
 using bool1 = vector<bool, 1>;
 
 template<typename T, uint16_t N>
-glm::vec<N, T> operator<(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+glm::vec<N, bool> operator<(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
     return glm::lessThan<N, T>(lhs, rhs);
 }
 
 template<typename T, uint16_t N>
-glm::vec<N, T> operator>(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+glm::vec<N, bool> operator>(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
     return glm::greaterThan<N, T>(lhs, rhs);
 }
 
 template<typename T, uint16_t N>
-glm::vec<N, T> operator<=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+glm::vec<N, bool> operator<=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
     return glm::lessThanEqual<N, T>(lhs, rhs);
 }
 
 template<typename T, uint16_t N>
-glm::vec<N, T> operator>=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
+glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
     return glm::greaterThanEqual<N, T>(lhs, rhs);
 }
 
-template<typename T, uint16_t N>
-glm::vec<N, T> operator==(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
-{
-    return glm::equal<N, T>(lhs, rhs);
-}
+//template<typename T, uint16_t N>
+//glm::vec<N, bool> operator==(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+//{
+//    return glm::equal<N, T>(lhs, rhs);
+//}
 
-template<typename T, uint16_t N>
-glm::vec<N, T> operator!=(glm::vec<N, T>& lhs, glm::vec<N, T>& rhs)
-{
-    return notEqual<N, T>(lhs, rhs);
-}
+//template<typename T, uint16_t N>
+//glm::vec<N, bool> operator!=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+//{
+//    return notEqual<N, T>(lhs, rhs);
+//}
 
 #endif
 
