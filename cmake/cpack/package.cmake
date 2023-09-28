@@ -18,6 +18,7 @@ else()
 	set(CPACK_PACKAGE_NAME "nabla-d")
 endif()
 
+list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
 set(CPACK_PACKAGE_VENDOR "DevshGraphicsProgramming.org")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Nabla")
 set(CPACK_PACKAGE_VERSION_MAJOR "1")
@@ -40,7 +41,6 @@ if(NBL_CPACK_CI)
 	
 	set(CPACK_PACKAGE_VERSION "${_SHA}")
 else()
-	set(CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
 	set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 endif()
 
@@ -59,20 +59,18 @@ set(CPACK_COMPONENT_HEADERS_GROUP "development")
 set(CPACK_COMPONENT_LIBRARIES_GROUP "development")
 set(CPACK_COMPONENT_RUNTIMES_GROUP "development")
 
-if(NBL_CPACK_INCLUDE_EXAMPLES AND NOT NBL_CPACK_CI)
-	list(APPEND CPACK_COMPONENTS_ALL Media Executables)
-	
-	set(CPACK_COMPONENT_EXECUTABLES_DISPLAY_NAME "Examples")
-	set(CPACK_COMPONENT_MEDIA_DISPLAY_NAME "Media")
-	
-	set(CPACK_COMPONENT_EXECUTABLES_DESCRIPTION "Example executables built with Nabla library")
-	set(CPACK_COMPONENT_MEDIA_DESCRIPTION "Media files Nabla example executables load resources from")
-	
-	set(CPACK_COMPONENT_EXECUTABLES_DEPENDS Media)
-	
-	set(CPACK_COMPONENT_EXECUTABLES_GROUP "executables")
-	set(CPACK_COMPONENT_MEDIA_GROUP "executables")	
-endif()
+list(APPEND CPACK_COMPONENTS_ALL Media Executables)
+
+set(CPACK_COMPONENT_EXECUTABLES_DISPLAY_NAME "Examples")
+set(CPACK_COMPONENT_MEDIA_DISPLAY_NAME "Media")
+
+set(CPACK_COMPONENT_EXECUTABLES_DESCRIPTION "Example executables built with Nabla library")
+set(CPACK_COMPONENT_MEDIA_DESCRIPTION "Media files Nabla example executables load resources from")
+
+set(CPACK_COMPONENT_EXECUTABLES_DEPENDS Media)
+
+set(CPACK_COMPONENT_EXECUTABLES_GROUP "executables")
+set(CPACK_COMPONENT_MEDIA_GROUP "executables")
 
 set(CPACK_COMPONENT_HEADERS_DESCRIPTION "C/C++ headers, shaders and embeded builtin resource files for use with Nabla library and extensions")
 set(CPACK_COMPONENT_LIBRARIES_DESCRIPTION "Static, import and shared libraries used to build programs with Nabla library and extensions")
