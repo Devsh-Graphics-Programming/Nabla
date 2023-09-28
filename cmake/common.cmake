@@ -607,6 +607,22 @@ function(nbl_project_handle_json_config)
 		# ".scriptPath" string
 		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
+		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+			if(NOT EXISTS "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}")
+				get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
+				
+				if(_NBL_JSON_ISEXECUTED_CONTENT_)
+					set(_NBL_MESSAGE_STATUS_ failed)
+					set(_NBL_MESSAGE_TYPE FATAL_ERROR)
+				else()
+					set(_NBL_MESSAGE_STATUS_ warning)
+					set(_NBL_MESSAGE_TYPE WARNING)
+				endif()
+				
+				message(${_NBL_MESSAGE_TYPE} "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation ${_NBL_MESSAGE_STATUS_}! \".isExecuted\" field is set to \"${_NBL_JSON_ISEXECUTED_CONTENT_}\" but \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
+			endif()
+		endif()
+		
 		# ".cmake" object
 		NBL_JSON_READ_VALIDATE_POPULATE("" cmake OBJECT "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
