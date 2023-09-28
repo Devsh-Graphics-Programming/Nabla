@@ -67,7 +67,10 @@ namespace equations
                 float2_t roots = float2_t(-detSqrt,detSqrt)-brcp;
                 // assert(roots.x == roots.y);
                 // assert(!isnan(roots.x));
-                return roots;
+                // if a = 0, brcp is inf
+                // then we return detRcp2, which was set below to -c / b
+                // that works as a solution to the linear equation bx+c=0
+                return isinf(brcp) ? detRcp2 : roots;
             }
 
             static PrecomputedRootFinder construct(float_t detRcp2, float_t brcp)
@@ -78,18 +81,18 @@ namespace equations
                 return result;
             }
 
-            static PrecomputedRootFinder construct(nbl::hlsl::equations::Quadratic<float_t> quadratic, float_t minorAxisNdc)
+            static PrecomputedRootFinder construct(nbl::hlsl::equations::Quadratic<float_t> quadratic)
             {
                 float_t a = quadratic.A;
                 float_t b = quadratic.B;
-                float_t c = quadratic.C - minorAxisNdc;
+                float_t c = quadratic.C;
                 
                 float_t det = b*b-4.f*a*c;
                 float_t rcp = 0.5f/a;
                 
                 PrecomputedRootFinder result;
-                result.detRcp2 = det * rcp * rcp;
                 result.brcp = b * rcp;
+                result.detRcp2 = isinf(result.brcp) ? -c / b : det * rcp * rcp;
                 return result;
             }
         };
