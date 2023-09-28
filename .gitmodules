@@ -93,3 +93,6 @@
 [submodule "3rdparty/boost/preprocessor"]
 	path = 3rdparty/boost/preprocessor
 	url = git@github.com:Devsh-Graphics-Programming/preprocessor.git
+[submodule "tests"]
+	path = tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Test-Scripts.git
