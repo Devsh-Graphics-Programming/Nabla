@@ -360,6 +360,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-spirv",
         L"-HV", L"2021",
         L"-T", targetProfile.c_str(),
+        L"-Zpr", // Packs matrices in row-major order by default
         L"-enable-16bit-types",
         L"-fvk-use-scalar-layout",
     };
