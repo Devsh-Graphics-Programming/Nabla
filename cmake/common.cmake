@@ -531,7 +531,9 @@ endfunction()
 
 function(nbl_project_handle_json_config)
 	set(NBL_TEMPLATE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+	get_filename_component(NBL_TEMPLATE_JSON_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
 	set(NBL_PROFILES_JSON_DIR "${NBL_TEMPLATE_JSON_DIR}/.profiles")
+	get_filename_component(NBL_PROFILES_JSON_DIR_ABS_ "${NBL_PROFILES_JSON_DIR}" ABSOLUTE)
 	set(NBL_EXECUTABLE_GEN_EXP_FILEPATH "$<PATH:RELATIVE_PATH,$<TARGET_FILE:${EXECUTABLE_NAME}>,${NBL_PROFILES_JSON_DIR}>") # use this in your json config file when referencing filepath of the example's executable
 
 	set(_NBL_JSON_CONFIG_FILEPATH_ "${NBL_TEMPLATE_JSON_DIR}/config.json.template")
@@ -591,6 +593,57 @@ function(nbl_project_handle_json_config)
 		endif()
 	endmacro()
 	
+	# adjust relative path of any non generator expression resource to generated profile directory
+	# use it after validation of the requested field
+	# it expects the same syntax CMake string JSON GET does https://cmake.org/cmake/help/latest/command/string.html#json-get beginning with <json-string>
+	# if used differently it will considered undefined behaviour
+	# supports referencing string and array of strings
+	
+	function(NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH)
+		set(_ARGV_F_COPY_ ${ARGV})
+		set(_ARGC_F_COPY_ ${ARGC})
+		
+		macro(NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH _NBL_IMPL_JSON_READ_REFERENCE_FILEPATH_CONTENT_)
+			set(_NBL_JSON_REFERENCE_FILEPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR_ABS_}/${_NBL_IMPL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}")
+			file(RELATIVE_PATH _NBL_JSON_GEN_REFERENCE_FILEPATH_ "${NBL_PROFILES_JSON_DIR_ABS_}" "${_NBL_JSON_REFERENCE_FILEPATH_ABS_}")
+
+			list(SUBLIST _ARGV_F_COPY_ 1 ${_ARGC_F_COPY_} _NBL_MEMBER_INDEX_ARGV_)
+			
+			if(${ARGC} GREATER_EQUAL 2)
+				list(APPEND _NBL_MEMBER_INDEX_ARGV_ "${ARGV1}")
+			endif()
+
+			string(JSON _NBL_GEN_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" ${_NBL_MEMBER_INDEX_ARGV_} "\"${_NBL_JSON_GEN_REFERENCE_FILEPATH_}\"")
+			set(_NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" PARENT_SCOPE)
+		endmacro()
+	
+		string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${ARGV})
+		string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE ${ARGV})
+		
+		if("${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL STRING)
+			NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}")
+		elseif("${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL ARRAY)
+			string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_LEN_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH ${ARGV})
+		
+			if(_NBL_JSON_READ_REFERENCE_FILEPATH_LEN_ GREATER_EQUAL 1)
+				math(EXPR _NBL_STOP_ "${_NBL_JSON_READ_REFERENCE_FILEPATH_LEN_}-1")
+				
+				foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+					string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${ARGV} ${_NBL_IDX_})
+					string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE ${ARGV} ${_NBL_IDX_})
+					
+					if(NOT "${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL STRING)
+						message(FATAL_ERROR "Internal error while processing \"${_NBL_JSON_CONFIG_FILEPATH_}\". NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH(${ARGV}) invocation failed while processing, referenced json array object contains an element that is not a string type!")
+					endif()
+					
+					NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}" ${_NBL_IDX_})
+				endforeach()
+			endif()
+		else()
+			message(FATAL_ERROR "Internal error while processing \"${_NBL_JSON_CONFIG_FILEPATH_}\". NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH(${ARGV}) invocation failed while processing, referenced json object isn't string neither array type!")
+		endif()
+	endfunction()
+	
 	if(EXISTS "${_NBL_JSON_CONFIG_FILEPATH_}")		
 		file(READ "${_NBL_JSON_CONFIG_FILEPATH_}" _NBL_JSON_TOP_CONFIG_CONTENT_)
 		set(_NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
@@ -608,9 +661,15 @@ function(nbl_project_handle_json_config)
 		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
 		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
-			if(NOT EXISTS "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}")
-				get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
+			get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
+			
+			if(EXISTS "${_NBL_JSON_SCRIPTPATH_ABS_}")
+				string(FIND "${_NBL_JSON_SCRIPTPATH_ABS_}" "${NBL_TEMPLATE_JSON_DIR_ABS_}" _NBL_FOUND_)
 				
+				if("${_NBL_FOUND_}" STREQUAL "-1") # always fail validation regardless .isExecuted field if the script exist and is outside testing environment directory
+					message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" is located outside testing environment, it must be moved anywhere to \"${NBL_TEMPLATE_JSON_DIR_ABS_}/*\" location. It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
+				endif()
+			else()
 				if(_NBL_JSON_ISEXECUTED_CONTENT_)
 					set(_NBL_MESSAGE_STATUS_ failed)
 					set(_NBL_MESSAGE_TYPE FATAL_ERROR)
@@ -622,6 +681,8 @@ function(nbl_project_handle_json_config)
 				message(${_NBL_MESSAGE_TYPE} "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation ${_NBL_MESSAGE_STATUS_}! \".isExecuted\" field is set to \"${_NBL_JSON_ISEXECUTED_CONTENT_}\" but \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
 			endif()
 		endif()
+		
+		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_TOP_CONFIG_CONTENT_}" scriptPath)
 		
 		# ".cmake" object
 		NBL_JSON_READ_VALIDATE_POPULATE("" cmake OBJECT "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
@@ -649,6 +710,7 @@ function(nbl_project_handle_json_config)
 		# ".dependencies" array
 		NBL_JSON_READ_VALIDATE_POPULATE("" dependencies ARRAY "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES(".dependencies" "${_NBL_JSON_DEPENDENCIES_CONTENT_}")
+		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_TOP_CONFIG_CONTENT_}" dependencies)
 		
 		# ".data" array
 		NBL_JSON_READ_VALIDATE_POPULATE("" data ARRAY "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
@@ -679,6 +741,7 @@ function(nbl_project_handle_json_config)
 				# "${_NBL_JSON_FIELD_TRAVERSAL_}.dependencies" array
 				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" dependencies ARRAY "${_NBL_JSON_DATA_LIST_ELEMENT_CONTENT_}")				
 				NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES(".${_NBL_JSON_FIELD_TRAVERSAL_}.dependencies" "${_NBL_JSON_DEPENDENCIES_CONTENT_}")
+				NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_TOP_CONFIG_CONTENT_}" data ${_NBL_IDX_} dependencies)
 				
 				# "${_NBL_JSON_FIELD_TRAVERSAL_}.outputs" array
 				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" outputs ARRAY "${_NBL_JSON_DATA_LIST_ELEMENT_CONTENT_}")
