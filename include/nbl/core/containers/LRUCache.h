@@ -150,26 +150,16 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		inline void print(core::smart_refctd_ptr<system::ILogger> logger)
 		{
 			logger->log("Printing LRU cache contents");
-			auto nodeAddr = m_list.getLastAddress();
-			auto cap = m_list.getCapacity();
-			int n = 0;
-			while (n++ < cap && nodeAddr != invalid_iterator)
+			auto nodeAddr = base_t::m_list.getLastAddress();
+			while (nodeAddr != invalid_iterator)
 			{
-				auto node = m_list.get(nodeAddr);
+				auto node = base_t::m_list.get(nodeAddr);
 				std::ostringstream stringStream;
-				stringStream << "k: '" << node->data.first << "', v: '" << node->data.second << "'\t prev: " << node->prev << " | curr: " << nodeAddr << " | next: " << node->next << std::endl;
+				stringStream << "k: '" << node->data.first << "', v: '" << node->data.second << "'\t prev: " << node->prev << " | curr: " << nodeAddr << " | next: " << node->next;
 				logger->log(stringStream.str());
 				nodeAddr = node->prev;
-				node = m_list.get(node->prev);
+				node = base_t::m_list.get(node->prev);
 			}
-			//auto node = base_t::m_list.getBegin();
-			//while (true)
-			//{
-			//	ostream <<"k:" << node->data.first << "    v:" << node->data.second << std::endl;
-			//	if (node->next == invalid_iterator)
-			//		break;
-			//	node = base_t::m_list.get(node->next);
-			//}
 		}
 
 		//insert an element into the cache, or update an existing one with the same key
