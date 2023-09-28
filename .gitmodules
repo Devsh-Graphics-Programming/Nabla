@@ -95,3 +95,6 @@
 [submodule "3rdparty/Vulkan-Headers"]
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Headers.git
+[submodule "tests"]
+	path = tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Test-Scripts.git
