@@ -1,0 +1,34 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_BUILTIN_HLSL_BLIT_DEFAULT_COMPUTE_COMMON_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BLIT_DEFAULT_COMPUTE_COMMON_INCLUDED_
+
+#include <nbl/builtin/hlsl/cpp_compat/type_traits.hlsl>
+#include <nbl/builtin/hlsl/blit/formats_encode.hlsl>
+#include <nbl/builtin/hlsl/blit/common.hlsl>
+
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace blit
+{
+
+typedef type_traits::integral_constant<uint32_t, _NBL_WORKGROUP_SIZE_X_> WorkgroupSizeX;
+typedef type_traits::integral_constant<uint32_t, _NBL_WORKGROUP_SIZE_Y_> WorkgroupSizeY;
+typedef type_traits::integral_constant<uint32_t, _NBL_WORKGROUP_SIZE_Z_> WorkgroupSizeZ;
+typedef type_traits::integral_constant<uint32_t, WorkgroupSizeX::value * WorkgroupSizeY::value * WorkgroupSizeZ::value> WorkgroupSize;
+typedef type_traits::integral_constant<uint32_t, _NBL_BLIT_DIM_COUNT_> BlitDimCount;
+typedef type_traits::integral_constant<uint32_t, _NBL_BLIT_ALPHA_BIN_COUNT_> AlphaBinCount;
+typedef type_traits::integral_constant<E_FORMAT, (E_FORMAT)_NBL_BLIT_SOFTWARE_ENCODE_FORMAT_> SoftwareEncodeFormat;
+
+typedef dim_to_in_texture<BlitDimCount::value>::type InTextureType;
+typedef dim_and_software_encode_to_out_texture<BlitDimCount::value, SoftwareEncodeFormat::value != E_FORMAT::EF_UNKNOWN>::type OutTextureType;
+
+}
+}
+}
+
+#endif

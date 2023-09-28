@@ -1,0 +1,41 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+#include <nbl/builtin/hlsl/blit/descriptors.hlsl>
+#include <nbl/builtin/hlsl/blit/normalziation.hlsl>
+#include <nbl/builtin/hlsl/blit/default_compute_common.comp>
+
+
+[[vk::binding(nbl::hlsl::blit::InImageBinding::value, nbl::hlsl::blit::BlitDescriptorSet::value)]]
+nbl::hlsl::blit::InTextureType inTexture;
+
+[[vk::image_format(_NBL_BLIT_OUT_IMAGE_FORMAT_)]]
+[[vk::binding(nbl::hlsl::blit::OutImageBinding::value, nbl::hlsl::blit::BlitDescriptorSet::value)]]
+nbl::hlsl::blit::OutTextureType outTexture;
+
+[[vk::binding(nbl::hlsl::blit::StatisticsBinding::value, nbl::hlsl::blit::BlitDescriptorSet::value)]]
+RWStructuredBuffer<nbl::hlsl::blit::AlphaStatistics<nbl::hlsl::blit::AlphaBinCount::value> > statistics;
+
+[[vk::push_constant]]
+nbl::hlsl::blit::parameters_t params;
+
+groupshared nbl::hlsl::blit::SharedAccessor<float, WorkgroupSize::value + 1> sharedAccessor;
+
+[numthreads(nbl::hlsl::blit::WorkgroupSizeX::value, nbl::hlsl::blit::WorkgroupSizeY::value, nbl::hlsl::blit::WorkgroupSizeZ::value)]
+void main(uint32_t3 groupID : SV_GroupID, uint32_t3 dispatchThreadID : SV_DispatchThreadID, uint32_t groupIndex : SV_GroupIndex)
+{
+
+	normalization<
+		nbl::hlsl::blit::WorkGroupSize::value,
+		nbl::hlsl::blit::BlitDimCount::value,
+		nbl::hlsl::blit::AlphaBinCount::value,
+		nbl::hlsl::blit::SoftwareEncodeFormat::value>(
+		inTexure,
+		outTexure,
+		statistics,
+		sharedAccessor,
+		params,
+		groupID,
+		dispatchThreadID,
+		groupIndex);
+}
