@@ -95,4 +95,4 @@
 	url = git@github.com:Devsh-Graphics-Programming/preprocessor.git
 [submodule "tests"]
 	path = tests
-	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Test-Scripts.git
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
