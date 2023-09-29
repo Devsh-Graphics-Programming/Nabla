@@ -1,10 +1,17 @@
-
 #ifndef _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#ifndef __HLSL_VERSION 
+#define GLM_FORCE_SWIZZLE
+#include <glm/glm.hpp>
+#include "glm/detail/_swizzle.hpp"
+#include <stdint.h>
 
-namespace nbl::hlsl
+#endif
+
+namespace nbl
+{
+namespace hlsl
 {
 
 #ifndef __HLSL_VERSION 
@@ -63,10 +70,25 @@ struct ValueType
     typedef T::value_type type;
 };
 
+#else
+
+// TODO[Przemek]: figure out if there is a better way..
+// TODO[Przemek]: implement for more types
+
+template<typename T>
+struct ValueType
+{
+    using type = void;
+};
+template<>
+struct ValueType<float3>
+{
+    using type = float;
+};
+
 #endif
 
-
-
+}
 }
 
 #endif
