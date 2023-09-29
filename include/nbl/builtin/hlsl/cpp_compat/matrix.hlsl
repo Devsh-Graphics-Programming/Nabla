@@ -1,16 +1,11 @@
 #ifndef _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
 
-#ifndef __HLSL_VERSION 
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#include "glm/detail/_swizzle.hpp"
-#include <stdint.h>
-#endif
-
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
-namespace nbl::hlsl
+namespace nbl
+{
+namespace hlsl
 {
 
 #ifndef __HLSL_VERSION 
@@ -67,6 +62,7 @@ using float2x2 = matrix<float, 2, 2>;
 
 #endif
 
+}
 }
 
 #endif
