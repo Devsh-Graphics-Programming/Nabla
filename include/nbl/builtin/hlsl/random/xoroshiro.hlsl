@@ -39,15 +39,13 @@ struct Xoroshiro64Star
 {
 	static Xoroshiro64Star construct(xoroshiro64star_state_t initialState)
 	{
-		return { initialState };
+		return Xoroshiro64Star(initialState);
 	}
 	
 	uint32_t operator()()
 	{
 		const uint32_t result = state[0]*0x9E3779BBu;
 		state = impl::xoroshiro64_state_advance(state);
-		
-		std::cout << 'a';
 
 		return result;
 	}
@@ -59,7 +57,7 @@ struct Xoroshiro64StarStar
 {
 	static Xoroshiro64StarStar construct(xoroshiro64starstar_state_t initialState)
 	{
-		return { initialState };
+		return Xoroshiro64StarStar(initialState);
 	}
 	
 	uint32_t operator()()
