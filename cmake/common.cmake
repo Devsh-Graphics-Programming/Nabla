@@ -534,6 +534,9 @@ function(nbl_project_handle_json_config)
 	get_filename_component(NBL_TEMPLATE_JSON_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
 	set(NBL_PROFILES_JSON_DIR "${NBL_TEMPLATE_JSON_DIR}/.profiles")
 	get_filename_component(NBL_PROFILES_JSON_DIR_ABS_ "${NBL_PROFILES_JSON_DIR}" ABSOLUTE)
+	set(NBL_TARGET_TESTS_DIR "${NBL_TEMPLATE_JSON_DIR}/.test")
+	get_filename_component(NBL_TARGET_TESTS_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
+
 	set(NBL_EXECUTABLE_GEN_EXP_FILEPATH "$<PATH:RELATIVE_PATH,$<TARGET_FILE:${EXECUTABLE_NAME}>,${NBL_PROFILES_JSON_DIR}>") # use this in your json config file when referencing filepath of the example's executable
 
 	set(_NBL_JSON_CONFIG_FILEPATH_ "${NBL_TEMPLATE_JSON_DIR}/config.json.template")
@@ -663,9 +666,8 @@ function(nbl_project_handle_json_config)
 		# ".scriptPath" string
 		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
+		get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
 		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
-			get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
-			
 			if(EXISTS "${_NBL_JSON_SCRIPTPATH_ABS_}")
 				string(FIND "${_NBL_JSON_SCRIPTPATH_ABS_}" "${NBL_TEMPLATE_JSON_DIR_ABS_}" _NBL_FOUND_)
 				
@@ -684,8 +686,13 @@ function(nbl_project_handle_json_config)
 				message(${_NBL_MESSAGE_TYPE} "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation ${_NBL_MESSAGE_STATUS_}! \".isExecuted\" field is set to \"${_NBL_JSON_ISEXECUTED_CONTENT_}\" but \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
 			endif()
 		endif()
-		
-		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_TOP_CONFIG_CONTENT_}" scriptPath)
+	
+		file(RELATIVE_PATH NBL_PYTHON_FRAMEWORK_MODULE_PATH_REL "${NBL_TARGET_TESTS_DIR}" "${NBL_PYTHON_MODULE_ROOT_PATH}")
+		configure_file("${_NBL_JSON_SCRIPTPATH_ABS_}" "${NBL_TARGET_TESTS_DIR}/test.py" @ONLY)
+		file(RELATIVE_PATH _NBL_JSON_GEN_SCRIPTPATH_ "${NBL_TEMPLATE_JSON_DIR}" "${NBL_TARGET_TESTS_DIR}/test.py")
+		string(JSON _NBL_GEN_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" scriptPath "\"${_NBL_JSON_GEN_SCRIPTPATH_}\"") # override scriptPath
+
+		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" scriptPath)
 		
 		# ".cmake" object
 		NBL_JSON_READ_VALIDATE_POPULATE("" cmake OBJECT "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
