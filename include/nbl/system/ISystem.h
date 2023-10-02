@@ -10,7 +10,7 @@
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
 
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/builtinResources.h"
 #endif
 
@@ -52,7 +52,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 }
         };
 		
-		#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
+		#ifndef NBL_EMBED_BUILTIN_RESOURCES
         constexpr std::string_view getBuiltinResourcesDirectoryPath()
         {
             std::string_view retval = NBL_BUILTIN_RESOURCES_DIRECTORY_PATH;

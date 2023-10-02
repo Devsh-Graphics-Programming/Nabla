@@ -17,15 +17,27 @@ class IApplicationFramework
         static void GlobalsInit()
         {
             #ifdef _NBL_PLATFORM_WINDOWS_
-            // TODO: @AnastaZIuk also provide define constants for DXC install dir!
-            const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll",{system::path(_DXC_DLL_).parent_path()});
-            //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
-            #ifdef _NBL_SHARED_BUILD_
-            // if there was no DLL next to the executable, then try from the Nabla build directory
-            // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
-            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_,{_NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_});
-            assert(SUCCEEDED(nablaLoad));
-            #endif
+                #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
+                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { system::path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                #else
+                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { system::path(_DXC_DLL_).parent_path() });
+                #endif
+                
+                //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
+
+                #ifdef _NBL_SHARED_BUILD_
+                    // if there was no DLL next to the executable, then try from the Nabla build directory
+                    // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
+                    // and in CPack package install directory
+                
+                    #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
+                        const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                    #else
+                        const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_ });
+                    #endif
+                    
+                    assert(SUCCEEDED(nablaLoad));
+                #endif // _NBL_SHARED_BUILD_
             #else
             // nothing else needs to be done cause we have RPath
             #endif

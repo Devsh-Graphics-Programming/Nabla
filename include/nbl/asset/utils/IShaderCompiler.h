@@ -27,14 +27,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
 		public:
-			virtual std::string getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+			virtual std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
 		{
 		public:
 			// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
-			virtual std::string getInclude(const std::string& includeName) const;
+			virtual std::optional<std::string> getInclude(const std::string& includeName) const;
 
 			virtual std::string_view getPrefix() const = 0;
 
@@ -53,7 +53,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		public:
 			CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-			std::string getInclude(const system::path& searchPath, const std::string& includeName) const override;
+			std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const override;
 
 		protected:
 			core::smart_refctd_ptr<system::ISystem> m_system;
@@ -67,12 +67,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// ! includes within <>
 			// @param requestingSourceDir: the directory where the incude was requested
 			// @param includeName: the string within <> of the include preprocessing directive
-			std::string getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+			std::optional<std::string> getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
 
 			// ! includes within ""
 			// @param requestingSourceDir: the directory where the incude was requested
 			// @param includeName: the string within "" of the include preprocessing directive
-			std::string getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+			std::optional<std::string> getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
 
 			inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
@@ -82,9 +82,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		protected:
 
-			std::string trySearchPaths(const std::string& includeName) const;
+			std::optional<std::string> trySearchPaths(const std::string& includeName) const;
 
-			std::string tryIncludeGenerators(const std::string& includeName) const;
+			std::optional<std::string> tryIncludeGenerators(const std::string& includeName) const;
 
 			struct LoaderSearchPath
 			{
@@ -129,7 +129,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			EDIF_TOOL_BIT   = 0x08,       //  for emitting Compiler Git commit hash and command-line options
 			EDIF_NON_SEMANTIC_BIT = 0x10, // NonSemantic.Shader.DebugInfo.100 extended instructions, this option overrules the options above
 		};
-		static constexpr core::bitflag<E_DEBUG_INFO_FLAGS> DefaultDebugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
 
 		/*
 			@stage shaderStage
@@ -152,7 +151,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
-			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = DefaultDebugInfoFlags;
+			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
 			SPreprocessorOptions preprocessorOptions = {};
 
 			void setCommonData(const SCompilerOptions& opt)

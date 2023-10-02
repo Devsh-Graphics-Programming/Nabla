@@ -13,7 +13,6 @@
 #include "nbl/asset/ICPUImage.h"
 
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
-#include "nbl/asset/filters/CConvertFormatImageFilter.h"
 
 namespace nbl
 {

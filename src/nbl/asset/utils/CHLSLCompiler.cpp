@@ -3,9 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
-#endif // _NBL_EMBED_BUILTIN_RESOURCES_
+#include "spirv/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -60,7 +61,7 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-static tcpp::IInputStream* getInputStreamInclude(
+static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     const IShaderCompiler::CIncludeFinder* inclFinder,
     const system::ISystem* fs,
     uint32_t maxInclCnt,
@@ -72,12 +73,11 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-    std::string res_str;
 
     std::filesystem::path relDir;
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
-    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
+    const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
+    const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
@@ -88,19 +88,31 @@ static tcpp::IInputStream* getInputStreamInclude(
     }
     #else
     const bool reqBuiltin = false;
-    #endif // _NBL_EMBED_BUILTIN_RESOURCES_
+    #endif // NBL_EMBED_BUILTIN_RESOURCES
     std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
+    std::optional<std::string> result;
     if (isRelative)
-        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
+        result = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
+        result = inclFinder->getIncludeStandard(relDir, requestedSource);
 
-    if (!res_str.size()) {
-        return new tcpp::StringInputStream("#error File not found");
+    if (!result) 
+    {
+        /*
+            Alternative could be found in the commit 2a66b4b20c579ea730aa3dd8af707847c01def64
+            if ever HLSL gets system headers we might just want to let includes be includes and 
+            DXC handle everything else we don't know about
+        */
+        std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
+        re.append("error ");
+        re.append(requestedSource);
+        re.append(" not found");
+        includeStack.push_back(includeStack.back());
+        return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
 
     // Figure out what line in the current file this #include was
@@ -111,6 +123,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         (includeStack.size() > 1 ? leadingLinesImports : 0);
     auto lastItemInIncludeStack = includeStack.back();
 
+    auto& res_str = *result;
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
@@ -121,7 +134,7 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
 
-    return new tcpp::StringInputStream(std::move(res_str));
+    return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::move(res_str)));
 }
 
 class DxcCompilationResult
@@ -228,15 +241,15 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // Keep track of the line in the original file where each #include was on each level of the include stack
     std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
+    
+    tcpp::Lexer lexer(tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(code)));
 
-    tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
-    tcpp::Lexer lexer(codeIs);
-    tcpp::Preprocessor proc(
-        lexer,
-        [&](auto errorInfo) {
+    tcpp::Preprocessor::TPreprocessorConfigInfo info;
+    {
+        info.mOnErrorCallback = [&](auto errorInfo) {
             preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-        },
-        [&](auto path, auto isSystemPath) {
+        };
+        info.mOnIncludeCallback = [&](auto path, auto isSystemPath) {
             if (preprocessOptions.includeFinder)
             {
                 return getInputStreamInclude(
@@ -247,12 +260,15 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
-                return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
+                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler")));
             }
-        },
-        [&]() {
+        };
+        info.mOnPopIncludeCallback = [&]() {
             lineOffsetStack.pop_back();
-        }
+        };
+    }
+    tcpp::Preprocessor proc(
+        lexer, info        
     );
 
     proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
@@ -358,7 +374,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     std::vector<LPCWSTR> arguments = {
         L"-spirv",
-        L"-HV", L"2021",
+        L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
         L"-Zpr", // Packs matrices in row-major order by default
         L"-enable-16bit-types",
