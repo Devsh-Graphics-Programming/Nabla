@@ -14,18 +14,22 @@ namespace math
 {
     namespace integral
     {
-        template<int Order>
+        template<int Order, typename float_t>
         struct GaussLegendreValues 
         {};
 
-        // TODO: customize floating point type
-        template<int Order>
+        template<int Order, typename float_t, class IntegrandFunc>
         struct GaussLegendreIntegration
         {
-            // TODO:
-            static double calculateIntegral(/*function, start, end*/)
+            static float_t calculateIntegral(IntegrandFunc func, float_t start, float_t end)
             {
-                return GaussLegendreValues<Order>::wi(0u);
+                float_t integral = 0.0;
+                for (uint32_t i = 0u; i < Order; ++i)
+                {
+                    float_t xi = GaussLegendreValues<Order, float_t>::xi(i)* ((end - start) / 2.0) + ((end + start) / 2.0);
+                    integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
+                }
+                return ((end - start) / 2.0) * integral;
             }
         };
 
@@ -327,89 +331,89 @@ namespace math
 
         }
 
-        template <>
-        struct GaussLegendreValues<2> 
+        template <typename float_t>
+        struct GaussLegendreValues<2, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_2[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_2[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_2[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_2[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<3> 
+        template <typename float_t>
+        struct GaussLegendreValues<3, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_3[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_3[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_3[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_3[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<4> 
+        template <typename float_t>
+        struct GaussLegendreValues<4, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_4[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_4[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_4[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_4[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<5> 
+        template <typename float_t>
+        struct GaussLegendreValues<5, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_5[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_5[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_5[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_5[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<6> 
+        template <typename float_t>
+        struct GaussLegendreValues<6, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_6[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_6[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_6[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_6[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<7> 
+        template <typename float_t>
+        struct GaussLegendreValues<7, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_7[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_7[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_7[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_7[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<8> 
+        template <typename float_t>
+        struct GaussLegendreValues<8, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_8[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_8[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_8[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_8[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<9> 
+        template <typename float_t>
+        struct GaussLegendreValues<9, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_9[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_9[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_9[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_9[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<10> 
+        template <typename float_t>
+        struct GaussLegendreValues<10, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_10[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_10[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_10[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_10[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<11> 
+        template <typename float_t>
+        struct GaussLegendreValues<11, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_11[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_11[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_11[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_11[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<12> 
+        template <typename float_t>
+        struct GaussLegendreValues<12, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_12[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_12[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_12[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_12[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<13> 
+        template <typename float_t>
+        struct GaussLegendreValues<13, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_13[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_13[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_13[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_13[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<14> 
+        template <typename float_t>
+        struct GaussLegendreValues<14, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_14[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_14[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_14[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_14[idx]; }
         };
-        template <>
-        struct GaussLegendreValues<15> 
+        template <typename float_t>
+        struct GaussLegendreValues<15, float_t> 
         {
-            static double xi(uint32_t idx) { return impl::xi_15[idx]; }
-            static double wi(uint32_t idx) { return impl::wi_15[idx]; }
+            static float_t xi(uint32_t idx) { return impl::xi_15[idx]; }
+            static float_t wi(uint32_t idx) { return impl::wi_15[idx]; }
         };
     }
 } // math
