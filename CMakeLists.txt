@@ -327,6 +327,7 @@ NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
+add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
 
 if(NBL_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
