@@ -4,7 +4,11 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_INTEGRAL_GAUSS_LEGENDRE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_INTEGRAL_GAUSS_LEGENDRE_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
+// TODO FIX:
+// #include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
+#define NBL_CONSTEXPR const static
+#define NBL_CONSTEXPR_STATIC_INLINE const static
+
 
 namespace nbl
 {
