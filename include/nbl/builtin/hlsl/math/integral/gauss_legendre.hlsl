@@ -15,13 +15,19 @@ namespace math
     namespace integral
     {
         template<int Order>
-        struct GaussLegendreIntegration
-        {
-        };
-
-        template<int Order>
         struct GaussLegendreValues 
         {};
+
+        // TODO: customize floating point type
+        template<int Order>
+        struct GaussLegendreIntegration
+        {
+            // TODO:
+            static double calculateIntegral(/*function, start, end*/)
+            {
+                return GaussLegendreValues<Order>::wi(0u);
+            }
+        };
 
         namespace impl
         {
