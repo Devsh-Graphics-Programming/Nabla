@@ -16,8 +16,8 @@ namespace hlsl
 {
 namespace math
 {
-    namespace integral
-    {
+namespace quadrature
+{
         template<int Order, typename float_t>
         struct GaussLegendreValues 
         {};
@@ -25,6 +25,7 @@ namespace math
         template<int Order, typename float_t, class IntegrandFunc>
         struct GaussLegendreIntegration
         {
+            // TODO: use NBL_CONST_REF_ARG for func
             static float_t calculateIntegral(IntegrandFunc func, float_t start, float_t end)
             {
                 float_t integral = 0.0;
@@ -419,7 +420,7 @@ namespace math
             static float_t xi(uint32_t idx) { return impl::xi_15[idx]; }
             static float_t wi(uint32_t idx) { return impl::wi_15[idx]; }
         };
-    }
+} // quadrature
 } // math
 } // hlsl
 } // nbl
