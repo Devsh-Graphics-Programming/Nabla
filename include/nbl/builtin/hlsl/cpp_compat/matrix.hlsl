@@ -55,6 +55,38 @@ struct matrix final : private glm::mat<N,M,T>
     }
 };
 
+using bool4x4 = matrix<bool, 4, 4>;
+using bool4x3 = matrix<bool, 4, 3>;
+using bool4x2 = matrix<bool, 4, 2>;
+using bool3x4 = matrix<bool, 3, 4>;
+using bool3x3 = matrix<bool, 3, 3>;
+using bool3x2 = matrix<bool, 3, 2>;
+using bool2x4 = matrix<bool, 2, 4>;
+using bool2x3 = matrix<bool, 2, 3>;
+using bool2x2 = matrix<bool, 2, 2>;
+
+using int4x4 = matrix<int32_t, 4, 4>;
+using int4x3 = matrix<int32_t, 4, 3>;
+using int4x2 = matrix<int32_t, 4, 2>;
+using int3x4 = matrix<int32_t, 3, 4>;
+using int3x3 = matrix<int32_t, 3, 3>;
+using int3x2 = matrix<int32_t, 3, 2>;
+using int2x4 = matrix<int32_t, 2, 4>;
+using int2x3 = matrix<int32_t, 2, 3>;
+using int2x2 = matrix<int32_t, 2, 2>;
+
+using uint4x4 = matrix<uint32_t, 4, 4>;
+using uint4x3 = matrix<uint32_t, 4, 3>;
+using uint4x2 = matrix<uint32_t, 4, 2>;
+using uint3x4 = matrix<uint32_t, 3, 4>;
+using uint3x3 = matrix<uint32_t, 3, 3>;
+using uint3x2 = matrix<uint32_t, 3, 2>;
+using uint2x4 = matrix<uint32_t, 2, 4>;
+using uint2x3 = matrix<uint32_t, 2, 3>;
+using uint2x2 = matrix<uint32_t, 2, 2>;
+
+// TODO: halfMxN
+
 using float4x4 = matrix<float, 4, 4>;
 using float4x3 = matrix<float, 4, 3>;
 using float4x2 = matrix<float, 4, 2>;
@@ -65,6 +97,15 @@ using float2x4 = matrix<float, 2, 4>;
 using float2x3 = matrix<float, 2, 3>;
 using float2x2 = matrix<float, 2, 2>;
 
+using double4x4 = matrix<double, 4, 4>;
+using double4x3 = matrix<double, 4, 3>;
+using double4x2 = matrix<double, 4, 2>;
+using double3x4 = matrix<double, 3, 4>;
+using double3x3 = matrix<double, 3, 3>;
+using double3x2 = matrix<double, 3, 2>;
+using double2x4 = matrix<double, 2, 4>;
+using double2x3 = matrix<double, 2, 3>;
+using double2x2 = matrix<double, 2, 2>;
 #endif
 
 }
