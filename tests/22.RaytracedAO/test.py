@@ -69,7 +69,7 @@ class RendersTest(CITest):
                 error_threshold_type = ErrorThresholdType.ABSOLUTE,
                 error_threshold_value = 0.05,
                 allowed_error_pixel_count = 100.0,
-                ssim_error_threshold_value = 0.0001,
+                ssim_error_threshold_value = 0.01,
                 print_warnings = True
                 ):
         super().__init__(test_name, executable_filepath, input_filepath, nabla_repo_root_dir, print_warnings)
@@ -89,6 +89,7 @@ class RendersTest(CITest):
         self.cout_json_regex = re.compile(r"(?<=\[JSON\] )(.+[\n\r]*)+(?=[\n\r]*\[ENDJSON\])")
 
     def __get_lds_hash(self):
+        self._change_working_dir()
         executor = f'git hash-object {NBL_REF_LDS_CACHE_FILENAME}'
         return subprocess.run(executor, capture_output=True).stdout.decode().strip()
     

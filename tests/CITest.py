@@ -6,9 +6,9 @@ import filecmp
 import json
 from pathlib import *
 
-def get_git_revision_hash(repo_dir, branch = "ditt") -> str:
+def get_git_revision_hash(repo_dir, branch = "HEAD") -> str:
     try:
-        return subprocess.check_output(f'git -C "{repo_dir}" rev-parse origin/{branch}').decode('ascii').strip()
+        return subprocess.check_output(f'git -C "{repo_dir}" rev-parse {branch}').decode('ascii').strip()
     except Exception as ex:
         print("Exception occured when getting commit hash\n"+str(ex))
     return "error"
