@@ -2,12 +2,11 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 
 
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+
+
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
-#ifndef __HLSL_VERSION 
-
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-
+#ifndef __HLSL_VERSION
 namespace nbl::hlsl
 {
 
