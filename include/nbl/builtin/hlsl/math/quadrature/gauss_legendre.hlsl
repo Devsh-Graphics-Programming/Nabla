@@ -4,10 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 
-// TODO FIX:
-// #include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
-#define NBL_CONSTEXPR const static
-#define NBL_CONSTEXPR_STATIC_INLINE const static
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 
 namespace nbl
@@ -25,8 +22,7 @@ namespace quadrature
         template<int Order, typename float_t, class IntegrandFunc>
         struct GaussLegendreIntegration
         {
-            // TODO: use NBL_CONST_REF_ARG for func
-            static float_t calculateIntegral(IntegrandFunc func, float_t start, float_t end)
+            static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
             {
                 float_t integral = 0.0;
                 for (uint32_t i = 0u; i < Order; ++i)
