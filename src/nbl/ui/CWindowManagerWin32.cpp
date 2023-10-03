@@ -166,7 +166,6 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 	const int32_t realWidth = clientSize.right - clientSize.left;
 	const int32_t realHeight = clientSize.bottom - clientSize.top;
 
-					
 	auto nativeWindow = CreateWindowA(
 		classname, windowCaption.c_str(), style,
 		clientSize.left, clientSize.top, realWidth, realHeight,
@@ -212,13 +211,6 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		inputDevices[4].usUsage = HID_USAGE_GENERIC_GAMEPAD;
 
 		RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
-	}
-
-	RECT rect = {};
-	if (GetClientRect(nativeWindow, &rect))
-	{
-		int width = rect.right - rect.left;
-		int height = rect.bottom - rect.top;
 	}
 
 	retval->construct(nativeWindow);
