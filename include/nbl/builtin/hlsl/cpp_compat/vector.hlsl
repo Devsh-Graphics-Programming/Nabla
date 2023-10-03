@@ -8,9 +8,7 @@
 #include <glm/detail/_swizzle.hpp>
 #include <stdint.h>
 
-namespace nbl
-{
-namespace hlsl
+namespace nbl::hlsl
 {
 
 template<typename T, uint16_t N>
@@ -40,11 +38,11 @@ using float32_t3 = vector<float32_t, 3>;
 using float32_t2 = vector<float32_t, 2>;
 using float32_t1 = vector<float32_t, 1>;
 
-//using float64_t = double;
-//using float64_t4 = vector<float64_t, 4>;
-//using float64_t3 = vector<float64_t, 3>;
-//using float64_t2 = vector<float64_t, 2>;
-//using float64_t1 = vector<float64_t, 1>;
+using float64_t = double;
+using float64_t4 = vector<float64_t, 4>;
+using float64_t3 = vector<float64_t, 3>;
+using float64_t2 = vector<float64_t, 2>;
+using float64_t1 = vector<float64_t, 1>;
 
 template<typename T, uint16_t N>
 glm::vec<N, bool> operator<(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
@@ -71,5 +69,23 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
 }
 }
 #endif
+
+namespace nbl
+{
+namespace hlsl
+{
+template<typename V>
+struct scalar_type
+{
+    using type = void;
+};
+
+template<typename T, uint16_t N>
+struct scalar_type<vector<T,N> >
+{
+    using type = T;
+};
+}
+}
 
 #endif

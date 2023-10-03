@@ -100,17 +100,31 @@ using float32_t2x4 = matrix<float, 2, 4>;
 using float32_t2x3 = matrix<float, 2, 3>;
 using float32_t2x2 = matrix<float, 2, 2>;
 
-//using float64_t4x4 = matrix<float64_t, 4, 4>;
-//using float64_t4x3 = matrix<float64_t, 4, 3>;
-//using float64_t4x2 = matrix<float64_t, 4, 2>;
-//using float64_t3x4 = matrix<float64_t, 3, 4>;
-//using float64_t3x3 = matrix<float64_t, 3, 3>;
-//using float64_t3x2 = matrix<float64_t, 3, 2>;
-//using float64_t2x4 = matrix<float64_t, 2, 4>;
-//using float64_t2x3 = matrix<float64_t, 2, 3>;
-//using float64_t2x2 = matrix<float64_t, 2, 2>;
+using float64_t4x4 = matrix<float64_t, 4, 4>;
+using float64_t4x3 = matrix<float64_t, 4, 3>;
+using float64_t4x2 = matrix<float64_t, 4, 2>;
+using float64_t3x4 = matrix<float64_t, 3, 4>;
+using float64_t3x3 = matrix<float64_t, 3, 3>;
+using float64_t3x2 = matrix<float64_t, 3, 2>;
+using float64_t2x4 = matrix<float64_t, 2, 4>;
+using float64_t2x3 = matrix<float64_t, 2, 3>;
+using float64_t2x2 = matrix<float64_t, 2, 2>;
 
 }
 #endif
+
+namespace nbl
+{
+namespace hlsl
+{
+
+//template<typename T, uint16_t N, uint16_t M>
+//struct scalar_type<matrix<T,N,M> >
+//{
+//    using type = T;
+//};
+
+}
+}
 
 #endif

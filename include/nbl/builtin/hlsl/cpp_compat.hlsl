@@ -21,6 +21,12 @@ using add_reference = std::add_lvalue_reference<T>;
 template<typename T>
 using add_pointer = std::add_pointer<T>;
 
+//template<typename V>
+//struct scalar_type
+//{
+//    using type = void;
+//};
+
 }
 }
 

@@ -21,38 +21,38 @@ struct Promote
 #ifdef __HLSL_VERSION
 
 template<typename U>
-struct Promote<float1, U>
+struct Promote<float32_t1, U>
 {
-    float3 operator()(U v)
+    float32_t3 operator()(U v)
     {
-        return float3(v);
+        return float32_t3(v);
     }
 };
 
 template<typename U>
-struct Promote<float2, U>
+struct Promote<float32_t2, U>
 {
-    float3 operator()(U v)
+    float32_t3 operator()(U v)
     {
-        return float3(v, v);
+        return float32_t3(v, v);
     }
 };
 
 template<typename U>
-struct Promote<float3, U>
+struct Promote<float32_t3, U>
 {
-    float3 operator()(U v)
+    float32_t3 operator()(U v)
     {
-        return float3(v, v, v);
+        return float32_t3(v, v, v);
     }
 };
 
 template<typename U>
-struct Promote<float4, U>
+struct Promote<float32_t4, U>
 {
-    float3 operator()(U v)
+    float32_t3 operator()(U v)
     {
-        return float3(v, v, v, v);
+        return float32_t3(v, v, v, v);
     }
 };
 
