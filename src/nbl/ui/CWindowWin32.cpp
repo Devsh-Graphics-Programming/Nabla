@@ -21,8 +21,8 @@ CWindowWin32::CWindowWin32(SCreationParams&& params, core::smart_refctd_ptr<CWin
 	RECT rect = {};
 	if (GetClientRect(hwnd, &rect))
 	{
-		m_width = rect.right;
-		m_height = rect.bottom;
+		m_width = rect.right - rect.left;
+		m_height = rect.bottom - rect.top;
 	}
 	
 
