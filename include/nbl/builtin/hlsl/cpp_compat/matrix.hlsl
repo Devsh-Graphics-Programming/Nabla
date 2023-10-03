@@ -1,5 +1,5 @@
-#ifndef _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_MATRIX_INCLUDED_
+#define _NBL_BUILTIN_HLSL_CPP_COMPAT_MATRIX_INCLUDED_
 
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>

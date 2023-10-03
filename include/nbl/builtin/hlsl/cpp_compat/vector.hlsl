@@ -1,14 +1,16 @@
+#ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_VECTOR_INCLUDED_
+#define _NBL_BUILTIN_HLSL_CPP_COMPAT_VECTOR_INCLUDED_
 
-#ifndef _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
-#define _NBL_BUILTIN_HLSL_VECTOR_INCLUDED_
+
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
 
 
 #ifndef __HLSL_VERSION 
 
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#include "glm/detail/_swizzle.hpp"
+
+#include <glm/detail/_swizzle.hpp>
 #include <stdint.h>
+
 
 namespace nbl::hlsl
 {
