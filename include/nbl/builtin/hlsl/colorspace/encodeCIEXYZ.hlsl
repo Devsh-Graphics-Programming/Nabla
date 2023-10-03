@@ -7,7 +7,7 @@
 #ifndef _NBL_BUILTIN_HLSL_COLOR_SPACE_ENCODE_CIE_XYZ_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COLOR_SPACE_ENCODE_CIE_XYZ_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {

@@ -7,7 +7,7 @@
 #define _NBL_BUILTIN_HLSL_COLOR_SPACE_OETF_INCLUDED_
 
 //#include <nbl/builtin/hlsl/common.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
