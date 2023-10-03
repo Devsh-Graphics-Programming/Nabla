@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_MATH_INTEGRAL_GAUSS_LEGENDRE_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_INTEGRAL_GAUSS_LEGENDRE_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 
 // TODO FIX:
 // #include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
