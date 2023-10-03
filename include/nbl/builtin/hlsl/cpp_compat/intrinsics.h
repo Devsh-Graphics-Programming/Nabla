@@ -9,21 +9,25 @@
 #ifndef __HLSL_VERSION
 namespace nbl::hlsl
 {
+#define NBL_SIMPLE_GLM_PASSTHROUGH(HLSL_ID,GLSL_ID,...) template<typename... Args>\
+inline auto HLSL_ID(Args&&... args) \
+{ \
+    return glm::GLSL_ID(std::forward<Args>(args)...);\
+}
 
+
+NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 
 template<typename T>
-inline T cross(const vector<T,3>& lhs, const vector<T,3>& rhs)
-{
-    return glm::cross(lhs,rhs);
-}
+inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 
-template<typename T, typename U>
-inline T lerp(const T& lhs, const T& rhs, const U& t)
-{
-    return glm::mix(lhs,rhs,t);
-}
+// inverse not listed cause it needs friendship
 
+NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 
+// transpose not listed cause it needs friendship
+
+#undef NBL_SIMPLE_GLM_PASSTHROUGH
 }
 #endif
 

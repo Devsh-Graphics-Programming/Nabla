@@ -32,21 +32,29 @@ struct matrix final : private glm::mat<N,M,T>
 
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
+
+    inline friend matrix inverse(matrix const& m)
+    {
+        return matrix(glm::inverse(reinterpret_cast<Base const&>(m)));
+    }
     
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
     {
         return matrix<T, N, K>(glm::operator*(reinterpret_cast<Base const&>(rhs), reinterpret_cast<matrix<T, M, K>::Base const&>(lhs)));
     }
-    
     inline friend vector<T, N> mul(matrix const& lhs, vector<T, M> const& rhs)
     {
         return glm::operator* (rhs, reinterpret_cast<Base const&>(lhs));
     }
-
     inline friend vector<T, M> mul(vector<T, N> const& lhs, matrix const& rhs)
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
+    }
+
+    inline friend matrix transpose(matrix const& m)
+    {
+        return glm::transpose(reinterpret_cast<Base const&>(m));
     }
 };
 
