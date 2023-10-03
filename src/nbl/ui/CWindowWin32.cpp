@@ -24,7 +24,6 @@ CWindowWin32::CWindowWin32(SCreationParams&& params, core::smart_refctd_ptr<CWin
 		m_width = rect.right - rect.left;
 		m_height = rect.bottom - rect.top;
 	}
-	
 
 	//addAlreadyConnectedInputDevices
 	{
