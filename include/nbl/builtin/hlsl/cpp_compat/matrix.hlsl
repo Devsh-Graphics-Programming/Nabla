@@ -1,19 +1,14 @@
 #ifndef _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATRIX_INCLUDED_
 
-#ifndef __HLSL_VERSION 
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#include "glm/detail/_swizzle.hpp"
-#include <stdint.h>
-#endif
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
+
+#ifndef __HLSL_VERSION
 namespace nbl::hlsl
 {
 
-#ifndef __HLSL_VERSION 
 template<typename T, uint16_t N, uint16_t M>
 struct matrix final : private glm::mat<N,M,T>
 {
@@ -55,6 +50,7 @@ struct matrix final : private glm::mat<N,M,T>
     }
 };
 
+
 using bool4x4 = matrix<bool, 4, 4>;
 using bool4x3 = matrix<bool, 4, 3>;
 using bool4x2 = matrix<bool, 4, 2>;
@@ -85,9 +81,8 @@ using uint32_t2x4 = matrix<uint32_t, 2, 4>;
 using uint32_t2x3 = matrix<uint32_t, 2, 3>;
 using uint32_t2x2 = matrix<uint32_t, 2, 2>;
 
-// TODO: halfMxN
+// TODO: halfMxN with std::float16_t
 
-using float32_t = float;
 using float32_t4x4 = matrix<float, 4, 4>;
 using float32_t4x3 = matrix<float, 4, 3>;
 using float32_t4x2 = matrix<float, 4, 2>;
@@ -98,7 +93,6 @@ using float32_t2x4 = matrix<float, 2, 4>;
 using float32_t2x3 = matrix<float, 2, 3>;
 using float32_t2x2 = matrix<float, 2, 2>;
 
-using float64_t = double;
 using float64_t4x4 = matrix<float64_t, 4, 4>;
 using float64_t4x3 = matrix<float64_t, 4, 3>;
 using float64_t4x2 = matrix<float64_t, 4, 2>;
@@ -108,8 +102,8 @@ using float64_t3x2 = matrix<float64_t, 3, 2>;
 using float64_t2x4 = matrix<float64_t, 2, 4>;
 using float64_t2x3 = matrix<float64_t, 2, 3>;
 using float64_t2x2 = matrix<float64_t, 2, 2>;
-#endif
 
 }
+#endif
 
 #endif
