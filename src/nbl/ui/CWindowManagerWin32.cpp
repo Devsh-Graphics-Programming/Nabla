@@ -214,6 +214,13 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		RegisterRawInputDevices(inputDevices, INPUT_DEVICES_COUNT, sizeof(RAWINPUTDEVICE));
 	}
 
+	RECT rect = {};
+	if (GetClientRect(nativeWindow, &rect))
+	{
+		int width = rect.right - rect.left;
+		int height = rect.bottom - rect.top;
+	}
+
 	retval->construct(nativeWindow);
 }
 void CWindowManagerWin32::SRequestParams_ChangeCursorVisibility::operator()(core::StorageTrivializer<retval_t>* retval)
