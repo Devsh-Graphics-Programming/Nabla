@@ -59,5 +59,4 @@ struct add_pointer
 
 #endif
 
-
 #endif

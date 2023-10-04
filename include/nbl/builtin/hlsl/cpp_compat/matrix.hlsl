@@ -1,7 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_MATRIX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_MATRIX_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
 
@@ -33,7 +32,7 @@ struct matrix final : private glm::mat<N,M,T>
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
 
-    inline friend matrix inverse(matrix const& m)
+    inline friend matrix inverse(matrix const& m) 
     {
         return matrix(glm::inverse(reinterpret_cast<Base const&>(m)));
     }
