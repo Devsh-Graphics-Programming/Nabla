@@ -33,7 +33,7 @@
   // composite type categories
   template<class T> struct is_reference; (TODO)
   template<class T> struct is_arithmetic; (DONE)
-  template<class T> struct is_fundamental; (TODO)
+  template<class T> struct is_fundamental; (DONE)
   template<class T> struct is_object; (NOT-APPLICABLE)
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
@@ -54,7 +54,7 @@
   template<class T> struct is_signed; (DONE)
   template<class T> struct is_unsigned; (DONE)
   template<class T> struct is_bounded_array;
-  template<class T> struct is_unbounded_array;
+  template<class T> struct is_unbounded_array(DONE);
   template<class T> struct is_scoped_enum; (NOT-APPLICABLE)
 
   // type property queries
@@ -66,7 +66,7 @@
   template<class T, class U> struct is_same; (DONE)
   template<class Base, class Derived> struct is_base_of; (TODO)
   template<class From, class To> struct is_convertible; (TODO)
-  template<class From, class To> struct is_nothrow_convertible; (NOT-APPLICABLE)
+  template<class From, class To> struct is_nothrow_convertible; (TODO: ALIAS OF is_convertible)
   template<class T, class U> struct is_layout_compatible; (TODO)
   template<class Base, class Derived> struct is_pointer_interconvertible_base_of; (NOT-APPLICABLE)
  
@@ -191,6 +191,12 @@ struct is_array : bool_constant<false> {};
 template<class T, uint32_t count>
 struct is_array<T[count]> : bool_constant<true>{};
 
+template<class T>
+struct is_unbounded_array : bool_constant<false>{};
+
+template<class T>
+struct is_unbounded_array<T[]> : bool_constant<true>{};
+
 namespace impl
 {
 
@@ -307,6 +313,8 @@ struct encoder
     uint32_t arr[N];
 };
 
+template<class T>
+encoder<typeid_t<T>::value> encode_typeid(T);
 }
 
 
@@ -405,16 +413,17 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 #ifdef __HLSL_VERSION
 
 
+#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
+#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+
 // DXC doesn't support linking SPIR-V so this will always work I guess?
 // split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) namespace nbl { namespace  hlsl { namespace type_traits {  \
-    template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}
+#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
 
 #define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-namespace nbl { namespace  hlsl { namespace type_traits {  namespace impl { \
-encoder<typeid_t<T>::value> encode_typeid(T); \
-template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> \
-{ using type = T; }; }}}}
+NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
+template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
+} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
 
 #define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
 #define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
