@@ -6,14 +6,8 @@
 #ifndef _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 #define _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 
-//#include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
-
-// TODO[Przemek]: include functions.hlsl instead
-uint32_t rotl(NBL_CONST_REF_ARG(uint32_t) x, NBL_CONST_REF_ARG(uint32_t) k)
-{
-   return (x<<k) | (x>>(32u-k));
-}
+#include <nbl/builtin/hlsl/bit.hlsl>
 
 namespace nbl
 {
