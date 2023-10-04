@@ -291,12 +291,12 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
-namespace impl
-{
-
 // need this crutch because we can't make `#define typeid` work both on expression and types
 template<typename T>
 struct typeid_t;
+
+namespace impl
+{
 
 template<uint32_t encoded_typeid>
 struct decltype_t;
@@ -407,8 +407,8 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 // DXC doesn't support linking SPIR-V so this will always work I guess?
 // split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) namespace nbl { namespace  hlsl { namespace type_traits { namespace impl { \
-    template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}}
+#define NBL_REGISTER_TYPEID(T) namespace nbl { namespace  hlsl { namespace type_traits {  \
+    template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}
 
 #define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
 namespace nbl { namespace  hlsl { namespace type_traits {  namespace impl { \
