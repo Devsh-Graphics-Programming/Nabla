@@ -127,6 +127,7 @@
 #ifndef __HLSL_VERSION
 #include <type_traits>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #endif
 
 namespace nbl
@@ -290,127 +291,24 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
+namespace impl
+{
 
 // need this crutch because we can't make `#define typeid` work both on expression and types
 template<typename T>
 struct typeid_t;
 
-namespace impl
-{
+template<uint32_t encoded_typeid>
+struct decltype_t;
+
 template<uint32_t N>
 struct encoder
 {
     uint32_t arr[N];
 };
-template<uint32_t encoded_typeid>
-struct decltype_t;
+
 }
 
-
-// DXC doesn't support linking SPIR-V so this will always work I guess?
-// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}
-
-#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-namespace impl \
-{ \
-encoder<typeid_t<T>::value> encode_typeid(T); \
-template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> \
-{ \
-  using type = T; \
-}; \
-} 
-
-#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
-#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
-
-// builtins
-NBL_REGISTER_OBJ_TYPE(bool)
-NBL_REGISTER_OBJ_TYPE(int16_t)
-NBL_REGISTER_OBJ_TYPE(int32_t)
-NBL_REGISTER_OBJ_TYPE(int64_t)
-NBL_REGISTER_OBJ_TYPE(uint16_t)
-NBL_REGISTER_OBJ_TYPE(uint32_t)
-NBL_REGISTER_OBJ_TYPE(uint64_t)
-
-NBL_REGISTER_OBJ_TYPE(bool_t4)
-NBL_REGISTER_OBJ_TYPE(bool_t3)
-NBL_REGISTER_OBJ_TYPE(bool_t2)
-NBL_REGISTER_OBJ_TYPE(bool_t1)
-
-NBL_REGISTER_OBJ_TYPE(int32_t4)
-NBL_REGISTER_OBJ_TYPE(int32_t3)
-NBL_REGISTER_OBJ_TYPE(int32_t2)
-NBL_REGISTER_OBJ_TYPE(int32_t1)
-
-NBL_REGISTER_OBJ_TYPE(uint32_t4)
-NBL_REGISTER_OBJ_TYPE(uint32_t3)
-NBL_REGISTER_OBJ_TYPE(uint32_t2)
-NBL_REGISTER_OBJ_TYPE(uint32_t1)
-
-NBL_REGISTER_OBJ_TYPE(float32_t)
-NBL_REGISTER_OBJ_TYPE(float32_t4)
-NBL_REGISTER_OBJ_TYPE(float32_t3)
-NBL_REGISTER_OBJ_TYPE(float32_t2)
-NBL_REGISTER_OBJ_TYPE(float32_t1)
-
-NBL_REGISTER_OBJ_TYPE(float64_t)
-NBL_REGISTER_OBJ_TYPE(float64_t4)
-NBL_REGISTER_OBJ_TYPE(float64_t3)
-NBL_REGISTER_OBJ_TYPE(float64_t2)
-NBL_REGISTER_OBJ_TYPE(float64_t1)
-
-NBL_REGISTER_OBJ_TYPE(bool4x4)
-NBL_REGISTER_OBJ_TYPE(bool4x3)
-NBL_REGISTER_OBJ_TYPE(bool4x2)
-NBL_REGISTER_OBJ_TYPE(bool3x4)
-NBL_REGISTER_OBJ_TYPE(bool3x3)
-NBL_REGISTER_OBJ_TYPE(bool3x2)
-NBL_REGISTER_OBJ_TYPE(bool2x4)
-NBL_REGISTER_OBJ_TYPE(bool2x3)
-NBL_REGISTER_OBJ_TYPE(bool2x2)
-
-NBL_REGISTER_OBJ_TYPE(int32_t4x4)
-NBL_REGISTER_OBJ_TYPE(int32_t4x3)
-NBL_REGISTER_OBJ_TYPE(int32_t4x2)
-NBL_REGISTER_OBJ_TYPE(int32_t3x4)
-NBL_REGISTER_OBJ_TYPE(int32_t3x3)
-NBL_REGISTER_OBJ_TYPE(int32_t3x2)
-NBL_REGISTER_OBJ_TYPE(int32_t2x4)
-NBL_REGISTER_OBJ_TYPE(int32_t2x3)
-NBL_REGISTER_OBJ_TYPE(int32_t2x2)
-
-NBL_REGISTER_OBJ_TYPE(uint32_t4x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t4x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t4x2)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x2)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x2)
-
-// TODO: halfMxN with std::float16_t
-
-NBL_REGISTER_OBJ_TYPE(float32_t4x4)
-NBL_REGISTER_OBJ_TYPE(float32_t4x3)
-NBL_REGISTER_OBJ_TYPE(float32_t4x2)
-NBL_REGISTER_OBJ_TYPE(float32_t3x4)
-NBL_REGISTER_OBJ_TYPE(float32_t3x3)
-NBL_REGISTER_OBJ_TYPE(float32_t3x2)
-NBL_REGISTER_OBJ_TYPE(float32_t2x4)
-NBL_REGISTER_OBJ_TYPE(float32_t2x3)
-NBL_REGISTER_OBJ_TYPE(float32_t2x2)
-
-NBL_REGISTER_OBJ_TYPE(float64_t4x4)
-NBL_REGISTER_OBJ_TYPE(float64_t4x3)
-NBL_REGISTER_OBJ_TYPE(float64_t4x2)
-NBL_REGISTER_OBJ_TYPE(float64_t3x4)
-NBL_REGISTER_OBJ_TYPE(float64_t3x3)
-NBL_REGISTER_OBJ_TYPE(float64_t3x2)
-NBL_REGISTER_OBJ_TYPE(float64_t2x4)
-NBL_REGISTER_OBJ_TYPE(float64_t2x3)
-NBL_REGISTER_OBJ_TYPE(float64_t2x2)
 
 #else // C++
 
@@ -502,4 +400,112 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 }
 }
 }
+
+
+#ifdef __HLSL_VERSION
+
+
+// DXC doesn't support linking SPIR-V so this will always work I guess?
+// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
+#define NBL_REGISTER_TYPEID(T) namespace nbl { namespace  hlsl { namespace type_traits { namespace impl { \
+    template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}}
+
+#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
+namespace nbl { namespace  hlsl { namespace type_traits {  namespace impl { \
+encoder<typeid_t<T>::value> encode_typeid(T); \
+template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> \
+{ using type = T; }; }}}}
+
+#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
+#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+
+// builtins
+NBL_REGISTER_OBJ_TYPE(int16_t)
+NBL_REGISTER_OBJ_TYPE(int64_t)
+
+NBL_REGISTER_OBJ_TYPE(uint16_t)
+NBL_REGISTER_OBJ_TYPE(uint64_t)
+
+NBL_REGISTER_OBJ_TYPE(bool)
+NBL_REGISTER_OBJ_TYPE(bool4)
+NBL_REGISTER_OBJ_TYPE(bool3)
+NBL_REGISTER_OBJ_TYPE(bool2)
+NBL_REGISTER_OBJ_TYPE(bool1)
+
+NBL_REGISTER_OBJ_TYPE(int32_t)
+NBL_REGISTER_OBJ_TYPE(int32_t4)
+NBL_REGISTER_OBJ_TYPE(int32_t3)
+NBL_REGISTER_OBJ_TYPE(int32_t2)
+NBL_REGISTER_OBJ_TYPE(int32_t1)
+
+NBL_REGISTER_OBJ_TYPE(uint32_t)
+NBL_REGISTER_OBJ_TYPE(uint32_t4)
+NBL_REGISTER_OBJ_TYPE(uint32_t3)
+NBL_REGISTER_OBJ_TYPE(uint32_t2)
+NBL_REGISTER_OBJ_TYPE(uint32_t1)
+
+NBL_REGISTER_OBJ_TYPE(float32_t)
+NBL_REGISTER_OBJ_TYPE(float32_t4)
+NBL_REGISTER_OBJ_TYPE(float32_t3)
+NBL_REGISTER_OBJ_TYPE(float32_t2)
+NBL_REGISTER_OBJ_TYPE(float32_t1)
+
+NBL_REGISTER_OBJ_TYPE(float64_t)
+NBL_REGISTER_OBJ_TYPE(float64_t4)
+NBL_REGISTER_OBJ_TYPE(float64_t3)
+NBL_REGISTER_OBJ_TYPE(float64_t2)
+NBL_REGISTER_OBJ_TYPE(float64_t1)
+
+NBL_REGISTER_OBJ_TYPE(bool4x4)
+NBL_REGISTER_OBJ_TYPE(bool4x3)
+NBL_REGISTER_OBJ_TYPE(bool4x2)
+NBL_REGISTER_OBJ_TYPE(bool3x4)
+NBL_REGISTER_OBJ_TYPE(bool3x3)
+NBL_REGISTER_OBJ_TYPE(bool3x2)
+NBL_REGISTER_OBJ_TYPE(bool2x4)
+NBL_REGISTER_OBJ_TYPE(bool2x3)
+NBL_REGISTER_OBJ_TYPE(bool2x2)
+
+NBL_REGISTER_OBJ_TYPE(int32_t4x4)
+NBL_REGISTER_OBJ_TYPE(int32_t4x3)
+NBL_REGISTER_OBJ_TYPE(int32_t4x2)
+NBL_REGISTER_OBJ_TYPE(int32_t3x4)
+NBL_REGISTER_OBJ_TYPE(int32_t3x3)
+NBL_REGISTER_OBJ_TYPE(int32_t3x2)
+NBL_REGISTER_OBJ_TYPE(int32_t2x4)
+NBL_REGISTER_OBJ_TYPE(int32_t2x3)
+NBL_REGISTER_OBJ_TYPE(int32_t2x2)
+
+NBL_REGISTER_OBJ_TYPE(uint32_t4x4)
+NBL_REGISTER_OBJ_TYPE(uint32_t4x3)
+NBL_REGISTER_OBJ_TYPE(uint32_t4x2)
+NBL_REGISTER_OBJ_TYPE(uint32_t3x4)
+NBL_REGISTER_OBJ_TYPE(uint32_t3x3)
+NBL_REGISTER_OBJ_TYPE(uint32_t3x2)
+NBL_REGISTER_OBJ_TYPE(uint32_t2x4)
+NBL_REGISTER_OBJ_TYPE(uint32_t2x3)
+NBL_REGISTER_OBJ_TYPE(uint32_t2x2)
+
+// TODO: halfMxN with std::float16_t
+
+NBL_REGISTER_OBJ_TYPE(float32_t4x4)
+NBL_REGISTER_OBJ_TYPE(float32_t4x3)
+NBL_REGISTER_OBJ_TYPE(float32_t4x2)
+NBL_REGISTER_OBJ_TYPE(float32_t3x4)
+NBL_REGISTER_OBJ_TYPE(float32_t3x3)
+NBL_REGISTER_OBJ_TYPE(float32_t3x2)
+NBL_REGISTER_OBJ_TYPE(float32_t2x4)
+NBL_REGISTER_OBJ_TYPE(float32_t2x3)
+NBL_REGISTER_OBJ_TYPE(float32_t2x2)
+
+NBL_REGISTER_OBJ_TYPE(float64_t4x4)
+NBL_REGISTER_OBJ_TYPE(float64_t4x3)
+NBL_REGISTER_OBJ_TYPE(float64_t4x2)
+NBL_REGISTER_OBJ_TYPE(float64_t3x4)
+NBL_REGISTER_OBJ_TYPE(float64_t3x3)
+NBL_REGISTER_OBJ_TYPE(float64_t3x2)
+NBL_REGISTER_OBJ_TYPE(float64_t2x4)
+NBL_REGISTER_OBJ_TYPE(float64_t2x3)
+NBL_REGISTER_OBJ_TYPE(float64_t2x2)
+#endif
 #endif
