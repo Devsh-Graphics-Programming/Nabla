@@ -20,55 +20,54 @@ namespace nbl
 namespace hlsl
 {
 
-typedef uint2 xoroshiro64star_state_t;
-typedef uint2 xoroshiro64starstar_state_t;
-
-namespace impl
+struct Xoroshiro64StateHolder
 {
-	uint2 xoroshiro64_state_advance(uint2 state)
+	void xoroshiro64_state_advance()
 	{
 		state[1] ^= state[0];
 		state[0] = rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
 		state[1] = rotl(state[1], 13u); // c
-		
-		return state;
 	}
-}
+	
+	uint32_t2 state;
+};
 
 struct Xoroshiro64Star
 {
-	static Xoroshiro64Star construct(xoroshiro64star_state_t initialState)
+	static Xoroshiro64Star construct(uint32_t2 initialState)
 	{
-		return Xoroshiro64Star(initialState);
+		Xoroshiro64StateHolder stateHolder(initialState);
+		return Xoroshiro64Star(stateHolder);
 	}
 	
 	uint32_t operator()()
 	{
-		const uint32_t result = state[0]*0x9E3779BBu;
-		state = impl::xoroshiro64_state_advance(state);
+		const uint32_t result = stateHolder.state[0]*0x9E3779BBu;
+		stateHolder.xoroshiro64_state_advance();
 
 		return result;
 	}
-
-	xoroshiro64star_state_t state;
+	
+	Xoroshiro64StateHolder stateHolder;
 };
 
 struct Xoroshiro64StarStar
 {
-	static Xoroshiro64StarStar construct(xoroshiro64starstar_state_t initialState)
+	static Xoroshiro64StarStar construct(uint32_t2 initialState)
 	{
-		return Xoroshiro64StarStar(initialState);
+	Xoroshiro64StateHolder stateHolder(initialState);
+		return Xoroshiro64StarStar(stateHolder);
 	}
 	
 	uint32_t operator()()
 	{
-		const uint32_t result = rotl(state[0]*0x9E3779BBu,5u)*5u;
-	    state = impl::xoroshiro64_state_advance(state);
+		const uint32_t result = rotl(stateHolder.state[0]*0x9E3779BBu,5u)*5u;
+	    stateHolder.xoroshiro64_state_advance();
 	
 		return result;
 	}
 
-	xoroshiro64starstar_state_t state;
+	Xoroshiro64StateHolder stateHolder;
 };
 
 }
