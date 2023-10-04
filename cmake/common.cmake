@@ -536,8 +536,6 @@ function(nbl_project_handle_json_config)
 	get_filename_component(NBL_PROFILES_JSON_DIR_ABS_ "${NBL_PROFILES_JSON_DIR}" ABSOLUTE)
 	set(NBL_TARGET_TESTS_DIR "${NBL_TEMPLATE_JSON_DIR}/.test")
 	get_filename_component(NBL_TARGET_TESTS_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
-	
-	set(NBL_PFT_SOURCE_GROUP_NAME "Python Framework Tests")
 
 	set(NBL_EXECUTABLE_GEN_EXP_FILEPATH "$<PATH:RELATIVE_PATH,$<TARGET_FILE:${EXECUTABLE_NAME}>,${NBL_PROFILES_JSON_DIR}>") # use this in your json config file when referencing filepath of the example's executable
 
@@ -657,7 +655,7 @@ function(nbl_project_handle_json_config)
 		set(_NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
 		target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_CONFIG_FILEPATH_}")
-		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/JSON" FILES "${_NBL_JSON_CONFIG_FILEPATH_}")
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON" FILES "${_NBL_JSON_CONFIG_FILEPATH_}")
 
 		# ".enableParallelBuild" boolean
 		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
@@ -716,13 +714,13 @@ function(nbl_project_handle_json_config)
 		configure_file("${NBL_PYTHON_FRAMEWORK_IMPORT_SCRIPT_ABS}" "${NBL_PYTHON_FRAMEWORK_IMPORT_SCRIPT_GEN_ABS}" @ONLY)
 		
 		target_sources(${EXECUTABLE_NAME} PUBLIC "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
-		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/Python" FILES "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target" FILES "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
 		
 		target_sources(${EXECUTABLE_NAME} PUBLIC
 			"${_NBL_JSON_SCRIPTPATH_ABS_}"
 			"${NBL_PYTHON_FRAMEWORK_IMPORT_SCRIPT_GEN_ABS}"
 		)
-		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/Python/Interface" FILES 
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/Interface" FILES 
 			"${_NBL_JSON_SCRIPTPATH_ABS_}"
 			"${NBL_PYTHON_FRAMEWORK_IMPORT_SCRIPT_GEN_ABS}"
 		)
@@ -828,7 +826,7 @@ function(nbl_project_handle_json_config)
 				file(GENERATE OUTPUT "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}" CONTENT "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_CONFIGURED_}" CONDITION $<CONFIG:${_NBL_JSON_RUNCONFIGURATION_CONTENT_}>)
 				
 				target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
-				source_group("${NBL_PFT_SOURCE_GROUP_NAME}/JSON/Auto-Gen Profiles" FILES "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
+				source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON/Auto-Gen Profiles" FILES "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
 				
 				file(RELATIVE_PATH _NBL_JSON_PROFILE_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
 				cmake_path(GET _NBL_JSON_PROFILE_REL_INSTALL_DEST_ PARENT_PATH _NBL_JSON_PROFILE_REL_INSTALL_DEST_)
@@ -836,6 +834,8 @@ function(nbl_project_handle_json_config)
 				nbl_install_media_spec("${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}" "${_NBL_JSON_PROFILE_REL_INSTALL_DEST_}")
 			endforeach()
 		endif()
+		
+		NBL_TARGET_ATTACH_PYTHON_FRAMEWORK("${EXECUTABLE_NAME}")
 	endif()
 endfunction()
 
