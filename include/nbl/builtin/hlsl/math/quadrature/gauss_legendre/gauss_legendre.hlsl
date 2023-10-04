@@ -34,6 +34,12 @@ namespace quadrature
             }
         };
 
+// TODO: use type traits
+#define NBL_EVAL(...) __VA_ARGS__
+#define NBL_CONCAT_IMPL2(X,Y) X ## Y
+#define NBL_CONCAT_IMPL(X,Y) NBL_CONCAT_IMPL2(X,Y)
+#define NBL_CONCATENATE(X,Y) NBL_CONCAT_IMPL(NBL_EVAL(X) , NBL_EVAL(Y))
+
 #define float_t float32_t
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 
@@ -42,31 +48,8 @@ namespace quadrature
 #define float_t float64_t
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #endif
+
 #undef float_t
-
-
-#define DEF_GAUSS_LEGENDRE_VALS(N)                                                                              \
-template <typename float_t>                                                                                     \
-struct GaussLegendreValues<N, float_t>                                                                          \
-{                                                                                                               \
-    static float_t xi(uint32_t idx) { return nbl::hlsl::math::quadrature::impl::xi_##N[idx]; }                  \
-    static float_t wi(uint32_t idx) { return nbl::hlsl::math::quadrature::impl::wi_##N[idx]; }                  \
-}
-
-        DEF_GAUSS_LEGENDRE_VALS(2);
-        DEF_GAUSS_LEGENDRE_VALS(3);
-        DEF_GAUSS_LEGENDRE_VALS(4);
-        DEF_GAUSS_LEGENDRE_VALS(5);
-        DEF_GAUSS_LEGENDRE_VALS(6);
-        DEF_GAUSS_LEGENDRE_VALS(7);
-        DEF_GAUSS_LEGENDRE_VALS(8);
-        DEF_GAUSS_LEGENDRE_VALS(9);
-        DEF_GAUSS_LEGENDRE_VALS(10);
-        DEF_GAUSS_LEGENDRE_VALS(11);
-        DEF_GAUSS_LEGENDRE_VALS(12);
-        DEF_GAUSS_LEGENDRE_VALS(13);
-        DEF_GAUSS_LEGENDRE_VALS(14);
-        DEF_GAUSS_LEGENDRE_VALS(15);
 } // quadrature
 } // math
 } // hlsl
