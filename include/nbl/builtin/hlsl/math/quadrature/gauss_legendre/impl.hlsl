@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
-#define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_IMPL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_IMPL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
@@ -15,50 +15,32 @@ namespace math
 {
 namespace quadrature
 {
-        template<int Order, typename float_t>
-        struct GaussLegendreValues 
-        {};
-
-        template<int Order, typename float_t, class IntegrandFunc>
-        struct GaussLegendreIntegration
-        {
-            static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
-            {
-                float_t integral = 0.0;
-                for (uint32_t i = 0u; i < Order; ++i)
-                {
-                    float_t xi = GaussLegendreValues<Order, float_t>::xi(i)* ((end - start) / 2.0) + ((end + start) / 2.0);
-                    integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
-                }
-                return ((end - start) / 2.0) * integral;
-            }
-        };
-
-        namespace impl
-        {
-        NBL_CONSTEXPR double xi_2[2] = {
+#define float_t float32_t
+namespace impl
+{
+        NBL_CONSTEXPR float_t xi_2[2] = {
             -0.5773502691896257,
             0.5773502691896257 };
 
-        NBL_CONSTEXPR double xi_3[3] = {
+        NBL_CONSTEXPR float_t xi_3[3] = {
              0,
             -0.7745966692414833,
             0.7745966692414833 };
 
-        NBL_CONSTEXPR double xi_4[4] = {
+        NBL_CONSTEXPR float_t xi_4[4] = {
             -0.3399810435848562,
             0.3399810435848562,
             -0.8611363115940525,
             0.8611363115940525 };
 
-        NBL_CONSTEXPR double xi_5[5] = {
+        NBL_CONSTEXPR float_t xi_5[5] = {
             0,
             -0.5384693101056830,
             0.5384693101056830,
             -0.9061798459386639,
             0.9061798459386639 };
 
-        NBL_CONSTEXPR double xi_6[6] = {
+        NBL_CONSTEXPR float_t xi_6[6] = {
             0.6612093864662645,
             -0.6612093864662645,
             -0.2386191860831969,
@@ -66,7 +48,7 @@ namespace quadrature
             -0.9324695142031520,
             0.9324695142031520 };
 
-        NBL_CONSTEXPR double xi_7[7] = {
+        NBL_CONSTEXPR float_t xi_7[7] = {
             0,
             0.4058451513773971,
             -0.4058451513773971,
@@ -75,7 +57,7 @@ namespace quadrature
             -0.9491079123427585,
             0.9491079123427585 };
 
-        NBL_CONSTEXPR double xi_8[8] = {
+        NBL_CONSTEXPR float_t xi_8[8] = {
             -0.1834346424956498,
             0.1834346424956498,
             -0.5255324099163289,
@@ -85,7 +67,7 @@ namespace quadrature
             -0.9602898564975362,
             0.9602898564975362 };
 
-        NBL_CONSTEXPR double xi_9[9] = {
+        NBL_CONSTEXPR float_t xi_9[9] = {
             0,
             -0.8360311073266357,
             0.8360311073266357,
@@ -96,7 +78,7 @@ namespace quadrature
             -0.6133714327005903,
             0.6133714327005903 };
 
-        NBL_CONSTEXPR double xi_10[10] = {
+        NBL_CONSTEXPR float_t xi_10[10] = {
             -0.1488743389816312,
             0.1488743389816312,
             -0.4333953941292471,
@@ -108,7 +90,7 @@ namespace quadrature
             -0.9739065285171717,
             0.9739065285171717 };
 
-        NBL_CONSTEXPR double xi_11[11] = {
+        NBL_CONSTEXPR float_t xi_11[11] = {
             0,
             -0.2695431559523449,
             0.2695431559523449,
@@ -121,7 +103,7 @@ namespace quadrature
             -0.9782286581460569,
             0.9782286581460569 };
 
-        NBL_CONSTEXPR double xi_12[12] = {
+        NBL_CONSTEXPR float_t xi_12[12] = {
             -0.1252334085114689,
             0.1252334085114689,
             -0.3678314989981801,
@@ -135,7 +117,7 @@ namespace quadrature
             -0.9815606342467192,
             0.9815606342467192 };
 
-        NBL_CONSTEXPR double xi_13[13] = {
+        NBL_CONSTEXPR float_t xi_13[13] = {
             0,
             -0.2304583159551347,
             0.2304583159551347,
@@ -150,7 +132,7 @@ namespace quadrature
             -0.9841830547185881,
             0.9841830547185881 };
 
-        NBL_CONSTEXPR double xi_14[14] = {
+        NBL_CONSTEXPR float_t xi_14[14] = {
             -0.1080549487073436,
             0.1080549487073436,
             -0.3191123689278897,
@@ -166,7 +148,7 @@ namespace quadrature
             -0.9862838086968123,
             0.9862838086968123 };
 
-        NBL_CONSTEXPR double xi_15[15] = {
+        NBL_CONSTEXPR float_t xi_15[15] = {
             0,
             -0.2011940939974345,
             0.2011940939974345,
@@ -183,29 +165,29 @@ namespace quadrature
             -0.9879925180204854,
             0.9879925180204854 };
 
-        NBL_CONSTEXPR double wi_2[2] = {
+        NBL_CONSTEXPR float_t wi_2[2] = {
             1.0000000000000000,
             1.0000000000000000 };
 
-        NBL_CONSTEXPR double wi_3[3] = {
+        NBL_CONSTEXPR float_t wi_3[3] = {
             0.8888888888888888,
             0.5555555555555555,
             0.5555555555555555 };
 
-        NBL_CONSTEXPR double wi_4[4] = {
+        NBL_CONSTEXPR float_t wi_4[4] = {
             0.6521451548625461,
             0.6521451548625461,
             0.3478548451374538,
             0.3478548451374538 };
 
-        NBL_CONSTEXPR double wi_5[5] = {
+        NBL_CONSTEXPR float_t wi_5[5] = {
             0.5688888888888888,
             0.4786286704993664,
             0.4786286704993664,
             0.2369268850561890,
             0.2369268850561890 };
 
-        NBL_CONSTEXPR double wi_6[6] = {
+        NBL_CONSTEXPR float_t wi_6[6] = {
             0.3607615730481386,
             0.3607615730481386,
             0.4679139345726910,
@@ -213,7 +195,7 @@ namespace quadrature
             0.1713244923791703,
             0.1713244923791703 };
 
-        NBL_CONSTEXPR double wi_7[7] = {
+        NBL_CONSTEXPR float_t wi_7[7] = {
             0.4179591836734693,
             0.3818300505051189,
             0.3818300505051189,
@@ -222,7 +204,7 @@ namespace quadrature
             0.1294849661688696,
             0.1294849661688696 };
 
-        NBL_CONSTEXPR double wi_8[8] = {
+        NBL_CONSTEXPR float_t wi_8[8] = {
             0.3626837833783619,
             0.3626837833783619,
             0.3137066458778872,
@@ -232,7 +214,7 @@ namespace quadrature
             0.1012285362903762,
             0.1012285362903762 };
 
-        NBL_CONSTEXPR double wi_9[9] = {
+        NBL_CONSTEXPR float_t wi_9[9] = {
             0.3302393550012597,
             0.1806481606948574,
             0.1806481606948574,
@@ -243,7 +225,7 @@ namespace quadrature
             0.2606106964029354,
             0.2606106964029354 };
 
-        NBL_CONSTEXPR double wi_10[10] = {
+        NBL_CONSTEXPR float_t wi_10[10] = {
             0.2955242247147528,
             0.2955242247147528,
             0.2692667193099963,
@@ -255,7 +237,7 @@ namespace quadrature
             0.0666713443086881,
             0.0666713443086881 };
 
-        NBL_CONSTEXPR double wi_11[11] = {
+        NBL_CONSTEXPR float_t wi_11[11] = {
             0.2729250867779006,
             0.2628045445102466,
             0.2628045445102466,
@@ -268,7 +250,7 @@ namespace quadrature
             0.0556685671161736,
             0.0556685671161736 };
 
-        NBL_CONSTEXPR double wi_12[12] = {
+        NBL_CONSTEXPR float_t wi_12[12] = {
             0.2491470458134027,
             0.2491470458134027,
             0.2334925365383548,
@@ -282,7 +264,7 @@ namespace quadrature
             0.0471753363865118,
             0.0471753363865118 };
 
-        NBL_CONSTEXPR double wi_13[13] = {
+        NBL_CONSTEXPR float_t wi_13[13] = {
             0.2325515532308739,
             0.2262831802628972,
             0.2262831802628972,
@@ -297,7 +279,7 @@ namespace quadrature
             0.0404840047653158,
             0.0404840047653158 };
 
-        NBL_CONSTEXPR double wi_14[14] = {
+        NBL_CONSTEXPR float_t wi_14[14] = {
             0.2152638534631577,
             0.2152638534631577,
             0.2051984637212956,
@@ -313,7 +295,7 @@ namespace quadrature
             0.0351194603317518,
             0.0351194603317518 };
 
-        NBL_CONSTEXPR double wi_15[15] = {
+        NBL_CONSTEXPR float_t wi_15[15] = {
             0.2025782419255612,
             0.1984314853271115,
             0.1984314853271115,
@@ -330,92 +312,8 @@ namespace quadrature
             0.0307532419961172,
             0.0307532419961172 };
 
-        }
-
-        template <typename float_t>
-        struct GaussLegendreValues<2, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_2[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_2[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<3, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_3[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_3[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<4, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_4[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_4[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<5, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_5[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_5[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<6, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_6[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_6[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<7, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_7[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_7[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<8, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_8[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_8[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<9, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_9[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_9[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<10, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_10[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_10[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<11, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_11[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_11[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<12, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_12[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_12[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<13, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_13[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_13[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<14, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_14[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_14[idx]; }
-        };
-        template <typename float_t>
-        struct GaussLegendreValues<15, float_t> 
-        {
-            static float_t xi(uint32_t idx) { return impl::xi_15[idx]; }
-            static float_t wi(uint32_t idx) { return impl::wi_15[idx]; }
-        };
+} // impl
+#undef float_t
 } // quadrature
 } // math
 } // hlsl
