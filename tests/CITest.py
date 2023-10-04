@@ -25,9 +25,11 @@ class CITest:
         return None
 
     # optional override
-    def _impl_append_summary(self, summary: dict):
+    def _impl_append_summary_pre(self, summary: dict):
         pass
 
+    def _impl_append_summary_post(self, summary: dict):
+        pass
 
     def _get_input_lines(self) :
         with open(self.input.absolute()) as file:
@@ -40,6 +42,7 @@ class CITest:
     def _cmp_files(self, fileA, fileB, cmpByteByByte = False, cmpSavedHash = False, cmpSavedHashLocation = "" ):
         if cmpByteByByte:
             return filecmp.cmp(fileA, fileB)
+    
         #compare git hashes
         executor1 = f'git hash-object {fileA}'
         executor2 = f'git hash-object {fileB}'
@@ -56,7 +59,6 @@ class CITest:
         elif self.print_warnings:
             print(f"[WARNING] files have different git commit hashes: '{fileA}', '{fileB}'")
         return res
-
 
     def __init__(self, 
                 test_name : str,
@@ -106,7 +108,8 @@ class CITest:
             "pass_status": 'pending',
             "identifier": self.test_name
         }
-        self._impl_append_summary(summary)
+        self._impl_append_summary_pre(summary)
+
         test_results = []
         failures = 0
         ci_pass_status = True
@@ -152,6 +155,8 @@ class CITest:
                     break
         summary["failure_count"] = failures 
         summary["pass_status"] = 'passed' if ci_pass_status else 'failed'  
+        self._impl_append_summary_post(summary)
+
         self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
         return ci_pass_status
 

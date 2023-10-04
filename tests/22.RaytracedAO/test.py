@@ -34,6 +34,7 @@ class RendersTest(CITest):
     # self.input 
     # self.print_warnings
     # self.nabla_repo_root_dir
+  
     
     # render tests need working directories to exist
     def _validate_filepaths(self):
@@ -53,6 +54,7 @@ class RendersTest(CITest):
                 print(f"[WARNING] References repository dir does not exist {self.references_repo_dir}")
             return False
 
+
     # constructor
     def __init__(self, 
                 test_name: str,
@@ -69,7 +71,7 @@ class RendersTest(CITest):
                 error_threshold_type = ErrorThresholdType.ABSOLUTE,
                 error_threshold_value = 0.05,
                 allowed_error_pixel_count = 100.0,
-                ssim_error_threshold_value = 0.01,
+                ssim_error_threshold_value = 0.001,
                 print_warnings = True
                 ):
         super().__init__(test_name, executable_filepath, input_filepath, nabla_repo_root_dir, print_warnings)
@@ -89,29 +91,43 @@ class RendersTest(CITest):
         self.cout_json_regex = re.compile(r"(?<=\[JSON\] )(.+[\n\r]*)+(?=[\n\r]*\[ENDJSON\])")
 
     def __get_lds_hash(self):
-        self._change_working_dir()
+        # self._change_working_dir()
         executor = f'git hash-object {NBL_REF_LDS_CACHE_FILENAME}'
         return subprocess.run(executor, capture_output=True).stdout.decode().strip()
-    
+
+
     def __get_ref_repo_hash(self):
         return get_git_revision_hash(self.references_repo_dir)
-        
-    def _impl_run_dummy_case(self):
-        reference_lds_cache_exists = bool(Path(str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME).exists())
+    
 
+    def __compare_saved_hash(self, file, savedHashPath):
+        executor = f'git hash-object {file}'
+        hash = subprocess.run(executor, capture_output=True).stdout.decode().strip()
+        with open(savedHashPath, "r") as f:
+            return hash == f.read().strip()
+
+
+    def _impl_run_dummy_case(self):
         generatedReferenceCache = NBL_REF_LDS_CACHE_FILENAME
         destinationReferenceCache = str(self.data_references_abs_dir) + '/' + NBL_REF_LDS_CACHE_FILENAME
+        destinationReferenceCacheHash = str(self.references_repo_dir) + '/LDSCacheHash.txt'
+        reference_lds_cache_exists = Path(destinationReferenceCache).exists()
         sceneDummyRender = '"../ci/dummy_4096spp_128depth.xml"'
         executor = str(self.executable.absolute()) + ' -SCENE=' + sceneDummyRender + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
         subprocess.run(executor, capture_output=True)
 
         if not reference_lds_cache_exists:
-            if self.print_warnings:
-                print(f"[WARNING] LDS cache does not exist")
-            shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
-            return True
-
-        elif not self._cmp_files(destinationReferenceCache, generatedReferenceCache):
+            if not Path(destinationReferenceCacheHash).exists():
+                if self.print_warnings:
+                    print(f"[WARNING] LDS cache does not exist in reference folder, theres no such file as " + destinationReferenceCacheHash)
+                #shutil.copyfile(generatedReferenceCache, destinationReferenceCache)
+                #self._cmp_files(destinationReferenceCache, generatedReferenceCache, False, True, destinationReferenceCacheHash)
+                return True
+            else:
+                if self.print_warnings:
+                    print(f"[INFO] Comparing hash of {generatedReferenceCache} with saved hash stored in {destinationReferenceCacheHash}")
+                return self.__compare_saved_hash(generatedReferenceCache, destinationReferenceCacheHash)
+        elif not self._cmp_files(destinationReferenceCache, generatedReferenceCache, False, True, destinationReferenceCacheHash):
                 if self.print_warnings:
                     print(f"[WARNING] LDS cache does not match with reference")
                 return False
@@ -121,7 +137,6 @@ class RendersTest(CITest):
         return True
 
 
-    
     def __find_json_in_console_output(self, console_output):
         match = self.cout_json_regex.search(console_output)
         if match:
@@ -222,7 +237,7 @@ class RendersTest(CITest):
         results_images = []
         result_status = True
         result_color = "green"
-        scene_name = None
+        scene_name = None 
         raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + executable_arg + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
         console_output = subprocess.run(raytracer_bash_command, capture_output=True).stdout.decode().strip()
         raytracer_generated_files = self.__find_json_in_console_output(console_output)
@@ -302,15 +317,18 @@ class RendersTest(CITest):
     
 
     # add additional information to the json
-    def _impl_append_summary(self, summary: dict):
-        summary["lds_cache_hash"] = self.__get_lds_hash()
+    def _impl_append_summary_pre(self, summary: dict):
+        summary["lds_cache_hash"] = ""
         summary["error_threshold_type"] =  "absolute" if self.error_threshold_type == ErrorThresholdType.ABSOLUTE else "relative"
         summary["error_threshold_value"] = str(self.error_threshold_value)
         summary["allowed_error_pixel_count"] = str(self.allowed_error_pixel_count)
         summary["ssim_error_threshold_value"] = str(self.ssim_error_threshold_value)
         summary["reference_repo_hash"] = self.__get_ref_repo_hash()
     
-    
+
+    def _impl_append_summary_post(self, summary: dict):
+        summary["lds_cache_hash"] = self.__get_lds_hash()
+
 
 
 def run_all_tests(args):
