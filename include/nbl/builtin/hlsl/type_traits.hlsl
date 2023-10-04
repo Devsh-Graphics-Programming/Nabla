@@ -53,7 +53,7 @@
  
   template<class T> struct is_signed; (DONE)
   template<class T> struct is_unsigned; (DONE)
-  template<class T> struct is_bounded_array;
+  template<class T> struct is_bounded_array(DONE);
   template<class T> struct is_unbounded_array(DONE);
   template<class T> struct is_scoped_enum; (NOT-APPLICABLE)
 
@@ -186,17 +186,21 @@ struct is_same<A,A> : bool_constant<true> {};
 template<class T>
 struct is_void : bool_constant<is_same<T, void>::value> {};
 
+
 template<class T>
-struct is_array : bool_constant<false> {};
+struct is_bounded_array : bool_constant<false> {};
 
 template<class T, uint32_t count>
-struct is_array<T[count]> : bool_constant<true>{};
+struct is_bounded_array<T[count]> : bool_constant<true>{};
 
 template<class T>
 struct is_unbounded_array : bool_constant<false>{};
 
 template<class T>
 struct is_unbounded_array<T[]> : bool_constant<true>{};
+
+template<class T>
+struct is_array : bool_constant<is_bounded_array<T>::value || is_unbounded_array<T>::value> {};
 
 namespace impl
 {
@@ -338,6 +342,12 @@ using is_void = std::is_void<T>;
 
 template<class T>
 using is_array = std::is_array<T>;
+
+template<class T>
+using is_bounded_array = std::is_bounded_array<T>;
+
+template<class T>
+using is_unbounded_array = std::is_unbounded_array<T>;
 
 template<class T>
 using is_scalar = std::is_scalar<T>;
