@@ -113,18 +113,4 @@ using float64_t2x2 = matrix<float64_t, 2, 2>;
 }
 #endif
 
-namespace nbl
-{
-namespace hlsl
-{
-
-//template<typename T, uint16_t N, uint16_t M>
-//struct scalar_type<matrix<T,N,M> >
-//{
-//    using type = T;
-//};
-
-}
-}
-
 #endif

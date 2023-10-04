@@ -9,6 +9,7 @@
 //#include <nbl/builtin/hlsl/common.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/type_traits.hlsl>
 
 namespace nbl
 {

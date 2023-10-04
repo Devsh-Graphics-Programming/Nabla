@@ -70,22 +70,4 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
 }
 #endif
 
-namespace nbl
-{
-namespace hlsl
-{
-template<typename V>
-struct scalar_type
-{
-    using type = void;
-};
-
-template<typename T, uint16_t N>
-struct scalar_type<vector<T,N> >
-{
-    using type = T;
-};
-}
-}
-
 #endif
