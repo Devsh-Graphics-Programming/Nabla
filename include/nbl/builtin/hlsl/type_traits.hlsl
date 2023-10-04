@@ -102,7 +102,7 @@
   template<class T> struct add_pointer; (TODO)
 
   // other transformations
-  template<class T> struct type_identity; (TODO)
+  template<class T> struct type_identity; (DONE)
   template<class T> struct remove_cvref; (TODO)
   template<class T> struct decay; (TODO)
   template<bool, class T = void> struct enable_if; (NOT-APPLICABLE)
@@ -302,6 +302,21 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
+template<class T>
+struct type_identity 
+{
+    using type = T;
+};
+
+template<bool B, class T = void>
+struct enable_if {};
+ 
+template<class T>
+struct enable_if<true, T> 
+{ 
+    using type = T; 
+};
+
 // need this crutch because we can't make `#define typeid` work both on expression and types
 template<typename T>
 struct typeid_t;
@@ -398,7 +413,13 @@ template<class T>
 using is_aggregate = std::is_aggregate<T>;
 
 template<typename T>
+using type_identity = std::type_identity<T>;
+
+template<typename T>
 struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
+
+template<bool B, class T = void>
+using enable_if = std::enable_if<B, T>;
 
 #endif
 
