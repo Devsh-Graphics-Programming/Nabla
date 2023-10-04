@@ -126,9 +126,10 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #endif
+
+#include <nbl/builtin/hlsl/macros.h>
 
 namespace nbl
 {
@@ -405,13 +406,30 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
+template<typename V>
+struct scalar_type
+{
+    using type = void;
+};
+
+template<typename T, uint16_t N>
+struct scalar_type<vector<T,N> >
+{
+    using type = T;
+};
+
+template<typename T, uint16_t N, uint16_t M>
+struct scalar_type<matrix<T,N,M> >
+{
+    using type = T;
+};
+
 }
 }
 }
 
 
 #ifdef __HLSL_VERSION
-
 
 #define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
 #define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
@@ -429,92 +447,34 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type
 #define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
 
 // builtins
-NBL_REGISTER_OBJ_TYPE(int16_t)
-NBL_REGISTER_OBJ_TYPE(int64_t)
 
-NBL_REGISTER_OBJ_TYPE(uint16_t)
-NBL_REGISTER_OBJ_TYPE(uint64_t)
+#define NBL_REGISTER_MATRICIES(T) \
+    NBL_REGISTER_OBJ_TYPE(T) \
+    NBL_REGISTER_OBJ_TYPE(T ## x4) \
+    NBL_REGISTER_OBJ_TYPE(T ## x3) \
+    NBL_REGISTER_OBJ_TYPE(T ## x2) \
 
-NBL_REGISTER_OBJ_TYPE(bool)
-NBL_REGISTER_OBJ_TYPE(bool4)
-NBL_REGISTER_OBJ_TYPE(bool3)
-NBL_REGISTER_OBJ_TYPE(bool2)
-NBL_REGISTER_OBJ_TYPE(bool1)
+#define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
+    NBL_REGISTER_OBJ_TYPE(T) \
+    NBL_REGISTER_OBJ_TYPE(T ## 1) \
+    NBL_REGISTER_MATRICIES(T ## 2) \
+    NBL_REGISTER_MATRICIES(T ## 3) \
+    NBL_REGISTER_MATRICIES(T ## 4)
 
-NBL_REGISTER_OBJ_TYPE(int32_t)
-NBL_REGISTER_OBJ_TYPE(int32_t4)
-NBL_REGISTER_OBJ_TYPE(int32_t3)
-NBL_REGISTER_OBJ_TYPE(int32_t2)
-NBL_REGISTER_OBJ_TYPE(int32_t1)
+NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(int64_t)
 
-NBL_REGISTER_OBJ_TYPE(uint32_t)
-NBL_REGISTER_OBJ_TYPE(uint32_t4)
-NBL_REGISTER_OBJ_TYPE(uint32_t3)
-NBL_REGISTER_OBJ_TYPE(uint32_t2)
-NBL_REGISTER_OBJ_TYPE(uint32_t1)
+NBL_REGISTER_TYPES_FOR_SCALAR(uint16_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(uint32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(uint64_t)
 
-NBL_REGISTER_OBJ_TYPE(float32_t)
-NBL_REGISTER_OBJ_TYPE(float32_t4)
-NBL_REGISTER_OBJ_TYPE(float32_t3)
-NBL_REGISTER_OBJ_TYPE(float32_t2)
-NBL_REGISTER_OBJ_TYPE(float32_t1)
-
-NBL_REGISTER_OBJ_TYPE(float64_t)
-NBL_REGISTER_OBJ_TYPE(float64_t4)
-NBL_REGISTER_OBJ_TYPE(float64_t3)
-NBL_REGISTER_OBJ_TYPE(float64_t2)
-NBL_REGISTER_OBJ_TYPE(float64_t1)
-
-NBL_REGISTER_OBJ_TYPE(bool4x4)
-NBL_REGISTER_OBJ_TYPE(bool4x3)
-NBL_REGISTER_OBJ_TYPE(bool4x2)
-NBL_REGISTER_OBJ_TYPE(bool3x4)
-NBL_REGISTER_OBJ_TYPE(bool3x3)
-NBL_REGISTER_OBJ_TYPE(bool3x2)
-NBL_REGISTER_OBJ_TYPE(bool2x4)
-NBL_REGISTER_OBJ_TYPE(bool2x3)
-NBL_REGISTER_OBJ_TYPE(bool2x2)
-
-NBL_REGISTER_OBJ_TYPE(int32_t4x4)
-NBL_REGISTER_OBJ_TYPE(int32_t4x3)
-NBL_REGISTER_OBJ_TYPE(int32_t4x2)
-NBL_REGISTER_OBJ_TYPE(int32_t3x4)
-NBL_REGISTER_OBJ_TYPE(int32_t3x3)
-NBL_REGISTER_OBJ_TYPE(int32_t3x2)
-NBL_REGISTER_OBJ_TYPE(int32_t2x4)
-NBL_REGISTER_OBJ_TYPE(int32_t2x3)
-NBL_REGISTER_OBJ_TYPE(int32_t2x2)
-
-NBL_REGISTER_OBJ_TYPE(uint32_t4x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t4x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t4x2)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t3x2)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x4)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x3)
-NBL_REGISTER_OBJ_TYPE(uint32_t2x2)
+NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 
 // TODO: halfMxN with std::float16_t
+NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
-NBL_REGISTER_OBJ_TYPE(float32_t4x4)
-NBL_REGISTER_OBJ_TYPE(float32_t4x3)
-NBL_REGISTER_OBJ_TYPE(float32_t4x2)
-NBL_REGISTER_OBJ_TYPE(float32_t3x4)
-NBL_REGISTER_OBJ_TYPE(float32_t3x3)
-NBL_REGISTER_OBJ_TYPE(float32_t3x2)
-NBL_REGISTER_OBJ_TYPE(float32_t2x4)
-NBL_REGISTER_OBJ_TYPE(float32_t2x3)
-NBL_REGISTER_OBJ_TYPE(float32_t2x2)
 
-NBL_REGISTER_OBJ_TYPE(float64_t4x4)
-NBL_REGISTER_OBJ_TYPE(float64_t4x3)
-NBL_REGISTER_OBJ_TYPE(float64_t4x2)
-NBL_REGISTER_OBJ_TYPE(float64_t3x4)
-NBL_REGISTER_OBJ_TYPE(float64_t3x3)
-NBL_REGISTER_OBJ_TYPE(float64_t3x2)
-NBL_REGISTER_OBJ_TYPE(float64_t2x4)
-NBL_REGISTER_OBJ_TYPE(float64_t2x3)
-NBL_REGISTER_OBJ_TYPE(float64_t2x2)
 #endif
 #endif

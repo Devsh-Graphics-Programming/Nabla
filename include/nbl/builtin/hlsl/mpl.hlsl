@@ -1,11 +1,12 @@
 // Copyright (C) 2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_META_MATH_INCLUDED_
-#define _NBL_BUILTIN_HLSL_META_MATH_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MPL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MPL_INCLUDED_
 
+#ifdef __HLSL_VERSION
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-
+#endif
 
 namespace nbl
 {
