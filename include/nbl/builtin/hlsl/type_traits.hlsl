@@ -325,9 +325,15 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> \
 #define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
 
 // builtins
+NBL_REGISTER_OBJ_TYPE(bool)
+NBL_REGISTER_OBJ_TYPE(int16_t)
 NBL_REGISTER_OBJ_TYPE(int32_t)
+NBL_REGISTER_OBJ_TYPE(int64_t)
+NBL_REGISTER_OBJ_TYPE(uint16_t)
 NBL_REGISTER_OBJ_TYPE(uint32_t)
+NBL_REGISTER_OBJ_TYPE(uint64_t)
 NBL_REGISTER_OBJ_TYPE(float32_t)
+NBL_REGISTER_OBJ_TYPE(float64_t)
 
 #else // C++
 

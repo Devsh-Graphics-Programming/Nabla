@@ -49,7 +49,7 @@ struct clz
 };
 
 template<uint64_t X>
-struct consteval_log2
+struct log2
 {
     static const uint16_t value = X ? (1ull<<6)-clz<X>::value-1 : -1ull;
 };
