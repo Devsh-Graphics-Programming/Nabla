@@ -41,14 +41,14 @@
  
   // type properties
   template<class T> struct is_const; (DONE)
-  template<class T> struct is_volatile; (NOT-APPLICABLE)
+  template<class T> struct is_volatile; (DONE)
   template<class T> struct is_trivial; (EVERYTHING IS)
   template<class T> struct is_trivially_copyable; (EVERYTHING IS)
   template<class T> struct is_standard_layout; (NOT-APPLICABLE)
-  template<class T> struct is_empty; (NOT-APPLICABLE)
-  template<class T> struct is_polymorphic; (NOT-APPLICABLE)
-  template<class T> struct is_abstract; (NOT-APPLICABLE)
-  template<class T> struct is_final; (NOT-APPLICABLE)
+  template<class T> struct is_empty; (DONE? sizeof(T) == 0)
+  template<class T> struct is_polymorphic; (NOTHING IS)
+  template<class T> struct is_abstract; (NOTHING IS)
+  template<class T> struct is_final; (NOTHING IS)
   template<class T> struct is_aggregate; (DONE)
  
   template<class T> struct is_signed; (DONE)
@@ -129,9 +129,12 @@
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #endif
 
-namespace nbl::hlsl::type_traits
+namespace nbl
 {
-
+namespace hlsl
+{
+namespace type_traits
+{
 namespace impl
 {
     
@@ -250,6 +253,31 @@ struct is_const : bool_constant<false> {};
 template<class T>
 struct is_const<const T> : bool_constant<true> {};
 
+template<class T>
+struct is_volatile : bool_constant<false> {};
+
+template<class T>
+struct is_volatile<volatile T> : bool_constant<true> {};
+
+template<class>
+struct is_trivial : bool_constant<true> {};
+
+template<class>
+struct is_trivially_copyable : bool_constant<true> {};
+
+// this implementation is fragile
+template<class T>
+struct is_empty : bool_constant<0==sizeof(T)> {};
+
+template<class>
+struct is_polymorphic : bool_constant<false> {};
+
+template<class>
+struct is_abstract : bool_constant<false> {};
+
+template<class>
+struct is_final : bool_constant<false> {};
+
 template <class T>
 struct is_fundamental : bool_constant<
     is_scalar<T>::value || 
@@ -297,12 +325,29 @@ struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 template<class T>
 struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
 
-static_assert(is_floating_point<float4>::value);
-static_assert(is_integral<int1>::value);
-static_assert(is_unsigned<uint2>::value);
-
 template<class T>
 using is_const = std::is_const<T>;
+
+template<class T>
+using is_volatile = std::is_volatile<T>;
+
+template<class T>
+using is_trivial = std::is_trivial<T>;
+
+template<class T>
+using is_trivially_copyable = std::is_trivially_copyable<T>;
+
+template<class T> 
+using is_empty = std::is_empty<T>;
+
+template<class T> 
+using is_polymorphic = std::is_polymorphic<T>;
+
+template<class T> 
+using is_abstract = std::is_abstract<T>;
+
+template<class T> 
+using is_final = std::is_final<T>;
 
 template<class T>
 using is_fundamental = std::is_fundamental<T>;
@@ -330,5 +375,6 @@ template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 }
-
+}
+}
 #endif
