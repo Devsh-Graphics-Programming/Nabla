@@ -290,6 +290,45 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
+
+// need this crutch because we can't make `#define typeid` work both on expression and types
+template<typename T>
+struct typeid_t;
+
+namespace impl
+{
+template<uint32_t N>
+struct encoder
+{
+    uint32_t arr[N];
+};
+template<uint32_t encoded_typeid>
+struct decltype_t;
+}
+
+
+// DXC doesn't support linking SPIR-V so this will always work I guess?
+// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
+#define NBL_REGISTER_TYPEID(T) template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}
+
+#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
+namespace impl \
+{ \
+encoder<typeid_t<T>::value> encode_typeid(T); \
+template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> \
+{ \
+  using type = T; \
+}; \
+} 
+
+#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
+#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+
+// builtins
+NBL_REGISTER_OBJ_TYPE(int32_t)
+NBL_REGISTER_OBJ_TYPE(uint32_t)
+NBL_REGISTER_OBJ_TYPE(float32_t)
+
 #else // C++
 
 template<class T, T val>
@@ -357,6 +396,9 @@ using is_compound = std::is_compound<T>;
 
 template<class T>
 using is_aggregate = std::is_aggregate<T>;
+
+template<typename T>
+struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
 
 #endif
 
