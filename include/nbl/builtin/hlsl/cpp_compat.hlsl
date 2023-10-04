@@ -9,10 +9,7 @@
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 
-namespace nbl
-{
-
-namespace hlsl
+namespace nbl::hlsl
 {
 
 template<typename T>
@@ -21,13 +18,6 @@ using add_reference = std::add_lvalue_reference<T>;
 template<typename T>
 using add_pointer = std::add_pointer<T>;
 
-//template<typename V>
-//struct scalar_type
-//{
-//    using type = void;
-//};
-
-}
 }
 
 #define NBL_REF_ARG(T) typename nbl::hlsl::add_reference<T>::type
