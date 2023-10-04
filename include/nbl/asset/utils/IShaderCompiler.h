@@ -27,14 +27,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
 		public:
-			virtual std::string getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+			virtual std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
 		{
 		public:
 			// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
-			virtual std::string getInclude(const std::string& includeName) const;
+			virtual std::optional<std::string> getInclude(const std::string& includeName) const;
 
 			virtual std::string_view getPrefix() const = 0;
 
@@ -53,7 +53,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		public:
 			CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-			std::string getInclude(const system::path& searchPath, const std::string& includeName) const override;
+			std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const override;
 
 		protected:
 			core::smart_refctd_ptr<system::ISystem> m_system;
@@ -67,12 +67,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// ! includes within <>
 			// @param requestingSourceDir: the directory where the incude was requested
 			// @param includeName: the string within <> of the include preprocessing directive
-			std::string getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+			std::optional<std::string> getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
 
 			// ! includes within ""
 			// @param requestingSourceDir: the directory where the incude was requested
 			// @param includeName: the string within "" of the include preprocessing directive
-			std::string getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+			std::optional<std::string> getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
 
 			inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
@@ -82,9 +82,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		protected:
 
-			std::string trySearchPaths(const std::string& includeName) const;
+			std::optional<std::string> trySearchPaths(const std::string& includeName) const;
 
-			std::string tryIncludeGenerators(const std::string& includeName) const;
+			std::optional<std::string> tryIncludeGenerators(const std::string& includeName) const;
 
 			struct LoaderSearchPath
 			{
