@@ -226,9 +226,9 @@ class RendersTest(CITest):
 
         # get scene options, either custom or default 
         epsilon = options.get('epsilon', [EPSILON])[0]
-        error_threshold_value = options.get('errpixel',[self.error_threshold_value])[0]
-        allowed_error_pixel_count = options.get('errcount',[self.allowed_error_pixel_count])[0]
-        ssim_error_threshold_value = options.get('errssim',[self.ssim_error_threshold_value])[0]
+        error_threshold_value = float(options.get('errpixel',[self.error_threshold_value])[0])
+        allowed_error_pixel_count = float(options.get('errcount',[self.allowed_error_pixel_count])[0])
+        ssim_error_threshold_value = float(options.get('errssim',[self.ssim_error_threshold_value])[0])
         error_threshold_type = ErrorThresholdType.RELATIVE_TO_RESOLUTION if 'rel' in options else ErrorThresholdType.ABSOLUTE if 'abs' in options else self.error_threshold_type
         if 'abs' in options and 'rel' in options: # idiot check
             if self.print_warnings:
