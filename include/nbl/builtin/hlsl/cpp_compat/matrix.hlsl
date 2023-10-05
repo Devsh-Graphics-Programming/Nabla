@@ -9,7 +9,7 @@ namespace nbl::hlsl
 {
 
 template<typename T, uint16_t N, uint16_t M>
-struct matrix final : private glm::mat<N,M,T>
+struct matrix final : glm::mat<N,M,T>
 {
     using Base = glm::mat<N,M,T>;
     using Base::Base;
