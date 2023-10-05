@@ -205,6 +205,12 @@ struct is_array : bool_constant<is_bounded_array<T>::value || is_unbounded_array
 namespace impl
 {
 
+template<typename T, T v>
+struct function_info
+{
+    using type = void;
+};
+
 template<class T>
 struct is_unsigned : bool_constant<
     is_same<T, bool>::value ||
@@ -320,22 +326,6 @@ struct enable_if<true, T>
 // need this crutch because we can't make `#define typeid` work both on expression and types
 template<typename T>
 struct typeid_t;
-
-namespace impl
-{
-
-template<uint32_t encoded_typeid>
-struct decltype_t;
-
-template<uint32_t N>
-struct encoder
-{
-    uint32_t arr[N];
-};
-
-template<class T>
-encoder<typeid_t<T>::value> encode_typeid(T);
-}
 
 
 #else // C++
@@ -460,26 +450,30 @@ struct scalar_type<matrix<T,N,M> >
 }
 
 
+// deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+#define decltype(expr) __decltype(expr)
+// shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
+#define typeid(expr) (typeid_t<decltype(expr)>::value)
 
-// DXC doesn't support linking SPIR-V so this will always work I guess?
-// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
-
-#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
-template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
-} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
-
-#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
-#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+#define NBL_REGISTER_OBJ_TYPE(T) namespace nbl { namespace hlsl { namespace type_traits { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}
+// TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
+#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { namespace type_traits { template<> struct typeid_t<__decltype(fn)> : integral_constant<uint32_t,__COUNTER__> {}; }}}
+// TODO: ideally we'd like to call NBL_REGISTER_FUN_TYPE under the hood, but we can't right now. Also we have a bigger problem, the passing of the function identifier as the second template parameter doesn't work :(
+/*
+template<> \
+struct function_info<__decltype(fn),fn> \
+{ \
+    using type = __decltype(fn); \
+    static const uint32_t address = __COUNTER__; \
+}; \
+}}}}
+*/
 
 // builtins
 
-#define NBL_REGISTER_MATRICIES(T) \
+#define NBL_REGISTER_MATRICES(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## x4) \
     NBL_REGISTER_OBJ_TYPE(T ## x3) \
@@ -488,9 +482,9 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## 1) \
-    NBL_REGISTER_MATRICIES(T ## 2) \
-    NBL_REGISTER_MATRICIES(T ## 3) \
-    NBL_REGISTER_MATRICIES(T ## 4)
+    NBL_REGISTER_MATRICES(T ## 2) \
+    NBL_REGISTER_MATRICES(T ## 3) \
+    NBL_REGISTER_MATRICES(T ## 4)
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
@@ -508,4 +502,6 @@ NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
 
 #endif
+
+
 #endif
