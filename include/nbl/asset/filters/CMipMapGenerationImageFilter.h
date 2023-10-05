@@ -23,19 +23,15 @@ namespace asset
 // the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
 // (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 
-template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=false, class ResamplingKernelX = CKaiserImageFilterKernel<>, class ReconstructionKernelX = CMitchellImageFilterKernel<>, class ResamplingKernelY = ResamplingKernelX, class ReconstructionKernelY = ReconstructionKernelX, class ResamplingKernelZ = ResamplingKernelY, class ReconstructionKernelZ = ReconstructionKernelY>
-class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle,Dither,Normalization,Clamp, ResamplingKernelX,ReconstructionKernelX, ResamplingKernelY,ReconstructionKernelY, ResamplingKernelZ,ReconstructionKernelZ> >, public CBasicImageFilterCommon
+template<typename Swizzle=VoidSwizzle, typename Dither=IdentityDither/*TODO: WhiteNoiseDither*/, typename Normalization=void, bool Clamp=true, typename BlitUtilities = CBlitUtilities<CChannelIndependentWeightFunction1D<CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SMitchellFunction<>>>>>>
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Swizzle, Dither, Normalization, Clamp, BlitUtilities>>, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
 
-		// TODO: Improve and implement the cached convolution kernel
-		using KernelX = ResamplingKernelX;//CKernelConvolution<ResamplingKernelX, ReconstructionKernelX>;
-		using KernelY = ResamplingKernelY;//CKernelConvolution<ResamplingKernelY, ReconstructionKernelY>;
-		using KernelZ = ResamplingKernelZ;//CKernelConvolution<ResamplingKernelZ, ReconstructionKernelZ>;
 	private:
-		using state_base_t = typename CBlitImageFilterBase<typename KernelX::value_type,Swizzle,Dither,Normalization,Clamp>::CStateBase;
-		using pseudo_base_t = CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,KernelX>;
+		using state_base_t = typename CBlitImageFilterBase<Swizzle,Dither,Normalization,Clamp>::CStateBase;
+		using pseudo_base_t = CBlitImageFilter<Swizzle,Dither,Normalization,Clamp,BlitUtilities>;
 
 	public:
 		class CState : public IImageFilter::IState, public state_base_t
@@ -111,7 +107,9 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			typename pseudo_base_t::state_type blit;
+			auto convolutionKernels = pseudo_base_t::blit_utils_t::getConvolutionKernels(state->inOutImage->getMipSize(prevLevel), state->inOutImage->getMipSize(inMipLevel));
+
+			typename pseudo_base_t::state_type blit(std::move(convolutionKernels));
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);

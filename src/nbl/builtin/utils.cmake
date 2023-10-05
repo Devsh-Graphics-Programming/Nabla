@@ -169,7 +169,9 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	if(NOT DEFINED _NABLA_INCLUDE_DIRECTORIES_) # TODO, validate by populating generator expressions if any and checking whether a path to the BuildConfigOptions.h exists per config
-		message(ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		if(NOT _NBL_INTERNAL_BR_CREATION_) # trust internal Nabla BR targets, include search paths may be added later
+			message(FATAL_ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		endif()
 	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 
