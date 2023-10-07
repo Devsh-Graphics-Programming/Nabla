@@ -477,7 +477,7 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type
 
 // builtins
 
-#define NBL_REGISTER_MATRICIES(T) \
+#define NBL_REGISTER_MATRICES(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## x4) \
     NBL_REGISTER_OBJ_TYPE(T ## x3) \
@@ -486,9 +486,9 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## 1) \
-    NBL_REGISTER_MATRICIES(T ## 2) \
-    NBL_REGISTER_MATRICIES(T ## 3) \
-    NBL_REGISTER_MATRICIES(T ## 4)
+    NBL_REGISTER_MATRICES(T ## 2) \
+    NBL_REGISTER_MATRICES(T ## 3) \
+    NBL_REGISTER_MATRICES(T ## 4)
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
@@ -504,6 +504,8 @@ NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
+#undef NBL_REGISTER_MATRICES
+#undef NBL_REGISTER_TYPES_FOR_SCALAR
 
 #endif
 #endif
