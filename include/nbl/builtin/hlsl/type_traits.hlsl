@@ -135,8 +135,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace type_traits
-{
+
 namespace impl
 {
     
@@ -457,25 +456,24 @@ struct scalar_type<matrix<T,N,M> >
 
 }
 }
-}
 
 
 #ifdef __HLSL_VERSION
 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+#define NBL_NAMESPACE_HLSL_BEGIN namespace nbl { namespace hlsl { 
+#define NBL_NAMESPACE_HLSL_END }}
 
 // DXC doesn't support linking SPIR-V so this will always work I guess?
 // split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_END
 
 #define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
+NBL_NAMESPACE_HLSL_BEGIN namespace impl { \
 template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
-} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+} NBL_NAMESPACE_HLSL_END
 
-#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
-#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+#define typeid(expr) (sizeof(::nbl::hlsl::impl::encode_typeid(expr))/4)
+#define decltype(expr) ::nbl::hlsl::impl::decltype_t<typeid(expr)>::type
 
 // builtins
 
