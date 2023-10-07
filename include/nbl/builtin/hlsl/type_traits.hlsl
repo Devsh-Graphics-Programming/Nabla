@@ -34,7 +34,21 @@
   template<class T> struct is_reference; (TODO)
   template<class T> struct is_arithmetic; (DONE)
   template<class T> struct is_fundamental; (DONE)
-  template<class T> struct is_object; (NOT-APPLICABLE)
+
+  template<class T> struct is_object; (TODO)
+    C++ spec defines object as:
+        void      is not an object
+        int       is object
+        int&      is not an object
+        int*      is object
+        int*&     is not an object
+        cls       is object
+        cls&      is not an object
+        cls*      is object
+        int()     is not an object
+        int(*)()  is object
+        int(&)()  is not an object
+
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
   template<class T> struct is_member_pointer; (TODO)
@@ -59,8 +73,8 @@
 
   // type property queries
   template<class T> struct alignment_of; (TODO)
-  template<class T> struct rank; (TODO)
-  template<class T, unsigned I = 0> struct extent; (TODO)
+  template<class T> struct rank; (DONE)
+  template<class T, unsigned I = 0> struct extent; (DONE)
  
   // type relations
   template<class T, class U> struct is_same; (DONE)
@@ -135,8 +149,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace type_traits
-{
+
 namespace impl
 {
     
@@ -308,6 +321,27 @@ struct type_identity
     using type = T;
 };
 
+template<class T>
+struct rank : integral_constant<uint64_t, 0> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0> 
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -415,6 +449,12 @@ using is_aggregate = std::is_aggregate<T>;
 template<typename T>
 using type_identity = std::type_identity<T>;
 
+template<class T>
+using rank = std::rank<T>;
+
+template<class T, unsigned I = 0> 
+using extent = std::extent<T, I>;
+
 template<typename T>
 struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
 
@@ -457,29 +497,28 @@ struct scalar_type<matrix<T,N,M> >
 
 }
 }
-}
 
 
 #ifdef __HLSL_VERSION
 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+#define NBL_NAMESPACE_HLSL_BEGIN namespace nbl { namespace hlsl { 
+#define NBL_NAMESPACE_HLSL_END }}
 
 // DXC doesn't support linking SPIR-V so this will always work I guess?
 // split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_END
 
 #define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
+NBL_NAMESPACE_HLSL_BEGIN namespace impl { \
 template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
-} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+} NBL_NAMESPACE_HLSL_END
 
-#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
-#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+#define typeid(expr) (sizeof(::nbl::hlsl::impl::encode_typeid(expr))/4)
+#define decltype(expr) ::nbl::hlsl::impl::decltype_t<typeid(expr)>::type
 
 // builtins
 
-#define NBL_REGISTER_MATRICIES(T) \
+#define NBL_REGISTER_MATRICES(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## x4) \
     NBL_REGISTER_OBJ_TYPE(T ## x3) \
@@ -488,9 +527,9 @@ template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
     NBL_REGISTER_OBJ_TYPE(T) \
     NBL_REGISTER_OBJ_TYPE(T ## 1) \
-    NBL_REGISTER_MATRICIES(T ## 2) \
-    NBL_REGISTER_MATRICIES(T ## 3) \
-    NBL_REGISTER_MATRICIES(T ## 4)
+    NBL_REGISTER_MATRICES(T ## 2) \
+    NBL_REGISTER_MATRICES(T ## 3) \
+    NBL_REGISTER_MATRICES(T ## 4)
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
@@ -506,6 +545,8 @@ NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
+#undef NBL_REGISTER_MATRICES
+#undef NBL_REGISTER_TYPES_FOR_SCALAR
 
 #endif
 #endif

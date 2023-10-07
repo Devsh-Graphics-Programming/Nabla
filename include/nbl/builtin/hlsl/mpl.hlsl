@@ -12,8 +12,6 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace mpl
-{
 
 #ifdef __HLSL_VERSION
 namespace impl
@@ -38,7 +36,7 @@ struct clz
 {
     static const bool CHOOSE_HIGH = N&(clz_masks<bits_log2>::LO_MASK<<clz_masks<bits_log2>::SHIFT);
     static const uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>clz_masks<bits_log2>::SHIFT):N)&clz_masks<bits_log2>::LO_MASK;
-    static const uint16_t value   = type_traits::conditional<bits_log2,clz<NEXT_N,bits_log2-1>,type_traits::integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:clz_masks<bits_log2>::SHIFT);
+    static const uint16_t value   = conditional<bits_log2,clz<NEXT_N,bits_log2-1>,integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:clz_masks<bits_log2>::SHIFT);
 };
 
 }
@@ -57,7 +55,6 @@ struct log2
 
 #endif
 
-}
 }
 }
 
