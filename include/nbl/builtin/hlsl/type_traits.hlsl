@@ -4,6 +4,12 @@
 #ifndef _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 
+// C++ headers
+#ifndef __HLSL_VERSION
+#include <type_traits>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#endif
+
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
   // helper class
@@ -137,13 +143,6 @@
     template<class B> struct negation;
 */
 
-// C++ headers
-#ifndef __HLSL_VERSION
-#include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#endif
-
-#include <nbl/builtin/hlsl/macros.h>
 
 namespace nbl
 {
@@ -164,7 +163,7 @@ struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
 
 }
 
-#if __HLSL_VERSION // HLSL
+#ifdef __HLSL_VERSION // HLSL
 
 template<class T, T val>
 struct integral_constant {
@@ -456,7 +455,7 @@ template<class T, unsigned I = 0>
 using extent = std::extent<T, I>;
 
 template<typename T>
-struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
+struct typeid_t : std::integral_constant<uint64_t,0> {};
 
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
