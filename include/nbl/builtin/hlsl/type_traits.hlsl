@@ -73,8 +73,8 @@
 
   // type property queries
   template<class T> struct alignment_of; (TODO)
-  template<class T> struct rank; (TODO)
-  template<class T, unsigned I = 0> struct extent; (TODO)
+  template<class T> struct rank; (DONE)
+  template<class T, unsigned I = 0> struct extent; (DONE)
  
   // type relations
   template<class T, class U> struct is_same; (DONE)
@@ -321,6 +321,27 @@ struct type_identity
     using type = T;
 };
 
+template<class T>
+struct rank : integral_constant<uint64_t, 0> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0> 
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -427,6 +448,12 @@ using is_aggregate = std::is_aggregate<T>;
 
 template<typename T>
 using type_identity = std::type_identity<T>;
+
+template<class T>
+using rank = std::rank<T>;
+
+template<class T, unsigned I = 0> 
+using extent = std::extent<T, I>;
 
 template<typename T>
 struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
