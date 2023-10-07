@@ -34,7 +34,21 @@
   template<class T> struct is_reference; (TODO)
   template<class T> struct is_arithmetic; (DONE)
   template<class T> struct is_fundamental; (DONE)
-  template<class T> struct is_object; (NOT-APPLICABLE)
+
+  template<class T> struct is_object; (TODO)
+    C++ spec defines object as:
+        void      is not an object
+        int       is object
+        int&      is not an object
+        int*      is object
+        int*&     is not an object
+        cls       is object
+        cls&      is not an object
+        cls*      is object
+        int()     is not an object
+        int(*)()  is object
+        int(&)()  is not an object
+
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
   template<class T> struct is_member_pointer; (TODO)
