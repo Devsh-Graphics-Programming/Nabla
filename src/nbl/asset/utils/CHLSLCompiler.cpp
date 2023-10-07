@@ -110,7 +110,7 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
         std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
         re.append("error ");
         re.append(requestedSource);
-        re.append(" not found");
+        re.append(" not found\n");
         includeStack.push_back(includeStack.back());
         return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
