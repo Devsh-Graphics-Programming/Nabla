@@ -4,7 +4,6 @@
 
 namespace nbl::video
 {
-template <bool UseGLSL = true>
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
 private:
@@ -106,6 +105,8 @@ public:
 		return m_coverageAdjustmentPipelineLayout;
 	}
 
+	// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
 	{
@@ -124,86 +125,9 @@ public:
 		return m_alphaTestPipelines[pipelineIndex][imageType];
 	}
 
-
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
-	{
-		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
-		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
-		auto shaderLang = (UseGLSL) ? asset::IShader::E_CONTENT_TYPE::ECT_GLSL : asset::IShader::E_CONTENT_TYPE::ECT_HLSL;
-
-		std::ostringstream shaderSourceStream;
-		if constexpr (UseGLSL)
-		{
-			shaderSourceStream
-				<< "#version 460 core\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-				<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#include <nbl/builtin/glsl/blit/default_compute_alpha_test.comp>\n";
-		}
-		else
-		{
-			shaderSourceStream
-				<< "#define _NBL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-				<< "#define _NBL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#define _NBL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << uint32_t(asset::E_FORMAT::EF_UNKNOWN) << "\n"
-				<< "#include <nbl/builtin/hlsl/blit/default_compute_alpha_test.comp>\n";
-		}
-
-		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, shaderLang, "CComputeBlit::createAlphaTestSpecializedShader");
-		auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
-
-		return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
-	}
-
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
-		const uint32_t alphaBinCount)
-	{
-		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
-		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
-
-		const auto castedFormat = getOutImageViewFormat(outFormat);
-		const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
-		auto shaderLang = (UseGLSL) ? asset::IShader::E_CONTENT_TYPE::ECT_GLSL : asset::IShader::E_CONTENT_TYPE::ECT_HLSL;
-
-		std::ostringstream shaderSourceStream;
-		if constexpr (UseGLSL)
-		{
-			shaderSourceStream
-				<< "#version 460 core\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-				<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
-			if (outFormat != castedFormat)
-				shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
-			shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_normalization.comp>\n";
-		}
-		else
-		{
-			shaderSourceStream
-				<< "#version 460 core\n"
-				<< "#define _NBLL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-				<< "#define _NBL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ \"" << glslFormatQualifier << "\"\n"
-				<< "#define _NBL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << uint32_t((outFormat != castedFormat) ? outFormat : asset::E_FORMAT::EF_UNKNOWN) << "\n"
-				<< "#include <nbl/builtin/glsl/blit/default_compute_normalization.comp>\n";
-		}
-		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, shaderLang, "CComputeBlit::createNormalizationSpecializedShader");
-		auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
-
-		return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
-	}
+	// @param `outFormat` dictates encoding.
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
+		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
 		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
@@ -235,49 +159,37 @@ public:
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
+		std::ostringstream shaderSourceStream;
+		shaderSourceStream
+			<< "#version 460 core\n"
+			<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << workgroupSize << "\n"
+			<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
+			<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
+			<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
+			<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n";
+
 		const auto castedFormat = getOutImageViewFormat(outFormat);
 		const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
 
 		const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
-		const uint32_t smemFloatCount = m_availableSharedMemory / (sizeof(float) * outChannelCount);
 
-		std::ostringstream shaderSourceStream;
-		auto shaderLang = (UseGLSL) ? asset::IShader::E_CONTENT_TYPE::ECT_GLSL : asset::IShader::E_CONTENT_TYPE::ECT_HLSL;
-		if constexpr (UseGLSL)
-		{
-			shaderSourceStream
-				<< "#version 460 core\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << workgroupSize << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
-				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
-				<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
-				<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n"
-				<< "#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n";
+		shaderSourceStream
+			<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
+			<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
 
-				if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-					shaderSourceStream << "#define _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_\n";
-				if (outFormat != castedFormat)
-					shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
-				shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
-		}
-		else
-		{
-			shaderSourceStream
-				<< "#define _NBL_WORKGROUP_SIZE_X_ " << workgroupSize << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
-				<< "#define _NBL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
-				<< "#define _NBL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-				<< "#define _NBL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-				<< "#define _NBL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
-				<< "#define _NBL_BLIT_OUT_IMAGE_FORMAT_ \"" << glslFormatQualifier << "\"\n"
-				<< "#define _NBL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n"
-				<< "#define _NBL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << uint32_t((outFormat != castedFormat) ? outFormat : asset::E_FORMAT::EF_UNKNOWN) << "\n"
-				<< "#include <nbl/builtin/hlsl/blit/default_compute_blit.comp>\n";
-		}
+		const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+		const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
-		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, shaderLang, "CComputeBlit::createBlitSpecializedShader");
+		const uint32_t smemFloatCount = m_availableSharedMemory/(sizeof(float)*outChannelCount);
+		shaderSourceStream << "#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n";
+
+		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
+			shaderSourceStream << "#define _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_\n";
+		if (outFormat != castedFormat)
+			shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
+		shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
+
+		auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "CComputeBlit::createBlitSpecializedShader");
 		auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 		auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 
