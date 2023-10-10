@@ -10,7 +10,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace multi_dimensional_array_addressing
+namespace ndarray_addressing
 {
 
 uint32_t snakeCurve(NBL_CONST_REF_ARG(uint32_t3) coordinate, NBL_CONST_REF_ARG(uint32_t3) extents)
