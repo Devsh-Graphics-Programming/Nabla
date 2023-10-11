@@ -36,7 +36,7 @@ T rotl(T x, S s)
     }
     else
     {
-        return rotr(x, -r);
+        return (x >> (-r)) | (x << (N - (-r)));
     }
 }
 
@@ -52,7 +52,7 @@ T rotr(T x, S s)
     }
     else
     {
-        return rotl(x, -r);
+        return (x << (-r)) | (x >> (N - (-r)));
     }
 }
 
