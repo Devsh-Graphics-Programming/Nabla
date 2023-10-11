@@ -9,6 +9,13 @@
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
 namespace nbl::hlsl
 {
 

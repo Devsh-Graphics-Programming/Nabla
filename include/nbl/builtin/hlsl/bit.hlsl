@@ -3,48 +3,56 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
-
 #ifndef __HLSL_VERSION
 #include <bit>
+
+namespace nbl::hlsl
+{
+
+NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
+
+}
 #else
 namespace nbl
 {
 namespace hlsl
 {
 
-uint32_t rotl(NBL_CONST_REF_ARG(uint32_t) x, NBL_CONST_REF_ARG(uint32_t) s)
+template<typename T, typename S>
+T rotl(T x, S s);
+template<typename T, typename S>
+T rotr(T x, S s);
+
+template<typename T, typename S>
+T rotl(T x, S s)
 {
-    const uint32_t N = 32u;
-    const uint32_t r = s % N;
+    const T N = 32u;
+    const S r = s % N;
     
-    if(r == 0)
-        return 0;
-    
-    if(r > 0)
+    if(r >= 0)
     {
         return (x << r) | (x >> (N - r));
     }
     else
     {
-        return std::rotr(x, -r);
+        return rotr(x, -r);
     }
 }
 
-uint32_t rotr(NBL_CONST_REF_ARG(uint32_t) x, NBL_CONST_REF_ARG(uint32_t) s)
+template<typename T, typename S>
+T rotr(T x, S s)
 {
-    const uint32_t N = 32u;
-    const uint32_t r = s % N;
+    const T N = 32u;
+    const S r = s % N;
     
-    if(r == 0)
-        return 0;
-    
-    if(r > 0)
+    if(r >= 0)
     {
         return (x >> r) | (x << (N - r));
     }
     else
     {
-        return std::rotl(x, -r);
+        return rotl(x, -r);
     }
 }
 

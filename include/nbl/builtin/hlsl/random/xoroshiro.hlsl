@@ -28,9 +28,9 @@ struct Xoroshiro64StateHolder
 
 struct Xoroshiro64Star
 {
-	static Xoroshiro64Star construct(uint32_t2 initialState)
+	static Xoroshiro64Star construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
 	{
-		Xoroshiro64StateHolder stateHolder(initialState);
+		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64Star(stateHolder);
 	}
 	
@@ -47,9 +47,9 @@ struct Xoroshiro64Star
 
 struct Xoroshiro64StarStar
 {
-	static Xoroshiro64StarStar construct(uint32_t2 initialState)
+	static Xoroshiro64StarStar construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
 	{
-	Xoroshiro64StateHolder stateHolder(initialState);
+		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64StarStar(stateHolder);
 	}
 	
