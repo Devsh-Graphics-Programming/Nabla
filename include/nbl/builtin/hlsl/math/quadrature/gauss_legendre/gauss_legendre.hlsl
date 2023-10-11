@@ -15,24 +15,25 @@ namespace math
 {
 namespace quadrature
 {
-        template<uint16_t Order, typename float_t>
-        struct GaussLegendreValues;
+
+template<uint16_t Order, typename float_t>
+struct GaussLegendreValues;
 
 
-        template<int Order, typename float_t, class IntegrandFunc>
-        struct GaussLegendreIntegration
+template<int Order, typename float_t, class IntegrandFunc>
+struct GaussLegendreIntegration
+{
+    static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
+    {
+        float_t integral = 0.0;
+        for (uint32_t i = 0u; i < Order; ++i)
         {
-            static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
-            {
-                float_t integral = 0.0;
-                for (uint32_t i = 0u; i < Order; ++i)
-                {
-                    const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
-                    integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
-                }
-                return ((end - start) / 2.0) * integral;
-            }
-        };
+            const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
+            integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
+        }
+        return ((end - start) / 2.0) * integral;
+    }
+};
 
 // TODO: use type traits
 #define NBL_EVAL(...) __VA_ARGS__

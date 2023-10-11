@@ -15,6 +15,8 @@
         [branch] if (!(expr)) \
           vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
     } while(true)
+    
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl>
 
 namespace nbl
 {
@@ -97,7 +99,7 @@ namespace shapes
 
             float_t b_over_4a;
             
-            float_t calcArcLen(float_t t)
+            float_t calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
             {
                 float_t lenTan = sqrt(t*(a*t + b) + c);
                 float_t retval = t*lenTan;
@@ -140,7 +142,7 @@ namespace shapes
             
             // keeping it for now
                         // TODO: remove
-            float_t _calcArcLen(float_t t)
+            float_t _calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
             {
                 double num = 0.0;
                 const int steps = 100;
@@ -156,7 +158,32 @@ namespace shapes
                 
             }
             
-            float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            struct MyFunction
+            {
+                inline float_t operator()(const float_t t)
+                {
+                    float2_t derivativeSqared = 2.0f*t*A + B;
+                    derivativeSqared *= derivativeSqared;
+                    
+                    return sqrt(derivativeSqared.x + derivativeSqared.y);
+                }
+                
+                float2_t A;
+                float2_t B;
+                float2_t C;
+            };
+            
+            float_t __calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
+            {
+                MyFunction func;
+                func.A = A;
+                func.B = B;
+                func.C = C;
+                return nbl::hlsl::math::quadrature::GaussLegendreIntegration<5, float_t, MyFunction>::calculateIntegral(func, 0.0, t);
+            }
+            
+            
+            float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint, float2_t A, float2_t B, float2_t C)
             {
                 float_t xn = hint;
 
@@ -167,14 +194,14 @@ namespace shapes
                 const uint32_t iterationThreshold = 32;
                 for(uint32_t n = 0; n < iterationThreshold; n++)
                 {
-                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
+                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn,A,B,C);
 
                     if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
                         return xn;
 
                     float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
                         // x_n+1 = x_n - f(x_n)/f'(x_n)
-                    xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
+                    xn -= (calcArcLen(xn,A,B,C) - arcLen) / differentialAtGuess;
                 }
 
                 return xn;
