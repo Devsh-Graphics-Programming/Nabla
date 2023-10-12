@@ -52,17 +52,28 @@ namespace equations
             return t * (A * t + B) + C;
         }
 
-        // TODO: Figure out why the other quadratic equation wont work here
         float2_t computeRoots()
         {
-            const float_t det = B*B-4.f*A*C;
-            const float_t rcp = 0.5f/ A;
-            const float_t detSqrt = sqrt(det)*rcp;
-            const float_t brcp = B*rcp;
+            float64_t2 ret;
 
-            if (isinf(brcp)) return float2_t(- C / B, NBL_NOT_A_NUMBER());
+            const float64_t det = B * B - 4.0 * A *C;
+            const float64_t detSqrt = sqrt(det);
+            const float64_t rcp = 0.5 / A;
+            const float64_t bOver2A = B * rcp;
 
-            return float2_t(-detSqrt,detSqrt)-float2_t(brcp,brcp);
+            float64_t t0 = 0.0, t1 = 0.0;
+            if (B >= 0)
+            {
+                ret[0] = -detSqrt * rcp - bOver2A;
+                ret[1] = 2 * C / (-B - detSqrt);
+            }
+            else
+            {
+                ret[0] = 2 * C / (-B + detSqrt);
+                ret[1] = +detSqrt * rcp - bOver2A;
+            }
+
+            return ret;
         }
 
         // SolveQuadratic:
