@@ -10,6 +10,15 @@
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
 
+#ifndef NBL_NOT_A_NUMBER
+#ifdef __cplusplus
+#define NBL_NOT_A_NUMBER() nbl::core::nan<float_t>()
+#else
+// https://learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-float-rules#honored-ieee-754-rules
+#define NBL_NOT_A_NUMBER() 0.0/0.0
+#endif
+#endif //NBL_NOT_A_NUMBER
+
 #define SHADER_CRASHING_ASSERT(expr) \
     do { \
         [branch] if (!(expr)) \
@@ -41,6 +50,19 @@ namespace equations
         float_t evaluate(float_t t)
         {
             return t * (A * t + B) + C;
+        }
+
+        // TODO: Figure out why the other quadratic equation wont work here
+        float2_t computeRoots()
+        {
+            const float_t det = B*B-4.f*A*C;
+            const float_t rcp = 0.5f/ A;
+            const float_t detSqrt = sqrt(det)*rcp;
+            const float_t brcp = B*rcp;
+
+            if (isinf(brcp)) return float2_t(- C / B, NBL_NOT_A_NUMBER());
+
+            return float2_t(-detSqrt,detSqrt)-float2_t(brcp,brcp);
         }
 
         // SolveQuadratic:
