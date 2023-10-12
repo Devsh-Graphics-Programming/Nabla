@@ -3,12 +3,10 @@
 
 #ifndef __HLSL_VERSION 
 
-
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/detail/_swizzle.hpp>
 #include <stdint.h>
-
 
 namespace nbl::hlsl
 {
@@ -45,6 +43,30 @@ using float64_t4 = vector<float64_t, 4>;
 using float64_t3 = vector<float64_t, 3>;
 using float64_t2 = vector<float64_t, 2>;
 using float64_t1 = vector<float64_t, 1>;
+
+template<typename T, uint16_t N>
+glm::vec<N, bool> operator<(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+{
+    return glm::lessThan<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, bool> operator>(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+{
+    return glm::greaterThan<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, bool> operator<=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+{
+    return glm::lessThanEqual<N, T>(lhs, rhs);
+}
+
+template<typename T, uint16_t N>
+glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
+{
+    return glm::greaterThanEqual<N, T>(lhs, rhs);
+}
 }
 #endif
 
