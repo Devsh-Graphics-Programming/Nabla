@@ -15,8 +15,6 @@
         [branch] if (!(expr)) \
           vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
     } while(true)
-    
-#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl>
 
 namespace nbl
 {
@@ -95,11 +93,10 @@ namespace shapes
             float_t a;
             float_t b; // 2 sqrt(a) sqrt(c) cos(angle between A and B)
             float_t c;
-            
 
             float_t b_over_4a;
             
-            float_t calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
+            float_t calcArcLen(float_t t)
             {
                 float_t lenTan = sqrt(t*(a*t + b) + c);
                 float_t retval = t*lenTan;
@@ -142,7 +139,7 @@ namespace shapes
             
             // keeping it for now
                         // TODO: remove
-            float_t _calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
+            float_t _calcArcLen(float_t t)
             {
                 double num = 0.0;
                 const int steps = 100;
@@ -173,16 +170,7 @@ namespace shapes
                 float2_t C;
             };
             
-            float_t __calcArcLen(float_t t, float2_t A, float2_t B, float2_t C)
-            {
-                MyFunction func;
-                func.A = A;
-                func.B = B;
-                func.C = C;
-                return nbl::hlsl::math::quadrature::GaussLegendreIntegration<5, float_t, MyFunction>::calculateIntegral(func, 0.0, t);
-            }
-            
-            float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint, float2_t A, float2_t B, float2_t C)
+            float_t _calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 float_t xn = hint;
 
@@ -193,20 +181,20 @@ namespace shapes
                 const uint32_t iterationThreshold = 32;
                 for(uint32_t n = 0; n < iterationThreshold; n++)
                 {
-                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn,A,B,C);
+                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
 
                     if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
                         return xn;
 
                     float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
                         // x_n+1 = x_n - f(x_n)/f'(x_n)
-                    xn -= (calcArcLen(xn,A,B,C) - arcLen) / differentialAtGuess;
+                    xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
                 }
 
                 return xn;
             }
             
-            float_t calcArcLenInverse_bisection(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint, float2_t A, float2_t B, float2_t C)
+            float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 float_t xn = hint;
                 float_t min = 0.0;
@@ -218,7 +206,7 @@ namespace shapes
                 const uint32_t iterationThreshold = 32;
                 for (uint32_t n = 0; n < iterationThreshold; n++)
                 {
-                    float_t arcLenDiffAtParamGuess = calcArcLen(xn, A, B, C) - arcLen;
+                    float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
             
                     if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
                         return xn;
