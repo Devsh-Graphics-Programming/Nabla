@@ -126,72 +126,11 @@ namespace shapes
                         float_t subTerm1 = log(b + 2.0f * sqrt_a * sqrt_c);
                         float_t subTerm2 = log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
                         
-                        //if (subTerm1 > -exp2(63.f))
-                        //    SHADER_CRASHING_ASSERT(subTerm2>=subTerm1);
-                        
                         retval -= subTerm0 * (subTerm1 - subTerm2);
                     }
                 }
-                
 
                 return retval;
-            }
-            
-            // keeping it for now
-                        // TODO: remove
-            float_t _calcArcLen(float_t t)
-            {
-                double num = 0.0;
-                const int steps = 100;
-                    // from 0 to t
-                const double rcp = double(t) / double(steps);
-                for (int i = 0; i < steps; i++)
-                {
-                    double x = double(i) * rcp + 0.5 * rcp;
-                    num += sqrt(x * (lenA2 * 4.0 * x + AdotB * 4.0) + c) * rcp;
-                }
-                
-                return num;
-                
-            }
-            
-            struct MyFunction
-            {
-                inline float_t operator()(const float_t t)
-                {
-                    float2_t derivativeSqared = 2.0f*t*A + B;
-                    derivativeSqared *= derivativeSqared;
-                    
-                    return sqrt(derivativeSqared.x + derivativeSqared.y);
-                }
-                
-                float2_t A;
-                float2_t B;
-                float2_t C;
-            };
-            
-            float_t _calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
-            {
-                float_t xn = hint;
-
-                if (arcLen <= accuracyThreshold)
-                    return arcLen;
-
-                    // TODO: implement halley method
-                const uint32_t iterationThreshold = 32;
-                for(uint32_t n = 0; n < iterationThreshold; n++)
-                {
-                    float_t arcLenDiffAtParamGuess = arcLen - calcArcLen(xn);
-
-                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
-                        return xn;
-
-                    float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
-                        // x_n+1 = x_n - f(x_n)/f'(x_n)
-                    xn -= (calcArcLen(xn) - arcLen) / differentialAtGuess;
-                }
-
-                return xn;
             }
             
             float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
@@ -368,7 +307,6 @@ namespace shapes
                 }
             }
             
-            // TODO: sqrt outside of the function
             retval.x = sqrt(retval.x);
             return retval;
         }
@@ -379,16 +317,10 @@ namespace shapes
             return float2_t(dot(qos, qos), candidate);
         }
        
-        template<typename Clipper/* = DefaultClipper*/>
-        float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper/* = DefaultClipper::construct()*/)
+        template<typename Clipper = DefaultClipper>
+        float_t signedDistance(float2_t pos, float_t thickness, Clipper clipper = DefaultClipper::construct())
         {
             return ud<Clipper>(pos, thickness, clipper).x - thickness;
-        }
-        
-        // TODO: To be deleted probably
-        float_t signedDistance(float2_t pos, float_t thickness)
-        {
-            return signedDistance<DefaultClipper>(pos, thickness, DefaultClipper::construct());
         }
     };
 }
