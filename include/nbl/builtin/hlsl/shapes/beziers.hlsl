@@ -248,7 +248,7 @@ namespace shapes
         };
         
         template<typename Clipper>
-        float2 ud(float2_t pos, float_t thickness, Clipper clipper)
+        float2_t ud(float2_t pos, float_t thickness, Clipper clipper)
         {
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
