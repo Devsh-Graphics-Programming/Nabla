@@ -182,7 +182,6 @@ namespace shapes
                 return nbl::hlsl::math::quadrature::GaussLegendreIntegration<5, float_t, MyFunction>::calculateIntegral(func, 0.0, t);
             }
             
-            
             float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint, float2_t A, float2_t B, float2_t C)
             {
                 float_t xn = hint;
@@ -204,6 +203,34 @@ namespace shapes
                     xn -= (calcArcLen(xn,A,B,C) - arcLen) / differentialAtGuess;
                 }
 
+                return xn;
+            }
+            
+            float_t calcArcLenInverse_bisection(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint, float2_t A, float2_t B, float2_t C)
+            {
+                float_t xn = hint;
+                float_t min = 0.0;
+                float_t max = 1.0;
+            
+                if (arcLen <= accuracyThreshold)
+                    return arcLen;
+            
+                const uint32_t iterationThreshold = 32;
+                for (uint32_t n = 0; n < iterationThreshold; n++)
+                {
+                    float_t arcLenDiffAtParamGuess = calcArcLen(xn, A, B, C) - arcLen;
+            
+                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                        return xn;
+            
+                    if (arcLenDiffAtParamGuess < 0.0)
+                        min = xn;
+                    else
+                        max = xn;
+            
+                    xn = (min + max) / 2.0;
+                }
+            
                 return xn;
             }
 
