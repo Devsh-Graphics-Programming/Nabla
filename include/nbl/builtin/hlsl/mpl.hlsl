@@ -59,7 +59,13 @@ struct log2
 };
 
 template<typename T, T X, int32_t S>
-struct rotl;
+struct rotl
+{
+    // TODO: all uint typese
+    static const uint32_t N = 32u;
+    static const int32_t r = S % N;
+    static const T value = (S >= 0) ? ((X << r) | (X >> (N - r))) : (X >> (-r)) | (X << (N - (-r)));
+};
 
 template<typename T, T X, int32_t S>
 struct rotr
@@ -67,16 +73,8 @@ struct rotr
     // TODO: all uint typese
     static const uint32_t N = 32u;
     static const int32_t r = S % N;
-    static const T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : rotl<T, -X, S>::value;
-};
-
-template<typename T, T X, int32_t S>
-struct rotl
-{
-    // TODO: all uint typese
-    static const uint32_t N = 32u;
-    static const int32_t r = S % N;
-    static const T value = (S >= 0) ? ((X << r) | (X >> (N - r))) : rotr<T, -X, S>::value;
+    static const T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : (X << (-r)) | (X >> (N - (-r)));
+    
 };
 
 #endif
