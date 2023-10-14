@@ -89,46 +89,48 @@ struct numeric_limits
 {
     NBL_CONSTEXPR_STATIC_INLINE int32_t size = sizeof(T);
 
-    NBL_CONSTEXPR_STATIC_INLINE int32_t F16 = size / 2;
-    NBL_CONSTEXPR_STATIC_INLINE int32_t F32 = size / 4;
-    NBL_CONSTEXPR_STATIC_INLINE int32_t F64 = size / 8;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t S8  = size;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t S16 = size / 2;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t S32 = size / 4;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t S64 = size / 8;
 
     /*
         float_digits_array = {11, 24, 53};
         float_digits = float_digits_array[fp_idx];
     */
     
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_digits = 11*F16 + 2*F32 + 5*F64;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_digits = 11*S16 + 2*S32 + 5*S64;
 
     /*
         decimal_digits_array = floor((float_digits_array-1)*log2) = {3, 6, 15}; 
         float_decimal_digits = decimal_digits_array[fp_idx];
     */
 
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_decimal_digits = 3*(F16 + F64);
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_decimal_digits = 3*(S16 + S64);
 
     /*
         decimal_max_digits_array = ceil(float_digits_array*log2 + 1) = {5, 9, 17};
         float_decimal_max_digits = decimal_max_digits_array[fp_idx];
     */
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_decimal_max_digits = 5*F16 - F32 - F64;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_decimal_max_digits = 5*S16 - S32 - S64;
     
     /*
         min_decimal_exponent_array = ceil((float_min_exponent-1) * log2) = { -4, -37, -307 };
         float_min_decimal_exponent = min_decimal_exponent_array[fp_idx];
     */
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_decimal_exponent = -4*F16 - 29*F32 - 233*F64;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_decimal_exponent = -4*S16 - 29*S32 - 233*S64;
 
     /*
         max_decimal_exponent_array = floor(float_max_exponent * log2) = { 4, 38, 308 };
         float_max_decimal_exponent = max_decimal_exponent_array[fp_idx];
     */
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*F16 + 30*F32 + 232*F64;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*S16 + 30*S32 + 232*S64;
     
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - float_digits - 1;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1 << float_exponent_bits;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
 
+    NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
 
     // identifies types for which std::numeric_limits is specialized
     NBL_CONSTEXPR_STATIC_INLINE bool is_specialized = true;
@@ -159,13 +161,13 @@ struct numeric_limits
 
     // TODO verify this
     // identifies types that handle overflows with modulo arithmetic
-    NBL_CONSTEXPR_STATIC_INLINE bool is_modulo = is_integer && !is_signed;
+    NBL_CONSTEXPR_STATIC_INLINE bool is_modulo = is_integer && !is_signed && !is_bool;
 
     // number of radix digits that can be represented without change
-    NBL_CONSTEXPR_STATIC_INLINE int32_t digits = !is_integer ? float_digits : (8*size - is_signed);
+    NBL_CONSTEXPR_STATIC_INLINE int32_t digits = is_integer ? (is_bool? 1 : 8*size - is_signed) : float_digits;
     // number of decimal digits that can be represented without change
-    NBL_CONSTEXPR_STATIC_INLINE int32_t digits10 = !is_integer ? float_decimal_digits : (size * 2 + size / 4 + int32_t(!is_signed) * (size / 8));
-
+    NBL_CONSTEXPR_STATIC_INLINE int32_t digits10 = is_integer ? (is_bool ? 0 : S8 * 2 + S32 + int32_t(!is_signed) * S64) : float_decimal_digits;
+    
     // number of decimal digits necessary to differentiate all values of this type
     NBL_CONSTEXPR_STATIC_INLINE int32_t max_digits10 = !is_integer ? float_decimal_max_digits : 0;
 
@@ -191,8 +193,8 @@ struct numeric_limits
     static T lowest() { return is_integer ? min() : -max(); }
     static T denorm_min() { return impl::num_traits<T>::DENORM_MIN; }
     static T epsilon() { return is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1))); }
-    static T round_error() { return T(0.5); }
-    static T infinity() { return T(1e+300 * 1e+300); }
+    static T round_error() { return is_same<T, bool>::value ? 0 : T(0.5); }
+    static T infinity() { return is_same<T, bool>::value ? 0 : T(1e+300 * 1e+300); }
     static T quiet_NaN() { return bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
     static T signaling_NaN() { return bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
 };
