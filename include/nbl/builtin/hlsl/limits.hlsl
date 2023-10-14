@@ -4,8 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/mpl.hlsl>
 
 // C++ headers
 #ifndef __HLSL_VERSION
@@ -36,6 +36,9 @@ enum float_round_style {
 template<class T>
 struct numeric_limits;
 
+namespace impl
+{
+
 template<class T> 
 struct num_traits
 {
@@ -50,9 +53,11 @@ struct num_traits
 template<> 
 struct num_traits<half>
 {
-    NBL_CONSTEXPR_STATIC_INLINE half MIN         = 6.103515e-05;
-    NBL_CONSTEXPR_STATIC_INLINE half MAX         = 65504;
-    NBL_CONSTEXPR_STATIC_INLINE half DENORM_MIN  = 5.96046448e-08;
+    NBL_CONSTEXPR_STATIC_INLINE half     MIN           = 6.103515e-05;
+    NBL_CONSTEXPR_STATIC_INLINE half     MAX           = 65504;
+    NBL_CONSTEXPR_STATIC_INLINE half     DENORM_MIN    = 5.96046448e-08;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t QUIET_NAN     = 0x7FFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t SIGNALING_NAN = 0x7DFF;
 };
 #endif
 
@@ -75,6 +80,9 @@ struct num_traits<float64_t>
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  QUIET_NAN     = 0x7FF8000000000000ull;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  SIGNALING_NAN = 0x7FF0000000000001ull;
 };
+
+}
+
 
 template<class T>
 struct numeric_limits
@@ -132,9 +140,7 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE bool is_exact = is_integer;
     // identifies floating-point types that can represent the special value "positive infinity"
     NBL_CONSTEXPR_STATIC_INLINE bool has_infinity = !is_integer;
-    
-    NBL_CONSTEXPR_STATIC_INLINE T num_epsilon = is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1)));
-    
+
     // (TODO) think about what this means for HLSL
     // identifies floating-point types that can represent the special value "quiet not-a-number" (NaN)
     NBL_CONSTEXPR_STATIC_INLINE bool has_quiet_NaN = !is_integer; 
@@ -179,19 +185,17 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE bool traps = false;
     // identifies floating-point types that detect tinyness before rounding
     NBL_CONSTEXPR_STATIC_INLINE bool tinyness_before = false;
-
-    static T min() { return num_traits<T>::MIN; }
-    static T max() { return num_traits<T>::MAX; }
-    static T lowest() { return is_integer ? min() : -max(); }
-    static T denorm_min() { return num_traits<T>::DENORM_MIN; }
     
-    static T epsilon() { return num_epsilon; }
+    static T min() { return impl::num_traits<T>::MIN; }
+    static T max() { return impl::num_traits<T>::MAX; }
+    static T lowest() { return is_integer ? min() : -max(); }
+    static T denorm_min() { return impl::num_traits<T>::DENORM_MIN; }
+    static T epsilon() { return is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1))); }
     static T round_error() { return T(0.5); }
     static T infinity() { return T(1e+300 * 1e+300); }
-    static T quiet_NaN() { return bit_cast<T>(num_traits<T>::QUIET_NAN); }
-    static T signaling_NaN() { return bit_cast<T>(num_traits<T>::SIGNALING_NAN); }
+    static T quiet_NaN() { return bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
+    static T signaling_NaN() { return bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
 };
-
 
 #else
 
