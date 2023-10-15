@@ -127,7 +127,7 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*S16 + 30*S32 + 232*S64;
     
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - float_digits - 1;
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1 << float_exponent_bits;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1l << float_exponent_bits;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
 
     NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
@@ -167,7 +167,7 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE int32_t digits = is_integer ? (is_bool? 1 : 8*size - is_signed) : float_digits;
     // number of decimal digits that can be represented without change
     NBL_CONSTEXPR_STATIC_INLINE int32_t digits10 = is_integer ? (is_bool ? 0 : S8 * 2 + S32 + int32_t(!is_signed) * S64) : float_decimal_digits;
-    
+
     // number of decimal digits necessary to differentiate all values of this type
     NBL_CONSTEXPR_STATIC_INLINE int32_t max_digits10 = !is_integer ? float_decimal_max_digits : 0;
 
@@ -188,13 +188,13 @@ struct numeric_limits
     // identifies floating-point types that detect tinyness before rounding
     NBL_CONSTEXPR_STATIC_INLINE bool tinyness_before = false;
     
-    static T min() { return impl::num_traits<T>::MIN; }
-    static T max() { return impl::num_traits<T>::MAX; }
-    static T lowest() { return is_integer ? min() : -max(); }
-    static T denorm_min() { return impl::num_traits<T>::DENORM_MIN; }
-    static T epsilon() { return is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1))); }
-    static T round_error() { return is_same<T, bool>::value ? 0 : T(0.5); }
-    static T infinity() { return is_same<T, bool>::value ? 0 : T(1e+300 * 1e+300); }
+    NBL_CONSTEXPR_STATIC_INLINE T min = impl::num_traits<T>::MIN;
+    NBL_CONSTEXPR_STATIC_INLINE T max = impl::num_traits<T>::MAX;
+    NBL_CONSTEXPR_STATIC_INLINE T lowest = is_integer ? min : -max;
+    NBL_CONSTEXPR_STATIC_INLINE T denorm_min = impl::num_traits<T>::DENORM_MIN;
+    NBL_CONSTEXPR_STATIC_INLINE T epsilon = is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1)));
+    NBL_CONSTEXPR_STATIC_INLINE T round_error = is_same<T, bool>::value ? 0 : T(0.5);
+    NBL_CONSTEXPR_STATIC_INLINE T infinity = is_same<T, bool>::value ? 0 : T(1e+300 * 1e+300);
     static T quiet_NaN() { return bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
     static T signaling_NaN() { return bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
 };
