@@ -204,7 +204,16 @@ struct numeric_limits
 
 template<class T>
 struct numeric_limits : std::numeric_limits<T> 
-{};
+{
+    using Base = std::numeric_limits<T>;
+    NBL_CONSTEXPR_STATIC_INLINE T min = Base::min();
+    NBL_CONSTEXPR_STATIC_INLINE T max = Base::max();
+    NBL_CONSTEXPR_STATIC_INLINE T lowest = Base::lowest();
+    NBL_CONSTEXPR_STATIC_INLINE T denorm_min = Base::denorm_min();
+    NBL_CONSTEXPR_STATIC_INLINE T epsilon = Base::epsilon();
+    NBL_CONSTEXPR_STATIC_INLINE T round_error = Base::round_error();
+    NBL_CONSTEXPR_STATIC_INLINE T infinity = Base::infinity();
+};
 
 #endif
 }
