@@ -10,6 +10,7 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
+#include <halfLimits.h>
 #endif
 
 namespace nbl
@@ -49,15 +50,15 @@ struct num_traits
     NBL_CONSTEXPR_STATIC_INLINE T SIGNALING_NAN  = T(0);
 };
 
-#ifdef NBL_HALF_DEFINED
+#ifndef __cplusplus
 template<> 
-struct num_traits<half>
+struct num_traits<float16_t>
 {
-    NBL_CONSTEXPR_STATIC_INLINE half     MIN           = 6.103515e-05;
-    NBL_CONSTEXPR_STATIC_INLINE half     MAX           = 65504;
-    NBL_CONSTEXPR_STATIC_INLINE half     DENORM_MIN    = 5.96046448e-08;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t QUIET_NAN     = 0x7FFF;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SIGNALING_NAN = 0x7DFF;
+    NBL_CONSTEXPR_STATIC_INLINE float16_t MIN           = 6.103515e-05F;
+    NBL_CONSTEXPR_STATIC_INLINE float16_t MAX           = 65504.0F;
+    NBL_CONSTEXPR_STATIC_INLINE float16_t DENORM_MIN    = 5.96046448e-08F;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  QUIET_NAN     = 0x7FFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  SIGNALING_NAN = 0x7DFF;
 };
 #endif
 
@@ -202,7 +203,8 @@ struct numeric_limits
 #else
 
 template<class T>
-using numeric_limits = std::numeric_limits<T>;
+struct numeric_limits : std::numeric_limits<T> 
+{};
 
 #endif
 }
