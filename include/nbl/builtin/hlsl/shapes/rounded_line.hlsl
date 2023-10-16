@@ -13,23 +13,41 @@ namespace hlsl
 {
 namespace shapes
 {
+    template<typename float_t>
     struct RoundedLine_t
     {
-        float2 start;
-        float2 end;
-        float thickness;
+        using float2_t = vector<float_t, 2>;
 
-        static RoundedLine_t construct(float2 start, float2 end, float thickness)
+        float2_t start;
+        float2_t end;
+
+        static RoundedLine_t construct(float2_t start, float2_t end)
         {
-            RoundedLine_t ret = { start, end, thickness };
+            RoundedLine_t ret = { start, end };
             return ret;
         }
 
-        float signedDistance(float2 p)
+        struct DefaultClipper
         {
-            const float startCircleSD = Circle_t::construct(start, thickness).signedDistance(p);
-            const float endCircleSD = Circle_t::construct(end, thickness).signedDistance(p);
-            const float lineSD = Line_t::construct(start, end, thickness).signedDistance(p);
+            static DefaultClipper construct()
+            {
+                DefaultClipper ret;
+                return ret;
+            }
+        
+            inline float2_t operator()(const float_t t)
+            {
+                const float_t ret = clamp(t, 0.0, 1.0);
+                return float2_t(ret, ret);
+            }
+        };
+
+        template<typename Clipper = DefaultClipper>
+        float signedDistance(float2_t p, float_t thickness, Clipper clipper = DefaultClipper::construct())
+        {
+            const float_t startCircleSD = Circle_t::construct(start, thickness).signedDistance(p);
+            const float_t endCircleSD = Circle_t::construct(end, thickness).signedDistance(p);
+            const float_t lineSD = Line_t::construct(start, end, thickness).signedDistance(p);
             return min(lineSD, min(startCircleSD, endCircleSD));
         }
     };
