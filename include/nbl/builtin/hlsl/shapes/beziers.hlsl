@@ -5,7 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_BEZIERS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_BEZIERS_INCLUDED_
 
-// TODO: Later include from correct hlsl header
+// TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
@@ -27,6 +27,8 @@ namespace shapes
     {
         using float2_t = vector<float_t, 2>;
         using float3_t = vector<float_t, 3>;
+        using float4_t = vector<float_t, 4>;
+        using float2x2_t = matrix<float_t, 2, 2>;
 
         float2_t P0;
         float2_t P1;
@@ -46,6 +48,57 @@ namespace shapes
                  +       P2 * t         * t;
 
             return position;
+        }
+        
+        void OBBAligned(float_t thickness, NBL_REF_ARG(float2_t) obbV0, NBL_REF_ARG(float2_t) obbV1, NBL_REF_ARG(float2_t) obbV2, NBL_REF_ARG(float2_t) obbV3)
+        {
+            // shift curve so 'p0' is at origin (will become zero)
+            float2_t transformedP0 = float32_t2(0.0f, 0.0f);
+            float2_t transformedP1 = P1 - P0;
+            float2_t transformedP2 = P2 - P0;
+            
+            // rotate it around origin so 'p2' is on x-axis
+            // 
+            // - columns of matrix represents axes of transformed system and we already have one:
+            //   normalized vector from origin to p2 represents x-axis of wanted rotated bounding-box
+            // - 2nd axis is perpendicular to the 1st one so we just rotate 1st one counter-clockwise
+            //   by 90 degrees
+            
+            const float_t p2Length = length(transformedP2);
+            const float2_t axis = transformedP2 / p2Length; // normalized (unit length)
+            const float2_t translation = P0;
+            float2x2_t rotation;
+            
+            rotation[0] = float2_t(  axis.x, axis.y );      // column 0 ... x-axis
+            rotation[1] = float2_t( -axis.y, axis.x );      // column 1 ... y-axis ... CCW x-axis by 90 degrees
+            
+            // notes:
+            // - rotating 'p0' is pointless as it is "zero" and none rotation will change that
+            // - rotating 'p2' will move it to "global" x-axis so its y-coord will be zero and x-coord
+            //   will be its distance from origin
+            
+            //  transformed.P0 = transformed.P0 * rotation;
+            //  transformed.P1 = transformed.P1 * rotation;
+            //  transformed.P2 = transformed.P2 * rotation;
+            
+            transformedP1 = mul(rotation, transformedP1);
+            transformedP2 = float2_t(p2Length, 0.0);
+            
+            // compute AABB of curve in local-space
+            float4_t aabb = BezierAABB(transformedP0, transformedP1, transformedP2);
+            aabb.xy -= thickness;
+            aabb.zw += thickness;
+            
+            // transform AABB back to world-space
+            float2_t center = translation + mul((aabb.xy + aabb.zw) / 2.0f, rotation);
+            float2_t extent = ((aabb.zw - aabb.xy) / 2.0f).xy;
+            //float32_t center = p0 + rotation * aabb.center;
+            //float32_t2 extent = aabb.extent;
+            
+            obbV0 = float2_t(center + mul(extent, rotation));
+            obbV1 = float2_t(center + mul(float32_t2(extent.x, -extent.y), rotation));
+            obbV2 = float2_t(center + mul(-extent, rotation));
+            obbV3 = float2_t(center + mul(-float32_t2(extent.x, -extent.y), rotation));
         }
     };
 
