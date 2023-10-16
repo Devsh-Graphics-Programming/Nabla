@@ -54,14 +54,16 @@ namespace equations
 
         float2_t computeRoots()
         {
-            float64_t2 ret;
+            float2_t ret;
 
-            const float64_t det = B * B - 4.0 * A *C;
-            const float64_t detSqrt = sqrt(det);
-            const float64_t rcp = 0.5 / A;
-            const float64_t bOver2A = B * rcp;
+            const float_t det = B * B - 4.0 * A *C;
+            const float_t detSqrt = sqrt(det);
+            const float_t rcp = 0.5 / A;
+            const float_t bOver2A = B * rcp;
 
-            float64_t t0 = 0.0, t1 = 0.0;
+            if (isinf(rcp)) return float2_t(-C / B, NBL_NOT_A_NUMBER());
+
+            float_t t0 = 0.0, t1 = 0.0;
             if (B >= 0)
             {
                 ret[0] = -detSqrt * rcp - bOver2A;
