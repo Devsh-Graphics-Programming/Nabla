@@ -6,47 +6,12 @@
 #ifndef _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 #define _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 
-<<<<<<< HEAD
-#include <nbl/builtin/hlsl/math/functions.hlsl>
-
-=======
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
->>>>>>> 6fd2e3df3e4db9ef00e8a92fc4514ce3f56d77a7
 
 namespace nbl
 {
 namespace hlsl
-<<<<<<< HEAD
-{
-
-#define xoroshiro64star_state_t uint2
-#define xoroshiro64starstar_state_t uint2
-
-void xoroshiro64_state_advance(inout uint2 state)
-{
-	state[1] ^= state[0];
-	state[0] = math::rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
-	state[1] = math::rotl(state[1], 13u); // c
-}
-
-uint xoroshiro64star(inout xoroshiro64starstar_state_t state)
-{
-	const uint result = state[0]*0x9E3779BBu;
-
-    xoroshiro64_state_advance(state);
-
-	return result;
-}
-uint xoroshiro64starstar(inout xoroshiro64starstar_state_t state)
-{
-	const uint result = math::rotl(state[0]*0x9E3779BBu,5u)*5u;
-    
-    xoroshiro64_state_advance(state);
-
-	return result;
-}
-=======
 {
 
 struct Xoroshiro64StateHolder
@@ -98,7 +63,6 @@ struct Xoroshiro64StarStar
 
 	Xoroshiro64StateHolder stateHolder;
 };
->>>>>>> 6fd2e3df3e4db9ef00e8a92fc4514ce3f56d77a7
 
 }
 }
