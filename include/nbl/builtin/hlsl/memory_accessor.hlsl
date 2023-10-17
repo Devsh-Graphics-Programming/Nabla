@@ -1,8 +1,8 @@
 // Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SHARED_MEMORY_ACCESSOR_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MEMORY_ACCESSOR_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MEMORY_ACCESSOR_INCLUDED_
 
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 
@@ -10,10 +10,10 @@ namespace nbl
 {
 namespace hlsl
 {
-template<class NumberSharedMemoryAccessor>
-struct SharedMemoryAdaptor
+template<class NumberMemoryAccessor>
+struct MemoryAdaptor
 {
-    NumberSharedMemoryAccessor accessor;
+    NumberMemoryAccessor accessor;
     
     uint get(const uint ix) { return accessor.get(ix); }
     void get(const uint ix, out uint value) { value = accessor.get(ix);}
@@ -126,8 +126,7 @@ struct SharedMemoryAdaptor
     }
     
     void workgroupExecutionAndMemoryBarrier() {
-        glsl::barrier();
-        glsl::memoryBarrierShared();
+        accessor.workgroupExecutionAndMemoryBarrier();
     }
 };
 

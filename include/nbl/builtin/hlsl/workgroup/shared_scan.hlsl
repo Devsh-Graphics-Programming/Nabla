@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_SHARED_SCAN_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
@@ -17,21 +17,17 @@ namespace workgroup
 {
 
 template<typename T, class SubgroupOp, class SharedAccessor>
-struct WorkgroupScanHead
+struct Reduce
 {
-    T identity;
     T firstLevelScan;
     T lastLevelScan;
-    uint itemCount;
     uint lastInvocation;
     uint lastInvocationInLevel;
     uint scanLoadIndex;
 
-    static WorkgroupScanHead create(T identity, uint itemCount)
+    static Reduce create(uint itemCount)
     {
-        WorkgroupScanHead<T, SubgroupOp, SharedAccessor> wsh;
-        wsh.identity = identity;
-        wsh.itemCount = itemCount;
+        Reduce<T, SubgroupOp, SharedAccessor> wsh;
         wsh.lastInvocation = itemCount - 1u;
         return wsh;
     }
@@ -48,9 +44,9 @@ struct WorkgroupScanHead
         const bool isLastSubgroupInvocation = glsl::gl_SubgroupInvocationID() == glsl::gl_SubgroupSize() - 1u;
         
         // Since we are scanning the RESULT of the initial scan (which paired one input per subgroup invocation) 
-        // every group of 64 invocations has been coallesced into 1 result value. This means that the results of 
-        // the first SubgroupSz^2 invocations will be processed by the first subgroup and so on.
-        // Consequently, those first SubgroupSz^2 invocations will store their results on SubgroupSz scratch slots 
+        // every group of gl_SubgroupSz invocations has been coallesced into 1 result value. This means that the results of 
+        // the first gl_SubgroupSz^2 invocations will be processed by the first subgroup and so on.
+        // Consequently, those first gl_SubgroupSz^2 invocations will store their results on gl_SubgroupSz scratch slots 
         // and the next level will follow the same + the previous as an `offset`.
         
         scanLoadIndex = gl_LocalInvocationIndex;
@@ -59,12 +55,11 @@ struct WorkgroupScanHead
         bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
         while(lastInvocationInLevel >= glsl::gl_SubgroupSize() * glsl::gl_SubgroupSize())
         {
-            // REVIEW-519: Refactor to use ping-ponging if possible in order to minimize barrier usage. Worth it? How common is WGSZ > 4096
             if(participate)
             {
                 if (any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
                 { // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
-                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For subgroupSz = 64, first 4095 invocations store index is [0,63], 4096-8191 [64,127] etc.
+                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For gl_SubgroupSz = 64, first 4095 invocations store index is [0,63], 4096-8191 [64,127] etc.
                 }
             }
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
@@ -74,8 +69,8 @@ struct WorkgroupScanHead
                 const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
                 scan = subgroupOp(prevLevelScan);
                 sharedAccessor.main.set(scanLoadIndex, scan);
+                scanLoadIndex += lastInvocationInLevel + 1u;
             }
-            scanLoadIndex += lastInvocationInLevel + 1u;
         }
         if(lastInvocationInLevel >= glsl::gl_SubgroupSize())
         {
@@ -97,34 +92,36 @@ struct WorkgroupScanHead
     }
 };
 
-template<typename T, class Binop, class ScanHead, class SharedAccessor, bool isExclusive>
-struct WorkgroupScanTail
+template<typename T, class Binop, class SubgroupScanOp, class SharedAccessor, bool isExclusive>
+struct Scan
 {
     T identity;
-    ScanHead head;
+    Reduce<T, SubgroupScanOp, SharedAccessor> reduce;
 
-    static WorkgroupScanTail create(T identity, ScanHead head)
+    static Scan create(uint itemCount, T identity)
     {
-        WorkgroupScanTail<T, Binop, ScanHead, SharedAccessor, isExclusive> tail;
-        tail.identity = identity;
-        tail.head = head;
-        return tail;
+        Scan<T, Binop, SubgroupScanOp, SharedAccessor, isExclusive> scan;
+        scan.identity = identity;
+        scan.reduce = Reduce<T, SubgroupScanOp, SharedAccessor>::create(itemCount);
+        return scan;
     }
 
-    T operator()(NBL_REF_ARG(SharedAccessor) sharedAccessor)
+    T operator()(T value, NBL_REF_ARG(SharedAccessor) sharedAccessor)
     {
+        reduce(value, sharedAccessor);
+        
         Binop binop;
-        uint lastInvocation = head.lastInvocation;
-        uint firstLevelScan = head.firstLevelScan;
+        uint lastInvocation = reduce.lastInvocation;
+        uint firstLevelScan = reduce.firstLevelScan;
         const uint subgroupId = glsl::gl_SubgroupID();
         
         if(lastInvocation >= glsl::gl_SubgroupSize())
         {
-            uint scanLoadIndex = head.scanLoadIndex + glsl::gl_SubgroupSize();
+            uint scanLoadIndex = reduce.scanLoadIndex + glsl::gl_SubgroupSize();
             const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::gl_SubgroupSize();
             const uint currentToHighLevel = subgroupId - shiftedInvocationIndex;
             
-            sharedAccessor.main.set(head.scanLoadIndex, head.lastLevelScan);
+            sharedAccessor.main.set(reduce.scanLoadIndex, reduce.lastLevelScan);
 
             for(uint logShift = (firstbithigh(lastInvocation) / glsl::gl_SubgroupSizeLog2() - 1u) * glsl::gl_SubgroupSizeLog2(); logShift > 0u; logShift -= glsl::gl_SubgroupSizeLog2())
             {
@@ -134,8 +131,8 @@ struct WorkgroupScanTail
                 if(shiftedInvocationIndex <= lastInvocationInLevel)
                 {
                     sharedAccessor.main.set(currentLevelIndex, binop(sharedAccessor.main.get(scanLoadIndex+currentToHighLevel), sharedAccessor.main.get(currentLevelIndex)));
+                    scanLoadIndex = currentLevelIndex;
                 }
-                scanLoadIndex = currentLevelIndex;
             }
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
             
@@ -148,10 +145,10 @@ struct WorkgroupScanTail
         
         if(isExclusive)
         {
-            sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
             firstLevelScan = glsl::subgroupShuffleUp(firstLevelScan, 1u);
             if(glsl::subgroupElect())
-            { // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
+            {   // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
+                // note that we assume we might have to do scans with itemCount <= gl_WorkgroupSize
                 firstLevelScan = all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(subgroupId - 1u) : identity;
             }
             return firstLevelScan;

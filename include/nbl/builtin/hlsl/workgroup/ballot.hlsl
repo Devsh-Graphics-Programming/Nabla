@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
 
@@ -46,19 +46,19 @@ void ballot(const bool value, NBL_REF_ARG(SharedAccessor) accessor)
 {
     uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
     if(initialize) {
-        accessor.main.set(gl_LocalInvocationIndex, 0u);
+        accessor.ballot.set(gl_LocalInvocationIndex, 0u);
     }
-    accessor.main.workgroupExecutionAndMemoryBarrier();
+    accessor.ballot.workgroupExecutionAndMemoryBarrier();
     if(value) {
         uint dummy;
-        accessor.main.atomicOr(impl::getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+        accessor.ballot.atomicOr(impl::getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
     }
 }
 
 template<class SharedAccessor>
 bool ballotBitExtract(const uint index, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    return (accessor.main.get(impl::getDWORD(index)) & (1u << (index & 31u))) != 0u;
+    return (accessor.ballot.get(impl::getDWORD(index)) & (1u << (index & 31u))) != 0u;
 }
 
 /**

@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 

@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BROADCAST_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat/cpp_compat.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 
 namespace nbl 
@@ -22,7 +22,7 @@ namespace workgroup
  * and then all invocations access that index.
  */
 template<typename T, class SharedAccessor>
-T Broadcast(in T val, NBL_REF_ARG(SharedAccessor) accessor, in uint id)
+T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(SharedAccessor) accessor, NBL_CONST_REF_ARG(uint) id)
 {
     if(gl_LocalInvocationIndex == id) {
         accessor.broadcast.set(uballotBitfieldCount, val);
@@ -34,7 +34,7 @@ T Broadcast(in T val, NBL_REF_ARG(SharedAccessor) accessor, in uint id)
 }
 
 template<typename T, class SharedAccessor>
-T BroadcastFirst(in T val, NBL_REF_ARG(SharedAccessor) accessor)
+T BroadcastFirst(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(SharedAccessor) accessor)
 {
     if (Elect())
         accessor.broadcast.set(uballotBitfieldCount, val);

@@ -26,8 +26,7 @@ struct reduction
         native::reduction<T, Binop> reduce;
         return reduce(x);
     #else
-        portability::reduction<T, Binop> reduce;
-        return reduce(x);
+        return portability::reduction<T, Binop>(x);
     #endif
     }
 };
@@ -41,8 +40,7 @@ struct exclusive_scan
         native::exclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::exclusive_scan<T, Binop> scan;
-        return scan(x);
+        return portability::exclusive_scan<T, Binop>(x);
     #endif
     }
 };
@@ -56,8 +54,7 @@ struct inclusive_scan
         native::inclusive_scan<T, Binop> scan;
         return scan(x);
     #else
-        portability::inclusive_scan<T, Binop> scan;
-        return scan(x);
+        return portability::inclusive_scan<T, Binop>(x);
     #endif
     }
 };
