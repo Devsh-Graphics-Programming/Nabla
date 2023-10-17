@@ -33,7 +33,7 @@
   // composite type categories
   template<class T> struct is_reference; (TODO)
   template<class T> struct is_arithmetic; (DONE)
-  template<class T> struct is_fundamental; (TODO)
+  template<class T> struct is_fundamental; (DONE)
   template<class T> struct is_object; (NOT-APPLICABLE)
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
@@ -41,20 +41,20 @@
  
   // type properties
   template<class T> struct is_const; (DONE)
-  template<class T> struct is_volatile; (NOT-APPLICABLE)
+  template<class T> struct is_volatile; (DONE)
   template<class T> struct is_trivial; (EVERYTHING IS)
   template<class T> struct is_trivially_copyable; (EVERYTHING IS)
   template<class T> struct is_standard_layout; (NOT-APPLICABLE)
-  template<class T> struct is_empty; (NOT-APPLICABLE)
-  template<class T> struct is_polymorphic; (NOT-APPLICABLE)
-  template<class T> struct is_abstract; (NOT-APPLICABLE)
-  template<class T> struct is_final; (NOT-APPLICABLE)
+  template<class T> struct is_empty; (DONE? sizeof(T) == 0)
+  template<class T> struct is_polymorphic; (NOTHING IS)
+  template<class T> struct is_abstract; (NOTHING IS)
+  template<class T> struct is_final; (NOTHING IS)
   template<class T> struct is_aggregate; (DONE)
  
   template<class T> struct is_signed; (DONE)
   template<class T> struct is_unsigned; (DONE)
-  template<class T> struct is_bounded_array;
-  template<class T> struct is_unbounded_array;
+  template<class T> struct is_bounded_array(DONE);
+  template<class T> struct is_unbounded_array(DONE);
   template<class T> struct is_scoped_enum; (NOT-APPLICABLE)
 
   // type property queries
@@ -66,7 +66,7 @@
   template<class T, class U> struct is_same; (DONE)
   template<class Base, class Derived> struct is_base_of; (TODO)
   template<class From, class To> struct is_convertible; (TODO)
-  template<class From, class To> struct is_nothrow_convertible; (NOT-APPLICABLE)
+  template<class From, class To> struct is_nothrow_convertible; (TODO: ALIAS OF is_convertible)
   template<class T, class U> struct is_layout_compatible; (TODO)
   template<class Base, class Derived> struct is_pointer_interconvertible_base_of; (NOT-APPLICABLE)
  
@@ -102,7 +102,7 @@
   template<class T> struct add_pointer; (TODO)
 
   // other transformations
-  template<class T> struct type_identity; (TODO)
+  template<class T> struct type_identity; (DONE)
   template<class T> struct remove_cvref; (TODO)
   template<class T> struct decay; (TODO)
   template<bool, class T = void> struct enable_if; (NOT-APPLICABLE)
@@ -126,12 +126,17 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #endif
 
-namespace nbl::hlsl::type_traits
-{
+#include <nbl/builtin/hlsl/macros.h>
 
+namespace nbl
+{
+namespace hlsl
+{
+namespace type_traits
+{
 namespace impl
 {
     
@@ -181,11 +186,21 @@ struct is_same<A,A> : bool_constant<true> {};
 template<class T>
 struct is_void : bool_constant<is_same<T, void>::value> {};
 
+
 template<class T>
-struct is_array : bool_constant<false> {};
+struct is_bounded_array : bool_constant<false> {};
 
 template<class T, uint32_t count>
-struct is_array<T[count]> : bool_constant<true>{};
+struct is_bounded_array<T[count]> : bool_constant<true>{};
+
+template<class T>
+struct is_unbounded_array : bool_constant<false>{};
+
+template<class T>
+struct is_unbounded_array<T[]> : bool_constant<true>{};
+
+template<class T>
+struct is_array : bool_constant<is_bounded_array<T>::value || is_unbounded_array<T>::value> {};
 
 namespace impl
 {
@@ -250,6 +265,31 @@ struct is_const : bool_constant<false> {};
 template<class T>
 struct is_const<const T> : bool_constant<true> {};
 
+template<class T>
+struct is_volatile : bool_constant<false> {};
+
+template<class T>
+struct is_volatile<volatile T> : bool_constant<true> {};
+
+template<class>
+struct is_trivial : bool_constant<true> {};
+
+template<class>
+struct is_trivially_copyable : bool_constant<true> {};
+
+// this implementation is fragile
+template<class T>
+struct is_empty : bool_constant<0==sizeof(T)> {};
+
+template<class>
+struct is_polymorphic : bool_constant<false> {};
+
+template<class>
+struct is_abstract : bool_constant<false> {};
+
+template<class>
+struct is_final : bool_constant<false> {};
+
 template <class T>
 struct is_fundamental : bool_constant<
     is_scalar<T>::value || 
@@ -261,6 +301,42 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 
 template <class T>
 struct is_aggregate : is_compound<T> {};
+
+template<class T>
+struct type_identity 
+{
+    using type = T;
+};
+
+template<bool B, class T = void>
+struct enable_if {};
+ 
+template<class T>
+struct enable_if<true, T> 
+{ 
+    using type = T; 
+};
+
+// need this crutch because we can't make `#define typeid` work both on expression and types
+template<typename T>
+struct typeid_t;
+
+namespace impl
+{
+
+template<uint32_t encoded_typeid>
+struct decltype_t;
+
+template<uint32_t N>
+struct encoder
+{
+    uint32_t arr[N];
+};
+
+template<class T>
+encoder<typeid_t<T>::value> encode_typeid(T);
+}
+
 
 #else // C++
 
@@ -283,6 +359,12 @@ template<class T>
 using is_array = std::is_array<T>;
 
 template<class T>
+using is_bounded_array = std::is_bounded_array<T>;
+
+template<class T>
+using is_unbounded_array = std::is_unbounded_array<T>;
+
+template<class T>
 using is_scalar = std::is_scalar<T>;
 
 template<class T>
@@ -297,12 +379,29 @@ struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 template<class T>
 struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
 
-static_assert(is_floating_point<float4>::value);
-static_assert(is_integral<int1>::value);
-static_assert(is_unsigned<uint2>::value);
-
 template<class T>
 using is_const = std::is_const<T>;
+
+template<class T>
+using is_volatile = std::is_volatile<T>;
+
+template<class T>
+using is_trivial = std::is_trivial<T>;
+
+template<class T>
+using is_trivially_copyable = std::is_trivially_copyable<T>;
+
+template<class T> 
+using is_empty = std::is_empty<T>;
+
+template<class T> 
+using is_polymorphic = std::is_polymorphic<T>;
+
+template<class T> 
+using is_abstract = std::is_abstract<T>;
+
+template<class T> 
+using is_final = std::is_final<T>;
 
 template<class T>
 using is_fundamental = std::is_fundamental<T>;
@@ -312,6 +411,15 @@ using is_compound = std::is_compound<T>;
 
 template<class T>
 using is_aggregate = std::is_aggregate<T>;
+
+template<typename T>
+using type_identity = std::type_identity<T>;
+
+template<typename T>
+struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
+
+template<bool B, class T = void>
+using enable_if = std::enable_if<B, T>;
 
 #endif
 
@@ -329,6 +437,75 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
+template<typename V>
+struct scalar_type
+{
+    using type = void;
+};
+
+template<typename T, uint16_t N>
+struct scalar_type<vector<T,N> >
+{
+    using type = T;
+};
+
+template<typename T, uint16_t N, uint16_t M>
+struct scalar_type<matrix<T,N,M> >
+{
+    using type = T;
+};
+
+}
+}
 }
 
+
+#ifdef __HLSL_VERSION
+
+#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
+#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+
+// DXC doesn't support linking SPIR-V so this will always work I guess?
+// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
+#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+
+#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
+NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
+template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
+} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+
+#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
+#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+
+// builtins
+
+#define NBL_REGISTER_MATRICIES(T) \
+    NBL_REGISTER_OBJ_TYPE(T) \
+    NBL_REGISTER_OBJ_TYPE(T ## x4) \
+    NBL_REGISTER_OBJ_TYPE(T ## x3) \
+    NBL_REGISTER_OBJ_TYPE(T ## x2) \
+
+#define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
+    NBL_REGISTER_OBJ_TYPE(T) \
+    NBL_REGISTER_OBJ_TYPE(T ## 1) \
+    NBL_REGISTER_MATRICIES(T ## 2) \
+    NBL_REGISTER_MATRICIES(T ## 3) \
+    NBL_REGISTER_MATRICIES(T ## 4)
+
+NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(int64_t)
+
+NBL_REGISTER_TYPES_FOR_SCALAR(uint16_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(uint32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(uint64_t)
+
+NBL_REGISTER_TYPES_FOR_SCALAR(bool)
+
+// TODO: halfMxN with std::float16_t
+NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
+NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
+
+
+#endif
 #endif
