@@ -26,31 +26,31 @@ namespace impl
 // template<uint16_t bits_log2>
 // struct countl_zero_masks
 // {
-//     static const uint16_t SHIFT = uint16_t(1)<<(bits_log2-1);
-//     static const uint64_t LO_MASK = (1ull<<SHIFT)-1;
+//     NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT = uint16_t(1)<<(bits_log2-1);
+//     NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = (1ull<<SHIFT)-1;
 // };
 
 // template<>
 // struct countl_zero_masks<0>
 // {
-//     static const uint16_t SHIFT = 0;
-//     static const uint64_t LO_MASK = 0;
+//     NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT = 0;
+//     NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = 0;
 // };
 
 // TODO: this is temporary workaround, delete when fixed: https://github.com/microsoft/DirectXShaderCompiler/issues/5859
 template<uint16_t bits_log2>
 struct countl_zero_masks
 {
-    static const uint16_t SHIFT   = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
-    static const uint64_t LO_MASK = bits_log2 ? (1ull<<SHIFT)-1 : 0;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT   = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = bits_log2 ? (1ull<<SHIFT)-1 : 0;
 };
 
 template<uint64_t N, uint16_t bits_log2>
 struct countl_zero
 {
-    static const bool CHOOSE_HIGH = N&(countl_zero_masks<bits_log2>::LO_MASK<<countl_zero_masks<bits_log2>::SHIFT);
-    static const uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>countl_zero_masks<bits_log2>::SHIFT):N)&countl_zero_masks<bits_log2>::LO_MASK;
-    static const uint16_t value   = type_traits::conditional<bits_log2,countl_zero<NEXT_N,bits_log2-1>,type_traits::integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = N&(countl_zero_masks<bits_log2>::LO_MASK<<countl_zero_masks<bits_log2>::SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>countl_zero_masks<bits_log2>::SHIFT):N)&countl_zero_masks<bits_log2>::LO_MASK;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value   = type_traits::conditional<bits_log2,countl_zero<NEXT_N,bits_log2-1>,type_traits::integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
 };
 
 }
