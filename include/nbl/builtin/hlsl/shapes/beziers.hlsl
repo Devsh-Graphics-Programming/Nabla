@@ -188,6 +188,37 @@ namespace shapes
             
             float_t calcArcLenInverse(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
+                return calcArcLenInverse_NR(quadratic, arcLen, accuracyThreshold, hint);
+            }
+
+            float_t calcArcLenInverse_NR(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            {
+                float_t xn = hint;
+
+                if (arcLen <= accuracyThreshold)
+                    return arcLen;
+
+                // TODO: implement halley method
+                const uint32_t iterationThreshold = 32;
+                for(uint32_t n = 0; n < iterationThreshold; n++)
+                {
+                    float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
+
+                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                        return xn;
+
+                    float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
+                        // x_n+1 = x_n - f(x_n)/f'(x_n)
+                    xn -= arcLenDiffAtParamGuess / differentialAtGuess;
+
+                    xn = clamp(xn, 0.0, 1.0);
+                }
+
+                return xn;
+            }
+
+            float_t calcArcLenInverse_Bisection(Quadratic<float_t> quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            {
                 float_t xn = hint;
                 float_t min = 0.0;
                 float_t max = 1.0;

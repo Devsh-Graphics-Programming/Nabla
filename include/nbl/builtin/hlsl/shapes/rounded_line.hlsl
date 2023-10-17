@@ -47,7 +47,7 @@ namespace shapes
         {
             const float_t startCircleSD = Circle_t::construct(start, thickness).signedDistance(p);
             const float_t endCircleSD = Circle_t::construct(end, thickness).signedDistance(p);
-            const float_t lineSD = Line_t::construct(start, end, thickness).signedDistance(p);
+            const float_t lineSD = Line_t<float_t>::construct(start, end).signedDistance(p, thickness);
             return min(lineSD, min(startCircleSD, endCircleSD));
         }
     };
