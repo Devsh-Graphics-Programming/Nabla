@@ -61,8 +61,6 @@ namespace equations
             const float_t rcp = 0.5 / A;
             const float_t bOver2A = B * rcp;
 
-            if (isinf(rcp)) return float2_t(-C / B, NBL_NOT_A_NUMBER());
-
             float_t t0 = 0.0, t1 = 0.0;
             if (B >= 0)
             {
