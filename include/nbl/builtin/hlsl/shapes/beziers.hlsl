@@ -110,6 +110,7 @@ namespace shapes
         using scalar_t = float_t;
         using float_t2 = vector<float_t, 2>;
         using float_t3 = vector<float_t, 3>;
+        using float_t2x2 = matrix<float_t, 2, 2>;
         
         float_t2 A;
         float_t2 B;
@@ -353,6 +354,13 @@ namespace shapes
             }
             
             return candidates;
+        }
+
+        float_t2x2 getLocalCoordinateSpace(float_t t)
+        {
+            // normalize tangent
+            float_t2 d = normalize(2 * A * t + B);
+            return float_t2x2(d.x, d.y, -d.y, d.x);
         }
     };
 }

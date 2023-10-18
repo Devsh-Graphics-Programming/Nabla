@@ -19,6 +19,7 @@ namespace shapes
         using scalar_t = float_t;
         using float_t2 = vector<float_t, 2>;
         using float_t3 = vector<float_t, 3>;
+        using float_t2x2 = matrix<float_t, 2, 2>;
         
         float_t2 P0;
         float_t2 P1;
@@ -65,10 +66,17 @@ namespace shapes
 
         Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos)
         {
+            Candidates ret;
             float_t2 p0p1 = P1 - P0;
             float_t2 posp0 = pos - P0;
-            float_t t = dot(posp0, p0p1) / dot(p0p1, p0p1);
-            return t;
+            ret[0] = dot(posp0, p0p1) / dot(p0p1, p0p1);
+            return ret;
+        }
+
+        float_t2x2 getLocalCoordinateSpace(float_t t)
+        {
+            float_t2 d = normalize(P1 - P0);
+            return float_t2x2(d.x, d.y, -d.y, d.x);
         }
     };
 }
