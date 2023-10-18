@@ -1,8 +1,11 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_LINE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_LINE_INCLUDED_
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
@@ -10,26 +13,70 @@ namespace hlsl
 {
 namespace shapes
 {
-    struct Line_t
+    template<typename float_t>
+    struct Line
     {
-        float2 start;
-        float2 end;
-        float thickness;
-
-        static Line_t construct(float2 start, float2 end, float thickness)
+        using scalar_t = float_t;
+        using float_t2 = vector<float_t, 2>;
+        using float_t3 = vector<float_t, 3>;
+        using float_t2x2 = matrix<float_t, 2, 2>;
+        
+        float_t2 P0;
+        float_t2 P1;
+        
+        struct ArcLengthCalculator
         {
-            Line_t ret = { start, end, thickness };
+            float_t len;
+
+            static ArcLengthCalculator construct(NBL_CONST_REF_ARG(Line<float_t>) segment)
+            {
+                ArcLengthCalculator ret = { segment.getLength() };
+                return ret;
+            }
+
+            float_t calcArcLen(float_t t)
+            {
+                return len * t;
+            }
+            
+            float_t calcArcLenInverse(NBL_CONST_REF_ARG(Line<float_t>) segment, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            {
+                return arcLen / len;
+            }
+        };
+        
+        static Line construct(NBL_CONST_REF_ARG(float_t2) P0, NBL_CONST_REF_ARG(float_t2) P1)
+        {            
+            Line ret = { P0, P1 };
             return ret;
         }
 
-        float signedDistance(float2 p)
+        float_t2 evaluate(float_t t)
         {
-            const float l = length(end - start);
-            const float2  d = (end - start) / l;
-            float2  q = p - (start + end) * 0.5;
-            q = mul(float2x2(d.x, d.y, -d.y, d.x), q);
-            q = abs(q) - float2(l * 0.5, thickness);
-            return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+            return t * (P1 - P0) + P0;
+        }
+
+        float_t getLength()
+        {
+            return length(P1 - P0);
+        }
+        
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxCandidates = 1u;
+        using Candidates = vector<float_t, MaxCandidates>;
+
+        Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos)
+        {
+            Candidates ret;
+            float_t2 p0p1 = P1 - P0;
+            float_t2 posp0 = pos - P0;
+            ret[0] = dot(posp0, p0p1) / dot(p0p1, p0p1);
+            return ret;
+        }
+
+        float_t2x2 getLocalCoordinateSpace(float_t t)
+        {
+            float_t2 d = normalize(P1 - P0);
+            return float_t2x2(d.x, d.y, -d.y, d.x);
         }
     };
 }
