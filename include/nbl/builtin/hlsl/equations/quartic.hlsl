@@ -40,11 +40,11 @@ namespace equations
         static Quartic construct(float_t A, float_t B, float_t C, float_t D, float_t E)
         {
             Quartic ret;
-            ret.c[0] = A;
-            ret.c[1] = B;
+            ret.c[0] = E;
+            ret.c[1] = D;
             ret.c[2] = C;
-            ret.c[3] = D;
-            ret.c[4] = E;
+            ret.c[3] = B;
+            ret.c[4] = A;
             return ret;
         }
 
@@ -76,7 +76,7 @@ namespace equations
 			{
 				/* no absolute term: y(y^3 + py + q) = 0 */
 
-				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(q, p, 0, 1).computeRoots();
+				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(1, 0, p, q).computeRoots();
 				s[rootCount ++] = cubic[0];
 				s[rootCount ++] = cubic[1];
 				s[rootCount ++] = cubic[2];
@@ -84,7 +84,7 @@ namespace equations
 			else
 			{
 				/* solve the resolvent cubic ... */
-				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct( 1.0 / 2 * r * p - 1.0 / 8 * q * q, -r, -1.0 / 2 * p, 1).computeRoots();
+				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
 				/* ... and take the one real solution ... */
 				for (uint i = 0; i < 3; i ++)
 					if (!isnan(cubic[i]))

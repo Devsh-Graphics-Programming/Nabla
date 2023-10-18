@@ -38,10 +38,10 @@ namespace equations
         static Cubic construct(float_t A, float_t B, float_t C, float_t D)
         {
             Cubic ret;
-            ret.c[0] = A;
-            ret.c[1] = B;
-            ret.c[2] = C;
-            ret.c[3] = D;
+            ret.c[0] = D;
+            ret.c[1] = C;
+            ret.c[2] = B;
+            ret.c[3] = A;
             return ret;
         }
 
