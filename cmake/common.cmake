@@ -534,8 +534,6 @@ function(nbl_project_handle_json_config)
 	get_filename_component(NBL_TEMPLATE_JSON_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
 	set(NBL_PROFILES_JSON_DIR "${NBL_TEMPLATE_JSON_DIR}/.profiles")
 	get_filename_component(NBL_PROFILES_JSON_DIR_ABS_ "${NBL_PROFILES_JSON_DIR}" ABSOLUTE)
-	set(NBL_TARGET_TESTS_DIR "${NBL_TEMPLATE_JSON_DIR}/.test")
-	get_filename_component(NBL_TARGET_TESTS_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
 
 	set(NBL_EXECUTABLE_GEN_EXP_FILEPATH "$<PATH:RELATIVE_PATH,$<TARGET_FILE:${EXECUTABLE_NAME}>,${NBL_PROFILES_JSON_DIR}>") # use this in your json config file when referencing filepath of an example's executable
 
