@@ -9,7 +9,7 @@
 //#include <nbl/builtin/hlsl/common.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/type_traits.hlsl>
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 namespace nbl
 {
@@ -27,9 +27,9 @@ T identity(NBL_CONST_REF_ARG(T) _linear)
 }
 
 template<typename T>
-T impl_shared_2_4(NBL_CONST_REF_ARG(T) _linear, typename scalar_type<T>::type vertex)
+T impl_shared_2_4(NBL_CONST_REF_ARG(T) _linear, typename type_traits::scalar_type<T>::type vertex)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     bool3 right = (_linear > promote<T, Val_t>(vertex));
     return lerp(_linear * Val_t(12.92), pow(_linear, promote<T, Val_t>(1.0 / 2.4)) * Val_t(1.055) - (Val_t(0.055)), right);
 }
@@ -38,7 +38,7 @@ T impl_shared_2_4(NBL_CONST_REF_ARG(T) _linear, typename scalar_type<T>::type ve
 template<typename T>
 T sRGB(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     bool3 negatif = (_linear < promote<T, Val_t>(0.0));
     T absVal = impl_shared_2_4<T>(abs(_linear), 0.0031308);
     return lerp(absVal, -absVal, negatif);
@@ -54,14 +54,14 @@ T Display_P3(NBL_CONST_REF_ARG(T) _linear)
 template<typename T>
 T DCI_P3_XYZ(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     return pow(_linear / Val_t(52.37), promote<T, Val_t>(1.0 / 2.6));
 }
 
 template<typename T>
 T SMPTE_170M(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     // ITU specs (and the outlier BT.2020) give different constants for these, but they introduce discontinuities in the mapping
     // because HDR swapchains often employ the RGBA16_SFLOAT format, this would become apparent because its higher precision than 8,10,12 bits
     const Val_t alpha = 1.099296826809443; // 1.099 for all ITU but the BT.2020 12 bit encoding, 1.0993 otherwise
@@ -72,7 +72,7 @@ T SMPTE_170M(NBL_CONST_REF_ARG(T) _linear)
 template<typename T>
 T SMPTE_ST2084(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     const T m1 = promote<T, Val_t>(0.1593017578125);
     const T m2 = promote<T, Val_t>(78.84375);
     const Val_t c2 = 18.8515625;
@@ -87,7 +87,7 @@ T SMPTE_ST2084(NBL_CONST_REF_ARG(T) _linear)
 template<typename T>
 T HDR10_HLG(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     
     // done with log2 so constants are different
     const Val_t a = 0.1239574303172;
@@ -100,21 +100,21 @@ T HDR10_HLG(NBL_CONST_REF_ARG(T) _linear)
 template<typename T>
 T AdobeRGB(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     return pow(_linear, promote<T, Val_t>(1.0 / 2.19921875));
 }
 
 template<typename T>
 T Gamma_2_2(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     return pow(_linear, promote<T, Val_t>(1.0 / 2.2));
 }
 
 template<typename T>
 T ACEScc(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     bool3 mid = (_linear >= promote<T, Val_t>(0.0));
     bool3 right = (_linear >= promote<T, Val_t>(0.000030517578125));
     return (log2(lerp(promote<T, Val_t>(0.0000152587890625), promote<T, Val_t>(0.0), right) + _linear * lerp(promote<T, Val_t>(0.0), lerp(promote<T, Val_t>(0.5), promote<T, Val_t>(1.0), right), mid)) + promote<T, Val_t>(9.72)) / Val_t(17.52);
@@ -123,7 +123,7 @@ T ACEScc(NBL_CONST_REF_ARG(T) _linear)
 template<typename T>
 T ACEScct(NBL_CONST_REF_ARG(T) _linear)
 {
-    typedef typename scalar_type<T>::type Val_t;
+    typedef typename type_traits::scalar_type<T>::type Val_t;
     bool3 right = (_linear > promote<T, Val_t>(0.0078125));
     return lerp(Val_t(10.5402377416545) * _linear + Val_t(0.0729055341958355), (log2(_linear) + promote<T, Val_t>(9.72)) / Val_t(17.52), right);
 }
