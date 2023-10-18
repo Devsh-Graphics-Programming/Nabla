@@ -11,6 +11,7 @@ namespace nbl::hlsl
 
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
 
 }
 #else
