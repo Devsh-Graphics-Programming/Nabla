@@ -4,8 +4,8 @@
 #ifndef __HLSL_VERSION 
 
 #define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#include <glm/detail/_swizzle.hpp>
+#include <glm/glm/glm.hpp>
+#include <glm/glm/detail/_swizzle.hpp>
 #include <stdint.h>
 
 namespace nbl::hlsl

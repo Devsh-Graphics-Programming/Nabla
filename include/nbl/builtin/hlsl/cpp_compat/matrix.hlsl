@@ -3,7 +3,6 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
-
 #ifndef __HLSL_VERSION
 namespace nbl::hlsl
 {
@@ -58,57 +57,26 @@ struct matrix final : glm::mat<N,M,T>
 };
 
 
-using bool4x4 = matrix<bool, 4, 4>;
-using bool4x3 = matrix<bool, 4, 3>;
-using bool4x2 = matrix<bool, 4, 2>;
-using bool3x4 = matrix<bool, 3, 4>;
-using bool3x3 = matrix<bool, 3, 3>;
-using bool3x2 = matrix<bool, 3, 2>;
-using bool2x4 = matrix<bool, 2, 4>;
-using bool2x3 = matrix<bool, 2, 3>;
-using bool2x2 = matrix<bool, 2, 2>;
+#define NBL_TYPEDEF_MATRICIES_FOR_ROW(T, R) \
+using T ## R ## x4 = matrix<T, R, 4>; \
+using T ## R ## x3 = matrix<T, R, 3>; \
+using T ## R ## x2 = matrix<T, R, 2>; 
 
-using int32_t4x4 = matrix<int32_t, 4, 4>;
-using int32_t4x3 = matrix<int32_t, 4, 3>;
-using int32_t4x2 = matrix<int32_t, 4, 2>;
-using int32_t3x4 = matrix<int32_t, 3, 4>;
-using int32_t3x3 = matrix<int32_t, 3, 3>;
-using int32_t3x2 = matrix<int32_t, 3, 2>;
-using int32_t2x4 = matrix<int32_t, 2, 4>;
-using int32_t2x3 = matrix<int32_t, 2, 3>;
-using int32_t2x2 = matrix<int32_t, 2, 2>;
+#define NBL_TYPEDEF_MATRICIES_FOR_SCALAR(T) \
+    NBL_TYPEDEF_MATRICIES_FOR_ROW(T, 4) \
+    NBL_TYPEDEF_MATRICIES_FOR_ROW(T, 3) \
+    NBL_TYPEDEF_MATRICIES_FOR_ROW(T, 2)
 
-using uint32_t4x4 = matrix<uint32_t, 4, 4>;
-using uint32_t4x3 = matrix<uint32_t, 4, 3>;
-using uint32_t4x2 = matrix<uint32_t, 4, 2>;
-using uint32_t3x4 = matrix<uint32_t, 3, 4>;
-using uint32_t3x3 = matrix<uint32_t, 3, 3>;
-using uint32_t3x2 = matrix<uint32_t, 3, 2>;
-using uint32_t2x4 = matrix<uint32_t, 2, 4>;
-using uint32_t2x3 = matrix<uint32_t, 2, 3>;
-using uint32_t2x2 = matrix<uint32_t, 2, 2>;
-
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(bool);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(int16_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(int32_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(int64_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(uint16_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(uint32_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(uint64_t);
 // TODO: halfMxN with std::float16_t
-
-using float32_t4x4 = matrix<float, 4, 4>;
-using float32_t4x3 = matrix<float, 4, 3>;
-using float32_t4x2 = matrix<float, 4, 2>;
-using float32_t3x4 = matrix<float, 3, 4>;
-using float32_t3x3 = matrix<float, 3, 3>;
-using float32_t3x2 = matrix<float, 3, 2>;
-using float32_t2x4 = matrix<float, 2, 4>;
-using float32_t2x3 = matrix<float, 2, 3>;
-using float32_t2x2 = matrix<float, 2, 2>;
-
-using float64_t4x4 = matrix<float64_t, 4, 4>;
-using float64_t4x3 = matrix<float64_t, 4, 3>;
-using float64_t4x2 = matrix<float64_t, 4, 2>;
-using float64_t3x4 = matrix<float64_t, 3, 4>;
-using float64_t3x3 = matrix<float64_t, 3, 3>;
-using float64_t3x2 = matrix<float64_t, 3, 2>;
-using float64_t2x4 = matrix<float64_t, 2, 4>;
-using float64_t2x3 = matrix<float64_t, 2, 3>;
-using float64_t2x2 = matrix<float64_t, 2, 2>;
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(float32_t);
+NBL_TYPEDEF_MATRICIES_FOR_SCALAR(float64_t);
 
 }
 #endif
