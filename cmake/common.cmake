@@ -63,6 +63,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif()
 	endif()
 	
+	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
+	
 	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
