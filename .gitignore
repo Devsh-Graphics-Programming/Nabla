@@ -31,3 +31,4 @@ examples_tests/tmp/*
 android-sample/bin/*
 .vs/*
 */.vs/*
+*.pyc
