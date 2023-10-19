@@ -4,20 +4,22 @@
 #ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
+
+#include "spirv/1.2/spirv.hpp"
+
+
 namespace nbl 
 {
 namespace hlsl
 {
 namespace spirv
 {
-[[vk::ext_instruction(/* OpGroupNonUniformElect */ 333)]]
-bool subgroupElect(uint executionScope);
 
 #pragma region ATOMICS
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicIAdd */ 234)]]
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
 int atomicAdd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
 template<>
 [[vk::ext_instruction(/* OpAtomicIAdd */ 234)]]

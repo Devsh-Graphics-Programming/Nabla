@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_ELLIPSE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_ELLIPSE_INCLUDED_
 
-#include "nbl/builtin/hlsl/shapes/circle.hlsl"
+#include <nbl/builtin/hlsl/shapes/circle.hlsl>
 
 namespace nbl
 {

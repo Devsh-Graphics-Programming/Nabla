@@ -7,6 +7,7 @@
 #define _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
+
 #include <nbl/builtin/hlsl/bit.hlsl>
 
 namespace nbl
