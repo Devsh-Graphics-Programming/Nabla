@@ -16,20 +16,20 @@ struct MemoryAdaptor
     NumberMemoryAccessor accessor;
     
     uint get(const uint ix) { return accessor.get(ix); }
-    void get(const uint ix, out uint value) { value = accessor.get(ix);}
-    void get(const uint ix, out uint2 value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
-    void get(const uint ix, out uint3 value) { value = uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_));}
-    void get(const uint ix, out uint4 value) { value = uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_));}
+    void get(const uint ix, NBL_REF_ARG(uint) value) { value = accessor.get(ix);}
+    void get(const uint ix, NBL_REF_ARG(uint2) value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
+    void get(const uint ix, NBL_REF_ARG(uint3) value) { value = uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_));}
+    void get(const uint ix, NBL_REF_ARG(uint4) value) { value = uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_));}
 
-    void get(const uint ix, out int value) { value = asint(accessor.get(ix));}
-    void get(const uint ix, out int2 value) { value = asint(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, out int3 value) { value = asint(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, out int4 value) { value = asint(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(int) value) { value = asint(accessor.get(ix));}
+    void get(const uint ix, NBL_REF_ARG(int2) value) { value = asint(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(int3) value) { value = asint(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(int4) value) { value = asint(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
 
-    void get(const uint ix, out float value) { value = asfloat(accessor.get(ix));}
-    void get(const uint ix, out float2 value) { value = asfloat(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, out float3 value) { value = asfloat(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, out float4 value) { value = asfloat(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(float) value) { value = asfloat(accessor.get(ix));}
+    void get(const uint ix, NBL_REF_ARG(float2) value) { value = asfloat(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(float3) value) { value = asfloat(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
+    void get(const uint ix, NBL_REF_ARG(float4) value) { value = asfloat(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
 
     void set(const uint ix, const uint value) {accessor.set(ix, value);}
     void set(const uint ix, const uint2 value) {
@@ -82,46 +82,46 @@ struct MemoryAdaptor
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
-    void atomicAnd(const uint ix, const uint value, out uint orig) {
+    void atomicAnd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicAnd(ix, value);
     }
-    void atomicAnd(const uint ix, const int value, out int orig) {
+    void atomicAnd(const uint ix, const int value, NBL_REF_ARG(int) orig) {
        orig = asint(accessor.atomicAnd(ix, asuint(value)));
     }
-    void atomicAnd(const uint ix, const float value, out float orig) {
+    void atomicAnd(const uint ix, const float value, NBL_REF_ARG(float) orig) {
        orig = asfloat(accessor.atomicAnd(ix, asuint(value)));
     }
-    void atomicOr(const uint ix, const uint value, out uint orig) {
+    void atomicOr(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicOr(ix, value);
     }
-    void atomicOr(const uint ix, const int value, out int orig) {
+    void atomicOr(const uint ix, const int value, NBL_REF_ARG(int) orig) {
        orig = asint(accessor.atomicOr(ix, asuint(value)));
     }
-    void atomicOr(const uint ix, const float value, out float orig) {
+    void atomicOr(const uint ix, const float value, NBL_REF_ARG(float) orig) {
        orig = asfloat(accessor.atomicOr(ix, asuint(value)));
     }
-    void atomicXor(const uint ix, const uint value, out uint orig) {
+    void atomicXor(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicXor(ix, value);
     }
-    void atomicXor(const uint ix, const int value, out int orig) {
+    void atomicXor(const uint ix, const int value, NBL_REF_ARG(int) orig) {
        orig = asint(accessor.atomicXor(ix, asuint(value)));
     }
-    void atomicXor(const uint ix, const float value, out float orig) {
+    void atomicXor(const uint ix, const float value, NBL_REF_ARG(float) orig) {
        orig = asfloat(accessor.atomicXor(ix, asuint(value)));
     }
-    void atomicAdd(const uint ix, const uint value, out uint orig) {
+    void atomicAdd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicAdd(ix, value);
     }
-    void atomicMin(const uint ix, const uint value, out uint orig) {
+    void atomicMin(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicMin(ix, value);
     }
-    void atomicMax(const uint ix, const uint value, out uint orig) {
+    void atomicMax(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicMax(ix, value);
     }
-    void atomicExchange(const uint ix, const uint value, out uint orig) {
+    void atomicExchange(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicExchange(ix, value);
     }
-    void atomicCompSwap(const uint ix, const uint value, const uint comp, out uint orig) {
+    void atomicCompSwap(const uint ix, const uint value, const uint comp, NBL_REF_ARG(uint) orig) {
        orig = accessor.atomicCompSwap(ix, comp, value);
     }
     

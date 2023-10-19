@@ -127,6 +127,8 @@
 #ifndef __HLSL_VERSION
 #include <type_traits>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#else
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #endif
 
 #include <nbl/builtin/hlsl/macros.h>

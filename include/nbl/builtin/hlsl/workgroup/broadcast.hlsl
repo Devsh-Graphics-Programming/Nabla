@@ -22,26 +22,26 @@ namespace workgroup
  * and then all invocations access that index.
  */
 template<typename T, class SharedAccessor>
-T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(SharedAccessor) accessor, NBL_CONST_REF_ARG(uint) id)
+T Broadcast(const T val, NBL_REF_ARG(SharedAccessor) accessor, const uint id)
 {
     if(gl_LocalInvocationIndex == id) {
-        accessor.broadcast.set(uballotBitfieldCount, val);
+        accessor.broadcast.set(impl::uballotBitfieldCount, val);
     }
     
     accessor.broadcast.workgroupExecutionAndMemoryBarrier();
     
-    return accessor.broadcast.get(uballotBitfieldCount);
+    return accessor.broadcast.get(impl::uballotBitfieldCount);
 }
 
 template<typename T, class SharedAccessor>
-T BroadcastFirst(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(SharedAccessor) accessor)
+T BroadcastFirst(const T val, NBL_REF_ARG(SharedAccessor) accessor)
 {
     if (Elect())
-        accessor.broadcast.set(uballotBitfieldCount, val);
+        accessor.broadcast.set(impl::uballotBitfieldCount, val);
     
     accessor.broadcast.workgroupExecutionAndMemoryBarrier();
     
-    return accessor.broadcast.get(uballotBitfieldCount);
+    return accessor.broadcast.get(impl::uballotBitfieldCount);
 }
 
 }

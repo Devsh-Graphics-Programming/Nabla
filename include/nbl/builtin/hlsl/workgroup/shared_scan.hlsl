@@ -95,13 +95,11 @@ struct Reduce
 template<typename T, class Binop, class SubgroupScanOp, class SharedAccessor, bool isExclusive>
 struct Scan
 {
-    T identity;
     Reduce<T, SubgroupScanOp, SharedAccessor> reduce;
 
-    static Scan create(uint itemCount, T identity)
+    static Scan create(uint itemCount)
     {
         Scan<T, Binop, SubgroupScanOp, SharedAccessor, isExclusive> scan;
-        scan.identity = identity;
         scan.reduce = Reduce<T, SubgroupScanOp, SharedAccessor>::create(itemCount);
         return scan;
     }
@@ -149,7 +147,7 @@ struct Scan
             if(glsl::subgroupElect())
             {   // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
                 // note that we assume we might have to do scans with itemCount <= gl_WorkgroupSize
-                firstLevelScan = all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(subgroupId - 1u) : identity;
+                firstLevelScan = all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(subgroupId - 1u) : Binop::identity();
             }
             return firstLevelScan;
         }

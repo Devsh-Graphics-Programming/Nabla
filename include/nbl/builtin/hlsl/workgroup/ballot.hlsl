@@ -20,11 +20,12 @@ uint getDWORD(uint invocation)
 {
     return invocation >> 5;
 }
-}
+
 // uballotBitfieldCount essentially means 'how many DWORDs are needed to store ballots in bitfields, for each invocation of the workgroup'
 // can't use getDWORD because we want the static const to be treated as 'constexpr'
 static const uint uballotBitfieldCount = (_NBL_HLSL_WORKGROUP_SIZE_+31) >> 5; // in case WGSZ is not a multiple of 32 we might miscalculate the DWORDs after the right-shift by 5 which is why we add 31
 
+}
 /**
  * Simple ballot function.
  *
@@ -44,7 +45,7 @@ static const uint uballotBitfieldCount = (_NBL_HLSL_WORKGROUP_SIZE_+31) >> 5; //
 template<class SharedAccessor>
 void ballot(const bool value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    uint initialize = gl_LocalInvocationIndex < uballotBitfieldCount;
+    uint initialize = gl_LocalInvocationIndex < impl::uballotBitfieldCount;
     if(initialize) {
         accessor.ballot.set(gl_LocalInvocationIndex, 0u);
     }

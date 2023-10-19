@@ -31,7 +31,7 @@ T reduction(T value, NBL_REF_ARG(SharedAccessor) accessor)
 template<typename T, class Binop, class SharedAccessor>
 T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SCAN(false) incl_scan = SCAN(false)::create(_NBL_HLSL_WORKGROUP_SIZE_, Binop::identity());
+    SCAN(false) incl_scan = SCAN(false)::create(_NBL_HLSL_WORKGROUP_SIZE_);
     T retVal = incl_scan(value, accessor);
     return retVal;
 }
@@ -39,7 +39,7 @@ T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 template<typename T, class Binop, class SharedAccessor>
 T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SCAN(true) excl_scan = SCAN(true)::create(_NBL_HLSL_WORKGROUP_SIZE_, Binop::identity());
+    SCAN(true) excl_scan = SCAN(true)::create(_NBL_HLSL_WORKGROUP_SIZE_);
     T retVal = excl_scan(value, accessor);
     return retVal;
 }
@@ -65,33 +65,33 @@ template<class SharedAccessor>
 uint ballotBitCount(NBL_REF_ARG(SharedAccessor) accessor)
 {
     uint participatingBitfield;
-    if(gl_LocalInvocationIndex < uballotBitfieldCount)
+    if(gl_LocalInvocationIndex < impl::uballotBitfieldCount)
     {
         participatingBitfield = accessor.ballot.get(gl_LocalInvocationIndex);
     }
     accessor.ballot.workgroupExecutionAndMemoryBarrier();
-    REDUCE wsh = REDUCE::create(uballotBitfieldCount);
-    wsh(countbits(participatingBitfield), accessor);
+    REDUCE reduce = REDUCE::create(impl::uballotBitfieldCount);
+    reduce(countbits(participatingBitfield), accessor);
     accessor.main.workgroupExecutionAndMemoryBarrier();
-    return Broadcast<uint, SharedAccessor>(wsh.lastLevelScan, accessor, wsh.lastInvocationInLevel);
+    return Broadcast<uint, SharedAccessor>(reduce.lastLevelScan, accessor, reduce.lastInvocationInLevel);
 }
 
 template<class SharedAccessor>
-uint ballotScanBitCount(NBL_CONST_REF_ARG(bool) exclusive, NBL_REF_ARG(SharedAccessor) accessor)
+uint ballotScanBitCount(const bool exclusive, NBL_REF_ARG(SharedAccessor) accessor)
 {
     const uint _dword = impl::getDWORD(gl_LocalInvocationIndex);
     const uint localBitfield = accessor.ballot.get(_dword);
     uint globalCount;
     {
         uint participatingBitfield;
-        if(gl_LocalInvocationIndex < uballotBitfieldCount)
+        if(gl_LocalInvocationIndex < impl::uballotBitfieldCount)
         {
             participatingBitfield = accessor.ballot.get(gl_LocalInvocationIndex);
         }
         // scan hierarchically, invocations with `gl_LocalInvocationIndex >= uballotBitfieldCount` will have garbage here
         accessor.ballot.workgroupExecutionAndMemoryBarrier();
         
-        SCAN scan = SCAN::create(uballotBitfieldCount, 0u);
+        SCAN scan = SCAN::create(impl::uballotBitfieldCount);
         uint bitscan = scan(countbits(participatingBitfield), accessor);
         
         accessor.main.set(gl_LocalInvocationIndex, bitscan);
