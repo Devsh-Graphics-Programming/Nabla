@@ -520,6 +520,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 
 # DXC
+
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()

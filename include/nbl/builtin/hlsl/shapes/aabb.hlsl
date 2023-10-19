@@ -31,7 +31,7 @@ struct AABB_t
     //
     float getVolume()
     {
-        const float3 extent = AABB_t::getExtent();
+        const float3 extent = getExtent();
         return extent.x * extent.y * extent.z;
     }
 
@@ -45,7 +45,7 @@ struct AABB_t
     float3 maxVx;
 };
 
-struct nbl_glsl_shapes_CompressedAABB_t
+struct CompressedAABB_t
 {
     //
     AABB_t decompress()
