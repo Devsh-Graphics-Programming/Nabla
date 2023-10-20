@@ -336,6 +336,7 @@ struct SPhysicalDeviceLimits
     /* Vulkan Extensions */
 
     /* VK_AMD_shader_trinary_minmax  */
+
     bool shaderTrinaryMinmax = false;
 
     /* VK_AMD_shader_explicit_vertex_parameter */
