@@ -110,7 +110,7 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
         std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
         re.append("error ");
         re.append(requestedSource);
-        re.append(" not found");
+        re.append(" not found\n");
         includeStack.push_back(includeStack.back());
         return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
@@ -260,7 +260,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
-                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler")));
+                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler\n")));
             }
         };
         info.mOnPopIncludeCallback = [&]() {
