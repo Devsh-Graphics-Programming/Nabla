@@ -225,6 +225,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
 		)
 	endif()
+
+	nbl_project_handle_json_config()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -673,17 +675,12 @@ function(nbl_project_handle_json_config)
 		target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_CONFIG_FILEPATH_}")
 		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON" FILES "${_NBL_JSON_CONFIG_FILEPATH_}")
 
-		# ".enableParallelBuild" boolean
-		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
-		
-		# ".threadsPerBuildProcess" number
-		NBL_JSON_READ_VALIDATE_POPULATE("" threadsPerBuildProcess NUMBER "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
-		
-		# ".isExecuted" boolean
-		NBL_JSON_READ_VALIDATE_POPULATE("" isExecuted BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
-		
 		# ".scriptPath" string
 		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+
+		if("${_NBL_JSON_SCRIPTPATH_CONTENT_}" STREQUAL "") # stop processing if script path field is empty
+			return()
+		endif()
 		
 		get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
 		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
@@ -705,6 +702,15 @@ function(nbl_project_handle_json_config)
 				message(${_NBL_MESSAGE_TYPE} "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation ${_NBL_MESSAGE_STATUS_}! \".isExecuted\" field is set to \"${_NBL_JSON_ISEXECUTED_CONTENT_}\" but \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
 			endif()
 		endif()
+
+		# ".enableParallelBuild" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		# ".threadsPerBuildProcess" number
+		NBL_JSON_READ_VALIDATE_POPULATE("" threadsPerBuildProcess NUMBER "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		# ".isExecuted" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" isExecuted BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 	
 		# configure python environment & test runtime setup script
 		file(RELATIVE_PATH NBL_TEST_TARGET_MODULE_PATH_REL "${NBL_TEMPLATE_JSON_DIR}" "${_NBL_JSON_SCRIPTPATH_ABS_}")
