@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
 
-#include "spirv/1.2/spirv.hpp"
+#include "spirv/unified1/spirv.hpp"
 
 
 namespace nbl 
