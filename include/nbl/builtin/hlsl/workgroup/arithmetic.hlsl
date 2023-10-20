@@ -16,12 +16,12 @@ namespace hlsl
 namespace workgroup
 {
 
-#define REDUCE Reduce<T, subgroup::inclusive_scan<T, Binop>, SharedAccessor>
-#define SCAN(isExclusive) Scan<T, Binop, subgroup::inclusive_scan<T, Binop>, SharedAccessor, isExclusive>
+#define REDUCE Reduce<T, subgroup::inclusive_scan<T, Binop>, SharedAccessor, _NBL_HLSL_WORKGROUP_SIZE_>
+#define SCAN(isExclusive) Scan<T, Binop, subgroup::inclusive_scan<T, Binop>, SharedAccessor, _NBL_HLSL_WORKGROUP_SIZE_, isExclusive>
 template<typename T, class Binop, class SharedAccessor>
 T reduction(T value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    REDUCE reduce = REDUCE::create(_NBL_HLSL_WORKGROUP_SIZE_);
+    REDUCE reduce = REDUCE::create();
     reduce(value, accessor);
     accessor.main.workgroupExecutionAndMemoryBarrier();
     T retVal = Broadcast<uint, SharedAccessor>(reduce.lastLevelScan, accessor, reduce.lastInvocationInLevel);
@@ -31,7 +31,7 @@ T reduction(T value, NBL_REF_ARG(SharedAccessor) accessor)
 template<typename T, class Binop, class SharedAccessor>
 T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SCAN(false) incl_scan = SCAN(false)::create(_NBL_HLSL_WORKGROUP_SIZE_);
+    SCAN(false) incl_scan = SCAN(false)::create();
     T retVal = incl_scan(value, accessor);
     return retVal;
 }
@@ -39,7 +39,7 @@ T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 template<typename T, class Binop, class SharedAccessor>
 T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    SCAN(true) excl_scan = SCAN(true)::create(_NBL_HLSL_WORKGROUP_SIZE_);
+    SCAN(true) excl_scan = SCAN(true)::create();
     T retVal = excl_scan(value, accessor);
     return retVal;
 }
@@ -47,8 +47,8 @@ T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 #undef REDUCE
 #undef SCAN
 
-#define REDUCE Reduce<uint, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor>
-#define SCAN Scan<uint, binops::add<uint>, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor, true>
+#define REDUCE Reduce<uint, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor, impl::uballotBitfieldCount>
+#define SCAN Scan<uint, binops::add<uint>, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor, impl::uballotBitfieldCount, true>
 /**
  * Gives us the sum (reduction) of all ballots for the workgroup.
  *
@@ -64,13 +64,13 @@ T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 template<class SharedAccessor>
 uint ballotBitCount(NBL_REF_ARG(SharedAccessor) accessor)
 {
-    uint participatingBitfield;
+    uint participatingBitfield = 0;
     if(gl_LocalInvocationIndex < impl::uballotBitfieldCount)
     {
         participatingBitfield = accessor.ballot.get(gl_LocalInvocationIndex);
     }
     accessor.ballot.workgroupExecutionAndMemoryBarrier();
-    REDUCE reduce = REDUCE::create(impl::uballotBitfieldCount);
+    REDUCE reduce = REDUCE::create();
     reduce(countbits(participatingBitfield), accessor);
     accessor.main.workgroupExecutionAndMemoryBarrier();
     return Broadcast<uint, SharedAccessor>(reduce.lastLevelScan, accessor, reduce.lastInvocationInLevel);
@@ -91,7 +91,7 @@ uint ballotScanBitCount(const bool exclusive, NBL_REF_ARG(SharedAccessor) access
         // scan hierarchically, invocations with `gl_LocalInvocationIndex >= uballotBitfieldCount` will have garbage here
         accessor.ballot.workgroupExecutionAndMemoryBarrier();
         
-        SCAN scan = SCAN::create(impl::uballotBitfieldCount);
+        SCAN scan = SCAN::create();
         uint bitscan = scan(countbits(participatingBitfield), accessor);
         
         accessor.main.set(gl_LocalInvocationIndex, bitscan);

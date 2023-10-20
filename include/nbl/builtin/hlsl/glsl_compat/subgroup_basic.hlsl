@@ -56,14 +56,24 @@ bool subgroupElect() {
     return spirv::subgroupElect(/*subgroup execution scope*/ 3);
 }
 
-// Memory Semantics: AcquireRelease, UniformMemory, WorkgroupMemory, AtomicCounterMemory, ImageMemory
 void subgroupBarrier() {
-    // REVIEW-519: barrier with subgroup scope is not supported  so leave commented out for now 
-    //spirv::controlBarrier(3, 3, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
+    spirv::controlBarrier(3, 3, SpvMemorySemanticsImageMemoryMask | SpvMemorySemanticsWorkgroupMemoryMask | SpvMemorySemanticsUniformMemoryMask | SpvMemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrier() {
+    spirv::memoryBarrier(3, SpvMemorySemanticsImageMemoryMask | SpvMemorySemanticsWorkgroupMemoryMask | SpvMemorySemanticsUniformMemoryMask | SpvMemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrierBuffer() {
+    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsUniformMemoryMask);
 }
 
 void subgroupMemoryBarrierShared() {
-    spirv::memoryBarrier(3, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
+    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsWorkgroupMemoryMask);
+}
+
+void subgroupMemoryBarrierImage() {
+    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsImageMemoryMask);
 }
 
 }

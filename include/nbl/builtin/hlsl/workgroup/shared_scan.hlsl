@@ -16,7 +16,7 @@ namespace hlsl
 namespace workgroup
 {
 
-template<typename T, class SubgroupOp, class SharedAccessor>
+template<typename T, class SubgroupOp, class SharedAccessor, uint itemCount>
 struct Reduce
 {
     T firstLevelScan;
@@ -25,9 +25,9 @@ struct Reduce
     uint lastInvocationInLevel;
     uint scanLoadIndex;
 
-    static Reduce create(uint itemCount)
+    static Reduce create()
     {
-        Reduce<T, SubgroupOp, SharedAccessor> wsh;
+        Reduce<T, SubgroupOp, SharedAccessor, itemCount> wsh;
         wsh.lastInvocation = itemCount - 1u;
         return wsh;
     }
@@ -92,15 +92,15 @@ struct Reduce
     }
 };
 
-template<typename T, class Binop, class SubgroupScanOp, class SharedAccessor, bool isExclusive>
+template<typename T, class Binop, class SubgroupScanOp, class SharedAccessor, uint itemCount, bool isExclusive>
 struct Scan
 {
-    Reduce<T, SubgroupScanOp, SharedAccessor> reduce;
+    Reduce<T, SubgroupScanOp, SharedAccessor, itemCount> reduce;
 
-    static Scan create(uint itemCount)
+    static Scan create()
     {
-        Scan<T, Binop, SubgroupScanOp, SharedAccessor, isExclusive> scan;
-        scan.reduce = Reduce<T, SubgroupScanOp, SharedAccessor>::create(itemCount);
+        Scan<T, Binop, SubgroupScanOp, SharedAccessor, itemCount, isExclusive> scan;
+        scan.reduce = Reduce<T, SubgroupScanOp, SharedAccessor, itemCount>::create();
         return scan;
     }
 
