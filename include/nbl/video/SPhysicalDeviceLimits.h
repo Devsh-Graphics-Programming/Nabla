@@ -264,7 +264,7 @@ struct SPhysicalDeviceLimits
     //bool filterMinmaxSingleComponentFormats;
     bool filterMinmaxImageComponentMapping = false;
 
-    // [DO NOT EXPOSE] its high enough
+    // [DO NOT EXPOSE] its high enough (207 days of uptime at 120 FPS)
     //uint64_t maxTimelineSemaphoreValueDifference = 2147483647;
 
     // [DO NOT EXPOSE] because it might be different for every texture format and usage
@@ -331,6 +331,10 @@ struct SPhysicalDeviceLimits
 
     /* Nabla Core Profile Extensions*/
     uint32_t minImportedHostPointerAlignment = 0x1u<<16u;
+
+    /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
+    size_t robustStorageBufferAccessSizeAlignment = 0x1ull << 63;
+    size_t robustUniformBufferAccessSizeAlignment = 0x1ull << 63;
 
 
     /* Vulkan Extensions */
@@ -453,10 +457,6 @@ struct SPhysicalDeviceLimits
     /* ProvokingVertexPropertiesEXT *//* provided by VK_EXT_provoking_vertex */
     //bool           provokingVertexModePerPipeline;
     //bool           transformFeedbackPreservesTriangleFanProvokingVertex;
-
-    /* Robustness2PropertiesEXT *//* provided by VK_EXT_robustness2 */
-    size_t       robustStorageBufferAccessSizeAlignment = 0x1ull<<63;
-    size_t       robustUniformBufferAccessSizeAlignment = 0x1ull<<63;
 
     // [DO NOT EXPOSE] replaced by VK_KHR_multiview
     /* VK_KHX_multiview */

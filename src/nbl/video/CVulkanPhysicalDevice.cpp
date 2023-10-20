@@ -246,11 +246,11 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         return availableFeatureSet.find(name)!=availableFeatureSet.end();
     };
     //! Required by Nabla Core Profile
-    if (!isExtensionSupported(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
-        return nullptr;
     if (!isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
         return nullptr;
     if (!isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
+        return nullptr;
+    if (!isExtensionSupported(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
         return nullptr;
 
     // Basic stuff for constructing pNext chains
@@ -282,12 +282,14 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
         addToPNextChain(&vulkan13Properties);
         //! Required by Nabla Core Profile
-        VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
-        addToPNextChain(&externalMemoryHostPropertiesEXT);
+        VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
+        addToPNextChain(&externalMemoryHostProperties);
+        VkPhysicalDeviceRobustness2PropertiesEXT                robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
+        addToPNextChain(&robustness2Properties);
         //! Extensions
         VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
         VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
-        VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationPropertiesEXT = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
+        VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
         VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
         VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
         VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
@@ -297,7 +299,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 #if 0 // TODO
         VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
 #endif
-        VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
+        VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
         VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
         //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
         if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
@@ -305,7 +307,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_DISCARD_RECTANGLES_EXTENSION_NAME))
             addToPNextChain(&discardRectangleProperties);
         if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-            addToPNextChain(&lineRasterizationPropertiesEXT);
+            addToPNextChain(&lineRasterizationProperties);
         if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
             addToPNextChain(&accelerationStructureProperties);
         if (isExtensionSupported(VK_EXT_SAMPLE_LOCATIONS_EXTENSION_NAME))
@@ -323,7 +325,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&cooperativeMatrixProperties);
 #endif
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-            addToPNextChain(&shaderSMBuiltinsProperties);
+            addToPNextChain(&shaderSMBuiltinsPropertiesNV);
         if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
             addToPNextChain(&shaderCoreProperties2AMD);
         // call
@@ -489,7 +491,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             
         //! Nabla Core Extensions
-        properties.limits.minImportedHostPointerAlignment = externalMemoryHostPropertiesEXT.minImportedHostPointerAlignment;
+        properties.limits.minImportedHostPointerAlignment = externalMemoryHostProperties.minImportedHostPointerAlignment;
+
+        properties.limits.robustStorageBufferAccessSizeAlignment = robustness2Properties.robustStorageBufferAccessSizeAlignment;
+        properties.limits.robustUniformBufferAccessSizeAlignment = robustness2Properties.robustUniformBufferAccessSizeAlignment;
 
 
         //! Extensions
@@ -510,7 +515,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.maxDiscardRectangles = discardRectangleProperties.maxDiscardRectangles;
 
         if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
-            properties.limits.lineSubPixelPrecisionBits = lineRasterizationPropertiesEXT.lineSubPixelPrecisionBits;
+            properties.limits.lineSubPixelPrecisionBits = lineRasterizationProperties.lineSubPixelPrecisionBits;
 
         if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
         {
@@ -579,7 +584,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         //! Nabla
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
-            properties.limits.computeUnits = shaderSMBuiltinsProperties.shaderSMCount;
+            properties.limits.computeUnits = shaderSMBuiltinsPropertiesNV.shaderSMCount;
         else if(isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
             properties.limits.computeUnits = shaderCoreProperties2AMD.activeComputeUnitCount;
         //else if (isExtensionSupported(VK_ARM_..._EXTENSION_NAME)) TODO implement the ARM equivalent
@@ -594,7 +599,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
         {
             constexpr auto invocationsPerWarp = 32u; // unless Nvidia changed something recently
-            invocationsPerComputeUnit = shaderSMBuiltinsProperties.shaderWarpsPerSM*invocationsPerWarp;
+            invocationsPerComputeUnit = shaderSMBuiltinsPropertiesNV.shaderWarpsPerSM*invocationsPerWarp;
         }
         properties.limits.maxResidentInvocations = properties.limits.computeUnits*invocationsPerComputeUnit;
 
