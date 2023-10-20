@@ -379,7 +379,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-Zpr", // Packs matrices in row-major order by default
         L"-enable-16bit-types",
         L"-fvk-use-scalar-layout",
-        L"-Wno-c++11-extensions"
+        L"-Wno-c++11-extensions",
+        L"-fspv-target-env=vulkan1.3"
     };
 
     // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
