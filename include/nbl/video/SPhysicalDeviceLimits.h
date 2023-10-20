@@ -335,8 +335,8 @@ struct SPhysicalDeviceLimits
 
     /* Vulkan Extensions */
 
-    /* VK_AMD_shader_trinary_minmax  */
 
+ /* VK_AMD_shader_trinary_minmax  */
     bool shaderTrinaryMinmax = false;
 
     /* VK_AMD_shader_explicit_vertex_parameter */
@@ -348,201 +348,21 @@ struct SPhysicalDeviceLimits
     /* VK_AMD_shader_image_load_store_lod */
     bool shaderImageLoadStoreLod = false;
 
-    // [TODO] need impl
-    /* VK_GOOGLE_display_timing */
-    bool displayTiming = false;
-
-    /* VK_EXT_discard_rectangles */
-    /* DiscardRectanglePropertiesEXT */
-    uint32_t maxDiscardRectangles = 0u;
-
-    /* VK_EXT_conservative_rasterization */
-    /* ConservativeRasterizationPropertiesEXT */
-    float   primitiveOverestimationSize = 0.0f;
-    float   maxExtraPrimitiveOverestimationSize = 0.0f;
-    float   extraPrimitiveOverestimationSizeGranularity = std::numeric_limits<float>::infinity();
-    bool    primitiveUnderestimation = false;
-    bool    conservativePointAndLineRasterization = false;
-    bool    degenerateTrianglesRasterized = false;
-    bool    degenerateLinesRasterized = false;
-    bool    fullyCoveredFragmentShaderInputVariable = false;
-    bool    conservativeRasterizationPostDepthCoverage = false;
-
-    /* VK_EXT_queue_family_foreign */
-    bool queueFamilyForeign = false;
-
-    /* VK_EXT_shader_stencil_export */
-    bool shaderStencilExport = false;
-
-    /* VK_EXT_sample_locations */
-    /* SampleLocationsPropertiesEXT */
-    bool                                                variableSampleLocations = false;
-    uint8_t                                             sampleLocationSubPixelBits = 0;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>  sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    VkExtent2D                                          maxSampleLocationGridSize = { 0u, 0u };
-    float                                               sampleLocationCoordinateRange[2] = { 1.f, 0.f };
-
-    /* VK_KHR_acceleration_structure */
-    /* AccelerationStructurePropertiesKHR */
-    uint64_t           maxAccelerationStructureGeometryCount = 0ull;
-    uint64_t           maxAccelerationStructureInstanceCount = 0ull;
-    uint64_t           maxAccelerationStructurePrimitiveCount = 0ull;
-    uint32_t           maxPerStageDescriptorAccelerationStructures = 0u;
-    uint32_t           maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0u;
-    uint32_t           maxDescriptorSetAccelerationStructures = 0u;
-    uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
-    uint32_t           minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
-
-    /* VK_NV_shader_sm_builtins */
-    /* ShaderSMBuiltinsFeaturesNV */
-    bool shaderSMBuiltins = false;
-
-    /* VK_EXT_post_depth_coverage */
-    bool postDepthCoverage = false;
-
-    // [NABLA CORE PROFILE]
-    /* VK_EXT_external_memory_host */
-    /* ExternalMemoryHostPropertiesEXT */
-
-    /* VK_KHR_shader_clock */
-    /* ShaderClockFeaturesKHR */
-    bool shaderDeviceClock = false;
-
-    /* VK_NV_compute_shader_derivatives */
-    /* ComputeShaderDerivativesFeaturesNV */
-    bool computeDerivativeGroupQuads = false;
-    bool computeDerivativeGroupLinear = false;
-
-    /* VK_NV_shader_image_footprint */
-    /* ShaderImageFootprintFeaturesNV */
-    bool imageFootprint = false;
-
-    /* VK_INTEL_shader_integer_functions2 */
-    /* ShaderIntegerFunctions2FeaturesINTEL */
-    bool shaderIntegerFunctions2 = false;
-
-    /* VK_EXT_pci_bus_info */
-    /* PCIBusInfoPropertiesEXT */
-    uint32_t  pciDomain = ~0u;
-    uint32_t  pciBus = ~0u;
-    uint32_t  pciDevice = ~0u;
-    uint32_t  pciFunction = ~0u;
-
-    /* VK_EXT_fragment_density_map */
-    /* FragmentDensityMapPropertiesEXT */
-    VkExtent2D          minFragmentDensityTexelSize = { ~0u, ~0u };
-    VkExtent2D          maxFragmentDensityTexelSize = { 0u, 0u };
-    bool                fragmentDensityInvocations = false;
-
-    /* VK_GOOGLE_decorate_string */
-    bool decorateString = false;
-
-    /* VK_EXT_shader_image_atomic_int64 */
-    /* ShaderImageAtomicInt64FeaturesEXT */
-    bool shaderImageInt64Atomics = false;
-    bool sparseImageInt64Atomics = false;
-
-    // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
-    /* VK_EXT_line_rasterization */
-    /* LineRasterizationPropertiesEXT */
-    uint32_t lineSubPixelPrecisionBits = 0;
-
-    /* VK_EXT_shader_atomic_float */
-    /* ShaderAtomicFloatFeaturesEXT */
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderBufferFloat32Atomics = true;
-    bool shaderBufferFloat32AtomicAdd = false;
-    bool shaderBufferFloat64Atomics = false;
-    bool shaderBufferFloat64AtomicAdd = false;
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderSharedFloat32Atomics = true;
-    bool shaderSharedFloat32AtomicAdd = false;
-    bool shaderSharedFloat64Atomics = false;
-    bool shaderSharedFloat64AtomicAdd = false;
-    bool shaderImageFloat32Atomics = false;
-    bool shaderImageFloat32AtomicAdd = false;
-    bool sparseImageFloat32Atomics = false;
-    bool sparseImageFloat32AtomicAdd = false;
-
-    /* VK_EXT_shader_atomic_float2 */
-    /* ShaderAtomicFloat2FeaturesEXT */
-    bool shaderBufferFloat16Atomics = false;
-    bool shaderBufferFloat16AtomicAdd = false;
-    bool shaderBufferFloat16AtomicMinMax = false;
-    bool shaderBufferFloat32AtomicMinMax = false;
-    bool shaderBufferFloat64AtomicMinMax = false;
-    bool shaderSharedFloat16Atomics = false;
-    bool shaderSharedFloat16AtomicAdd = false;
-    bool shaderSharedFloat16AtomicMinMax = false;
-    bool shaderSharedFloat32AtomicMinMax = false;
-    bool shaderSharedFloat64AtomicMinMax = false;
-    bool shaderImageFloat32AtomicMinMax = false;
-    bool sparseImageFloat32AtomicMinMax = false;
-
-
-    // [TODO] need impl
-    /* VK_EXT_device_memory_report */
-    /* DeviceMemoryReportFeaturesEXT */
-    bool deviceMemoryReport = false;
-
-    /* VK_KHR_shader_non_semantic_info */
-    bool shaderNonSemanticInfo = false;
-
-    /* VK_AMD_shader_early_and_late_fragment_tests */
-    bool shaderEarlyAndLateFragmentTests = false;
-
-    /* VK_KHR_fragment_shader_barycentric */
-    bool fragmentShaderBarycentric = false;
-
-    /* VK_KHR_shader_subgroup_uniform_control_flow */
-    /* ShaderSubgroupUniformControlFlowFeaturesKHR */
-    bool shaderSubgroupUniformControlFlow = false;
-
-    /* provided by VK_EXT_fragment_density_map2 */
-    /* FragmentDensityMap2PropertiesEXT */
-    bool                subsampledLoads = false;
-    bool                subsampledCoarseReconstructionEarlyAccess = false;
-    uint32_t            maxSubsampledArrayLayers = 0u;
-    uint32_t            maxDescriptorSetSubsampledSamplers = 0u;
-
-    /* VK_KHR_workgroup_memory_explicit_layout */
-    /* WorkgroupMemoryExplicitLayoutFeaturesKHR */
-    bool workgroupMemoryExplicitLayout = false;
-    bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
-    bool workgroupMemoryExplicitLayout8BitAccess = false;
-    bool workgroupMemoryExplicitLayout16BitAccess = false;
-
-    /* VK_KHR_ray_tracing_pipeline */
-    /* RayTracingPipelinePropertiesKHR */
-    //uint32_t           shaderGroupHandleSize = 32u; // `exact` limit type
-    uint32_t           maxRayRecursionDepth = 0u;
-    uint32_t           maxShaderGroupStride = 0u;
-    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
-    uint32_t           maxRayDispatchInvocationCount = 0u;
-    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
-    uint32_t           maxRayHitAttributeSize = 0u;
-
-    // [TODO] need new commandbuffer methods, etc
-    /* VK_EXT_color_write_enable */
-    /* ColorWriteEnableFeaturesEXT */
-    bool colorWriteEnable = false;
-
-    /* VK_AMD_shader_trinary_minmax  */
-    bool shaderTrinaryMinmax = false;
-
-    /* VK_AMD_shader_explicit_vertex_parameter */
-    bool shaderExplicitVertexParameter = false;
-
-    /* VK_AMD_gpu_shader_half_float */
-    bool gpuShaderHalfFloatAMD = false;
-
-    /* VK_AMD_shader_image_load_store_lod */
-    bool shaderImageLoadStoreLod = false;
+    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
+    bool multiviewGeometryShader = false;
+    bool multiviewTessellationShader = false;
 
     // [TODO LATER] to expose but contingent on the TODO to implement one day
     /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
     //uint32_t           maxPushDescriptors = 0u;
 
+    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
+    bool shaderFloat16 = false;
+
+    // Core 1.1 Features or VK_KHR_16bit_storage
+    bool storagePushConstant16 = false;
+    bool storageInputOutput16 = false;
+
     // [TODO] need impl
     /* VK_GOOGLE_display_timing */
     bool displayTiming = false;
@@ -566,6 +386,18 @@ struct SPhysicalDeviceLimits
     /* VK_EXT_queue_family_foreign */
     bool queueFamilyForeign = false;
 
+
+
+
+
+    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
+    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
+
+
+
+    // Vulkan 1.3 requires but we make concessions for MoltenVK
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
+
     /* VK_EXT_shader_stencil_export */
     bool shaderStencilExport = false;
 
@@ -588,16 +420,6 @@ struct SPhysicalDeviceLimits
     uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
     uint32_t           minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
 
-    /* VK_KHR_ray_tracing_pipeline */
-    /* RayTracingPipelinePropertiesKHR */
-    //uint32_t           shaderGroupHandleSize = 32u; // `exact` limit type
-    uint32_t           maxRayRecursionDepth = 0u;
-    uint32_t           maxShaderGroupStride = 0u;
-    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
-    uint32_t           maxRayDispatchInvocationCount = 0u;
-    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
-    uint32_t           maxRayHitAttributeSize = 0u;
-
     /* VK_NV_shader_sm_builtins */
     /* ShaderSMBuiltinsFeaturesNV */
     bool shaderSMBuiltins = false;
@@ -605,9 +427,29 @@ struct SPhysicalDeviceLimits
     /* VK_EXT_post_depth_coverage */
     bool postDepthCoverage = false;
 
+    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
+
+    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
+    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+
+    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
+    bool drawIndirectCount = false;
+
+    // Vulkan 1.2 Core or VK_KHR_8bit_storage:
+    bool storagePushConstant8 = false;
+
     // [NABLA CORE PROFILE]
     /* VK_EXT_external_memory_host */
     /* ExternalMemoryHostPropertiesEXT */
+
+    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
+    bool shaderBufferInt64Atomics = false;
+    bool shaderSharedInt64Atomics = false;
 
     /* VK_KHR_shader_clock */
     /* ShaderClockFeaturesKHR */
@@ -683,6 +525,10 @@ struct SPhysicalDeviceLimits
     bool shaderSharedFloat64AtomicMinMax = false;
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
+
+    // Vulkan 1.3 non-optional requires but poor support
+    bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
+    bool shaderTerminateInvocation = false; // or VK_KHR_shader_terminate_invocation
 
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* VK_NV_device_generated_commands */
@@ -696,6 +542,7 @@ struct SPhysicalDeviceLimits
     //uint32_t           minSequencesCountBufferOffsetAlignment = 0x1u<<31;
     //uint32_t           minSequencesIndexBufferOffsetAlignment = 0x1u<<31;
     //uint32_t           minIndirectCommandsBufferOffsetAlignment = 0x1u<<31;
+
 
     // [TODO] need impl
     /* VK_EXT_device_memory_report */
@@ -725,6 +572,9 @@ struct SPhysicalDeviceLimits
     /* ShaderSubgroupUniformControlFlowFeaturesKHR */
     bool shaderSubgroupUniformControlFlow = false;
 
+    // Vulkan 1.3 non-optional requires but poor support
+    bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
+
     /* provided by VK_EXT_fragment_density_map2 */
     /* FragmentDensityMap2PropertiesEXT */
     bool                subsampledLoads = false;
@@ -739,6 +589,16 @@ struct SPhysicalDeviceLimits
     bool workgroupMemoryExplicitLayout8BitAccess = false;
     bool workgroupMemoryExplicitLayout16BitAccess = false;
 
+    /* VK_KHR_ray_tracing_pipeline */
+    /* RayTracingPipelinePropertiesKHR */
+    //uint32_t           shaderGroupHandleSize = 32u; // `exact` limit type
+    uint32_t           maxRayRecursionDepth = 0u;
+    uint32_t           maxShaderGroupStride = 0u;
+    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
+    uint32_t           maxRayDispatchInvocationCount = 0u;
+    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
+    uint32_t           maxRayHitAttributeSize = 0u;
+
     // [TODO] need new commandbuffer methods, etc
     /* VK_EXT_color_write_enable */
     /* ColorWriteEnableFeaturesEXT */
@@ -746,7 +606,6 @@ struct SPhysicalDeviceLimits
 
     /* CooperativeMatrixPropertiesKHR  *//* VK_KHR_cooperative_matrix */
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
-
 
 
 
@@ -774,152 +633,14 @@ struct SPhysicalDeviceLimits
 
     // ROADMAP 2022 but no iOS GPU supports
     bool shaderStorageImageArrayDynamicIndexing = false;
-    
+
     // Intel Gen12 and ARC are special-boy drivers (TM)
     bool shaderFloat64 = false;
 
     // poor support on Apple GPUs
     bool variableMultisampleRate = false;
 
-    // Core 1.1 Features or VK_KHR_16bit_storage
-    bool storagePushConstant16 = false;
-    bool storageInputOutput16 = false;
 
-    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
-    bool multiviewGeometryShader = false;
-    bool multiviewTessellationShader = false;
-
-    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
-    bool drawIndirectCount = false;
-
-    // Vulkan 1.2 Core or VK_KHR_8bit_storage:
-    bool storagePushConstant8 = false;
-
-    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
-    bool shaderBufferInt64Atomics = false;
-    bool shaderSharedInt64Atomics = false;
-
-    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
-    bool shaderFloat16 = false;
-
-    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
-    bool shaderInputAttachmentArrayDynamicIndexing = false;
-    bool shaderUniformBufferArrayNonUniformIndexing = false;
-    bool shaderInputAttachmentArrayNonUniformIndexing = false;
-    bool descriptorBindingUniformBufferUpdateAfterBind = false;
-    
-    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
-    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
-    
-    // Vulkan 1.3 requires but we make concessions for MoltenVK
-    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
-
-    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
-    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
-    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
-
-    // Vulkan 1.3 non-optional requires but poor support
-    bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
-    bool shaderTerminateInvocation = false; // or VK_KHR_shader_terminate_invocation
-
-    // Vulkan 1.3 non-optional requires but poor support
-    bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
-
-
-    /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderBufferFloat32Atomics = true;
-    bool shaderBufferFloat32AtomicAdd = false;
-    bool shaderBufferFloat64Atomics = false;
-    bool shaderBufferFloat64AtomicAdd = false;
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderSharedFloat32Atomics = true;
-    bool shaderSharedFloat32AtomicAdd = false;
-    bool shaderSharedFloat64Atomics = false;
-    bool shaderSharedFloat64AtomicAdd = false;
-    bool shaderImageFloat32Atomics = false;
-    bool shaderImageFloat32AtomicAdd = false;
-    bool sparseImageFloat32Atomics = false;
-    bool sparseImageFloat32AtomicAdd = false;
-
-    /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    bool shaderBufferFloat16Atomics = false;
-    bool shaderBufferFloat16AtomicAdd = false;
-    bool shaderBufferFloat16AtomicMinMax = false;
-    bool shaderBufferFloat32AtomicMinMax = false;
-    bool shaderBufferFloat64AtomicMinMax = false;
-    bool shaderSharedFloat16Atomics = false;
-    bool shaderSharedFloat16AtomicAdd = false;
-    bool shaderSharedFloat16AtomicMinMax = false;
-    bool shaderSharedFloat32AtomicMinMax = false;
-    bool shaderSharedFloat64AtomicMinMax = false;
-    bool shaderImageFloat32AtomicMinMax = false;
-    bool sparseImageFloat32AtomicMinMax = false;
-    
-    /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
-    bool shaderImageInt64Atomics = false;
-    bool sparseImageInt64Atomics = false;
-
-    /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
-    bool shaderDeviceClock = false;
-
-    /* ShaderSubgroupUniformControlFlowFeaturesKHR *//* VK_KHR_shader_subgroup_uniform_control_flow */
-    bool shaderSubgroupUniformControlFlow = false;
-
-    /* WorkgroupMemoryExplicitLayoutFeaturesKHR *//* VK_KHR_workgroup_memory_explicit_layout */
-    bool workgroupMemoryExplicitLayout = false;
-    bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
-    bool workgroupMemoryExplicitLayout8BitAccess = false;
-    bool workgroupMemoryExplicitLayout16BitAccess = false;
-
-    /* ComputeShaderDerivativesFeaturesNV *//* VK_NV_compute_shader_derivatives */
-    bool computeDerivativeGroupQuads = false;
-    bool computeDerivativeGroupLinear = false;
-
-    // [TODO] need impl
-    /* VK_GOOGLE_display_timing */
-    bool displayTiming = false;
-
-    /* VK_AMD_shader_explicit_vertex_parameter */
-    bool shaderExplicitVertexParameter = false;
-
-    // [TODO] need new commandbuffer methods, etc
-    /* ColorWriteEnableFeaturesEXT *//* VK_EXT_color_write_enable */
-    bool colorWriteEnable = false;
-
-    // [TODO] need impl
-    /* DeviceMemoryReportFeaturesEXT *//* VK_EXT_device_memory_report */
-    bool deviceMemoryReport = false;
-
-    bool gpuShaderHalfFloatAMD = false; /* VK_AMD_gpu_shader_half_float */
-    
-    bool shaderImageLoadStoreLod = false; /* VK_AMD_shader_image_load_store_lod */
-    
-    bool shaderTrinaryMinmax = false; /* VK_AMD_shader_trinary_minmax  */
-    
-    bool postDepthCoverage = false; /* VK_EXT_post_depth_coverage */
-
-    bool shaderStencilExport = false; /* VK_EXT_shader_stencil_export */
-
-    bool decorateString = false; /* VK_GOOGLE_decorate_string */
-
-    bool shaderNonSemanticInfo = false; /* VK_KHR_shader_non_semantic_info */
-
-    /* ShaderSMBuiltinsFeaturesNV *//* VK_NV_shader_sm_builtins */
-    bool shaderSMBuiltins = false;
-
-    bool fragmentShaderBarycentric = false; /* VK_KHR_fragment_shader_barycentric */
-
-    bool shaderEarlyAndLateFragmentTests = false; /* VK_AMD_shader_early_and_late_fragment_tests */
-
-    /* ShaderIntegerFunctions2FeaturesINTEL *//* VK_INTEL_shader_integer_functions2 */
-    bool shaderIntegerFunctions2 = false;
-
-    /* ShaderImageFootprintFeaturesNV *//* VK_NV_shader_image_footprint */
-    bool imageFootprint = false;
-
-    /* VK_EXT_queue_family_foreign */
-    bool queueFamilyForeign = false;
 
 
     /* Nabla */
@@ -1156,9 +877,7 @@ struct SPhysicalDeviceLimits
         if (uniformTexelBufferOffsetAlignmentBytes < _rhs.uniformTexelBufferOffsetAlignmentBytes) return false;
         if (maxBufferSize > _rhs.maxBufferSize) return false;
 
-
         if (minImportedHostPointerAlignment < _rhs.minImportedHostPointerAlignment) return false;
-
 
         // don't compare certain things, they don't make your device better or worse
         //if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
@@ -1220,8 +939,6 @@ struct SPhysicalDeviceLimits
 
         if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
 
-
-
         if (logicOp && !_rhs.logicOp) return false;
 
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
@@ -1240,13 +957,11 @@ struct SPhysicalDeviceLimits
         
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
 
-
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
 
         if (multiviewGeometryShader && !_rhs.multiviewGeometryShader) return false;
         if (multiviewTessellationShader && !_rhs.multiviewTessellationShader) return false;
-
 
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
 
@@ -1349,8 +1064,6 @@ struct SPhysicalDeviceLimits
 
         if (queueFamilyForeign && !_rhs.queueFamilyForeign) return false;
 
-
-
         if (computeUnits > _rhs.computeUnits) return false;
 
         if (dispatchBase && !_rhs.dispatchBase) return false;
@@ -1362,8 +1075,6 @@ struct SPhysicalDeviceLimits
 
         if (spirvVersion > _rhs.spirvVersion) return false;
         
-
-
         return true;
     }
 };
