@@ -20,6 +20,16 @@ using bool3 = vector<bool, 3>;
 using bool2 = vector<bool, 2>;
 using bool1 = vector<bool, 1>;
 
+using int16_t4 = vector<int16_t, 4>;
+using int16_t3 = vector<int16_t, 3>;
+using int16_t2 = vector<int16_t, 2>;
+using int16_t1 = vector<int16_t, 1>;
+
+using uint16_t4 = vector<uint16_t, 4>;
+using uint16_t3 = vector<uint16_t, 3>;
+using uint16_t2 = vector<uint16_t, 2>;
+using uint16_t1 = vector<uint16_t, 1>;
+
 using int32_t4 = vector<int32_t, 4>;
 using int32_t3 = vector<int32_t, 3>;
 using int32_t2 = vector<int32_t, 2>;

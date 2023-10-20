@@ -5,8 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BLIT_ALPHA_TEST_INCLUDED_
 
 
-#include <nbl/builtin/hlsl/blit/parameters.hlsl>
-#include <nbl/builtin/hlsl/blit/common.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
@@ -15,21 +14,23 @@ namespace hlsl
 namespace blit
 {
 
-template <uint32_t BlitDimCount, typename StatisticsBuffer, typename InTexture>
-inline void alpha_test(
-	NBL_REF_ARG(StatisticsBuffer) statistics,
-	NBL_CONST_REF_ARG(InTexture) inTexture,
-	NBL_CONST_REF_ARG(parameters_t) params,
-	NBL_CONST_REF_ARG(uint32_t3) dispatchThreadID,
-	NBL_CONST_REF_ARG(uint32_t3) groupID)
-{
-	const uint32_t3 inDim = params.getInputImageDimensions();
 
-	if (all(dispatchThreadID < inDim))
+template <typename PassedPixelsAccessor, typename InCombinedSamplerAccessor>
+inline void alpha_test(
+	NBL_REF_ARG(PassedPixelsAccessor) passedPixelsAccessor,
+	NBL_CONST_REF_ARG(InCombinedSamplerAccessor) inCombinedSamplerAccessor,
+	NBL_CONST_REF_ARG(uint16_t3) inDim,
+	NBL_CONST_REF_ARG(float32_t) referenceAlpha,
+	NBL_CONST_REF_ARG(uint16_t3) globalInvocationID,
+	NBL_CONST_REF_ARG(uint16_t3) workGroupID)
+{
+	if (all(globalInvocationID < inDim))
 	{
-		const float alpha = getData<BlitDimCount>(inTexture, dispatchThreadID, groupID.z).a;
-		if (alpha > params.referenceAlpha)
-			InterlockedAdd(statistics[groupID.z].passedPixelCount, uint32_t(1));
+		const float32_t alpha = inCombinedSamplerAccessor.get(globalInvocationID, workGroupID.z).a;
+		if (alpha > referenceAlpha)
+		{
+			passedPixelsAccessor.AtomicAdd(workGroupID.z, uint32_t(1));
+		}
 	}
 }
 

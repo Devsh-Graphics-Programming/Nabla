@@ -4,7 +4,7 @@
 #ifndef _NBL_NBL_HLSL_MULTI_DIMENSIONAL_ARRAY_ADDRESSING_INCLUDED_
 #define _NBL_NBL_HLSL_MULTI_DIMENSIONAL_ARRAY_ADDRESSING_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
@@ -18,7 +18,7 @@ uint32_t snakeCurve(NBL_CONST_REF_ARG(uint32_t3) coordinate, NBL_CONST_REF_ARG(u
 	return (coordinate.z * extents.y + coordinate.y) * extents.x + coordinate.x;
 }
 
-uint32_t snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t2) gridDimPrefixProduct)
+uint32_t3 snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t2) gridDimPrefixProduct)
 {
 	uint32_t3 index3D;
 
@@ -31,7 +31,7 @@ uint32_t snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t2) gr
 	return index3D;
 }
 
-uint32_t snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t3) gridDim)
+uint32_t3 snakeCurveInverse(uint32_t linearIndex, NBL_CONST_REF_ARG(uint32_t3) gridDim)
 {
 	return snakeCurveInverse(linearIndex, uint32_t2(gridDim.x, gridDim.x*gridDim.y));
 }

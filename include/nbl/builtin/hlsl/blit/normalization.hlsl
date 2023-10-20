@@ -4,9 +4,13 @@
 #ifndef _NBL_BUILTIN_HLSL_BLIT_NORMALIZATION_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BLIT_NORMALIZATION_INCLUDED_
 
-#include <nbl/builtin/hlsl/workgroup/arithmetic.hlsl>
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/math/arithmetic.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
-#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
+// TODO: Remove when PR #519 is merged
+#include <nbl/builtin/hlsl/blit/temp.hlsl>
+
 
 namespace nbl
 {
@@ -15,94 +19,95 @@ namespace hlsl
 namespace blit
 {
 
-
-//! WARNING: ONLY WORKS FOR `dividendMsb<=2^23` DUE TO FP32 ABUSE !!!
-uint32_t integerDivide_64_32_32(in uint32_t dividendMsb, in uint32_t dividendLsb, in uint32_t divisor)
+template <typename ConstevalParameters>
+struct normalization_t
 {
-	const float msbRatio = float(dividendMsb) / float(divisor);
-	const uint32_t quotient = uint32_t((msbRatio * (~0u)) + msbRatio) + dividendLsb / divisor;
-	return quotient;
-}
+	uint32_t inPixelCount;
+	uint32_t outPixelCount;
+	float32_t referenceAlpha;
+	uint16_t3 outDims;
 
-struct OpAdd
-{
-	uint operator()(uint v1, uint v2) { return v1 + v2; }
-};
-
-template <
-	uint32_t WorkGroupSize,
-	uint32_t BlitDimCount,
-	uint32_t AlphaBinCount,
-	E_FORMAT SoftwareEncodeFormat,
-	typename InTexture,
-	typename OutTexture,
-	typename Statistics,
-	typename SharedAccessor>
-void normalization(
-	NBL_CONST_REF_ARG(InTexture) inTexure,
-	NBL_REF_ARG(OutTexture) outTexure,
-	NBL_REF_ARG(Statistics) statistics,
-	NBL_CONST_REF_ARG(SharedAccessor) sharedAccessor,
-	NBL_CONST_REF_ARG(parameters_t) params,
-	NBL_REF_ARG(uint32_t3) groupID,
-	NBL_REF_ARG(uint32_t3) dispatchThreadID,
-	uint32_t groupIndex)
-{
-	const uint32_t outputPixelCount = params.outPixelCount;
-
-	// TODO: Replace with intrinsic when those headers are finalized.
-	// This assumes that inside spirv_intrinsics/arithmetic.hlsl there is something like:
-	//[[vk::ext_instruction(/* OpUMulExtended */ 151)]]
-	//pair<uint32_t, uint32_t> umulExtended(uint32_t v0, uint32_t v1);
-	pair<uint32_t, uint32_t> product = spirv::umulExtended(statistics[groupID.z].passedPixelCount, outputPixelCount);
-
-	const uint32_t pixelsShouldPassCount = integerDivide_64_32_32(product.second, product.first, params.inPixelCount);
-	const uint32_t pixelsShouldFailCount = outputPixelCount - pixelsShouldPassCount;
-
-	const uint32_t lastInvocationIndex = WorkGroupSize - 1;
-	const uint32_t previousInvocationIndex = (groupIndex - 1) & lastInvocationIndex;
-
-	if (groupIndex == lastInvocationIndex)
-		sharedAccessor.set(lastInvocationIndex, 0);
-
-	for (uint32_t virtualInvocation = groupIndex; virtualInvocation < AlphaBinCount; virtualInvocation += _NBL_GLSL_WORKGROUP_SIZE_)
+	static normalization_t create(parameters_t params)
 	{
-		const uint32_t histogramVal = statistics[virtualInvocation].histogram[groupID.z];
+		normalization_t normalization;
 
-		glsl::barrier();
+		normalization.inPixelCount = params.inPixelCount;
+		normalization.outPixelCount = params.outPixelCount;
+		normalization.referenceAlpha = params.referenceAlpha;
+		normalization.outDims = params.outputDims;
 
-		const uint32_t previousBlockSum = sharedAccessor.get(lastInvocationIndex);
+		return normalization;
+	}
 
-		const uint32_t cumHistogramVal = workgroup::inclusive_scan<uint32_t, OpAdd>(histogramVal, sharedAccessor) + previousBlockSum;
+	template<
+		typename InCombinedSamplerAccessor,
+		typename OutCombinedSamplerAccessor,
+		typename HistogramAccessor,
+        typename PassedAlphaTestPixelsAccessor,
+		typename SharedAccessor>
+	void execute(
+		NBL_CONST_REF_ARG(InCombinedSamplerAccessor) inCombinedSamplerAccessor,
+		NBL_REF_ARG(OutCombinedSamplerAccessor) outCombinedSamplerAccessor,
+		NBL_REF_ARG(HistogramAccessor) histogramAccessor,
+        NBL_CONST_REF_ARG(PassedAlphaTestPixelsAccessor) passedAlphaTestPixelsAccessor,
+		NBL_CONST_REF_ARG(SharedAccessor) sharedAccessor,
+		NBL_REF_ARG(uint16_t3) workGroupID,
+		NBL_REF_ARG(uint16_t3) globalInvocationID,
+		uint16_t localInvocationIndex)
+	{
+		uint32_t2 product = spirv::umulExtended(passedAlphaTestPixelsAccessor.get(workGroupID.z), outPixelCount);
 
-		sharedAccessor.set(groupIndex, cumHistogramVal);
+		const uint32_t pixelsShouldPassCount = math::fastDivide_int23_t(product.y, product.x, inPixelCount);
+		const uint32_t pixelsShouldFailCount = outPixelCount - pixelsShouldPassCount;
 
-		glsl::barrier();
+		const uint32_t lastInvocationIndex = ConstevalParameters::WorkGroupSize - 1;
+		const uint32_t previousInvocationIndex = (localInvocationIndex - 1) & lastInvocationIndex;
 
-		if (pixelsShouldFailCount <= cumHistogramVal)
+		if (localInvocationIndex == lastInvocationIndex)
+			sharedAccessor.main.set(lastInvocationIndex, 0);
+
+		for (uint32_t virtualInvocation = localInvocationIndex; virtualInvocation < ConstevalParameters::AlphaBinCount; virtualInvocation += ConstevalParameters::WorkGroupSize)
 		{
-			const uint32_t previousBucketVal = bool(groupIndex) ? sharedAccessor.get(previousInvocationIndex) : previousBlockSum;
-			if (pixelsShouldFailCount > previousBucketVal)
-				sharedAccessor.set(sharedAccessor.size() - 1, virtualInvocation);
+			const uint32_t histogramVal = histogramAccessor.get(workGroupID.z, virtualInvocation);
+
+			GroupMemoryBarrierWithGroupSync();
+
+			const uint32_t previousBlockSum = sharedAccessor.main.get(lastInvocationIndex);
+
+			// TODO: Once PR #519 is merged replace with this and delete the line
+			//const uint32_t cumHistogramVal = workgroup::inclusive_scan<uint32_t, binops::add>(histogramVal, sharedAccessor) + previousBlockSum;
+			const uint32_t cumHistogramVal =
+				workgroup::inclusive_scan<ConstevalParameters::WorkGroupSize, uint32_t, binops::add>(histogramVal, sharedAccessor, localInvocationID) + previousBlockSum;
+
+			sharedAccessor.main.set(localInvocationIndex, cumHistogramVal);
+
+			GroupMemoryBarrierWithGroupSync();
+
+			if (pixelsShouldFailCount <= cumHistogramVal)
+			{
+				const uint32_t previousBucketVal = bool(localInvocationIndex) ? sharedAccessor.main.get(previousInvocationIndex) : previousBlockSum;
+				if (pixelsShouldFailCount > previousBucketVal)
+					sharedAccessor.main.set(ConstevalParameters::WorkGroupSize, virtualInvocation);
+			}
+		}
+		GroupMemoryBarrierWithGroupSync();
+
+		const uint32_t bucketIndex = sharedAccessor.main.get(ConstevalParameters::WorkGroupSize);
+		const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(ConstevalParameters::AlphaBinCount - 1), 1.f);
+		const float alphaScale = referenceAlpha / newReferenceAlpha;
+
+		if (all(globalInvocationID < outDims))
+		{
+			const float4 pixel = inCombinedSamplerAccessor.get(globalInvocationID, workGroupID.z);
+			const float4 scaledPixel = float4(pixel.rgb, pixel.a * alphaScale);
+			outCombinedSamplerAccessor.set(scaledPixel, globalInvocationID, workGroupID.z);
 		}
 	}
-	glsl::barrier();
+};
 
-	const uint32_t bucketIndex = sharedAccessor.get(sharedAccessor.size() - 1);
-	const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(AlphaBinCount - 1), 1.f);
-	const float alphaScale = params.referenceAlpha / newReferenceAlpha;
-
-	const uint32_t3 outDim = params.getOutputImageDimensions();
-
-	if (all(dispatchThreadID < outDim))
-	{
-		const float4 pixel = getData<BlitDimCount>(inTexture, dispatchThreadID, groupID.z);
-		const float4 scaledPixel = float4(pixel.rgb, pixel.a * alphaScale);
-		setData<BlitDimCount, SoftwareEncodeFormat>(outTexture, scaledPixel, dispatchThreadID, groupID.z);
-	}
-}
 
 }
 }
 }
+
 #endif
