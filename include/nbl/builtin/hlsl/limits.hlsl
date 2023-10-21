@@ -196,8 +196,8 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE T epsilon = is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1)));
     NBL_CONSTEXPR_STATIC_INLINE T round_error = is_same<T, bool>::value ? 0 : T(0.5);
     NBL_CONSTEXPR_STATIC_INLINE T infinity = is_same<T, bool>::value ? 0 : T(1e+300 * 1e+300);
-    static T quiet_NaN() { return bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
-    static T signaling_NaN() { return bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
+    static T quiet_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
+    static T signaling_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
 };
 
 #else
