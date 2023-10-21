@@ -24,9 +24,10 @@ struct dim_to_image_properties<1>
 	using combined_sampler_t = Texture1DArray<float4>;
 	using image_t = RWTexture1DArray<float4>;
 
-	static uint32_t2 getIndexCoord(NBL_CONST_REF_ARG(uint32_t3) coords, uint32_t layer)
+	template <typename T>
+	static vector<T, 2> getIndexCoord(vector<T, 3> coords, uint32_t layer)
 	{
-		return uint32_t2(coords.x, layer);
+		return vector<T, 2>(coords.x, layer);
 	}
 };
 
@@ -36,9 +37,10 @@ struct dim_to_image_properties<2>
 	using combined_sampler_t = Texture2DArray<float4>;
 	using image_t = RWTexture2DArray<float4>;
 
-	static uint32_t3 getIndexCoord(NBL_CONST_REF_ARG(uint32_t3) coords, uint32_t layer)
+	template <typename T>
+	static vector<T,3> getIndexCoord(vector<T, 3> coords, uint32_t layer)
 	{
-		return uint32_t3(coords.xy, layer);
+		return vector<T, 3>(coords.xy, layer);
 	}
 };
 
@@ -48,9 +50,10 @@ struct dim_to_image_properties<3>
 	using combined_sampler_t = Texture3D<float4>;
 	using image_t = RWTexture3D<float4>;
 
-	static uint32_t3 getIndexCoord(NBL_CONST_REF_ARG(uint32_t3) coords, uint32_t layer)
+	template <typename T>
+	static vector<T, 3> getIndexCoord(vector<T, 3> coords, uint32_t layer)
 	{
-		return uint32_t3(coords);
+		return vector<T,3>(coords);
 	}
 };
 

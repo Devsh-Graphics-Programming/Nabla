@@ -166,7 +166,7 @@ namespace nbl::video
 
 			const auto castedFormat = getOutImageViewFormat(outFormat);
 			assert(outFormat == castedFormat);
-			const char* formatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
+			const char* formatQualifier = asset::CHLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 			std::ostringstream shaderSourceStream;
 			shaderSourceStream
@@ -180,8 +180,11 @@ namespace nbl::video
 
 			shaderSourceStream
 				<<
-				   "[[vk::binding(0, 0)]]\n"
+
+				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
 				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
+				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
+			       "SamplerState inSamp;"
 
 				   "[[vk::image_format(\""<< formatQualifier << "\")]]\n"
 				   "[[vk::binding(1, 0)]]\n"
@@ -195,7 +198,7 @@ namespace nbl::video
 			{
 				shaderSourceStream
 					<< "[[vk::binding(3 , 0)]] RWBuffer<uint32_t> statsBuff;\n"
-					   "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { InterlockedAdd(statsBuff[wgID * (cceval_params_t::AlphaBinCount + 1) + bucket], v); } };\n";
+					   "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { InterlockedAdd(statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + bucket], v); } };\n";
 			}
 			else
 			{
@@ -205,8 +208,8 @@ namespace nbl::video
 			shaderSourceStream
 				<< "struct KernelWeightsAccessor { float32_t4 get(float32_t idx) { return kernelWeights[idx]; } };\n"
 				   "struct SharedAccessor { float32_t get(float32_t idx) { return sMem[idx]; } void set(float32_t idx, float32_t val) { sMem[idx] = val; } };\n"
-				   "struct InCSAccessor { float32_t4 get(int32_t3 c, uint32_t l) { return inCS[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord(c, l)]; } };\n"
-				   "struct OutImgAccessor { void set(int32_t3 c, uint32_t l, float32_t4 v) { outImg[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord(c, l)] = v; } };\n"
+				   "struct InCSAccessor { float32_t4 get(float32_t3 c, uint32_t l) { return inCS.SampleLevel(inSamp, nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<float32_t>(c, l), 0); } };\n"
+				   "struct OutImgAccessor { void set(int32_t3 c, uint32_t l, float32_t4 v) { outImg[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<int32_t>(c, l)] = v; } };\n"
 
 				   "[numthreads(ceval_params_t::WorkGroupSize, 1, 1)]\n"
 				   "void main(uint32_t3 workGroupID : SV_GroupID, uint32_t localInvocationIndex : SV_GroupIndex)\n"

@@ -6,7 +6,7 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/math/arithmetic.hlsl>
+#include <nbl/builtin/hlsl/math/arithmetic.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
 // TODO: Remove when PR #519 is merged
 #include <nbl/builtin/hlsl/blit/temp.hlsl>
@@ -50,7 +50,7 @@ struct normalization_t
 		NBL_REF_ARG(OutCombinedSamplerAccessor) outCombinedSamplerAccessor,
 		NBL_REF_ARG(HistogramAccessor) histogramAccessor,
         NBL_CONST_REF_ARG(PassedAlphaTestPixelsAccessor) passedAlphaTestPixelsAccessor,
-		NBL_CONST_REF_ARG(SharedAccessor) sharedAccessor,
+		NBL_REF_ARG(SharedAccessor) sharedAccessor,
 		NBL_REF_ARG(uint16_t3) workGroupID,
 		NBL_REF_ARG(uint16_t3) globalInvocationID,
 		uint16_t localInvocationIndex)
@@ -75,9 +75,9 @@ struct normalization_t
 			const uint32_t previousBlockSum = sharedAccessor.main.get(lastInvocationIndex);
 
 			// TODO: Once PR #519 is merged replace with this and delete the line
-			//const uint32_t cumHistogramVal = workgroup::inclusive_scan<uint32_t, binops::add>(histogramVal, sharedAccessor) + previousBlockSum;
+			//const uint32_t cumHistogramVal = workgroup::inclusive_scan<uint32_t, binops::add<uint32_t>>(histogramVal, sharedAccessor) + previousBlockSum;
 			const uint32_t cumHistogramVal =
-				workgroup::inclusive_scan<ConstevalParameters::WorkGroupSize, uint32_t, binops::add>(histogramVal, sharedAccessor, localInvocationID) + previousBlockSum;
+				workgroup::inclusive_scan<ConstevalParameters::WorkGroupSize, uint32_t, binops::add<uint32_t> >(histogramVal, sharedAccessor, uint32_t(localInvocationIndex)) + previousBlockSum;
 
 			sharedAccessor.main.set(localInvocationIndex, cumHistogramVal);
 

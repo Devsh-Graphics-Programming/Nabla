@@ -86,8 +86,9 @@ struct compute_blit_t
 		for (uint32_t virtualInvocation = localInvocationIndex; virtualInvocation < virtualInvocations; virtualInvocation += ConstevalParameters::WorkGroupSize)
 		{
 			const int32_t3 inputPixelCoord = regionStartCoord + int32_t3(ndarray_addressing::snakeCurveInverse(virtualInvocation, preloadRegion));
+			float32_t3 inputTexCoord = (inputPixelCoord + float32_t3(0.5f, 0.5f, 0.5f)) / inDims;
+			const float4 loadedData = inCombinedSamplerAccessor.get(inputTexCoord, workGroupID.z);
 
-			const float4 loadedData = inCombinedSamplerAccessor.get(inputPixelCoord, workGroupID.z);
 			for (uint32_t ch = 0; ch < ConstevalParameters::BlitOutChannelCount; ++ch)
 				sharedAccessor.set(ch * ConstevalParameters::SMemFloatsPerChannel + virtualInvocation, loadedData[ch]);
 		}

@@ -41,19 +41,21 @@ namespace workgroup
     // be nuked. The interface is different than the one suggested in PR #519
     // because right now there's no easy hack-free way to access
     // gl_localInvocationID globally.
-    template<uint32_t WorkGroupSize, typename T, class Binop, class SharedAccessor>
-    T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) sharedAccessor, uint32_t localInvocationID)
+    template<uint32_t WorkGroupSize, typename T, typename Binop, typename SharedAccessor>
+    T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) sharedAccessor, uint32_t localInvocationIndex)
     {
+        Binop binop;
         for (uint32_t i = 0; i < firstbithigh(WorkGroupSize); ++i)
         {
-            sharedAccessor.main.set(localInvocationID, value);
+            sharedAccessor.main.set(localInvocationIndex, value);
             GroupMemoryBarrierWithGroupSync();
-            if (localInvocationID >= (1 << i))
+            if (localInvocationIndex >= (1u << i))
             {
-                value = Binop(sharedAccessor.get(localInvocationID - (1 << i)), value);
+                value = binop(sharedAccessor.main.get(localInvocationIndex - (1u << i)), value);
             }
             GroupMemoryBarrierWithGroupSync();
         }
+        return value;
     }
 }
 

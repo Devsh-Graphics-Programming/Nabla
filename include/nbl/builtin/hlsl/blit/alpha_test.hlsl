@@ -29,7 +29,7 @@ inline void alpha_test(
 		const float32_t alpha = inCombinedSamplerAccessor.get(globalInvocationID, workGroupID.z).a;
 		if (alpha > referenceAlpha)
 		{
-			passedPixelsAccessor.AtomicAdd(workGroupID.z, uint32_t(1));
+			passedPixelsAccessor.atomicAdd(workGroupID.z, uint32_t(1));
 		}
 	}
 }
