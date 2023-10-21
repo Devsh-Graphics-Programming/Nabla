@@ -15,7 +15,8 @@ namespace nbl
 {
 namespace hlsl
 {
-
+namespace mpl
+{
 #ifdef __HLSL_VERSION
 namespace impl
 {
@@ -39,8 +40,8 @@ struct countl_zero
 {
     NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = N&(countl_zero_masks<bits_log2>::LO_MASK<<countl_zero_masks<bits_log2>::SHIFT);
     NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>countl_zero_masks<bits_log2>::SHIFT):N)&countl_zero_masks<bits_log2>::LO_MASK;
-    //NBL_CONSTEXPR_STATIC_INLINE uint16_t value = type_traits::conditional_value<bits_log2,uint16_t,countl_zero<NEXT_N,bits_log2-1>::value,0>::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = type_traits::conditional<bits_log2,countl_zero<NEXT_N,bits_log2-1>,type_traits::integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
+    //NBL_CONSTEXPR_STATIC_INLINE uint16_t value = conditional_value<bits_log2,uint16_t,countl_zero<NEXT_N,bits_log2-1>::value,0>::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = conditional<bits_log2,countl_zero<NEXT_N,bits_log2-1>,integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
 };
 
 }
@@ -81,5 +82,5 @@ struct rotr
 
 }
 }
-
+}
 #endif

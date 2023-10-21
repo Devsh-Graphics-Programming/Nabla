@@ -503,9 +503,9 @@ struct scalar_type<matrix<T,N,M> >
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
 #define typeid(expr) (typeid_t<decltype(expr)>::value)
 
-#define NBL_REGISTER_OBJ_TYPE(T) namespace nbl { namespace hlsl { namespace type_traits { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}}
+#define NBL_REGISTER_OBJ_TYPE(T) namespace nbl { namespace hlsl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }}
 // TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
-#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { namespace type_traits { template<> struct typeid_t<__decltype(fn)> : integral_constant<uint32_t,__COUNTER__> {}; }}}
+#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { template<> struct typeid_t<__decltype(fn)> : integral_constant<uint32_t,__COUNTER__> {}; }}
 // TODO: ideally we'd like to call NBL_REGISTER_FUN_TYPE under the hood, but we can't right now. Also we have a bigger problem, the passing of the function identifier as the second template parameter doesn't work :(
 /*
 template<> \
