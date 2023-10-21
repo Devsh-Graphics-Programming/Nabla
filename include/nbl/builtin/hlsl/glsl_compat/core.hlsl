@@ -56,11 +56,11 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 }
 
 void barrier() {
-    spirv::controlBarrier(2, 2, 0x8 | 0x100);
+    spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
 
 void memoryBarrierShared() {
-    spirv::memoryBarrier(1, 0x8 | 0x100);
+    spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
 
 }

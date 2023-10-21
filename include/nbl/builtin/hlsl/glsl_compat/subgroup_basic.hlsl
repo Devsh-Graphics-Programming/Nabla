@@ -53,27 +53,27 @@ uint4 gl_SubgroupLtMask() {
 }
 
 bool subgroupElect() {
-    return spirv::subgroupElect(/*subgroup execution scope*/ 3);
+    return spirv::subgroupElect(spv::ScopeSubgroup);
 }
 
 void subgroupBarrier() {
-    spirv::controlBarrier(3, 3, SpvMemorySemanticsImageMemoryMask | SpvMemorySemanticsWorkgroupMemoryMask | SpvMemorySemanticsUniformMemoryMask | SpvMemorySemanticsAcquireReleaseMask);
+    spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
 }
 
 void subgroupMemoryBarrier() {
-    spirv::memoryBarrier(3, SpvMemorySemanticsImageMemoryMask | SpvMemorySemanticsWorkgroupMemoryMask | SpvMemorySemanticsUniformMemoryMask | SpvMemorySemanticsAcquireReleaseMask);
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
 }
 
 void subgroupMemoryBarrierBuffer() {
-    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsUniformMemoryMask);
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
 }
 
 void subgroupMemoryBarrierShared() {
-    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsWorkgroupMemoryMask);
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
 
 void subgroupMemoryBarrierImage() {
-    spirv::memoryBarrier(3, SpvMemorySemanticsAcquireReleaseMask | SpvMemorySemanticsImageMemoryMask);
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsImageMemoryMask);
 }
 
 }

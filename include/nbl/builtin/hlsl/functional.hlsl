@@ -1,21 +1,33 @@
-// Copyright (C) 2022 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_BINOPS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_FUNCTIONAL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_FUNCTIONAL_INCLUDED_
 
 namespace nbl
 {
 namespace hlsl
 {
-namespace binops
-{
+#ifndef __HLSL_VERSION // CPP
+
+template<class T> using bit_and = std::bit_and;
+template<class T> using bit_or = std::bit_or;
+template<class T> using bit_xor = std::bit_xor;
+template<class T> using plus = std::plus;
+template<class T> using multiplies = std::multiplies;
+template<class T> using greater = std::greater;
+template<class T> using less = std::less;
+template<class T> using greater_equal = std::greater_equal;
+template<class T> using less_equal = std::less_equal;
+
+#else // HLSL
+    
 template<typename T>
-struct bitwise_and
+struct bit_and
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs&rhs;
+        return lhs & rhs;
     }
     
     static T identity()
@@ -25,11 +37,11 @@ struct bitwise_and
 };
 
 template<typename T>
-struct bitwise_or
+struct bit_or
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs|rhs;
+        return lhs | rhs;
     }
     
     static T identity()
@@ -39,11 +51,11 @@ struct bitwise_or
 };
 
 template<typename T>
-struct bitwise_xor
+struct bit_xor
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs^rhs;
+        return lhs ^ rhs;
     }
     
     static T identity()
@@ -53,11 +65,11 @@ struct bitwise_xor
 };
 
 template<typename T>
-struct add
+struct plus
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs+rhs;
+        return lhs + rhs;
     }
     
     static T identity()
@@ -67,11 +79,11 @@ struct add
 };
 
 template<typename T>
-struct mul
+struct multiplies
 {
     T operator()(const T lhs, const T rhs)
     {
-        return lhs*rhs;
+        return lhs * rhs;
     }
     
     static T identity()
@@ -81,48 +93,47 @@ struct mul
 };
 
 template<typename T>
-struct comparator_lt_t
+struct greater
 {
     bool operator()(const T lhs, const T rhs)
     {
-        return lhs<rhs;
+        return lhs > rhs;
     }
 };
 
 template<typename T>
-struct comparator_gt_t
+struct less
 {
     bool operator()(const T lhs, const T rhs)
     {
-        return lhs>rhs;
+        return lhs < rhs;
     }
 };
 
 template<typename T>
-struct comparator_lte_t
+struct greater_equal
 {
     bool operator()(const T lhs, const T rhs)
     {
-        return lhs<=rhs;
+        return lhs >= rhs;
     }
 };
 
 template<typename T>
-struct comparator_gte_t
+struct less_equal
 {
     bool operator()(const T lhs, const T rhs)
     {
-        return lhs>=rhs;
+        return lhs <= rhs;
     }
 };
 
 template<typename T>
-struct min
+struct minimum
 {
     T operator()(const T lhs, const T rhs)
     {
-        comparator_lt_t<T> comp;
-        return comp(lhs, rhs) ? lhs : rhs;
+        return (rhs < lhs) ? rhs : lhs;
     }
 
     static T identity()
@@ -132,12 +143,11 @@ struct min
 };
 
 template<typename T>
-struct max
+struct maximum
 {
     T operator()(const T lhs, const T rhs)
     {
-        comparator_gt_t<T> comp;
-        return comp(lhs, rhs) ? lhs : rhs;
+        return (lhs < rhs) ? rhs : lhs;
     }
 
     static T identity()
@@ -146,7 +156,8 @@ struct max
     }
 };
 
-}
+#endif
+
 }
 }
 

@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
@@ -47,8 +48,8 @@ T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
 #undef REDUCE
 #undef SCAN
 
-#define REDUCE Reduce<uint, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor, impl::uballotBitfieldCount>
-#define SCAN Scan<uint, binops::add<uint>, subgroup::inclusive_scan<uint, binops::add<uint> >, SharedAccessor, impl::uballotBitfieldCount, true>
+#define REDUCE Reduce<uint, subgroup::inclusive_scan<uint, plus<uint> >, SharedAccessor, impl::uballotBitfieldCount>
+#define SCAN Scan<uint, plus<uint>, subgroup::inclusive_scan<uint, plus<uint> >, SharedAccessor, impl::uballotBitfieldCount, true>
 /**
  * Gives us the sum (reduction) of all ballots for the workgroup.
  *
