@@ -105,6 +105,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/property_pool/transfer.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/property_pool/copy.comp")
 # random numbers
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/random/xoroshiro.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/random/xoroshiro.hlsl")
 # sampling
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/sampling/bilinear.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/sampling/box_muller_transform.glsl")
@@ -179,6 +180,22 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/fft.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/shuffle.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/shuffle_relative.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/vote.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability_impl.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/ballot.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/basic.hlsl")
+#glsl compat
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/core.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/subgroup_arithmetic.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/subgroup_ballot.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/subgroup_basic.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/subgroup_shuffle.hlsl")
+#spirv intrinsics
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/core.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_arithmetic.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_ballot.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_basic.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_shuffle.hlsl")
 #transform_tree
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/transform_tree/global_transform_update.comp")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/transform_tree/global_transform_and_normal_matrix_update.comp")
@@ -258,10 +275,12 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/vector.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/promote.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/intrinsics.h")
 
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bit.hlsl")
 
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/impl.hlsl")
 
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/binops.hlsl")
 
 macro(NBL_ADD_BUILTIN_RESOURCES _TARGET_) # internal & Nabla only, must be added with the macro to properly propagate scope
 	ADD_CUSTOM_BUILTIN_RESOURCES("${_TARGET_}" NBL_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl/builtin" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src" "STATIC" "INTERNAL")

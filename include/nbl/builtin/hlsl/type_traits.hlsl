@@ -172,22 +172,28 @@ struct integral_constant {
     using value_type = T;
 };
 
-template <bool val>
+template<bool val>
 struct bool_constant : integral_constant<bool, val> {};
 
 struct true_type : bool_constant<true> {};
 struct false_type : bool_constant<true> {};
 
-template <bool C, class T, class F>
+template<bool C, class T, class F>
 struct conditional 
 { 
     using type = T;
 };
 
-template <class T, class F>
+template<class T, class F>
 struct conditional<false, T, F> 
 {
     using type = F;
+};
+
+template<bool C, typename T, T A, T B>
+struct conditional_value
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
 };
 
 template<class A, class B>
