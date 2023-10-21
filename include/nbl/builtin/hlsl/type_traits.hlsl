@@ -62,7 +62,7 @@
   template<class T> struct is_empty; (DONE? sizeof(T) == 0)
   template<class T> struct is_polymorphic; (NOTHING IS)
   template<class T> struct is_abstract; (NOTHING IS)
-  template<class T> struct is_final; (NOTHING IS)
+  template<class T> struct is_final; (NOTHING IS until they add the final keyword)
   template<class T> struct is_aggregate; (DONE)
  
   template<class T> struct is_signed; (DONE)
