@@ -24,15 +24,8 @@ namespace impl
 template<uint16_t bits_log2>
 struct countl_zero_masks
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT = uint16_t(1)<<(bits_log2-1);
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = (1ull<<SHIFT)-1;
-};
-
-template<>
-struct countl_zero_masks<0>
-{
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT = 0;
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = 0;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT   = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = bits_log2 ? (1ull<<SHIFT)-1 : 0;
 };
 
 template<uint64_t N, uint16_t bits_log2>
