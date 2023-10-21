@@ -48,6 +48,7 @@
         int()     is not an object
         int(*)()  is object
         int(&)()  is not an object
+        basically !(is_reference || is_void || is_function)
 
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
@@ -58,7 +59,7 @@
   template<class T> struct is_volatile; (DONE)
   template<class T> struct is_trivial; (EVERYTHING IS)
   template<class T> struct is_trivially_copyable; (EVERYTHING IS)
-  template<class T> struct is_standard_layout; (NOT-APPLICABLE)
+  template<class T> struct is_standard_layout; (APPLICABLE BUT IMPOSSIBLE TO TEST WITHOUT REFLECTION)
   template<class T> struct is_empty; (DONE? sizeof(T) == 0)
   template<class T> struct is_polymorphic; (NOTHING IS)
   template<class T> struct is_abstract; (NOTHING IS)
@@ -99,13 +100,13 @@
   template<class T> struct add_cv; (DONE)
 
   // reference modifications
-  template<class T> struct remove_reference; (DONE)
+  template<class T> struct remove_reference; (DONE BUT DONT USE)
   template<class T> struct add_lvalue_reference; (DONE BUT DONT USE)
-  template<class T> struct add_rvalue_reference; (DONE BUT DONT USE)
+  template<class T> struct add_rvalue_reference; (TODO)
 
   // sign modifications
-  template<class T> struct make_signed; (TODO)
-  template<class T> struct make_unsigned; (TODO)
+  template<class T> struct make_signed; (DONE)
+  template<class T> struct make_unsigned; (DONE)
  
   // array modifications
   template<class T> struct remove_extent; (DONE)
@@ -129,6 +130,7 @@
   template<class Fn, class... ArgTypes> struct invoke_result;
   template<class T> struct unwrap_reference; (TODO)
   template<class T> struct unwrap_ref_decay; (TODO)
+  template<class...> using void_t = void; (VARIADICS NOT SUPPORTED USE `make_void` INSTEAD)
 
   NO FOLD EXPRESSIONS IN HLSL!
     // logical operator traits
@@ -383,6 +385,8 @@ struct typeid_t;
 template<class T>
 struct alignment_of;
 
+template<class>
+struct make_void { using type = void; };
 
 // reference stuff needed for semantics 
 
@@ -392,9 +396,6 @@ struct alignment_of;
 // https://godbolt.org/z/dsj99fY96
 namespace impl
 {
-
-template<class>
-struct make_void { using type = void; };
 
 template<typename,class=void>
 struct is_reference : bool_constant<true> { };
