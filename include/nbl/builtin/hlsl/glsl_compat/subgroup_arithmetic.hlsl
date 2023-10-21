@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_ARITHMETIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/spirv_intrinsics/arithmetic.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_arithmetic.hlsl"
 
 namespace nbl
 {

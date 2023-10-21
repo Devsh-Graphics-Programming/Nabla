@@ -24,6 +24,7 @@ struct Reduce
     uint lastInvocation;
     uint lastInvocationInLevel;
     uint scanLoadIndex;
+    bool participate;
 
     static Reduce create()
     {
@@ -52,34 +53,18 @@ struct Reduce
         scanLoadIndex = gl_LocalInvocationIndex;
         const uint loadStoreIndexDiff = scanLoadIndex - glsl::gl_SubgroupID();
         
-        bool participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
-        while(lastInvocationInLevel >= glsl::gl_SubgroupSize() * glsl::gl_SubgroupSize())
+        participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
+        // to cancel out the index shift on the first iteration
+        if (lastInvocationInLevel >= glsl::gl_SubgroupSize())
+             scanLoadIndex -= lastInvocationInLevel-1u;
+        // TODO: later [unroll(scan_levels<WorkgroupSize,MinSubgroupSize>::value-1)]
+        [unroll(1)]
+        while(lastInvocationInLevel >= glsl::gl_SubgroupSize())
         {
-            if(participate)
-            {
-                if (any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation)))
-                { // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
-                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For gl_SubgroupSz = 64, first 4095 invocations store index is [0,63], 4096-8191 [64,127] etc.
-                }
-            }
-            sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-            participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
-            if(participate)
-            {
-                const uint prevLevelScan = sharedAccessor.main.get(gl_LocalInvocationIndex);
-                scan = subgroupOp(prevLevelScan);
-                sharedAccessor.main.set(scanLoadIndex, scan);
-                scanLoadIndex += lastInvocationInLevel + 1u;
-            }
-        }
-        if(lastInvocationInLevel >= glsl::gl_SubgroupSize())
-        {
-            if(participate)
-            {
-                if(any(bool2(gl_LocalInvocationIndex == lastInvocationInLevel, isLastSubgroupInvocation))) {
-                    sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan);
-                }
-            }
+            scanLoadIndex += lastInvocationInLevel+1u;
+            // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
+            if (participate && (gl_LocalInvocationIndex==lastInvocationInLevel || isLastSubgroupInvocation))
+                sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
             participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
@@ -113,32 +98,57 @@ struct Scan
         uint firstLevelScan = reduce.firstLevelScan;
         const uint subgroupId = glsl::gl_SubgroupID();
         
+        // abuse integer wraparound to map 0 to 0xffFFffFFu
+        const uint32_t prevSubgroupID = uint32_t(glsl::gl_SubgroupID())-1u;
+        
+        // important check to prevent weird `firstbithigh` overlflows
         if(lastInvocation >= glsl::gl_SubgroupSize())
         {
-            uint scanLoadIndex = reduce.scanLoadIndex + glsl::gl_SubgroupSize();
-            const uint shiftedInvocationIndex = gl_LocalInvocationIndex + glsl::gl_SubgroupSize();
-            const uint currentToHighLevel = subgroupId - shiftedInvocationIndex;
+            // different than Upsweep cause we need to translate high level inclusive scans into exclusive on the fly, so we get the value of the subgroup behind our own in each level
+            const uint32_t storeLoadIndexDiff = uint32_t(gl_LocalInvocationIndex) - prevSubgroupID ;
             
-            sharedAccessor.main.set(reduce.scanLoadIndex, reduce.lastLevelScan);
-
-            for(uint logShift = (firstbithigh(lastInvocation) / glsl::gl_SubgroupSizeLog2() - 1u) * glsl::gl_SubgroupSizeLog2(); logShift > 0u; logShift -= glsl::gl_SubgroupSizeLog2())
+            // because DXC doesn't do references and I need my "frozen" registers
+            #define scanStoreIndex reduce.scanLoadIndex
+            // we sloop over levels from highest to penultimate
+            // as we iterate some previously active (higher level) invocations hold their exclusive prefix sum in `lastLevelScan`
+            const uint32_t temp = firstbithigh(lastInvocation) / glsl::gl_SubgroupSizeLog2(); // doing division then multiplication might be optimized away by the compiler
+            const uint32_t initialLogShift = temp * glsl::gl_SubgroupSizeLog2();
+            // TODO: later [unroll(scan_levels<WorkgroupSize,MinSubgroupSize>::value-1)]
+            [unroll(1)]
+            for(uint32_t logShift=initialLogShift; bool(logShift); logShift-=glsl::gl_SubgroupSizeLog2())
             {
-                uint lastInvocationInLevel = lastInvocation >> logShift;
-                sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-                const uint currentLevelIndex = scanLoadIndex - (lastInvocationInLevel + 1u);
-                if(shiftedInvocationIndex <= lastInvocationInLevel)
+                // on the first iteration gl_SubgroupID==0 will participate but not afterwards because binop operand is identity
+                if (reduce.participate)
                 {
-                    sharedAccessor.main.set(currentLevelIndex, binop(sharedAccessor.main.get(scanLoadIndex+currentToHighLevel), sharedAccessor.main.get(currentLevelIndex)));
-                    scanLoadIndex = currentLevelIndex;
+                    // we need to add the higher level invocation exclusive prefix sum to current value
+                    if (logShift!=initialLogShift) // but the top level doesn't have any level above itself
+                    {
+                        // this is fine if on the way up you also += under `if (participate)`
+                        scanStoreIndex -= reduce.lastInvocationInLevel+1;
+                        reduce.lastLevelScan = binop(reduce.lastLevelScan,sharedAccessor.main.get(scanStoreIndex));
+                    }
+                    // now `lastLevelScan` has current level's inclusive prefux sum computed properly
+                    // note we're overwriting the same location with same invocation so no barrier needed
+                    // we store everything even though we'll never use the last entry due to shuffleup on read
+                    sharedAccessor.main.set(scanStoreIndex,reduce.lastLevelScan);
                 }
+                sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
+                // we're sneaky and exclude `gl_SubgroupID==0`  from participation by abusing integer underflow
+                reduce.participate = prevSubgroupID<reduce.lastInvocationInLevel;
+                if (reduce.participate)
+                {
+                    // we either need to prevent OOB read altogether OR cmov identity after the far
+                    reduce.lastLevelScan = sharedAccessor.main.get(scanStoreIndex-storeLoadIndexDiff);
+                }
+                reduce.lastInvocationInLevel = lastInvocation >> logShift;
             }
-            sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
+            #undef scanStoreIndex
             
-            if(gl_LocalInvocationIndex <= lastInvocation && subgroupId != 0u)
-            {
-                const uint higherLevelExclusive = sharedAccessor.main.get(subgroupId - 1u);
-                firstLevelScan = binop(higherLevelExclusive, firstLevelScan);
-            }
+            //assert((lastInvocation>>glsl::gl_SubgroupSizeLog2())==reduce.lastInvocationInLevel);
+            
+            // the very first prefix sum we did is in a register, not Accessor scratch mem hence the special path
+            if ( prevSubgroupID < reduce.lastInvocationInLevel)
+                firstLevelScan = binop(reduce.lastLevelScan,firstLevelScan);
         }
         
         if(isExclusive)
@@ -147,7 +157,7 @@ struct Scan
             if(glsl::subgroupElect())
             {   // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
                 // note that we assume we might have to do scans with itemCount <= gl_WorkgroupSize
-                firstLevelScan = all(bool2(gl_LocalInvocationIndex != 0u, gl_LocalInvocationIndex <= lastInvocation)) ? sharedAccessor.main.get(subgroupId - 1u) : Binop::identity();
+                firstLevelScan = bool(subgroupId) ? reduce.lastLevelScan : Binop::identity();
             }
             return firstLevelScan;
         }
