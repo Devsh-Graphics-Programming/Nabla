@@ -226,7 +226,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		)
 	endif()
 
-	nbl_project_handle_json_config()
+	nbl_project_process_test_module()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -533,7 +533,14 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
-function(nbl_project_handle_json_config)
+function(NBL_TEST_MODULE_INSTALL_FILE _NBL_FILEPATH_)
+	file(RELATIVE_PATH _NBL_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_FILEPATH_}")
+	cmake_path(GET _NBL_REL_INSTALL_DEST_ PARENT_PATH _NBL_REL_INSTALL_DEST_)
+					
+	nbl_install_media_spec("${_NBL_FILEPATH_}" "${_NBL_REL_INSTALL_DEST_}")
+endfunction()
+
+function(nbl_project_process_test_module)
 	set(NBL_TEMPLATE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 	get_filename_component(NBL_TEMPLATE_JSON_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
 	set(NBL_PROFILES_JSON_DIR "${NBL_TEMPLATE_JSON_DIR}/.profiles")
@@ -595,10 +602,7 @@ function(nbl_project_handle_json_config)
 				string(FIND "${_NBL_JSON_DEPENDENCY_FILEPATH_ABS_}" "${NBL_MEDIA_DIRECTORY_ABS}" _NBL_IS_MEDIA_DEPENDNECY_)
 				
 				if(NOT "${_NBL_IS_MEDIA_DEPENDNECY_}" STREQUAL "-1") # filter dependencies, only those coming from NBL_MEDIA_DIRECTORY_ABS are considered for install rules
-					file(RELATIVE_PATH _NBL_JSON_DEPENDNECY_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_JSON_DEPENDENCY_FILEPATH_}")
-					cmake_path(GET _NBL_JSON_DEPENDNECY_REL_INSTALL_DEST_ PARENT_PATH _NBL_JSON_DEPENDNECY_REL_INSTALL_DEST_)
-					
-					nbl_install_media_spec("${_NBL_JSON_DEPENDENCY_FILEPATH_}" "${_NBL_JSON_DEPENDNECY_REL_INSTALL_DEST_}")
+					NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_DEPENDENCY_FILEPATH_}")
 				endif()
 			endforeach()
 		endif()
@@ -703,6 +707,8 @@ function(nbl_project_handle_json_config)
 			endif()
 		endif()
 
+		NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_SCRIPTPATH_ABS_}")
+
 		# ".enableParallelBuild" boolean
 		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
 		
@@ -723,10 +729,14 @@ function(nbl_project_handle_json_config)
 		set(NBL_RUNALLTESTS_SCRIPT_FILEPATH "${NBL_TEMPLATE_JSON_DIR}/${NBL_RUNALLTESTS_SCRIPT_FILENAME}")
 		configure_file("${NBL_PYTHON_FRAMEWORK_RUNALLTESTS_SCRIPT_ABS}" "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}" @ONLY)
 		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_CONFIG_FILEPATH_}" _NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_JSON_TOP_CONFIG_CONTENT_}" scriptPath)
-		
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
+
 		configure_file("${NBL_PYTHON_FRAMEWORK_VS_LAUNCH_JSON_ABS}" "${NBL_TEMPLATE_JSON_DIR}/.vscode/launch.json" @ONLY)
 		configure_file("${NBL_PYTHON_FRAMEWORK_VS_SETTINGS_JSON_ABS}" "${NBL_TEMPLATE_JSON_DIR}/.vscode/settings.json" @ONLY)
 		
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_TEMPLATE_JSON_DIR}/.vscode/launch.json")
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_TEMPLATE_JSON_DIR}/.vscode/settings.json")
+
 		target_sources(${EXECUTABLE_NAME} PUBLIC "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
 		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target" FILES "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
 		
@@ -939,13 +949,10 @@ function(nbl_project_handle_json_config)
 				target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
 				source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON/Auto-Gen Profiles" FILES "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
 				
-				file(RELATIVE_PATH _NBL_JSON_PROFILE_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
-				cmake_path(GET _NBL_JSON_PROFILE_REL_INSTALL_DEST_ PARENT_PATH _NBL_JSON_PROFILE_REL_INSTALL_DEST_)
-					
-				nbl_install_media_spec("${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}" "${_NBL_JSON_PROFILE_REL_INSTALL_DEST_}")
+				NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
 			endforeach()
 		endif()
-		
+
 		NBL_TARGET_ATTACH_PYTHON_FRAMEWORK("${EXECUTABLE_NAME}")
 	endif()
 endfunction()
