@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
 
-#include "spirv/1.2/spirv.h"
+#include "spirv/unified1/spirv.h"
 
 
 namespace nbl 
@@ -19,7 +19,7 @@ namespace spirv
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
 template<>
-[[vk::ext_instruction(SpvOpAtomicIAdd)]]
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
 int atomicAdd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
 template<>
 [[vk::ext_instruction(/* OpAtomicIAdd */ 234)]]
