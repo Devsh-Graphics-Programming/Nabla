@@ -402,21 +402,18 @@ struct is_reference : bool_constant<true> { };
 template<typename T>
 struct is_reference<T,typename make_void<T[1]>::type> : bool_constant<false> { };
 
+template<class T, bool = is_reference<T>::value>
+struct add_reference_helper : type_identity<T> {};
+
 template<class T>
-struct declval
+struct add_reference_helper<T, false>
 {
     static T member[1];
-    using reference_type = decltype(member[0]);
+    using type = decltype(member[0]);
 };
 
 template<class T>
-struct add_lvalue_reference : 
-    conditional<
-            is_reference<T>::value,
-            T,
-            typename declval<T>::reference_type>
-{
-};
+struct add_lvalue_reference : add_reference_helper<T> {};
 
 template<typename T>
 T remove_reference_impl(T v)
@@ -424,15 +421,18 @@ T remove_reference_impl(T v)
     return v;
 }
 
+template<typename T, bool = is_reference<T>::value>
+struct remove_reference_helper : type_identity<T> {};
+
 template<typename T>
-struct remove_reference_helper
+struct remove_reference_helper<T, true>
 {
     static T member;
     using type = decltype(remove_reference_impl(member));
 };
 
 template<typename T>
-struct remove_reference : conditional<is_reference<T>::value, typename remove_reference_helper<T>::type, T> {};
+struct remove_reference : remove_reference_helper<T> {};
 
 }
 
