@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/math/arithmetic.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
+#include <nbl/builtin/hlsl/binops.hlsl>
 // TODO: Remove when PR #519 is merged
 #include <nbl/builtin/hlsl/blit/temp.hlsl>
 

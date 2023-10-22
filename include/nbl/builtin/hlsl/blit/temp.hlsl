@@ -18,25 +18,6 @@ struct umul_result_t { uint32_t lsb; uint32_t msb; };
 umul_result_t umulExtended(uint32_t v0, uint32_t v1);
 }
 
-
-namespace binops
-{
-template<typename T>
-struct add
-{
-    T operator()(const T lhs, const T rhs)
-    {
-        return lhs + rhs;
-    }
-
-    static T identity()
-    {
-        return 0;
-    }
-};
-}
-
-
 namespace workgroup
 {
     // This is slow naive scan but it doesn't matter as this file is going to
