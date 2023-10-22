@@ -179,12 +179,10 @@ namespace nbl::video
 				<< outChannelCount << ", " << blitDimCount << ", " << paddedAlphaBinCount << "> ceval_params_t;\n";
 
 			shaderSourceStream
-				<<
-
-				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
+				<< "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
 				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
 				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
-			       "SamplerState inSamp;"
+			       "SamplerState inSamp;\n"
 
 				   "[[vk::image_format(\""<< formatQualifier << "\")]]\n"
 				   "[[vk::binding(1, 0)]]\n"
@@ -197,7 +195,7 @@ namespace nbl::video
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			{
 				shaderSourceStream
-					<< "[[vk::binding(3 , 0)]] RWBuffer<uint32_t> statsBuff;\n"
+					<< "[[vk::binding(2 , 0)]] RWStructuredBuffer<uint32_t> statsBuff;\n"
 					   "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { InterlockedAdd(statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + bucket], v); } };\n";
 			}
 			else

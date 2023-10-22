@@ -12,8 +12,10 @@ namespace hlsl
 
 namespace spirv
 {
+// DXC fails with uint32_t2 result, so we have to use a struct.
+struct umul_result_t { uint32_t lsb; uint32_t msb; };
 [[vk::ext_instruction(/* OpUMulExtended */ 151)]]
-uint32_t2 umulExtended(uint32_t v0, uint32_t v1);
+umul_result_t umulExtended(uint32_t v0, uint32_t v1);
 }
 
 

@@ -55,9 +55,9 @@ struct normalization_t
 		NBL_REF_ARG(uint16_t3) globalInvocationID,
 		uint16_t localInvocationIndex)
 	{
-		uint32_t2 product = spirv::umulExtended(passedAlphaTestPixelsAccessor.get(workGroupID.z), outPixelCount);
+		spirv::umul_result_t product = spirv::umulExtended(passedAlphaTestPixelsAccessor.get(workGroupID.z), outPixelCount);
 
-		const uint32_t pixelsShouldPassCount = math::fastDivide_int23_t(product.y, product.x, inPixelCount);
+		const uint32_t pixelsShouldPassCount = math::fastDivide_int23_t(product.msb, product.lsb, inPixelCount);
 		const uint32_t pixelsShouldFailCount = outPixelCount - pixelsShouldPassCount;
 
 		const uint32_t lastInvocationIndex = ConstevalParameters::WorkGroupSize - 1;
@@ -93,14 +93,14 @@ struct normalization_t
 		GroupMemoryBarrierWithGroupSync();
 
 		const uint32_t bucketIndex = sharedAccessor.main.get(ConstevalParameters::WorkGroupSize);
-		const float newReferenceAlpha = min((bucketIndex - 0.5f) / float(ConstevalParameters::AlphaBinCount - 1), 1.f);
-		const float alphaScale = referenceAlpha / newReferenceAlpha;
+		const float32_t newReferenceAlpha = min((bucketIndex - 0.5f) / float32_t(ConstevalParameters::AlphaBinCount - 1), 1.f);
+		const float32_t alphaScale = referenceAlpha / newReferenceAlpha;
 
 		if (all(globalInvocationID < outDims))
 		{
-			const float4 pixel = inCombinedSamplerAccessor.get(globalInvocationID, workGroupID.z);
-			const float4 scaledPixel = float4(pixel.rgb, pixel.a * alphaScale);
-			outCombinedSamplerAccessor.set(scaledPixel, globalInvocationID, workGroupID.z);
+			const float32_t4 pixel = inCombinedSamplerAccessor.get(globalInvocationID, workGroupID.z);
+			const float32_t4 scaledPixel = float32_t4(pixel.rgb, pixel.a * alphaScale);
+			outCombinedSamplerAccessor.set(globalInvocationID, workGroupID.z, scaledPixel);
 		}
 	}
 };
