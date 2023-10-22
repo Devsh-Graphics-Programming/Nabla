@@ -50,10 +50,10 @@ struct Reduce
         // Consequently, those first gl_SubgroupSz^2 invocations will store their results on gl_SubgroupSz scratch slots 
         // and the next level will follow the same + the previous as an `offset`.
         
-        scanLoadIndex = gl_LocalInvocationIndex;
+        scanLoadIndex = SubgroupContiguousIndex();
         const uint loadStoreIndexDiff = scanLoadIndex - glsl::gl_SubgroupID();
         
-        participate = gl_LocalInvocationIndex <= lastInvocationInLevel;
+        participate = SubgroupContiguousIndex() <= lastInvocationInLevel;
         // to cancel out the index shift on the first iteration
         if (lastInvocationInLevel >= glsl::gl_SubgroupSize())
              scanLoadIndex -= lastInvocationInLevel-1u;
@@ -63,17 +63,17 @@ struct Reduce
         {
             scanLoadIndex += lastInvocationInLevel+1u;
             // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
-            if (participate && (gl_LocalInvocationIndex==lastInvocationInLevel || isLastSubgroupInvocation))
+            if (participate && (SubgroupContiguousIndex()==lastInvocationInLevel || isLastSubgroupInvocation))
                 sharedAccessor.main.set(scanLoadIndex - loadStoreIndexDiff, scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
             sharedAccessor.main.workgroupExecutionAndMemoryBarrier();
-            participate = gl_LocalInvocationIndex <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
+            participate = SubgroupContiguousIndex() <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
             {
                 const uint prevLevelScan = sharedAccessor.main.get(scanLoadIndex);
                 scan = subgroupOp(prevLevelScan);
             }
         }
-        lastLevelScan = scan; // only invocations of gl_LocalInvocationIndex < gl_SubgroupSize will have correct values, rest will have garbage
+        lastLevelScan = scan; // only invocations of SubgroupContiguousIndex() < gl_SubgroupSize will have correct values, rest will have garbage
     }
 };
 
@@ -105,7 +105,7 @@ struct Scan
         if(lastInvocation >= glsl::gl_SubgroupSize())
         {
             // different than Upsweep cause we need to translate high level inclusive scans into exclusive on the fly, so we get the value of the subgroup behind our own in each level
-            const uint32_t storeLoadIndexDiff = uint32_t(gl_LocalInvocationIndex) - prevSubgroupID ;
+            const uint32_t storeLoadIndexDiff = uint32_t(SubgroupContiguousIndex()) - prevSubgroupID ;
             
             // because DXC doesn't do references and I need my "frozen" registers
             #define scanStoreIndex reduce.scanLoadIndex

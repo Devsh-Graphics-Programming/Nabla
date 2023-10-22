@@ -24,7 +24,7 @@ namespace workgroup
 template<typename T, class SharedAccessor>
 T Broadcast(const T val, NBL_REF_ARG(SharedAccessor) accessor, const uint id)
 {
-    if(gl_LocalInvocationIndex == id) {
+    if(SubgroupContiguousIndex() == id) {
         accessor.broadcast.set(impl::uballotBitfieldCount, val);
     }
     

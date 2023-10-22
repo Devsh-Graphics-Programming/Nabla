@@ -134,22 +134,22 @@ namespace scheduler
 	bool getWork(in DefaultSchedulerParameters_t params, in uint topLevel, out uint treeLevel, out uint localWorkgroupIndex)
 	{
 		ScratchAccessor sharedScratch;
-		if(gl_LocalInvocationIndex == 0u) 
+		if(SubgroupContiguousIndex() == 0u) 
 		{
 			uint64_t original;
 			InterlockedAdd(scanScratch.workgroupsStarted, 1u, original); // REVIEW: Refactor InterlockedAdd with GLSL terminology? // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
-			sharedScratch.set(gl_LocalInvocationIndex, original);
+			sharedScratch.set(SubgroupContiguousIndex(), original);
 		}
-		else if (gl_LocalInvocationIndex == 1u) 
+		else if (SubgroupContiguousIndex() == 1u) 
 		{
-			sharedScratch.set(gl_LocalInvocationIndex, 0u);
+			sharedScratch.set(SubgroupContiguousIndex(), 0u);
 		}
 		GroupMemoryBarrierWithGroupSync(); // REVIEW: refactor this somewhere with GLSL terminology?
 		
 		const uint globalWorkgroupIndex; // does every thread need to know?
 		sharedScratch.get(0u, globalWorkgroupIndex);
 		const uint lastLevel = topLevel<<1u;
-		if (gl_LocalInvocationIndex<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[gl_LocalInvocationIndex]) 
+		if (SubgroupContiguousIndex()<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[SubgroupContiguousIndex()]) 
 		{
 			InterlockedAdd(sharedScratch.get(1u, ?), 1u); // REVIEW: The way scratchaccessoradaptor is implemented (e.g. under subgroup/arithmetic_portability) doesn't allow for atomic ops on the scratch buffer. Should we ask for another implementation that overrides the [] operator ?
 		}
@@ -165,7 +165,7 @@ namespace scheduler
 		{
 			const uint prevLevel = treeLevel - 1u;
 			localWorkgroupIndex -= params.cumulativeWorkgroupCount[prevLevel];
-			if(gl_LocalInvocationIndex == 0u) 
+			if(SubgroupContiguousIndex() == 0u) 
 			{
 				uint dependentsCount = 1u;
 				if(treeLevel <= topLevel) 
@@ -197,7 +197,7 @@ namespace scheduler
 	void markComplete(in DefaultSchedulerParameters_t params, in uint topLevel, in uint treeLevel, in uint localWorkgroupIndex)
 	{
 		GroupMemoryBarrierWithGroupSync(); // must complete writing the data before flags itself as complete  // TODO (PentaKon): Possibly refactor?
-		if (gl_LocalInvocationIndex==0u)
+		if (SubgroupContiguousIndex()==0u)
 		{
 			uint finishedFlagOffset = params.finishedFlagOffset[treeLevel];
 			if (treeLevel<topLevel)

@@ -20,8 +20,8 @@ namespace scan
 	void virtualWorkgroup(in uint treeLevel, in uint localWorkgroupIndex)
 	{
 		const Parameters_t params = getParameters();
-		const uint levelInvocationIndex = localWorkgroupIndex * _NBL_HLSL_WORKGROUP_SIZE_ + gl_LocalInvocationIndex;
-		const bool lastInvocationInGroup = gl_LocalInvocationIndex == (_NBL_HLSL_WORKGROUP_SIZE_ - 1);
+		const uint levelInvocationIndex = localWorkgroupIndex * _NBL_HLSL_WORKGROUP_SIZE_ + SubgroupContiguousIndex();
+		const bool lastInvocationInGroup = SubgroupContiguousIndex() == (_NBL_HLSL_WORKGROUP_SIZE_ - 1);
 
 		const uint lastLevel = params.topLevel << 1u;
 		const uint pseudoLevel = levelInvocationIndex <= params.lastElement[pseudoLevel];

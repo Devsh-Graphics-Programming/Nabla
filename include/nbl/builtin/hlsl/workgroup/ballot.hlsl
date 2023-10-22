@@ -45,14 +45,14 @@ static const uint uballotBitfieldCount = (_NBL_HLSL_WORKGROUP_SIZE_+31) >> 5; //
 template<class SharedAccessor>
 void ballot(const bool value, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    uint initialize = gl_LocalInvocationIndex < impl::uballotBitfieldCount;
+    uint initialize = SubgroupContiguousIndex() < impl::uballotBitfieldCount;
     if(initialize) {
-        accessor.ballot.set(gl_LocalInvocationIndex, 0u);
+        accessor.ballot.set(SubgroupContiguousIndex(), 0u);
     }
     accessor.ballot.workgroupExecutionAndMemoryBarrier();
     if(value) {
         uint dummy;
-        accessor.ballot.atomicOr(impl::getDWORD(gl_LocalInvocationIndex), 1u<<(gl_LocalInvocationIndex&31u), dummy);
+        accessor.ballot.atomicOr(impl::getDWORD(SubgroupContiguousIndex()), 1u<<(SubgroupContiguousIndex()&31u), dummy);
     }
 }
 
@@ -69,7 +69,7 @@ bool ballotBitExtract(const uint index, NBL_REF_ARG(SharedAccessor) accessor)
 template<class SharedAccessor>
 bool inverseBallot(NBL_REF_ARG(SharedAccessor) accessor)
 {
-    return ballotBitExtract<SharedAccessor>(gl_LocalInvocationIndex, accessor);
+    return ballotBitExtract<SharedAccessor>(SubgroupContiguousIndex(), accessor);
 }
 
 }

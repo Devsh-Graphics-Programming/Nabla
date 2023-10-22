@@ -66,9 +66,9 @@ template<class SharedAccessor>
 uint ballotBitCount(NBL_REF_ARG(SharedAccessor) accessor)
 {
     uint participatingBitfield = 0;
-    if(gl_LocalInvocationIndex < impl::uballotBitfieldCount)
+    if(SubgroupContiguousIndex() < impl::uballotBitfieldCount)
     {
-        participatingBitfield = accessor.ballot.get(gl_LocalInvocationIndex);
+        participatingBitfield = accessor.ballot.get(SubgroupContiguousIndex());
     }
     accessor.ballot.workgroupExecutionAndMemoryBarrier();
     REDUCE reduce = REDUCE::create();
@@ -80,29 +80,29 @@ uint ballotBitCount(NBL_REF_ARG(SharedAccessor) accessor)
 template<class SharedAccessor>
 uint ballotScanBitCount(const bool exclusive, NBL_REF_ARG(SharedAccessor) accessor)
 {
-    const uint _dword = impl::getDWORD(gl_LocalInvocationIndex);
+    const uint _dword = impl::getDWORD(SubgroupContiguousIndex());
     const uint localBitfield = accessor.ballot.get(_dword);
     uint globalCount;
     {
         uint participatingBitfield;
-        if(gl_LocalInvocationIndex < impl::uballotBitfieldCount)
+        if(SubgroupContiguousIndex() < impl::uballotBitfieldCount)
         {
-            participatingBitfield = accessor.ballot.get(gl_LocalInvocationIndex);
+            participatingBitfield = accessor.ballot.get(SubgroupContiguousIndex());
         }
-        // scan hierarchically, invocations with `gl_LocalInvocationIndex >= uballotBitfieldCount` will have garbage here
+        // scan hierarchically, invocations with `SubgroupContiguousIndex() >= uballotBitfieldCount` will have garbage here
         accessor.ballot.workgroupExecutionAndMemoryBarrier();
         
         SCAN scan = SCAN::create();
         uint bitscan = scan(countbits(participatingBitfield), accessor);
         
-        accessor.main.set(gl_LocalInvocationIndex, bitscan);
+        accessor.main.set(SubgroupContiguousIndex(), bitscan);
         accessor.main.workgroupExecutionAndMemoryBarrier();
         
         // fix it (abuse the fact memory is left over)
         globalCount = _dword != 0u ? accessor.main.get(_dword) : 0u;
         accessor.main.workgroupExecutionAndMemoryBarrier();
     }
-    const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(gl_LocalInvocationIndex&31u));
+    const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(SubgroupContiguousIndex()&31u));
     return globalCount + countbits(localBitfield & mask);
 }
 
