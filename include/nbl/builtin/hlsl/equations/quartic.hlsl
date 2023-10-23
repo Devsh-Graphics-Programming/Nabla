@@ -55,7 +55,7 @@ namespace equations
 			double  sq_A, p, q, r;
 			int     i;
 			float4_t s = float4_t(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
-			uint rootCount = 0;
+			uint32_t rootCount = 0;
 
 			/* normal form: x^4 + Ax^3 + Bx^2 + Cx + D = 0 */
 
@@ -86,7 +86,7 @@ namespace equations
 				/* solve the resolvent cubic ... */
 				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
 				/* ... and take the one real solution ... */
-				for (uint i = 0; i < 3; i ++)
+				for (uint32_t i = 0; i < 3; i ++)
 					if (!isnan(cubic[i]))
 					{
 						z = cubic[i];
@@ -115,11 +115,11 @@ namespace equations
 				float2_t quadric1 = nbl::hlsl::equations::Quadratic<float_t>::construct(1, q < 0 ? -v : v, z - u).computeRoots();
 				float2_t quadric2 = nbl::hlsl::equations::Quadratic<float_t>::construct(1, q < 0 ? v : -v, z + u).computeRoots();
 
-				for (uint i = 0; i < 2; i ++)
+				for (uint32_t i = 0; i < 2; i ++)
 					if (!isinf(quadric1[i]) && !isnan(quadric1[i]))
 						s[rootCount ++] = quadric1[i];
 
-				for (uint i = 0; i < 2; i ++)
+				for (uint32_t i = 0; i < 2; i ++)
 					if (!isinf(quadric2[i]) && !isnan(quadric2[i]))
 						s[rootCount ++] = quadric2[i];
 			}

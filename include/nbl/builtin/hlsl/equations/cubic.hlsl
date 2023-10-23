@@ -54,7 +54,7 @@ namespace equations
             double  sq_A, p, q;
             double  cb_p, D;
             float3_t s = float3_t(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
-            uint rootCount = 0;
+            uint32_t rootCount = 0;
 
             /* normal form: x^3 + Ax^2 + Bx + C = 0 */
 

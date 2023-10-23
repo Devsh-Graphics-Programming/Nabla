@@ -4,7 +4,6 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 
-
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
 namespace nbl::hlsl
@@ -28,6 +27,10 @@ NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 // transpose not listed cause it needs friendship
 
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
+
+#include <algorithm>
+
+
 }
 #endif
 
