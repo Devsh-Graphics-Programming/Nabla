@@ -98,7 +98,7 @@ namespace shapes
         
             if (t.x > 0.0 && t.x < 1.0) // x-coord
             {
-                float32_t q = quadratic.evaluate(t.x);
+                float32_t q = quadratic.evaluate(t.x).x;
         
                 mi.x = min(mi.x, q);
                 ma.x = max(ma.x, q);
@@ -106,8 +106,8 @@ namespace shapes
         
             if (t.y > 0.0 && t.y < 1.0) // y-coord
             {
-                float32_t q = quadratic.evaluate(t.y);
-        
+                float32_t q = quadratic.evaluate(t.y).y;
+                
                 mi.y = min(mi.y, q);
                 ma.y = max(ma.y, q);
             }
