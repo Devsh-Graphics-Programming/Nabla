@@ -293,7 +293,7 @@ template<class T>
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
 
 template<class T> 
-struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
+struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
 
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
@@ -651,18 +651,18 @@ struct function_info<__decltype(fn),fn> \
 
 // builtins
 
-#define NBL_REGISTER_MATRICES(T) \
-    NBL_REGISTER_OBJ_TYPE(T, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x4, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x3, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x2, sizeof(T)) \
+#define NBL_REGISTER_MATRICES(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x4, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x3, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x2, A) \
 
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
     NBL_REGISTER_OBJ_TYPE(T, sizeof(T)) \
     NBL_REGISTER_OBJ_TYPE(T ## 1, sizeof(T)) \
-    NBL_REGISTER_MATRICES(T ## 2) \
-    NBL_REGISTER_MATRICES(T ## 3) \
-    NBL_REGISTER_MATRICES(T ## 4)
+    NBL_REGISTER_MATRICES(T ## 2, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 3, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 4, sizeof(T))
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)

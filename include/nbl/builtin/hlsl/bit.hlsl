@@ -57,21 +57,28 @@ T rotr(T x, S s)
     }
 }
 
+namespace impl
+{
+template<uint16_t bits>
+uint16_t clz(uint64_t N)
+{
+    static const uint64_t SHIFT   = bits>>1;
+    static const uint64_t LO_MASK = (1ull<<SHIFT)-1;
+    const bool CHOOSE_HIGH = N & (LO_MASK<<SHIFT);
+    const uint64_t NEXT = (CHOOSE_HIGH ? (N>>SHIFT):N)&LO_MASK;
+    const uint16_t value = uint16_t(clz<SHIFT>(NEXT) + (CHOOSE_HIGH ? 0:SHIFT));
+    return value;
+}
+
+template<>
+uint16_t clz<1>(uint64_t N) { return uint16_t(1u-N&1); }
+
+}
+
 template<typename T>
 uint16_t countl_zero(T n)
 {
-    uint16_t result = 0u;
-    for(uint32_t bits_log2 = 6u; bits_log2 >= 0u; bits_log2--)
-    {
-        const uint16_t shift = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
-        const uint64_t loMask = bits_log2 ? (1ull<<shift)-1 : 0;
-        const bool chooseHigh = n&(loMask<<shift);
-        n = uint16_t((chooseHigh ? (n>shift):n)&loMask);
-
-        result += uint16_t(chooseHigh ? 0ull : shift);
-    }
-
-    return result;
+    return impl::clz<sizeof(T)*8>(n);
 }
 
 }
