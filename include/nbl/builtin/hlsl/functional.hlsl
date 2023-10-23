@@ -128,6 +128,11 @@ struct less_equal
     }
 };
 
+#endif
+
+// Min and Max are outside of the HLSL/C++ directives because we want these to be available in both contexts
+// TODO: implement as mix(rhs<lhs,lhs,rhs)
+
 template<typename T>
 struct minimum
 {
@@ -155,8 +160,6 @@ struct maximum
         return 0;
     }
 };
-
-#endif
 
 }
 }
