@@ -34,14 +34,24 @@ enum float_round_style {
     round_toward_neg_infinity = 3
 };
 
-template<class T>
-struct numeric_limits;
+#else
 
+using float_denorm_style = std::float_denorm_style;
+using float_round_style  = std::float_round_style;
+
+#endif
+
+// Overlapping definitions
+
+// Below implementations are not intended to be used on C++ side
 namespace impl
 {
 
+template<class T>
+struct numeric_limits;
+
 template<class T> 
-struct num_traits
+struct num_traits : type_identity<T>
 {
     NBL_CONSTEXPR_STATIC_INLINE T MIN            = numeric_limits<T>::is_signed ? (T(1)<<numeric_limits<T>::digits) : T(0);
     NBL_CONSTEXPR_STATIC_INLINE T MAX            = ~(T(numeric_limits<T>::is_signed)<<numeric_limits<T>::digits);
@@ -50,20 +60,25 @@ struct num_traits
     NBL_CONSTEXPR_STATIC_INLINE T SIGNALING_NAN  = T(0);
 };
 
-#ifndef __cplusplus
 template<> 
 struct num_traits<float16_t>
 {
-    NBL_CONSTEXPR_STATIC_INLINE float16_t MIN           = 6.103515e-05F;
-    NBL_CONSTEXPR_STATIC_INLINE float16_t MAX           = 65504.0F;
-    NBL_CONSTEXPR_STATIC_INLINE float16_t DENORM_MIN    = 5.96046448e-08F;
+    using type = 
+#ifdef __cplusplus
+    float32_t
+#else
+    float16_t
+#endif
+;
+    NBL_CONSTEXPR_STATIC_INLINE type      MIN           = 6.103515e-05F;
+    NBL_CONSTEXPR_STATIC_INLINE type      MAX           = 65504.0F;
+    NBL_CONSTEXPR_STATIC_INLINE type      DENORM_MIN    = 5.96046448e-08F;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t  QUIET_NAN     = 0x7FFF;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t  SIGNALING_NAN = 0x7DFF;
 };
-#endif
 
 template<> 
-struct num_traits<float32_t>
+struct num_traits<float32_t> : type_identity<float32_t>
 {
     NBL_CONSTEXPR_STATIC_INLINE float32_t MAX           = 3.402823466e+38F;
     NBL_CONSTEXPR_STATIC_INLINE float32_t MIN           = 1.175494351e-38F;
@@ -73,7 +88,7 @@ struct num_traits<float32_t>
 };
 
 template<> 
-struct num_traits<float64_t>
+struct num_traits<float64_t> : type_identity<float64_t>
 {
     NBL_CONSTEXPR_STATIC_INLINE float64_t MAX           = 1.7976931348623158e+308;
     NBL_CONSTEXPR_STATIC_INLINE float64_t MIN           = 2.2250738585072014e-308;
@@ -81,9 +96,6 @@ struct num_traits<float64_t>
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  QUIET_NAN     = 0x7FF8000000000000ull;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  SIGNALING_NAN = 0x7FF0000000000001ull;
 };
-
-}
-
 
 template<class T>
 struct numeric_limits
@@ -189,21 +201,27 @@ struct numeric_limits
     // identifies floating-point types that detect tinyness before rounding
     NBL_CONSTEXPR_STATIC_INLINE bool tinyness_before = false;
     
-    NBL_CONSTEXPR_STATIC_INLINE T min = impl::num_traits<T>::MIN;
-    NBL_CONSTEXPR_STATIC_INLINE T max = impl::num_traits<T>::MAX;
-    NBL_CONSTEXPR_STATIC_INLINE T lowest = is_integer ? min : -max;
-    NBL_CONSTEXPR_STATIC_INLINE T denorm_min = impl::num_traits<T>::DENORM_MIN;
-    NBL_CONSTEXPR_STATIC_INLINE T epsilon = is_integer ? 0 : (T(1) / T(1ull<<(float_digits-1)));
-    NBL_CONSTEXPR_STATIC_INLINE T round_error = is_same<T, bool>::value ? 0 : T(0.5);
-    NBL_CONSTEXPR_STATIC_INLINE T infinity = is_same<T, bool>::value ? 0 : T(1e+300 * 1e+300);
-    static T quiet_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
-    static T signaling_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
+    using type = typename impl::num_traits<T>::type;
+
+    NBL_CONSTEXPR_STATIC_INLINE type min = impl::num_traits<T>::MIN;
+    NBL_CONSTEXPR_STATIC_INLINE type max = impl::num_traits<T>::MAX;
+    NBL_CONSTEXPR_STATIC_INLINE type lowest = is_integer ? min : -max;
+    NBL_CONSTEXPR_STATIC_INLINE type denorm_min = impl::num_traits<T>::DENORM_MIN;
+    NBL_CONSTEXPR_STATIC_INLINE type epsilon = is_integer ? type(0) : (type(1) / type(1ull<<(float_digits-1)));
+    NBL_CONSTEXPR_STATIC_INLINE type round_error = is_same<T, bool>::value ? type(0) : type(0.5);
+    NBL_CONSTEXPR_STATIC_INLINE type infinity = is_same<T, bool>::value ? type(0) : type(1e+300 * 1e+300);
+    NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
+    NBL_CONSTEXPR_STATIC_INLINE T signaling_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
 };
 
-#else
+}
 
-using float_denorm_style = std::float_denorm_style;
-using float_round_style  = std::float_round_style;
+#ifdef __HLSL_VERSION
+
+template<class T>
+struct numeric_limits : impl::numeric_limits<T> {};
+
+#else
 
 template<class T>
 struct numeric_limits : std::numeric_limits<T> 
