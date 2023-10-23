@@ -202,6 +202,9 @@ struct numeric_limits
 
 #else
 
+using float_denorm_style = std::float_denorm_style;
+using float_round_style  = std::float_round_style;
+
 template<class T>
 struct numeric_limits : std::numeric_limits<T> 
 {
