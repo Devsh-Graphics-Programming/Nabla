@@ -335,8 +335,7 @@ struct SPhysicalDeviceLimits
 
     /* Vulkan Extensions */
 
-
- /* VK_AMD_shader_trinary_minmax  */
+    /* VK_AMD_shader_trinary_minmax  */
     bool shaderTrinaryMinmax = false;
 
     /* VK_AMD_shader_explicit_vertex_parameter */
@@ -348,20 +347,9 @@ struct SPhysicalDeviceLimits
     /* VK_AMD_shader_image_load_store_lod */
     bool shaderImageLoadStoreLod = false;
 
-    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
-    bool multiviewGeometryShader = false;
-    bool multiviewTessellationShader = false;
-
     // [TODO LATER] to expose but contingent on the TODO to implement one day
     /* PushDescriptorPropertiesKHR *//* provided by VK_KHR_push_descriptor */
     //uint32_t           maxPushDescriptors = 0u;
-
-    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
-    bool shaderFloat16 = false;
-
-    // Core 1.1 Features or VK_KHR_16bit_storage
-    bool storagePushConstant16 = false;
-    bool storageInputOutput16 = false;
 
     // [TODO] need impl
     /* VK_GOOGLE_display_timing */
@@ -385,18 +373,6 @@ struct SPhysicalDeviceLimits
 
     /* VK_EXT_queue_family_foreign */
     bool queueFamilyForeign = false;
-
-
-
-
-
-    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
-    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
-
-
-
-    // Vulkan 1.3 requires but we make concessions for MoltenVK
-    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
 
     /* VK_EXT_shader_stencil_export */
     bool shaderStencilExport = false;
@@ -427,29 +403,9 @@ struct SPhysicalDeviceLimits
     /* VK_EXT_post_depth_coverage */
     bool postDepthCoverage = false;
 
-    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
-    bool shaderInputAttachmentArrayDynamicIndexing = false;
-    bool shaderUniformBufferArrayNonUniformIndexing = false;
-    bool shaderInputAttachmentArrayNonUniformIndexing = false;
-    bool descriptorBindingUniformBufferUpdateAfterBind = false;
-
-    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
-    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
-    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
-
-    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
-    bool drawIndirectCount = false;
-
-    // Vulkan 1.2 Core or VK_KHR_8bit_storage:
-    bool storagePushConstant8 = false;
-
     // [NABLA CORE PROFILE]
     /* VK_EXT_external_memory_host */
     /* ExternalMemoryHostPropertiesEXT */
-
-    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
-    bool shaderBufferInt64Atomics = false;
-    bool shaderSharedInt64Atomics = false;
 
     /* VK_KHR_shader_clock */
     /* ShaderClockFeaturesKHR */
@@ -526,10 +482,6 @@ struct SPhysicalDeviceLimits
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
 
-    // Vulkan 1.3 non-optional requires but poor support
-    bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
-    bool shaderTerminateInvocation = false; // or VK_KHR_shader_terminate_invocation
-
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* VK_NV_device_generated_commands */
     /* DeviceGeneratedCommandsPropertiesNV */
@@ -542,7 +494,6 @@ struct SPhysicalDeviceLimits
     //uint32_t           minSequencesCountBufferOffsetAlignment = 0x1u<<31;
     //uint32_t           minSequencesIndexBufferOffsetAlignment = 0x1u<<31;
     //uint32_t           minIndirectCommandsBufferOffsetAlignment = 0x1u<<31;
-
 
     // [TODO] need impl
     /* VK_EXT_device_memory_report */
@@ -571,9 +522,6 @@ struct SPhysicalDeviceLimits
     /* VK_KHR_shader_subgroup_uniform_control_flow */
     /* ShaderSubgroupUniformControlFlowFeaturesKHR */
     bool shaderSubgroupUniformControlFlow = false;
-
-    // Vulkan 1.3 non-optional requires but poor support
-    bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
 
     /* provided by VK_EXT_fragment_density_map2 */
     /* FragmentDensityMap2PropertiesEXT */
@@ -608,7 +556,6 @@ struct SPhysicalDeviceLimits
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
 
-
     /*  Always enabled if available, reported as limits */
 
     // Core 1.0 Features
@@ -639,6 +586,51 @@ struct SPhysicalDeviceLimits
 
     // poor support on Apple GPUs
     bool variableMultisampleRate = false;
+
+    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
+    bool multiviewGeometryShader = false;
+    bool multiviewTessellationShader = false;
+
+    // Core 1.1 Features or VK_KHR_16bit_storage
+    bool storagePushConstant16 = false;
+    bool storageInputOutput16 = false;
+
+    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
+    bool shaderFloat16 = false;
+
+    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
+    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
+
+    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
+
+    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
+    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+
+    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
+    bool drawIndirectCount = false;
+
+    // Vulkan 1.2 Core or VK_KHR_8bit_storage:
+    bool storagePushConstant8 = false;
+
+    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64:
+    bool shaderBufferInt64Atomics = false;
+    bool shaderSharedInt64Atomics = false;
+
+    // Vulkan 1.3 requires but we make concessions for MoltenVK
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false;
+
+    // Vulkan 1.3 non-optional requires but poor support
+    bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
+    bool shaderTerminateInvocation = false; // or VK_KHR_shader_terminate_invocation
+
+    // Vulkan 1.3 non-optional requires but poor support
+    bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
+
 
 
 
