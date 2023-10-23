@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INCLUDED_
 
+#include <nbl/builtin/hlsl/macros.h>
 
 #ifndef __HLSL_VERSION
 #include <type_traits>

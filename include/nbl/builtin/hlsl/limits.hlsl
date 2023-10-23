@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
 
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-#include <nbl/builtin/hlsl/mpl.hlsl>
+#include <nbl/builtin/hlsl/bit.hlsl>
 
 // C++ headers
 #ifndef __HLSL_VERSION

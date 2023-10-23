@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 #ifndef __HLSL_VERSION
@@ -12,6 +13,7 @@ namespace nbl::hlsl
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::bit_cast, bit_cast);
 
 }
 #else
@@ -19,6 +21,12 @@ namespace nbl
 {
 namespace hlsl
 {
+
+template<class T, class U>
+T bit_cast(U val)
+{
+    return spirv::bitcast<T, U>(val);
+}
 
 template<typename T, typename S>
 T rotl(T x, S s);
