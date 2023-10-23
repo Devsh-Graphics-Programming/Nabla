@@ -96,7 +96,7 @@ namespace shapes
             float32_t2 mi = min(p0, p2);
             float32_t2 ma = max(p0, p2);
         
-            float32_t2 a = p0 - 2.0 * p1 + p2;
+            float32_t2 a = p0 - 2.0f * p1 + p2;
             float32_t2 b = p1 - p0;
             float32_t2 t = -b / a; // solution for linear equation at + b = 0
         
