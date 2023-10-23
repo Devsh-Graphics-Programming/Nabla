@@ -14,61 +14,61 @@ namespace hlsl
 namespace spirv
 {
 
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(349)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformIAdd /*349*/ )]]
 int groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(349)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformIAdd /*349*/ )]]
 uint groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(350)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformFAdd /*350*/ )]]
 float groupAdd(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(351)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformIMul /*351*/)]]
 int groupMul(uint groupScope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(351)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformIMul /*351*/)]]
 uint groupMul(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(352)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformFMul /*352*/)]]
 float groupMul(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
 template<typename T>
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(359)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBitwiseAnd /*359*/)]]
 T groupBitwiseAnd(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 template<typename T>
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(360)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBitwiseOr /*360*/)]]
 T groupBitwiseOr(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 template<typename T>
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(361)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBitwiseXor /*361*/)]]
 T groupBitwiseXor(uint groupScope, [[vk::ext_literal]] uint operation, T value);
 
 // The MIN and MAX operations in SPIR-V have different Ops for each arithmetic type
 // so we implement them distinctly
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(353)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformSMin /*353*/)]]
 int groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(354)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformUMin /*354*/)]]
 uint groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(355)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformFMin /*355*/)]]
 float groupBitwiseMin(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(356)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformSMax /*356*/)]]
 int groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, int value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(357)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformUMax /*357*/)]]
 uint groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, uint value);
-[[vk::ext_capability(/* GroupNonUniformArithmetic */ 63)]]
-[[vk::ext_instruction(358)]]
+[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic /*63*/ )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformFMax /*358*/)]]
 float groupBitwiseMax(uint groupScope, [[vk::ext_literal]] uint operation, float value);
 
 }
