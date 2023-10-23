@@ -80,7 +80,7 @@ template<>
 uint32_t atomicExchange([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 template<>
 [[vk::ext_instruction( spv::OpAtomicExchange )]]
-float atomicExchange([[vk::ext_reference]] float ptr, uint32_t memoryScope, uint32_t memorySemantics, float value);
+float32_t atomicExchange([[vk::ext_reference]] float32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, float32_t value);
 
 
 template<typename T>
