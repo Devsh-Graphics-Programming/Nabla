@@ -12,10 +12,10 @@ namespace nbl
 {
 namespace hlsl
 {
+#ifdef __HLSL_VERSION
 namespace spirv
 {
 
-#ifdef __HLSL_VERSION
 #pragma region ATOMICS
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
@@ -118,8 +118,8 @@ template<class T, class U>
 T bitcast(U);
 
 #pragma endregion CONVERSION
-#endif
 }
+#endif
 }
 }
  

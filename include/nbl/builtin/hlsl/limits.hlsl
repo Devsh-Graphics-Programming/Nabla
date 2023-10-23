@@ -13,6 +13,43 @@
 #include <halfLimits.h>
 #endif
 
+
+/*
+    nuumeric_limits C++ API spec elements:
+    is_specialized
+    is_signed
+    is_integer
+    is_exact
+    has_infinity
+    has_quiet_NaN
+    has_signaling_NaN
+    has_denorm
+    has_denorm_loss
+    round_style
+    is_iec559
+    is_bounded
+    is_modulo
+    digits
+    digits10
+    max_digits10
+    radix
+    min_exponent
+    min_exponent10
+    max_exponent
+    max_exponent10
+    traps
+    tinyness_before
+    min
+    max
+    lowest
+    epsilon
+    round_error
+    infinity
+    quiet_NaN
+    signaling_NaN
+    denorm_min
+*/
+
 namespace nbl
 {
 namespace hlsl
@@ -47,58 +84,9 @@ using float_round_style  = std::float_round_style;
 namespace impl
 {
 
-template<class T>
-struct numeric_limits;
-
-template<class T> 
-struct num_traits : type_identity<T>
-{
-    NBL_CONSTEXPR_STATIC_INLINE T MIN            = numeric_limits<T>::is_signed ? (T(1)<<numeric_limits<T>::digits) : T(0);
-    NBL_CONSTEXPR_STATIC_INLINE T MAX            = ~(T(numeric_limits<T>::is_signed)<<numeric_limits<T>::digits);
-    NBL_CONSTEXPR_STATIC_INLINE T DENORM_MIN     = T(0);
-    NBL_CONSTEXPR_STATIC_INLINE T QUIET_NAN      = T(0);
-    NBL_CONSTEXPR_STATIC_INLINE T SIGNALING_NAN  = T(0);
-};
-
-template<> 
-struct num_traits<float16_t>
-{
-    using type = 
-#ifdef __cplusplus
-    float32_t
-#else
-    float16_t
-#endif
-;
-    NBL_CONSTEXPR_STATIC_INLINE type      MIN           = 6.103515e-05F;
-    NBL_CONSTEXPR_STATIC_INLINE type      MAX           = 65504.0F;
-    NBL_CONSTEXPR_STATIC_INLINE type      DENORM_MIN    = 5.96046448e-08F;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t  QUIET_NAN     = 0x7FFF;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t  SIGNALING_NAN = 0x7DFF;
-};
-
-template<> 
-struct num_traits<float32_t> : type_identity<float32_t>
-{
-    NBL_CONSTEXPR_STATIC_INLINE float32_t MAX           = 3.402823466e+38F;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t MIN           = 1.175494351e-38F;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t DENORM_MIN    = 1.401298464e-45F;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t  QUIET_NAN     = 0x7FC00000;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t  SIGNALING_NAN = 0x7FC00001;
-};
-
-template<> 
-struct num_traits<float64_t> : type_identity<float64_t>
-{
-    NBL_CONSTEXPR_STATIC_INLINE float64_t MAX           = 1.7976931348623158e+308;
-    NBL_CONSTEXPR_STATIC_INLINE float64_t MIN           = 2.2250738585072014e-308;
-    NBL_CONSTEXPR_STATIC_INLINE float64_t DENORM_MIN    = 4.9406564584124654e-324;
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t  QUIET_NAN     = 0x7FF8000000000000ull;
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t  SIGNALING_NAN = 0x7FF0000000000001ull;
-};
 
 template<class T>
-struct numeric_limits
+struct num_base : type_identity<T>
 {
     NBL_CONSTEXPR_STATIC_INLINE int32_t size = sizeof(T);
 
@@ -142,7 +130,6 @@ struct numeric_limits
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - float_digits - 1;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1l << float_exponent_bits;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
-
     NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
 
     // identifies types for which std::numeric_limits is specialized
@@ -201,17 +188,66 @@ struct numeric_limits
     // identifies floating-point types that detect tinyness before rounding
     NBL_CONSTEXPR_STATIC_INLINE bool tinyness_before = false;
     
-    using type = typename impl::num_traits<T>::type;
+};
 
-    NBL_CONSTEXPR_STATIC_INLINE type min = impl::num_traits<T>::MIN;
-    NBL_CONSTEXPR_STATIC_INLINE type max = impl::num_traits<T>::MAX;
-    NBL_CONSTEXPR_STATIC_INLINE type lowest = is_integer ? min : -max;
-    NBL_CONSTEXPR_STATIC_INLINE type denorm_min = impl::num_traits<T>::DENORM_MIN;
-    NBL_CONSTEXPR_STATIC_INLINE type epsilon = is_integer ? type(0) : (type(1) / type(1ull<<(float_digits-1)));
-    NBL_CONSTEXPR_STATIC_INLINE type round_error = is_same<T, bool>::value ? type(0) : type(0.5);
-    NBL_CONSTEXPR_STATIC_INLINE type infinity = is_same<T, bool>::value ? type(0) : type(1e+300 * 1e+300);
-    NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::QUIET_NAN); }
-    NBL_CONSTEXPR_STATIC_INLINE T signaling_NaN() { return mpl::bit_cast<T>(impl::num_traits<T>::SIGNALING_NAN); }
+template<class T> 
+struct num_traits : num_base<T>
+{
+    NBL_CONSTEXPR_STATIC_INLINE T min            = num_base<T>::is_signed ? (T(1)<<num_base<T>::digits) : T(0);
+    NBL_CONSTEXPR_STATIC_INLINE T max            = ~(T(num_base<T>::is_signed)<<num_base<T>::digits);
+    NBL_CONSTEXPR_STATIC_INLINE T denorm_min     = T(0);
+    NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN      = T(0);
+    NBL_CONSTEXPR_STATIC_INLINE T signaling_NaN  = T(0);
+    NBL_CONSTEXPR_STATIC_INLINE T infinity       = T(0);
+};
+
+template<> 
+struct num_traits<float16_t> : num_base<float16_t>
+{
+    using type = 
+#ifdef __cplusplus
+    float32_t
+#else
+    float16_t
+#endif
+;
+    NBL_CONSTEXPR_STATIC_INLINE type      min           = 6.103515e-05F;
+    NBL_CONSTEXPR_STATIC_INLINE type      max           = 65504.0F;
+    NBL_CONSTEXPR_STATIC_INLINE type      denorm_min    = 5.96046448e-08F;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  quiet_NaN     = 0x7FFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  signaling_NaN = 0x7DFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  infinity      = 0x7C00;
+};
+
+template<> 
+struct num_traits<float32_t> : num_base<float32_t>
+{
+    NBL_CONSTEXPR_STATIC_INLINE float32_t max           = 3.402823466e+38F;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t min           = 1.175494351e-38F;
+    NBL_CONSTEXPR_STATIC_INLINE float32_t denorm_min    = 1.401298464e-45F;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t  quiet_NaN     = 0x7FC00000u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t  signaling_NaN = 0x7FC00001u;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t  infinity      = 0x7F800000u;
+};
+
+template<> 
+struct num_traits<float64_t> : num_base<float64_t>
+{
+    NBL_CONSTEXPR_STATIC_INLINE float64_t max           = 1.7976931348623158e+308;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t min           = 2.2250738585072014e-308;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t denorm_min    = 4.9406564584124654e-324;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t  quiet_NaN     = 0x7FF8000000000000ull;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t  signaling_NaN = 0x7FF0000000000001ull;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t  infinity      = 0x7FF0000000000000ull;
+};
+
+template<class T>
+struct numeric_limits : num_traits<T>
+{
+    using type = typename num_traits<T>::type;
+    NBL_CONSTEXPR_STATIC_INLINE type lowest  = num_traits<T>::is_integer ? num_traits<T>::min : -num_traits<T>::max;
+    NBL_CONSTEXPR_STATIC_INLINE type epsilon = num_traits<T>::is_integer ? type(0) : (type(1) / type(1ull<<(num_traits<T>::float_digits-1)));
+    NBL_CONSTEXPR_STATIC_INLINE type round_error = num_traits<T>::is_bool ? type(0) : type(0.5);
 };
 
 }
@@ -223,17 +259,23 @@ struct numeric_limits : impl::numeric_limits<T> {};
 
 #else
 
+
 template<class T>
 struct numeric_limits : std::numeric_limits<T> 
 {
-    using Base = std::numeric_limits<T>;
-    NBL_CONSTEXPR_STATIC_INLINE T min = Base::min();
-    NBL_CONSTEXPR_STATIC_INLINE T max = Base::max();
-    NBL_CONSTEXPR_STATIC_INLINE T lowest = Base::lowest();
-    NBL_CONSTEXPR_STATIC_INLINE T denorm_min = Base::denorm_min();
-    NBL_CONSTEXPR_STATIC_INLINE T epsilon = Base::epsilon();
-    NBL_CONSTEXPR_STATIC_INLINE T round_error = Base::round_error();
-    NBL_CONSTEXPR_STATIC_INLINE T infinity = Base::infinity();
+    using base = std::numeric_limits<T>;
+    using uint_type = std::remove_cvref_t<decltype(impl::num_traits<T>::infinity)>;
+
+    NBL_CONSTEXPR_STATIC_INLINE T min = base::min();
+    NBL_CONSTEXPR_STATIC_INLINE T max = base::max();
+    NBL_CONSTEXPR_STATIC_INLINE T lowest = base::lowest();
+    NBL_CONSTEXPR_STATIC_INLINE T denorm_min = base::denorm_min();
+    NBL_CONSTEXPR_STATIC_INLINE T epsilon = base::epsilon();
+    NBL_CONSTEXPR_STATIC_INLINE T round_error = base::round_error();
+
+    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast(base::quiet_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast(base::signaling_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast(base::infinity());
 };
 
 #endif
