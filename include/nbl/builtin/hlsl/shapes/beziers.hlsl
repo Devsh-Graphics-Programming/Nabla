@@ -7,6 +7,30 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
+
+// TODO [Przemek]: implement it in intrinsics.h
+#ifndef __HLSL_VERSION
+#include <algorithm>
+
+namespace nbl::hlsl
+{
+
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
+NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+
+}
+
+#endif
+
+
+
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
@@ -52,6 +76,45 @@ namespace shapes
             return position;
         }
         
+        //Compute bezier in one dimension, as the OBB X and Y are at different T's
+        float QuadraticBezier1D(float v0, float v1, float v2, float t)
+        {
+            float s = 1.0 - t;
+        
+            return v0 * (s * s) +
+                v1 * (s * t * 2.0) +
+                v2 * (t * t);
+        }
+
+        // from shadertoy: https://www.shadertoy.com/view/stfSzS
+        float32_t4 BezierAABB(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) quadratic)
+        {
+            float32_t2 mi = min(quadratic.P0, quadratic.P2);
+            float32_t2 ma = max(quadratic.P0, quadratic.P2);
+        
+            float32_t2 a = quadratic.P0 - 2.0f * quadratic.P1 + quadratic.P2;
+            float32_t2 b = quadratic.P1 - quadratic.P0;
+            float32_t2 t = -b / a; // solution for linear equation at + b = 0
+        
+            if (t.x > 0.0 && t.x < 1.0) // x-coord
+            {
+                float32_t q = quadratic.evaluate(t.x).x;
+        
+                mi.x = min(mi.x, q);
+                ma.x = max(ma.x, q);
+            }
+        
+            if (t.y > 0.0 && t.y < 1.0) // y-coord
+            {
+                float32_t q = quadratic.evaluate(t.y).y;
+                
+                mi.y = min(mi.y, q);
+                ma.y = max(ma.y, q);
+            }
+        
+            return float32_t4(mi, ma);
+        }
+
         void OBBAligned(float_t thickness, NBL_REF_ARG(float_t2) obbV0, NBL_REF_ARG(float_t2) obbV1, NBL_REF_ARG(float_t2) obbV2, NBL_REF_ARG(float_t2) obbV3)
         {
             // shift curve so 'p0' is at origin (will become zero)
@@ -87,7 +150,8 @@ namespace shapes
             transformedP2 = float_t2(p2Length, 0.0);
             
             // compute AABB of curve in local-space
-            float_t4 aabb = BezierAABB(transformedP0, transformedP1, transformedP2);
+            QuadraticBezier<float_t> quadraticTransformed = QuadraticBezier<float_t>::construct(transformedP0, transformedP1, transformedP2);
+            float_t4 aabb = BezierAABB(quadraticTransformed);
             aabb.xy -= thickness;
             aabb.zw += thickness;
             
