@@ -75,30 +75,20 @@ namespace shapes
 
             return position;
         }
-        
-        //Compute bezier in one dimension, as the OBB X and Y are at different T's
-        float QuadraticBezier1D(float v0, float v1, float v2, float t)
-        {
-            float s = 1.0 - t;
-        
-            return v0 * (s * s) +
-                v1 * (s * t * 2.0) +
-                v2 * (t * t);
-        }
 
         // from shadertoy: https://www.shadertoy.com/view/stfSzS
-        float32_t4 BezierAABB(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) quadratic)
+        float_t4 BezierAABB(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) quadratic)
         {
-            float32_t2 mi = min(quadratic.P0, quadratic.P2);
-            float32_t2 ma = max(quadratic.P0, quadratic.P2);
+            float_t2 mi = min(quadratic.P0, quadratic.P2);
+            float_t2 ma = max(quadratic.P0, quadratic.P2);
         
-            float32_t2 a = quadratic.P0 - 2.0f * quadratic.P1 + quadratic.P2;
-            float32_t2 b = quadratic.P1 - quadratic.P0;
-            float32_t2 t = -b / a; // solution for linear equation at + b = 0
+            float_t2 a = quadratic.P0 - 2.0 * quadratic.P1 + quadratic.P2;
+            float_t2 b = quadratic.P1 - quadratic.P0;
+            float_t2 t = -b / a; // solution for linear equation at + b = 0
         
             if (t.x > 0.0 && t.x < 1.0) // x-coord
             {
-                float32_t q = quadratic.evaluate(t.x).x;
+                float_t q = quadratic.evaluate(t.x).x;
         
                 mi.x = min(mi.x, q);
                 ma.x = max(ma.x, q);
@@ -106,19 +96,19 @@ namespace shapes
         
             if (t.y > 0.0 && t.y < 1.0) // y-coord
             {
-                float32_t q = quadratic.evaluate(t.y).y;
+                float_t q = quadratic.evaluate(t.y).y;
                 
                 mi.y = min(mi.y, q);
                 ma.y = max(ma.y, q);
             }
         
-            return float32_t4(mi, ma);
+            return float_t4(mi, ma);
         }
 
         void OBBAligned(float_t thickness, NBL_REF_ARG(float_t2) obbV0, NBL_REF_ARG(float_t2) obbV1, NBL_REF_ARG(float_t2) obbV2, NBL_REF_ARG(float_t2) obbV3)
         {
             // shift curve so 'p0' is at origin (will become zero)
-            float_t2 transformedP0 = float32_t2(0.0f, 0.0f);
+            float_t2 transformedP0 = float_t2(0.0f, 0.0f);
             float_t2 transformedP1 = P1 - P0;
             float_t2 transformedP2 = P2 - P0;
             
@@ -158,13 +148,13 @@ namespace shapes
             // transform AABB back to world-space
             float_t2 center = translation + mul((aabb.xy + aabb.zw) / 2.0f, rotation);
             float_t2 extent = ((aabb.zw - aabb.xy) / 2.0f).xy;
-            //float32_t center = p0 + rotation * aabb.center;
-            //float32_t2 extent = aabb.extent;
+            //float_t center = p0 + rotation * aabb.center;
+            //float_t2 extent = aabb.extent;
             
             obbV0 = float_t2(center + mul(extent, rotation));
-            obbV1 = float_t2(center + mul(float32_t2(extent.x, -extent.y), rotation));
+            obbV1 = float_t2(center + mul(float_t2(extent.x, -extent.y), rotation));
             obbV2 = float_t2(center + mul(-extent, rotation));
-            obbV3 = float_t2(center + mul(-float32_t2(extent.x, -extent.y), rotation));
+            obbV3 = float_t2(center + mul(-float_t2(extent.x, -extent.y), rotation));
         }
     };
 
