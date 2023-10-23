@@ -22,7 +22,7 @@ int32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, in
 uint32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFAdd  )]]
-float groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float value);
+float32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
 
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformIMul )]]
@@ -32,7 +32,7 @@ int32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, in
 uint32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMul )]]
-float groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float value);
+float32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
 
 template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
@@ -59,7 +59,7 @@ int32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operat
 uint32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMin )]]
-float groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float value);
+float32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
 
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformSMax )]]
@@ -69,7 +69,7 @@ int32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operat
 uint32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMax )]]
-float groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float value);
+float32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
 
 }
 }
