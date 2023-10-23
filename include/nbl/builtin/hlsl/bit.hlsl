@@ -61,7 +61,7 @@ template<typename T>
 uint16_t countl_zero(T n)
 {
     uint16_t result = 0u;
-    for(uint32_t bits_log2 = 6u; bits_log2 >= 0u; bits_log2--)
+    for(int32_t bits_log2 = 6u; bits_log2 >= 0u; bits_log2--)
     {
         const uint16_t shift = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
         const uint64_t loMask = bits_log2 ? (1ull<<shift)-1 : 0;
