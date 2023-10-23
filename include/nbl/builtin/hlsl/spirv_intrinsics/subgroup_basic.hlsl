@@ -15,8 +15,8 @@ namespace hlsl
 namespace spirv
 {
 
-[[vk::ext_instruction(/* OpGroupNonUniformElect */ 333)]]
-bool subgroupElect(uint executionScope);
+[[vk::ext_instruction( spv::OpGroupNonUniformElect )]]
+bool subgroupElect(uint32_t executionScope);
 
 }
 }
