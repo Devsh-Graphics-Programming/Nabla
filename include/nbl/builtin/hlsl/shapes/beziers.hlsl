@@ -87,22 +87,18 @@ namespace shapes
         }
 
         // from shadertoy: https://www.shadertoy.com/view/stfSzS
-        float32_t4 BezierAABB(float32_t2 p01, float32_t2 p11, float32_t2 p21)
+        float32_t4 BezierAABB(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) quadratic)
         {
-            float32_t2 p0 = p01;
-            float32_t2 p1 = p11;
-            float32_t2 p2 = p21;
+            float32_t2 mi = min(quadratic.P0, quadratic.P2);
+            float32_t2 ma = max(quadratic.P0, quadratic.P2);
         
-            float32_t2 mi = min(p0, p2);
-            float32_t2 ma = max(p0, p2);
-        
-            float32_t2 a = p0 - 2.0f * p1 + p2;
-            float32_t2 b = p1 - p0;
+            float32_t2 a = quadratic.P0 - 2.0f * quadratic.P1 + quadratic.P2;
+            float32_t2 b = quadratic.P1 - quadratic.P0;
             float32_t2 t = -b / a; // solution for linear equation at + b = 0
         
             if (t.x > 0.0 && t.x < 1.0) // x-coord
             {
-                float32_t q = QuadraticBezier1D(p0.x, p1.x, p2.x, t.x);
+                float32_t q = quadratic.evaluate(t.x);
         
                 mi.x = min(mi.x, q);
                 ma.x = max(ma.x, q);
@@ -110,7 +106,7 @@ namespace shapes
         
             if (t.y > 0.0 && t.y < 1.0) // y-coord
             {
-                float32_t q = QuadraticBezier1D(p0.y, p1.y, p2.y, t.y);
+                float32_t q = quadratic.evaluate(t.y);
         
                 mi.y = min(mi.y, q);
                 ma.y = max(ma.y, q);
@@ -154,7 +150,8 @@ namespace shapes
             transformedP2 = float_t2(p2Length, 0.0);
             
             // compute AABB of curve in local-space
-            float_t4 aabb = BezierAABB(transformedP0, transformedP1, transformedP2);
+            QuadraticBezier<float_t> quadraticTransformed = QuadraticBezier<float_t>::construct(transformedP0, transformedP1, transformedP2);
+            float_t4 aabb = BezierAABB(quadraticTransformed);
             aabb.xy -= thickness;
             aabb.zw += thickness;
             
