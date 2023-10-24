@@ -330,7 +330,27 @@ struct SPhysicalDeviceLimits
 
 
     /* Nabla Core Profile Extensions*/
+
+    /* VK_EXT_external_memory_host */
+    /* ExternalMemoryHostPropertiesEXT */
     uint32_t minImportedHostPointerAlignment = 0x1u<<16u;
+
+    /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
+    // [REQUIRE] Nabla Core Profile
+    //bool shaderBufferFloat32Atomics = true;
+    bool shaderBufferFloat32AtomicAdd = false;
+    bool shaderBufferFloat64Atomics = false;
+    bool shaderBufferFloat64AtomicAdd = false;
+    // [REQUIRE] Nabla Core Profile
+    //bool shaderSharedFloat32Atomics = true;
+    bool shaderSharedFloat32AtomicAdd = false;
+    bool shaderSharedFloat64Atomics = false;
+    bool shaderSharedFloat64AtomicAdd = false;
+    // [REQUIRE] Nabla Core Profile
+    //bool shaderImageFloat32Atomics = true;
+    bool shaderImageFloat32AtomicAdd = false;
+    bool sparseImageFloat32Atomics = false;
+    bool sparseImageFloat32AtomicAdd = false;
 
 
     /* Vulkan Extensions */
@@ -403,10 +423,6 @@ struct SPhysicalDeviceLimits
     /* VK_EXT_post_depth_coverage */
     bool postDepthCoverage = false;
 
-    // [NABLA CORE PROFILE]
-    /* VK_EXT_external_memory_host */
-    /* ExternalMemoryHostPropertiesEXT */
-
     /* VK_KHR_shader_clock */
     /* ShaderClockFeaturesKHR */
     bool shaderDeviceClock = false;
@@ -449,23 +465,6 @@ struct SPhysicalDeviceLimits
     /* VK_EXT_line_rasterization */
     /* LineRasterizationPropertiesEXT */
     uint32_t lineSubPixelPrecisionBits = 0;
-
-    /* VK_EXT_shader_atomic_float */
-    /* ShaderAtomicFloatFeaturesEXT */
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderBufferFloat32Atomics = true;
-    bool shaderBufferFloat32AtomicAdd = false;
-    bool shaderBufferFloat64Atomics = false;
-    bool shaderBufferFloat64AtomicAdd = false;
-    // [REQUIRE] Nabla Core Profile
-    //bool shaderSharedFloat32Atomics = true;
-    bool shaderSharedFloat32AtomicAdd = false;
-    bool shaderSharedFloat64Atomics = false;
-    bool shaderSharedFloat64AtomicAdd = false;
-    bool shaderImageFloat32Atomics = false;
-    bool shaderImageFloat32AtomicAdd = false;
-    bool sparseImageFloat32Atomics = false;
-    bool sparseImageFloat32AtomicAdd = false;
 
     /* VK_EXT_shader_atomic_float2 */
     /* ShaderAtomicFloat2FeaturesEXT */
