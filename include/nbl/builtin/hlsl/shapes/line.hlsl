@@ -39,7 +39,7 @@ namespace shapes
                 return len * t;
             }
             
-            float_t calcArcLenInverse(NBL_CONST_REF_ARG(Line<float_t>) segment, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            float_t calcArcLenInverse(NBL_CONST_REF_ARG(Line<float_t>) segment, float_t min, float_t max, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 return arcLen / len;
             }
