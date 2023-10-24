@@ -79,6 +79,7 @@ uint16_t clz(uint64_t N)
     return value;
 }
 
+
 template<>
 uint16_t clz<1>(uint64_t N) { return uint16_t(1u-N&1); }
 
