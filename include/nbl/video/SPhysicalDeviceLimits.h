@@ -580,36 +580,20 @@ struct SPhysicalDeviceLimits
 
     // ROADMAP 2022 but no iOS GPU supports
     bool shaderStorageImageArrayDynamicIndexing = false;
-
+    
     // Intel Gen12 and ARC are special-boy drivers (TM)
     bool shaderFloat64 = false;
 
     // poor support on Apple GPUs
     bool variableMultisampleRate = false;
 
-    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
-    bool multiviewGeometryShader = false;
-    bool multiviewTessellationShader = false;
-
     // Core 1.1 Features or VK_KHR_16bit_storage
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
 
-    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
-    bool shaderFloat16 = false;
-
-    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
-    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
-
-    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
-    bool shaderInputAttachmentArrayDynamicIndexing = false;
-    bool shaderUniformBufferArrayNonUniformIndexing = false;
-    bool shaderInputAttachmentArrayNonUniformIndexing = false;
-    bool descriptorBindingUniformBufferUpdateAfterBind = false;
-
-    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
-    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
-    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
+    bool multiviewGeometryShader = false;
+    bool multiviewTessellationShader = false;
 
     // Vulkan 1.2 Core or VK_KHR_draw_indirect_count:
     bool drawIndirectCount = false;
@@ -621,8 +605,24 @@ struct SPhysicalDeviceLimits
     bool shaderBufferInt64Atomics = false;
     bool shaderSharedInt64Atomics = false;
 
+    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8:
+    bool shaderFloat16 = false;
+
+    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
+    
+    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
+    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
+    
     // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModelAvailabilityVisibilityChains = false;
+
+    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
+    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
 
     // Vulkan 1.3 non-optional requires but poor support
     bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
@@ -630,7 +630,6 @@ struct SPhysicalDeviceLimits
 
     // Vulkan 1.3 non-optional requires but poor support
     bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
-
 
 
 
