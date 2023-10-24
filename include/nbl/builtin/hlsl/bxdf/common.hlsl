@@ -22,7 +22,7 @@ namespace ray_dir_info
 // no ray-differentials, nothing
 struct Basic
 {
-  float3 getDirection() {return direction;}
+  float32_t3 getDirection() {return direction;}
 
   Basic transmit()
   {
@@ -31,14 +31,14 @@ struct Basic
     return retval;
   }
   
-  Basic reflect(const float3 N, const float directionDotN)
+  Basic reflect(const float32_t3 N, const float32_t directionDotN)
   {
     Basic retval;
     retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);
     return retval;
   }
 
-  float3 direction;
+  float32_t3 direction;
 };
 // more to come!
 
@@ -52,7 +52,7 @@ template<class RayDirInfo>
 struct Isotropic
 {
   // WARNING: Changed since GLSL, now arguments need to be normalized!
-  static Isotropic<RayDirInfo> create(const RayDirInfo normalizedV, const float3 normalizedN)
+  static Isotropic<RayDirInfo> create(const RayDirInfo normalizedV, const float32_t3 normalizedN)
   {
     Isotropic<RayDirInfo> retval;
     retval.V = normalizedV;
@@ -65,9 +65,9 @@ struct Isotropic
   }
 
   RayDirInfo V;
-  float3 N;
-  float NdotV;
-  float NdotV2; // old NdotV_squared
+  float32_t3 N;
+  float32_t NdotV;
+  float32_t NdotV2; // old NdotV_squared
 };
 
 template<class RayDirInfo>
@@ -76,8 +76,8 @@ struct Anisotropic : Isotropic<RayDirInfo>
   // WARNING: Changed since GLSL, now arguments need to be normalized!
   static Anisotropic<RayDirInfo> create(
     const Isotropic<RayDirInfo> isotropic,
-    const float3 normalizedT,
-    const float normalizedB
+    const float32_t3 normalizedT,
+    const float32_t normalizedB
   )
   {
     Anisotropic<RayDirInfo> retval;
@@ -85,30 +85,30 @@ struct Anisotropic : Isotropic<RayDirInfo>
     retval.T = normalizedT;
     retval.B = normalizedB;
     
-    const float3 V = retval.getDirection();
+    const float32_t3 V = retval.getDirection();
     retval.TdotV = dot(V,retval.T);
     retval.BdotV = dot(V,retval.B);
 
     return retval;
   }
-  static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic, const float3 normalizedT)
+  static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic, const float32_t3 normalizedT)
   {
     return create(isotropic,normalizedT,cross(isotropic.N,normalizedT));
   }
   static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic)
   {
-    float2x3 TB = nbl::hlsl::frisvad(isotropic.N);
+    float32_t2x3 TB = nbl::hlsl::frisvad(isotropic.N);
     return create(isotropic,TB[0],TB[1]);
   }
 
-  float3 getTangentSpaceV() {return float3(Tdot,BdotV,Isotropic<RayDirInfo>::NdotV);}
+  float32_t3 getTangentSpaceV() {return float3(Tdot,BdotV,Isotropic<RayDirInfo>::NdotV);}
   // WARNING: its the transpose of the old GLSL function return value!
-  float3x3 getTangentFrame() {return float3x3(T,B,Isotropic<RayDirInfo>::N);}
+  float32_t3x3 getTangentFrame() {return float32_t3x3(T,B,Isotropic<RayDirInfo>::N);}
 
-  float3 T;
-  float3 B;
-  float3 TdotV;
-  float3 BdotV;
+  float32_t3 T;
+  float32_t3 B;
+  float32_t3 TdotV;
+  float32_t3 BdotV;
 };
 
 }
@@ -118,9 +118,9 @@ template<class RayDirInfo>
 struct LightSample
 {
   static LightSample<RayDirInfo> createTangentSpace(
-    const float3 tangentSpaceV,
+    const float32_t3 tangentSpaceV,
     const RayDirInfo tangentSpaceL,
-    const float3x3 tangentFrame // WARNING: its the transpose of the old GLSL function return value!
+    const float32_t3x3 tangentFrame // WARNING: its the transpose of the old GLSL function return value!
   )
   {
     LightSample<RayDirInfo> retval;
@@ -135,21 +135,21 @@ struct LightSample
     
     return retval;
   }
-  static LightSample<RayDirInfo> create(const RayDirInfo L, const float VdotL, const float3 N)
+  static LightSample<RayDirInfo> create(const RayDirInfo L, const float32_t VdotL, const float32_t3 N)
   {
     LightSample<RayDirInfo> retval;
     
     retval.L = L;
     retval.VdotL = VdotL;
 
-    retval.TdotL = nbl::hlsl::numeric_limits<float>::nan();
-    retval.BdotL = nbl::hlsl::numeric_limits<float>::nan();
+    retval.TdotL = nbl::hlsl::numeric_limits<float32_t>::nan();
+    retval.BdotL = nbl::hlsl::numeric_limits<float32_t>::nan();
     retval.NdotL = dot(N,L);
     retval.NdotL2 = retval.NdotL*retval.NdotL;
     
     return retval;
   }
-  static LightSample<RayDirInfo> create(const RayDirInfo L, const float VdotL, const float3 T, const float3 B, const float3 N)
+  static LightSample<RayDirInfo> create(const RayDirInfo L, const float32_t VdotL, const float32_t3 T, const float32_t3 B, const float32_t3 N)
   {
     LightSample<RayDirInfo> retval = create(L,VdotL,N);
     
@@ -160,32 +160,32 @@ struct LightSample
   }
   // overloads for surface_interactions
   template<class ObserverRayDirInfo>
-  static LightSample<RayDirInfo> create(const float3 L, const surface_interactions::Isotropic<ObserverRayDirInfo> interaction)
+  static LightSample<RayDirInfo> create(const float32_t3 L, const surface_interactions::Isotropic<ObserverRayDirInfo> interaction)
   {
-    const float3 V = interaction.V.getDirection();
-    const float VdotL = dot(V,L);
+    const float32_t3 V = interaction.V.getDirection();
+    const float32_t VdotL = dot(V,L);
     return create(L,VdotL,interaction.N);
   }
   template<class ObserverRayDirInfo>
-  static LightSample<RayDirInfo> create(const float3 L, const surface_interactions::Anisotropic<ObserverRayDirInfo> interaction)
+  static LightSample<RayDirInfo> create(const float32_t3 L, const surface_interactions::Anisotropic<ObserverRayDirInfo> interaction)
   {
-    const float3 V = interaction.V.getDirection();
-    const float VdotL = dot(V,L);
+    const float32_t3 V = interaction.V.getDirection();
+    const float32_t VdotL = dot(V,L);
     return create(L,VdotL,interaction.T,interaction.B,interaction.N);
   }
   //
-  float3 getTangentSpaceL()
+  float32_t3 getTangentSpaceL()
   {
     return float3(TdotL,BdotL,NdotL);
   }
 
   RayDirInfo L;
-  float VdotL;
+  float32_t VdotL;
 
-  float TdotL; 
-  float BdotL;
-  float NdotL;
-  float NdotL2;
+  float32_t TdotL; 
+  float32_t BdotL;
+  float32_t NdotL;
+  float32_t NdotL2;
 };
 
 
@@ -193,7 +193,7 @@ struct LightSample
 struct IsotropicMicrofacetCache
 {
   // always valid because its specialized for the reflective case
-  static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL, out float LplusV_rcpLen)
+  static IsotropicMicrofacetCache createForReflection(const float32_t NdotV, const float32_t NdotL, const float32_t VdotL, out float32_t LplusV_rcpLen)
   {
     LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
 
@@ -206,9 +206,9 @@ struct IsotropicMicrofacetCache
     
     return retval;
   }
-  static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL)
+  static IsotropicMicrofacetCache createForReflection(const float32_t NdotV, const float32_t NdotL, const float32_t VdotL)
   {
-    float dummy;
+    float32_t dummy;
     return createForReflection(NdotV,NdotL,VdotL,dummy);
   }
   template<class ObserverRayDirInfo, class IncomingRayDirInfo>
@@ -221,9 +221,9 @@ struct IsotropicMicrofacetCache
   // transmissive cases need to be checked if the path is valid before usage
   static bool compute(
     out IsotropicMicrofacetCache retval,
-    const bool transmitted, const float3 V, const float3 L,
-    const float3 N, const float NdotL, const float VdotL,
-    const float orientedEta, const float rcpOrientedEta, out float3 H
+    const bool transmitted, const float32_t3 V, const float32_t3 L,
+    const float32_t3 N, const float32_t NdotL, const float32_t VdotL,
+    const float32_t orientedEta, const float32_t rcpOrientedEta, out float32_t3 H
   )
   {
     // TODO: can we optimize?
@@ -248,19 +248,19 @@ struct IsotropicMicrofacetCache
     out IsotropicMicrofacetCache retval,
     const surface_interactions::Isotropic<ObserverRayDirInfo> interaction, 
     const LightSample<IncomingRayDirInfo> _sample,
-    const float eta, out float3 H
+    const float32_t eta, out float32_t3 H
   )
   {
-    const float NdotV = interaction.NdotV;
-    const float NdotL = _sample.NdotL;
+    const float32_t NdotV = interaction.NdotV;
+    const float32_t NdotL = _sample.NdotL;
     const bool transmitted = nbl_glsl_isTransmissionPath(NdotV,NdotL);
     
-    float orientedEta, rcpOrientedEta;
+    float32_t orientedEta, rcpOrientedEta;
     const bool backside = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,NdotV,eta);
 
     const vec3 V = interaction.V.getDirection();
     const vec3 L = _sample.L;
-    const float VdotL = dot(V,L);
+    const float32_t VdotL = dot(V,L);
     return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
   }
   template<class ObserverRayDirInfo, class IncomingRayDirInfo>
@@ -268,28 +268,28 @@ struct IsotropicMicrofacetCache
     out IsotropicMicrofacetCache retval,
     const surface_interactions::Isotropic<ObserverRayDirInfo> interaction, 
     const LightSample<IncomingRayDirInfo> _sample,
-    const float eta
+    const float32_t eta
   )
   {
-    float3 dummy;
+    float32_t3 dummy;
     return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
   }
 
-  bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const float VdotL, const float eta, const float rcp_eta)
+  bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const float32_t VdotL, const float32_t eta, const float32_t rcp_eta)
   {
     return NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -min(eta,rcp_eta)));
   }
 
-  float VdotH;
-  float LdotH;
-  float NdotH;
-  float NdotH2;
+  float32_t VdotH;
+  float32_t LdotH;
+  float32_t NdotH;
+  float32_t NdotH2;
 };
 
 struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 {
   // always valid by construction
-  static AnisotropicMicrofacetCache create(const float3 tangentSpaceV, const float3 tangentSpaceH)
+  static AnisotropicMicrofacetCache create(const float32_t3 tangentSpaceV, const float32_t3 tangentSpaceH)
   {
     AnisotropicMicrofacetCache retval;
     
@@ -303,28 +303,28 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     return retval;
   }
   static AnisotropicMicrofacetCache create(
-    const float3 tangentSpaceV, 
-    const float3 tangentSpaceH,
+    const float32_t3 tangentSpaceV, 
+    const float32_t3 tangentSpaceH,
     const bool transmitted,
-    const float rcpOrientedEta,
-    const float rcpOrientedEta2
+    const float32_t rcpOrientedEta,
+    const float32_t rcpOrientedEta2
   )
   {
     AnisotropicMicrofacetCache retval = create(tangentSpaceV,tangentSpaceH);
     if (transmitted)
     {
-      const float VdotH = retval.VdotH;
+      const float32_t VdotH = retval.VdotH;
       LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2);
     }
     
     return retval;
   }
   // always valid because its specialized for the reflective case
-  static AnisotropicMicrofacetCache createForReflection(const float3 tangentSpaceV, const float3 tangentSpaceL, const float VdotL)
+  static AnisotropicMicrofacetCache createForReflection(const float32_t3 tangentSpaceV, const float32_t3 tangentSpaceL, const float32_t VdotL)
   {
     AnisotropicMicrofacetCache retval;
     
-    float LplusV_rcpLen;
+    float32_t LplusV_rcpLen;
     retval = createForReflection(tangentSpaceV.z,tangentSpaceL.z,VdotL,LplusV_rcpLen);
     retval.TdotH = (tangentSpaceV.x+tangentSpaceL.x)*LplusV_rcpLen;
     retval.BdotH = (tangentSpaceV.y+tangentSpaceL.y)*LplusV_rcpLen;
@@ -341,13 +341,13 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
   // transmissive cases need to be checked if the path is valid before usage
   static bool compute(
     out AnisotropicMicrofacetCache retval,
-    const bool transmitted, const float3 V, const float3 L,
-    const float3 T, const float3 B, const float3 N,
-    const float NdotL, const float VdotL,
-    const float orientedEta, const float rcpOrientedEta, out float3 H
+    const bool transmitted, const float32_t3 V, const float32_t3 L,
+    const float32_t3 T, const float32_t3 B, const float32_t3 N,
+    const float32_t NdotL, const float32_t VdotL,
+    const float32_t orientedEta, const float32_t rcpOrientedEta, out float32_t3 H
   )
   {
-    float3 H;
+    float32_t3 H;
     const bool valid = IsotropicMicrofacetCache::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     if (valid)
     {
@@ -361,10 +361,10 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     out AnisotropicMicrofacetCache retval,
     const surface_interactions::Anisotropic<ObserverRayDirInfo> interaction, 
     const LightSample<IncomingRayDirInfo> _sample,
-    const float eta
+    const float32_t eta
   )
   {
-    float3 H;
+    float32_t3 H;
     const bool valid = IsotropicMicrofacetCache::compute(retval,interaction,_sample,eta,H);
     if (valid)
     {
@@ -374,8 +374,8 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     return valid;
   }
 
-  float TdotH;
-  float BdotH;
+  float32_t TdotH;
+  float32_t BdotH;
 };
 
 
@@ -383,7 +383,7 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 template<typename SpectralBins>
 struct quotient_and_pdf
 {
-  quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+  quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float32_t _pdf)
   {
     quotient_and_pdf<SpectralBins> retval;
     retval.quotient = _quotient;
@@ -397,7 +397,7 @@ struct quotient_and_pdf
   }
   
   SpectralBins quotient;
-  float pdf;
+  float32_t pdf;
 };
 
 

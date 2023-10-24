@@ -15,12 +15,12 @@ namespace hlsl
 namespace subgroup
 {
 
-uint ElectedSubgroupInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint>(glsl::gl_SubgroupInvocationID());
+uint32_t ElectedSubgroupInvocationID() {
+    return glsl::subgroupBroadcastFirst<uint32_t>(glsl::gl_SubgroupInvocationID());
 }
 
-uint ElectedLocalInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
+uint32_t ElectedLocalInvocationID() {
+    return glsl::subgroupBroadcastFirst<uint32_t>(gl_LocalInvocationIndex);
 }
 
 }

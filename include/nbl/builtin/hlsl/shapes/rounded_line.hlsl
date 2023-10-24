@@ -15,21 +15,21 @@ namespace shapes
 {
     struct RoundedLine_t
     {
-        float2 start;
-        float2 end;
-        float thickness;
+        float32_t2 start;
+        float32_t2 end;
+        float32_t thickness;
 
-        static RoundedLine_t construct(float2 start, float2 end, float thickness)
+        static RoundedLine_t construct(float32_t2 start, float32_t2 end, float32_t thickness)
         {
             RoundedLine_t ret = { start, end, thickness };
             return ret;
         }
 
-        float signedDistance(float2 p)
+        float32_t signedDistance(float32_t2 p)
         {
-            const float startCircleSD = Circle_t::construct(start, thickness).signedDistance(p);
-            const float endCircleSD = Circle_t::construct(end, thickness).signedDistance(p);
-            const float lineSD = Line_t::construct(start, end, thickness).signedDistance(p);
+            const float32_t startCircleSD = Circle_t::construct(start, thickness).signedDistance(p);
+            const float32_t endCircleSD = Circle_t::construct(end, thickness).signedDistance(p);
+            const float32_t lineSD = Line_t::construct(start, end, thickness).signedDistance(p);
             return min(lineSD, min(startCircleSD, endCircleSD));
         }
     };

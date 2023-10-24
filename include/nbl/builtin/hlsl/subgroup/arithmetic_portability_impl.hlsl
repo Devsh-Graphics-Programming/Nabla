@@ -174,54 +174,54 @@ struct reduction<T, binops::min<T> >
 };
 
 template<>
-struct inclusive_scan<int, binops::min<int> >
+struct inclusive_scan<int, binops::min<int32_t> >
 {
-    int operator()(const int x)
+    int32_t operator()(const int32_t x)
     {
         return glsl::subgroupInclusiveMin<T>(x);
     }
 };
 
 template<>
-struct inclusive_scan<uint, binops::min<uint> >
+struct inclusive_scan<uint, binops::min<uint32_t> >
 {
-    uint operator()(const uint x)
+    uint32_t operator()(const uint32_t x)
     {
         return glsl::subgroupInclusiveMin<T>(x);
     }
 };
 
 template<>
-struct inclusive_scan<uint, binops::min<float> >
+struct inclusive_scan<uint, binops::min<float32_t> >
 {
-    float operator()(const float x)
+    float32_t operator()(const float32_t x)
     {
         return glsl::subgroupInclusiveMin<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<int, binops::min<int> >
+struct exclusive_scan<int, binops::min<int32_t> >
 {
-    int operator()(const int x)
+    int32_t operator()(const int32_t x)
     {
         return glsl::subgroupExclusiveMin<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<uint, binops::min<uint> >
+struct exclusive_scan<uint, binops::min<uint32_t> >
 {
-    uint operator()(const uint x)
+    uint32_t operator()(const uint32_t x)
     {
         return glsl::subgroupExclusiveMin<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<uint, binops::min<float> >
+struct exclusive_scan<uint, binops::min<float32_t> >
 {
-    float operator()(const float x)
+    float32_t operator()(const float32_t x)
     {
         return glsl::subgroupExclusiveMin<T>(x);
     }
@@ -238,54 +238,54 @@ struct reduction<T, binops::max<T> >
 };
 
 template<>
-struct inclusive_scan<int, binops::max<int> >
+struct inclusive_scan<int, binops::max<int32_t> >
 {
-    int operator()(const int x)
+    int32_t operator()(const int32_t x)
     {
         return glsl::subgroupInclusiveMax<T>(x);
     }
 };
 
 template<>
-struct inclusive_scan<uint, binops::max<uint> >
+struct inclusive_scan<uint, binops::max<uint32_t> >
 {
-    uint operator()(const uint x)
+    uint32_t operator()(const uint32_t x)
     {
         return glsl::subgroupInclusiveMax<T>(x);
     }
 };
 
 template<>
-struct inclusive_scan<uint, binops::max<float> >
+struct inclusive_scan<uint, binops::max<float32_t> >
 {
-    float operator()(const float x)
+    float32_t operator()(const float32_t x)
     {
         return glsl::subgroupInclusiveMax<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<int, binops::max<int> >
+struct exclusive_scan<int, binops::max<int32_t> >
 {
-    int operator()(const int x)
+    int32_t operator()(const int32_t x)
     {
         return glsl::subgroupExclusiveMax<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<uint, binops::max<uint> >
+struct exclusive_scan<uint, binops::max<uint32_t> >
 {
-    uint operator()(const uint x)
+    uint32_t operator()(const uint32_t x)
     {
         return glsl::subgroupExclusiveMax<T>(x);
     }
 };
 
 template<>
-struct exclusive_scan<uint, binops::max<float> >
+struct exclusive_scan<uint, binops::max<float32_t> >
 {
-    float operator()(const float x)
+    float32_t operator()(const float32_t x)
     {
         return glsl::subgroupExclusiveMax<T>(x);
     }
@@ -306,14 +306,14 @@ template<typename T, class Binop>
 T inclusive_scan(T value)
 {
     Binop op;
-    const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-    const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
+    const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
+    const uint32_t halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
     
-    uint rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+    uint32_t rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
     value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
     
     [[unroll(5)]]
-    for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
+    for (uint32_t step=2u; step <= halfSubgroupSize; step <<= 1u)
     {
         rhs = glsl::subgroupShuffleUp<T>(value, step);
         value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
@@ -324,10 +324,10 @@ T inclusive_scan(T value)
 template<typename T, class Binop>
 T exclusive_scan(T value)
 {
-    const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+    const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
     value = inclusive_scan<T, Binop>(value);
     // store value to smem so we can shuffle it
-    uint left = glsl::subgroupShuffleUp<T>(value, 1);
+    uint32_t left = glsl::subgroupShuffleUp<T>(value, 1);
     value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
     // return it
     return value;

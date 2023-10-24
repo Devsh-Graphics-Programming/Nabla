@@ -30,7 +30,7 @@ LightSample<RayDirInfo> cos_generate(const surface_interactions::Anisotropic<Ray
 template<typename SpectralBins>
 quotient_and_pdf<SpectralBins> cos_quotient_and_pdf()
 {
-  return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
+  return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float32_t>::inf());
 }
 
 }

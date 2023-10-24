@@ -12,23 +12,23 @@ namespace shapes
 {
     struct Line_t
     {
-        float2 start;
-        float2 end;
-        float thickness;
+        float32_t2 start;
+        float32_t2 end;
+        float32_t thickness;
 
-        static Line_t construct(float2 start, float2 end, float thickness)
+        static Line_t construct(float32_t2 start, float32_t2 end, float32_t thickness)
         {
             Line_t ret = { start, end, thickness };
             return ret;
         }
 
-        float signedDistance(float2 p)
+        float32_t signedDistance(float32_t2 p)
         {
-            const float l = length(end - start);
-            const float2  d = (end - start) / l;
-            float2  q = p - (start + end) * 0.5;
-            q = mul(float2x2(d.x, d.y, -d.y, d.x), q);
-            q = abs(q) - float2(l * 0.5, thickness);
+            const float32_t l = length(end - start);
+            const float32_t2  d = (end - start) / l;
+            float32_t2  q = p - (start + end) * 0.5;
+            q = mul(float32_t2x2(d.x, d.y, -d.y, d.x), q);
+            q = abs(q) - float32_t2(l * 0.5, thickness);
             return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
         }
     };

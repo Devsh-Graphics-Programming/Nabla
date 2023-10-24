@@ -19,7 +19,7 @@ namespace quadrature
         struct GaussLegendreValues;
 
 
-        template<int Order, typename float_t, class IntegrandFunc>
+        template<int32_t Order, typename float_t, class IntegrandFunc>
         struct GaussLegendreIntegration
         {
             static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
