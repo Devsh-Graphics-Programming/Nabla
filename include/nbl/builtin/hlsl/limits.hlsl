@@ -10,9 +10,8 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
-#include <halfLimits.h>
+#include <openexr/IlmBase/Imath/ImathHalfLimits.h>
 #endif
-
 
 /*
     nuumeric_limits C++ API spec elements:
@@ -204,6 +203,7 @@ struct num_traits : num_base<T>
 template<> 
 struct num_traits<float16_t> : num_base<float16_t>
 {
+    // since float16_t has no constexpr ctor we have to use float32_t constants on cpp side which is only needed for testing
     using type = 
 #ifdef __cplusplus
     float32_t

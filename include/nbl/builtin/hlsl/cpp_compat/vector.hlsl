@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/detail/_swizzle.hpp>
 #include <stdint.h>
-#include <half.h>
+#include <openexr/IlmBase/Half/half.h>
 
 namespace nbl::hlsl
 {
