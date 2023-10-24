@@ -10,15 +10,35 @@ namespace hlsl
 {
 #ifndef __HLSL_VERSION // CPP
 
-template<class T> using bit_and = std::bit_and;
-template<class T> using bit_or = std::bit_or;
-template<class T> using bit_xor = std::bit_xor;
-template<class T> using plus = std::plus;
-template<class T> using multiplies = std::multiplies;
-template<class T> using greater = std::greater;
-template<class T> using less = std::less;
-template<class T> using greater_equal = std::greater_equal;
-template<class T> using less_equal = std::less_equal;
+template<class T> struct bit_and : std::bit_and
+{
+    NBL_CONSTEXPR_STATIC_INLINE T identity = ~0;
+};
+
+template<class T> struct bit_or : std::bit_or
+{
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
+};
+
+template<class T> struct bit_xor : std::bit_xor
+{
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
+};
+
+template<class T> struct plus : std::plus
+{
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
+};
+
+template<class T> struct multiplies : std::multiplies
+{
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 1;
+};
+
+template<class T> struct greater : std::greater;
+template<class T> struct less : std::less;
+template<class T> struct greater_equal : std::greater_equal;
+template<class T> struct less_equal : std::less_equal;
 
 #else // HLSL
     
@@ -30,10 +50,7 @@ struct bit_and
         return lhs & rhs;
     }
     
-    static T identity()
-    {
-        return ~0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = ~0;
 };
 
 template<typename T>
@@ -44,10 +61,7 @@ struct bit_or
         return lhs | rhs;
     }
     
-    static T identity()
-    {
-        return 0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
 };
 
 template<typename T>
@@ -58,10 +72,7 @@ struct bit_xor
         return lhs ^ rhs;
     }
     
-    static T identity()
-    {
-        return 0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
 };
 
 template<typename T>
@@ -72,10 +83,7 @@ struct plus
         return lhs + rhs;
     }
     
-    static T identity()
-    {
-        return 0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
 };
 
 template<typename T>
@@ -86,10 +94,7 @@ struct multiplies
         return lhs * rhs;
     }
     
-    static T identity()
-    {
-        return 1;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 1;
 };
 
 template<typename T>
@@ -141,10 +146,7 @@ struct minimum
         return (rhs < lhs) ? rhs : lhs;
     }
 
-    static T identity()
-    {
-        return ~0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = ~0;
 };
 
 template<typename T>
@@ -155,10 +157,7 @@ struct maximum
         return (lhs < rhs) ? rhs : lhs;
     }
 
-    static T identity()
-    {
-        return 0;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE T identity = 0;
 };
 
 }
