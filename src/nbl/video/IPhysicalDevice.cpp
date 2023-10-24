@@ -4,7 +4,7 @@ namespace nbl::video
 {
 
 IPhysicalDevice::IPhysicalDevice(
-    core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* _api,
+    core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* const _api,
     const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
     const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
 ) : m_system(std::move(_system)), m_api(_api), m_properties(_properties), m_features(_features), m_memoryProperties(_memoryProperties),

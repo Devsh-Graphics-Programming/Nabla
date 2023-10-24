@@ -291,9 +291,9 @@ struct SPhysicalDeviceFeatures
     bool robustImageAccess = false;                 //  or VK_EXT_image_robustness
     
     // [DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
-    // [DEPRECATED] Vulkan 1.3, Nabla Core Profile:
+    // Vulkan 1.3, Nabla Core Profile:
     //bool           inlineUniformBlock = false;
-    // [DEPRECATED] ROADMAP 2022, Nabla Core Profile:
+    // ROADMAP 2022, Nabla Core Profile:
     //bool           descriptorBindingInlineUniformBlockUpdateAfterBind = false;
 
     // [REQUIRE] Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl
