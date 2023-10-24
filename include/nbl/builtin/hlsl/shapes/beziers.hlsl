@@ -66,11 +66,11 @@ namespace shapes
             return ret;
         }
 
-        float_t2 evaluate(float_t t)
+        float_t2 evaluate(float_t t) NBL_CONST
         {
             float_t2 position = 
-                P0 * (1.0f - t) * (1.0f - t) 
-                 + 2.0f * P1 * (1.0f - t) * t
+                P0 * (1.0 - t) * (1.0 - t) 
+                 + 2.0 * P1 * (1.0 - t) * t
                  +       P2 * t         * t;
 
             return position;
@@ -315,8 +315,8 @@ namespace shapes
 
         static Quadratic constructFromBezier(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) curve)
         {
-            const float_t2 A = curve.P0 - 2.0f * curve.P1 + curve.P2;
-            const float_t2 B = 2.0f * (curve.P1 - curve.P0);
+            const float_t2 A = curve.P0 - 2.0 * curve.P1 + curve.P2;
+            const float_t2 B = 2.0 * (curve.P1 - curve.P0);
             const float_t2 C = curve.P0;
             
             Quadratic ret = { A, B, C };

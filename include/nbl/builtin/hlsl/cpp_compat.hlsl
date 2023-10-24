@@ -6,6 +6,7 @@
 #include <type_traits>
 
 #define ARROW ->
+#define NBL_CONST const
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 
@@ -30,6 +31,7 @@ using add_pointer = std::add_pointer<T>;
 #else
 
 #define ARROW .arrow().
+#define NBL_CONST 
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 
