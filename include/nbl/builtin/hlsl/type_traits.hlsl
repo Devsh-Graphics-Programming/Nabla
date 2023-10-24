@@ -275,9 +275,9 @@ struct is_integral : bool_constant<
 
 template<class T>
 struct is_floating_point : bool_constant<
-    is_same<T, half>::value ||
-    is_same<T, float>::value ||
-    is_same<T, double>::value
+    is_same<T, float16_t>::value ||
+    is_same<T, float32_t>::value ||
+    is_same<T, float64_t>::value
 > {};
 
 template<class T>

@@ -14,7 +14,7 @@ namespace impl
 {
 
 // TODO: move this to some other header
-bool isNPoT(const uint x)
+bool isNPoT(const uint32_t x)
 {
     return x&(x-1);
 }
@@ -22,7 +22,7 @@ bool isNPoT(const uint x)
 template<class Accessor, class Comparator>
 struct bound_t
 {
-    static bound_t<Accessor,Comparator> setup(uint begin, const uint end, const typename Accessor::value_type _value, const Comparator _comp)
+    static bound_t<Accessor,Comparator> setup(uint32_t begin, const uint32_t end, const typename Accessor::value_type _value, const Comparator _comp)
     {
         bound_t<Accessor,Comparator> retval;
         retval.comp = _comp;
@@ -33,12 +33,12 @@ struct bound_t
     }
 
 
-    uint operator()(inout Accessor accessor)
+    uint32_t operator()(inout Accessor accessor)
     {
         if (isNPoT(len))
         {
-            const uint newLen = 0x1u<<firstbithigh(len);
-            const uint testPoint = it+(len-newLen);
+            const uint32_t newLen = 0x1u<<firstbithigh(len);
+            const uint32_t testPoint32_t = it+(len-newLen);
             len = newLen;
             comp_step(accessor,testPoint);
         }
@@ -55,24 +55,24 @@ struct bound_t
     void iteration(inout Accessor accessor)
     {
         len >>= 1;
-        const uint mid = it+len;
+        const uint32_t mid = it+len;
         comp_step(accessor,mid);
     }
 
-    void comp_step(inout Accessor accessor, const uint testPoint, const uint rightBegin)
+    void comp_step(inout Accessor accessor, const uint32_t testPoint, const uint32_t rightBegin)
     {
         if (comp(accessor[testPoint],value))
             it = rightBegin;
     }
-    void comp_step(inout Accessor accessor, const uint testPoint)
+    void comp_step(inout Accessor accessor, const uint32_t testPoint)
     {
         comp_step(accessor,testPoint,testPoint);
     }
 
     Comparator comp;
     typename Accessor::value_type value;
-    uint it;
-    uint len;
+    uint32_t it;
+    uint32_t len;
 };
 
 template<class Accessor, class Comparator>
@@ -90,14 +90,14 @@ struct lower_to_upper_comparator_transform_t
 
 
 template<class Accessor, class Comparator>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t lower_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
 {
     impl::bound_t<Accessor,Comparator> implementation = impl::bound_t<Accessor,Comparator>::setup(begin,end,value,comp);
     return implementation(accessor);
 }
 
 template<class Accessor, class Comparator>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
+uint32_t upper_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value, const Comparator comp)
 {
     using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
     TransformedComparator transformedComparator;
@@ -120,14 +120,14 @@ struct comparator_lt_t
 
 // extra indirection due to https://github.com/microsoft/DirectXShaderCompiler/issues/4771
 template<class Accessor, typename T>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
+uint32_t lower_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const T value)
 {
     using Comparator = impl::comparator_lt_t<T>;
     Comparator comp;
     return nbl::hlsl::lower_bound<Accessor,Comparator>(accessor,begin,end,value,comp);
 }
 template<class Accessor, typename T>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
+uint32_t upper_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const T value)
 {
     using Comparator = impl::comparator_lt_t<T>;
     Comparator comp;
@@ -137,12 +137,12 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
 }
 
 template<class Accessor>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value)
+uint32_t lower_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value)
 {
     return impl::lower_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 template<class Accessor>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value)
+uint32_t upper_bound(inout Accessor accessor, const uint32_t begin, const uint32_t end, const typename Accessor::value_type value)
 {
     return impl::upper_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }

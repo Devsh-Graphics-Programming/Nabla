@@ -20,15 +20,15 @@ struct result_t
         return retval;
     }
 
-    uint outputIndex;
-    uint exclusivePrefixSum;
+    uint32_t outputIndex;
+    uint32_t exclusivePrefixSum;
 };
 
 
 // Elements with value 0 do not get appended
 // Note: If NBL_GLSL_EXT_shader_atomic_int64 is not present, then the call to these functions needs to be subgroup uniform
 template<class AtomicCounterAccessor>
-result_t non_negative(inout AtomicCounterAccessor accessor, in uint value)
+result_t non_negative(inout AtomicCounterAccessor accessor, in uint32_t value)
 {
   const bool willAppend = bool(value);
 
@@ -42,22 +42,22 @@ result_t non_negative(inout AtomicCounterAccessor accessor, in uint value)
   retval.exclusivePrefixSum = uint(count_reduction);
 #else
   #error "Untested Path, won't touch this until we actually need to ship something on Vulkan mobile or GL!"
-  uint localIndex = subgroup::ballotExclusiveBitCount(subgroup::ballot(willAppend));
-  uint partialPrefix = subgroup::exclusiveAdd(value);
+  uint32_t localIndex = subgroup::ballotExclusiveBitCount(subgroup::ballot(willAppend));
+  uint32_t partialPrefix = subgroup::exclusiveAdd(value);
 
-  uint subgroupIndex,subgroupPrefix;
+  uint32_t subgroupIndex,subgroupPrefix;
   // elect last invocation
-  const uint lastSubgroupInvocationID = subgroup::Size-1u;
+  const uint32_t lastSubgroupInvocationID = subgroup::Size-1u;
   if (subgroup::InvocationID==lastSubgroupInvocationID)
   {
     // crude mutex, reuse MSB bit
-    const uint lockBit = 0x80000000u;
+    const uint32_t lockBit = 0x80000000u;
     // first subgroup to set the bit to 1 (old value 0) proceeds with the lock
     while (accessor.fetchOrCount(lockBit)) {}
     // now MSB is always 1
     subgroupPrefix = accessor.fetchIncrSum(partialPrefix+value);
     // set the MSB to 0 (unlock) while adding, by making sure MSB overflows
-    uint subgroupCount = localIndex;
+    uint32_t subgroupCount = localIndex;
     if (willAppend)
         subgroupCount++;
     subgroupIndex = accessor.fetchIncrCount(lockBit|subgroupCount);
@@ -70,7 +70,7 @@ result_t non_negative(inout AtomicCounterAccessor accessor, in uint value)
 
 // optimized version which tries to omit the atomicAdd and locks if it can, in return it may return garbage/invalid value when invocation's `value==0`
 template<class AtomicCounterAccessor>
-result_t positive(inout AtomicCounterAccessor accessor, in uint value)
+result_t positive(inout AtomicCounterAccessor accessor, in uint32_t value)
 {
   const bool willAppend = bool(value);
 #ifdef NBL_GLSL_EXT_shader_atomic_int64
