@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 1, 0);
+static constexpr uint32_t MinimumVulkanApiVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
 
 static inline asset::E_FORMAT getFormatFromVkFormat(VkFormat in)
 {
