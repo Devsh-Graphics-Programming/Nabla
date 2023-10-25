@@ -503,11 +503,6 @@ struct SPhysicalDeviceLimits
     /* DeviceMemoryReportFeaturesEXT */
     bool deviceMemoryReport = false;
 
-    /* VK_EXT_robustness2 */
-    /* Robustness2PropertiesEXT */
-    size_t       robustStorageBufferAccessSizeAlignment = 0x1ull << 63;
-    size_t       robustUniformBufferAccessSizeAlignment = 0x1ull << 63;
-
     /* VK_KHR_shader_non_semantic_info */
     bool shaderNonSemanticInfo = false;
 

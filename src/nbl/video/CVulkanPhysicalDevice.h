@@ -22,7 +22,7 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
 
     protected:
         template<typename... Args>
-        inline CVulkanPhysicalDevice(Args&&... args, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_map<std::string>&& _extensions)
+        inline CVulkanPhysicalDevice(Args&&... args, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_set<std::string>&& _extensions)
             : IPhysicalDevice(std::forward(args)...), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_extensions(std::move(_extensions)) {}
     
         //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures

@@ -327,6 +327,17 @@ struct SPhysicalDeviceFeatures
     //bool shaderIntegerDotProduct = true;               // or VK_KHR_shader_integer_dot_product
 
 
+    /* Nabla Core Profile Extensions */
+    // [TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features
+    bool robustBufferAccess2 = false;
+    // Nabla Core Profile but still a feature because enabling has overhead
+    bool robustImageAccess2 = false;
+    /*
+    ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
+    [TODO] Handle `nullDescriptor` feature in the engine.
+    */
+    bool nullDescriptor = false;
+
 
     /* Vulkan Extensions */
 
@@ -434,10 +445,10 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls
     /* VK_EXT_video_encode_h264 */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls
     // VK_EXT_video_encode_h265
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls
     // VK_KHR_video_decode_h264
 
     // [TODO LATER] Won't expose for now, API changes necessary
@@ -463,7 +474,7 @@ struct SPhysicalDeviceFeatures
     // VK_NVX_extension_48
     // VK_GOOGLE_extension_49
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] This used to be for Stadia, Stadia is dead now
     // VK_GGP_stream_descriptor_surface
 
     // [DO NOT EXPOSE] for a very long time
@@ -1120,8 +1131,10 @@ struct SPhysicalDeviceFeatures
     bool stippledBresenhamLines = false;
     bool stippledSmoothLines = false;
 
-    // [EXPOSE AS LIMIT]
+    // [NAbla core Profile LIMIT] 
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
+
+    // [EXPOSE AS LIMIT]
     /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
     /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
 
@@ -1199,16 +1212,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_acquire_drm_display
 
+    // [Nabla CORE PROFILE]
     /* Robustness2FeaturesEXT *//* VK_EXT_robustness2 */
-    // [TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features
-    bool robustBufferAccess2 = false;
-    // Nabla Core Profile but still a feature because enabling has overhead
-    bool robustImageAccess2 = false;
-    /*
-    ! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.
-    [TODO] Handle `nullDescriptor` feature in the engine.
-    */
-    bool nullDescriptor = false;
 
     // [DO NOT EXPOSE] not going to expose custom border colors for now
     /* CustomBorderColorFeaturesEXT *//* VK_EXT_custom_border_color */
@@ -1853,7 +1858,7 @@ struct SPhysicalDeviceFeatures
 				
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
-
+        // VK 1.0 core
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
 
         if (geometryShader && !_rhs.geometryShader) return false;
@@ -1870,10 +1875,21 @@ struct SPhysicalDeviceFeatures
         if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
         if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
 
+        // Vk 1.1 everything is either a Limit or Required
+
+        // Vk 1.2
         if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
 
+        // Vk 1.3
         if (robustImageAccess && !_rhs.robustImageAccess) return false;
 
+        // Nabla Core Extensions
+        if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
+        if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
+
+        if (nullDescriptor && !_rhs.nullDescriptor) return false;
+
+        // Extensions
         if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
 
         if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
@@ -1931,11 +1947,6 @@ struct SPhysicalDeviceFeatures
         if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
 
         if (deviceGeneratedCommands && !_rhs.deviceGeneratedCommands) return false;
-
-        if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
-        if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
-
-        if (nullDescriptor && !_rhs.nullDescriptor) return false;
 
         if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
         if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
