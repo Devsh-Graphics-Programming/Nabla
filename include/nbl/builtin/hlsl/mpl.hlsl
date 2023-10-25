@@ -6,6 +6,7 @@
 
 #ifdef __HLSL_VERSION
 #include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/bit.hlsl>
 #else
 #include <bit>
 
@@ -17,44 +18,36 @@ namespace hlsl
 {
 namespace mpl
 {
-#ifdef __HLSL_VERSION
+
 namespace impl
 {
 
-template<uint16_t bits_log2>
-struct countl_zero_masks
-{
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SHIFT   = bits_log2 ? uint16_t(1)<<(bits_log2-1) : 0;
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = bits_log2 ? (1ull<<SHIFT)-1 : 0;
-};
-
-template<uint64_t N, uint16_t bits_log2>
+template<uint64_t N, uint16_t bits>
 struct countl_zero
 {
-    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = N&(countl_zero_masks<bits_log2>::LO_MASK<<countl_zero_masks<bits_log2>::SHIFT);
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>countl_zero_masks<bits_log2>::SHIFT):N)&countl_zero_masks<bits_log2>::LO_MASK;
-    //NBL_CONSTEXPR_STATIC_INLINE uint16_t value = conditional_value<bits_log2,uint16_t,countl_zero<NEXT_N,bits_log2-1>::value,0>::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = conditional<bits_log2,countl_zero<NEXT_N,bits_log2-1>,integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:countl_zero_masks<bits_log2>::SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t SHIFT = bits >> 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = (1ull << SHIFT) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = N & (LO_MASK << SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT = (CHOOSE_HIGH ? (N >> SHIFT) : N) & LO_MASK;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = countl_zero<NEXT, SHIFT>::value + (CHOOSE_HIGH ? 0ull : SHIFT);
 };
-
-}
-#endif
 
 template<uint64_t N>
-struct countl_zero
+struct countl_zero<N, 1> : integral_constant<uint16_t, uint16_t(1u - (N & 1))>
+{};
+
+}
+
+template<class T, T N>
+struct countl_zero : impl::countl_zero<uint64_t(N), (sizeof(T) * 8)>
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value =
-#ifdef __HLSL_VERSION
-      impl::countl_zero<N, 6>::value;
-#else
-      std::countl_zero(N);
-#endif
+    static_assert(is_integral<T>::value, "countl_zero type parameter must be an integral type");
 };
 
 template<uint64_t X>
 struct log2
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = X ? (1ull<<6)-countl_zero<X>::value-1 : -1ull;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = X ? (1ull<<6)-countl_zero<uint64_t, X>::value-1 : -1ull;
 };
 
 template<typename T, T X, int32_t S>
@@ -72,6 +65,7 @@ struct rotr
     static const int32_t r = S % N;
     static const T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : (X << (-r)) | (X >> (N - (-r)));
 };
+
 
 }
 }

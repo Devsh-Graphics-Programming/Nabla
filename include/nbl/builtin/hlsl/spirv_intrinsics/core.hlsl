@@ -12,6 +12,7 @@ namespace nbl
 {
 namespace hlsl
 {
+#ifdef __HLSL_VERSION
 namespace spirv
 {
 
@@ -105,8 +106,21 @@ void controlBarrier(uint executionScope, uint memoryScope, uint memorySemantics)
 [[vk::ext_instruction(/* OpMemoryBarrier */ 225)]]
 void memoryBarrier(uint memoryScope, uint memorySemantics);
 #pragma endregion BARRIERS
-}
-}
-}
 
+#pragma region CONVERSION
+
+template<class T, class U>
+// [[vk::ext_extension("SPV_KHR_physical_storage_buffer")]]
+// [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+// [[vk::ext_capability(spv::CapabilityAddresses)]]
+// [[vk::ext_capability(spv::CapabilityFloat64)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+T bitcast(U);
+
+#pragma endregion CONVERSION
+}
+#endif
+}
+}
+ 
 #endif
