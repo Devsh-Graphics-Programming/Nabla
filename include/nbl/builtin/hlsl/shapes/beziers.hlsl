@@ -244,42 +244,46 @@ namespace shapes
                 return retval;
             }
             
-            float_t calcArcLenInverse(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            float_t calcArcLenInverse(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t min, float_t max, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
-                return calcArcLenInverse_NR(quadratic, arcLen, accuracyThreshold, hint);
+                return calcArcLenInverse_NR(quadratic, min, max, arcLen, accuracyThreshold, hint);
             }
 
-            float_t calcArcLenInverse_NR(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            float_t calcArcLenInverse_NR(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t min, float_t max, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 float_t xn = hint;
 
                 if (arcLen <= accuracyThreshold)
                     return arcLen;
 
-                // TODO: implement halley method
                 const uint32_t iterationThreshold = 32;
                 for(uint32_t n = 0; n < iterationThreshold; n++)
                 {
-                    float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
+                    const float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
 
-                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
-                        return xn;
+                    const bool clampToMin = xn <= min;
+                    const bool clampToMax = xn >= max;
+                    const bool rootIsOutOfBounds = (clampToMin && arcLenDiffAtParamGuess > 0) || (clampToMax && arcLenDiffAtParamGuess < 0);
+
+                    if (abs(arcLenDiffAtParamGuess) < accuracyThreshold || rootIsOutOfBounds)
+                        break;
 
                     float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
                         // x_n+1 = x_n - f(x_n)/f'(x_n)
                     xn -= arcLenDiffAtParamGuess / differentialAtGuess;
 
-                    xn = clamp(xn, 0.0, 1.0);
+                    if (clampToMin)
+                        xn = min;
+                    else if (clampToMax)
+                        xn = max;
                 }
 
                 return xn;
             }
 
-            float_t calcArcLenInverse_Bisection(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t arcLen, float_t accuracyThreshold, float_t hint)
+            float_t calcArcLenInverse_Bisection(NBL_CONST_REF_ARG(Quadratic<float_t>) quadratic, float_t min, float_t max, float_t arcLen, float_t accuracyThreshold, float_t hint)
             {
                 float_t xn = hint;
-                float_t min = 0.0;
-                float_t max = 1.0;
             
                 if (arcLen <= accuracyThreshold)
                     return arcLen;
