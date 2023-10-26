@@ -11,6 +11,7 @@
 // TODO [Przemek]: implement it in intrinsics.h
 #ifndef __HLSL_VERSION
 #include <algorithm>
+#include <cmath>
 
 namespace nbl::hlsl
 {
@@ -24,6 +25,12 @@ inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forw
 
 NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+
+template<typename T>
+inline T rsqrt(T x)
+{
+    return 1.0f / std::sqrt(x);
+}
 
 }
 
@@ -319,8 +326,8 @@ namespace shapes
 
         static Quadratic constructFromBezier(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) curve)
         {
-            const float_t2 A = curve.P0 - 2.0f * curve.P1 + curve.P2;
-            const float_t2 B = 2.0f * (curve.P1 - curve.P0);
+            const float_t2 A = curve.P0 - float_t(2.0f) * curve.P1 + curve.P2;
+            const float_t2 B = float_t(2.0f) * (curve.P1 - curve.P0);
             const float_t2 C = curve.P0;
             
             Quadratic ret = { A, B, C };
