@@ -12,16 +12,16 @@ namespace shapes
 {
     struct Circle_t
     {
-        float2 center;
-        float radius;
+        float32_t2 center;
+        float32_t radius;
 
-        static Circle_t construct(float2 center, float radius)
+        static Circle_t construct(float32_t2 center, float32_t radius)
         {
             Circle_t c = { center, radius };
             return c;
         }
 
-        float signedDistance(float2 p)
+        float32_t signedDistance(float32_t2 p)
         {
             return distance(p, center) - radius;
         }
