@@ -17,13 +17,13 @@ namespace shapes
 struct AABB_t
 {
     //
-    void addPoint(const float3 pt)
+    void addPoint(const float32_t3 pt)
     {
         minVx = min(pt, minVx);
         maxVx = max(pt, maxVx);
     }
     //
-    float3 getExtent()
+    float32_t3 getExtent()
     {
         return maxVx - minVx;
     }
@@ -31,18 +31,18 @@ struct AABB_t
     //
     float getVolume()
     {
-        const float3 extent = AABB_t::getExtent();
+        const float32_t3 extent = AABB_t::getExtent();
         return extent.x * extent.y * extent.z;
     }
 
     // returns the corner of the AABB which has the most positive dot product
-    float3 getFarthestPointInFront(const float3 plane)
+    float32_t3 getFarthestPointInFront(const float32_t3 plane)
     {
         return lerp(maxVx, minVx, plane<float3(0.f,0.f,0.f));
     }
 
-    float3 minVx;
-    float3 maxVx;
+    float32_t3 minVx;
+    float32_t3 maxVx;
 };
 
 struct nbl_glsl_shapes_CompressedAABB_t
@@ -56,8 +56,8 @@ struct nbl_glsl_shapes_CompressedAABB_t
         return retval;
     }
 
-    uint2 minVx18E7S3;
-    uint2 maxVx18E7S3;
+    uint32_t2 minVx18E7S3;
+    uint32_t2 maxVx18E7S3;
 };
 
 
