@@ -9,9 +9,11 @@
 #include <type_traits>
 #endif
 
-// include cpp_compat.hlsl through matrix.hlsl for HLSL and glm::* typedefs for C++
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+
+
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
   // helper class
