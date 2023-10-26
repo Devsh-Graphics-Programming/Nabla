@@ -38,7 +38,7 @@ struct AABB_t
     // returns the corner of the AABB which has the most positive dot product
     float32_t3 getFarthestPointInFront(const float32_t3 plane)
     {
-        return lerp(maxVx, minVx, plane<float3(0.f,0.f,0.f));
+        return lerp(maxVx, minVx, plane<float32_t3(0.f,0.f,0.f));
     }
 
     float32_t3 minVx;
