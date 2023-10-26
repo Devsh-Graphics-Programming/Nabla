@@ -420,6 +420,16 @@ struct SPhysicalDeviceLimits
     uint32_t           maxDescriptorSetUpdateAfterBindAccelerationStructures = 0u;
     uint32_t           minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
 
+    /* VK_KHR_ray_tracing_pipeline */
+    /* RayTracingPipelinePropertiesKHR */
+    //uint32_t           shaderGroupHandleSize = 32u; // `exact` limit type
+    uint32_t           maxRayRecursionDepth = 0u;
+    uint32_t           maxShaderGroupStride = 0u;
+    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
+    uint32_t           maxRayDispatchInvocationCount = 0u;
+    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
+    uint32_t           maxRayHitAttributeSize = 0u;
+
     /* VK_NV_shader_sm_builtins */
     /* ShaderSMBuiltinsFeaturesNV */
     bool shaderSMBuiltins = false;
@@ -460,11 +470,6 @@ struct SPhysicalDeviceLimits
     /* VK_GOOGLE_decorate_string */
     bool decorateString = false;
 
-    /* VK_EXT_shader_image_atomic_int64 */
-    /* ShaderImageAtomicInt64FeaturesEXT */
-    bool shaderImageInt64Atomics = false;
-    bool sparseImageInt64Atomics = false;
-
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* VK_EXT_line_rasterization */
     /* LineRasterizationPropertiesEXT */
@@ -484,6 +489,11 @@ struct SPhysicalDeviceLimits
     bool shaderSharedFloat64AtomicMinMax = false;
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
+
+    /* VK_EXT_shader_image_atomic_int64 */
+    /* ShaderImageAtomicInt64FeaturesEXT */
+    bool shaderImageInt64Atomics = false;
+    bool sparseImageInt64Atomics = false;
 
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* VK_NV_device_generated_commands */
@@ -534,16 +544,6 @@ struct SPhysicalDeviceLimits
     bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
     bool workgroupMemoryExplicitLayout8BitAccess = false;
     bool workgroupMemoryExplicitLayout16BitAccess = false;
-
-    /* VK_KHR_ray_tracing_pipeline */
-    /* RayTracingPipelinePropertiesKHR */
-    //uint32_t           shaderGroupHandleSize = 32u; // `exact` limit type
-    uint32_t           maxRayRecursionDepth = 0u;
-    uint32_t           maxShaderGroupStride = 0u;
-    uint32_t           shaderGroupBaseAlignment = 0x1u << 31u;
-    uint32_t           maxRayDispatchInvocationCount = 0u;
-    uint32_t           shaderGroupHandleAlignment = 0x1u << 31u;
-    uint32_t           maxRayHitAttributeSize = 0u;
 
     // [TODO] need new commandbuffer methods, etc
     /* VK_EXT_color_write_enable */

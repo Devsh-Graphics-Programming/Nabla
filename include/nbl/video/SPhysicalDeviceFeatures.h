@@ -354,7 +354,7 @@ struct SPhysicalDeviceFeatures
     // [TODO] handle with a single num
     /* VK_KHR_display_swapchain */
 
-    //[DO NOT EXPOSE] OS-specific we enable implicitly as we detect the platform
+    //[DO NOT EXPOSE] OS-specific INSTANCE extensions we enable implicitly as we detect the platform
     // VK_KHR_xlib_surface
     // VK_KHR_xcb_surface
     // VK_KHR_wayland_surface
@@ -467,7 +467,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_46
 
-    // Enabled by Default, Moved to Limits
+    // [EXPOSE AS LIMIT]
     /* VK_AMD_shader_image_load_store_lod */
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -535,13 +535,13 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_pipeline_robustness
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to non-optional core
     // VK_KHR_maintenance1
 
     // [DEPRECATED] Promoted to non-optional core VK 1.1
     // VK_KHR_device_group_creation
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to non-optional core Vk 1.1
     // VK_KHR_external_memory_capabilities
 
     // [DEPRECATED] Promoted to non-optional core VK 1.1
@@ -553,13 +553,11 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!
     /* VK_KHR_external_memory_fd */
 
-    // [TODO LATER] Used for dx11 interop
+    // [DO NOT EXPOSE] Always enabled, used for dx11 interop
     /* VK_KHR_win32_keyed_mutex */
 
-    // [DO NOT EXPOSE] We don't support yet
-    // VK_KHR_external_semaphore_capabilities
-
     // [DEPRECATED] Promoted to non-optional core VK 1.1
+    // VK_KHR_external_semaphore_capabilities
     /* VK_KHR_external_semaphore */
 
     // [DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!
@@ -579,7 +577,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core
     /* VK_KHR_shader_float16_int8 */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Vulkan 1.2 Core and Required
     // VK_KHR_16bit_storage
 
     // [DO NOT EXPOSE] this is "swap with damange" known from EGL, cant be arsed to support
@@ -588,7 +586,7 @@ struct SPhysicalDeviceFeatures
     // [TODO] Promoted to VK1.1 non-optional core, haven't updated API to match
     /* VK_KHR_descriptor_update_template */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] now VK_NV_device_generated_commands
     // VK_NVX_device_generated_commands
 
     // [TODO LATER] Don't expose VR features for now
@@ -625,13 +623,13 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] A silly Nvidia extension thats specific to singlepass cubemap rendering and voxelization with geometry shader
     /* VK_NV_viewport_swizzle */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [EXPOSE AS A LIMIT]
     // VK_EXT_discard_rectangles
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_101
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [EXPOSE AS A LIMIT]
     // VK_EXT_conservative_rasterization
 
     // [DO NOT EXPOSE] only useful for D3D emulators
@@ -663,7 +661,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] Leave for later consideration
     /* VK_KHR_shared_presentable_image */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to non-optional core VK 1.1
     // VK_KHR_external_fence_capabilities
 
     // [DEPRECATED] Promoted to non-optional core VK 1.1
@@ -679,7 +677,7 @@ struct SPhysicalDeviceFeatures
     bool performanceCounterQueryPools = false;
     bool performanceCounterMultipleQueryPools = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Core in Vulkan 1.x
     // VK_KHR_maintenance2
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -709,7 +707,7 @@ struct SPhysicalDeviceFeatures
     // [EXPOSE AS A LIMIT] 
     // VK_EXT_queue_family_foreign
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Vulkan 1.1 core now
     // VK_KHR_dedicated_allocation
 
     // [DO NOT EXPOSE] We don't support yet
@@ -825,7 +823,7 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Expose when we start to experience slowdowns from validation
     /* VK_EXT_validation_cache */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] KHR extension supersedes and then Vulkan 1.2
     // VK_EXT_descriptor_indexing
 
     // [DO NOT EXPOSE] We don't support yet
@@ -836,7 +834,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future, also has interactions with fragment density maps
     /* ShadingRateImageFeaturesNV *//* VK_NV_shading_rate_image */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Superseded by KHR
     // VK_NV_ray_tracing
 
     /* RepresentativeFragmentTestFeaturesNV *//* VK_NV_representative_fragment_test */
@@ -848,7 +846,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_KHR_maintenance3
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Core in Vulkan 1.x
     // VK_KHR_draw_indirect_count
 
     // [TODO LATER] limited utility and availability, might expose if feel like wasting time
@@ -870,10 +868,10 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_177
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to VK Core
     // VK_KHR_8bit_storage
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] TODO: support in the CUDA PR
     // VK_EXT_external_memory_host
 
     // [TODO] need impl/more research
@@ -882,7 +880,6 @@ struct SPhysicalDeviceFeatures
 
     // [DEPRECATED] Vulkan 1.2 Core
     /* VK_KHR_shader_atomic_int64 */
-    /* ShaderAtomicInt64FeaturesKHR */
 
     // [EXPOSE AS LIMIT]
     /* ShaderClockFeaturesKHR *//* VK_KHR_shader_clock */
@@ -898,13 +895,13 @@ struct SPhysicalDeviceFeatures
     // [TODO LATER] Requires changes to API
     /* VK_EXT_calibrated_timestamps */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Superseded by VK_AMD_shader_core_properties
     // VK_AMD_shader_core_properties
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_AMD_extension_187
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] We don't want to be on the hook with the MPEG-LA patent trolls
     // VK_KHR_video_decode_h265
 
     // [TODO] this one isn't in the headers yet
@@ -917,7 +914,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] we would have to change the API
     /* VertexAttributeDivisorFeaturesEXT *//* VK_EXT_vertex_attribute_divisor */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Stadia is dead
     // VK_GGP_frame_token
 
     // [TODO LATER] would like to expose, but too much API to change
@@ -980,7 +977,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core but 1.3 non-optional and we require it
     /* VK_KHR_vulkan_memory_model */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [LIMIT] We don't support yet
     // VK_EXT_pci_bus_info
 
     // [DO NOT EXPOSE] Waiting for cross platform
@@ -1003,8 +1000,6 @@ struct SPhysicalDeviceFeatures
     bool fragmentDensityMap = false;
     bool fragmentDensityMapDynamic = false;
     bool fragmentDensityMapNonSubsampledImages = false;
-    /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
-    bool fragmentDensityMapDeferred = false;
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_220
@@ -1338,8 +1333,8 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_NV_extension_332
 
-    // [DO NOT EXPOSE] We don't support yet
-    // VK_EXT_fragment_density_map2
+    /* FragmentDensityMap2FeaturesEXT *//* VK_EXT_fragment_density_map2 */
+    bool fragmentDensityMapDeferred = false;
 
     // [DO NOT EXPOSE] Too vendor specific
     /* VK_QCOM_rotated_copy_commands */

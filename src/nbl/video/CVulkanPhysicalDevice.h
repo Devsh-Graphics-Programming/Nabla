@@ -33,10 +33,27 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             // However, the metadata does not yet fully describe this scenario.
             // In the future, we may extend the XML schema to describe the full set of extensions and versions satisfying a dependency
 
+            if (features.inheritedConditionalRendering)
+                features.conditionalRendering = true;
+
+            if (features.geometryShaderPassthrough)
+                features.geometryShader = true;
+
+            // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
+            if (features.hdrMetadata)
+            {
+                features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
+                // And VK_KHR_swapchain requires VK_KHR_surface instance extension
+            }
+
+            if (features.performanceCounterMultipleQueryPools)
+                features.performanceCounterQueryPools = true;
+
             // `VK_EXT_shader_atomic_float2` Requires `VK_EXT_shader_atomic_float`:
             // this dependancy needs the extension to be enabled not individual features,
             // so this will be handled later on when enabling features before vkCreateDevice
 
+            //! these RT/BVH features are in a very specific order!
             if (features.rayTracingMotionBlur || features.rayTracingMotionBlurPipelineTraceRaysIndirect)
             {
                 features.rayTracingMotionBlur = true;
@@ -46,6 +63,7 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             if (features.rayTraversalPrimitiveCulling)
             {
                 features.rayQuery = true;
+                features.rayTracingPipeline = true; // correct?
             }
 
             if (features.rayTracingPipeline || features.rayQuery)
@@ -63,23 +81,10 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
                 features.deferredHostOperations = true;
             }
 
-            // VK_EXT_hdr_metadata Requires VK_KHR_swapchain to be enabled
-            if (features.hdrMetadata)
-            {
-                features.swapchainMode |= E_SWAPCHAIN_MODE::ESM_SURFACE;
-                // And VK_KHR_swapchain requires VK_KHR_surface instance extension
-            }
-
             // `VK_EXT_fragment_density_map2` Requires `FragmentDensityMapFeaturesEXT`
             if (features.fragmentDensityMapDeferred)
             {
                 features.fragmentDensityMap = true;
-            }
-        
-            if (features.inheritedConditionalRendering)
-            {
-                // make sure features have their main bool enabled!
-                features.conditionalRendering = true;
             }
         
             if (features.fragmentDensityMapDynamic || features.fragmentDensityMapNonSubsampledImages)
@@ -106,10 +111,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             // [NOOP] If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
             // [NOOP] If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
 
-            if (features.geometryShaderPassthrough)
-            {
-                features.geometryShader = true;
-            }
         }
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;
