@@ -6,7 +6,6 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/math/arithmetic.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
 #include <nbl/builtin/hlsl/binops.hlsl>
 // TODO: Remove when PR #519 is merged
@@ -56,9 +55,8 @@ struct normalization_t
 		NBL_REF_ARG(uint16_t3) globalInvocationID,
 		uint16_t localInvocationIndex)
 	{
-		spirv::umul_result_t product = spirv::umulExtended(passedAlphaTestPixelsAccessor.get(workGroupID.z), outPixelCount);
-
-		const uint32_t pixelsShouldPassCount = math::fastDivide_int23_t(product.msb, product.lsb, inPixelCount);
+		const uint64_t product = uint64_t(passedAlphaTestPixelsAccessor.get(workGroupID.z)) * outPixelCount;
+		const uint32_t pixelsShouldPassCount = product / uint64_t(inPixelCount);
 		const uint32_t pixelsShouldFailCount = outPixelCount - pixelsShouldPassCount;
 
 		const uint32_t lastInvocationIndex = ConstevalParameters::WorkGroupSize - 1;
@@ -87,7 +85,7 @@ struct normalization_t
 			if (pixelsShouldFailCount <= cumHistogramVal)
 			{
 				const uint32_t previousBucketVal = bool(localInvocationIndex) ? sharedAccessor.main.get(previousInvocationIndex) : previousBlockSum;
-				if (pixelsShouldFailCount > previousBucketVal)
+				if (pixelsShouldFailCount >= previousBucketVal)
 					sharedAccessor.main.set(ConstevalParameters::WorkGroupSize, virtualInvocation);
 			}
 		}
