@@ -15,14 +15,14 @@ namespace hlsl
 namespace spirv
 {
 template<typename T>
-[[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
-[[vk::ext_instruction(/* OpGroupNonUniformBroadcastFirst */ 338)]]
-T subgroupBroadcastFirst(uint executionScope, T value);
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBroadcastFirst )]]
+T subgroupBroadcastFirst(uint32_t executionScope, T value);
 
 template<typename T>
-[[vk::ext_capability(/* GroupNonUniformBallot */ 64)]]
-[[vk::ext_instruction(/* OpGroupNonUniformBroadcast */ 337)]]
-T subgroupBroadcast(uint executionScope, T value, uint invocationId);
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBroadcast )]]
+T subgroupBroadcast(uint32_t executionScope, T value, uint32_t invocationId);
 }
 }
 }
