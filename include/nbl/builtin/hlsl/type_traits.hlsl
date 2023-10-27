@@ -11,7 +11,6 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -149,8 +148,6 @@
     template<class B> struct negation;
 */
 
-#else
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
@@ -602,20 +599,26 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
-template<typename V>
+template<typename T,bool=is_scalar<T>::value>
 struct scalar_type
 {
     using type = void;
 };
 
+template<typename T>
+struct scalar_type<T,true>
+{
+    using type = T;
+};
+
 template<typename T, uint16_t N>
-struct scalar_type<vector<T,N> >
+struct scalar_type<vector<T,N>,false>
 {
     using type = T;
 };
 
 template<typename T, uint16_t N, uint16_t M>
-struct scalar_type<matrix<T,N,M> >
+struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
 };

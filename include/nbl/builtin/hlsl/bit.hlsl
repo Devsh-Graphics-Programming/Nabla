@@ -1,10 +1,12 @@
 #ifndef _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 
-#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
+
 #ifndef __HLSL_VERSION
+
 #include <bit>
 
 namespace nbl::hlsl
@@ -17,6 +19,9 @@ NBL_ALIAS_TEMPLATE_FUNCTION(std::bit_cast, bit_cast);
 
 }
 #else
+
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+
 namespace nbl
 {
 namespace hlsl
