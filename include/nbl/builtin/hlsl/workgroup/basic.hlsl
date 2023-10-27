@@ -16,6 +16,12 @@ namespace workgroup
 
 static const uint32_t MaxWorkgroupSizeLog2 = 11;
 static const uint32_t MaxWorkgroupSize = 0x1u<<MaxWorkgroupSizeLog2;
+
+uint32_t Volume()
+{
+    const uint32_t3 dims = glsl::gl_WorkGroupSize();
+    return dims.x*dims.y*dims.z;
+}
     
 uint32_t SubgroupContiguousIndex()
 {

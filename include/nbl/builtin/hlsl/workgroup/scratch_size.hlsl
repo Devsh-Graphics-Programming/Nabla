@@ -7,13 +7,14 @@
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 
-// REVIEW-519: Review this whole header and content (whether it should be here or somewhere else)
+
 namespace nbl
 {
 namespace hlsl
 {
 namespace workgroup
 {
+
 namespace impl 
 {
 template<uint32_t N, uint32_t K>
@@ -28,6 +29,20 @@ struct trunc_geom_series<N,K,W,false> : integral_constant<uint32_t,ceil_div<N,W>
 template<uint32_t N, uint32_t K, uint32_t W>
 struct trunc_geom_series<N,K,W,true> : integral_constant<uint32_t,0> {};
 }
+
+template<uint16_t ContiguousItemCount>
+struct scratch_size_ballot
+{
+	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = (ContiguousItemCount+31)>>5;
+};
+
+// you're only writing one element
+NBL_CONSTEXPR_STATIC scratch_size_broadcast = 1u;
+
+// if you know better you can use the actual subgroup size
+template<uint16_t ContiguousItemCount, uint16_t SubgroupSize=subgroup::MinSubgroupSize>
+struct scratch_size_arithmetic : impl::trunc_geom_series<ContiguousItemCount,SubgroupSize> {};
+
 }
 }
 }

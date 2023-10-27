@@ -21,27 +21,21 @@ namespace workgroup
  * We save the value in the shared array in the uballotBitfieldCount index 
  * and then all invocations access that index.
  */
-template<typename T, class SharedAccessor>
-T Broadcast(const T val, NBL_REF_ARG(SharedAccessor) accessor, const uint id)
+template<typename T, class Accessor>
+T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor, const uint32_t id)
 {
-    if(SubgroupContiguousIndex() == id) {
-        accessor.broadcast.set(impl::uballotBitfieldCount, val);
-    }
+    if(SubgroupContiguousIndex()==id)
+        accessor.set(0,val);
     
-    accessor.broadcast.workgroupExecutionAndMemoryBarrier();
+    accessor.workgroupExecutionAndMemoryBarrier();
     
-    return accessor.broadcast.get(impl::uballotBitfieldCount);
+    return accessor.get(0);
 }
 
-template<typename T, class SharedAccessor>
-T BroadcastFirst(const T val, NBL_REF_ARG(SharedAccessor) accessor)
+template<typename T, class Accessor>
+T BroadcastFirst(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor)
 {
-    if (Elect())
-        accessor.broadcast.set(impl::uballotBitfieldCount, val);
-    
-    accessor.broadcast.workgroupExecutionAndMemoryBarrier();
-    
-    return accessor.broadcast.get(impl::uballotBitfieldCount);
+    return Broadcast(val,0);
 }
 
 }
