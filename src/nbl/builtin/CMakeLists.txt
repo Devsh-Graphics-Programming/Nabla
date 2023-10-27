@@ -229,6 +229,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_ari
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_basic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_shuffle.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_vote.hlsl")
 #C++ compatibility
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/intrinsics.h")

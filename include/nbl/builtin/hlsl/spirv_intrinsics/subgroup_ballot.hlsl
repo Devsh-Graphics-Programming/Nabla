@@ -6,6 +6,7 @@
 
 
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
 
 
 namespace nbl 
@@ -23,6 +24,30 @@ template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformBroadcast )]]
 T subgroupBroadcast(uint32_t executionScope, T value, uint32_t invocationId);
+
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBallot )]]
+uint32_t4 subgroupBallot(uint32_t executionScope, bool value);
+
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformInverseBallot )]]
+bool subgroupInverseBallot(uint32_t executionScope, bool value);
+
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBallotBitExtract )]]
+bool subgroupBallotBitExtract(uint32_t executionScope, bool value, uint32_t id);
+
+[[vk::ext_capability( spv::CapabilityGroupNonUniformBallot )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformBallotBitCount )]]
+T subgroupBallotBitCount(uint32_t executionScope, [[vk::ext_literal]] uint32_t operation, uint32_t4 value);
+
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
+[[vk::ext_instruction(spv::OpGroupNonUniformBallotFindLSB)]]
+T subgroupBallotFindLSB(uint32_t executionScope, uint32_t4 value);
+
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
+[[vk::ext_instruction(spv::OpGroupNonUniformBallotFindMSB)]]
+T subgroupBallotFindMSB(uint32_t executionScope, uint32_t4 value);
 }
 }
 }
