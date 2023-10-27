@@ -6,7 +6,7 @@
 
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
-#include "nbl/builtin/hlsl/binops.hlsl"
+#include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 
 namespace nbl
@@ -29,7 +29,7 @@ struct inclusive_scan;
 
 // *** AND ***
 template<typename T>
-struct reduction<T, binops::bitwise_and<T> >
+struct reduction<T, bit_and<T> >
 {
     T operator()(const T x)
     {
@@ -38,7 +38,7 @@ struct reduction<T, binops::bitwise_and<T> >
 };
 
 template<typename T>
-struct inclusive_scan<T, binops::bitwise_and<T> >
+struct inclusive_scan<T, bit_and<T> >
 {
     T operator()(const T x)
     {
@@ -47,7 +47,7 @@ struct inclusive_scan<T, binops::bitwise_and<T> >
 };
 
 template<typename T>
-struct exclusive_scan<T, binops::bitwise_and<T> >
+struct exclusive_scan<T, bit_and<T> >
 {
     T operator()(const T x)
     {
@@ -57,7 +57,7 @@ struct exclusive_scan<T, binops::bitwise_and<T> >
 
 // *** OR ***
 template<typename T>
-struct reduction<T, binops::bitwise_or<T> >
+struct reduction<T, bit_or<T> >
 {
     T operator()(const T x)
     {
@@ -66,7 +66,7 @@ struct reduction<T, binops::bitwise_or<T> >
 };
 
 template<typename T>
-struct inclusive_scan<T, binops::bitwise_or<T> >
+struct inclusive_scan<T, bit_or<T> >
 {
     T operator()(const T x)
     {
@@ -75,7 +75,7 @@ struct inclusive_scan<T, binops::bitwise_or<T> >
 };
 
 template<typename T>
-struct exclusive_scan<T, binops::bitwise_or<T> >
+struct exclusive_scan<T, bit_or<T> >
 {
     T operator()(const T x)
     {
@@ -85,7 +85,7 @@ struct exclusive_scan<T, binops::bitwise_or<T> >
 
 // *** XOR ***
 template<typename T>
-struct reduction<T, binops::bitwise_xor<T> >
+struct reduction<T, bit_xor<T> >
 {
     T operator()(const T x)
     {
@@ -94,7 +94,7 @@ struct reduction<T, binops::bitwise_xor<T> >
 };
 
 template<typename T>
-struct inclusive_scan<T, binops::bitwise_xor<T> >
+struct inclusive_scan<T, bit_xor<T> >
 {
     T operator()(const T x)
     {
@@ -103,7 +103,7 @@ struct inclusive_scan<T, binops::bitwise_xor<T> >
 };
 
 template<typename T>
-struct exclusive_scan<T, binops::bitwise_xor<T> >
+struct exclusive_scan<T, bit_xor<T> >
 {
     T operator()(const T x)
     {
@@ -113,7 +113,7 @@ struct exclusive_scan<T, binops::bitwise_xor<T> >
 
 // *** ADD ***
 template<typename T>
-struct reduction<T, binops::add<T> >
+struct reduction<T, plus<T> >
 {
     T operator()(const T x)
     {
@@ -121,7 +121,7 @@ struct reduction<T, binops::add<T> >
     }
 };
 template<typename T>
-struct inclusive_scan<T, binops::add<T> >
+struct inclusive_scan<T, plus<T> >
 {
     T operator()(const T x)
     {
@@ -129,7 +129,7 @@ struct inclusive_scan<T, binops::add<T> >
     }
 };
 template<typename T>
-struct exclusive_scan<T, binops::add<T> >
+struct exclusive_scan<T, plus<T> >
 {
     T operator()(const T x)
     {
@@ -139,7 +139,7 @@ struct exclusive_scan<T, binops::add<T> >
 
 // *** MUL ***
 template<typename T>
-struct reduction<T, binops::mul<T> >
+struct reduction<T, multiplies<T> >
 {
     T operator()(const T x)
     {
@@ -147,7 +147,7 @@ struct reduction<T, binops::mul<T> >
     }
 };
 template<typename T>
-struct exclusive_scan<T, binops::mul<T> >
+struct exclusive_scan<T, multiplies<T> >
 {
     T operator()(const T x)
     {
@@ -155,7 +155,7 @@ struct exclusive_scan<T, binops::mul<T> >
     }
 };
 template<typename T>
-struct inclusive_scan<T, binops::mul<T> >
+struct inclusive_scan<T, multiplies<T> >
 {
     T operator()(const T x)
     {
@@ -165,7 +165,7 @@ struct inclusive_scan<T, binops::mul<T> >
 
 // *** MIN ***
 template<typename T>
-struct reduction<T, binops::min<T> >
+struct reduction<T, mininum<T> >
 {
     T operator()(const T x)
     {
@@ -174,7 +174,7 @@ struct reduction<T, binops::min<T> >
 };
 
 template<>
-struct inclusive_scan<int, binops::min<int> >
+struct inclusive_scan<int, mininum<int> >
 {
     int operator()(const int x)
     {
@@ -183,7 +183,7 @@ struct inclusive_scan<int, binops::min<int> >
 };
 
 template<>
-struct inclusive_scan<uint, binops::min<uint> >
+struct inclusive_scan<uint, mininum<uint> >
 {
     uint operator()(const uint x)
     {
@@ -192,7 +192,7 @@ struct inclusive_scan<uint, binops::min<uint> >
 };
 
 template<>
-struct inclusive_scan<uint, binops::min<float> >
+struct inclusive_scan<uint, mininum<float> >
 {
     float operator()(const float x)
     {
@@ -201,7 +201,7 @@ struct inclusive_scan<uint, binops::min<float> >
 };
 
 template<>
-struct exclusive_scan<int, binops::min<int> >
+struct exclusive_scan<int, mininum<int> >
 {
     int operator()(const int x)
     {
@@ -210,7 +210,7 @@ struct exclusive_scan<int, binops::min<int> >
 };
 
 template<>
-struct exclusive_scan<uint, binops::min<uint> >
+struct exclusive_scan<uint, mininum<uint> >
 {
     uint operator()(const uint x)
     {
@@ -219,7 +219,7 @@ struct exclusive_scan<uint, binops::min<uint> >
 };
 
 template<>
-struct exclusive_scan<uint, binops::min<float> >
+struct exclusive_scan<uint, mininum<float> >
 {
     float operator()(const float x)
     {
@@ -229,7 +229,7 @@ struct exclusive_scan<uint, binops::min<float> >
 
 // *** MAX ***
 template<typename T>
-struct reduction<T, binops::max<T> >
+struct reduction<T, maximum<T> >
 {
     T operator()(const T x)
     {
@@ -238,7 +238,7 @@ struct reduction<T, binops::max<T> >
 };
 
 template<>
-struct inclusive_scan<int, binops::max<int> >
+struct inclusive_scan<int, maximum<int> >
 {
     int operator()(const int x)
     {
@@ -247,7 +247,7 @@ struct inclusive_scan<int, binops::max<int> >
 };
 
 template<>
-struct inclusive_scan<uint, binops::max<uint> >
+struct inclusive_scan<uint, maximum<uint> >
 {
     uint operator()(const uint x)
     {
@@ -256,7 +256,7 @@ struct inclusive_scan<uint, binops::max<uint> >
 };
 
 template<>
-struct inclusive_scan<uint, binops::max<float> >
+struct inclusive_scan<uint, maximum<float> >
 {
     float operator()(const float x)
     {
@@ -265,7 +265,7 @@ struct inclusive_scan<uint, binops::max<float> >
 };
 
 template<>
-struct exclusive_scan<int, binops::max<int> >
+struct exclusive_scan<int, maximum<int> >
 {
     int operator()(const int x)
     {
@@ -274,7 +274,7 @@ struct exclusive_scan<int, binops::max<int> >
 };
 
 template<>
-struct exclusive_scan<uint, binops::max<uint> >
+struct exclusive_scan<uint, maximum<uint> >
 {
     uint operator()(const uint x)
     {
@@ -283,7 +283,7 @@ struct exclusive_scan<uint, binops::max<uint> >
 };
 
 template<>
-struct exclusive_scan<uint, binops::max<float> >
+struct exclusive_scan<uint, maximum<float> >
 {
     float operator()(const float x)
     {

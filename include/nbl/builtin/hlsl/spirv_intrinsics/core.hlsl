@@ -122,5 +122,3 @@ T bitcast(U);
 #endif
 }
 }
-
-#endif
