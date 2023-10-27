@@ -7,8 +7,12 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #endif
+
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
