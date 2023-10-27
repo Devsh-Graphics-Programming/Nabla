@@ -29,7 +29,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
 namespace nbl::asset::hlsl::impl
 {
@@ -110,7 +110,7 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
         std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
         re.append("error ");
         re.append(requestedSource);
-        re.append(" not found");
+        re.append(" not found\n");
         includeStack.push_back(includeStack.back());
         return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
@@ -260,7 +260,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
-                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler")));
+                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler\n")));
             }
         };
         info.mOnPopIncludeCallback = [&]() {
@@ -376,6 +376,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-spirv",
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
+        L"-Zpr", // Packs matrices in row-major order by default
+        L"-enable-16bit-types",
+        L"-fvk-use-scalar-layout",
+        L"-Wno-c++11-extensions",
+        L"-fspv-target-env=vulkan1.3"
     };
 
     // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.

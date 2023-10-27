@@ -13,31 +13,97 @@ namespace hlsl
 {
 namespace shapes
 {
+    // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
+    // GH link https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
+    // Credits to Doublefresh for hinting there
+    // returns the roots, and number of filled in real values under numRealValues
+    float2 SolveQuadratic(float3 c, out int numRealValues)
+    {
+        // bhaskara: x = (-b ± √(b² – 4ac)) / (2a)
+        float b = c.y / (2 * c.z);
+        float q = c.x / c.z;
+        float delta = b * b - q;
+
+        if (delta == 0.0) // Δ = 0
+        {
+            numRealValues = 1;
+            return float2(-b, 0.0);
+        }
+        if (delta < 0) // Δ < 0 (no real values)
+        {
+            numRealValues = 0;
+            return 0.0;
+        }
+
+        // Δ > 0 (two distinct real values)
+        float sqrtD = sqrt(delta);
+        numRealValues = 2;
+        return float2(sqrtD - b, sqrtD + b);
+    }
+
     struct QuadraticBezier
     {
         float2 A;
         float2 B;
         float2 C;
+
+        static QuadraticBezier construct(float2 a, float2 b, float2 c)
+        {
+            QuadraticBezier ret = { a, b, c };
+            return ret;
+        }
+
+        float2 evaluate(float t)
+        {
+            float2 position = A * (1.0 - t) * (1.0 - t) 
+                      + 2.0 * B * (1.0 - t) * t
+                      +       C * t         * t;
+            return position;
+        }
+
+        // https://pomax.github.io/bezierinfo/#yforx
+        float tForMajorCoordinate(const int major, float x) 
+        { 
+            float a = A[major] - x;
+            float b = B[major] - x;
+            float c = C[major] - x;
+            int rootCount;
+            float2 roots = SolveQuadratic(float3(a, b, c), rootCount);
+            // assert(rootCount == 1);
+            return roots.x;
+        }
+    };
+
+    struct QuadraticBezierOutline
+    {
+        QuadraticBezier bezier;
         float thickness;
 
-        static QuadraticBezier construct(float2 a, float2 b, float2 c, float thickness)
+        static QuadraticBezierOutline construct(float2 a, float2 b, float2 c, float thickness)
         {
-            QuadraticBezier ret = { a, b, c, thickness };
+            QuadraticBezier bezier = { a, b, c };
+            QuadraticBezierOutline ret = { bezier, thickness };
             return ret;
         }
 
         // original from https://www.shadertoy.com/view/lsyfWc
         float ud(float2 pos)
         {
+            const float2 A = bezier.A;
+            const float2 B = bezier.B;
+            const float2 C = bezier.C;
+                    
             // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
             // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
             // p'(0)   = 2(B-A)
             // p'(1)   = 2(C-B)
             // p'(1/2) = 2(C-A)
+                    
             float2 a = B - A;
             float2 b = A - 2.0*B + C;
             float2 c = A - pos;
 
+            // Reducing Quartic to Cubic Solution
             float kk = 1.0 / dot(b,b);
             float kx = kk * dot(a,b);
             float ky = kk * (2.0*dot(a,a)+dot(c,b)) / 3.0;
@@ -45,6 +111,9 @@ namespace shapes
 
             float2 res;
 
+            // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
+            // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
+            // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
             float p = ky - kx*kx;
             float p3 = p*p*p;
             float q = kx*(2.0*kx*kx - 3.0*ky) + kz;
@@ -54,6 +123,19 @@ namespace shapes
             { 
                 h = sqrt(h);
                 float2 x = (float2(h, -h) - q) / 2.0;
+
+                // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
+                if(abs(abs(h/q) - 1.0) < 0.0001)
+                {
+                   // Approximation of x where h and q are close with no carastrophic cancellation
+                   // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
+                      // Now let's do linear taylor expansion of √(1+x) to approximate √(1+w)
+                      // Taylor expansion at 0 -> f(x)=f(0)+f'(0)*(x) = 1+½x 
+                      // So √(1+w) can be approximated by 1+½w
+                      // Simplifying later and the fact that w=4p³/q will result in the following.
+                   x = float2(p3/q, -q - p3/q);
+                }
+
                 float2 uv = sign(x)*pow(abs(x), float2(1.0/3.0,1.0/3.0));
                 float t = uv.x + uv.y - kx;
                 t = clamp( t, 0.0, 1.0 );
@@ -240,8 +322,8 @@ namespace shapes
 
         // Modified from http://tog.acm.org/resources/GraphicsGems/gems/Roots3And4.c
         // Credits to Doublefresh for hinting there
-        int solve_quadric(float2 coeffs, inout float2 roots){
-
+        int solve_quadric(float2 coeffs, inout float2 roots)
+        {
             // normal form: x^2 + px + q = 0
             float p = coeffs[1] / 2.;
             float q = coeffs[0];
