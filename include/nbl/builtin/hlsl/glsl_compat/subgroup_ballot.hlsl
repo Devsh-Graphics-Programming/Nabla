@@ -20,7 +20,7 @@ T subgroupBroadcastFirst(T value)
 }
 
 template<typename T>
-T subgroupBroadcast(T value, uint invocationId)
+T subgroupBroadcast(T value, uint32_t invocationId)
 {
     return spirv::subgroupBroadcast<T>(/* Subgroup Scope */ 3, value, invocationId);
 }
