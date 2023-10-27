@@ -5,7 +5,10 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
 
+#ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
+//#include "spirv/unified1/spirv.hpp" TODO: also GLSL.450.std for the extended instruction set
+#endif
 
 
 namespace nbl 
@@ -122,3 +125,5 @@ T bitcast(U);
 #endif
 }
 }
+
+#endif
