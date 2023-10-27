@@ -220,12 +220,6 @@ struct conditional : type_identity<T> {};
 template<class T, class F>
 struct conditional<false, T, F>  : type_identity<F> {};
 
-template<bool C, typename T, T A, T B>
-struct conditional_value
-{
-    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
-};
-
 template<class A, class B>
 struct is_same : bool_constant<false> {};
 
@@ -586,6 +580,11 @@ using make_unsigned = std::make_unsigned<T>;
 #endif
 
 // Overlapping definitions
+template<bool C, typename T, T A, T B>
+struct conditional_value
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
+};
 
 template<class T>
 struct is_vector : bool_constant<false> {};

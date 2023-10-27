@@ -29,14 +29,14 @@ template<class Binop, typename T=typename Binop::type_t>
 struct reduction;
 template<class Binop, typename T=typename Binop::type_t>
 struct inclusive_scan;
-template<class Binop, typename T = typename Binop::type_t>
+template<class Binop, typename T=typename Binop::type_t>
 struct exclusive_scan;
 
 #define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<BINOP<T>,T> \
 { \
     using type_t = T; \
  \
-    type_t operator()(NBL_CONST_REF_ARG(type_t) v) {return glsl::subgroup##SUBGROUP_OP<type_t>(x);} \
+    type_t operator()(NBL_CONST_REF_ARG(type_t) v) {return glsl::subgroup##SUBGROUP_OP<type_t>(v);} \
 }
 
 #define SPECIALIZE_ALL(BINOP,SUBGROUP_OP) SPECIALIZE(reduction,BINOP,SUBGROUP_OP); \
@@ -74,6 +74,11 @@ struct inclusive_scan
 
     type_t operator()(type_t value)
     {
+        return __call(value);
+    }
+
+    static type_t __call(type_t value)
+    {
         Binop op;
         const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
         const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
@@ -98,7 +103,7 @@ struct exclusive_scan
 
     type_t operator()(type_t value)
     {
-        value = inclusive_scan<type_t, Binop>(value);
+        value = inclusive_scan<Binop>::__call(value);
         // can't risk getting short-circuited, need to store to a var
         type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
         // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
@@ -114,7 +119,7 @@ struct reduction
     type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         // take the last subgroup invocation's value for the reduction
-        return BroadcastLast<type_t>(inclusive_scan<type_t,Binop>(value));
+        return BroadcastLast<type_t>(inclusive_scan<Binop>::__call(value));
     }
 };
 }

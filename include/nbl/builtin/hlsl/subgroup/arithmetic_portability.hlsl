@@ -18,9 +18,9 @@ namespace subgroup
 {
 
 #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-#define IMPL native
-#else
 #define IMPL portability
+#else
+#define IMPL native
 #endif
 
 template<class Binop>

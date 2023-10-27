@@ -31,7 +31,8 @@ ALIAS_STD(bit_and,&)
     using scalar_t = typename scalar_type<T>::type;
     using bitfield_t = typename unsigned_integer_of_size<sizeof(scalar_t)>::type;
 
-    NBL_CONSTEXPR_STATIC_INLINE T identity = bit_cast<scalar_t,bitfield_t>(~0ull); // TODO: need a `all_components<T>` (not in cpp_compat) which can create vectors and matrices with all members set to scalar
+    static_assert(!is_floating_point<T>::value,"We cannot define the identity element properly, you can thank https://github.com/microsoft/DirectXShaderCompiler/issues/5868 !");
+    NBL_CONSTEXPR_STATIC_INLINE T identity = ~bitfield_t(0); // TODO: need a `all_components<T>` (not in cpp_compat) which can create vectors and matrices with all members set to scalar
 };
 
 ALIAS_STD(bit_or,|)
