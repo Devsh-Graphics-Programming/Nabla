@@ -600,7 +600,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineL
     }
     nonNullSetLayoutCount++;
 
-    VkPushConstantRange vk_pushConstantRanges[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+    VkPushConstantRange vk_pushConstantRanges[SPhysicalDeviceLimits::MaxMaxPushConstantsSize];
     auto oit = vk_pushConstantRanges;
     for (const auto pcRange : pcRanges)
     {

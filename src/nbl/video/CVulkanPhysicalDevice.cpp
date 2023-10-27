@@ -17,8 +17,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     //  except for a VkPhysicalDevice and its children. VkPhysicalDeviceProperties::apiVersion is the version associated with a VkPhysicalDevice and its children."
     VkPhysicalDeviceProperties vk_deviceProperties;
     {
-        vkGetPhysicalDeviceProperties(vk_physicalDevice,&vk_deviceProperties);
-        if (vk_deviceProperties.apiVersion<MinimumVulkanApiVersion)
+        vkGetPhysicalDeviceProperties(vk_physicalDevice, &vk_deviceProperties);
+        if (vk_deviceProperties.apiVersion < MinimumVulkanApiVersion)
         {
             logger.log(
                 "Not enumerating VkPhysicalDevice %p because it does not support minimum required version %d, supports %d instead!",
@@ -35,7 +35,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.driverVersion = vk_deviceProperties.driverVersion;
         properties.vendorID = vk_deviceProperties.vendorID;
         properties.deviceID = vk_deviceProperties.deviceID;
-        switch(vk_deviceProperties.deviceType)
+        switch (vk_deviceProperties.deviceType)
         {
             case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
                 properties.deviceType = E_TYPE::ET_INTEGRATED_GPU;
@@ -54,8 +54,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         }
         memcpy(properties.deviceName, vk_deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
         memcpy(properties.pipelineCacheUUID, vk_deviceProperties.pipelineCacheUUID, VK_UUID_SIZE);
-        
-        
+
+
         // grab all limits we expose
         properties.limits.maxImageDimension1D = vk_deviceProperties.limits.maxImageDimension1D;
         properties.limits.maxImageDimension2D = vk_deviceProperties.limits.maxImageDimension2D;
@@ -65,7 +65,16 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxBufferViewTexels = vk_deviceProperties.limits.maxTexelBufferElements;
         properties.limits.maxUBOSize = vk_deviceProperties.limits.maxUniformBufferRange;
         properties.limits.maxSSBOSize = vk_deviceProperties.limits.maxStorageBufferRange;
-        properties.limits.maxPushConstantsSize = vk_deviceProperties.limits.maxPushConstantsSize;
+        if (vk_deviceProperties.limits.maxPushConstantsSize > SLimits::MaxMaxPushConstantsSize)
+        {
+            logger.log(
+                "Encountered VkPhysicalDevice %p which has higher Push Constant Size (%d) limit than we anticipated (%d), clamping the reported value!",
+                system::ILogger::ELL_WARNING, vk_physicalDevice, vk_deviceProperties.limits.maxPushConstantsSize, SLimits::MaxMaxPushConstantsSize
+            );
+            properties.limits.maxPushConstantsSize = SLimits::MaxMaxPushConstantsSize;
+        }
+        else
+            properties.limits.maxPushConstantsSize = vk_deviceProperties.limits.maxPushConstantsSize;
         properties.limits.maxMemoryAllocationCount = vk_deviceProperties.limits.maxMemoryAllocationCount;
         properties.limits.maxSamplerAllocationCount = vk_deviceProperties.limits.maxSamplerAllocationCount;
         properties.limits.bufferImageGranularity = vk_deviceProperties.limits.bufferImageGranularity;

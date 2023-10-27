@@ -22,6 +22,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxUBOSize = 1u<<16u;
     constexpr static inline uint32_t MinMaxSSBOSize = 1u<<30u;
     uint32_t maxSSBOSize = MinMaxSSBOSize;
+    constexpr static inline uint16_t MaxMaxPushConstantsSize = 256u;
     uint16_t maxPushConstantsSize = 128u;
     uint32_t maxMemoryAllocationCount = 1u<<12u;
     uint32_t maxSamplerAllocationCount = 4000u;
@@ -986,7 +987,6 @@ struct SPhysicalDeviceLimits
         if (shaderSharedFloat32AtomicAdd && _rhs.shaderSharedFloat32AtomicAdd) return false;
         if (shaderSharedFloat64Atomics && _rhs.shaderSharedFloat64Atomics) return false;
         if (shaderSharedFloat64AtomicAdd && _rhs.shaderSharedFloat64AtomicAdd) return false;
-        if (shaderImageFloat32Atomics && _rhs.shaderImageFloat32Atomics) return false;
         if (shaderImageFloat32AtomicAdd && _rhs.shaderImageFloat32AtomicAdd) return false;
         if (sparseImageFloat32Atomics && _rhs.sparseImageFloat32Atomics) return false;
         if (sparseImageFloat32AtomicAdd && _rhs.sparseImageFloat32AtomicAdd) return false;

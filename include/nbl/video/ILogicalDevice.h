@@ -573,7 +573,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (_layout3 && !_layout3->wasCreatedBy(this))
                 return nullptr;
             // sanity check
-            if (pcRanges.size()>IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE*MaxStagesPerPipeline)
+            if (pcRanges.size()>getPhysicalDeviceLimits().maxPushConstantsSize*MaxStagesPerPipeline)
                 return nullptr;
             core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::ESS_UNKNOWN;
             uint32_t maxPCByte = 0u;
@@ -582,7 +582,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 stages |= range.stageFlags;
                 maxPCByte = core::max(range.offset+range.size,maxPCByte);
             }
-            if (maxPCByte>IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
+            if (maxPCByte>getPhysicalDeviceLimits().maxPushConstantsSize)
                 return nullptr;
             // TODO: validate `stages` against the supported ones as reported by enabled features
             return createPipelineLayout_impl(pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3));
