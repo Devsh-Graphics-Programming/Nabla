@@ -4,13 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_MPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MPL_INCLUDED_
 
-#ifdef __HLSL_VERSION
+
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
-#else
-#include <bit>
 
-#endif
 
 namespace nbl
 {
