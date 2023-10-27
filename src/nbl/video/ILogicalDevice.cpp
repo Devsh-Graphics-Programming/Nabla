@@ -309,6 +309,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
     
     {
         const auto& features = getEnabledFeatures();
+#if 0
         if (features.robustBufferAccess) addShaderDefineToPool(pool, "NBL_ROBUST_BUFFER_ACCESS");
         if (features.geometryShader) addShaderDefineToPool(pool, "NBL_GEOMETRY_SHADER");
         if (features.tessellationShader) addShaderDefineToPool(pool, "NBL_TESSELLATION_SHADER");
@@ -418,12 +419,12 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         // if (features.bufferMarkerAMD) addShaderDefineToPool(pool, "NBL_BUFFER_MARKER_AMD"); // shader doesn't need to know about
 
         if (features.geometryShaderPassthrough) addShaderDefineToPool(pool, "NBL_GEOMETRY_SHADER_PASSTHROUGH");
-
+#endif
 
         if (runningInRenderdoc)
             addShaderDefineToPool(pool,"NBL_RUNNING_IN_RENDERDOC");
 
-
+#if 0
         const auto& limits = m_physicalDevice->getProperties().limits;
         addShaderDefineToPool(pool,"NBL_MAX_IMAGE_DIMENSION_1D", limits.maxImageDimension1D);
         addShaderDefineToPool(pool,"NBL_MAX_IMAGE_DIMENSION_2D", limits.maxImageDimension2D);
@@ -766,6 +767,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         addShaderDefineToPool(pool, "NBL_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS", limits.maxOptimallyResidentWorkgroupInvocations);
         addShaderDefineToPool(pool, "NBL_MAX_RESIDENT_INVOCATIONS", limits.maxResidentInvocations);
         addShaderDefineToPool(pool, "NBL_SPIRV_VERSION", static_cast<uint32_t>(limits.spirvVersion));
+#endif
     }
 
     // finalize
