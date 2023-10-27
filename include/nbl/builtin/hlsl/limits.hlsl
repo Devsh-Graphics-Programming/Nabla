@@ -192,7 +192,7 @@ struct num_base : type_identity<T>
 template<class T> 
 struct num_traits : num_base<T>
 {
-    NBL_CONSTEXPR_STATIC_INLINE T min            = num_base<T>::is_signed ? (T(1)<<num_base<T>::digits) : T(0);
+    NBL_CONSTEXPR_STATIC_INLINE T min            = num_base<T>::is_signed ? (T(1)<<(num_base<T>::digits-1)) : T(0);
     NBL_CONSTEXPR_STATIC_INLINE T max            = ~(T(num_base<T>::is_signed)<<num_base<T>::digits);
     NBL_CONSTEXPR_STATIC_INLINE T denorm_min     = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN      = T(0);
@@ -273,9 +273,9 @@ struct numeric_limits : std::numeric_limits<T>
     NBL_CONSTEXPR_STATIC_INLINE T epsilon = base::epsilon();
     NBL_CONSTEXPR_STATIC_INLINE T round_error = base::round_error();
 
-    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast(base::quiet_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast(base::signaling_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast(base::infinity());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast<uint_type>(base::quiet_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast<uint_type>(base::signaling_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast<uint_type>(base::infinity());
 };
 
 #endif

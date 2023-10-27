@@ -14,9 +14,12 @@ namespace nbl
 namespace hlsl
 {
 #ifndef __HLSL_VERSION // CPP
-#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> {
+#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
+    using type_t = T;
 #else
 #define ALIAS_STD(NAME,OP) template<typename T> struct NAME { \
+    using type_t = T; \
+    \
     T operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
     { \
         return lhs OP rhs; \
@@ -25,8 +28,10 @@ namespace hlsl
 
 
 ALIAS_STD(bit_and,&)
+    using scalar_t = typename scalar_type<T>::type;
+    using bitfield_t = typename unsigned_integer_of_size<sizeof(scalar_t)>::type;
 
-    NBL_CONSTEXPR_STATIC_INLINE T identity = bit_cast<scalar_type<T>::type>(~0ull); // TODO: need a `all_components<T>` (not in cpp_compat) which can create vectors and matrices with all members set to scalar
+    NBL_CONSTEXPR_STATIC_INLINE T identity = bit_cast<scalar_t,bitfield_t>(~0ull); // TODO: need a `all_components<T>` (not in cpp_compat) which can create vectors and matrices with all members set to scalar
 };
 
 ALIAS_STD(bit_or,|)
@@ -64,23 +69,29 @@ ALIAS_STD(less_equal,<=) };
 template<typename T>
 struct minimum
 {
+    using type_t = T;
+    using scalar_t = typename scalar_type<T>::type;
+
     T operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
     {
         return rhs<lhs ? rhs:lhs;
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_type<T>::type>::max; // TODO: `all_components<T>`
+    NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::max; // TODO: `all_components<T>`
 };
 
 template<typename T>
 struct maximum
 {
+    using type_t = T;
+    using scalar_t = typename scalar_type<T>::type;
+
     T operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
     {
         return lhs<rhs ? rhs:lhs;
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_type<T>::type>::lowest; // TODO: `all_components<T>`
+    NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
 }

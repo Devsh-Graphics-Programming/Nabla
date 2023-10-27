@@ -599,6 +599,7 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
+
 template<typename T,bool=is_scalar<T>::value>
 struct scalar_type
 {
@@ -621,6 +622,31 @@ template<typename T, uint16_t N, uint16_t M>
 struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
+};
+
+
+template<uint16_t bytesize>
+struct unsigned_integer_of_size
+{
+    using type = void;
+};
+
+template<>
+struct unsigned_integer_of_size<2>
+{
+    using type = uint16_t;
+};
+
+template<>
+struct unsigned_integer_of_size<4>
+{
+    using type = uint32_t;
+};
+
+template<>
+struct unsigned_integer_of_size<8>
+{
+    using type = uint64_t;
 };
 
 }

@@ -12,10 +12,16 @@
 namespace nbl::hlsl
 {
 
+// NBL_ALIAS_TEMPLATE_FUNCTION variadic templates aren't always appropriate
+template<typename To, typename From>
+constexpr To bit_cast(const From& from)
+{
+    return std::bit_cast<To,From>(from);
+}
+
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::bit_cast, bit_cast);
 
 }
 #else
