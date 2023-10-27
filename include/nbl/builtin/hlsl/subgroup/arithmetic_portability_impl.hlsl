@@ -22,19 +22,21 @@ namespace hlsl
 namespace subgroup
 {
 
-#ifdef NBL_GL_KHR_shader_subgroup_arithmetic
 namespace native
 {
 
-template<typename T, class Binop>
+template<class Binop, typename T=typename Binop::type_t>
 struct reduction;
-template<typename T, class Binop>
-struct exclusive_scan;
-template<typename T, class Binop>
+template<class Binop, typename T=typename Binop::type_t>
 struct inclusive_scan;
+template<class Binop, typename T = typename Binop::type_t>
+struct exclusive_scan;
 
-#define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<T,BINOP<T> > { \
-    T operator()(NBL_CONST_REF_ARG(T) v) {return glsl::subgroup##SUBGROUP_OP<T>(x);} \
+#define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<BINOP<T>,T> \
+{ \
+    using type_t = T; \
+ \
+    type_t operator()(NBL_CONST_REF_ARG(type_t) v) {return glsl::subgroup##SUBGROUP_OP<type_t>(x);} \
 }
 
 #define SPECIALIZE_ALL(BINOP,SUBGROUP_OP) SPECIALIZE(reduction,BINOP,SUBGROUP_OP); \
@@ -55,7 +57,7 @@ SPECIALIZE_ALL(maximum,Max);
 #undef SPECIALIZE
 
 }
-#else
+
 namespace portability
 {
     
@@ -65,43 +67,58 @@ namespace portability
 // which means that our portability reductions and prefix sums will also return garbage/UB/UV
 // Always use the native subgroup_arithmetic extensions if supported
     
-template<typename T, class Binop>
-T inclusive_scan(T value)
+template<class Binop>
+struct inclusive_scan
 {
-    Binop op;
-    const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-    const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
-    
-    uint rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-    value = op(value, subgroupInvocation<1u ? Binop::identity:rhs);
-    
-    [[unroll(MinSubgroupSizeLog2-1)]]
-    for (uint step=2u; step<=halfSubgroupSize; step <<= 1u)
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(type_t value)
     {
-        rhs = glsl::subgroupShuffleUp<T>(value, step);
-        value = op(value, subgroupInvocation<step ? Binop::identity:rhs);
+        Binop op;
+        const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
+    
+        uint rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+        value = op(value, subgroupInvocation<1u ? Binop::identity:rhs);
+    
+        [[unroll(MinSubgroupSizeLog2-1)]]
+        for (uint step=2u; step<=halfSubgroupSize; step <<= 1u)
+        {
+            rhs = glsl::subgroupShuffleUp<type_t>(value, step);
+            value = op(value, subgroupInvocation<step ? Binop::identity:rhs);
+        }
+        return value;
     }
-    return value;
+};
+
+template<class Binop>
+struct exclusive_scan
+{
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(type_t value)
+    {
+        value = inclusive_scan<type_t, Binop>(value);
+        // can't risk getting short-circuited, need to store to a var
+        type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
+        // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
+        return bool(glsl::gl_SubgroupInvocationID()) ? left:Binop::identity;
+    }
+};
+
+template<class Binop>
+struct reduction
+{
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
+    {
+        // take the last subgroup invocation's value for the reduction
+        return BroadcastLast<type_t>(inclusive_scan<type_t,Binop>(value));
+    }
+};
 }
 
-template<typename T, class Binop>
-T exclusive_scan(T value)
-{
-    value = inclusive_scan<T, Binop>(value);
-    // can't risk getting short-circuited, need to store to a var
-    T left = glsl::subgroupShuffleUp<T>(value,1);
-    // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-    return bool(glsl::gl_SubgroupInvocationID()) ? left:Binop::identity;
-}
-
-template<typename T, class Binop>
-T reduction(NBL_CONST_REF_ARG(T) value)
-{
-    // take the last subgroup invocation's value for the reduction
-    return BroadcastLast<T>(inclusive_scan<T,Binop>(value));
-}
-}
-#endif
 }
 }
 }
