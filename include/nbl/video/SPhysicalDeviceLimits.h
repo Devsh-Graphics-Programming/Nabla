@@ -470,6 +470,11 @@ struct SPhysicalDeviceLimits
     /* VK_GOOGLE_decorate_string */
     bool decorateString = false;
 
+    /* VK_EXT_shader_image_atomic_int64 */
+    /* ShaderImageAtomicInt64FeaturesEXT */
+    bool shaderImageInt64Atomics = false;
+    bool sparseImageInt64Atomics = false;
+
     // [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
     /* VK_EXT_line_rasterization */
     /* LineRasterizationPropertiesEXT */
@@ -489,11 +494,6 @@ struct SPhysicalDeviceLimits
     bool shaderSharedFloat64AtomicMinMax = false;
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
-
-    /* VK_EXT_shader_image_atomic_int64 */
-    /* ShaderImageAtomicInt64FeaturesEXT */
-    bool shaderImageInt64Atomics = false;
-    bool sparseImageInt64Atomics = false;
 
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     /* VK_NV_device_generated_commands */

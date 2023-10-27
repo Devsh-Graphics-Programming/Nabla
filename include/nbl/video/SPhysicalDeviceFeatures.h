@@ -925,16 +925,16 @@ struct SPhysicalDeviceFeatures
     // VK_GOOGLE_extension_195
     // VK_GOOGLE_extension_196
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to VK Core 1.x
     // VK_KHR_driver_properties
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to VK Core 1.x
     // VK_KHR_shader_float_controls
 
     // [DEPRECATED] Superseded by `clustered` subgroup ops
     /* VK_NV_shader_subgroup_partitioned */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Promoted to VK Core 1.x
     // VK_KHR_depth_stencil_resolve
 
     // [DEPRECATED] Vulkan 1.2 core non-optional
@@ -946,7 +946,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Expose the KHR extension instead
     /* MeshShaderFeaturesNV *//* VK_NV_mesh_shader */
 
-    // [DO NOT EXPOSE] Deprecated
+    // [DO NOT EXPOSE] Deprecated by KHR version
     /* FragmentShaderBarycentricFeaturesNV *//* VK_NV_fragment_shader_barycentric */
 
     // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits 
@@ -977,7 +977,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] Vulkan 1.2 Core but 1.3 non-optional and we require it
     /* VK_KHR_vulkan_memory_model */
 
-    // [LIMIT] We don't support yet
+    // [LIMIT] We just report it
     // VK_EXT_pci_bus_info
 
     // [DO NOT EXPOSE] Waiting for cross platform
@@ -1005,19 +1005,19 @@ struct SPhysicalDeviceFeatures
     // VK_EXT_extension_220
     // VK_KHR_extension_221
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Vulkan 1.3 core and Nabla core profile required
     // VK_EXT_scalar_block_layout
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_EXT_extension_223
 
-    // [TODO]
+    // [DO NOT EXPOSE] We compile our own SPIR-V like real men
     /* VK_GOOGLE_hlsl_functionality1 */
 
     // Enabled by Default, Moved to Limits
     /* VK_GOOGLE_decorate_string */
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] We don't support yet, but TODO
     // VK_EXT_subgroup_size_control
 
     // [DO NOT EXPOSE] not implementing or exposing VRS in near or far future
@@ -1039,7 +1039,7 @@ struct SPhysicalDeviceFeatures
     // VK_AMD_extension_233
     // VK_AMD_extension_234
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [EXPOSE AS A LIMIT]
     // VK_EXT_shader_image_atomic_int64
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -1072,7 +1072,7 @@ struct SPhysicalDeviceFeatures
     // [DEPRECATED] by VK_KHR_buffer_device_address
     // VK_EXT_buffer_device_address
 
-    // [DO NOT EXPOSE] we dont need to care or know about it
+    // [DO NOT EXPOSE] we dont need to care or know about it, unless for BDA/RT Replays?
     /* VK_EXT_tooling_info */
 
     // [DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it
@@ -1111,7 +1111,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_headless_surface
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Core in Vulkan 1.3 and NAbla Core Profile
     // VK_KHR_buffer_device_address
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1128,10 +1128,6 @@ struct SPhysicalDeviceFeatures
 
     // [NAbla core Profile LIMIT] 
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
-
-    // [EXPOSE AS LIMIT]
-    /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
-    /* ShaderImageAtomicInt64FeaturesEXT *//* VK_EXT_shader_image_atomic_int64 */
 
     // [DEPRECATED] MOVED TO Vulkan 1.2 Core
     /* HostQueryResetFeatures *//* VK_EXT_host_query_reset */
@@ -1158,7 +1154,7 @@ struct SPhysicalDeviceFeatures
     /* PipelineExecutablePropertiesFeaturesKHR *//* VK_KHR_pipeline_executable_properties */
     bool pipelineExecutableInfo = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] We don't support yet, but should when ubiquitous
     // VK_EXT_host_image_copy
 
     // [DO NOT EXPOSE] We don't support yet
@@ -1166,9 +1162,9 @@ struct SPhysicalDeviceFeatures
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
     // VK_INTEL_extension_273
-
-    // [DO NOT EXPOSE] We don't support yet
-    // VK_EXT_shader_atomic_float2
+    
+    // [EXPOSE AS LIMIT]
+    /* ShaderAtomicFloat2FeaturesEXT *//* VK_EXT_shader_atomic_float2 */
 
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_surface_maintenance1
@@ -1176,7 +1172,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_EXT_swapchain_maintenance1
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] Core in Vulkan 1.3
     // VK_EXT_shader_demote_to_helper_invocation
 
     // [TODO] need impl
@@ -1297,7 +1293,7 @@ struct SPhysicalDeviceFeatures
     /* GraphicsPipelineLibraryFeaturesEXT *//* VK_EXT_graphics_pipeline_library */
     //bool           graphicsPipelineLibrary;
 
-    // [TODO] this one isn't in the headers // Always enable, expose as limit
+    // [EXPOSE AS A LIMIT]
     /* VK_AMD_shader_early_and_late_fragment_tests */
     //bool shaderEarlyAndLateFragmentTests;
 
@@ -1316,12 +1312,11 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before
     /* VK_NV_fragment_shading_rate_enums */
 
-
     /* RayTracingMotionBlurFeaturesNV *//* VK_NV_ray_tracing_motion_blur */
     bool rayTracingMotionBlur = false;
     bool rayTracingMotionBlurPipelineTraceRaysIndirect = false;
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DEPRECATED] By KHR_mesh_shader
     // VK_EXT_mesh_shader
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -1736,7 +1731,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] We don't support yet
     // VK_NV_external_sci_sync2
 
-    // [DO NOT EXPOSE] We don't support yet
+    // [DO NOT EXPOSE] We don't support yet, but a TODO
     // VK_NV_ray_tracing_invocation_reorder
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
