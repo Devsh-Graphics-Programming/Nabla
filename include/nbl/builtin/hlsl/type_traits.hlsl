@@ -145,6 +145,8 @@
     template<class B> struct negation;
 */
 
+#else
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {

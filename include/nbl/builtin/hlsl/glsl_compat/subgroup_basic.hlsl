@@ -53,17 +53,27 @@ uint4 gl_SubgroupLtMask() {
 }
 
 bool subgroupElect() {
-    return spirv::subgroupElect(/*subgroup execution scope*/ 3);
+    return spirv::subgroupElect(spv::ScopeSubgroup);
 }
 
-// Memory Semantics: AcquireRelease, UniformMemory, WorkgroupMemory, AtomicCounterMemory, ImageMemory
 void subgroupBarrier() {
-    // REVIEW-519: barrier with subgroup scope is not supported  so leave commented out for now 
-    //spirv::controlBarrier(3, 3, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
+    spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrier() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrierBuffer() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
 }
 
 void subgroupMemoryBarrierShared() {
-    spirv::memoryBarrier(3, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
+}
+
+void subgroupMemoryBarrierImage() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsImageMemoryMask);
 }
 
 }

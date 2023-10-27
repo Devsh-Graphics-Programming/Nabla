@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
+#include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 
 namespace nbl 
 {
@@ -20,7 +21,7 @@ uint ElectedSubgroupInvocationID() {
 }
 
 uint ElectedLocalInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
+    return glsl::subgroupBroadcastFirst<uint>(workgroup::SubgroupContiguousIndex());
 }
 
 }
