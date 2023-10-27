@@ -14,6 +14,7 @@ namespace hlsl
 namespace glsl
 {
 
+#ifdef __HLSL_VERSION
 uint32_t gl_SubgroupSize() {
     return WaveGetLaneCount();
 }
@@ -55,6 +56,7 @@ void subgroupMemoryBarrierShared() {
 void subgroupMemoryBarrierImage() {
     spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsImageMemoryMask);
 }
+#endif
 
 }
 }

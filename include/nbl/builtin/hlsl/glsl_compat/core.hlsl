@@ -14,6 +14,7 @@ namespace hlsl
 namespace glsl
 {
 
+#ifdef __HLSL_VERSION
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
@@ -59,7 +60,8 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
  * For Compute Shaders
  */
 
- // TODO (Future): Its annoying we have to forward declare those, but accessing gl_NumSubgroups and other gl_* values is not yet possible due to https://github.com/microsoft/DirectXShaderCompiler/issues/4217
+// TODO (Future): Its annoying we have to forward declare those, but accessing gl_NumSubgroups and other gl_* values is not yet possible due to https://github.com/microsoft/DirectXShaderCompiler/issues/4217
+// also https://github.com/microsoft/DirectXShaderCompiler/issues/5280
 uint32_t gl_LocalInvocationIndex();
 uint32_t3 gl_GlobalInvocationID();
 uint32_t3 gl_WorkGroupID();
@@ -78,6 +80,7 @@ void tess_ctrl_barrier() {
 void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
+#endif
 
 }
 }

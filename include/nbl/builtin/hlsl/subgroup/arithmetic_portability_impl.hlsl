@@ -83,10 +83,10 @@ struct inclusive_scan
         const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
         const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
     
-        uint rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+        type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
         value = op(value, subgroupInvocation<1u ? Binop::identity:rhs);
     
-        [[unroll(MinSubgroupSizeLog2-1)]]
+        [[unroll(nbl::hlsl::subgroup::MinSubgroupSizeLog2-1)]]
         for (uint step=2u; step<=halfSubgroupSize; step <<= 1u)
         {
             rhs = glsl::subgroupShuffleUp<type_t>(value, step);

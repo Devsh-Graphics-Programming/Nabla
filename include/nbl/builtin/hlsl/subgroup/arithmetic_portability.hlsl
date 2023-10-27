@@ -17,10 +17,10 @@ namespace hlsl
 namespace subgroup
 {
 
-#ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-#define IMPL portability
-#else
+#ifdef NBL_GLSL_LIMIT_SHADER_SUBGROUP_ARITHMETIC
 #define IMPL native
+#else
+#define IMPL portability
 #endif
 
 template<class Binop>

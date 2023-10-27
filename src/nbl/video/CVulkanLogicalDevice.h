@@ -733,6 +733,18 @@ public:
         vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
         vk_createInfo.codeSize = spirv->getSize();
         vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+
+        // for debugging 
+        if constexpr (true)
+        {
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            m_physicalDevice->getSystem()->createFile(future,system::path(cpushader->getFilepathHint()).parent_path()/"compiled.spv", system::IFileBase::ECF_WRITE);
+            if (auto file = future.acquire(); file && bool(*file))
+            {
+                system::IFile::success_t succ;
+                (*file)->write(succ,vk_createInfo.pCode,0,vk_createInfo.codeSize);
+            }
+        }
         
         VkShaderModule vk_shaderModule;
         if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
