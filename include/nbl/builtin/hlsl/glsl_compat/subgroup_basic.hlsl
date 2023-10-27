@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
 
 namespace nbl 
@@ -12,8 +13,6 @@ namespace hlsl
 {
 namespace glsl
 {
-
-// TODO (Future): Accessing gl_NumSubgroups and other gl_* values is not yet possible due to https://github.com/microsoft/DirectXShaderCompiler/issues/4217
 
 uint32_t gl_SubgroupSize() {
     return WaveGetLaneCount();
@@ -30,7 +29,7 @@ uint32_t gl_SubgroupInvocationID() {
 // only available in compute
 uint32_t gl_SubgroupID() {
     // TODO (PentaKon): This is not always correct (subgroup IDs aren't always aligned with invocation index per the spec)
-    return gl_LocalInvocationIndex >> gl_SubgroupSizeLog2();
+    return gl_LocalInvocationIndex() >> gl_SubgroupSizeLog2();
 }
 
 bool subgroupElect() {

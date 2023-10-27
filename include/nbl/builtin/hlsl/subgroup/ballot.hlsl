@@ -19,7 +19,7 @@ uint32_t LastSubgroupInvocation()
     // why this code was wrong before:
     // - only compute can use SubgroupID
     // - but there's no mapping of InvocationID to SubgroupID and Index
-    return glsl::subgroupBallotFindMSB(subgroupBallot(true));
+    return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
 }
 
 bool ElectLast()

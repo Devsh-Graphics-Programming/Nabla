@@ -13,7 +13,7 @@ namespace hlsl
 namespace subgroup
 {
     
-static const uint32_t MinSubgroupSizeLog2 = 2u;
+static const uint32_t MinSubgroupSizeLog2 = 3u;
 static const uint32_t MinSubgroupSize = 0x1u<<MinSubgroupSizeLog2;
 static const uint32_t MaxSubgroupSizeLog2 = 6u;
 static const uint32_t MaxSubgroupSize = 0x1u<<MaxSubgroupSizeLog2;
