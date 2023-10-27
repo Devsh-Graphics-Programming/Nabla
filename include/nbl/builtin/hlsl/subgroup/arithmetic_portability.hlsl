@@ -4,9 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
-#ifndef NBL_GL_KHR_shader_subgroup_arithmetic
+
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
-#endif
 
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
@@ -20,7 +19,7 @@ namespace subgroup
 template<typename T, class Binop>
 struct reduction
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T) x)
     {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         native::reduction<T, Binop> reduce;
@@ -34,7 +33,7 @@ struct reduction
 template<typename T, class Binop>
 struct exclusive_scan
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T) x)
     {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         native::exclusive_scan<T, Binop> scan;
@@ -48,7 +47,7 @@ struct exclusive_scan
 template<typename T, class Binop>
 struct inclusive_scan
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T) x)
     {
     #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
         native::inclusive_scan<T, Binop> scan;
