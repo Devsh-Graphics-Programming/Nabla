@@ -16,6 +16,7 @@ namespace hlsl
 namespace subgroup
 {
 
+// TODO: when DXC SPIR-V output gets template aliases, we can get of og this forwarding
 template<typename T, class Binop>
 struct reduction
 {
