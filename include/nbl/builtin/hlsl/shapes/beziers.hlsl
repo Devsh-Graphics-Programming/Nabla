@@ -6,6 +6,7 @@
 #define _NBL_BUILTIN_HLSL_SHAPES_BEZIERS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/shapes/util.hlsl>
 
 
 // TODO [Przemek]: implement it in intrinsics.h
@@ -70,6 +71,15 @@ namespace shapes
         static QuadraticBezier construct(float_t2 P0, float_t2 P1, float_t2 P2)
         {
             QuadraticBezier ret = { P0, P1, P2 };
+            return ret;
+        }
+
+        static QuadraticBezier constructBezierWithTwoPointsAndTangents(float64_t2 P0, float64_t2 V0, float64_t2 P2, float64_t2 V2)
+        {
+            QuadraticBezier ret = {};
+            ret.P0 = P0;
+            ret.P2 = P2;
+            ret.P1 = util::LineLineIntersection(P0, V0, P2, V2);
             return ret;
         }
 
