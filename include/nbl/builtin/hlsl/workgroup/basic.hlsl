@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 
 //! all functions must be called in uniform control flow (all workgroup invocations active)
 namespace nbl
@@ -13,18 +13,25 @@ namespace hlsl
 {
 namespace workgroup
 {
-    static const uint MaxWorkgroupSizeLog2 = 11;
-    static const uint MaxWorkgroupSize = 0x1u << MaxWorkgroupSizeLog2;
+
+static const uint32_t MaxWorkgroupSizeLog2 = 11;
+static const uint32_t MaxWorkgroupSize = 0x1u<<MaxWorkgroupSizeLog2;
     
-    uint SubgroupContiguousIndex()
-    {
-        return glsl::gl_SubgroupID() * glsl::gl_SubgroupSize() + glsl::gl_SubgroupInvocationID();
-    }
+uint32_t SubgroupContiguousIndex()
+{
+    return glsl::gl_SubgroupID()*glsl::gl_SubgroupSize()+glsl::gl_SubgroupInvocationID();
+}
     
-    bool Elect()
-    {
-        return SubgroupContiguousIndex()==0u;
-    }
+bool Elect()
+{
+    return glsl::gl_SubgroupID()==0 && glsl::gl_SubgroupInvocationID()==0;
+}
+
+uint32_t ElectedSubgroupContiguousIndex()
+{
+    return glsl::subgroupBroadcastFirst<uint32_t>(SubgroupContiguousIndex());
+}
+
 }
 }
 }

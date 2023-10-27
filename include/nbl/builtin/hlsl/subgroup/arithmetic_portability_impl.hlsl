@@ -31,7 +31,7 @@ struct inclusive_scan;
 template<typename T>
 struct reduction<T, bit_and<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupAnd<T>(x);
     }
@@ -40,7 +40,7 @@ struct reduction<T, bit_and<T> >
 template<typename T>
 struct inclusive_scan<T, bit_and<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupInclusiveAnd<T>(x);
     }
@@ -49,7 +49,7 @@ struct inclusive_scan<T, bit_and<T> >
 template<typename T>
 struct exclusive_scan<T, bit_and<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupExclusiveAnd<T>(x);
     }
@@ -59,7 +59,7 @@ struct exclusive_scan<T, bit_and<T> >
 template<typename T>
 struct reduction<T, bit_or<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupOr<T>(x);
     }
@@ -68,7 +68,7 @@ struct reduction<T, bit_or<T> >
 template<typename T>
 struct inclusive_scan<T, bit_or<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupInclusiveOr<T>(x);
     }
@@ -77,7 +77,7 @@ struct inclusive_scan<T, bit_or<T> >
 template<typename T>
 struct exclusive_scan<T, bit_or<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupExclusiveOr<T>(x);
     }
@@ -87,7 +87,7 @@ struct exclusive_scan<T, bit_or<T> >
 template<typename T>
 struct reduction<T, bit_xor<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupXor<T>(x);
     }
@@ -96,7 +96,7 @@ struct reduction<T, bit_xor<T> >
 template<typename T>
 struct inclusive_scan<T, bit_xor<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupInclusiveXor<T>(x);
     }
@@ -105,7 +105,7 @@ struct inclusive_scan<T, bit_xor<T> >
 template<typename T>
 struct exclusive_scan<T, bit_xor<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupExclusiveXor<T>(x);
     }
@@ -115,7 +115,7 @@ struct exclusive_scan<T, bit_xor<T> >
 template<typename T>
 struct reduction<T, plus<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupAdd<T>(x);
     }
@@ -123,7 +123,7 @@ struct reduction<T, plus<T> >
 template<typename T>
 struct inclusive_scan<T, plus<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupInclusiveAdd<T>(x);
     }
@@ -131,7 +131,7 @@ struct inclusive_scan<T, plus<T> >
 template<typename T>
 struct exclusive_scan<T, plus<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupExclusiveAdd<T>(x);
     }
@@ -141,7 +141,7 @@ struct exclusive_scan<T, plus<T> >
 template<typename T>
 struct reduction<T, multiplies<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupMul<T>(x);
     }
@@ -149,7 +149,7 @@ struct reduction<T, multiplies<T> >
 template<typename T>
 struct exclusive_scan<T, multiplies<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupInclusiveMul<T>(x);
     }
@@ -157,7 +157,7 @@ struct exclusive_scan<T, multiplies<T> >
 template<typename T>
 struct inclusive_scan<T, multiplies<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupExclusiveMul<T>(x);
     }
@@ -167,7 +167,7 @@ struct inclusive_scan<T, multiplies<T> >
 template<typename T>
 struct reduction<T, mininum<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupMin<T>(x);
     }
@@ -231,7 +231,7 @@ struct exclusive_scan<uint, mininum<float> >
 template<typename T>
 struct reduction<T, maximum<T> >
 {
-    T operator()(const T x)
+    T operator()(NBL_CONST_REF_ARG(T)x)
     {
         return glsl::subgroupMax<T>(x);
     }
@@ -303,7 +303,7 @@ namespace portability
 // Always use the native subgroup_arithmetic extensions if supported
     
 template<typename T, class Binop>
-T inclusive_scan(T value)
+T inclusive_scan(NBL_CONST_REF_ARG(T) value)
 {
     Binop op;
     const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
@@ -322,7 +322,7 @@ T inclusive_scan(T value)
 }
 
 template<typename T, class Binop>
-T exclusive_scan(T value)
+T exclusive_scan(NBL_CONST_REF_ARG(T) value)
 {
     const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
     value = inclusive_scan<T, Binop>(value);
@@ -334,7 +334,7 @@ T exclusive_scan(T value)
 }
 
 template<typename T, class Binop>
-T reduction(T value)
+T reduction(NBL_CONST_REF_ARG(T) value)
 {
     value = inclusive_scan<T, Binop>(value);
     value = glsl::subgroupBroadcast<T>(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
