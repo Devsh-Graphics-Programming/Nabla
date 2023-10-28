@@ -16,8 +16,9 @@ namespace nbl
 namespace hlsl
 {
 
-#define NBL_ALIAS_UNARY_FUNCTION(fn)  template<class T> T fn(NBL_CONST_REF_ARG(T) x) { return fn(x); }
 #define NBL_ALIAS_BINARY_FUNCTION(fn) template<class T> T fn(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y) { return fn(x, y); }
+#define NBL_ALIAS_UNARY_FUNCTION2(name,impl)  template<class T> T name(NBL_CONST_REF_ARG(T) x) { return impl(x); }
+#define NBL_ALIAS_UNARY_FUNCTION(fn)  NBL_ALIAS_UNARY_FUNCTION2(fn,fn)
 
 #define NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(fn, out_type) \
 template<class T>  \
@@ -55,24 +56,30 @@ NBL_ALIAS_UNARY_FUNCTION(log10)
 NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(modf, T)
 NBL_ALIAS_UNARY_FUNCTION(exp2)
 NBL_ALIAS_UNARY_FUNCTION(log2)
-
-
-template<class T> 
-T expm1(NBL_CONST_REF_ARG(T) x) { return exp(x) - T(1); }
+NBL_ALIAS_UNARY_FUNCTION(logb,log)
 
 template<class T> 
-T log1p(NBL_CONST_REF_ARG(T) x) { return log(x + T(1)); }
+T expm1(NBL_CONST_REF_ARG(T) x) 
+{ 
+    return exp(x) - T(1); 
+}
 
 template<class T> 
-int  ilogb(NBL_CONST_REF_ARG(T) x) { return int(trunc(log(x))); }
+T log1p(NBL_CONST_REF_ARG(T) x) 
+{ 
+    return log(x + T(1)); 
+}
 
 template<class T> 
-T logb(NBL_CONST_REF_ARG(T) x) { return log(x); }
+int ilogb(NBL_CONST_REF_ARG(T) x) 
+{ 
+    return int(trunc(log(x))); 
+}
 
 template<class T> 
 T scalbn(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(int32_t) n) 
-{
-    return x * exp2(n);
+{ 
+    return x * exp2(n); 
 }
 
 // Power functions
@@ -113,18 +120,72 @@ T erf(NBL_CONST_REF_ARG(T) x)
     return copysign(re, x);
 }
 
-
 template<class T>
 T erfc(NBL_CONST_REF_ARG(T) x)
 {
     return T(1) - erf(x);
 }
 
-// TODO:
-// tgamma	Compute gamma function (function)
-// lgamma	Compute log-gamma function (function)
+
+template<class T>
+T tgamma(NBL_CONST_REF_ARG(T) x)
+{
+    // TODO:
+    // Investigate this approximation since margin of error seems to be high
+    // https://www.desmos.com/calculator/ivfbrvxha8
+    // https://en.wikipedia.org/wiki/Lanczos_approximation
+    T pi = T(3.14159265358979323846);
+    T sqrt2pi = T(2.50662827463);
+    T p[] = { 
+        0.99999999999980993,
+        676.5203681218851,
+        -1259.1392167224028,
+        771.32342877765313,
+        -176.61502916214059,
+        12.507343278686905,
+        -0.13857109526572012,
+        9.9843695780195716e-6,
+        1.5056327351493116e-7
+    };
+
+    T c = T(1);
+    if (x < T(0.5))
+    {
+        c = pi / (sin(pi * x));
+        x = T(1)-x;
+    }
+
+    T q = p[0];
+    for(uint32_t i = 1; i < sizeof(p)/sizeof(p[0]); ++i)
+    {
+        q += p[i] / (z + i - 1);
+    }
+    
+    T t = z + T(6.5);
+    return c * sqrt2pi * pow(t, (x-T(.5)))*exp(-t)*q;
+}
+
+template<class T>
+T lgamma(NBL_CONST_REF_ARG(T) x)
+{
+    return log(tgamma(x));
+}
 
 // Rounding and remainder functions
+
+NBL_ALIAS_UNARY_FUNCTION(ceil)
+NBL_ALIAS_UNARY_FUNCTION(floor)
+NBL_ALIAS_BINARY_FUNCTION(fmod)
+NBL_ALIAS_UNARY_FUNCTION(trunc)
+NBL_ALIAS_BINARY_FUNCTION(remainder)
+// TODO:
+// Below are rounding mode dependent investigate how we handle it
+NBL_ALIAS_UNARY_FUNCTION(round)
+NBL_ALIAS_UNARY_FUNCTION(rint)
+NBL_ALIAS_UNARY_FUNCTION2(nearbyint,round)
+
+
+
 // ceil	Round up value (function)
 // floor	Round down value (function)
 // fmod	Compute remainder of division (function)
