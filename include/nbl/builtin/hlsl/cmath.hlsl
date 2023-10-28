@@ -105,11 +105,12 @@ template<class T>
 T erf(NBL_CONST_REF_ARG(T) x)
 {
     // Bürmann series approximation  
-    // https://www.desmos.com/calculator/ithdm9c7j5
+    // https://www.desmos.com/calculator/myf9ylguh1
     // https://en.wikipedia.org/wiki/Error_function#Numerical_approximations
     T E = exp(-x*x);
     T P = T(0.886226925453);
-    return copysign((P + (T(.155) - T(.042625) * E) * E) / P, x);
+    T re = sqrt(T(1)-E)*(T(1)+T(.155)*E/P*(T(1)-T(.275)*E));
+    return copysign(re, x);
 }
 
 
