@@ -50,8 +50,8 @@ uint16_t BallotDWORDCount(const uint16_t itemCount)
 template<class Accessor>
 void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
 {
-    const uint32_t index = SubgroupContiguousIndex();
-    const bool initialize = index<BallotDWORDCount(Volume());
+    const uint16_t index = SubgroupContiguousIndex();
+    const bool initialize = index<impl::BallotDWORDCount(Volume());
     if (initialize)
         accessor.set(index,0u);
     
@@ -64,7 +64,7 @@ void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
 }
 
 template<class Accessor>
-bool ballotBitExtract(const uint32_t index, NBL_REF_ARG(Accessor) accessor)
+bool ballotBitExtract(const uint16_t index, NBL_REF_ARG(Accessor) accessor)
 {
     return bool(accessor.get(impl::getDWORD(index))&(1u<<(index&31u)));
 }

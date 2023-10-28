@@ -6,6 +6,7 @@
 
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
 
 namespace nbl
@@ -37,7 +38,7 @@ struct scratch_size_ballot
 };
 
 // you're only writing one element
-NBL_CONSTEXPR_STATIC scratch_size_broadcast = 1u;
+NBL_CONSTEXPR uint32_t scratch_size_broadcast = 1u;
 
 // if you know better you can use the actual subgroup size
 template<uint16_t ContiguousItemCount, uint16_t SubgroupSize=subgroup::MinSubgroupSize>

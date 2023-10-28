@@ -194,7 +194,7 @@ struct num_traits : num_base<T>
 {
     // have to be weird like that to avoid a warning
     NBL_CONSTEXPR_STATIC_INLINE T min            = T(num_base<T>::is_signed)<<(num_base<T>::is_signed ? num_base<T>::digits:0);
-    NBL_CONSTEXPR_STATIC_INLINE T max            = ~(T(num_base<T>::is_signed)<<num_base<T>::digits);
+    NBL_CONSTEXPR_STATIC_INLINE T max            = ~min;
     NBL_CONSTEXPR_STATIC_INLINE T denorm_min     = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN      = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T signaling_NaN  = T(0);

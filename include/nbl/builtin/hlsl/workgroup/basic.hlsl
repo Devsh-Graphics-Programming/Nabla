@@ -17,15 +17,15 @@ namespace workgroup
 static const uint32_t MaxWorkgroupSizeLog2 = 11;
 static const uint32_t MaxWorkgroupSize = 0x1u<<MaxWorkgroupSizeLog2;
 
-uint32_t Volume()
+uint16_t Volume()
 {
-    const uint32_t3 dims = glsl::gl_WorkGroupSize();
+    const uint16_t3 dims = uint16_t3(glsl::gl_WorkGroupSize());
     return dims.x*dims.y*dims.z;
 }
     
-uint32_t SubgroupContiguousIndex()
+uint16_t SubgroupContiguousIndex()
 {
-    return glsl::gl_SubgroupID()*glsl::gl_SubgroupSize()+glsl::gl_SubgroupInvocationID();
+    return uint16_t(glsl::gl_SubgroupID()*glsl::gl_SubgroupSize()+glsl::gl_SubgroupInvocationID());
 }
     
 bool Elect()
@@ -33,9 +33,9 @@ bool Elect()
     return glsl::gl_SubgroupID()==0 && glsl::gl_SubgroupInvocationID()==0;
 }
 
-uint32_t ElectedSubgroupContiguousIndex()
+uint16_t ElectedSubgroupContiguousIndex()
 {
-    return glsl::subgroupBroadcastFirst<uint32_t>(SubgroupContiguousIndex());
+    return glsl::subgroupBroadcastFirst<uint16_t>(SubgroupContiguousIndex());
 }
 
 }
