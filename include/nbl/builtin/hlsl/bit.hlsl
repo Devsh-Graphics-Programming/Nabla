@@ -25,7 +25,7 @@ namespace hlsl
 template<class T, class U>
 T bit_cast(U val)
 {
-    static_assert(sizeof(T) <= sizeof(U));
+    static_assert(sizeof(T) <= sizeof(U), "destination type must be less than or equal to the source type in size");
     return spirv::bitcast<T, U>(val);
 }
 
