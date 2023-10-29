@@ -32,6 +32,8 @@ using add_pointer = std::add_pointer<T>;
 
 #define NBL_REF_ARG(T) typename nbl::hlsl::add_reference<T>::type
 #define NBL_CONST_REF_ARG(T) typename nbl::hlsl::add_reference<std::add_const_t<T>>::type
+#define NBL_ADDRESS_OF(x) &x
+#define NBL_LANG_SELECT(x, y) x
 
 // it includes vector and matrix
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
@@ -41,6 +43,8 @@ using add_pointer = std::add_pointer<T>;
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
+#define NBL_ADDRESS_OF(x) x
+#define NBL_LANG_SELECT(x, y) y
 
 namespace nbl
 {

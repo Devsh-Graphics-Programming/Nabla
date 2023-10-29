@@ -13,8 +13,13 @@ namespace nbl::hlsl
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::bit_cast, bit_cast);
 
+template<class T, class U>
+constexpr T bit_cast(U val)
+{
+    static_assert(sizeof(T) <= sizeof(U), "destination type must be less than or equal to the source type in size");
+    return std::bit_cast<T, U>(val);
+}
 }
 #else
 namespace nbl

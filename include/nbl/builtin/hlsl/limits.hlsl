@@ -245,6 +245,8 @@ template<class T>
 struct numeric_limits : num_traits<T>
 {
     using type = typename num_traits<T>::type;
+    using uint_type = typename remove_cvref<decltype(impl::num_traits<T>::infinity)>::type;
+    
     NBL_CONSTEXPR_STATIC_INLINE type lowest  = num_traits<T>::is_integer ? num_traits<T>::min : -num_traits<T>::max;
     NBL_CONSTEXPR_STATIC_INLINE type epsilon = num_traits<T>::is_integer ? type(0) : (type(1) / type(1ull<<(num_traits<T>::float_digits-1)));
     NBL_CONSTEXPR_STATIC_INLINE type round_error = num_traits<T>::is_bool ? type(0) : type(0.5);
@@ -264,8 +266,8 @@ template<class T>
 struct numeric_limits : std::numeric_limits<T> 
 {
     using base = std::numeric_limits<T>;
-    using uint_type = std::remove_cvref_t<decltype(impl::num_traits<T>::infinity)>;
-
+    using uint_type = typename remove_cvref<decltype(impl::num_traits<T>::infinity)>::type;
+    
     NBL_CONSTEXPR_STATIC_INLINE T min = base::min();
     NBL_CONSTEXPR_STATIC_INLINE T max = base::max();
     NBL_CONSTEXPR_STATIC_INLINE T lowest = base::lowest();
@@ -273,9 +275,9 @@ struct numeric_limits : std::numeric_limits<T>
     NBL_CONSTEXPR_STATIC_INLINE T epsilon = base::epsilon();
     NBL_CONSTEXPR_STATIC_INLINE T round_error = base::round_error();
 
-    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast(base::quiet_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast(base::signaling_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast(base::infinity());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = bit_cast<uint_type,T>(base::quiet_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = bit_cast<uint_type,T>(base::signaling_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = bit_cast<uint_type,T>(base::infinity());
 };
 
 #endif

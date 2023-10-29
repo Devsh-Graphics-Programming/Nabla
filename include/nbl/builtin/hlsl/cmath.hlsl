@@ -16,19 +16,26 @@ namespace nbl
 namespace hlsl
 {
 
-#define NBL_ALIAS_BINARY_FUNCTION(fn) template<class T> T fn(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y) { return fn(x, y); }
-#define NBL_ALIAS_UNARY_FUNCTION2(name,impl)  template<class T> T name(NBL_CONST_REF_ARG(T) x) { return impl(x); }
+
+#ifdef __cplusplus
+#define INTRINSIC_NAMESPACE(x) std::x
+#else
+#define INTRINSIC_NAMESPACE(x) x
+#endif
+
+#define NBL_ALIAS_BINARY_FUNCTION2(name,impl) template<class T> T name(T x, T y) { return INTRINSIC_NAMESPACE(impl)(x, y); }
+#define NBL_ALIAS_BINARY_FUNCTION(fn) NBL_ALIAS_BINARY_FUNCTION2(fn,fn)
+#define NBL_ALIAS_UNARY_FUNCTION2(name,impl)  template<class T> T name(T x) { return INTRINSIC_NAMESPACE(impl)(x); }
 #define NBL_ALIAS_UNARY_FUNCTION(fn)  NBL_ALIAS_UNARY_FUNCTION2(fn,fn)
 
 #define NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(fn, out_type) \
 template<class T>  \
-T fn(NBL_CONST_REF_ARG(T) x, NBL_REF_ARG(out_type) y) { \
-    T out; \
-    T ret = fn(x, out); \
-    y = T(out); \
+T fn(T x, NBL_REF_ARG(out_type) y) { \
+    NBL_LANG_SELECT(out_type, T) out_; \
+    T ret = INTRINSIC_NAMESPACE(fn)(x, NBL_ADDRESS_OF(out_)); \
+    y = out_type(out_); \
     return ret; \
 }
-
 
 // Trigonometric functions
 NBL_ALIAS_UNARY_FUNCTION(cos)
@@ -43,43 +50,63 @@ NBL_ALIAS_BINARY_FUNCTION(atan2)
 NBL_ALIAS_UNARY_FUNCTION(cosh)
 NBL_ALIAS_UNARY_FUNCTION(sinh)
 NBL_ALIAS_UNARY_FUNCTION(tanh)
-NBL_ALIAS_UNARY_FUNCTION(acosh)
-NBL_ALIAS_UNARY_FUNCTION(asinh)
-NBL_ALIAS_UNARY_FUNCTION(atanh)
+
+template<class T>
+T acosh(T x)
+{
+    return INTRINSIC_NAMESPACE(log)(x + INTRINSIC_NAMESPACE(sqrt)(x*x - T(1)));
+}
+
+template<class T>
+T asinh(T x)
+{
+    return INTRINSIC_NAMESPACE(log)(x + INTRINSIC_NAMESPACE(sqrt)(x*x + T(1)));
+}
+
+template<class T>
+T atanh(T x)
+{
+    return T(0.5) * INTRINSIC_NAMESPACE(log)((T(1)+x)/(T(1)-x));
+}
+
 
 // Exponential and logarithmic functions
 NBL_ALIAS_UNARY_FUNCTION(exp)
 NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(frexp, int32_t)
-NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(ldexp, int32_t)
+NBL_ALIAS_BINARY_FUNCTION(ldexp)
 NBL_ALIAS_UNARY_FUNCTION(log)
 NBL_ALIAS_UNARY_FUNCTION(log10)
 NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM(modf, T)
 NBL_ALIAS_UNARY_FUNCTION(exp2)
 NBL_ALIAS_UNARY_FUNCTION(log2)
-NBL_ALIAS_UNARY_FUNCTION(logb,log)
+NBL_ALIAS_UNARY_FUNCTION2(logb,log)
 
 template<class T> 
-T expm1(NBL_CONST_REF_ARG(T) x) 
+T expm1(T x) 
 { 
-    return exp(x) - T(1); 
+    return INTRINSIC_NAMESPACE(exp)(x) - T(1); 
 }
 
 template<class T> 
-T log1p(NBL_CONST_REF_ARG(T) x) 
+T log1p(T x) 
 { 
-    return log(x + T(1)); 
+    return INTRINSIC_NAMESPACE(log)(x + T(1)); 
+}
+
+template<class T>
+int32_t ilogb(T x) 
+{ 
+    using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
+    const int32_t shift = (impl::num_base<T>::float_digits-1);
+    const uint_type mask = ~(((uint_type(1) << shift) - 1) | (uint_type(1)<<(sizeof(T)*8-1)));
+    int32_t bits = (bit_cast<uint_type, T>(x) & mask) >> shift;
+    return bits + impl::num_base<T>::min_exponent - 2;
 }
 
 template<class T> 
-int ilogb(NBL_CONST_REF_ARG(T) x) 
+T scalbn(T x, int32_t n) 
 { 
-    return int(trunc(log(x))); 
-}
-
-template<class T> 
-T scalbn(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(int32_t) n) 
-{ 
-    return x * exp2(n); 
+    return x * INTRINSIC_NAMESPACE(exp2)(n); 
 }
 
 // Power functions
@@ -88,17 +115,17 @@ NBL_ALIAS_UNARY_FUNCTION(sqrt)
 NBL_ALIAS_UNARY_FUNCTION(cbrt)
 
 template<class T>
-T hypot(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+T hypot(T x, T y)
 {
-    return sqrt(x*x+y*y);
+    return INTRINSIC_NAMESPACE(sqrt)(x*x+y*y);
 }
 
 // Floating-point manipulation functions
 
 template<class T>
-T copysign(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) sign_)
+T copysign(T x, T sign_)
 {
-    return T(sign(sign_)) * x;
+    return sign_ < T(0) ? -x : x;
 }
 
 // TODO:
@@ -109,26 +136,26 @@ T copysign(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) sign_)
 // Error and gamma functions
 
 template<class T>
-T erf(NBL_CONST_REF_ARG(T) x)
+T erf(T x)
 {
     // Bürmann series approximation  
     // https://www.desmos.com/calculator/myf9ylguh1
     // https://en.wikipedia.org/wiki/Error_function#Numerical_approximations
-    T E = exp(-x*x);
+    T E = INTRINSIC_NAMESPACE(exp)(-x*x);
     T P = T(0.886226925453);
-    T re = sqrt(T(1)-E)*(T(1)+T(.155)*E/P*(T(1)-T(.275)*E));
-    return copysign(re, x);
+    T re = INTRINSIC_NAMESPACE(sqrt)(T(1)-E)*(T(1)+T(.155)*E/P*(T(1)-T(.275)*E));
+    return INTRINSIC_NAMESPACE(copysign)(re, x);
 }
 
 template<class T>
-T erfc(NBL_CONST_REF_ARG(T) x)
+T erfc(T x)
 {
     return T(1) - erf(x);
 }
 
 
 template<class T>
-T tgamma(NBL_CONST_REF_ARG(T) x)
+T tgamma(T x)
 {
     // TODO:
     // Investigate this approximation since margin of error seems to be high
@@ -158,17 +185,17 @@ T tgamma(NBL_CONST_REF_ARG(T) x)
     T q = p[0];
     for(uint32_t i = 1; i < sizeof(p)/sizeof(p[0]); ++i)
     {
-        q += p[i] / (z + i - 1);
+        q += p[i] / (x + i - 1);
     }
     
-    T t = z + T(6.5);
-    return c * sqrt2pi * pow(t, (x-T(.5)))*exp(-t)*q;
+    T t = x + T(6.5);
+    return c * sqrt2pi * INTRINSIC_NAMESPACE(pow)(t, (x-T(.5)))*INTRINSIC_NAMESPACE(exp)(-t)*q;
 }
 
 template<class T>
-T lgamma(NBL_CONST_REF_ARG(T) x)
+T lgamma(T x)
 {
-    return log(tgamma(x));
+    return INTRINSIC_NAMESPACE(log)(INTRINSIC_NAMESPACE(tgamma)(x));
 }
 
 // Rounding and remainder functions
@@ -177,38 +204,52 @@ NBL_ALIAS_UNARY_FUNCTION(ceil)
 NBL_ALIAS_UNARY_FUNCTION(floor)
 NBL_ALIAS_BINARY_FUNCTION(fmod)
 NBL_ALIAS_UNARY_FUNCTION(trunc)
-NBL_ALIAS_BINARY_FUNCTION(remainder)
+
 // TODO:
 // Below are rounding mode dependent investigate how we handle it
 NBL_ALIAS_UNARY_FUNCTION(round)
 NBL_ALIAS_UNARY_FUNCTION(rint)
 NBL_ALIAS_UNARY_FUNCTION2(nearbyint,round)
 
+template<class T>
+T remquo(T num, T denom, NBL_REF_ARG(int32_t) quot)
+{
+    quot = int32_t(INTRINSIC_NAMESPACE(round)(num / denom));
+    return num - quot * denom;
+}
 
-
-// ceil	Round up value (function)
-// floor	Round down value (function)
-// fmod	Compute remainder of division (function)
-// trunc	Truncate value (function)
-// round	Round to nearest (function)
-// lround	Round to nearest and cast to long integer (function)
-// llround	Round to nearest and cast to long long integer (function)
-// rint	Round to integral value (function)
-// lrint	Round and cast to long integer (function)
-// llrint	Round and cast to long long integer (function)
-// nearbyint	Round to nearby integral value (function)
-// remainder	Compute remainder (IEC 60559) (function)
-// remquo	Compute remainder and quotient (function)
-
-// Minimum, maximum, difference functions
-// fdim	Positive difference (function)
-// fmax	Maximum value (function)
-// fmin	Minimum value (function)
+template<class T>
+T remainder(T num, T denom)
+{
+    int32_t q;
+    return remquo(num, denom, q);
+}
 
 // Other functions
-// fabs	Compute absolute value (function)
-// abs	Compute absolute value (function)
-// fma	Multiply-add (function)
+NBL_ALIAS_UNARY_FUNCTION(abs)
+NBL_ALIAS_UNARY_FUNCTION2(fabs, abs)
+template<class T>
+T fma(T a, T b, T c)
+{
+    return INTRINSIC_NAMESPACE(fma)(a,b,c);
+}
+
+// Minimum, maximum, difference functions
+
+NBL_ALIAS_BINARY_FUNCTION2(fmax, max)
+NBL_ALIAS_BINARY_FUNCTION2(fmin, min)
+template<class T>
+T fdim(T x, T y)
+{
+    return INTRINSIC_NAMESPACE(max)(T(0),x-y);
+}
+
+#undef NBL_ALIAS_BINARY_FUNCTION2
+#undef NBL_ALIAS_BINARY_FUNCTION
+#undef NBL_ALIAS_UNARY_FUNCTION2
+#undef NBL_ALIAS_UNARY_FUNCTION
+#undef INTRINSIC_NAMESPACE
+
 
 }
 }
