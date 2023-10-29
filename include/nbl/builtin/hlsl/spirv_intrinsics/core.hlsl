@@ -12,85 +12,86 @@ namespace nbl
 {
 namespace hlsl
 {
+#ifdef __HLSL_VERSION
 namespace spirv
 {
 
 #pragma region ATOMICS
 template<typename T>
-T atomicAdd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
-int atomicAdd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+int32_t atomicAdd([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicIAdd */ 234)]]
-uint atomicAdd([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicIAdd )]]
+uint32_t atomicAdd([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicAnd([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicAnd */ 240)]]
-int atomicAnd([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicAnd )]]
+int32_t atomicAnd([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicAnd */ 240)]]
-uint atomicAnd([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicAnd )]]
+uint32_t atomicAnd([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicOr([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicOr */ 241)]]
-int atomicOr([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicOr )]]
+int32_t atomicOr([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicOr */ 241)]]
-uint atomicOr([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicOr )]]
+uint32_t atomicOr([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicXor([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicXor */ 242)]]
-int atomicXor([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicXor )]]
+int32_t atomicXor([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicXor */ 242)]]
-uint atomicXor([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicXor )]]
+uint32_t atomicXor([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicMin([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicMin([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicSMin */ 236)]]
-int atomicMin([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicSMin )]]
+int32_t atomicMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicSMin */ 236)]]
-uint atomicMin([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicSMin )]]
+uint32_t atomicMin([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicMax([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicMax([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicSMax */ 238)]]
-int atomicMax([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicSMax )]]
+int32_t atomicMax([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicSMax */ 238)]]
-uint atomicMax([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicSMax )]]
+uint32_t atomicMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 
 template<typename T>
-T atomicExchange([[vk::ext_reference]] T ptr, uint memoryScope, uint memorySemantics, T value);
+T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
-[[vk::ext_instruction(/* OpAtomicExchange */ 229)]]
-int atomicExchange([[vk::ext_reference]] int ptr, uint memoryScope, uint memorySemantics, int value);
+[[vk::ext_instruction( spv::OpAtomicExchange )]]
+int32_t atomicExchange([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, int32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicExchange */ 229)]]
-uint atomicExchange([[vk::ext_reference]] uint ptr, uint memoryScope, uint memorySemantics, uint value);
+[[vk::ext_instruction( spv::OpAtomicExchange )]]
+uint32_t atomicExchange([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, uint32_t value);
 template<>
-[[vk::ext_instruction(/* OpAtomicExchange */ 229)]]
-float atomicExchange([[vk::ext_reference]] float ptr, uint memoryScope, uint memorySemantics, float value);
+[[vk::ext_instruction( spv::OpAtomicExchange )]]
+float32_t atomicExchange([[vk::ext_reference]] float32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, float32_t value);
 
 
 template<typename T>
-T atomicCompSwap([[vk::ext_reference]] T ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, T value, T comparator);
+T atomicCompSwap([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 template<>
-[[vk::ext_instruction(/* OpAtomicCompareExchange */ 230)]]
-int atomicCompSwap([[vk::ext_reference]] int ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, int value, int comparator);
+[[vk::ext_instruction( spv::OpAtomicCompareExchange )]]
+int32_t atomicCompSwap([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, int32_t value, int32_t comparator);
 template<>
-[[vk::ext_instruction(/* OpAtomicCompareExchange */ 230)]]
-uint atomicCompSwap([[vk::ext_reference]] uint ptr, uint memoryScope, uint memSemanticsEqual, uint memSemanticsUnequal, uint value, uint comparator);
+[[vk::ext_instruction( spv::OpAtomicCompareExchange )]]
+uint32_t atomicCompSwap([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, uint32_t value, uint32_t comparator);
 #pragma endregion ATOMICS
 
 #pragma region BARRIERS
@@ -99,13 +100,26 @@ uint atomicCompSwap([[vk::ext_reference]] uint ptr, uint memoryScope, uint memSe
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
 // By providing memory semantics None we do both control and memory barrier as is done in GLSL
 
-[[vk::ext_instruction(/* OpControlBarrier */ 224)]]
-void controlBarrier(uint executionScope, uint memoryScope, uint memorySemantics);
+[[vk::ext_instruction( spv::OpControlBarrier )]]
+void controlBarrier(uint32_t executionScope, uint32_t memoryScope, uint32_t memorySemantics);
 
-[[vk::ext_instruction(/* OpMemoryBarrier */ 225)]]
-void memoryBarrier(uint memoryScope, uint memorySemantics);
+[[vk::ext_instruction( spv::OpMemoryBarrier )]]
+void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 #pragma endregion BARRIERS
+
+#pragma region CONVERSION
+
+template<class T, class U>
+// [[vk::ext_extension("SPV_KHR_physical_storage_buffer")]]
+// [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+// [[vk::ext_capability(spv::CapabilityAddresses)]]
+// [[vk::ext_capability(spv::CapabilityFloat64)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+T bitcast(U);
+
+#pragma endregion CONVERSION
 }
+#endif
 }
 }
 

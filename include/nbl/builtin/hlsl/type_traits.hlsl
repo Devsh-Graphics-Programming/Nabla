@@ -4,6 +4,16 @@
 #ifndef _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 
+// C++ headers
+#ifndef __HLSL_VERSION
+#include <type_traits>
+#endif
+
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+
+
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
   // helper class
@@ -139,15 +149,6 @@
     template<class B> struct negation;
 */
 
-// C++ headers
-#ifndef __HLSL_VERSION
-#include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#else
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#endif
-
-#include <nbl/builtin/hlsl/macros.h>
 
 namespace nbl
 {
@@ -168,7 +169,7 @@ struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
 
 }
 
-#if __HLSL_VERSION // HLSL
+#ifdef __HLSL_VERSION // HLSL
 
 
 #define decltype(expr) __decltype(expr)
@@ -253,6 +254,10 @@ struct is_array : bool_constant<is_bounded_array<T>::value || is_unbounded_array
 namespace impl
 {
 
+// need this crutch because we can't make `#define typeid` work both on expression and types
+template<typename T>
+struct typeid_t;
+
 template<typename T, T v>
 struct function_info : type_identity<void> {};
 
@@ -296,7 +301,7 @@ template<class T>
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
 
 template<class T> 
-struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
+struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
 
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
@@ -379,10 +384,6 @@ struct enable_if {};
  
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
-
-// need this crutch because we can't make `#define typeid` work both on expression and types
-template<typename T>
-struct typeid_t;
 
 template<class T>
 struct alignment_of;
@@ -561,9 +562,6 @@ using rank = std::rank<T>;
 template<class T, unsigned I = 0> 
 using extent = std::extent<T, I>;
 
-template<typename T>
-struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
-
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
@@ -629,10 +627,10 @@ struct scalar_type<matrix<T,N,M> >
 #define alignof(expr) ::nbl::hlsl::alignment_of<__decltype(expr)>::value
 
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
-#define typeid(expr) (typeid_t<__decltype(expr)>::value)
+#define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
 #define NBL_REGISTER_OBJ_TYPE(T, A) namespace nbl { namespace hlsl { \
-    template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; \ 
+    namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; } \
     template<> struct alignment_of<T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<const T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<typename impl::add_lvalue_reference<T>::type> : integral_constant<uint32_t,A> {}; \
@@ -654,18 +652,18 @@ struct function_info<__decltype(fn),fn> \
 
 // builtins
 
-#define NBL_REGISTER_MATRICES(T) \
-    NBL_REGISTER_OBJ_TYPE(T, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x4, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x3, sizeof(T)) \
-    NBL_REGISTER_OBJ_TYPE(T ## x2, sizeof(T)) \
+#define NBL_REGISTER_MATRICES(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x4, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x3, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x2, A) \
 
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
     NBL_REGISTER_OBJ_TYPE(T, sizeof(T)) \
     NBL_REGISTER_OBJ_TYPE(T ## 1, sizeof(T)) \
-    NBL_REGISTER_MATRICES(T ## 2) \
-    NBL_REGISTER_MATRICES(T ## 3) \
-    NBL_REGISTER_MATRICES(T ## 4)
+    NBL_REGISTER_MATRICES(T ## 2, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 3, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 4, sizeof(T))
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
@@ -677,7 +675,7 @@ NBL_REGISTER_TYPES_FOR_SCALAR(uint64_t)
 
 NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 
-// TODO: halfMxN with std::float16_t
+NBL_REGISTER_TYPES_FOR_SCALAR(float16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
