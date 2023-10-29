@@ -23,7 +23,7 @@ namespace workgroup
     
     bool Elect()
     {
-        return gl_LocalInvocationIndex==0u;
+        return SubgroupContiguousIndex()==0u;
     }
 }
 }

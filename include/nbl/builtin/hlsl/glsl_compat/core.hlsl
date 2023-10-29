@@ -55,8 +55,18 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompSwap<T>(ptr, 1, 0, 0, value, comparator);
 }
 
+/**
+ * For Compute Shaders
+ */
 void barrier() {
     spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
+}
+
+/**
+ * For Tessellation Control Shaders
+ */
+void tess_ctrl_barrier() {
+    spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeInvocation, 0);
 }
 
 void memoryBarrierShared() {

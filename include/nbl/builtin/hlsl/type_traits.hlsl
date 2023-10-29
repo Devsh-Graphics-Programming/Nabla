@@ -7,12 +7,8 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
-#endif
-
-
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-
+#endif
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
@@ -149,6 +145,8 @@
     template<class B> struct negation;
 */
 
+#else
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl
 {
@@ -630,7 +628,7 @@ struct scalar_type<matrix<T,N,M> >
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
 #define NBL_REGISTER_OBJ_TYPE(T, A) namespace nbl { namespace hlsl { \
-    namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; } \
+    namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; } \ 
     template<> struct alignment_of<T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<const T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<typename impl::add_lvalue_reference<T>::type> : integral_constant<uint32_t,A> {}; \
