@@ -7,17 +7,6 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
 #ifdef __HLSL_VERSION
-#define NBL_GENERATE_MEMBER_TESTER(mem) \
-namespace nbl\
-{\
-namespace hlsl\
-{\
-    template<class T, class=bool_constant<true> > \
-    struct has_member_##mem : false_type {}; \
-    template<class T> \
-    struct has_member_##mem<T,bool_constant<impl::valid_expression<decltype(impl::declval<T>().mem)>::value> > : true_type {}; \
-}\
-}
 
 namespace nbl
 {
@@ -40,6 +29,20 @@ T declval(){}
 }
 
 }
+
+
+#define NBL_GENERATE_MEMBER_TESTER(mem) \
+namespace nbl \
+{ \
+namespace hlsl \
+{ \
+    template<class T, class=bool_constant<true> > \
+    struct has_member_##mem : false_type {}; \
+    template<class T> \
+    struct has_member_##mem<T,bool_constant<impl::valid_expression<__decltype(impl::declval<T>().mem)>::value> > : true_type {}; \
+} \
+}
+
 
 NBL_GENERATE_MEMBER_TESTER(x)
 NBL_GENERATE_MEMBER_TESTER(y)

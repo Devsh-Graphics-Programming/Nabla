@@ -110,10 +110,6 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 #pragma region CONVERSION
 
 template<class T, class U>
-// [[vk::ext_extension("SPV_KHR_physical_storage_buffer")]]
-// [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-// [[vk::ext_capability(spv::CapabilityAddresses)]]
-// [[vk::ext_capability(spv::CapabilityFloat64)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 

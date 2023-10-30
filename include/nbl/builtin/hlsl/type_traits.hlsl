@@ -487,8 +487,8 @@ using integral_constant = std::integral_constant<T, val>;
 template<bool val>
 using bool_constant = std::bool_constant<val>;
 
-using bool_constant = std::true_type;
-using false_type    = std::false_type;
+using true_type   = std::true_type;
+using false_type  = std::false_type;
 
 template <bool C, class T, class F>
 using conditional  = std::conditional<C, T, F>;
