@@ -29,3 +29,8 @@ source/Irrlicht/libIrrlichtServer.a
 examples_tests/*
 examples_tests/tmp/*
 android-sample/bin/*
+.vs/*
+*/.vs/*
+__pycache__/*
+*/__pycache__/*
+*.pyc
