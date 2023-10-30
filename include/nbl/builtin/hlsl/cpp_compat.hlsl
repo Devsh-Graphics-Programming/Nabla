@@ -1,14 +1,24 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INCLUDED_
 
+#include <nbl/builtin/hlsl/macros.h>
 
 #ifndef __HLSL_VERSION
 #include <type_traits>
+#include <bit>
 
 #define ARROW ->
 #define NBL_CONST const
 #define NBL_CONSTEXPR constexpr
+#define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
+
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
 
 namespace nbl::hlsl
 {
@@ -26,7 +36,6 @@ using add_pointer = std::add_pointer<T>;
 
 // it includes vector and matrix
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
-
 
 #else
 

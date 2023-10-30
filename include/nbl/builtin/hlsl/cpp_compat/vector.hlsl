@@ -7,6 +7,7 @@
 #include <glm/glm/glm.hpp>
 #include <glm/glm/detail/_swizzle.hpp>
 #include <stdint.h>
+#include <openexr/IlmBase/Half/half.h>
 
 namespace nbl::hlsl
 {
@@ -31,6 +32,12 @@ using uint32_t2 = vector<uint32_t, 2>;
 using uint32_t1 = vector<uint32_t, 1>;
 
 // TODO: halfN -> needs class implementation or C++23 std:float16_t
+
+using float16_t = half;
+using float16_t4 = vector<float16_t, 4>;
+using float16_t3 = vector<float16_t, 3>;
+using float16_t2 = vector<float16_t, 2>;
+using float16_t1 = vector<float16_t, 1>;
 
 using float32_t = float;
 using float32_t4 = vector<float32_t, 4>;

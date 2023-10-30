@@ -4,6 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
 
+#ifdef __HLSL_VERSION 
+#define static_assert(...) _Static_assert(__VA_ARGS__)
+#endif
 
 // basics
 #define NBL_EVAL(...) __VA_ARGS__
