@@ -222,7 +222,254 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
     private:
         const VolkDeviceTable& getFunctionTable() const;
 
+<<<<<<< HEAD
         VkCommandBuffer m_cmdbuf;
+=======
+    inline bool setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetScissor(m_cmdbuf, firstScissor, scissorCount, pScissors);
+        return true;
+    }
+
+    inline bool setDepthBounds(float minDepthBounds, float maxDepthBounds) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetDepthBounds(m_cmdbuf, minDepthBounds, maxDepthBounds);
+        return true;
+    }
+
+    inline bool setStencilCompareMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t compareMask) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilCompareMask(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), compareMask);
+        return true;
+    }
+
+    inline bool setStencilWriteMask(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t writeMask) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilWriteMask(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), writeMask);
+        return true;
+    }
+
+    inline bool setStencilReference(asset::E_STENCIL_FACE_FLAGS faceMask, uint32_t reference) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetStencilReference(m_cmdbuf, static_cast<VkStencilFaceFlags>(faceMask), reference);
+        return true;
+    }
+
+    inline bool dispatch(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatch(m_cmdbuf, groupCountX, groupCountY, groupCountZ);
+        return true;
+    }
+
+    inline bool dispatchIndirect_impl(const buffer_t* buffer, size_t offset) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatchIndirect(
+            m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanBuffer*>(buffer, this)->getInternalObject(),
+            static_cast<VkDeviceSize>(offset));
+
+        return true;
+    }
+
+    inline bool dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdDispatchBase(m_cmdbuf, baseGroupX, baseGroupY, baseGroupZ, groupCountX, groupCountY, groupCountZ);
+        return true;
+    }
+
+    inline bool setEvent_impl(event_t* _event, const SDependencyInfo& depInfo) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetEvent(
+            m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject(),
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT); // No way to get this! SDependencyInfo is unused
+
+        return true;
+    }
+
+    inline bool resetEvent_impl(event_t* _event, asset::E_PIPELINE_STAGE_FLAGS stageMask) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdResetEvent(
+            m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanEvent*>(_event, this)->getInternalObject(),
+            getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
+
+        return true;
+    }
+
+    bool waitEvents_impl(uint32_t eventCount, event_t* const* const pEvents, const SDependencyInfo* depInfo) override final;
+
+    bool pipelineBarrier_impl(core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask,
+        core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
+        core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags,
+        uint32_t memoryBarrierCount, const asset::SMemoryBarrier* pMemoryBarriers,
+        uint32_t bufferMemoryBarrierCount, const SBufferMemoryBarrier* pBufferMemoryBarriers,
+        uint32_t imageMemoryBarrierCount, const SImageMemoryBarrier* pImageMemoryBarriers) override final;
+
+    bool beginRenderPass_impl(const SRenderpassBeginInfo* pRenderPassBegin, asset::E_SUBPASS_CONTENTS content) override final;
+
+    inline bool nextSubpass(asset::E_SUBPASS_CONTENTS contents) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdNextSubpass(m_cmdbuf, static_cast<VkSubpassContents>(contents));
+        return true;
+    }
+
+    inline bool endRenderPass() override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdEndRenderPass(m_cmdbuf);
+        return true;
+    }
+
+    inline bool setDeviceMask_impl(uint32_t deviceMask) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdSetDeviceMask(m_cmdbuf, deviceMask);
+        return true;
+    }
+
+    inline bool bindGraphicsPipeline_impl(const graphics_pipeline_t* pipeline) override final
+    {
+        VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanGraphicsPipeline*>(pipeline, this)->getInternalObject();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipeline);
+
+        return true;
+    }
+
+    inline void bindComputePipeline_impl(const compute_pipeline_t* pipeline) override final
+    {
+        VkPipeline vk_pipeline = IBackendObject::compatibility_cast<const CVulkanComputePipeline*>(pipeline, this)->getInternalObject();
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE, vk_pipeline);
+    }
+
+    bool resetQueryPool_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount) override final;
+    bool beginQuery_impl(IQueryPool* queryPool, uint32_t query, core::bitflag<video::IQueryPool::E_QUERY_CONTROL_FLAGS>) override final;
+    bool endQuery_impl(IQueryPool* queryPool, uint32_t query) override final;
+    bool copyQueryPoolResults_impl(IQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, core::bitflag<video::IQueryPool::E_QUERY_RESULTS_FLAGS> flags) override final;
+    bool writeTimestamp_impl(asset::E_PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* queryPool, uint32_t query) override final;
+
+    // Acceleration Structure Properties (Only available on Vulkan)
+    bool writeAccelerationStructureProperties_impl(const core::SRange<IGPUAccelerationStructure>& pAccelerationStructures, IQueryPool::E_QUERY_TYPE queryType, IQueryPool* queryPool, uint32_t firstQuery) override final;
+
+    bool bindDescriptorSets_impl(asset::E_PIPELINE_BIND_POINT pipelineBindPoint,
+        const pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+        const descriptor_set_t* const* const pDescriptorSets,
+        const uint32_t dynamicOffsetCount = 0u, const uint32_t* dynamicOffsets = nullptr) override final;
+
+    inline bool pushConstants_impl(const pipeline_layout_t* layout, core::bitflag<asset::IShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdPushConstants(m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanPipelineLayout*>(layout, this)->getInternalObject(),
+            getVkShaderStageFlagsFromShaderStage(stageFlags),
+            offset,
+            size,
+            pValues);
+        return true;
+    }
+
+    bool clearColorImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override final;
+
+    bool clearDepthStencilImage_impl(image_t* image, asset::IImage::E_LAYOUT imageLayout, const asset::SClearDepthStencilValue* pDepthStencil, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) override final;
+
+    bool clearAttachments(uint32_t attachmentCount, const asset::SClearAttachment* pAttachments, uint32_t rectCount, const asset::SClearRect* pRects) override final;
+
+    inline bool fillBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t size, uint32_t data) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdFillBuffer(
+            m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject(),
+            static_cast<VkDeviceSize>(dstOffset),
+            static_cast<VkDeviceSize>(size),
+            data);
+
+        return true;
+    }
+
+    inline bool updateBuffer_impl(buffer_t* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) override final
+    {
+        const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
+        vk->vk.vkCmdUpdateBuffer(
+            m_cmdbuf,
+            IBackendObject::compatibility_cast<const CVulkanBuffer*>(dstBuffer, this)->getInternalObject(),
+            static_cast<VkDeviceSize>(dstOffset),
+            static_cast<VkDeviceSize>(dataSize),
+            pData);
+
+        return true;
+    }
+
+    bool executeCommands_impl(uint32_t count, cmdbuf_t* const* const cmdbufs) override final;
+
+    bool buildAccelerationStructures_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos) override;    
+    bool buildAccelerationStructuresIndirect_impl(const core::SRange<IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, const core::SRange<IGPUAccelerationStructure::DeviceAddressType>& pIndirectDeviceAddresses, const uint32_t* pIndirectStrides, const uint32_t* const* ppMaxPrimitiveCounts) override;
+    bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
+    bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) override;
+    bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) override;
+
+    bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdInsertDebugUtilsLabelEXT == 0)
+            return false;
+
+        VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+        labelInfo.pLabelName = name;
+        labelInfo.color[0] = color.x;
+        labelInfo.color[1] = color.y;
+        labelInfo.color[2] = color.z;
+        labelInfo.color[3] = color.w;
+
+        vkCmdBeginDebugUtilsLabelEXT(m_cmdbuf, &labelInfo);
+        return true;
+    }
+
+    bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdBeginDebugUtilsLabelEXT == 0)
+            return false;
+        
+        VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+        labelInfo.pLabelName = name;
+        labelInfo.color[0] = color.x;
+        labelInfo.color[1] = color.y;
+        labelInfo.color[2] = color.z;
+        labelInfo.color[3] = color.w;
+        vkCmdBeginDebugUtilsLabelEXT(m_cmdbuf, &labelInfo);
+
+        return true;
+    }
+
+    bool endDebugMarker() override final
+    {
+        // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+        if (vkCmdEndDebugUtilsLabelEXT == 0)
+            return false;
+        vkCmdEndDebugUtilsLabelEXT(m_cmdbuf);
+        return true;
+    }
+
+	inline const void* getNativeHandle() const override {return &m_cmdbuf;}
+    VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
+
+private:
+    VkCommandBuffer m_cmdbuf;
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
 };  
 
 }

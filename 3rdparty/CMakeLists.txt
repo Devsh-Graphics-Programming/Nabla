@@ -15,12 +15,16 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
-set(SPIRV-Headers_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers")
+get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
+get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
+
+set(SPIRV-Headers_SOURCE_DIR "${DXC_SPIRV_HEADERS_DIR}" CACHE INTERNAL "")
 if(WIN32)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
 elseif(UNIX)
@@ -50,6 +54,8 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
+# boost
+add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -105,15 +111,16 @@ CACHE INTERNAL "" FORCE)
 
 set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
-add_subdirectory(dxc/dxc/external/SPIRV-Headers dxc/external/SPIRV-Headers EXCLUDE_FROM_ALL)
+add_subdirectory("${DXC_SPIRV_HEADERS_DIR}" SPIRV-Headers EXCLUDE_FROM_ALL)
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
-add_subdirectory(dxc/dxc/external/SPIRV-Tools dxc/external/SPIRV-Tools EXCLUDE_FROM_ALL)
+add_subdirectory("${DXC_SPIRV_TOOLS_DIR}" SPIRV-Tools EXCLUDE_FROM_ALL)
 set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
+set_property(TARGET SPIRV-Tools-opt PROPERTY CXX_STANDARD 17)
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
@@ -392,23 +399,11 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		endif()
 endforeach()
 
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
+add_custom_target(3rdparty)
+add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
+set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
 ## REMINDER / NOTE : This is how we install 3rdparty headers we need !
 # parallel hashmap headers
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./include/parallel-hashmap
-	CONFIGURATIONS Release
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./debug/include/parallel-hashmap
-	CONFIGURATIONS Debug
-)
-install(
-	DIRECTORY ./parallel-hashmap/parallel_hashmap 
-	DESTINATION ./relwithdebinfo/include/parallel-hashmap
-	CONFIGURATIONS RelWithDebInfo
-)
+nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")

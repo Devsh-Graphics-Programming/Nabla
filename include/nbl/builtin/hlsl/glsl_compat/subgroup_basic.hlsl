@@ -4,6 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 
+<<<<<<< HEAD
+=======
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
 #include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
 
 namespace nbl 
@@ -13,6 +17,7 @@ namespace hlsl
 namespace glsl
 {
 
+<<<<<<< HEAD
 // TODO (Future): Accessing gl_SubgroupSize and other gl_* values is not yet possible due to https://github.com/microsoft/DirectXShaderCompiler/issues/4217
 
 uint gl_SubgroupSize() {
@@ -66,6 +71,52 @@ void subgroupMemoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeSubgroup, 0x800 | 0x400 | 0x100 | 0x40 | 0x8);
 }
 
+=======
+#ifdef __HLSL_VERSION
+uint32_t gl_SubgroupSize() {
+    return WaveGetLaneCount();
+}
+
+uint32_t gl_SubgroupSizeLog2() {
+    return firstbithigh(gl_SubgroupSize());
+}
+
+uint32_t gl_SubgroupInvocationID() {
+    return WaveGetLaneIndex();
+}
+
+// only available in compute
+uint32_t gl_SubgroupID() {
+    // TODO (PentaKon): This is not always correct (subgroup IDs aren't always aligned with invocation index per the spec)
+    return gl_LocalInvocationIndex() >> gl_SubgroupSizeLog2();
+}
+
+bool subgroupElect() {
+    return spirv::subgroupElect(spv::ScopeSubgroup);
+}
+
+void subgroupBarrier() {
+    spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrier() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsImageMemoryMask | spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsUniformMemoryMask | spv::MemorySemanticsAcquireReleaseMask);
+}
+
+void subgroupMemoryBarrierBuffer() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
+}
+
+void subgroupMemoryBarrierShared() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
+}
+
+void subgroupMemoryBarrierImage() {
+    spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsImageMemoryMask);
+}
+#endif
+
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
 }
 }
 }

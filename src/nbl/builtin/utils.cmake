@@ -114,7 +114,11 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
+<<<<<<< HEAD
 			message(FATAL_ERROR "${NBL_BUILTIN_RESOURCE_ABS_PATH} does not exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+=======
+			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")
@@ -169,7 +173,9 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	if(NOT DEFINED _NABLA_INCLUDE_DIRECTORIES_) # TODO, validate by populating generator expressions if any and checking whether a path to the BuildConfigOptions.h exists per config
-		message(ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		if(NOT _NBL_INTERNAL_BR_CREATION_) # trust internal Nabla BR targets, include search paths may be added later
+			message(FATAL_ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		endif()
 	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 

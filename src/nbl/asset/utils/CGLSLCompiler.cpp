@@ -3,7 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include <sstream>
 #include <regex>
@@ -54,9 +56,9 @@ namespace nbl::asset::impl
             size_t _include_depth) override
         {
             shaderc_include_result* res = new shaderc_include_result;
-            std::string res_str;
 
             std::filesystem::path relDir;
+            #ifdef NBL_EMBED_BUILTIN_RESOURCES
             const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
             const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
@@ -67,17 +69,25 @@ namespace nbl::asset::impl
                 //  or path relative to executable's working directory (""-type).
                 relDir = std::filesystem::path(_requesting_source).parent_path();
             }
+            #else
+            const bool reqBuiltin = false;
+            #endif // NBL_EMBED_BUILTIN_RESOURCES
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
 
             if (std::filesystem::exists(name) && !reqBuiltin)
                 name = std::filesystem::absolute(name);
 
+            std::optional<std::string> result;
             if (_type == shaderc_include_type_relative)
-                res_str = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+            {
+                result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
+            }
             else //shaderc_include_type_standard
-                res_str = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+            {
+                result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
+            }
 
-            if (!res_str.size()) {
+            if (!result) {
                 const char* error_str = "Could not open file";
                 res->content_length = strlen(error_str);
                 res->content = new char[res->content_length + 1u];
@@ -86,6 +96,7 @@ namespace nbl::asset::impl
                 res->source_name = "";
             }
             else {
+                auto& res_str = *result;
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
                 disableGlDirectives(res_str);
@@ -166,7 +177,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* cod
     shaderc::CompileOptions shadercOptions; //default options
     shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
     const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
-    if (glslOptions.genDebugInfo)
+    if (glslOptions.debugInfoFlags.value != IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
         shadercOptions.SetGenerateDebugInfo();
 
     shaderc::SpvCompilationResult bin_res = comp.CompileGlslToSpv(newCode.c_str(), newCode.size(), stage, glslOptions.preprocessorOptions.sourceIdentifier.data() ? glslOptions.preprocessorOptions.sourceIdentifier.data() : "", "main", shadercOptions);

@@ -44,9 +44,20 @@ class CVulkanQueue final : public IQueue
     private:
         RESULT submit_impl(const uint32_t _count, const SSubmitInfo* _submits) override;
 
+<<<<<<< HEAD
         renderdoc_api_t* m_rdoc_api;
 	    VkInstance m_vkInstance;
         VkQueue m_vkQueue;
+=======
+    bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+    bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+    bool endDebugMarker() override;
+
+private:
+    renderdoc_api_t* m_rdoc_api;
+	VkInstance m_vkInstance;
+    VkQueue m_vkQueue;
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
 };
 
 }

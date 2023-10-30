@@ -481,7 +481,77 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         static inline DEFERRABLE_RESULT getDeferrableResultFrom(const VkResult res)
         {
+<<<<<<< HEAD
             switch (res)
+=======
+            return nullptr;
+        }
+    }
+
+    uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) override
+    {
+        constexpr uint64_t invalid_address = ~0ull;
+        CVulkanBuffer* vulkanBuffer = IBackendObject::device_compatibility_cast<CVulkanBuffer*>(buffer, this);
+        if (!vulkanBuffer)
+        {
+            // TODO: log error
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            // TODO: log error: Buffer should've been created with EUF_SHADER_DEVICE_ADDRESS_BIT
+            assert(false);
+            return invalid_address;
+        }
+
+        if (!m_enabledFeatures.bufferDeviceAddress)
+        {
+            // TODO: log error: bufferDeviceAddress extension is not enbaled
+            assert(false);
+            return invalid_address;
+        }
+
+        VkBufferDeviceAddressInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+        info.buffer = vulkanBuffer->getInternalObject();
+        return m_devf.vk.vkGetBufferDeviceAddress(m_vkdev, &info);
+    }
+
+    core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
+    {
+        const char* entryPoint = "main";
+        const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+
+        const asset::ICPUBuffer* source = cpushader->getContent();
+
+        core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
+
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        {
+            spirvShader = cpushader;
+        }
+        else
+        {
+            auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+
+            asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
+
+            commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+            commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+            commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+            commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
+
+            commonCompileOptions.stage = shaderStage;
+            commonCompileOptions.debugInfoFlags = 
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+            commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
+            commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+            if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
             {
                 case VK_OPERATION_DEFERRED_KHR:
                     return DEFERRABLE_RESULT::DEFERRED;
@@ -495,10 +565,39 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             }
             return DEFERRABLE_RESULT::SOME_ERROR;
         }
+<<<<<<< HEAD
         inline DEFERRABLE_RESULT buildAccelerationStructures_impl(
             IDeferredOperation* const deferredOperation, const core::SRange<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos, const uint32_t totalGeometryCount
         ) override
+=======
+
+        if (!spirvShader || !spirvShader->getContent())
+            return nullptr;
+
+        auto spirv = spirvShader->getContent();
+
+        VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+        vk_createInfo.pNext = nullptr;
+        vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
+        vk_createInfo.codeSize = spirv->getSize();
+        vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
+
+        // for debugging 
+        if constexpr (true)
+        {
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            m_physicalDevice->getSystem()->createFile(future,system::path(cpushader->getFilepathHint()).parent_path()/"compiled.spv", system::IFileBase::ECF_WRITE);
+            if (auto file = future.acquire(); file && bool(*file))
+            {
+                system::IFile::success_t succ;
+                (*file)->write(succ,vk_createInfo.pCode,0,vk_createInfo.codeSize);
+            }
+        }
+        
+        VkShaderModule vk_shaderModule;
+        if (m_devf.vk.vkCreateShaderModule(m_vkdev, &vk_createInfo, nullptr, &vk_shaderModule) == VK_SUCCESS)
+>>>>>>> 798939af864768c9d936d4810ae3718b8032f2c8
         {
             const auto infoCount = infos.size();
             core::vector<const VkAccelerationStructureBuildRangeInfoKHR*> vk_pBuildRangeInfos(infoCount);

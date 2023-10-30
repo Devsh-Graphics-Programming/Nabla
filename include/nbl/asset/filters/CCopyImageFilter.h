@@ -64,7 +64,7 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
 				auto copy = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					const auto localOutPos = readBlockPos+commonExecuteData.offsetDifference;
+					const auto localOutPos = readBlockPos+commonExecuteData.offsetDifferenceInBlocks;
 					const auto writeOffset = commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
 					memcpy(commonExecuteData.outData+writeOffset,commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
