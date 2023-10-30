@@ -571,6 +571,7 @@ using alignment_of = std::alignment_of<T>;
 template<class T> using remove_const = std::remove_const<T>;
 template<class T> using remove_volatile = std::remove_volatile<T>;
 template<class T> using remove_cv = std::remove_cv<T>;
+template<class T> using remove_cvref = std::remove_cvref<T>;
 template<class T> using add_const = std::add_const<T>;
 template<class T> using add_volatile = std::add_volatile<T>;
 template<class T> using add_cv = std::add_cv<T>;

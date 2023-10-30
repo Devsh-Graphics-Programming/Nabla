@@ -380,6 +380,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-enable-16bit-types",
         L"-fvk-use-scalar-layout",
         L"-Wno-c++11-extensions",
+        L"-Wno-gnu-static-float-init",
         L"-fspv-target-env=vulkan1.3"
     };
 
