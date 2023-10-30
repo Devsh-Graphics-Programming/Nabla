@@ -4,9 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
 
-#include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/numbers.hlsl>
-#include <nbl/builtin/hlsl/math/functions.glsl>
+#include <nbl/builtin/hlsl/limits/numeric.hlsl>
+//#include <nbl/builtin/hlsl/numbers.hlsl> // ???
+#include <nbl/builtin/hlsl/math/functions.hlsl>
 
 namespace nbl
 {
@@ -22,6 +22,26 @@ namespace ray_dir_info
 // no ray-differentials, nothing
 struct Basic
 {
+  static Basic create(float3 dir)
+  {
+    Basic retval;
+    retval.direction = dir;
+    return retval;
+  }
+
+  // `tform` must be orthonormal
+  void transform(float3x3 tform)
+  {
+    direction = mul(tform, direction); // TODO (make sure) is this correct multiplication order in HLSL? Original GLSL code is `tform * direction`
+  }
+
+  // `tform` must be orthonormal
+  static Basic transform(Basic r, float3x3 tform)
+  {
+    r.transform(tform);
+    return r;
+  }
+
   float3 getDirection() {return direction;}
 
   Basic transmit()
@@ -34,7 +54,7 @@ struct Basic
   Basic reflect(const float3 N, const float directionDotN)
   {
     Basic retval;
-    retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);
+    retval.direction = math::reflect(direction,N,directionDotN);
     return retval;
   }
 
@@ -81,7 +101,7 @@ struct Anisotropic : Isotropic<RayDirInfo>
   )
   {
     Anisotropic<RayDirInfo> retval;
-    retval::Isotropic<RayDirInfo> = isotropic;
+    (Isotropic<RayDirInfo>) retval = isotropic;
     retval.T = normalizedT;
     retval.B = normalizedB;
     
@@ -97,11 +117,11 @@ struct Anisotropic : Isotropic<RayDirInfo>
   }
   static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic)
   {
-    float2x3 TB = nbl::hlsl::frisvad(isotropic.N);
+    float2x3 TB = math::frisvad(isotropic.N);
     return create(isotropic,TB[0],TB[1]);
   }
 
-  float3 getTangentSpaceV() {return float3(Tdot,BdotV,Isotropic<RayDirInfo>::NdotV);}
+  float3 getTangentSpaceV() {return float3(TdotV,BdotV,Isotropic<RayDirInfo>::NdotV);}
   // WARNING: its the transpose of the old GLSL function return value!
   float3x3 getTangentFrame() {return float3x3(T,B,Isotropic<RayDirInfo>::N);}
 
@@ -195,7 +215,7 @@ struct IsotropicMicrofacetCache
   // always valid because its specialized for the reflective case
   static IsotropicMicrofacetCache createForReflection(const float NdotV, const float NdotL, const float VdotL, out float LplusV_rcpLen)
   {
-    LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
+    LplusV_rcpLen = rsqrt(2.0+2.0*VdotL);
 
     IsotropicMicrofacetCache retval;
     
@@ -227,12 +247,12 @@ struct IsotropicMicrofacetCache
   )
   {
     // TODO: can we optimize?
-    H = computeMicrofacetNormal(transmitted,V,L,orientedEta);
+    H = math::computeMicrofacetNormal(transmitted,V,L,orientedEta);
     retval.NdotH = dot(N,H);
     
     // not coming from the medium (reflected) OR
     // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
-    const bool valid = !transmitted || (VdotL<=-min(orientedEta,rcpOrientedEta) && _cache.NdotH>nbl::hlsl::numeric_limits::min());
+    const bool valid = !transmitted || (VdotL<=-min(orientedEta,rcpOrientedEta) && retval.NdotH>nbl::hlsl::numeric_limits<float>::min());
     if (valid)
     {
       // TODO: can we optimize?
@@ -253,15 +273,15 @@ struct IsotropicMicrofacetCache
   {
     const float NdotV = interaction.NdotV;
     const float NdotL = _sample.NdotL;
-    const bool transmitted = nbl_glsl_isTransmissionPath(NdotV,NdotL);
+    const bool transmitted = math::isTransmissionPath(NdotV,NdotL);
     
     float orientedEta, rcpOrientedEta;
-    const bool backside = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,NdotV,eta);
+    const bool backside = math::getOrientedEtas(orientedEta,rcpOrientedEta,NdotV,eta);
 
-    const vec3 V = interaction.V.getDirection();
-    const vec3 L = _sample.L;
+    const float3 V = interaction.V.getDirection();
+    const float3 L = _sample.L;
     const float VdotL = dot(V,L);
-    return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+    return nbl_glsl_calcIsotropicMicrofacetCache(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
   }
   template<class ObserverRayDirInfo, class IncomingRayDirInfo>
   static bool compute(
@@ -272,7 +292,11 @@ struct IsotropicMicrofacetCache
   )
   {
     float3 dummy;
-    return nbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
+    //float3 V = interaction.V.getDirection();
+    //return nbl_glsl_calcIsotropicMicrofacetCache(retval,transmitted,V,L,interaction.N,NdotL,_sample.VdotL,orientedEta,rcpOrientedEta,dummy);
+    // TODO try to use other function that doesnt need `dummy`
+    //  (computing H that is then lost)
+    return compute(retval, interaction, _sample, eta, dummy);
   }
 
   bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const float VdotL, const float eta, const float rcp_eta)
@@ -314,7 +338,7 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     if (transmitted)
     {
       const float VdotH = retval.VdotH;
-      LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2);
+      retval.LdotH = transmitted ? math::refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2) : VdotH;
     }
     
     return retval;
@@ -325,7 +349,7 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     AnisotropicMicrofacetCache retval;
     
     float LplusV_rcpLen;
-    retval = createForReflection(tangentSpaceV.z,tangentSpaceL.z,VdotL,LplusV_rcpLen);
+    (IsotropicMicrofacetCache) retval = IsotropicMicrofacetCache::createForReflection(tangentSpaceV.z,tangentSpaceL.z,VdotL,LplusV_rcpLen);
     retval.TdotH = (tangentSpaceV.x+tangentSpaceL.x)*LplusV_rcpLen;
     retval.BdotH = (tangentSpaceV.y+tangentSpaceL.y)*LplusV_rcpLen;
     
@@ -347,7 +371,6 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
     const float orientedEta, const float rcpOrientedEta, out float3 H
   )
   {
-    float3 H;
     const bool valid = IsotropicMicrofacetCache::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     if (valid)
     {
@@ -380,12 +403,12 @@ struct AnisotropicMicrofacetCache : IsotropicMicrofacetCache
 
 
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename SpectralBins>
+template<typename SpectralBins, typename Pdf>
 struct quotient_and_pdf
 {
-  quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+  static quotient_and_pdf<SpectralBins,Pdf> create(const SpectralBins _quotient, const Pdf _pdf)
   {
-    quotient_and_pdf<SpectralBins> retval;
+    quotient_and_pdf<SpectralBins,Pdf> retval;
     retval.quotient = _quotient;
     retval.pdf = _pdf;
     return retval;
@@ -397,9 +420,60 @@ struct quotient_and_pdf
   }
   
   SpectralBins quotient;
-  float pdf;
+  Pdf pdf;
 };
 
+using quotient_and_pdf_scalar = quotient_and_pdf<float, float>;
+using quotient_and_pdf_rgb = quotient_and_pdf<float3, float>;
+
+// Utility class
+// Making it easier to conform your BxDFs to the concept
+template <class Spectrum, class Pdf, class Sample, class Interaction>
+struct BxDFBase
+{
+    // BxDFs must define such typenames:
+    using spectrum_t =      Spectrum;
+    using pdf_t =           Pdf;
+    using q_pdf_t =         quotient_and_pdf<spectrum_t,pdf_t>;
+
+    using sample_t =        Sample;
+    using interaction_t =   Interaction;
+
+    /**
+    * BxDFs (i.e. types derived from this base) must define following member functions:
+    * 
+    * spectrum_t    eval(in sample_t, in interaction_t);
+    * 
+    * sample_t      generate(in surface_interactions::Anisotropic, inout float3 u);
+    * 
+    * q_pdf_t       quotient_and_pdf(in sample_t, in interaction_t);
+    */
+};
+
+// Utility class
+// Making it easier to conform your BxDFs to the concept
+template <class Spectrum, class Pdf, class Sample, class Interaction, class MicrofacetCache>
+struct MicrofacetBxDFBase : BxDFBase<Spectrum, Pdf, Sample, Interaction>
+{
+    // Microfacet BxDFs must define such typenames:
+    //using spectrum_t =      Spectrum;
+    //using pdf_t =           Pdf;
+    //using q_pdf_t =         quotient_and_pdf<spectrum_t,pdf_t>;
+
+    //using sample_t =        Sample;
+    //using interaction_t =   Interaction;
+    using cache_t =         MicrofacetCache;
+
+    /**
+    * Microfacet BxDFs (i.e. types derived from this base) must define following member functions:
+    * 
+    * spectrum_t    eval(in sample_t, in interaction_t, in cache_t);
+    * 
+    * sample_t      generate(in surface_interactions::Anisotropic, inout float3 u, out AnisotropicMicrofacetCache);
+    * 
+    * q_pdf_t       quotient_and_pdf(in sample_t, in interaction_t, in cache_t);
+    */
+};
 
 }
 }

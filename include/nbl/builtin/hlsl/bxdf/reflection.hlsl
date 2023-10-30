@@ -28,9 +28,9 @@ LightSample<RayDirInfo> cos_generate(const surface_interactions::Anisotropic<Ray
 
 // for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `nbl::hlsl::transmission::cos_quotient_and_pdf`
 template<typename SpectralBins>
-quotient_and_pdf<SpectralBins> cos_quotient_and_pdf()
+quotient_and_pdf<SpectralBins, float> cos_quotient_and_pdf()
 {
-  return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
+  return quotient_and_pdf<SpectralBins, float>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
 }
 
 }
