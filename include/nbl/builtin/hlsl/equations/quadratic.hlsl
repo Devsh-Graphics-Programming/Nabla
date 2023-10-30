@@ -41,9 +41,9 @@ namespace equations
         float_t b;
         float_t c;
 
-        static Quadratic construct(float_t A, float_t B, float_t C)
+        static Quadratic construct(float_t a, float_t b, float_t c)
         {
-            Quadratic ret = { A, B, C };
+            Quadratic ret = { a, b, c };
             return ret;
         }
 
