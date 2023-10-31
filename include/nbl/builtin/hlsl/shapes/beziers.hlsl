@@ -66,7 +66,7 @@ namespace shapes
             return ret;
         }
 
-        float_t2 evaluate(float_t t) NBL_CONST
+        float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
         {
             float_t2 position = 
                 P0 * (1.0 - t) * (1.0 - t) 

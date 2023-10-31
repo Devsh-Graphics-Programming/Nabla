@@ -8,10 +8,10 @@
 #include <bit>
 
 #define ARROW ->
-#define NBL_CONST const
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
+#define NBL_CONST_MEMBER_FUNC const
 
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
 template<typename... Args> \
@@ -40,9 +40,9 @@ using add_pointer = std::add_pointer<T>;
 #else
 
 #define ARROW .arrow().
-#define NBL_CONST 
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
+#define NBL_CONST_MEMBER_FUNC 
 
 namespace nbl
 {
