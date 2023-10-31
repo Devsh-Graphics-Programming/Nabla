@@ -8,37 +8,6 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/shapes/util.hlsl>
 
-
-// TODO [Przemek]: implement it in intrinsics.h
-#ifndef __HLSL_VERSION
-#include <algorithm>
-#include <cmath>
-
-namespace nbl::hlsl
-{
-
-#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
-template<typename... Args> \
-inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
-{ \
-    return origFunctionName(std::forward<Args>(args)...); \
-}
-
-NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
-
-template<typename T>
-inline T rsqrt(T x)
-{
-    return 1.0f / std::sqrt(x);
-}
-
-}
-
-#endif
-
-
-
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
@@ -336,8 +305,8 @@ namespace shapes
 
         static Quadratic constructFromBezier(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) curve)
         {
-            const float_t2 A = curve.P0 - float_t(2.0f) * curve.P1 + curve.P2;
-            const float_t2 B = float_t(2.0f) * (curve.P1 - curve.P0);
+            const float_t2 A = curve.P0 - float_t(2.0) * curve.P1 + curve.P2;
+            const float_t2 B = float_t(2.0) * (curve.P1 - curve.P0);
             const float_t2 C = curve.P0;
             
             Quadratic ret = { A, B, C };

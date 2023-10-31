@@ -3,6 +3,8 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#include <algorithm>
+#include <cmath>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
@@ -28,7 +30,21 @@ NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
 
-#include <algorithm>
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
+NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+
+template<typename T>
+inline T rsqrt(T x)
+{
+    return 1.0f / std::sqrt(x);
+}
 
 
 }
