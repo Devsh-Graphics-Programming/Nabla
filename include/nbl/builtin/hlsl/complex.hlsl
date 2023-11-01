@@ -82,3 +82,5 @@ complex_t<T, N> divide(const complex_t<T, N> a, const complex_t<T, N> b)
 }
 
 #endif
+
+#endif
