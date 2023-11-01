@@ -7,14 +7,13 @@
 
 
 
+#ifdef __HLSL_VERSION
+
+
 namespace nbl
 {
 namespace hlsl
 {
-
-
-
-#ifdef __HLSL_VERSION
 
 
 template <typename T, uint16_t N>
@@ -79,9 +78,7 @@ complex_t<T, N> divide(const complex_t<T, N> a, const complex_t<T, N> b)
 }
 
 
+}
+}
+
 #endif
-
-
-
-}
-}
