@@ -5,10 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
-// C++ headers
-#ifndef __HLSL_VERSION
-#include <complex>
-#endif
+
 
 namespace nbl
 {
@@ -17,19 +14,21 @@ namespace hlsl
 
 
 
-template <typename T>
-struct complex_t<vector<T, uint16_t N>>
-{
-    vector<T, N> real;
-    vector<T, N> imag;
-};
-
+#ifdef __HLSL_VERSION
 
 
 template <typename T, uint16_t N>
-complex_t<vector<T, N>> add(const complex_t<vector<T, N>>& a, const complex_t<vector<T, N>>& b)
+struct complex_t
 {
-    complex_t<vector<T, N>> result;
+    T real[N];
+    T imag[N];
+};
+
+
+template <typename T, uint16_t N>
+complex_t<T, N> add(const complex_t<T, N> a, const complex_t<T, N> b)
+{
+    complex_t<T, N> result;
     for (uint16_t i = 0; i < N; ++i)
     {
         result.real[i] = a.real[i] + b.real[i];
@@ -40,9 +39,9 @@ complex_t<vector<T, N>> add(const complex_t<vector<T, N>>& a, const complex_t<ve
 }
 
 template <typename T, uint16_t N>
-complex_t<vector<T, N>> subtract(const complex_t<vector<T, N>>& a, const complex_t<vector<T, N>>& b)
+complex_t<T, N> subtract(const complex_t<T, N> a, const complex_t<T, N> b)
 {
-    complex_t<vector<T, N>> result;
+    complex_t<T, N> result;
     for (uint16_t i = 0; i < N; ++i)
     {
         result.real[i] = a.real[i] - b.real[i];
@@ -53,9 +52,9 @@ complex_t<vector<T, N>> subtract(const complex_t<vector<T, N>>& a, const complex
 }
 
 template <typename T, uint16_t N>
-complex_t<vector<T, N>> multiply(const complex_t<vector<T, N>>& a, const complex_t<vector<T, N>>& b)
+complex_t<T, N> multiply(const complex_t<T, N> a, const complex_t<T, N> b)
 {
-    complex_t<vector<T, N>> result;
+    complex_t<T, N> result;
     for (uint16_t i = 0; i < N; ++i)
     {
         result.real[i] = a.real[i] * b.real[i] - a.imag[i] * b.imag[i];
@@ -66,9 +65,9 @@ complex_t<vector<T, N>> multiply(const complex_t<vector<T, N>>& a, const complex
 }
 
 template <typename T, uint16_t N>
-complex_t<vector<T, N>> divide(const complex_t<vector<T, N>>& a, const complex_t<vector<T, N>>& b)
+complex_t<T, N> divide(const complex_t<T, N> a, const complex_t<T, N> b)
 {
-    complex_t<vector<T, N>> result;
+    complex_t<T, N> result;
     for (uint16_t i = 0; i < N; ++i)
     {
         T denominator = b.real[i] * b.real[i] + b.imag[i] * b.imag[i];
@@ -78,6 +77,9 @@ complex_t<vector<T, N>> divide(const complex_t<vector<T, N>>& a, const complex_t
 
     return result;
 }
+
+
+#endif
 
 
 
