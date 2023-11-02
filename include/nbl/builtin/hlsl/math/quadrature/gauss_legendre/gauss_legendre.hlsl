@@ -37,6 +37,7 @@ struct GaussLegendreIntegration
 
 #define float_t float32_t
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef float_t
 
 // rename NBL_GLSL_FEATURE_SHADER_FLOAT64 to NBL_LIMIT_FLOAT64 after merge
 #if defined(NBL_GLSL_FEATURE_SHADER_FLOAT64) || !defined(__HLSL_VERSION)
