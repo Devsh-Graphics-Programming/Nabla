@@ -13,16 +13,30 @@ namespace hlsl
 {
 namespace glsl
 {
-uint32_t4 gl_SubgroupEqMask() {
-    return uint32_t4(0, 0, 0, 1) << gl_SubgroupInvocationID();
+
+uint32_t4 gl_SubgroupEqMask()
+{
+    const uint32_t comp = gl_SubgroupInvocationID()>>5;
+    uint32_t4 retval = uint32_t4(0,0,0,0);
+    retval[comp] = 0x1u<<(gl_SubgroupInvocationID()&31u);
+    return retval;
 }
 
-uint32_t4 gl_SubgroupGeMask() {
-    return uint32_t4(0xffffffffu, 0xffffffffu, 0xffffffffu, 0xffffffffu) << gl_SubgroupInvocationID();
+uint32_t4 gl_SubgroupGeMask()
+{
+    const uint32_t FullBits = 0xffffffffu;
+    const uint32_t comp = gl_SubgroupInvocationID()>>5;
+    uint32_t4 retval = uint32_t4(comp>0 ? 0u:FullBits,comp>1 ? 0u:FullBits,comp>2 ? 0u:FullBits,0u);
+    retval[comp] = FullBits<<(gl_SubgroupInvocationID()&31u);
+    return retval;
 }
 
-uint32_t4 gl_SubgroupGtMask() {
-    return gl_SubgroupGeMask() << 1;
+uint32_t4 gl_SubgroupGtMask()
+{
+    uint32_t4 retval = gl_SubgroupGeMask();
+    const uint32_t comp = gl_SubgroupInvocationID()>>5;
+    retval[comp] = 0xfffffffeu<<(gl_SubgroupInvocationID()&31u);
+    return retval;
 }
 
 uint32_t4 gl_SubgroupLeMask() {
