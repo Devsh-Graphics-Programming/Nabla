@@ -52,11 +52,11 @@ namespace shapes
             return ret;
         }
 
-        float_t2 evaluate(float_t t)
+        float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
         {
             float_t2 position = 
-                P0 * (1.0f - t) * (1.0f - t) 
-                 + 2.0f * P1 * (1.0f - t) * t
+                P0 * (1.0 - t) * (1.0 - t) 
+                 + 2.0 * P1 * (1.0 - t) * t
                  +       P2 * t         * t;
 
             return position;

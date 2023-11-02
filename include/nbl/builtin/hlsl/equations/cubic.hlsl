@@ -25,6 +25,7 @@ namespace hlsl
 {
 namespace equations
 {
+    //TODO: use numeric_limits<float_t>::PI
 	NBL_CONSTEXPR double PI_DOUBLE = 3.14159265358979323846;
     
     template<typename float_t>
@@ -35,18 +36,17 @@ namespace equations
 
         float_t c[4];
 
-        static Cubic construct(float_t A, float_t B, float_t C, float_t D)
+        static Cubic construct(float_t a, float_t b, float_t c, float_t d)
         {
             Cubic ret;
-            ret.c[0] = D;
-            ret.c[1] = C;
-            ret.c[2] = B;
-            ret.c[3] = A;
+            ret.c[0] = d;
+            ret.c[1] = c;
+            ret.c[2] = b;
+            ret.c[3] = a;
             return ret;
         }
 
-    
-
+        // Originally from: https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
         float3_t computeRoots() {
             int     i;
             double  sub;

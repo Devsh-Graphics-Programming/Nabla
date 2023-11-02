@@ -37,17 +37,18 @@ namespace equations
 
         float_t c[5];
 
-        static Quartic construct(float_t A, float_t B, float_t C, float_t D, float_t E)
+        static Quartic construct(float_t a, float_t b, float_t c, float_t d, float_t e)
         {
             Quartic ret;
-            ret.c[0] = E;
-            ret.c[1] = D;
-            ret.c[2] = C;
-            ret.c[3] = B;
-            ret.c[4] = A;
+            ret.c[0] = e;
+            ret.c[1] = d;
+            ret.c[2] = c;
+            ret.c[3] = b;
+            ret.c[4] = a;
             return ret;
         }
 
+        // Originally from: https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
 		float4_t computeRoots() {
 			double  coeffs[4];
 			double  z, u, v, sub;

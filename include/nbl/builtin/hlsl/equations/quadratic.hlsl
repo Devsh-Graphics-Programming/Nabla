@@ -37,98 +37,44 @@ namespace equations
         using float2_t = vector<float_t, 2>;
         using float3_t = vector<float_t, 3>;
 
-        float_t A;
-        float_t B;
-        float_t C;
+        float_t a;
+        float_t b;
+        float_t c;
 
-        static Quadratic construct(float_t A, float_t B, float_t C)
+        static Quadratic construct(float_t a, float_t b, float_t c)
         {
-            Quadratic ret = { A, B, C };
+            Quadratic ret = { a, b, c };
             return ret;
         }
 
         float_t evaluate(float_t t)
         {
-            return t * (A * t + B) + C;
+            return t * (a * t + b) + c;
         }
 
         float2_t computeRoots()
         {
             float2_t ret;
 
-            const float_t det = B * B - 4.0 * A *C;
+            const float_t det = b * b - 4.0 * a * c;
             const float_t detSqrt = sqrt(det);
-            const float_t rcp = 0.5 / A;
-            const float_t bOver2A = B * rcp;
+            const float_t rcp = 0.5 / a;
+            const float_t bOver2A = b * rcp;
 
             float_t t0 = 0.0, t1 = 0.0;
-            if (B >= 0)
+            if (b >= 0)
             {
                 ret[0] = -detSqrt * rcp - bOver2A;
-                ret[1] = 2 * C / (-B - detSqrt);
+                ret[1] = 2 * c / (-b - detSqrt);
             }
             else
             {
-                ret[0] = 2 * C / (-B + detSqrt);
+                ret[0] = 2 * c / (-b + detSqrt);
                 ret[1] = +detSqrt * rcp - bOver2A;
             }
 
             return ret;
         }
-
-        // SolveQuadratic:
-        // det = b*b-4.f*a*c;
-        // rcp = 0.5f/a;
-        // detSqrt = sqrt(det)*rcp;
-        // tmp = b*rcp;
-        // res = float2(-detSqrt,detSqrt)-tmp;
-        //
-        // Collapsed version:
-        // detrcp2 = det * rcp * rcp
-        // brcp = b * rcp
-        //
-        // (computeRoots())
-        // detSqrt = sqrt(detrcp2)
-        // res = float2(-detSqrt,detSqrt)-bRcp;
-        struct PrecomputedRootFinder 
-        {
-            float_t detRcp2;
-            float_t brcp;
-
-            float2_t computeRoots() {
-                float_t detSqrt = sqrt(detRcp2);
-                float2_t roots = float2_t(-detSqrt,detSqrt)-brcp;
-                // assert(roots.x == roots.y);
-                // assert(!isnan(roots.x));
-                // if a = 0, brcp is inf
-                // then we return detRcp2, which was set below to -c / b
-                // that works as a solution to the linear equation bx+c=0
-                return isinf(brcp) ? detRcp2 : roots;
-            }
-
-            static PrecomputedRootFinder construct(float_t detRcp2, float_t brcp)
-            {
-                PrecomputedRootFinder result;
-                result.detRcp2 = detRcp2;
-                result.brcp = brcp;
-                return result;
-            }
-
-            static PrecomputedRootFinder construct(nbl::hlsl::equations::Quadratic<float_t> quadratic)
-            {
-                float_t a = quadratic.A;
-                float_t b = quadratic.B;
-                float_t c = quadratic.C;
-                
-                float_t det = b*b-4.f*a*c;
-                float_t rcp = 0.5f/a;
-                
-                PrecomputedRootFinder result;
-                result.brcp = b * rcp;
-                result.detRcp2 = isinf(result.brcp) ? -c / b : det * rcp * rcp;
-                return result;
-            }
-        };
 
 
     };
