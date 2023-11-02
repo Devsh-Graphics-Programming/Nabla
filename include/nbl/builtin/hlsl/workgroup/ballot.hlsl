@@ -20,7 +20,6 @@ namespace impl
 uint16_t getDWORD(uint16_t invocation)
 {
     uint16_t dword = invocation>>5;
-    assert(dword<((Volume()+31)>>5));
     return dword; // log2 of sizeof(uint32_t)*8
 }
 
@@ -29,6 +28,10 @@ uint16_t BallotDWORDCount(const uint16_t itemCount)
 {
     return getDWORD(itemCount+31); // round up, in case all items don't fit in even number of DWORDs
 }
+
+// this silly thing exists only because we can't make the above `constexpr`
+template<uint16_t ItemCount>
+struct ballot_dword_count : integral_constant<uint16_t,((ItemCount+31)>>5)> {};
 }
 
 /**
@@ -55,17 +58,15 @@ void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
     if (initialize)
         accessor.set(index,0u);
     
-    accessor.ballot.workgroupExecutionAndMemoryBarrier();
+    accessor.workgroupExecutionAndMemoryBarrier();
     if(value)
-    {
-        uint32_t dummy;
-        accessor.atomicOr(impl::getDWORD(index),1u<<(index&31u),dummy);
-    }
+        accessor.atomicOr(impl::getDWORD(index),1u<<(index&31u));
 }
 
 template<class Accessor>
 bool ballotBitExtract(const uint16_t index, NBL_REF_ARG(Accessor) accessor)
 {
+    assert(index<Volume());
     return bool(accessor.get(impl::getDWORD(index))&(1u<<(index&31u)));
 }
 
