@@ -16,16 +16,19 @@ namespace hlsl
 namespace impl
 {
 
-template<class T>
-struct valid_expression : true_type {};
-
-template<> struct valid_expression<void> : false_type {};
+enum e_member_presence
+{
+    absent = 0,
+    non_static,
+    as_static
+};
 
 template<class T>
 T declval(){}
 
 }
 
+typedef impl::e_member_presence e_member_presence;
 }
 
 }
@@ -36,10 +39,22 @@ namespace nbl \
 { \
 namespace hlsl \
 { \
-    template<class T, class=bool_constant<true> > \
-    struct has_member_##mem : false_type {}; \
-    template<class T> \
-    struct has_member_##mem<T,bool_constant<impl::valid_expression<__decltype(impl::declval<T>().mem)>::value> > : true_type {}; \
+namespace impl \
+{ \
+template<class T, class=void> \
+struct is_static_member_##mem: false_type {}; \
+template<class T> \
+struct is_static_member_##mem<T,typename enable_if<!is_same<decltype(T::mem),void>::value,void>::type>: true_type{}; \
+template<class T, class=void> \
+struct is_member_##mem: false_type {}; \
+template<class T> \
+struct is_member_##mem<T,typename enable_if<!is_same<decltype(impl::declval<T>().mem),void>::value,void>::type>: true_type{}; \
+} \
+template<class T> \
+struct has_member_##mem \
+{ \
+    NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##mem<T>::value + impl::is_static_member_##mem<T>::value); \
+}; \
 } \
 }
 
