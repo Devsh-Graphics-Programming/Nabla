@@ -1848,6 +1848,7 @@ struct SPhysicalDeviceFeatures
 				
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
+        // VK 1.0 core
         if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
 
         if (geometryShader && !_rhs.geometryShader) return false;
@@ -1894,6 +1895,7 @@ struct SPhysicalDeviceFeatures
         if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
 
         if (mixedAttachmentSamples && !_rhs.mixedAttachmentSamples) return false;
+
 
         if (accelerationStructure && !_rhs.accelerationStructure) return false;
         if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
