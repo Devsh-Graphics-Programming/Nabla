@@ -24,7 +24,7 @@ struct complex_t
 };
 
 template<typename T>
-complex_t<T> add(complex_t<T> a, complex_t<T> b)
+complex_t<T> add(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -35,7 +35,7 @@ complex_t<T> add(complex_t<T> a, complex_t<T> b)
 }
 
 template<typename T>
-complex_t<T> subract(complex_t<T> a, complex_t<T> b)
+complex_t<T> subract(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -46,7 +46,7 @@ complex_t<T> subract(complex_t<T> a, complex_t<T> b)
 }
 
 template<typename T>
-complex_t<T> multiply(complex_t<T> a, complex_t<T> b)
+complex_t<T> multiply(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -57,7 +57,7 @@ complex_t<T> multiply(complex_t<T> a, complex_t<T> b)
 }
 
 template<typename T>
-complex_t<T> divide(complex_t<T> a, complex_t<T> b)
+complex_t<T> divide(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
