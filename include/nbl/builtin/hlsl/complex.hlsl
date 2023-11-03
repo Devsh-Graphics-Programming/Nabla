@@ -26,25 +26,46 @@ struct complex_t
 template<typename T>
 complex_t<T> add(complex_t<T> a, complex_t<T> b)
 {
-    return a + b;
+    complex_t<T> result;
+
+    result.real = a.real + b.real;
+    result.imag = a.imag + b.imag;
+
+    return result;
 }
 
 template<typename T>
 complex_t<T> subract(complex_t<T> a, complex_t<T> b)
 {
-    return a - b;
+    complex_t<T> result;
+
+    result.real = a.real - b.real;
+    result.imag = a.imag - b.imag;
+
+    return result;
 }
 
 template<typename T>
 complex_t<T> multiply(complex_t<T> a, complex_t<T> b)
 {
-    return a * b;
+    complex_t<T> result;
+
+    result.real = a.real * b.real - a.imag * b.imag;
+    result.imag = a.real * b.imag + a.imag * b.real;
+
+    return result;
 }
 
 template<typename T>
 complex_t<T> divide(complex_t<T> a, complex_t<T> b)
 {
-    return a / b;
+    complex_t<T> result;
+
+    T denominator = b.real * b.real + b.imag * b.imag;
+    result.real = (a.real * b.real + a.imag * b.imag) / denominator;
+    result.imag = (a.imag * b.real - a.real * b.imag) / denominator;
+
+    return result;
 }
 
 
