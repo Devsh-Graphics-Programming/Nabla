@@ -29,10 +29,13 @@ struct reduce
         const uint16_t lastInvocation = ItemCount-1;
         const uint16_t subgroupMask = uint16_t(glsl::gl_SubgroupSize()-1u);
 
-        lastInvocationInLevel = lastInvocation;
-        
         subgroup::inclusive_scan<BinOp> subgroupOp;
-        firstLevelScan = subgroupOp(value);
+
+        lastInvocationInLevel = lastInvocation;
+        scanLoadIndex = SubgroupContiguousIndex();
+        participate = scanLoadIndex<=lastInvocationInLevel;
+
+        firstLevelScan = subgroupOp(participate ? value:BinOp::identity);
         type_t scan = firstLevelScan;
         
         // could use ElectLast() but we can optimize for full workgroups here
@@ -44,10 +47,8 @@ struct reduce
         // Consequently, those first gl_SubgroupSz^2 invocations will store their results on gl_SubgroupSz scratch slots 
         // and the next level will follow the same + the previous as an `offset`.
         
-        scanLoadIndex = SubgroupContiguousIndex();
         const uint16_t loadStoreIndexDiff = scanLoadIndex-uint16_t(glsl::gl_SubgroupID());
         
-        participate = scanLoadIndex<=lastInvocationInLevel;
         // to cancel out the index shift on the first iteration
         if (lastInvocationInLevel>subgroupMask)
              scanLoadIndex -= lastInvocationInLevel-1;
@@ -58,7 +59,7 @@ struct reduce
             scanLoadIndex += lastInvocationInLevel+1;
             // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
             if (participate && (SubgroupContiguousIndex()==lastInvocationInLevel || isLastSubgroupInvocation))
-                scratchAccessor.set(scanLoadIndex-loadStoreIndexDiff, scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
+                scratchAccessor.set(scanLoadIndex-loadStoreIndexDiff,scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
             participate = SubgroupContiguousIndex() <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
