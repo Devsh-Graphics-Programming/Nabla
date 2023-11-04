@@ -16,11 +16,18 @@ namespace hlsl
 namespace impl
 {
 
+template<class T, bool C>
+struct is_const_helper : bool_constant<C>
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool is_constant = is_const<T>::value;
+};
+
 enum e_member_presence
 {
     absent = 0,
-    non_static,
-    as_static
+    non_static = 1,
+    as_static = 2,
+    static_constexpr = 3,
 };
 
 template<class T>
@@ -34,27 +41,23 @@ typedef impl::e_member_presence e_member_presence;
 }
 
 
-#define NBL_GENERATE_MEMBER_TESTER(mem) \
+#define NBL_GENERATE_MEMBER_TESTER(a) \
 namespace nbl \
 { \
 namespace hlsl \
 { \
-namespace impl \
-{ \
+namespace impl { \
+template<class T, class=void>  \
+struct is_static_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false; }; \
+template<class T>  \
+struct is_static_member_##a<T,typename enable_if<!is_same<decltype(T::a),void>::value,void>::type>: is_const_helper<decltype(T::a), true> {}; \
 template<class T, class=void> \
-struct is_static_member_##mem: false_type {}; \
+struct is_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false;}; \
 template<class T> \
-struct is_static_member_##mem<T,typename enable_if<!is_same<decltype(T::mem),void>::value,void>::type>: true_type{}; \
-template<class T, class=void> \
-struct is_member_##mem: false_type {}; \
-template<class T> \
-struct is_member_##mem<T,typename enable_if<!is_same<decltype(impl::declval<T>().mem),void>::value,void>::type>: true_type{}; \
+struct is_member_##a<T,typename enable_if<!is_same<decltype(declval<T>().a),void>::value,void>::type> : is_const_helper<decltype(declval<T>().a), true>{}; \
 } \
 template<class T> \
-struct has_member_##mem \
-{ \
-    NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##mem<T>::value + impl::is_static_member_##mem<T>::value); \
-}; \
+struct has_member_##a {  NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##a<T>::value + impl::is_static_member_##a<T>::value + impl::is_static_member_##a<T>::is_constant); }; \
 } \
 }
 
