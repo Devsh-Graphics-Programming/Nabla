@@ -77,39 +77,54 @@ struct exclusive_scan
  */ 
 namespace impl
 {
-template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor, template<class,uint16_t> class op_t>
-uint32_t ballotPolyCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor, NBL_REF_ARG(uint32_t) localBitfield)
+template<uint16_t DWORDCount, class BallotAccessor>
+uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
 {
-    localBitfield = 0u;
-    if (SubgroupContiguousIndex()<impl::BallotDWORDCount(ItemCount))
-        localBitfield = ballotAccessor.get(SubgroupContiguousIndex());
-    return op_t<plus<uint32_t>,impl::ballot_dword_count<ItemCount>::value>::template __call<ArithmeticAccessor>(countbits(localBitfield),arithmeticAccessor);
+    const uint32_t index = SubgroupContiguousIndex();
+    if (index<DWORDCount)
+    {
+        const uint32_t bitfield = ballotAccessor.get(index);
+        // FIXME: stip unused bits from bitfield
+        return uint16_t(countbits(bitfield));
+    }
+    return 0;
+}
+
+template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
+{
+    const uint32_t localBitfield = ballotAccessor.get(impl::getDWORD(SubgroupContiguousIndex()));
+
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    const uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+        ballotCountedBitDWORD<DWORDCount,BallotAccessor>(ballotAccessor),
+        arithmeticAccessor
+    );
+    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0]));
+//    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
 }
 }
 
 template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
 uint16_t ballotBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    uint32_t dummy;
-    return uint16_t(impl::ballotPolyCount<ItemCount,BallotAccessor,ArithmeticAccessor,reduction>(ballotAccessor,arithmeticAccessor,dummy));
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    return uint16_t(reduction<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+        impl::ballotCountedBitDWORD<DWORDCount,BallotAccessor>(ballotAccessor),
+        arithmeticAccessor
+    ));
 }
 
 template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
 uint16_t ballotInclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    uint32_t localBitfield;
-    uint32_t count = impl::ballotPolyCount<ItemCount,BallotAccessor,ArithmeticAccessor,exclusive_scan>(ballotAccessor,arithmeticAccessor,localBitfield);
-    // only using part of the mask is on purpose, I'm only interested in LSB
-    return uint16_t(countbits(glsl::gl_SubgroupLeMask()[0]&localBitfield)+count);
+    return impl::ballotScanBitCount<false,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
 }
 
 template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
 uint16_t ballotExclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    uint32_t localBitfield;
-    uint32_t count = impl::ballotPolyCount<ItemCount,BallotAccessor,ArithmeticAccessor,exclusive_scan>(ballotAccessor,arithmeticAccessor,localBitfield);
-    // only using part of the mask is on purpose, I'm only interested in LSB
-    return uint16_t(countbits(glsl::gl_SubgroupLtMask()[0]&localBitfield)+count);
+    return impl::ballotScanBitCount<true,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
 }
 
 }
