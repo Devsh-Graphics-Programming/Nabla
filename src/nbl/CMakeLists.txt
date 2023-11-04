@@ -467,7 +467,10 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC BEFORE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include")
+target_include_directories(Nabla PUBLIC 
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
+)
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -500,6 +503,9 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	else()
 		target_link_libraries(Nabla PRIVATE OpenEXR::IlmImf)
 	endif()
+	
+	target_link_libraries(Nabla INTERFACE Half) # a workaround which causes Half static library to be linked directly to each Nabla example no matter if Nabla is DLL or not, I think we should really not expose OpenEXR interface to our public Nabla include files
+	
 	target_include_directories(
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
 		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
@@ -524,13 +530,13 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
-	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
+add_custom_target(dxcompiler 
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
+	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
 
-add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
 add_dependencies(Nabla dxcompiler)
 add_dependencies(3rdparty dxcompiler)
 
