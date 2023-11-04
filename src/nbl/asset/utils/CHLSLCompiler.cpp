@@ -313,6 +313,19 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     auto resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
 
+    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
+        if (auto file=future.acquire(); file&&bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
+            succ.getBytesProcessed(true);
+        }
+    }
+
     return resolvedString;
 }
 
@@ -380,6 +393,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-enable-16bit-types",
         L"-fvk-use-scalar-layout",
         L"-Wno-c++11-extensions",
+        L"-Wno-c++1z-extensions",
+        L"-Wno-gnu-static-float-init",
         L"-fspv-target-env=vulkan1.3"
     };
 

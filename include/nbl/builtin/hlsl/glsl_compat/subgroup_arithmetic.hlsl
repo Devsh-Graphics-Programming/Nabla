@@ -15,15 +15,15 @@ namespace glsl
     
 template<typename T>
 T subgroupAdd(T value) {
-    return spirv::groupAdd(3, 0, value);
+    return spirv::groupAdd(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
 }
 template<typename T>
 T subgroupInclusiveAdd(T value) {
-    return spirv::groupAdd(3, 1, value);
+    return spirv::groupAdd(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
 }
 template<typename T>
 T subgroupExclusiveAdd(T value) {
-    return spirv::groupAdd(3, 2, value);
+    return spirv::groupAdd(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
 }
 
 template<typename T>

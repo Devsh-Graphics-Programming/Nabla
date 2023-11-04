@@ -5,7 +5,10 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
 
+#ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
+//#include "spirv/unified1/spirv.hpp" TODO: also GLSL.450.std for the extended instruction set
+#endif
 
 
 namespace nbl 
@@ -109,6 +112,7 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 #pragma region CONVERSION
 
+// Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
