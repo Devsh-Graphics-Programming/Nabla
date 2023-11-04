@@ -81,12 +81,13 @@ template<uint16_t ItemCount, class BallotAccessor>
 uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
 {
     const uint32_t index = SubgroupContiguousIndex();
-    if (index<impl::ballot_dword_count<ItemCount>::value)
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    if (index<DWORDCount)
     {
         uint32_t bitfield = ballotAccessor.get(index);
-        // strip unwanted bits from bitfield
+        // strip unwanted bits from bitfield of the last item
         const uint16_t Remainder = ItemCount&31;
-        if (Remainder!=0)
+        if (Remainder!=0 && index==DWORDCount-1)
             bitfield &= (0x1u<<Remainder)-1;
         return uint16_t(countbits(bitfield));
     }
@@ -96,15 +97,21 @@ uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
 template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
 uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    const uint32_t localBitfield = ballotAccessor.get(impl::getDWORD(SubgroupContiguousIndex()));
+    const uint16_t subgroupIndex = SubgroupContiguousIndex();
+    const uint16_t bitfieldIndex = impl::getDWORD(subgroupIndex);
+    const uint32_t localBitfield = ballotAccessor.get(bitfieldIndex);
 
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
-    const uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+    uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
         ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
         arithmeticAccessor
     );
-    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0]));
-//    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
+    arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+    if (subgroupIndex<DWORDCount)
+        arithmeticAccessor.set(subgroupIndex,count);
+    arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+    count = arithmeticAccessor.get(bitfieldIndex);
+    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
 }
 }
 
