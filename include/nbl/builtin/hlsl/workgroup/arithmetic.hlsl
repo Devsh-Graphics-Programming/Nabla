@@ -77,14 +77,17 @@ struct exclusive_scan
  */ 
 namespace impl
 {
-template<uint16_t DWORDCount, class BallotAccessor>
+template<uint16_t ItemCount, class BallotAccessor>
 uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
 {
     const uint32_t index = SubgroupContiguousIndex();
-    if (index<DWORDCount)
+    if (index<impl::ballot_dword_count<ItemCount>::value)
     {
-        const uint32_t bitfield = ballotAccessor.get(index);
-        // FIXME: stip unused bits from bitfield
+        uint32_t bitfield = ballotAccessor.get(index);
+        // strip unwanted bits from bitfield
+        const uint16_t Remainder = ItemCount&31;
+        if (Remainder!=0)
+            bitfield &= (0x1u<<Remainder)-1;
         return uint16_t(countbits(bitfield));
     }
     return 0;
@@ -97,7 +100,7 @@ uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_
 
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
     const uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
-        ballotCountedBitDWORD<DWORDCount,BallotAccessor>(ballotAccessor),
+        ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
         arithmeticAccessor
     );
     return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0]));
@@ -110,7 +113,7 @@ uint16_t ballotBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(
 {
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
     return uint16_t(reduction<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
-        impl::ballotCountedBitDWORD<DWORDCount,BallotAccessor>(ballotAccessor),
+        impl::ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
         arithmeticAccessor
     ));
 }
