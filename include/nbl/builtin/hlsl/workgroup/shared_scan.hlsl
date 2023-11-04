@@ -78,22 +78,24 @@ struct reduce
 };
 
 template<class BinOp, bool Exclusive, uint16_t ItemCount>
-struct scan : reduce<BinOp,ItemCount>
+struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShaderCompiler/issues/5966
 {
     using base_t = reduce<BinOp,ItemCount>;
+    base_t __base;
     using type_t = typename base_t::type_t;
 
     template<class Accessor>
     type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) scratchAccessor)
     {
-        base_t::template __call<Accessor>(value,scratchAccessor);
+        __base.template __call<Accessor>(value,scratchAccessor);
         
         const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
         // abuse integer wraparound to map 0 to 0xffffu
         const uint16_t prevSubgroupID = subgroupID-1;
         
         // important check to prevent weird `firstbithigh` overlflows
-        if(base_t::lastInvocation>=uint16_t(glsl::gl_SubgroupSize()))
+        const uint16_t lastInvocation = ItemCount-1;
+        if(lastInvocation>=uint16_t(glsl::gl_SubgroupSize()))
         {
             const uint16_t subgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
             // different than Upsweep cause we need to translate high level inclusive scans into exclusive on the fly, so we get the value of the subgroup behind our own in each level
@@ -101,58 +103,58 @@ struct scan : reduce<BinOp,ItemCount>
             
             BinOp binop;
             // because DXC doesn't do references and I need my "frozen" registers
-            #define scanStoreIndex base_t::scanLoadIndex
+            #define scanStoreIndex __base.scanLoadIndex
             // we sloop over levels from highest to penultimate
             // as we iterate some previously active (higher level) invocations hold their exclusive prefix sum in `lastLevelScan`
-            const uint16_t temp = firstbithigh(base_t::lastInvocation)/subgroupSizeLog2; // doing division then multiplication might be optimized away by the compiler
-            const uint16_t initialLogShift = temp * subgroupSizeLog2;
+            const uint16_t temp = uint16_t(firstbithigh(uint32_t(lastInvocation))/subgroupSizeLog2); // doing division then multiplication might be optimized away by the compiler
+            const uint16_t initialLogShift = temp*subgroupSizeLog2;
             // TODO: later [unroll(scan_levels<ItemCount,MinSubgroupSize>::value-1)]
             [unroll(1)]
             for (uint16_t logShift=initialLogShift; bool(logShift); logShift-=subgroupSizeLog2)
             {
                 // on the first iteration gl_SubgroupID==0 will participate but not afterwards because binop operand is identity
-                if (base_t::participate)
+                if (__base.participate)
                 {
                     // we need to add the higher level invocation exclusive prefix sum to current value
                     if (logShift!=initialLogShift) // but the top level doesn't have any level above itself
                     {
                         // this is fine if on the way up you also += under `if (participate)`
-                        scanStoreIndex -= base_t::lastInvocationInLevel+1;
-                        base_t::lastLevelScan = binop(base_t::lastLevelScan,scratchAccessor.get(scanStoreIndex));
+                        scanStoreIndex -= __base.lastInvocationInLevel+1;
+                        __base.lastLevelScan = binop(__base.lastLevelScan,scratchAccessor.get(scanStoreIndex));
                     }
                     // now `lastLevelScan` has current level's inclusive prefux sum computed properly
                     // note we're overwriting the same location with same invocation so no barrier needed
                     // we store everything even though we'll never use the last entry due to shuffleup on read
-                    scratchAccessor.set(scanStoreIndex,base_t::lastLevelScan);
+                    scratchAccessor.set(scanStoreIndex,__base.lastLevelScan);
                 }
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
                 // we're sneaky and exclude `gl_SubgroupID==0`  from participation by abusing integer underflow
-                base_t::participate = prevSubgroupID<base_t::lastInvocationInLevel;
-                if (base_t::participate)
+                __base.participate = prevSubgroupID<__base.lastInvocationInLevel;
+                if (__base.participate)
                 {
                     // we either need to prevent OOB read altogether OR cmov identity after the far
-                    base_t::lastLevelScan = scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff);
+                    __base.lastLevelScan = scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff);
                 }
-                base_t::lastInvocationInLevel = base_t::lastInvocation>>logShift;
+                __base.lastInvocationInLevel = lastInvocation>>logShift;
             }
             #undef scanStoreIndex
             
-            //assert((base_t::lastInvocation>>subgroupSizeLog2)==base_t::lastInvocationInLevel);
+            //assert((__base.lastInvocation>>subgroupSizeLog2)==__base.lastInvocationInLevel);
             
             // the very first prefix sum we did is in a register, not Accessor scratch mem hence the special path
-            if (prevSubgroupID<base_t::lastInvocationInLevel)
-                base_t::firstLevelScan = binop(base_t::lastLevelScan,base_t::firstLevelScan);
+            if (prevSubgroupID<__base.lastInvocationInLevel)
+                __base.firstLevelScan = binop(__base.lastLevelScan,__base.firstLevelScan);
         }
         
         if(Exclusive)
         {
-            base_t::firstLevelScan = glsl::subgroupShuffleUp(base_t::firstLevelScan,1);
+            __base.firstLevelScan = glsl::subgroupShuffleUp(__base.firstLevelScan,1);
             // shuffle doesn't work between subgroups but the value for each elected subgroup invocation is just the previous higherLevelExclusive
             // note that we assume we might have to do scans with itemCount <= gl_WorkgroupSize
             if (glsl::subgroupElect())
-                base_t::firstLevelScan = bool(subgroupID) ? base_t::lastLevelScan:BinOp::identity;
+                __base.firstLevelScan = bool(subgroupID) ? __base.lastLevelScan:BinOp::identity;
         }
-        return base_t::firstLevelScan;
+        return __base.firstLevelScan;
     }
 };
 }
