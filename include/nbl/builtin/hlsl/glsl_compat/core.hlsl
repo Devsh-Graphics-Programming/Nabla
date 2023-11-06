@@ -18,42 +18,42 @@ namespace glsl
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAdd<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicOr(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicXor(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicMin(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicMin<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicMin<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicMax(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicMax<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicMax<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicExchange(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, value);
+    return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 {
-    return spirv::atomicCompSwap<T>(ptr, spv::ScopeDevice, spv::GroupOperationReduce, spv::GroupOperationReduce, value, comparator);
+    return spirv::atomicCompSwap<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, spv::DecorationRelaxedPrecision, value, comparator);
 }
 
 /**
