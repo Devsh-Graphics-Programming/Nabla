@@ -4,11 +4,12 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/workgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shared_scan.hlsl"
+
 
 namespace nbl
 {
@@ -17,44 +18,56 @@ namespace hlsl
 namespace workgroup
 {
 
-#define REDUCE Reduce<T, subgroup::inclusive_scan<T, Binop>, SharedAccessor, _NBL_HLSL_WORKGROUP_SIZE_>
-#define SCAN(isExclusive) Scan<T, Binop, subgroup::inclusive_scan<T, Binop>, SharedAccessor, _NBL_HLSL_WORKGROUP_SIZE_, isExclusive>
-template<typename T, class Binop, class SharedAccessor>
-T reduction(T value, NBL_REF_ARG(SharedAccessor) accessor)
+// TODO: with Boost PP at some point
+//#define NBL_ALIAS_CALL_OPERATOR_TO_STATIC_IMPL(OPTIONAL_TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
+//#define NBL_ALIAS_TEMPLATED_CALL_OPERATOR_TO_IMPL(TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
+
+template<class BinOp, uint16_t ItemCount>
+struct reduction
 {
-    REDUCE reduce = REDUCE::create();
-    reduce(value, accessor);
-    accessor.main.workgroupExecutionAndMemoryBarrier();
-    T retVal = Broadcast<uint, SharedAccessor>(reduce.lastLevelScan, accessor, reduce.lastInvocationInLevel);
-    return retVal;
-}
+    using type_t = typename BinOp::type_t;
 
-template<typename T, class Binop, class SharedAccessor>
-T inclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
+    template<class Accessor>
+    static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
+    {
+        impl::reduce<BinOp,ItemCount> fn;
+        fn.template __call<Accessor>(value,accessor);
+        accessor.workgroupExecutionAndMemoryBarrier();
+        return Broadcast<type_t,Accessor>(fn.lastLevelScan,accessor,fn.lastInvocationInLevel);
+    }
+};
+
+template<class BinOp, uint16_t ItemCount>
+struct inclusive_scan
 {
-    SCAN(false) incl_scan = SCAN(false)::create();
-    T retVal = incl_scan(value, accessor);
-    return retVal;
-}
+    using type_t = typename BinOp::type_t;
 
-template<typename T, class Binop, class SharedAccessor>
-T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
+    template<class Accessor>
+    static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
+    {
+        impl::scan<BinOp,false,ItemCount> fn;
+        return fn.template __call<Accessor>(value,accessor);
+    }
+};
+
+template<class BinOp, uint16_t ItemCount>
+struct exclusive_scan
 {
-    SCAN(true) excl_scan = SCAN(true)::create();
-    T retVal = excl_scan(value, accessor);
-    return retVal;
-}
+    using type_t = typename BinOp::type_t;
 
-#undef REDUCE
-#undef SCAN
+    template<class Accessor>
+    static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
+    {
+        impl::scan<BinOp,true,ItemCount> fn;
+        return fn.template __call<Accessor>(value,accessor);
+    }
+};
 
-#define REDUCE Reduce<uint, subgroup::inclusive_scan<uint, plus<uint> >, SharedAccessor, impl::uballotBitfieldCount>
-#define SCAN Scan<uint, plus<uint>, subgroup::inclusive_scan<uint, plus<uint> >, SharedAccessor, impl::uballotBitfieldCount, true>
 /**
- * Gives us the sum (reduction) of all ballots for the workgroup.
+ * Gives us the sum (reduction) of all ballots for the ItemCount bits of a workgroup.
  *
  * Only the first few invocations are used for performing the sum 
- * since we only have `uballotBitfieldCount` amount of uints that we need 
+ * since we only have `1/32` amount of uints that we need 
  * to add together.
  * 
  * We add them all in the shared array index after the last DWORD 
@@ -62,64 +75,67 @@ T exclusive_scan(T value, NBL_REF_ARG(SharedAccessor) accessor)
  * then the array index in which we accumulate the sum is `4` since 
  * indexes 0..3 are used for ballots.
  */ 
-template<class SharedAccessor>
-uint ballotBitCount(NBL_REF_ARG(SharedAccessor) accessor)
+namespace impl
 {
-    uint participatingBitfield = 0;
-    if(SubgroupContiguousIndex() < impl::uballotBitfieldCount)
+template<uint16_t ItemCount, class BallotAccessor>
+uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
+{
+    const uint32_t index = SubgroupContiguousIndex();
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    if (index<DWORDCount)
     {
-        participatingBitfield = accessor.ballot.get(SubgroupContiguousIndex());
+        uint32_t bitfield = ballotAccessor.get(index);
+        // strip unwanted bits from bitfield of the last item
+        const uint16_t Remainder = ItemCount&31;
+        if (Remainder!=0 && index==DWORDCount-1)
+            bitfield &= (0x1u<<Remainder)-1;
+        return uint16_t(countbits(bitfield));
     }
-    accessor.ballot.workgroupExecutionAndMemoryBarrier();
-    REDUCE reduce = REDUCE::create();
-    reduce(countbits(participatingBitfield), accessor);
-    accessor.main.workgroupExecutionAndMemoryBarrier();
-    return Broadcast<uint, SharedAccessor>(reduce.lastLevelScan, accessor, reduce.lastInvocationInLevel);
+    return 0;
 }
 
-template<class SharedAccessor>
-uint ballotScanBitCount(const bool exclusive, NBL_REF_ARG(SharedAccessor) accessor)
+template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    const uint _dword = impl::getDWORD(SubgroupContiguousIndex());
-    const uint localBitfield = accessor.ballot.get(_dword);
-    uint globalCount;
-    {
-        uint participatingBitfield;
-        if(SubgroupContiguousIndex() < impl::uballotBitfieldCount)
-        {
-            participatingBitfield = accessor.ballot.get(SubgroupContiguousIndex());
-        }
-        // scan hierarchically, invocations with `SubgroupContiguousIndex() >= uballotBitfieldCount` will have garbage here
-        accessor.ballot.workgroupExecutionAndMemoryBarrier();
-        
-        SCAN scan = SCAN::create();
-        uint bitscan = scan(countbits(participatingBitfield), accessor);
-        
-        accessor.main.set(SubgroupContiguousIndex(), bitscan);
-        accessor.main.workgroupExecutionAndMemoryBarrier();
-        
-        // fix it (abuse the fact memory is left over)
-        globalCount = _dword != 0u ? accessor.main.get(_dword) : 0u;
-        accessor.main.workgroupExecutionAndMemoryBarrier();
-    }
-    const uint mask = (exclusive ? 0x7fFFffFFu:0xFFffFFffu)>>(31u-(SubgroupContiguousIndex()&31u));
-    return globalCount + countbits(localBitfield & mask);
+    const uint16_t subgroupIndex = SubgroupContiguousIndex();
+    const uint16_t bitfieldIndex = impl::getDWORD(subgroupIndex);
+    const uint32_t localBitfield = ballotAccessor.get(bitfieldIndex);
+
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+        ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
+        arithmeticAccessor
+    );
+    arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+    if (subgroupIndex<DWORDCount)
+        arithmeticAccessor.set(subgroupIndex,count);
+    arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+    count = arithmeticAccessor.get(bitfieldIndex);
+    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
+}
 }
 
-template<class SharedAccessor>
-uint ballotInclusiveBitCount(NBL_REF_ARG(SharedAccessor) accessor)
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+uint16_t ballotBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    return ballotScanBitCount<SharedAccessor>(false, accessor);
+    static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
+    return uint16_t(reduction<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+        impl::ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
+        arithmeticAccessor
+    ));
 }
 
-template<class SharedAccessor>
-uint ballotExclusiveBitCount(NBL_REF_ARG(SharedAccessor) accessor)
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+uint16_t ballotInclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    return ballotScanBitCount<SharedAccessor>(true, accessor);
+    return impl::ballotScanBitCount<false,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
 }
 
-#undef REDUCE
-#undef SCAN
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+uint16_t ballotExclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
+{
+    return impl::ballotScanBitCount<true,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
+}
 
 }
 }

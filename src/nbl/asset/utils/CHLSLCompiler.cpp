@@ -322,6 +322,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         {
             system::IFile::success_t succ;
             (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
+            succ.getBytesProcessed(true);
         }
     }
 

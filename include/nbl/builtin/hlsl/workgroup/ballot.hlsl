@@ -20,7 +20,6 @@ namespace impl
 uint16_t getDWORD(uint16_t invocation)
 {
     uint16_t dword = invocation>>5;
-    assert(dword<((Volume()+31)>>5));
     return dword; // log2 of sizeof(uint32_t)*8
 }
 
@@ -29,6 +28,10 @@ uint16_t BallotDWORDCount(const uint16_t itemCount)
 {
     return getDWORD(itemCount+31); // round up, in case all items don't fit in even number of DWORDs
 }
+
+// this silly thing exists only because we can't make the above `constexpr`
+template<uint16_t ItemCount>
+struct ballot_dword_count : integral_constant<uint16_t,((ItemCount+31)>>5)> {};
 }
 
 /**
@@ -46,26 +49,32 @@ uint16_t BallotDWORDCount(const uint16_t itemCount)
  * For example, for a workgroup size 128, 4 DWORDs are needed.
  * For each invocation index, we can find its respective DWORD index in the accessor array 
  * by calling the getDWORD function.
+ * 
+ * TODO: try do it with 64bit ints instead? (requires modified/adapted accessor)
  */
 template<class Accessor>
 void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
 {
-    const uint16_t index = SubgroupContiguousIndex();
-    const bool initialize = index<impl::BallotDWORDCount(Volume());
-    if (initialize)
-        accessor.set(index,0u);
-    
-    accessor.ballot.workgroupExecutionAndMemoryBarrier();
-    if(value)
-    {
-        uint32_t dummy;
-        accessor.atomicOr(impl::getDWORD(index),1u<<(index&31u),dummy);
-    }
+    const uint32_t4 bitfield = glsl::subgroupBallot(value);
+
+    const uint16_t subgroupInvocation = uint16_t(glsl::gl_SubgroupInvocationID());
+    uint16_t destIx = subgroupInvocation;
+
+    const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
+    if (SubgroupSizeLog2>=5)
+        destIx += uint16_t(glsl::gl_SubgroupID())<<(SubgroupSizeLog2-5);
+    else
+        destIx += uint16_t(glsl::gl_SubgroupID())>>(5-SubgroupSizeLog2);
+
+    const uint16_t UsefulComponents = impl::getDWORD(uint16_t(glsl::gl_SubgroupSize()));
+    if (subgroupInvocation<UsefulComponents)
+        accessor.set(destIx,bitfield[subgroupInvocation]);
 }
 
 template<class Accessor>
 bool ballotBitExtract(const uint16_t index, NBL_REF_ARG(Accessor) accessor)
 {
+    assert(index<Volume());
     return bool(accessor.get(impl::getDWORD(index))&(1u<<(index&31u)));
 }
 

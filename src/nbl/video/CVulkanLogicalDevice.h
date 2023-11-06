@@ -743,6 +743,7 @@ public:
             {
                 system::IFile::success_t succ;
                 (*file)->write(succ,vk_createInfo.pCode,0,vk_createInfo.codeSize);
+                succ.getBytesProcessed(true);
             }
         }
         

@@ -25,7 +25,9 @@ uint16_t Volume()
     
 uint16_t SubgroupContiguousIndex()
 {
-    return uint16_t(glsl::gl_SubgroupID()*glsl::gl_SubgroupSize()+glsl::gl_SubgroupInvocationID());
+    const uint16_t retval = (uint16_t(glsl::gl_SubgroupID())<<glsl::gl_SubgroupSizeLog2())+uint16_t(glsl::gl_SubgroupInvocationID());
+    assert(retval<Volume());
+    return retval;
 }
     
 bool Elect()
