@@ -139,8 +139,13 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/skinning/linear.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/skinning/render_descriptor_set.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/skinning/update_descriptor_set.glsl")
 # subgroup emulation
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/arithmetic_portability.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/arithmetic_portability_impl.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/basic_portability.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/fft.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shared_arithmetic_portability.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shared_shuffle_portability.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shuffle_portability.glsl")
 # utilities
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/indirect_commands.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/common.glsl")
@@ -158,7 +163,13 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/virtual_texturing/descriptors
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/virtual_texturing/extensions.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/virtual_texturing/impl_functions.glsl")
 # workgroup "intrinsics"
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/arithmetic.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/basic.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/ballot.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/fft.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/shared_arithmetic.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/shared_ballot.glsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/workgroup/shared_fft.glsl")
 #transform_tree
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/transform_tree/global_transform_update.comp")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/transform_tree/global_transform_and_normal_matrix_update.comp")

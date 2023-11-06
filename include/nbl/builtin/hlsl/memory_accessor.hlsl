@@ -10,11 +10,13 @@ namespace nbl
 {
 namespace hlsl
 {
-template<class NumberMemoryAccessor>
+
+template<class BaseAccessor>
 struct MemoryAdaptor
 {
-    NumberMemoryAccessor accessor;
+    BaseAccessor accessor;
     
+    // TODO: template all get,set, atomic... then add static_asserts of `has_method<BaseAccessor,signature>::value`, do vectors and matrices in terms of each other
     uint get(const uint ix) { return accessor.get(ix); }
     void get(const uint ix, NBL_REF_ARG(uint) value) { value = accessor.get(ix);}
     void get(const uint ix, NBL_REF_ARG(uint2) value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
@@ -125,6 +127,7 @@ struct MemoryAdaptor
        orig = accessor.atomicCompSwap(ix, comp, value);
     }
     
+    // TODO: figure out the `enable_if` syntax for this
     void workgroupExecutionAndMemoryBarrier() {
         accessor.workgroupExecutionAndMemoryBarrier();
     }
