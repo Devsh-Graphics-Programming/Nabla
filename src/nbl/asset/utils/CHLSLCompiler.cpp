@@ -73,7 +73,6 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-
     std::filesystem::path relDir;
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
