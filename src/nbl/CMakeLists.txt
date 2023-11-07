@@ -588,6 +588,15 @@ target_compile_definitions(Nabla
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
+# Boost
+add_dependencies(Nabla boost_wave)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE boost_wave)
+else()
+	target_link_libraries(Nabla PRIVATE boost_wave)
+endif()
+
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
