@@ -7,6 +7,14 @@
 #include "nbl/system/declarations.h"
 #include "nbl/system/definitions.h"
 
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#include "nbl/system/CColoredStdoutLoggerWin32.h"
+#elif defined(_NBL_PLATFORM_ANDROID_)
+#include "nbl/system/CStdoutLoggerAndroid.h"
+#endif
+#include "nbl/system/CSystemAndroid.h"
+#include "nbl/system/CSystemLinux.h"
+#include "nbl/system/CSystemWin32.h"
 
 namespace nbl::system
 {
@@ -14,13 +22,14 @@ namespace nbl::system
 class IApplicationFramework
 {
 	public:
+        // this is safe to call multiple times
         static void GlobalsInit()
         {
             #ifdef _NBL_PLATFORM_WINDOWS_
                 #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { system::path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
                 #else
-                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { system::path(_DXC_DLL_).parent_path() });
+                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path() });
                 #endif
                 
                 //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
@@ -43,17 +52,28 @@ class IApplicationFramework
             #endif
         }
 
+        static nbl::core::smart_refctd_ptr<ISystem> createSystem()
+        {
+            GlobalsInit();
+            #ifdef _NBL_PLATFORM_WINDOWS_
+                return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
+            #elif defined(_NBL_PLATFORM_ANDROID_)
+                return nbl::core::make_smart_refctd_ptr<CSystemAndroid>(std::move(caller));
+            #endif
+            return nullptr;
+        }
+
         IApplicationFramework(
-            const system::path& _localInputCWD, 
-            const system::path& _localOutputCWD, 
-            const system::path& _sharedInputCWD, 
-            const system::path& _sharedOutputCWD) : 
+            const path& _localInputCWD, 
+            const path& _localOutputCWD, 
+            const path& _sharedInputCWD, 
+            const path& _sharedOutputCWD) : 
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
 		{
             GlobalsInit();
 		}
 
-        virtual void setSystem(core::smart_refctd_ptr<nbl::system::ISystem>&& system) = 0;
+        virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) = 0;
 
         void onAppInitialized()
         {
@@ -90,22 +110,22 @@ class IApplicationFramework
 
             To add files to your assets directory, create an "assets" directory in your app's source directory
         */
-        system::path localInputCWD;
+        path localInputCWD;
 
         /*
             This is a CWD used to output app-local data e.g. screenshots
         */
-        system::path localOutputCWD;
+        path localOutputCWD;
 
         /*
             The CWD for input data that can be shared among apps, like the "examples_tests/media" directory for Nabla examples
         */
-        system::path sharedInputCWD;
+        path sharedInputCWD;
 
         /*
             This CWD is used to output data that can be shared between apps e.g. quantization cache
         */
-        system::path sharedOutputCWD;
+        path sharedOutputCWD;
 };
 
 }
