@@ -656,7 +656,6 @@ struct SPhysicalDeviceLimits
     // we don't compare certain capabilities because they don't mean better/worse
     inline bool isSubsetOf(const SPhysicalDeviceLimits& _rhs) const
     {
-        if (minMaxImageDimension2D > _rhs.minMaxImageDimension2D) return false;
         if (maxImageDimension1D > _rhs.maxImageDimension1D) return false;
         if (maxImageDimension2D > _rhs.maxImageDimension2D) return false;
         if (maxImageDimension3D > _rhs.maxImageDimension3D) return false;
@@ -668,6 +667,7 @@ struct SPhysicalDeviceLimits
         if (maxPushConstantsSize > _rhs.maxPushConstantsSize) return false;
         if (maxMemoryAllocationCount > _rhs.maxMemoryAllocationCount) return false;
         if (maxSamplerAllocationCount > _rhs.maxSamplerAllocationCount) return false;
+        
         if (bufferImageGranularity < _rhs.bufferImageGranularity) return false;
 
         if (maxPerStageDescriptorSamplers > _rhs.maxPerStageDescriptorSamplers) return false;
@@ -710,11 +710,9 @@ struct SPhysicalDeviceLimits
         if (maxFragmentCombinedOutputResources > _rhs.maxFragmentCombinedOutputResources) return false;
 
         if (maxComputeSharedMemorySize > _rhs.maxComputeSharedMemorySize) return false;
-        if (MinMaxWorkgroupCount > _rhs.MinMaxWorkgroupCount) return false;
         if (maxComputeWorkGroupCount[0] > _rhs.maxComputeWorkGroupCount[0]) return false;
         if (maxComputeWorkGroupCount[1] > _rhs.maxComputeWorkGroupCount[1]) return false;
         if (maxComputeWorkGroupCount[2] > _rhs.maxComputeWorkGroupCount[2]) return false;
-        if (MinMaxWorkgroupInvocations > _rhs.MinMaxWorkgroupInvocations) return false;
         if (maxComputeWorkGroupInvocations > _rhs.maxComputeWorkGroupInvocations) return false;
         if (maxWorkgroupSize[0] > _rhs.maxWorkgroupSize[0]) return false;
         if (maxWorkgroupSize[1] > _rhs.maxWorkgroupSize[1]) return false;
@@ -744,14 +742,12 @@ struct SPhysicalDeviceLimits
         if (minTexelOffset < _rhs.minTexelOffset || maxTexelOffset > _rhs.maxTexelOffset) return false;
         if (minTexelGatherOffset < _rhs.minTexelGatherOffset || maxTexelGatherOffset > _rhs.maxTexelGatherOffset) return false;
 
-        if (MinSubPixelInterpolationOffsetBits > _rhs.MinSubPixelInterpolationOffsetBits) return false;
         if (minInterpolationOffset < _rhs.minInterpolationOffset || maxInterpolationOffset > _rhs.maxInterpolationOffset) return false;
         if (subPixelInterpolationOffsetBits > _rhs.subPixelInterpolationOffsetBits) return false;
         if (maxFramebufferWidth > _rhs.maxFramebufferWidth) return false;
         if (maxFramebufferHeight > _rhs.maxFramebufferHeight) return false;
         if (maxFramebufferLayers > _rhs.maxFramebufferLayers) return false;
 
-        if (minMaxColorAttachments > _rhs.minMaxColorAttachments) return false;
         if (maxColorAttachments > _rhs.maxColorAttachments) return false;
 
         if (maxSampleMaskWords > _rhs.maxSampleMaskWords) return false;
@@ -791,10 +787,6 @@ struct SPhysicalDeviceLimits
         
         if (maxPerSetDescriptors > _rhs.maxPerSetDescriptors) return false;
         if (maxMemoryAllocationSize > _rhs.maxMemoryAllocationSize) return false;
-
-
-
-
 
         if (shaderSignedZeroInfNanPreserveFloat64 && !_rhs.shaderSignedZeroInfNanPreserveFloat64) return false;
         if (shaderDenormPreserveFloat16 && !_rhs.shaderDenormPreserveFloat16) return false;
@@ -877,6 +869,7 @@ struct SPhysicalDeviceLimits
 
         if (storageTexelBufferOffsetAlignmentBytes < _rhs.storageTexelBufferOffsetAlignmentBytes) return false;
         if (uniformTexelBufferOffsetAlignmentBytes < _rhs.uniformTexelBufferOffsetAlignmentBytes) return false;
+
         if (maxBufferSize > _rhs.maxBufferSize) return false;
 
         if (minImportedHostPointerAlignment < _rhs.minImportedHostPointerAlignment) return false;
@@ -891,13 +884,17 @@ struct SPhysicalDeviceLimits
         if (sparseImageFloat32Atomics && !_rhs.sparseImageFloat32Atomics) return false;
         if (sparseImageFloat32AtomicAdd && !_rhs.sparseImageFloat32AtomicAdd) return false;
 
-        if (robustStorageBufferAccessSizeAlignment < _rhs.robustStorageBufferAccessSizeAlignment) return false;
-        if (robustUniformBufferAccessSizeAlignment < _rhs.robustUniformBufferAccessSizeAlignment) return false;
+        if (robustStorageBufferAccessSizeAlignment > _rhs.robustStorageBufferAccessSizeAlignment) return false;
+        if (robustUniformBufferAccessSizeAlignment > _rhs.robustUniformBufferAccessSizeAlignment) return false;
 
         if (shaderTrinaryMinmax && !_rhs.shaderTrinaryMinmax) return false;
+
         if (shaderExplicitVertexParameter && !_rhs.shaderExplicitVertexParameter) return false;
+
         if (gpuShaderHalfFloatAMD && !_rhs.gpuShaderHalfFloatAMD) return false;
+
         if (shaderImageLoadStoreLod && !_rhs.shaderImageLoadStoreLod) return false;
+
         if (displayTiming && !_rhs.displayTiming) return false;
 
         if (maxDiscardRectangles > _rhs.maxDiscardRectangles) return false;
@@ -906,14 +903,15 @@ struct SPhysicalDeviceLimits
         //if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
         if (maxExtraPrimitiveOverestimationSize > _rhs.maxExtraPrimitiveOverestimationSize) return false;
         if (extraPrimitiveOverestimationSizeGranularity < _rhs.extraPrimitiveOverestimationSizeGranularity) return false;
-
         if (primitiveUnderestimation && !_rhs.primitiveUnderestimation) return false;
         if (conservativePointAndLineRasterization && !_rhs.conservativePointAndLineRasterization) return false;
         if (degenerateTrianglesRasterized && !_rhs.degenerateTrianglesRasterized) return false;
         if (degenerateLinesRasterized && !_rhs.degenerateLinesRasterized) return false;
         if (fullyCoveredFragmentShaderInputVariable && !_rhs.fullyCoveredFragmentShaderInputVariable) return false;
         if (conservativeRasterizationPostDepthCoverage && !_rhs.conservativeRasterizationPostDepthCoverage) return false;
+
         if (queueFamilyForeign && !_rhs.queueFamilyForeign) return false;
+
         if (shaderStencilExport && !_rhs.shaderStencilExport) return false;
 
         if (variableSampleLocations && !_rhs.variableSampleLocations) return false;
@@ -940,11 +938,16 @@ struct SPhysicalDeviceLimits
         if (maxRayHitAttributeSize > _rhs.maxRayHitAttributeSize) return false;
 
         if (shaderSMBuiltins && !_rhs.shaderSMBuiltins) return false;
+
         if (postDepthCoverage && !_rhs.postDepthCoverage) return false;
+
         if (shaderDeviceClock && !_rhs.shaderDeviceClock) return false;
+
         if (computeDerivativeGroupQuads && !_rhs.computeDerivativeGroupQuads) return false;
         if (computeDerivativeGroupLinear && !_rhs.computeDerivativeGroupLinear) return false;
+
         if (imageFootprint && !_rhs.imageFootprint) return false;
+
         if (shaderIntegerFunctions2 && !_rhs.shaderIntegerFunctions2) return false;
 
         // don't compare certain things, they don't make your device better or worse
@@ -955,9 +958,10 @@ struct SPhysicalDeviceLimits
 
         if (minFragmentDensityTexelSize.width < _rhs.minFragmentDensityTexelSize.width) return false;
         if (minFragmentDensityTexelSize.height < _rhs.minFragmentDensityTexelSize.height) return false;
-
         if (fragmentDensityInvocations && !_rhs.fragmentDensityInvocations) return false;
+
         if (decorateString && !_rhs.decorateString) return false;
+
         if (shaderImageInt64Atomics && !_rhs.shaderImageInt64Atomics) return false;
         if (sparseImageInt64Atomics && !_rhs.sparseImageInt64Atomics) return false;
 
@@ -975,10 +979,15 @@ struct SPhysicalDeviceLimits
         if (shaderSharedFloat64AtomicMinMax && !_rhs.shaderSharedFloat64AtomicMinMax) return false;
         if (shaderImageFloat32AtomicMinMax && !_rhs.shaderImageFloat32AtomicMinMax) return false;
         if (sparseImageFloat32AtomicMinMax && !_rhs.sparseImageFloat32AtomicMinMax) return false;
+        
         if (deviceMemoryReport && !_rhs.deviceMemoryReport) return false;
+     
         if (shaderNonSemanticInfo && !_rhs.shaderNonSemanticInfo) return false;
+     
         if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
+     
         if (fragmentShaderBarycentric && !_rhs.fragmentShaderBarycentric) return false;
+     
         if (shaderSubgroupUniformControlFlow && !_rhs.shaderSubgroupUniformControlFlow) return false;
 
         if (subsampledLoads && !_rhs.subsampledLoads) return false;
@@ -990,48 +999,67 @@ struct SPhysicalDeviceLimits
         if (workgroupMemoryExplicitLayoutScalarBlockLayout && !_rhs.workgroupMemoryExplicitLayoutScalarBlockLayout) return false;
         if (workgroupMemoryExplicitLayout8BitAccess && !_rhs.workgroupMemoryExplicitLayout8BitAccess) return false;
         if (workgroupMemoryExplicitLayout16BitAccess && !_rhs.workgroupMemoryExplicitLayout16BitAccess) return false;
+        
         if (colorWriteEnable && !_rhs.colorWriteEnable) return false;
 
         if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
 
         if (logicOp && !_rhs.logicOp) return false;
+        
         if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
+        
         if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
+        
         if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
+        
         if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
+        
         if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
+        
         if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
+        
         if (shaderFloat64 && !_rhs.shaderFloat64) return false;
+        
         if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
+        
         if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
         if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
+        
         if (multiviewGeometryShader && !_rhs.multiviewGeometryShader) return false;
         if (multiviewTessellationShader && !_rhs.multiviewTessellationShader) return false;
+        
         if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
+        
         if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
+        
         if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
         if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
+        
         if (shaderFloat16 && !_rhs.shaderFloat16) return false;
+        
         if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
         if (shaderUniformBufferArrayNonUniformIndexing && !_rhs.shaderUniformBufferArrayNonUniformIndexing) return false;
         if (shaderInputAttachmentArrayNonUniformIndexing && !_rhs.shaderInputAttachmentArrayNonUniformIndexing) return false;
         if (descriptorBindingUniformBufferUpdateAfterBind && !_rhs.descriptorBindingUniformBufferUpdateAfterBind) return false;
+        
         if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
+        
         if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
+        
         if (shaderOutputViewportIndex && !_rhs.shaderOutputViewportIndex) return false;
         if (shaderOutputLayer && !_rhs.shaderOutputLayer) return false;
+        
         if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
         if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
+        
         if (shaderZeroInitializeWorkgroupMemory && !_rhs.shaderZeroInitializeWorkgroupMemory) return false;
 
+        // Nabla
         if (computeUnits > _rhs.computeUnits) return false;
-
         if (dispatchBase && !_rhs.dispatchBase) return false;
         if (allowCommandBufferQueryCopies && !_rhs.allowCommandBufferQueryCopies) return false;
-
         if (maxOptimallyResidentWorkgroupInvocations > _rhs.maxOptimallyResidentWorkgroupInvocations) return false;
         if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
-
         if (spirvVersion > _rhs.spirvVersion) return false;
 
         return true;
