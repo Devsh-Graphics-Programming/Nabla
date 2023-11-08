@@ -1,22 +1,33 @@
 #ifndef _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 
-#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
+
 #ifndef __HLSL_VERSION
+
 #include <bit>
 
 namespace nbl::hlsl
 {
 
+// NBL_ALIAS_TEMPLATE_FUNCTION variadic templates aren't always appropriate
+template<typename To, typename From>
+constexpr To bit_cast(const From& from)
+{
+    return std::bit_cast<To,From>(from);
+}
+
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::bit_cast, bit_cast);
 
 }
 #else
+
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+
 namespace nbl
 {
 namespace hlsl

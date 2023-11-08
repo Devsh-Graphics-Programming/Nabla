@@ -21,6 +21,10 @@
 #include <iterator>
 #include <codecvt>
 
+#include <boost/wave.hpp>
+#include <boost/wave/cpplexer/cpp_lex_token.hpp>
+#include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+
 #define TCPP_IMPLEMENTATION
 #include <tcpp/source/tcppLibrary.hpp>
 #undef TCPP_IMPLEMENTATION
@@ -73,7 +77,6 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-
     std::filesystem::path relDir;
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
@@ -226,6 +229,24 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
+    using lex_token_t = boost::wave::cpplexer::lex_token<>;
+    using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
+    using wave_context_t = boost::wave::context<
+        core::string::iterator,
+        lex_iterator_t,
+        boost::wave::iteration_context_policies::load_file_to_string/*,
+        TODO: OurCustomDirectiveHooks -> for pragmas and includes!
+        */
+    >;
+
+    // TODO: change `code` to `const core::string&` because its supposed to be immutable
+    wave_context_t context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data()/*,TODO: instance of OurCustomDirectiveHooks*/);
+//    context.add_include_path
+//    context.add_sysinclude_path <- for dem builtins! / preprocessOptions.includeFinder?
+//    context.add_macro_definition from preprocessOptions.extraDefines
+    core::string resolvedString;
+    // TODO: fill `resolvedString` with `[context.begin(),context.end()]`
+
     // Line 1 comes before all the extra defines in the main shader
     insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
 
@@ -310,8 +331,21 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         return std::string("");
     });
 
-    auto resolvedString = proc.Process();
+    resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
+
+    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
+        if (auto file=future.acquire(); file&&bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
+            succ.getBytesProcessed(true);
+        }
+    }
 
     return resolvedString;
 }
@@ -380,8 +414,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-enable-16bit-types",
         L"-fvk-use-scalar-layout",
         L"-Wno-c++11-extensions",
+        L"-Wno-c++1z-extensions",
         L"-Wno-gnu-static-float-init",
-        L"-Wc++1z-extensions",
         L"-fspv-target-env=vulkan1.3"
     };
 

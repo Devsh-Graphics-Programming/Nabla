@@ -90,6 +90,9 @@
 [submodule "3rdparty/implot"]
 	path = 3rdparty/implot
 	url = git@github.com:Devsh-Graphics-Programming/implot.git
-[submodule "3rdparty/boost/preprocessor"]
-	path = 3rdparty/boost/preprocessor
-	url = git@github.com:Devsh-Graphics-Programming/preprocessor.git
+[submodule "tests"]
+	path = tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
+[submodule "3rdparty/boost/superproject"]
+	path = 3rdparty/boost/superproject
+	url = git@github.com:boostorg/boost.git
