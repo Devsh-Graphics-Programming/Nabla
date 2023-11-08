@@ -335,45 +335,68 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         
         // Extensions
         if (features.shaderInfoAMD) addShaderDefineToPool(pool, "NBL_SHADER_INFO_AMD");
+      
         if (features.conditionalRendering) addShaderDefineToPool(pool, "NBL_CONDITIONAL_RENDERING");
         if (features.inheritedConditionalRendering) addShaderDefineToPool(pool, "NBL_INHERITED_CONDITIONAL_RENDERING");
+      
         if (features.geometryShaderPassthrough) addShaderDefineToPool(pool, "NBL_GEOMETRY_SHADER_PASSTHROUGH");
+      
         if (features.hdrMetadata) addShaderDefineToPool(pool, "NBL_HDR_METADATA");
+      
         if (features.performanceCounterQueryPools) addShaderDefineToPool(pool, "NBL_PERFORMANCE_COUNTER_QUERY_POOLS");
         if (features.performanceCounterMultipleQueryPools) addShaderDefineToPool(pool, "NBL_PERFORMANCE_COUNTER_MULTIPLE_QUERY_POOLS");
-        // if (features.mixedAttachmentSamples) addShaderDefineToPool(pool, "NBL_MIXED_ATTACHMENT_SAMPLES"); // shader doesn't need to know about
+      
+        if (features.mixedAttachmentSamples) addShaderDefineToPool(pool, "NBL_MIXED_ATTACHMENT_SAMPLES");
+      
         if (features.accelerationStructure) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE");
         if (features.accelerationStructureIndirectBuild) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_INDIRECT_BUILD");
-        // if (features.accelerationStructureHostCommands) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_HOST_COMMANDS"); // shader doesn't need to know about
+        if (features.accelerationStructureHostCommands) addShaderDefineToPool(pool, "NBL_ACCELERATION_STRUCTURE_HOST_COMMANDS");
+      
         if (features.rayTracingPipeline) addShaderDefineToPool(pool, "NBL_RAY_TRACING_PIPELINE");
         if (features.rayTraversalPrimitiveCulling) addShaderDefineToPool(pool, "NBL_RAY_TRAVERSAL_PRIMITIVE_CULLING");
+      
         if (features.rayQuery) addShaderDefineToPool(pool, "NBL_RAY_QUERY");
-        if (features.representativeFragmentTest) addShaderDefineToPool(pool, "NBL_REPRESENTATIVE_FRAGMENT_TEST");        
+      
+        if (features.representativeFragmentTest) addShaderDefineToPool(pool, "NBL_REPRESENTATIVE_FRAGMENT_TEST");
+      
         // if (features.bufferMarkerAMD) addShaderDefineToPool(pool, "NBL_BUFFER_MARKER_AMD"); // shader doesn't need to know about
+      
         if (features.fragmentDensityMap) addShaderDefineToPool(pool, "NBL_FRAGMENT_DENSITY_MAP");
         if (features.fragmentDensityMapDynamic) addShaderDefineToPool(pool, "NBL_FRAGMENT_DENSITY_MAP_DYNAMIC");
         if (features.fragmentDensityMapNonSubsampledImages) addShaderDefineToPool(pool, "NBL_FRAGMENT_DENSITY_MAP_NON_SUBSAMPLED_IMAGES");
+      
         if (features.deviceCoherentMemory) addShaderDefineToPool(pool, "NBL_DEVICE_COHERENT_MEMORY");
+      
         // if (features.memoryPriority) addShaderDefineToPool(pool, "NBL_MEMORY_PRIORITY"); // shader doesn't need to know about
+      
         if (features.fragmentShaderSampleInterlock) addShaderDefineToPool(pool, "NBL_FRAGMENT_SHADER_SAMPLE_INTERLOCK");
         if (features.fragmentShaderPixelInterlock) addShaderDefineToPool(pool, "NBL_FRAGMENT_SHADER_PIXEL_INTERLOCK");
         if (features.fragmentShaderShadingRateInterlock) addShaderDefineToPool(pool, "NBL_FRAGMENT_SHADER_SHADING_RATE_INTERLOCK");
+      
         if (features.rectangularLines) addShaderDefineToPool(pool, "NBL_RECTANGULAR_LINES");
         if (features.bresenhamLines) addShaderDefineToPool(pool, "NBL_BRESENHAM_LINES");
         if (features.smoothLines) addShaderDefineToPool(pool, "NBL_SMOOTH_LINES");
         if (features.stippledRectangularLines) addShaderDefineToPool(pool, "NBL_STIPPLED_RECTANGULAR_LINES");
         if (features.stippledBresenhamLines) addShaderDefineToPool(pool, "NBL_STIPPLED_BRESENHAM_LINES");
         if (features.stippledSmoothLines) addShaderDefineToPool(pool, "NBL_STIPPLED_SMOOTH_LINES");
+      
         if (features.indexTypeUint8) addShaderDefineToPool(pool, "NBL_INDEX_TYPE_UINT8");
+      
         // if (features.deferredHostOperations) addShaderDefineToPool(pool, "NBL_DEFERRED_HOST_OPERATIONS"); // shader doesn't need to know about
+      
         // if (features.pipelineExecutableInfo) addShaderDefineToPool(pool, "NBL_PIPELINE_EXECUTABLE_INFO"); // shader doesn't need to know about
+      
         if (features.deviceGeneratedCommands) addShaderDefineToPool(pool, "NBL_DEVICE_GENERATED_COMMANDS");
+      
         if (features.rayTracingMotionBlur) addShaderDefineToPool(pool, "NBL_RAY_TRACING_MOTION_BLUR");
         if (features.rayTracingMotionBlurPipelineTraceRaysIndirect) addShaderDefineToPool(pool, "NBL_RAY_TRACING_MOTION_BLUR_PIPELINE_TRACE_RAYS_INDIRECT");
+      
         if (features.fragmentDensityMapDeferred) addShaderDefineToPool(pool, "NBL_FRAGMENT_DENSITY_MAP_DEFERRED");
+      
         if (features.rasterizationOrderColorAttachmentAccess) addShaderDefineToPool(pool, "NBL_RASTERIZATION_ORDER_COLOR_ATTACHMENT_ACCESS");
         if (features.rasterizationOrderDepthAttachmentAccess) addShaderDefineToPool(pool, "NBL_RASTERIZATION_ORDER_DEPTH_ATTACHMENT_ACCESS");
         if (features.rasterizationOrderStencilAttachmentAccess) addShaderDefineToPool(pool, "NBL_RASTERIZATION_ORDER_STENCIL_ATTACHMENT_ACCESS");
+      
         if (features.cooperativeMatrixRobustBufferAccess) addShaderDefineToPool(pool, "NBL_COOPERATIVE_MATRIX_ROBUST_BUFFER_ACCESS");
 
 
@@ -537,7 +560,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderRoundingModeRTZFloat16) addShaderDefineToPool(pool,"NBL_SHADER_ROUNDING_MODE_RTZ_FLOAT16");
         if (limits.shaderRoundingModeRTZFloat32) addShaderDefineToPool(pool,"NBL_SHADER_ROUNDING_MODE_RTZ_FLOAT32");
         if (limits.shaderRoundingModeRTZFloat64) addShaderDefineToPool(pool,"NBL_SHADER_ROUNDING_MODE_RTZ_FLOAT64");
-
+      
         //addShaderDefineToPool(pool,"NBL_MAX_UPDATE_AFTER_BIND_DESCRIPTORSIN_ALL_POOLS", limits.maxUpdateAfterBindDescriptorsInAllPools); // shader doesn't need to know
         if (limits.shaderUniformBufferArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
         if (limits.shaderSampledImageArrayNonUniformIndexingNative) addShaderDefineToPool(pool,"NBL_SHADER_SAMPLED_IMAGE_ARRAY_NON_UNIFORM_INDEXING_NATIVE");
@@ -646,7 +669,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.degenerateTrianglesRasterized) addShaderDefineToPool(pool,"NBL_DEGENERATE_TRIANGLES_RASTERIZED");
         if (limits.degenerateLinesRasterized) addShaderDefineToPool(pool,"NBL_DEGENERATE_LINES_RASTERIZED");
         if (limits.fullyCoveredFragmentShaderInputVariable) addShaderDefineToPool(pool,"NBL_FULLY_COVERED_FRAGMENT_SHADER_INPUT_VARIABLE");
-        if (limits.conservativeRasterizationPostDepthCoverage) addShaderDefineToPool(pool,"NBL_CONSERVATIVE_RASTERIZATION_POST_DEPTH_COVERAGE");
+        if (limits.conservativeRasterizationPostDepthCoverage) addShaderDefineToPool(pool,"NBL_CONSERVATIVE_RASTERIZATION_POST_DEPTH_COVERAGE");      
         
         //if (limits.queueFamilyForeign) addShaderDefineToPool(pool,"NBL_QUEUE_FAMILY_FOREIGN"); // shader doesn't need to know
         
@@ -772,7 +795,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         
         // Vk 1.2 features as limits
         if (limits.drawIndirectCount) addShaderDefineToPool(pool, "NBL_DRAW_INDIRECT_COUNT");
-        
+      
         if (limits.storagePushConstant8) addShaderDefineToPool(pool, "NBL_STORAGE_PUSH_CONSTANT_8");
         
         if (limits.shaderBufferInt64Atomics) addShaderDefineToPool(pool, "NBL_SHADER_BUFFER_INT64_ATOMICS");
@@ -783,7 +806,7 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         if (limits.shaderInputAttachmentArrayDynamicIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_DYNAMIC_INDEXING");
         if (limits.shaderUniformBufferArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING");
         if (limits.shaderInputAttachmentArrayNonUniformIndexing) addShaderDefineToPool(pool, "NBL_SHADER_INPUT_ATTACHMENT_ARRAY_NON_UNIFORM_INDEXING");
-        if (limits.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_BIND");
+        if (limits.descriptorBindingUniformBufferUpdateAfterBind) addShaderDefineToPool(pool, "NBL_DESCRIPTOR_BINDING_UNIFORM_BUFFER_UPDATE_AFTER_B
         
         if (limits.samplerFilterMinmax) addShaderDefineToPool(pool, "NBL_SAMPLER_FILTER_MINMAX");
         
@@ -799,10 +822,11 @@ void ILogicalDevice::addCommonShaderDefines(const bool runningInRenderdoc)
         
         if (limits.shaderZeroInitializeWorkgroupMemory) addShaderDefineToPool(pool,"NBL_ZERO_INITIALIZE_WORKGROUP_MEMORY");
 
-        addShaderDefineToPool(pool,"NBL_COMPUTE_UNITS", limits.computeUnits);
-
         // Pseudo limits
-        //if (limits.dispatchBase) addShaderDefineToPool(pool,"NBL_DISPATCH_BASE"); // shader doesn't need to know
+        addShaderDefineToPool(pool,"NBL_COMPUTE_UNITS", limits.computeUnits);
+                                                                                        
+        if (limits.dispatchBase) addShaderDefineToPool(pool,"NBL_DISPATCH_BASE");
+        
         if (limits.allowCommandBufferQueryCopies) addShaderDefineToPool(pool,"NBL_ALLOW_COMMAND_BUFFER_QUERY_COPIES");
 
         addShaderDefineToPool(pool,"NBL_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS", limits.maxOptimallyResidentWorkgroupInvocations);
