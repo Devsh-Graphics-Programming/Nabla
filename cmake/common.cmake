@@ -1277,11 +1277,17 @@ macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 endmacro()
 
 function(NBL_UPDATE_SUBMODULES)
-	macro(NBL_WRAPPER_COMMAND GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE)
+	macro(NBL_WRAPPER_COMMAND GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATH)
 		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
-	
+		
+		if("${EXCLUDE_SUBMODULE_PATH}" STREQUAL "")
+			set(NBL_EXCLUDE "")
+		else()
+			set(NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none")
+		endif()
+
 		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${GIT_SUBMODULE_PATH}\n")
 		else()
 			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init ${GIT_SUBMODULE_PATH}\n")
 		endif()
@@ -1291,14 +1297,21 @@ function(NBL_UPDATE_SUBMODULES)
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
 		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
 		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+
+		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
 		
 		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
-			NBL_WRAPPER_COMMAND("" "" TRUE)
+			NBL_WRAPPER_COMMAND("" "" TRUE "")
 		else()
-			NBL_WRAPPER_COMMAND("" ./3rdparty TRUE)
-			#NBL_WRAPPER_COMMAND("" ./ci TRUE) TODO: enable it once we merge Ditt, etc
-			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE)
-			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE)
+			NBL_WRAPPER_COMMAND("" ./3rdparty TRUE "3rdparty/boost/superproject")
+			NBL_WRAPPER_COMMAND(3rdparty/boost "./superproject" FALSE "")
+			foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
+				NBL_WRAPPER_COMMAND(3rdparty/boost/superproject "./libs/${BOOST_LIB}" TRUE "")
+			endforeach()
+
+			#NBL_WRAPPER_COMMAND("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
+			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE "")
+			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE "")
 		endif()
 				
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
