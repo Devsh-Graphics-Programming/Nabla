@@ -19,7 +19,7 @@
 namespace nbl::system
 {
 
-class IApplicationFramework
+class IApplicationFramework : public core::IReferenceCounted
 {
 	public:
         // this is safe to call multiple times
@@ -52,13 +52,29 @@ class IApplicationFramework
             #endif
         }
 
+        // we take the derived class as Curiously Recurring Template Parameter
+        template<class CRTP> requires std::is_base_of_v<IApplicationFramework,CRTP>
+        static int main(int argc, char** argv)
+        {
+            path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
+            auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../../media/",CWD/"../../tmp/",CWD/"../",CWD);
+            for (auto i=0; i<argc; i++)
+                app->argv.emplace_back(argv[i]);
+
+            if (!app->onAppInitialized(nullptr))
+                return -1;
+            while (app->keepRunning())
+                app->workLoopBody();
+           return app->onAppTerminated() ? 0:(-2);
+        }
+
         static nbl::core::smart_refctd_ptr<ISystem> createSystem()
         {
             GlobalsInit();
             #ifdef _NBL_PLATFORM_WINDOWS_
                 return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
             #elif defined(_NBL_PLATFORM_ANDROID_)
-                return nbl::core::make_smart_refctd_ptr<CSystemAndroid>(std::move(caller));
+                return nullptr;
             #endif
             return nullptr;
         }
@@ -73,29 +89,26 @@ class IApplicationFramework
             GlobalsInit();
 		}
 
-        virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) = 0;
+        // DEPRECATED
+        virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) {}
 
-        void onAppInitialized()
-        {
-            return onAppInitialized_impl();
-        }
-        void onAppTerminated()
-        {
-            return onAppTerminated_impl();
-        }
+        // Some platforms are weird, and you can't really do anything with the system unless you have some magical object that gets passed to the platform's entry point.
+        // Therefore the specific `CPLATFORMSystem` is uncreatable out of thin air so you need to take an outside provided one
+        virtual bool onAppInitialized(core::smart_refctd_ptr<ISystem>&& system=nullptr) {onAppInitialized_impl(std::move(system)); return true;}
+        virtual bool onAppTerminated() {return true;}
 
         virtual void workLoopBody() = 0;
         virtual bool keepRunning() = 0;
 
-        // TODO: refactor/hide
-        std::vector<std::string> argv;
-
     protected:
         ~IApplicationFramework() {}
 
-        // TODO: why aren't these pure virtual, and why do we even need a `_impl()`suffix?
-        virtual void onAppInitialized_impl() {}
-        virtual void onAppTerminated_impl() {}
+        // DEPRECATED
+        virtual void onAppInitialized_impl(core::smart_refctd_ptr<ISystem>&& system) {assert(false);}
+        virtual void onAppTerminated_impl() {assert(false);}
+
+        // for platforms with cmdline args
+        core::vector<std::string> argv;
 
         /*
          ****************** Current Working Directories ********************
@@ -129,5 +142,15 @@ class IApplicationFramework
 };
 
 }
+
+// get the correct entry point to declate
+#ifdef _NBL_PLATFORM_ANDROID_
+    #include "nbl/system/CApplicationAndroid.h"
+#else
+    #define NBL_MAIN_FUNC(AppClass) int main(int argc, char** argv) \
+    {\
+		return AppClass::main<AppClass>(argc,argv);\
+    }
+#endif
 
 #endif

@@ -9,10 +9,10 @@ namespace nbl::system
 {
 
 // logging using ANSI escape codes
-class NBL_API2 CColoredStdoutLoggerANSI : public IThreadsafeLogger
+class CColoredStdoutLoggerANSI : public IThreadsafeLogger
 {
   public:
-    CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+    inline CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
   private:
     // more info about how this works: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
