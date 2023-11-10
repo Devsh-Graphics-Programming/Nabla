@@ -17,6 +17,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+
+#if 0 // oldie
+
 #include <algorithm>
 #include <iostream>
 #include <string>
@@ -236,3 +239,5 @@ bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICP
 	return true;
 }
 #endif // _NBL_COMPILE_WITH_OPENEXR_WRITER_
+
+#endif
