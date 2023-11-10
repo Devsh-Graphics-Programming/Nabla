@@ -94,7 +94,7 @@ class IApplicationFramework : public core::IReferenceCounted
 
         // Some platforms are weird, and you can't really do anything with the system unless you have some magical object that gets passed to the platform's entry point.
         // Therefore the specific `CPLATFORMSystem` is uncreatable out of thin air so you need to take an outside provided one
-        virtual bool onAppInitialized(core::smart_refctd_ptr<ISystem>&& system=nullptr) {onAppInitialized_impl(std::move(system)); return true;}
+        virtual bool onAppInitialized(core::smart_refctd_ptr<ISystem>&& system=nullptr) {setSystem(std::move(system)); onAppInitialized_impl(); return true;}
         virtual bool onAppTerminated() {return true;}
 
         virtual void workLoopBody() = 0;
@@ -104,7 +104,7 @@ class IApplicationFramework : public core::IReferenceCounted
         ~IApplicationFramework() {}
 
         // DEPRECATED
-        virtual void onAppInitialized_impl(core::smart_refctd_ptr<ISystem>&& system) {assert(false);}
+        virtual void onAppInitialized_impl() {assert(false);}
         virtual void onAppTerminated_impl() {assert(false);}
 
         // for platforms with cmdline args

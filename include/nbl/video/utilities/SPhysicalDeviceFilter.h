@@ -47,6 +47,18 @@ namespace nbl::video
         SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
         uint32_t requiredSurfaceCompatibilitiesCount = 0u;
 
+
+        // sift through multiple devices
+        core::set<const IPhysicalDevice*> operator()(core::SRange<const IPhysicalDevice* const> physicalDevices) const
+        {
+		    core::set<const IPhysicalDevice*> ret;
+		    for (auto& physDev : physicalDevices)
+			if (meetsRequirements(physDev))
+				ret.insert(physDev);
+            return ret;
+        }
+
+        // check one device
         bool meetsRequirements(const IPhysicalDevice * const physicalDevice) const
         {
             const auto& properties = physicalDevice->getProperties();

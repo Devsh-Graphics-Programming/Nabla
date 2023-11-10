@@ -12,7 +12,7 @@ namespace nbl::system
 class CColoredStdoutLoggerANSI : public IThreadsafeLogger
 {
   public:
-    inline CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+    inline CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::DefaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
   private:
     // more info about how this works: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
