@@ -15,13 +15,6 @@
 include(ProcessorCount)
 set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
-# submodule managment
-function(update_git_submodule _PATH)
-	execute_process(COMMAND git submodule update --init --recursive ${_PATH}
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-	)
-endfunction()
-
 # TODO: REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
@@ -1312,6 +1305,7 @@ function(NBL_UPDATE_SUBMODULES)
 			#NBL_WRAPPER_COMMAND("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
 			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE "")
 			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE "")
+			NBL_WRAPPER_COMMAND("" ./tests FALSE "")
 		endif()
 				
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
