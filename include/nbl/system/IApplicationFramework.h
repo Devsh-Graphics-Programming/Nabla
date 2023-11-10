@@ -57,7 +57,7 @@ class IApplicationFramework : public core::IReferenceCounted
         static int main(int argc, char** argv)
         {
             path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
-            auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../../media/",CWD/"../../tmp/",CWD/"../",CWD);
+            auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../",CWD,CWD/"../../media/",CWD/"../../tmp/");
             for (auto i=0; i<argc; i++)
                 app->argv.emplace_back(argv[i]);
 

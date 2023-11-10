@@ -5,8 +5,8 @@
 
 #include "nbl/system/IFile.h"
 
-namespace nbl::system {
-
+namespace nbl::system
+{
 
 
 class CMountDirectoryArchive : public IFileArchive

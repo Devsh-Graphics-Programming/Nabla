@@ -9,11 +9,9 @@ IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IA
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    using range_t = core::SRange<const ILogicalDevice::SQueueCreationParams>;
-    range_t qcis(params.queueParams, params.queueParams+params.queueParamsCount);
-
-    for (const auto& qci : qcis)
+    for (auto i=0u; i<params.queueParamsCount; i++)
     {
+        const auto& qci = params.queueParams[i];
         if (qci.familyIndex >= m_qfamProperties->size())
             return false;
 

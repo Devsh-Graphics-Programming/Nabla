@@ -42,16 +42,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
     public:
         struct SQueueCreationParams
         {
-            IGPUQueue::E_CREATE_FLAGS flags;
-            uint32_t familyIndex;
-            uint32_t count;
-            const float* priorities;
+            constexpr static inline uint8_t MaxQueuesInFamily = 63;
+
+            IGPUQueue::E_CREATE_FLAGS flags = IGPUQueue::ECF_NONE;
+            uint8_t familyIndex = ~0u;
+            uint8_t count = 0;
+            std::array<float,MaxQueuesInFamily> priorities = []()->auto{
+                std::array<float,MaxQueuesInFamily> retval;retval.fill(IGPUQueue::DEFAULT_QUEUE_PRIORITY);return retval;
+            }();
         };
         struct SCreationParams
         {
+            constexpr static inline uint8_t MaxQueueFamilies = 16;
+
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueParams;
-            SPhysicalDeviceFeatures featuresToEnable;
+            std::array<SQueueCreationParams, MaxQueueFamilies> queueParams = {};
+            SPhysicalDeviceFeatures featuresToEnable = {};
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
@@ -483,8 +489,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
         {
             uint32_t qcnt = 0u;
-            uint32_t greatestFamNum = 0u;
-            for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+            uint8_t greatestFamNum = 0u;
+            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
             {
                 greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
                 qcnt += params.queueParams[i].count;
@@ -492,9 +498,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
             m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
+            
+            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
             {
+                const auto& qci = params.queueParams[i];
                 if (qci.familyIndex == greatestFamNum)
                     continue;
 
