@@ -15,6 +15,7 @@ class IGPUQueue : public core::Interface, public core::Unmovable
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
+            ECF_NONE = 0x0,
             ECF_PROTECTED_BIT = 0x01
         };
 

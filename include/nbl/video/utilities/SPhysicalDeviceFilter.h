@@ -22,7 +22,7 @@ namespace nbl::video
             size_t size = 0ull;
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryFlags = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
         };
-        MemoryRequirement* memoryRequirements = nullptr;
+        const MemoryRequirement* memoryRequirements = nullptr;
         uint32_t memoryRequirementsCount = 0u;
         
         struct QueueRequirement
@@ -33,7 +33,7 @@ namespace nbl::video
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
         };
-        QueueRequirement* queueRequirements = nullptr;
+        const QueueRequirement* queueRequirements = nullptr;
         uint32_t queueRequirementsCount = 0u;
 
         // To determine whether a queue family of a physical device supports presentation to a given surface
@@ -49,9 +49,9 @@ namespace nbl::video
 
 
         // sift through multiple devices
-        core::set<const IPhysicalDevice*> operator()(core::SRange<const IPhysicalDevice* const> physicalDevices) const
+        core::set<IPhysicalDevice*> operator()(const core::SRange<IPhysicalDevice* const>& physicalDevices) const
         {
-		    core::set<const IPhysicalDevice*> ret;
+		    core::set<IPhysicalDevice*> ret;
 		    for (auto& physDev : physicalDevices)
 			if (meetsRequirements(physDev))
 				ret.insert(physDev);
@@ -168,9 +168,9 @@ namespace nbl::video
                         if ((queueFamilyProps.queueFlags & queueReqs.disallowedFlags).value == 0)
                         {
                             // imageTransferGranularity
-                            if (queueReqs.maxImageTransferGranularity.width > queueFamilyProps.minImageTransferGranularity.width &&
-                                queueReqs.maxImageTransferGranularity.height > queueFamilyProps.minImageTransferGranularity.height &&
-                                queueReqs.maxImageTransferGranularity.depth > queueFamilyProps.minImageTransferGranularity.depth)
+                            if (queueReqs.maxImageTransferGranularity.width >= queueFamilyProps.minImageTransferGranularity.width &&
+                                queueReqs.maxImageTransferGranularity.height >= queueFamilyProps.minImageTransferGranularity.height &&
+                                queueReqs.maxImageTransferGranularity.depth >= queueFamilyProps.minImageTransferGranularity.depth)
                             {
                                 queueCount = (queueFamilyProps.queueCount > queueCount) ? 0ull : queueCount - queueFamilyProps.queueCount;
                             }
