@@ -303,10 +303,13 @@ class IGPUObjectFromAssetConverter
         bool computeQueueSupportsGraphics(const SParams& _params)
         {
             // assert that ComputeQueue also supports Graphics
-            const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
+            const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue ? _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex():~0u;
             const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
 
             auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
+			if (computeFamIx>=queueFamProps.size())
+				return true; // no queue specified
+
             const auto& familyProperty = queueFamProps.begin()[computeFamIx];
             bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
             return hasGraphicsFlag;

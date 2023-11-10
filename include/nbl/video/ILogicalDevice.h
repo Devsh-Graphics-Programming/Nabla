@@ -244,10 +244,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
-            IDescriptorPool::SCreateInfo createInfo;
+            IDescriptorPool::SCreateInfo createInfo = {};
 
             auto setCountsIt = setCounts;
             for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
+            if (*curLayout)
             {
                 const auto setCount = setCounts ? (*setCountsIt):1u;
                 createInfo.maxSets += setCount;
