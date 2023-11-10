@@ -329,6 +329,8 @@ get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE
 				
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
+option(NBL_CI_GIT_SUBMODULES_SHALLOW "" OFF)
+
 find_package(Git REQUIRED)
 find_package (Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
