@@ -45,7 +45,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             constexpr static inline uint8_t MaxQueuesInFamily = 63;
 
             IGPUQueue::E_CREATE_FLAGS flags = IGPUQueue::ECF_NONE;
-            uint8_t familyIndex = ~0u;
+            uint8_t familyIndex = 0xff;
             uint8_t count = 0;
             std::array<float,MaxQueuesInFamily> priorities = []()->auto{
                 std::array<float,MaxQueuesInFamily> retval;retval.fill(IGPUQueue::DEFAULT_QUEUE_PRIORITY);return retval;

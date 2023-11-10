@@ -106,14 +106,13 @@ class IGPUObjectFromAssetConverter
                 core::smart_refctd_ptr<IGPUEvent>* event = nullptr;
             };
 
-            //! Required not null
+            //! Required not null if an ICPUImage or ICPUBuffer needs converting
             IUtilities* utilities = nullptr;
+            //! Required not null
             ILogicalDevice* device = nullptr;
             //! Required not null
             asset::IAssetManager* assetManager = nullptr;
             IGPUPipelineCache* pipelineCache = nullptr;
-
-            IPhysicalDevice::SLimits limits;
 
             uint32_t finalQueueFamIx = 0u;
 
@@ -466,13 +465,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
 
+    const auto& limits = _params.device->getPhysicalDevice()->getLimits();
+
     const uint64_t alignment =
     std::max<uint64_t>(
-        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.minSSBOAlignment),
-        std::max<uint64_t>(_params.limits.minUBOAlignment, _NBL_SIMD_ALIGNMENT)
+        std::max<uint64_t>(limits.bufferViewAlignment,limits.minSSBOAlignment),
+        std::max<uint64_t>(limits.minUBOAlignment, _NBL_SIMD_ALIGNMENT)
     );
 
-    const uint64_t maxBufferSize = _params.limits.maxBufferSize;
+    const uint64_t maxBufferSize = limits.maxBufferSize;
     auto out = res->begin();
     auto firstInBlock = out;
     auto newBlock = [&]() -> auto
