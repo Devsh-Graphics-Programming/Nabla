@@ -1270,7 +1270,17 @@ macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 endmacro()
 
 function(NBL_UPDATE_SUBMODULES)
-	macro(NBL_WRAPPER_COMMAND GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATH)
+	ProcessorCount(_GIT_SUBMODULES_JOBS_AMOUNT_)
+
+	macro(NBL_IMPL_SHALLOW_CHECK)
+		if(NBL_CI_GIT_SUBMODULES_SHALLOW)
+			set(NBL_SHALLOW "--depth=1")
+		else()
+			set(NBL_SHALLOW "")
+		endif()
+	endmacro()
+
+	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATH)
 		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
 		
 		if("${EXCLUDE_SUBMODULE_PATH}" STREQUAL "")
@@ -1279,43 +1289,79 @@ function(NBL_UPDATE_SUBMODULES)
 			set(NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none")
 		endif()
 		
-		if(NBL_CI_GIT_SUBMODULES_SHALLOW)
-			set(NBL_SHALLOW "--depth=1")
-		else()
-			set(NBL_SHALLOW "")
-		endif()
+		NBL_IMPL_SHALLOW_CHECK()
 
 		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		else()
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		endif()
+	endmacro()
+	
+	macro(NBL_WRAPPER_COMMAND_INCLUSIVE GIT_RELATIVE_ENTRY INCLUDE_SUBMODULE_PATHS)
+		set(INCLUDE_SUBMODULE_PATHS ${INCLUDE_SUBMODULE_PATHS})
+		
+		if("${INCLUDE_SUBMODULE_PATHS}" STREQUAL "")
+			set(NBL_SUBMODULE_UPDATE_CONFIG_ENTRY "")
+		else()
+			execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" config --file .gitmodules --get-regexp path
+				OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE
+			)
+		
+			string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
+			
+			foreach(NBL_SUBMODULE_PATH ${NBL_SUBMODULE_CONFIG_LIST})
+				string(REGEX REPLACE "^[^ ]+ (.*)" "\\1" NBL_SUBMODULE_PATH "${NBL_SUBMODULE_PATH}")
+				list(FIND INCLUDE_SUBMODULE_PATHS "${NBL_SUBMODULE_PATH}" NBL_FOUND)
+
+				if("${NBL_FOUND}" STREQUAL "-1")
+					string(APPEND NBL_CONFIG_SETUP_CMD "-c submodule.\"${NBL_SUBMODULE_PATH}\".update=none ") # if a submodule is not on the INCLUDE_SUBMODULE_PATHS list of a currently handedled submodule - do not let it to be updated
+				endif()
+			endforeach()
+			
+			string(REPLACE "\n" "" NBL_CONFIG_SETUP_CMD "${NBL_CONFIG_SETUP_CMD}")
+			string(STRIP "${NBL_CONFIG_SETUP_CMD}" NBL_CONFIG_SETUP_CMD)
+		endif()
+		
+		NBL_IMPL_SHALLOW_CHECK()
+	
+		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_CONFIG_SETUP_CMD} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW}\n")
 	endmacro()
 	
 	if(NBL_UPDATE_GIT_SUBMODULE)
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
 		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
 		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
-
+		
 		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
 		
-		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
-			NBL_WRAPPER_COMMAND("" "" TRUE "")
-		else()
+		macro(NBL_IMPL_INIT_COMMON_SUBMODULES)
 			# 3rdparty except boost
-			NBL_WRAPPER_COMMAND("" ./3rdparty TRUE "3rdparty/boost/superproject")
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE 3rdparty/boost/superproject)
 			
-			# boost 3rdaprty
-			NBL_WRAPPER_COMMAND(3rdparty/boost "./superproject" FALSE "")
-			NBL_WRAPPER_COMMAND(3rdparty/boost/superproject "./libs/wave" TRUE "") # boost's wave
-			foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS) # deps of the wave
-				NBL_WRAPPER_COMMAND(3rdparty/boost/superproject "./libs/${BOOST_LIB}" TRUE "")
+			# boost's 3rdaprties, special case
+			NBL_WRAPPER_COMMAND_EXCLUSIVE(3rdparty/boost ./superproject FALSE "")
+			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave)
+			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
+				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT libs/${NBL_TARGET})
 			endforeach()
-
-			#NBL_WRAPPER_COMMAND("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
-			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE "")
-			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE "")
-			NBL_WRAPPER_COMMAND("" ./tests FALSE "")
+			NBL_WRAPPER_COMMAND_INCLUSIVE(3rdparty/boost/superproject "${NBL_BOOST_SUBMODULES_TO_INIT}")
+			
+			# tests
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./tests FALSE "")
+		endmacro()
+		
+		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
+			NBL_IMPL_INIT_COMMON_SUBMODULES()
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests TRUE "")
+		else()
+			NBL_IMPL_INIT_COMMON_SUBMODULES()
+			
+			# NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
+			
+			# examples and their media
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
+			NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
 		endif()
 				
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
