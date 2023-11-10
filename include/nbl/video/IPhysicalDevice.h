@@ -728,6 +728,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         } m_formatPromotionCache;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IPhysicalDevice::E_QUEUE_FLAGS)
+
 }
 
 namespace std
