@@ -305,12 +305,7 @@ option(GLM_TEST_ENABLE "Build unit tests" OFF)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
-
 if (NBL_BUILD_MITSUBA_LOADER)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./libexpat)
-	endif()
-
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
    option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
@@ -331,23 +326,12 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-
 if (NBL_BUILD_BULLET)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./bullet3)
-	endif()
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
-endif()
-
-
-if (NBL_COMPILE_WITH_CUDA)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./jitify)
-	endif()
 endif()
 
 # Final gather

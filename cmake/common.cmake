@@ -15,13 +15,6 @@
 include(ProcessorCount)
 set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
-# submodule managment
-function(update_git_submodule _PATH)
-	execute_process(COMMAND git submodule update --init --recursive ${_PATH}
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-	)
-endfunction()
-
 # TODO: REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
@@ -1285,11 +1278,17 @@ function(NBL_UPDATE_SUBMODULES)
 		else()
 			set(NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none")
 		endif()
+		
+		if(NBL_CI_GIT_SUBMODULES_SHALLOW)
+			set(NBL_SHALLOW "--depth=1")
+		else()
+			set(NBL_SHALLOW "")
+		endif()
 
 		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		else()
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		endif()
 	endmacro()
 	
@@ -1303,15 +1302,20 @@ function(NBL_UPDATE_SUBMODULES)
 		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
 			NBL_WRAPPER_COMMAND("" "" TRUE "")
 		else()
+			# 3rdparty except boost
 			NBL_WRAPPER_COMMAND("" ./3rdparty TRUE "3rdparty/boost/superproject")
+			
+			# boost 3rdaprty
 			NBL_WRAPPER_COMMAND(3rdparty/boost "./superproject" FALSE "")
-			foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
+			NBL_WRAPPER_COMMAND(3rdparty/boost/superproject "./libs/wave" TRUE "") # boost's wave
+			foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS) # deps of the wave
 				NBL_WRAPPER_COMMAND(3rdparty/boost/superproject "./libs/${BOOST_LIB}" TRUE "")
 			endforeach()
 
 			#NBL_WRAPPER_COMMAND("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
 			NBL_WRAPPER_COMMAND("" ./examples_tests FALSE "")
 			NBL_WRAPPER_COMMAND(examples_tests ./media FALSE "")
+			NBL_WRAPPER_COMMAND("" ./tests FALSE "")
 		endif()
 				
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
