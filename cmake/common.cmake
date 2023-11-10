@@ -1351,12 +1351,11 @@ function(NBL_UPDATE_SUBMODULES)
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./tests FALSE "")
 		endmacro()
 		
+		NBL_IMPL_INIT_COMMON_SUBMODULES()
+		
 		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
-			NBL_IMPL_INIT_COMMON_SUBMODULES()
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests TRUE "")
 		else()
-			NBL_IMPL_INIT_COMMON_SUBMODULES()
-			
 			# NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
 			
 			# examples and their media
