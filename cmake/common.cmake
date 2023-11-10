@@ -1272,14 +1272,6 @@ endmacro()
 function(NBL_UPDATE_SUBMODULES)
 	ProcessorCount(_GIT_SUBMODULES_JOBS_AMOUNT_)
 
-	macro(NBL_IMPL_SHALLOW_CHECK)
-		if(NBL_CI_GIT_SUBMODULES_SHALLOW)
-			set(NBL_SHALLOW "--depth=1")
-		else()
-			set(NBL_SHALLOW "")
-		endif()
-	endmacro()
-
 	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATH)
 		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
 		
@@ -1289,7 +1281,11 @@ function(NBL_UPDATE_SUBMODULES)
 			set(NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none")
 		endif()
 		
-		NBL_IMPL_SHALLOW_CHECK()
+		if(NBL_CI_GIT_SUBMODULES_SHALLOW)
+			set(NBL_SHALLOW "--depth=1")
+		else()
+			set(NBL_SHALLOW "")
+		endif()
 
 		if(SHOULD_RECURSIVE)
 			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
@@ -1298,40 +1294,53 @@ function(NBL_UPDATE_SUBMODULES)
 		endif()
 	endmacro()
 	
-	macro(NBL_WRAPPER_COMMAND_INCLUSIVE GIT_RELATIVE_ENTRY INCLUDE_SUBMODULE_PATHS)
-		set(INCLUDE_SUBMODULE_PATHS ${INCLUDE_SUBMODULE_PATHS})
-		
-		if("${INCLUDE_SUBMODULE_PATHS}" STREQUAL "")
-			set(NBL_SUBMODULE_UPDATE_CONFIG_ENTRY "")
-		else()
-			execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" config --file .gitmodules --get-regexp path
-				OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE
-			)
-		
-			string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
-			
-			foreach(NBL_SUBMODULE_PATH ${NBL_SUBMODULE_CONFIG_LIST})
-				string(REGEX REPLACE "^[^ ]+ (.*)" "\\1" NBL_SUBMODULE_PATH "${NBL_SUBMODULE_PATH}")
-				list(FIND INCLUDE_SUBMODULE_PATHS "${NBL_SUBMODULE_PATH}" NBL_FOUND)
-
-				if("${NBL_FOUND}" STREQUAL "-1")
-					string(APPEND NBL_CONFIG_SETUP_CMD "-c submodule.\"${NBL_SUBMODULE_PATH}\".update=none ") # if a submodule is not on the INCLUDE_SUBMODULE_PATHS list of a currently handedled submodule - do not let it to be updated
-				endif()
-			endforeach()
-			
-			string(REPLACE "\n" "" NBL_CONFIG_SETUP_CMD "${NBL_CONFIG_SETUP_CMD}")
-			string(STRIP "${NBL_CONFIG_SETUP_CMD}" NBL_CONFIG_SETUP_CMD)
-		endif()
-		
-		NBL_IMPL_SHALLOW_CHECK()
+	set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
+	set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+	get_filename_component(_NBL_UPDATE_IMPL_CMAKE_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmake" ABSOLUTE)
 	
-		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_CONFIG_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ./\n")
+	set(NBL_IMPL_SCRIPT
+[=[
+execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}" submodule update --init "${GIT_RELATIVE_ENTRY}")
+
+if("${INCLUDE_SUBMODULE_PATHS}" STREQUAL "")
+	set(NBL_SUBMODULE_UPDATE_CONFIG_ENTRY "")
+else()
+	execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" config --file .gitmodules --get-regexp path
+		OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE
+	)
+
+	string(REGEX MATCH "submodule\\.(.*)\\.path" extracted_content "${original_string}")
+
+	string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
+	
+	foreach(NBL_SUBMODULE_NAME ${NBL_SUBMODULE_CONFIG_LIST})
+		string(REGEX MATCH "submodule\\.(.*)\\.path" NBL_SUBMODULE_NAME "${NBL_SUBMODULE_NAME}")
+		list(FIND INCLUDE_SUBMODULE_PATHS "${NBL_SUBMODULE_NAME}" NBL_FOUND)
+
+		if("${NBL_FOUND}" STREQUAL "-1")
+			list(APPEND NBL_CONFIG_SETUP_CMD "-c")
+			list(APPEND NBL_CONFIG_SETUP_CMD "submodule.\"${CMAKE_MATCH_1}\".update=none") # if a submodule is not on the INCLUDE_SUBMODULE_PATHS list of a currently handedled submodule - do not let it to be updated
+		endif()
+	endforeach()
+endif()
+
+if(NBL_CI_GIT_SUBMODULES_SHALLOW)
+	set(NBL_SHALLOW "--depth=1")
+else()
+	set(NBL_SHALLOW "")
+endif()
+
+execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" ${NBL_CONFIG_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ./)
+]=]
+)
+	file(WRITE "${_NBL_UPDATE_IMPL_CMAKE_FILE_}" "${NBL_IMPL_SCRIPT}")
+	
+	macro(NBL_WRAPPER_COMMAND_INCLUSIVE GIT_RELATIVE_ENTRY INCLUDE_SUBMODULE_PATHS)
+		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${CMAKE_COMMAND}\" \"-DNBL_ROOT_PATH=${NBL_ROOT_PATH}\" \"-D_GIT_SUBMODULES_JOBS_AMOUNT_=${_GIT_SUBMODULES_JOBS_AMOUNT_}\" \"-DNBL_CI_GIT_SUBMODULES_SHALLOW=${NBL_CI_GIT_SUBMODULES_SHALLOW}\" \"-DGIT_RELATIVE_ENTRY=${GIT_RELATIVE_ENTRY}\" \"-DINCLUDE_SUBMODULE_PATHS=${INCLUDE_SUBMODULE_PATHS}\" \"-DGIT_EXECUTABLE=${GIT_EXECUTABLE}\" -P \"${_NBL_UPDATE_IMPL_CMAKE_FILE_}\"")
 	endmacro()
 	
 	if(NBL_UPDATE_GIT_SUBMODULE)
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
-		set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
-		set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
 		
 		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
 		
@@ -1340,10 +1349,9 @@ function(NBL_UPDATE_SUBMODULES)
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE 3rdparty/boost/superproject)
 			
 			# boost's 3rdaprties, special case
-			NBL_WRAPPER_COMMAND_EXCLUSIVE(3rdparty/boost ./superproject FALSE "")
 			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave)
 			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
-				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT libs/${NBL_TARGET})
+				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT ${NBL_TARGET})
 			endforeach()
 			NBL_WRAPPER_COMMAND_INCLUSIVE(3rdparty/boost/superproject "${NBL_BOOST_SUBMODULES_TO_INIT}")
 			
