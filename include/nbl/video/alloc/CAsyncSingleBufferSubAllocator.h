@@ -105,13 +105,13 @@ class CAsyncSingleBufferSubAllocator
 
                 inline void operator()()
                 {
+                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(rangeData+numAllocs*2u);
+                    for (size_t i=0u; i<numAllocs; i++)
+                        objHoldIt[i] = nullptr;
                     #ifdef _NBL_DEBUG
                     assert(composed && rangeData);
                     #endif // _NBL_DEBUG
                     composed->multi_deallocate(numAllocs,rangeData,rangeData+numAllocs);
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(rangeData+numAllocs*2u);
-                    for (size_t i=0u; i<numAllocs; i++)
-                        objHoldIt[i] = nullptr;
                 }
 
             private:
@@ -133,14 +133,14 @@ class CAsyncSingleBufferSubAllocator
         inline IGPUBuffer* getBuffer() {return m_composed.getBuffer();}
         inline const IGPUBuffer* getBuffer() const {return m_composed.getBuffer();}
 
-        //!
-        inline void cull_frees() noexcept
+        //! Returns free events still outstanding
+        inline uint32_t cull_frees() noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.cullEvents(0u);
+            return deferredFrees.cullEvents(0u);
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more

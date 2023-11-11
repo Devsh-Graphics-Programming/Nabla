@@ -57,7 +57,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 			if (fence)
 				m_deferredResets.addEvent(GPUEventWrapper(device,std::move(fence)),DeferredCommandPoolResetter(this,poolIx));
 			else
-				releaseSet(device,poolIx);
+				releaseSet(poolIx);
 		}
 
 		// only public because GPUDeferredEventHandlerST needs to know about it
@@ -118,15 +118,12 @@ class ICommandPoolCache : public core::IReferenceCounted
 			delete[] m_cache;
 		}
 		
-		void releaseSet(ILogicalDevice* device, const uint32_t poolIx);
+		void releaseSet(const uint32_t poolIx);
 
 		core::smart_refctd_ptr<IGPUCommandPool>* m_cache;
 		void* m_reserved;
 		CommandPoolAllocator m_cmdPoolAllocator;
 		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
-		// TODO: after CommandPool resetting, get rid of these 
-		const uint32_t m_queueFamilyIx;
-		const IGPUCommandPool::E_CREATE_FLAGS m_flags;
 };
 
 }
