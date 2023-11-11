@@ -466,6 +466,7 @@ else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
 target_include_directories(Nabla PUBLIC 
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
 )
@@ -544,7 +545,6 @@ add_custom_target(dxcompiler
 add_dependencies(Nabla dxcompiler)
 add_dependencies(3rdparty dxcompiler)
 
-target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
 else()
