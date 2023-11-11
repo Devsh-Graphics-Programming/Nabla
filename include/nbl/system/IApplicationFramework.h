@@ -79,6 +79,13 @@ class IApplicationFramework : public core::IReferenceCounted
             return nullptr;
         }
 
+        // needs to be public because of how constructor forwarding works
+        IApplicationFramework(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD) :
+            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
+        {
+            GlobalsInit();
+        }
+
         // DEPRECATED
         virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) {}
 
@@ -91,15 +98,6 @@ class IApplicationFramework : public core::IReferenceCounted
         virtual bool keepRunning() = 0;
 
     protected:
-        IApplicationFramework(
-            const path& _localInputCWD,
-            const path& _localOutputCWD,
-            const path& _sharedInputCWD,
-            const path& _sharedOutputCWD) :
-            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
-        {
-            GlobalsInit();
-        }
         // need this one for skipping the whole constructor chain
         IApplicationFramework() = default;
         virtual ~IApplicationFramework() {}
