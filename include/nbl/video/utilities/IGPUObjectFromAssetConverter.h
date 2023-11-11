@@ -1490,8 +1490,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSpecializedShader** c
 
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
-        auto a = gpuDeps->operator[](redirs[i]);
-        res->operator[](i) = _params.device->createSpecializedShader(gpuDeps->operator[](redirs[i]).get(), _begin[i]->getSpecializationInfo());
+        auto unspecShader = gpuDeps->operator[](redirs[i]);
+        if (unspecShader)
+            res->operator[](i) = _params.device->createSpecializedShader(unspecShader.get(), _begin[i]->getSpecializationInfo());
     }
 
     return res;

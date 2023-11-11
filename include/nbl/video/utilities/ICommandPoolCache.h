@@ -21,14 +21,14 @@ class ICommandPoolCache : public core::IReferenceCounted
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity);
+		NBL_API2 ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity);
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
 
 		//
 		constexpr static inline auto invalid_index = CommandPoolAllocator::invalid_address;
-		IGPUCommandPool* getPool(uint32_t poolIx)
+		inline IGPUCommandPool* getPool(uint32_t poolIx)
 		{
 			if (poolIx<getCapacity())
 				return m_cache[poolIx].get();
@@ -71,7 +71,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 				{
 				}
 				DeferredCommandPoolResetter(const DeferredCommandPoolResetter& other) = delete;
-				DeferredCommandPoolResetter(DeferredCommandPoolResetter&& other) : m_cache(nullptr), m_poolIx(CommandPoolAllocator::invalid_address)
+				inline DeferredCommandPoolResetter(DeferredCommandPoolResetter&& other) : m_cache(nullptr), m_poolIx(CommandPoolAllocator::invalid_address)
 				{
 					this->operator=(std::forward<DeferredCommandPoolResetter>(other));
 				}
@@ -106,19 +106,19 @@ class ICommandPoolCache : public core::IReferenceCounted
 					return false;
 				}
 
-				void operator()();
+				NBL_API2 void operator()();
 		};
 
 	protected:
 		friend class DeferredCommandPoolResetter;
-		virtual ~ICommandPoolCache()
+		inline virtual ~ICommandPoolCache()
 		{
 			m_deferredResets.cullEvents(0u);
 			free(m_reserved);
 			delete[] m_cache;
 		}
 		
-		void releaseSet(const uint32_t poolIx);
+		NBL_API2 void releaseSet(const uint32_t poolIx);
 
 		core::smart_refctd_ptr<IGPUCommandPool>* m_cache;
 		void* m_reserved;
