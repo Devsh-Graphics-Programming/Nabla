@@ -56,7 +56,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             constexpr static inline uint8_t MaxQueueFamilies = 16;
 
             uint32_t queueParamsCount;
-            std::array<SQueueCreationParams, MaxQueueFamilies> queueParams = {};
+            std::array<SQueueCreationParams,MaxQueueFamilies> queueParams = {};
             SPhysicalDeviceFeatures featuresToEnable = {};
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };

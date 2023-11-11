@@ -91,6 +91,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			struct {
 				bool present;
+				core::string name;
 				SShaderPushConstant info;
 			} pushConstant;
 
