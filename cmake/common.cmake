@@ -1278,20 +1278,27 @@ function(NBL_UPDATE_SUBMODULES)
 		set(NBL_SHALLOW "")
 	endif()
 
-	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATH)
+	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATHS)
+		set(EXCLUDE_SUBMODULE_PATHS ${EXCLUDE_SUBMODULE_PATHS})
 		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
 		
-		if("${EXCLUDE_SUBMODULE_PATH}" STREQUAL "")
+		if("${EXCLUDE_SUBMODULE_PATHS}" STREQUAL "")
 			set(NBL_EXCLUDE "")
 		else()
-			set(NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none")
+			foreach(EXCLUDE_SUBMODULE_PATH ${EXCLUDE_SUBMODULE_PATHS})
+				string(APPEND NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none ")
+			endforeach()
+			
+			string(STRIP "${NBL_EXCLUDE}" NBL_EXCLUDE)
 		endif()
 
 		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" ${NBL_EXCLUDE} -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		else()
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
 		endif()
+		
+		unset(NBL_EXCLUDE)
 	endmacro()
 	
 	set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
@@ -1353,8 +1360,12 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
 		
 		macro(NBL_IMPL_INIT_COMMON_SUBMODULES)
-			# 3rdparty except boost
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE 3rdparty/boost/superproject)
+			# 3rdparty except boost & gltf
+			set(NBL_3RDPARTY_MODULES_TO_SKIP
+				3rdparty/boost/superproject # a lot of submodules we don't use
+				3rdparty/glTFSampleModels # more then 2GB waste of space (disk + .gitmodules data)
+			)
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE "${NBL_3RDPARTY_MODULES_TO_SKIP}")
 			
 			# boost's 3rdaprties, special case
 			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave numeric_conversion) # wave and all of its deps, numeric_conversion is nested in conversion submodule (for some reason boostdep tool doesn't output it properly)
