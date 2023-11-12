@@ -262,9 +262,9 @@ struct numeric_limits : impl::numeric_limits<T> {};
 
 
 template<class T>
-struct numeric_limits : std::conditional_t<std::is_same_v<T,float16_t>,IMATH_INTERNAL_NAMESPACE::limits<T>,std::numeric_limits<T>>
+struct numeric_limits : std::numeric_limits<T>
 {
-    using base = std::conditional_t<std::is_same_v<T,float16_t>,IMATH_INTERNAL_NAMESPACE::limits<T>,std::numeric_limits<T>>;
+    using base = std::numeric_limits<T>;
     using uint_type = std::remove_cvref_t<decltype(impl::num_traits<T>::infinity)>;
 
     NBL_CONSTEXPR_STATIC_INLINE T min = base::min();
