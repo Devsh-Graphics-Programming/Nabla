@@ -17,6 +17,7 @@ ICommandPoolCache::ICommandPoolCache(ILogicalDevice* device, const uint32_t queu
 void ICommandPoolCache::releaseSet(const uint32_t poolIx)
 {
 	m_cache[poolIx]->reset();
+	m_cmdPoolAllocator.free_addr(poolIx,1);
 }
 
 void ICommandPoolCache::DeferredCommandPoolResetter::operator()()
