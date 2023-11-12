@@ -124,7 +124,9 @@ template< class U, class T >
 smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&& smart_ptr);
 
 template< class U, class T >
-smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>&& smart_ptr);
+smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>& smart_ptr);
+template< class U, class T >
+smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>&& smart_ptr) {return move_and_static_cast<U,T>(smart_ptr);}
 
 
 template< class U, class T >
@@ -133,7 +135,9 @@ template< class U, class T >
 smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr);
 
 template< class U, class T >
-smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr);
+smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>& smart_ptr);
+template< class U, class T >
+smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr) {return move_and_dynamic_cast<U,T>(smart_ptr);}
 
 } // end namespace nbl::core
 

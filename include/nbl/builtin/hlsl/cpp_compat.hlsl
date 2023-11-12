@@ -33,9 +33,6 @@ using add_pointer = std::add_pointer<T>;
 #define NBL_REF_ARG(T) typename nbl::hlsl::add_reference<T>::type
 #define NBL_CONST_REF_ARG(T) typename nbl::hlsl::add_reference<std::add_const_t<T>>::type
 
-// it includes vector and matrix
-#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
-
 #else
 
 #define ARROW .arrow().
@@ -67,5 +64,8 @@ struct add_pointer
 #define NBL_CONST_REF_ARG(T) const in T
 
 #endif
+
+// it includes vector and matrix
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
 
 #endif

@@ -57,7 +57,7 @@ class IApplicationFramework : public core::IReferenceCounted
         static int main(int argc, char** argv)
         {
             path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
-            auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../../media/",CWD/"../../tmp/",CWD/"../",CWD);
+            auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../",CWD,CWD/"../../media/",CWD/"../../tmp/");
             for (auto i=0; i<argc; i++)
                 app->argv.emplace_back(argv[i]);
 
@@ -79,15 +79,12 @@ class IApplicationFramework : public core::IReferenceCounted
             return nullptr;
         }
 
-        IApplicationFramework(
-            const path& _localInputCWD, 
-            const path& _localOutputCWD, 
-            const path& _sharedInputCWD, 
-            const path& _sharedOutputCWD) : 
+        // needs to be public because of how constructor forwarding works
+        IApplicationFramework(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD) :
             localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
-		{
+        {
             GlobalsInit();
-		}
+        }
 
         // DEPRECATED
         virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) {}
@@ -101,7 +98,9 @@ class IApplicationFramework : public core::IReferenceCounted
         virtual bool keepRunning() = 0;
 
     protected:
-        ~IApplicationFramework() {}
+        // need this one for skipping the whole constructor chain
+        IApplicationFramework() = default;
+        virtual ~IApplicationFramework() {}
 
         // DEPRECATED
         virtual void onAppInitialized_impl() {assert(false);}
