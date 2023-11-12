@@ -10,7 +10,7 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
-#include <openexr/IlmBase/Imath/ImathHalfLimits.h>
+#include "halfLimits.h"
 #endif
 
 /*
