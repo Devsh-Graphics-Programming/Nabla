@@ -34,31 +34,27 @@ class CAsyncSingleBufferSubAllocator
 
         class DeferredFreeFunctor
         {
-                static constexpr size_t PseudoTupleByteSize = (2u*sizeof(size_type)+sizeof(core::smart_refctd_ptr<core::IReferenceCounted>));
+                using ref_t = core::smart_refctd_ptr<const core::IReferenceCounted>;
+                static constexpr size_t PseudoTupleByteSize = 2u*sizeof(size_type)+sizeof(ref_t);
                 static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(typename HostAllocator::value_type);
                 static_assert((PseudoTupleByteSize%sizeof(typename HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
 
             public:
-                template<typename T>
+                template<typename T> requires std::is_base_of_v<core::IReferenceCounted,T>
                 inline DeferredFreeFunctor(Composed* _composed, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes, const T*const *const objectsToHold)
                     : composed(_composed), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
                     static_assert(std::is_base_of_v<core::IReferenceCounted,T>);
 
-                    // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty do
+                    // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty dog
                     rangeData = reinterpret_cast<size_type*>(composed->getReservedAllocator().allocate(AllocatorUnitsPerMetadata*numAllocs,sizeof(void*)));
                     auto out = rangeData;
                     memcpy(out,addrs,sizeof(size_type)*numAllocs);
                     out += numAllocs;
                     memcpy(out,bytes,sizeof(size_type)*numAllocs);
                     out += numAllocs;
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(out);
                     for (size_t i=0u; i<numAllocs; i++)
-                    {
-                        reinterpret_cast<const void**>(out)[i] = nullptr; // clear it first
-                        if (objectsToHold)
-                            objHoldIt[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(objectsToHold[i]);
-                    }
+                        std::construct_at<ref_t>(reinterpret_cast<ref_t*>(out)+i,objectsToHold ? objectsToHold[i]:nullptr);
                 }
                 DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
                 inline DeferredFreeFunctor(DeferredFreeFunctor&& other) : composed(nullptr), rangeData(nullptr), numAllocs(0u)
@@ -105,9 +101,7 @@ class CAsyncSingleBufferSubAllocator
 
                 inline void operator()()
                 {
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(rangeData+numAllocs*2u);
-                    for (size_t i=0u; i<numAllocs; i++)
-                        objHoldIt[i] = nullptr;
+                    std::destroy_n(reinterpret_cast<ref_t*>(rangeData+numAllocs*2u),numAllocs);
                     #ifdef _NBL_DEBUG
                     assert(composed && rangeData);
                     #endif // _NBL_DEBUG
