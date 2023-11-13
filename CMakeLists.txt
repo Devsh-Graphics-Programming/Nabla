@@ -18,10 +18,12 @@ option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
 option(NBL_SANITIZE_ADDRESS OFF)
 
-if(MSVC AND NBL_SANITIZE_ADDRESS)
-	set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
-else()
-	set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>")
+if(MSVC)
+	if(NBL_SANITIZE_ADDRESS)
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
+	else()
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>")
+	endif()
 endif()
 
 if(NBL_STATIC_BUILD)
