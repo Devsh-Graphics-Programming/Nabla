@@ -55,6 +55,8 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		// when Nabla is used as a lib
 		nbl::asset::hlsl::impl::DXC* m_dxcCompilerTypes;
 
+		IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
+
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
 			CHLSLCompiler::SOptions ret = {};

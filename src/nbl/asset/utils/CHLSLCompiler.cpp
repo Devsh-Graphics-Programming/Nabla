@@ -46,6 +46,8 @@ namespace nbl::asset::hlsl::impl
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
 {
+    m_defaultIncludeFinder->addSearchPath("", core::make_smart_refctd_ptr<CJITIncludeLoader>());
+
     ComPtr<IDxcUtils> utils;
     auto res = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
     assert(SUCCEEDED(res));

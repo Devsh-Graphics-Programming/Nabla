@@ -13,6 +13,7 @@
 
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/CJITIncludeLoader.h"
 
 namespace nbl::asset
 {
@@ -293,6 +294,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		core::smart_refctd_ptr<system::ISystem> m_system;
 	private:
 		core::smart_refctd_ptr<CIncludeFinder> m_defaultIncludeFinder;
+
+		CJITIncludeLoader m_JITIncludeLoader;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IShaderCompiler::E_DEBUG_INFO_FLAGS)
