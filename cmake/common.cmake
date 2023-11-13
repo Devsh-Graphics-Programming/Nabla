@@ -1367,7 +1367,7 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 			)
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE "${NBL_3RDPARTY_MODULES_TO_SKIP}")
 			
-			# boost's 3rdaprties, special case
+			# boost's 3rdparties, special case
 			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave numeric_conversion) # wave and all of its deps, numeric_conversion is nested in conversion submodule (for some reason boostdep tool doesn't output it properly)
 			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
 				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT ${NBL_TARGET})
