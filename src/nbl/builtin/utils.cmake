@@ -15,10 +15,10 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 	endif()
 	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
-	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}} PARENT_SCOPE) # override
+	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	
 	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_}${_OPTIONAL_ALIASES_}")
-	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_} PARENT_SCOPE) # override
+	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_}) # override
 	
 	unset(_OPTIONAL_ALIASES_)
 	unset(_ALIAS_ARGS_)
@@ -187,6 +187,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
+	
 	set(NBL_BUILTIN_RESOURCES_HEADERS
 		"${NBL_BUILTIN_RESOURCES_HEADER}"
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
