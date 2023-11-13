@@ -60,13 +60,13 @@ Currently working on the `ditt` branch, in the process of being ported to Vulkan
 
 You can download a stable build [here](https://artifactory.devsh.eu/Ditt/ci/data/artifacts/public/Ditt.tar.bz2)
 
-![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/17d76d294c46b4f3f3b98e9c4c6fd37c8396e502/site_media/readme/screenshots/4e86cf2b-3f8e-40eb-9835-6553ea205df2.jpg)
+![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/screenshots/4e86cf2b-3f8e-40eb-9835-6553ea205df2.jpg?raw=true)
 
 ### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
 
 ## Main Features
 
