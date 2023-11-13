@@ -2519,7 +2519,7 @@ protected:
             qci.queueCount = qparams.count;
             qci.queueFamilyIndex = qparams.familyIndex;
             qci.flags = static_cast<VkDeviceQueueCreateFlags>(qparams.flags);
-            qci.pQueuePriorities = qparams.priorities;
+            qci.pQueuePriorities = qparams.priorities.data();
         }
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
 

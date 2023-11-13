@@ -3,10 +3,11 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
-#ifndef __HLSL_VERSION
-namespace nbl::hlsl
+namespace nbl
 {
-
+namespace hlsl
+{
+#ifndef __HLSL_VERSION
 template<typename T, uint16_t N, uint16_t M>
 struct matrix final : private glm::mat<N,M,T>
 {
@@ -55,12 +56,13 @@ struct matrix final : private glm::mat<N,M,T>
         return glm::transpose(reinterpret_cast<Base const&>(m));
     }
 };
+#endif
 
 
 #define NBL_TYPEDEF_MATRICES_FOR_ROW(T, R) \
-using T ## R ## x4 = matrix<T, R, 4>; \
-using T ## R ## x3 = matrix<T, R, 3>; \
-using T ## R ## x2 = matrix<T, R, 2>; 
+typedef matrix<T, R, 4> T ## R ## x4; \
+typedef matrix<T, R, 3> T ## R ## x3; \
+typedef matrix<T, R, 2> T ## R ## x2; 
 
 #define NBL_TYPEDEF_MATRICES_FOR_SCALAR(T) \
     NBL_TYPEDEF_MATRICES_FOR_ROW(T, 4) \
@@ -80,8 +82,7 @@ NBL_TYPEDEF_MATRICES_FOR_SCALAR(float64_t);
 
 #undef NBL_TYPEDEF_MATRICES_FOR_ROW
 #undef NBL_TYPEDEF_MATRICES_FOR_SCALAR
-
 }
-#endif
+}
 
 #endif

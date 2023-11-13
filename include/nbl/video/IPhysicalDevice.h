@@ -574,11 +574,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         auto getQueueFamilyProperties() const 
         {
-            using citer_t = qfam_props_array_t::pointee::const_iterator;
-            return core::SRange<const SQueueFamilyProperties, citer_t, citer_t>(
-                m_qfamProperties->cbegin(),
-                m_qfamProperties->cend()
-            );
+            return core::SRange<const SQueueFamilyProperties>(m_qfamProperties->data(),m_qfamProperties->data()+m_qfamProperties->size());
         }
 
         struct SBufferFormatPromotionRequest {

@@ -106,14 +106,13 @@ class IGPUObjectFromAssetConverter
                 core::smart_refctd_ptr<IGPUEvent>* event = nullptr;
             };
 
-            //! Required not null
+            //! Required not null if an ICPUImage or ICPUBuffer needs converting
             IUtilities* utilities = nullptr;
+            //! Required not null
             ILogicalDevice* device = nullptr;
             //! Required not null
             asset::IAssetManager* assetManager = nullptr;
             IGPUPipelineCache* pipelineCache = nullptr;
-
-            IPhysicalDevice::SLimits limits;
 
             uint32_t finalQueueFamIx = 0u;
 
@@ -304,10 +303,13 @@ class IGPUObjectFromAssetConverter
         bool computeQueueSupportsGraphics(const SParams& _params)
         {
             // assert that ComputeQueue also supports Graphics
-            const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex();
+            const uint32_t transferFamIx = _params.perQueue[EQU_TRANSFER].queue ? _params.perQueue[EQU_TRANSFER].queue->getFamilyIndex():~0u;
             const uint32_t computeFamIx = _params.perQueue[EQU_COMPUTE].queue ? _params.perQueue[EQU_COMPUTE].queue->getFamilyIndex() : transferFamIx;
 
             auto queueFamProps = _params.device->getPhysicalDevice()->getQueueFamilyProperties();
+			if (computeFamIx>=queueFamProps.size())
+				return true; // no queue specified
+
             const auto& familyProperty = queueFamProps.begin()[computeFamIx];
             bool hasGraphicsFlag = (familyProperty.queueFlags & IPhysicalDevice::EQF_GRAPHICS_BIT).value != 0;
             return hasGraphicsFlag;
@@ -466,13 +468,15 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBuffer> >(assetCount);
 
+    const auto& limits = _params.device->getPhysicalDevice()->getLimits();
+
     const uint64_t alignment =
     std::max<uint64_t>(
-        std::max<uint64_t>(_params.limits.bufferViewAlignment, _params.limits.minSSBOAlignment),
-        std::max<uint64_t>(_params.limits.minUBOAlignment, _NBL_SIMD_ALIGNMENT)
+        std::max<uint64_t>(limits.bufferViewAlignment,limits.minSSBOAlignment),
+        std::max<uint64_t>(limits.minUBOAlignment, _NBL_SIMD_ALIGNMENT)
     );
 
-    const uint64_t maxBufferSize = _params.limits.maxBufferSize;
+    const uint64_t maxBufferSize = limits.maxBufferSize;
     auto out = res->begin();
     auto firstInBlock = out;
     auto newBlock = [&]() -> auto
@@ -1486,8 +1490,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUSpecializedShader** c
 
     for (ptrdiff_t i = 0; i < assetCount; ++i)
     {
-        auto a = gpuDeps->operator[](redirs[i]);
-        res->operator[](i) = _params.device->createSpecializedShader(gpuDeps->operator[](redirs[i]).get(), _begin[i]->getSpecializationInfo());
+        auto unspecShader = gpuDeps->operator[](redirs[i]);
+        if (unspecShader)
+            res->operator[](i) = _params.device->createSpecializedShader(unspecShader.get(), _begin[i]->getSpecializationInfo());
     }
 
     return res;

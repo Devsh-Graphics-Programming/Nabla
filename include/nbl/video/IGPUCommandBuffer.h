@@ -252,7 +252,9 @@ private:
         m_commandList.head = nullptr;
         m_commandList.tail = nullptr;
 
-        checkForParentPoolReset_impl();
+        // Example 05 crashes here, with assert in `ucrt` maybe vtable gets lost or something?
+        // For now commented out because we only have a Vulkan backend and function doesn't do anything.
+        //checkForParentPoolReset_impl();
 
         return true;
     }

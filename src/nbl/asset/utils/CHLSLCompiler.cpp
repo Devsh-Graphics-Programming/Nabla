@@ -281,6 +281,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
+                lineOffsetStack.push_back(lineOffsetStack.back()); // have to push something because pop-include expects something
                 return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler\n")));
             }
         };

@@ -102,33 +102,6 @@ bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntr
     return true;
 }
 
-static IDescriptor::E_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
-{
-    switch (_t)
-    {
-        case ESRT_COMBINED_IMAGE_SAMPLER:
-            return IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-            break;
-        case ESRT_STORAGE_IMAGE:
-            return IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
-            break;
-        case ESRT_UNIFORM_TEXEL_BUFFER:
-            return IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
-            break;
-        case ESRT_STORAGE_TEXEL_BUFFER:
-            return IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER;
-            break;
-        case ESRT_UNIFORM_BUFFER:
-            return IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-            break;
-        case ESRT_STORAGE_BUFFER:
-            return IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
-            break;
-        default:
-            break;
-    }
-    return IDescriptor::E_TYPE::ET_COUNT;
-}
 
 template<E_SHADER_RESOURCE_TYPE restype>
 static std::pair<bool, IImageView<ICPUImage>::E_TYPE> imageInfoFromResource(const SShaderResource<restype>& _res)
@@ -443,6 +416,7 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
         introData->descriptorSetBindings[descSet].emplace_back();
 
         SShaderResourceVariant& res = introData->descriptorSetBindings[descSet].back();
+        res.name = r.name;
         res.type = restype;
         res.binding = _comp.get_decoration(r.id, spv::DecorationBinding);
 
@@ -531,14 +505,12 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, mapId2SpecConst);
-        static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
+        shaderMemBlockIntrospection(_comp, res.get<ESRT_UNIFORM_BUFFER>(), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.storage_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, mapId2SpecConst);
-        static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
+        shaderMemBlockIntrospection(_comp, res.get<ESRT_STORAGE_BUFFER>(), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.subpass_inputs)
     {
@@ -611,8 +583,8 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
     {
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
         introData->pushConstant.present = true;
-        static_cast<impl::SShaderMemoryBlock&>(introData->pushConstant.info).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData->pushConstant.info), r.base_type_id, r.id, mapId2SpecConst);
+        introData->pushConstant.name = r.name;
+        shaderMemBlockIntrospection(_comp, introData->pushConstant.info, r.base_type_id, r.id, mapId2SpecConst);
     }
 
     return introData;
@@ -792,16 +764,16 @@ static void deinitIntrospectionData(CSPIRVIntrospector::CIntrospectionData* _dat
             switch (res.type)
             {
             case ESRT_STORAGE_BUFFER:
-                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()));
+                deinitShdrMemBlock(res.get<ESRT_STORAGE_BUFFER>());
                 break;
             case ESRT_UNIFORM_BUFFER:
-                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()));
+                deinitShdrMemBlock(res.get<ESRT_UNIFORM_BUFFER>());
                 break;
             default: break;
             }
         }
     if (_data->pushConstant.present)
-        deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(_data->pushConstant.info));
+        deinitShdrMemBlock(_data->pushConstant.info);
 }
 
 CSPIRVIntrospector::CIntrospectionData::~CIntrospectionData()

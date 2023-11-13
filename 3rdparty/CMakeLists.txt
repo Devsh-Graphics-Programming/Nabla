@@ -204,10 +204,6 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
-
-nbl_adjust_flags()
-
-
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
@@ -357,6 +353,7 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV-Tools-opt
 				Imath
 				OpenEXRCore
+				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
@@ -387,10 +384,16 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		else()
 			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(MSVC AND NBL_SANITIZE_ADDRESS)
+			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+		endif()
 endforeach()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
+
+nbl_adjust_flags()
 
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 

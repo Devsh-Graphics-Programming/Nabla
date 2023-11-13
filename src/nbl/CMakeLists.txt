@@ -615,7 +615,6 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	)
 	
 	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
 	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
@@ -632,9 +631,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	
 	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
-	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
-		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
-	endforeach()
+	get_target_property(NABLA_RESOURCES_TO_EMBED_PUBLIC nblBuiltinResourceData BUILTIN_RESOURCES)
 	
 	target_sources(Nabla PRIVATE 
 		${NABLA_RESOURCES_TO_EMBED_PUBLIC}

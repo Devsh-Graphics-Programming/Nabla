@@ -32,6 +32,16 @@ endforeach()
 
 add_subdirectory(superproject/libs/wave EXCLUDE_FROM_ALL)
 
+foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
+	if(TARGET boost_${BOOST_LIB})
+		list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
+	endif()
+endforeach()
+
+set(NBL_BOOST_TARGETS 
+	${NBL_BOOST_TARGETS}
+PARENT_SCOPE)
+
 # Boost uses it's own tool for generating dependency list for targets, therefore we 
 # can make sure manually added dependnecy subdirectories for a library are valid
 # https://www.boost.org/doc/libs/1_83_0/tools/boostdep/doc/html/index.html#boostdep.introduction.building_boostdep
