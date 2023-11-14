@@ -111,6 +111,15 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
 namespace impl
 {
 
+template<typename T>
+struct comparator_lt_t
+{
+    bool operator()(const T lhs, const T rhs)
+    {
+        return lhs<rhs;
+    }
+};
+
 // extra indirection due to https://github.com/microsoft/DirectXShaderCompiler/issues/4771
 template<class Accessor, typename T>
 uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
