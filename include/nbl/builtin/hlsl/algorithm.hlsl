@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 
+#include "nbl/builtin/hlsl/functional.hlsl"
+
 namespace nbl
 {
 namespace hlsl
