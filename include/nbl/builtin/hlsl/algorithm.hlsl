@@ -118,8 +118,8 @@ uint lower_bound(inout Accessor accessor, const uint begin, const uint end, cons
     //using Comparator = impl::comparator_lt_t<T>;
     //Comparator comp;
     
-    impl::comparator_lt_t<T> comp;
-    return nbl::hlsl::lower_bound<Accessor,impl::comparator_lt_t<T> >(accessor,begin,end,value,comp);
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::lower_bound<Accessor,nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 template<class Accessor, typename T>
 uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
@@ -127,8 +127,8 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
     //using Comparator = impl::comparator_lt_t<T>;
     //Comparator comp;
     
-    impl::comparator_lt_t<T> comp;
-    return nbl::hlsl::upper_bound<Accessor,impl::comparator_lt_t<T> >(accessor,begin,end,value,comp);
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::upper_bound<Accessor,nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 
 }
