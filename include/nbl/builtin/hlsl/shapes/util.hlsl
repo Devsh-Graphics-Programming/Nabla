@@ -17,10 +17,10 @@ namespace util
 template<typename float_t>
 static float64_t2 LineLineIntersection(vector<float_t, 2> P1, vector<float_t, 2> V1, vector<float_t, 2> P2, vector<float_t, 2> V2)
 {
-    using float_t2 = vector<float_t, 2>;
+    typedef vector<float_t, 2> float_t2;
 
     float_t denominator = V1.y * V2.x - V1.x * V2.y;
-    float_t2 diff = P1 - P2;
+    vector<float_t, 2> diff = P1 - P2;
     float_t numerator = dot(float_t2(V2.y, -V2.x), float_t2(diff.x, diff.y));
 
     if (abs(denominator) < 1e-15 && abs(numerator) < 1e-15)
