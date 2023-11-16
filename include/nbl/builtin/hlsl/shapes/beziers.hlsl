@@ -303,21 +303,36 @@ namespace shapes
             return ret;
         }
 
-        static Quadratic constructFromBezier(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) curve)
+        static Quadratic constructFromBezier(float_t2 P0, float_t2 P1, float_t2 P2)
         {
-            const float_t2 A = curve.P0 - float_t(2.0) * curve.P1 + curve.P2;
-            const float_t2 B = float_t(2.0) * (curve.P1 - curve.P0);
-            const float_t2 C = curve.P0;
-            
+            const float_t2 A = P0 - 2.0 * P1 + P2;
+            const float_t2 B = 2.0 * (P1 - P0);
+            const float_t2 C = P0;
+
             Quadratic ret = { A, B, C };
             return ret;
         }
-        
-        float_t2 evaluate(float_t t)
+
+        static Quadratic constructFromBezier(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) curve)
+        {
+            return constructFromBezier(curve.P0, curve.P1, curve.P2);
+        }
+
+        float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
         {
             return t * (A * t + B) + C;
         }
-        
+
+        float_t2 derivative(float_t t) NBL_CONST_MEMBER_FUNC
+        {
+            return float_t(2.0) * A * t + B;
+        }
+
+        float_t2 secondDerivative(float_t t) NBL_CONST_MEMBER_FUNC
+        {
+            return float_t(2.0) * A;
+        }
+
         NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxCandidates = 3u;
         using Candidates = vector<float_t, MaxCandidates>;
 

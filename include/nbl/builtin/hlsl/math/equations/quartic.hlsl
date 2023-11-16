@@ -2,11 +2,11 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_EQUATIONS_QUARTIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_EQUATIONS_QUARTIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATH_EQUATIONS_QUARTIC_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_EQUATIONS_QUARTIC_INCLUDED_
 
-#include <nbl/builtin/hlsl/equations/quadratic.hlsl>
-#include <nbl/builtin/hlsl/equations/cubic.hlsl>
+#include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
+#include <nbl/builtin/hlsl/math/equations/cubic.hlsl>
 
 // TODO: Later include from correct hlsl header
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -25,6 +25,8 @@
 namespace nbl
 {
 namespace hlsl
+{
+namespace math
 {
 namespace equations
 {
@@ -77,7 +79,7 @@ namespace equations
 			{
 				/* no absolute term: y(y^3 + py + q) = 0 */
 
-				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(1, 0, p, q).computeRoots();
+				float3_t cubic = Cubic<float_t>::construct(1, 0, p, q).computeRoots();
 				s[rootCount ++] = cubic[0];
 				s[rootCount ++] = cubic[1];
 				s[rootCount ++] = cubic[2];
@@ -85,7 +87,7 @@ namespace equations
 			else
 			{
 				/* solve the resolvent cubic ... */
-				float3_t cubic = nbl::hlsl::equations::Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
+				float3_t cubic = Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
 				/* ... and take the one real solution ... */
 				for (uint32_t i = 0; i < 3; i ++)
 					if (!isnan(cubic[i]))
@@ -113,8 +115,8 @@ namespace equations
 				else
 					return s; // (empty)
 
-				float2_t quadric1 = nbl::hlsl::equations::Quadratic<float_t>::construct(1, q < 0 ? -v : v, z - u).computeRoots();
-				float2_t quadric2 = nbl::hlsl::equations::Quadratic<float_t>::construct(1, q < 0 ? v : -v, z + u).computeRoots();
+				float2_t quadric1 = Quadratic<float_t>::construct(1, q < 0 ? -v : v, z - u).computeRoots();
+				float2_t quadric2 = Quadratic<float_t>::construct(1, q < 0 ? v : -v, z + u).computeRoots();
 
 				for (uint32_t i = 0; i < 2; i ++)
 					if (!isinf(quadric1[i]) && !isnan(quadric1[i]))
@@ -137,6 +139,7 @@ namespace equations
 
 
     };
+}
 }
 }
 }

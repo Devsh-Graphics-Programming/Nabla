@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_EQUATIONS_CUBIC_INCLUDED_
-#define _NBL_BUILTIN_HLSL_EQUATIONS_CUBIC_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_MATH_EQUATIONS_CUBIC_INCLUDED_
+#define _NBL_BUILTIN_HLSL_MATH_EQUATIONS_CUBIC_INCLUDED_
 
 // TODO: Later include from correct hlsl header
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -22,6 +22,8 @@
 namespace nbl
 {
 namespace hlsl
+{
+namespace math
 {
 namespace equations
 {
@@ -117,6 +119,7 @@ namespace equations
 
 
     };
+}
 }
 }
 }
