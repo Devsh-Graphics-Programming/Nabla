@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#include "nbl/asset/utils/CJITIncludeLoader.h"
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
@@ -31,6 +32,7 @@
 
 using namespace nbl;
 using namespace nbl::asset;
+using namespace nbl::video;
 using Microsoft::WRL::ComPtr;
 
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
@@ -46,8 +48,6 @@ namespace nbl::asset::hlsl::impl
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
 {
-    m_defaultIncludeFinder->addSearchPath("", core::make_smart_refctd_ptr<CJITIncludeLoader>());
-
     ComPtr<IDxcUtils> utils;
     auto res = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.GetAddressOf()));
     assert(SUCCEEDED(res));
@@ -355,6 +355,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
+    m_defaultIncludeFinder->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>());
+
     auto hlslOptions = option_cast(options);
 
     if (!code)

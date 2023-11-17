@@ -7,6 +7,7 @@
 
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
+#include "nbl/asset/utils/CJITIncludeLoader.h"
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -25,6 +26,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system);
 		~CHLSLCompiler();
+
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{

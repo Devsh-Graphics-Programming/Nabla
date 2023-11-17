@@ -4,58 +4,53 @@
 
 CJITIncludeLoader::CJITIncludeLoader()
 {
-    m_includes["device_capabilities.hlsl"] = collectDeviceCaps();
+    m_includes["nbl/builtin/hlsl/jit/device_capabilities.hlsl"] = collectDeviceCaps(limits, features);
 }
 
-std::string CJITIncludeLoader::loadInclude(const std::string path)
+std::optional<std::string> CJITIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const
 {
-    const std::string prefix = "nbl/builtin/hlsl/jit/";
-    if (path.compare(0, prefix.size(), prefix) == 0)
-    {
-        std::string includeFileName = path.substr(prefix.size());
+    system::path path = searchPath / includeName;
 
+    if (searchPath == "nbl/builtin/hlsl/jit")
+    {
         // Look up the content in m_includes map
-        auto it = m_includes.find(includeFileName);
+        auto it = m_includes.find(path);
         if (it != m_includes.end())
         {
             // Return the content of the specified include file
             return it->second;
         }
-        else
-        {
-            // Handle error: include file not found
-            std::cerr << "Error: Include file '" << path << "' not found!" << std::endl;
-            return "";
-        }
+        return std::nullopt;
     }
-    else
-    {
-        // Handle error: invalid include path
-        std::cerr << "Error: Invalid include path '" << path << "'!" << std::endl;
-        return "";
-    }
+    return std::nullopt;
 }
 
 
-std::string CJITIncludeLoader::collectDeviceCaps()
+std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
 {
-    std::ostringstream content;
-    content << "#ifndef _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_" << std::endl;
-    content << "#define _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_" << std::endl;
-    content << "namespace nbl {" << std::endl;
-    content << "namespace hlsl {" << std::endl;
-    content << "namespace jit {" << std::endl;
-    content << "struct device_capabilities {" << std::endl;
-    content << "  NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = false" << std::endl;
-    content << "  NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = false" << std::endl;
-    content << "  NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic = false" << std::endl;
-    content << "  NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock = false" << std::endl;
-    content << std::endl;
-    content << "  NBL_CONSTEXPR_STATIC_INLINE uint16_t maxOptimallyResidentWorkgroupInvocations = 0" << std::endl;
-    content << "};" << std::endl;
-    content << "}" << std::endl;
-    content << "}" << std::endl;
-    content << "#endif" << std::endl;
+    return R"===(
+        #ifndef _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
+        #define _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
 
-    return content.str();
+        namespace nbl
+        {
+        namespace hlsl
+        {
+        namespace jit
+        {
+            struct device_capabilities
+            {
+                NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + std::to_string(features.shaderFloat64) + R"===(;
+                NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = )===" + std::to_string(features.shaderDrawParameters) + R"===(;
+                NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic = )===" + std::to_string(limits.shaderSubgroupArithmetic) + R"===(;
+                NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock = )===" + std::to_string(features.fragmentShaderPixelInterlock) + R"===(;
+
+                NBL_CONSTEXPR_STATIC_INLINE uint16_t maxOptimallyResidentWorkgroupInvocations = )===" + std::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
+            };
+        }
+        }
+        }
+
+        #endif  // _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
+    )===";
 }
