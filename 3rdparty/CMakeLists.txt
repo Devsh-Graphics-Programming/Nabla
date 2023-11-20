@@ -361,7 +361,8 @@ set(NBL_3RDPARTY_TARGETS
 				GenericCodeGen
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt 
+				SPIRV-Tools-opt
+				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS

@@ -20,3 +20,15 @@ endif()
 set(BOOST_INCLUDE_LIBRARIES wave)
 set(BOOST_STAGEDIR "${CMAKE_CURRENT_BINARY_DIR}/boost/superproject/stage")
 add_subdirectory(superproject superproject EXCLUDE_FROM_ALL)
+
+set(NBL_BOOST_LIBS wave;assert;concept_check;config;core;filesystem;format;iterator;lexical_cast;mpl;multi_index;optional;pool;preprocessor;serialization;smart_ptr;spirit;static_assert;throw_exception;type_traits;atomic;container_hash;detail;io;predef;system;winapi;utility;conversion;function_types;fusion;container;integer;numeric/conversion;bind;move;tuple;array;function;mp11;variant;variant2;endian;phoenix;proto;range;regex;thread;typeof;unordered;align;intrusive;describe;functional;chrono;date_time;exception;type_index;ratio;algorithm;tokenizer)
+
+foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
+if(TARGET boost_${BOOST_LIB})
+	list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
+endif()
+endforeach()
+
+set(NBL_BOOST_TARGETS 
+	${NBL_BOOST_TARGETS}
+PARENT_SCOPE)

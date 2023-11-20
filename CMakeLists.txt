@@ -256,6 +256,7 @@ macro(nbl_adjust_definitions)
 		PNG_NO_MNG_FEATURES
 		_7ZIP_ST
 		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+		BOOST_ALL_NO_LIB
 	)
 	
 	if(ANDROID)
