@@ -1,24 +1,7 @@
-/*
-MIT License
-Copyright (c) 2019 AnastaZIuk
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#if 0 // oldie
 
 #include <algorithm>
 #include <iostream>
@@ -31,15 +14,19 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
-#include "openexr/IlmBase/Imath/ImathBox.h"
-#include "openexr/OpenEXR/IlmImf/ImfOutputFile.h"
-#include "openexr/OpenEXR/IlmImf/ImfChannelList.h"
-#include "openexr/OpenEXR/IlmImf/ImfChannelListAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfMatrixAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfArray.h"
 
-#include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
+#include "ImfOutputFile.h"
+#include "ImfChannelList.h"
+#include "ImfChannelListAttribute.h"
+#include "ImfStringAttribute.h"
+#include "ImfMatrixAttribute.h"
+#include "ImfArray.h"
+
+#include "ImfFrameBuffer.h"
+#include "ImfHeader.h"
+
+#include "ImfNamespace.h"
+
 namespace IMF = Imf;
 namespace IMATH = Imath;
 
@@ -53,70 +40,70 @@ namespace nbl::asset::impl
 {
 	class nblOStream : public IMF::OStream
 	{
-		public:
-			nblOStream(system::IFile* _nblFile)
-				: IMF::OStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
-			virtual ~nblOStream() {}
+	public:
+		nblOStream(system::IFile* _nblFile)
+			: IMF::OStream(getFileName(_nblFile).c_str()), nblFile(_nblFile) {}
+		virtual ~nblOStream() {}
 
-			//----------------------------------------------------------
-			// Write to the stream:
-			//
-			// write(c,n) takes n bytes from array c, and stores them
-			// in the stream.  If an I/O error occurs, write(c,n) throws
-			// an exception.
-			//----------------------------------------------------------
+		//----------------------------------------------------------
+		// Write to the stream:
+		//
+		// write(c,n) takes n bytes from array c, and stores them
+		// in the stream.  If an I/O error occurs, write(c,n) throws
+		// an exception.
+		//----------------------------------------------------------
 
-			virtual void write(const char c[/*n*/], int n) override
-			{
-				system::IFile::success_t success;
-				nblFile->write(success, c, fileOffset, n);
-				fileOffset += success.getBytesProcessed();
-			}
+		virtual void write(const char c[/*n*/], int n) override
+		{
+			system::IFile::success_t success;
+			nblFile->write(success, c, fileOffset, n);
+			fileOffset += success.getBytesProcessed();
+		}
 
-			//---------------------------------------------------------
-			// Get the current writing position, in bytes from the
-			// beginning of the file.  If the next call to write() will
-			// start writing at the beginning of the file, tellp()
-			// returns 0.
-			//---------------------------------------------------------
+		//---------------------------------------------------------
+		// Get the current writing position, in bytes from the
+		// beginning of the file.  If the next call to write() will
+		// start writing at the beginning of the file, tellp()
+		// returns 0.
+		//---------------------------------------------------------
 
-			virtual IMF::Int64 tellp() override
-			{
-				return static_cast<IMF::Int64>(fileOffset);
-			}
+		virtual uint64_t tellp() override
+		{
+			return static_cast<uint64_t>(fileOffset);
+		}
 
-			//-------------------------------------------
-			// Set the current writing position.
-			// After calling seekp(i), tellp() returns i.
-			//-------------------------------------------
+		//-------------------------------------------
+		// Set the current writing position.
+		// After calling seekp(i), tellp() returns i.
+		//-------------------------------------------
 
-			virtual void seekp(IMF::Int64 pos) override
-			{
-				fileOffset = static_cast<decltype(fileOffset)>(pos);
-			}
+		virtual void seekp(uint64_t pos) override
+		{
+			fileOffset = static_cast<decltype(fileOffset)>(pos);
+		}
 
-			void resetFileOffset()
-			{
-				fileOffset = 0u;
-			}
+		void resetFileOffset()
+		{
+			fileOffset = 0u;
+		}
 
-		private:
-			const std::string getFileName(system::IFile* _nblFile)
-			{
-				std::filesystem::path filename, extension;
-				core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
-				return filename.string() + extension.string();
-			}
+	private:
+		const std::string getFileName(system::IFile* _nblFile)
+		{
+			std::filesystem::path filename, extension;
+			core::splitFilename(_nblFile->getFileName(), nullptr, &filename, &extension);
+			return filename.string() + extension.string();
+		}
 
-			system::IFile* nblFile;
-			size_t fileOffset = {};
+		system::IFile* nblFile;
+		size_t fileOffset = {};
 	};
 }
 
 constexpr uint8_t availableChannels = 4;
 
 template<typename ilmType>
-bool createAndWriteImage(std::array<ilmType*,availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, system::IFile* _file)
+bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, system::IFile* _file)
 {
 	const auto& creationParams = image->getCreationParameters();
 	auto getIlmType = [&creationParams]()
@@ -145,29 +132,29 @@ bool createAndWriteImage(std::array<ilmType*,availableChannels>& pixelsArrayIlm,
 
 	const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 	// have to use `std::function` cause MSVC is borderline retarded and feel the need to instantiate separate Lambda types for each reference!?
-	auto writeTexel = std::function([&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
-	{
-		assert(texelCoord.w==0u && texelCoord.z==0u);
-
-		const uint8_t* texelPtr = data+ptrOffset;
-		const uint64_t ptrStyleIlmShiftToDataChannelPixel = (texelCoord.y*creationParams.extent.width)+texelCoord.x;
-
-		for (uint8_t channelIndex=0; channelIndex<availableChannels; ++channelIndex)
+	auto writeTexel = std::function([&creationParams, &data, &pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
 		{
-			ilmType channelPixel = *(reinterpret_cast<const ilmType*>(texelPtr) + channelIndex);
-			*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
-		}
-	});
+			assert(texelCoord.w == 0u && texelCoord.z == 0u);
 
-	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel),true>;
-	typename StreamToEXR::state_type state(writeTexel,image,nullptr);
-	for (auto rit=image->getRegions().begin(); rit!=image->getRegions().end(); rit++)
+			const uint8_t* texelPtr = data + ptrOffset;
+			const uint64_t ptrStyleIlmShiftToDataChannelPixel = (texelCoord.y * creationParams.extent.width) + texelCoord.x;
+
+			for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+			{
+				ilmType channelPixel = *(reinterpret_cast<const ilmType*>(texelPtr) + channelIndex);
+				*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
+			}
+		});
+
+	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel), true>;
+	typename StreamToEXR::state_type state(writeTexel, image, nullptr);
+	for (auto rit = image->getRegions().begin(); rit != image->getRegions().end(); rit++)
 	{
 		if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
 			continue;
 
 		state.regionIterator = rit;
-		StreamToEXR::execute(core::execution::par_unseq,&state);
+		StreamToEXR::execute(core::execution::par_unseq, &state);
 	}
 
 	constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
@@ -180,9 +167,9 @@ bool createAndWriteImage(std::array<ilmType*,availableChannels>& pixelsArrayIlm,
 		(
 			rgbaSignatureAsText[channel],                                                                // name
 			Slice(pixelType,                                                                             // type
-			(char*) pixelsArrayIlm[channel],                                                             // base
-			sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
-			rowPitch)																					 // yStride
+				(char*)pixelsArrayIlm[channel],                                                             // base
+				sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
+				rowPitch)																					 // yStride
 		);
 	}
 
@@ -224,8 +211,8 @@ bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWritePara
 bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICPUImage* image)
 {
 	const auto& params = image->getCreationParameters();
-			
-	std::array<half*, availableChannels> halfPixelMapArray = {nullptr, nullptr, nullptr, nullptr};
+
+	std::array<half*, availableChannels> halfPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 	std::array<float*, availableChannels> fullFloatPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 	std::array<uint32_t*, availableChannels> uint32_tPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 
@@ -239,5 +226,3 @@ bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICP
 	return true;
 }
 #endif // _NBL_COMPILE_WITH_OPENEXR_WRITER_
-
-#endif
