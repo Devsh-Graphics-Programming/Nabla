@@ -24,63 +24,16 @@ if(NOT EXISTS "${NBL_BOOST_WAVE_DEP_FILE}")
 endif()
 
 set(BOOST_STAGEDIR "${CMAKE_CURRENT_BINARY_DIR}/boost/superproject/stage")
-include("${NBL_BOOST_WAVE_DEP_FILE}")
+add_subdirectory(superproject superproject EXCLUDE_FROM_ALL)
+
+set(NBL_BOOST_LIBS wave;assert;concept_check;config;core;filesystem;format;iterator;lexical_cast;mpl;multi_index;optional;pool;preprocessor;serialization;smart_ptr;spirit;static_assert;throw_exception;type_traits;atomic;container_hash;detail;io;predef;system;winapi;utility;conversion;function_types;fusion;container;integer;numeric/conversion;bind;move;tuple;array;function;mp11;variant;variant2;endian;phoenix;proto;range;regex;thread;typeof;unordered;align;intrusive;describe;functional;chrono;date_time;exception;type_index;ratio;algorithm;tokenizer)
 
 foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
-	add_subdirectory(superproject/libs/${BOOST_LIB} EXCLUDE_FROM_ALL)
-endforeach()
-
-add_subdirectory(superproject/libs/wave EXCLUDE_FROM_ALL)
-
-foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
-	if(TARGET boost_${BOOST_LIB})
-		list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
-	endif()
+if(TARGET boost_${BOOST_LIB})
+	list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
+endif()
 endforeach()
 
 set(NBL_BOOST_TARGETS 
 	${NBL_BOOST_TARGETS}
 PARENT_SCOPE)
-
-# Boost uses it's own tool for generating dependency list for targets, therefore we 
-# can make sure manually added dependnecy subdirectories for a library are valid
-# https://www.boost.org/doc/libs/1_83_0/tools/boostdep/doc/html/index.html#boostdep.introduction.building_boostdep
-
-if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
-	if(WIN32)
-		set(NBL_BOOSTDEP_EXE "boostdep.exe")
-	else()
-		set(NBL_BOOSTDEP_EXE "boostdep")
-	endif()
-	
-	set(NBL_BOOSTDEP_EXE_FILEPATH "${CMAKE_CURRENT_BINARY_DIR}/superproject/tools/boostdep/bin/${NBL_BOOSTDEP_EXE}")
-	
-	if(NOT EXISTS "${NBL_BOOSTDEP_EXE_FILEPATH}")
-		macro(NBL_BOOST_EXECUTE)
-			execute_process(COMMAND ${ARGV}
-				WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/superproject"
-			)
-		endmacro()
-
-		NBL_BOOST_EXECUTE(cmd /C bootstrap.bat)
-		NBL_BOOST_EXECUTE(cmd /C b2.exe tools/boostdep/build)
-		NBL_BOOST_EXECUTE("${CMAKE_COMMAND}" -E copy "./dist/bin/${NBL_BOOSTDEP_EXE}" "${NBL_BOOSTDEP_EXE_FILEPATH}")
-		NBL_BOOST_EXECUTE(git clean -fdx)
-		NBL_BOOST_EXECUTE(git reset --hard)
-	endif()
-
-	execute_process(COMMAND "${NBL_BOOSTDEP_EXE_FILEPATH}" --boost-root "${CMAKE_CURRENT_SOURCE_DIR}/superproject" --brief wave
-		OUTPUT_VARIABLE NBL_OUTPUT_VAR
-	)
-
-	file(WRITE "${NBL_BOOST_WAVE_DEP_FILE}" "${NBL_OUTPUT_VAR}")
-
-	file(STRINGS "${NBL_BOOST_WAVE_DEP_FILE}" NBL_BOOST_LIBS)
-	set(NBL_BOOST_LIBS ${NBL_BOOST_LIBS})
-	list(POP_FRONT NBL_BOOST_LIBS)
-	list(FILTER NBL_BOOST_LIBS EXCLUDE REGEX "#")
-	list(FILTER NBL_BOOST_LIBS EXCLUDE REGEX "(unknown)")
-	string(REPLACE "~" "/" NBL_BOOST_LIBS "${NBL_BOOST_LIBS}")
-
-	file(WRITE "${NBL_BOOST_WAVE_DEP_FILE}" "set(NBL_BOOST_LIBS ${NBL_BOOST_LIBS})")
-endif()

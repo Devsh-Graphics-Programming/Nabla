@@ -351,8 +351,6 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
-				Imath
-				OpenEXRCore
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
