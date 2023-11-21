@@ -70,14 +70,14 @@ namespace nbl::asset::hlsl::impl
                     BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
                         bad_include_file, iter_ctx.filename.c_str(), act_pos);
                 auto& res_str = *result;
-                iter_ctx.instring = res_str + "\n";
+                iter_ctx.instring = res_str;
             }
             else // include finder not provided
             {
                 auto builtin_pair = nbl::builtin::get_resource_runtime(filepath);
                 if (builtin_pair.first) // builtin exists
                 {
-                    iter_ctx.instring = std::string(builtin_pair.first, builtin_pair.first + builtin_pair.second) + "\n";
+                    iter_ctx.instring = std::string(builtin_pair.first, builtin_pair.first + builtin_pair.second);
                 }
                 else // default boost behavior
                 {
@@ -328,7 +328,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     hlsl::impl::custom_preprocessing_hooks hooks(preprocessOptions, stage);
     std::string startingFileIdentifier = std::string("../") + preprocessOptions.sourceIdentifier.data();
     wave_context_t context(code.begin(), code.end(), startingFileIdentifier.data(), hooks);
-    context.set_language(boost::wave::support_cpp20);
+    auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
+    context.set_language(static_cast<boost::wave::language_support>(language));
     context.add_macro_definition("__HLSL_VERSION");
     //TODO fix bad syntax and uncomment
     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
