@@ -25,10 +25,6 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
-//#define TCPP_IMPLEMENTATION
-//#include <tcpp/source/tcppLibrary.hpp>
-//#undef TCPP_IMPLEMENTATION
-
 using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
@@ -332,14 +328,23 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     hlsl::impl::custom_preprocessing_hooks hooks(preprocessOptions, stage);
     std::string startingFileIdentifier = std::string("../") + preprocessOptions.sourceIdentifier.data();
     wave_context_t context(code.begin(), code.end(), startingFileIdentifier.data(), hooks);
-
+    context.set_language(boost::wave::support_cpp20);
+    context.add_macro_definition("__HLSL_VERSION");
     //TODO fix bad syntax and uncomment
     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
     // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
     // to match boost wave syntax
     // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
-    /* for (auto iter = preprocessOptions.extraDefines.begin(); iter != preprocessOptions.extraDefines.end(); iter++)
-        context.add_macro_definition(*iter); */
+    for (auto iter = preprocessOptions.extraDefines.begin(); iter != preprocessOptions.extraDefines.end(); iter++)
+    {
+        std::string s = *iter;
+        size_t firstParenthesis = s.find(')');
+        if (firstParenthesis == -1) firstParenthesis = 0;
+        size_t firstWhitespace = s.find(' ', firstParenthesis);
+        if (firstWhitespace != -1)
+            s[firstWhitespace] = '=';
+        context.add_macro_definition(s);
+    }
 
     // preprocess
     std::stringstream stream = std::stringstream();

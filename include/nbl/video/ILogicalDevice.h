@@ -572,7 +572,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const ptrdiff_t pos = pool.tellp();
             m_extraShaderDefines.push_back(reinterpret_cast<const char*>(pos));
             pool << define << " ";
-            ((pool << std::forward<Args>(args)), ...);
+            ((pool << (std::is_same<uint8_t, Args>::value ? static_cast<uint32_t>(std::forward<Args>(args)) : std::forward<Args>(args))), ...);
         }
         inline void finalizeShaderDefinePool(std::ostringstream&& pool)
         {
