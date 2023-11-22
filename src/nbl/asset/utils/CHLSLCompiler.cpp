@@ -355,8 +355,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
-    m_defaultIncludeFinder->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>());
-
     auto hlslOptions = option_cast(options);
 
     if (!code)

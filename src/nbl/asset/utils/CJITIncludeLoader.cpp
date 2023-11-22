@@ -11,17 +11,16 @@ std::optional<std::string> CJITIncludeLoader::getInclude(const system::path& sea
 {
     system::path path = searchPath / includeName;
 
-    if (searchPath == "nbl/builtin/hlsl/jit")
+    assert(searchPath == "nbl/builtin/hlsl/jit");
+    
+    // Look up the content in m_includes map
+    auto it = m_includes.find(path);
+    if (it != m_includes.end())
     {
-        // Look up the content in m_includes map
-        auto it = m_includes.find(path);
-        if (it != m_includes.end())
-        {
-            // Return the content of the specified include file
-            return it->second;
-        }
-        return std::nullopt;
+        // Return the content of the specified include file
+        return it->second;
     }
+
     return std::nullopt;
 }
 
