@@ -9,6 +9,70 @@
 
 #include <nbl/builtin/glsl/math/functions.glsl>
 
+bool nbl_glsl_pullUpNormal_valid(in vec3 N, in vec3 V, in vec3 G, out float VdotN, out float NdotG, out float VdotG, out float firstReflectionPart)
+{
+    VdotN = dot(V,N);
+    NdotG = dot(N,G);
+    VdotG = dot(V,G);
+    //assert(VdotG!=0.f);
+    firstReflectionPart = 2.f*VdotN*NdotG;
+    // TODO: a XOR/flip sign function
+    // TODO: some epsilon to mark reflections "in tangent plane" invalid?
+    return (sign(VdotG)*firstReflectionPart)>=abs(VdotG);
+}
+bool nbl_glsl_pullUpNormal_valid(in vec3 N, in vec3 V, in vec3 G, out float VdotN, out float NdotG, out float VdotG)
+{
+    float dummy;
+    return nbl_glsl_pullUpNormal_valid(N,V,G,VdotN,NdotG,VdotG,dummy);
+}
+
+// keeps the corrected shading normal and direction of reflection in the planee formed by the view vector and original shading Normal
+vec3 nbl_glsl_pullUpNormal_towardsV(in vec3 N, in vec3 V, in vec3 G)
+{
+    // VdotN not really needed
+    float VdotN,NdotG,VdotG;
+    if (nbl_glsl_pullUpNormal_valid(N,V,G,VdotN,NdotG,VdotG))
+        return N;
+
+    // new reflection vector in the tangent plane
+    const vec3 R = N*VdotG-V*NdotG;
+    const float lenR2 = dot(R,R);
+    
+    // Value of 0 only possible if V=N because VdotG>0 guaranteed,
+    // but V=N always produces a valid reflection in the correct hemisphere
+    //assert(lenR2);
+    vec3 newN = normalize(R+V*sqrt(lenR2));
+
+    // flip into the correct hemisphere
+    NdotG = dot(newN,G);
+    return (NdotG<0.f) ? (-newN):newN;
+}
+
+// keeps direction invariant in the tangent plane of the actual geometric surface
+vec3 nbl_glsl_pullUpNormal_constAzimuthR(in vec3 N, in vec3 V, in vec3 G)
+{
+    float VdotN,NdotG,VdotG,firstReflectionPart;
+    if (nbl_glsl_pullUpNormal_valid(N,V,G,VdotN,NdotG,VdotG,firstReflectionPart))
+        return N;
+
+    // how far the original reflection vector was below the hemisphere
+    const float unitsBelow = firstReflectionPart-VdotG;
+    // assert(unitsBelow>0);
+
+    // new reflection vector in the tangent plane (projected into)
+    const vec3 R = nbl_glsl_reflect(V,N,VdotN)-G*unitsBelow;
+    //const vec3 R = 2.f*VdotN*(N-G*NdotG)-(V-G*VdotG); // in terms of vectors projected otno the geometric plane
+    
+    // Value of 0 only possible if V=N because VdotG>0 guaranteed,
+    // but V=N always produces a valid reflection in the correct hemisphere
+    vec3 newN = normalize(R+V*sqrt(1.f-unitsBelow*unitsBelow));
+
+    // flip into the correct hemisphere
+    NdotG = dot(newN,G);
+    return (NdotG<0.f) ? (-newN):newN;
+}
+
+
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct nbl_glsl_DirAndDifferential
 {

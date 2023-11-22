@@ -37,9 +37,9 @@ struct nbl_glsl_MC_instr_stream_t
 // (in case of precomp.NdotV<0.0, currInteraction will be set with -precomp.N)
 struct nbl_glsl_MC_precomputed_t
 {
-	// TODO: shadingN and geomN
 	vec3 N;
 	vec3 V;
+	vec3 G;
 	bool frontface;
 };
 

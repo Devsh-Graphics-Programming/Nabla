@@ -20,6 +20,7 @@ nbl_glsl_MC_precomputed_t nbl_glsl_MC_precomputeData(in bool frontface)
 	nbl_glsl_MC_precomputed_t p;
 	p.N = nbl_glsl_MC_getNormalizedWorldSpaceN();
 	p.V = nbl_glsl_MC_getNormalizedWorldSpaceV();
+	p.G = nbl_glsl_MC_getNormalizedWorldSpaceG();
 	p.frontface = frontface;
 
 	return p;
@@ -597,6 +598,9 @@ void nbl_glsl_MC_runTexPrefetchStream(in nbl_glsl_MC_instr_stream_t stream, in v
 	}
 }
 
+// OptiX likes this one better
+#define nbl_glsl_MC_pullUpNormal nbl_glsl_pullUpNormal_towardsV
+
 #ifdef NORM_PRECOMP_STREAM
 void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in nbl_glsl_MC_precomputed_t precomp)
 {
@@ -612,7 +616,7 @@ void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in
 
 		vec2 dh;
 		nbl_glsl_MC_readReg(srcreg,dh);
-		nbl_glsl_MC_writeReg(dstreg,nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N, dh));
+		nbl_glsl_MC_writeReg(dstreg,nbl_glsl_MC_pullUpNormal(nbl_glsl_perturbNormal_derivativeMap(currInteraction.inner.isotropic.N,dh),precomp.V,precomp.G));
 	}
 }
 #endif
