@@ -495,7 +495,7 @@ else()
 endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
-#if (_NBL_COMPILE_WITH_OPEN_EXR_)
+if (_NBL_COMPILE_WITH_OPEN_EXR_)
     add_dependencies(Nabla OpenEXR)
     if(NBL_STATIC_BUILD)
         target_link_libraries(Nabla INTERFACE OpenEXR)
@@ -506,7 +506,7 @@ target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
     target_include_directories(
         Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
     )
-#endif()
+endif()
 
 add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
 if(NBL_STATIC_BUILD)
@@ -709,11 +709,12 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(MachineIndependent)
 	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
-#	if (_NBL_COMPILE_WITH_OPEN_EXR_)
+	if (_NBL_COMPILE_WITH_OPEN_EXR_)
 		nbl_install_lib(OpenEXR)
-#	else()
+	else()
 		nbl_install_lib(OpenEXRCore)
-#	endif()
+		nbl_install_lib(OpenEXRUtil)
+	endif()
 	nbl_install_lib(png_static)
 
 	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
