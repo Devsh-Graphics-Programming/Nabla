@@ -2,7 +2,7 @@
 #include "CJITIncludeLoader.h"
 
 
-CJITIncludeLoader::CJITIncludeLoader()
+CJITIncludeLoader::CJITIncludeLoader(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
 {
     m_includes["nbl/builtin/hlsl/jit/device_capabilities.hlsl"] = collectDeviceCaps(limits, features);
 }
