@@ -12,7 +12,7 @@ void ILogicalDevice::addJITIncludeLoader()
     {
         if(auto finder = cc->getDefaultIncludeFinder())
         {
-            finder->addSearchPath("", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_physicalDevice->getFeatures()));
+            finder->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_physicalDevice->getFeatures()));
         }
     }
 }
