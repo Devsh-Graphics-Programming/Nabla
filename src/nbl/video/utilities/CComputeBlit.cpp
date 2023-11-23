@@ -7,18 +7,35 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTe
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 	const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
+	const uint32_t blitDimCount = static_cast<uint32_t>(imageType) + 1;
 
 	std::ostringstream shaderSourceStream;
-	shaderSourceStream
-		<< "#version 460 core\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-		<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-		<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-		<< "#include <nbl/builtin/glsl/blit/default_compute_alpha_test.comp>\n";
 
-	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "CComputeBlit::createAlphaTestSpecializedShader");
+	shaderSourceStream
+		<< "#include \"nbl/builtin/hlsl/blit/common.hlsl\"\n"
+		   "#include \"nbl/builtin/hlsl/blit/parameters.hlsl\"\n"
+		   "#include \"nbl/builtin/hlsl/blit/alpha_test.hlsl\"\n"
+
+		   "typedef nbl::hlsl::blit::consteval_parameters_t<" << workgroupDims.x << ", " << workgroupDims.y << ", " << workgroupDims.z << ", "
+		   "0, 0, " << blitDimCount << ", " << paddedAlphaBinCount << "> ceval_params_t;\n"
+
+		   "[[vk::binding(0, 0)]]\n"
+		   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
+
+		   "[[vk::binding(2 , 0)]] RWStructuredBuffer<uint32_t> statsBuff;\n"
+	       "[[vk::push_constant]] nbl::hlsl::blit::parameters_t params;"
+
+		   "struct PassedPixelsAccessor { void atomicAdd(uint32_t wgID, uint32_t v) { InterlockedAdd(statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + ceval_params_t::AlphaBinCount], v); } };\n"
+		   "struct InCSAccessor { float32_t4 get(int32_t3 c, uint32_t l) { return inCS[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<int32_t>(c, l)]; } };\n"
+
+		   "[numthreads(ceval_params_t::WorkGroupSizeX, ceval_params_t::WorkGroupSizeY, ceval_params_t::WorkGroupSizeZ)]"
+		   "void main(uint32_t3 globalInvocationID : SV_DispatchThreadID, uint32_t3 workGroupID: SV_GroupID)\n"
+		   "{\n"
+		   "    InCSAccessor inCSA;PassedPixelsAccessor ppA;\n"
+		   "	nbl::hlsl::blit::alpha_test(ppA, inCSA, params.inputDims, params.referenceAlpha, globalInvocationID, workGroupID);\n"
+		   "}\n";
+
+	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlitGLSLGLSL::createAlphaTestSpecializedShader");
 	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
 	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
@@ -29,24 +46,48 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 	const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
+	const uint32_t blitDimCount = static_cast<uint32_t>(imageType) + 1;
 
 	const auto castedFormat = getOutImageViewFormat(outFormat);
-	const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
+	assert(outFormat == castedFormat);
+	const char* formatQualifier = asset::CHLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 	std::ostringstream shaderSourceStream;
-	shaderSourceStream
-		<< "#version 460 core\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << ((imageType >= asset::IImage::ET_1D) ? workgroupDims.x : 1) << "\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << ((imageType >= asset::IImage::ET_2D) ? workgroupDims.y : 1) << "\n"
-		<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << ((imageType >= asset::IImage::ET_3D) ? workgroupDims.z : 1) << "\n"
-		<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
-		<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n"
-		<< "#define _NBL_GLSL_BLIT_NORMALIZATION_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
-	if (outFormat != castedFormat)
-		shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
-	shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_normalization.comp>\n";
 
-	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "CComputeBlit::createNormalizationSpecializedShader");
+	shaderSourceStream
+		<< "#include \"nbl/builtin/hlsl/blit/common.hlsl\"\n"
+		   "#include \"nbl/builtin/hlsl/blit/parameters.hlsl\"\n"
+		   "#include \"nbl/builtin/hlsl/blit/normalization.hlsl\"\n"
+
+		   "typedef nbl::hlsl::blit::consteval_parameters_t<" << workgroupDims.x << ", " << workgroupDims.y << ", " << workgroupDims.z << ", "
+		   "0, 0, " << blitDimCount << ", " << paddedAlphaBinCount << "> ceval_params_t;\n"
+
+		   "[[vk::binding(0, 0)]]\n"
+		   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
+
+		   "[[vk::image_format(\"" << formatQualifier << "\")]]\n"
+		   "[[vk::binding(1, 0)]]\n"
+		   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::image_t outImg;\n"
+
+		   "[[vk::binding(2 , 0)]] RWStructuredBuffer<uint32_t> statsBuff;\n"
+		   "[[vk::push_constant]] nbl::hlsl::blit::parameters_t params;"
+		   "groupshared float32_t sMem[ceval_params_t::WorkGroupSize + 1];\n"
+
+           "struct PassedPixelsAccessor { uint32_t get(uint32_t wgID) { return statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + ceval_params_t::AlphaBinCount]; } };\n"
+		   "struct HistogramAccessor { uint32_t get(uint32_t wgID, uint32_t bucket) { return statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + bucket]; } };\n"
+		   "struct InCSAccessor { float32_t4 get(int32_t3 c, uint32_t l) { return inCS[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<int32_t>(c, l)]; } };\n"
+		   "struct OutImgAccessor { void set(int32_t3 c, uint32_t l, float32_t4 v) { outImg[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<uint32_t>(c, l)] = v; } };\n"
+		   "struct SharedAccessor { struct { float32_t get(float32_t idx) { return sMem[idx]; } void set(float32_t idx, float32_t val) { sMem[idx] = val; } } main; };\n"
+
+		   "[numthreads(ceval_params_t::WorkGroupSizeX, ceval_params_t::WorkGroupSizeY, ceval_params_t::WorkGroupSizeZ)]"
+		   "void main(uint32_t3 workGroupID : SV_GroupID, uint32_t3 globalInvocationID : SV_DispatchThreadID, uint32_t localInvocationIndex : SV_GroupIndex)"
+		   "{\n"
+		   "	nbl::hlsl::blit::normalization_t<ceval_params_t> blit = nbl::hlsl::blit::normalization_t<ceval_params_t>::create(params);\n"
+           "    InCSAccessor inCSA; OutImgAccessor outImgA; HistogramAccessor hA; PassedPixelsAccessor ppA; SharedAccessor sA;\n"
+		   "	blit.execute(inCSA, outImgA, hA, ppA, sA, workGroupID, globalInvocationID, localInvocationIndex);\n"
+		   "}\n";
+
+	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlitGLSL::createNormalizationSpecializedShader");
 	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
 	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });

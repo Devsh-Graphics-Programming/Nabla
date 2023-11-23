@@ -261,6 +261,13 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/type_traits.hlsl")
 #metaprogramming
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/mpl.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/member_test_macros.hlsl")
+#
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/alpha_test.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/compute_blit.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/common.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/temp.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/normalization.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/blit/parameters.hlsl")
 #extra math
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/impl.hlsl")
@@ -277,6 +284,8 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/rounded_line.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/beziers.hlsl")
 #barycentrics
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/barycentric/utils.hlsl")
+#
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ndarray_addressing.hlsl")
 #subgroup
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/basic.hlsl")

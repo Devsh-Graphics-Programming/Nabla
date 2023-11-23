@@ -1,13 +1,10 @@
-#ifndef _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_COMPUTE_BLIT_GLSL_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
-#include "nbl/builtin/hlsl/blit/parameters.hlsl"
 
 namespace nbl::video
 {
-	class NBL_API2 CComputeBlit : public core::IReferenceCounted
+	class NBL_API2 CComputeBlitGLSL : public core::IReferenceCounted
 	{
 	private:
 		struct vec3 { float x, y, z; };
@@ -18,15 +15,17 @@ namespace nbl::video
 		// For the default values of alpha test and normalization steps, see getDefaultWorkgroupDims.
 		static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
 
+#include "nbl/builtin/glsl/blit/parameters.glsl"
+
 		struct dispatch_info_t
 		{
 			uint32_t wgCount[3];
 		};
 
 		//! Set smemSize param to ~0u to use all the shared memory available.
-		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
+		static core::smart_refctd_ptr<CComputeBlitGLSL> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
 		{
-			auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
+			auto result = core::smart_refctd_ptr<CComputeBlitGLSL>(new CComputeBlitGLSL(std::move(logicalDevice)), core::dont_grab);
 
 			result->setAvailableSharedMemory(smemSize);
 
@@ -55,7 +54,7 @@ namespace nbl::video
 			{
 				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl::hlsl::blit::parameters_t);
+				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 			}
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
@@ -160,64 +159,37 @@ namespace nbl::video
 			const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
-			const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
-			const uint32_t smemFloatCount = m_availableSharedMemory / (sizeof(float) * outChannelCount);
-			const uint32_t blitDimCount = static_cast<uint32_t>(imageType) + 1;
-
-			const auto castedFormat = getOutImageViewFormat(outFormat);
-			assert(outFormat == castedFormat);
-			const char* formatQualifier = asset::CHLSLCompiler::getStorageImageFormatQualifier(castedFormat);
-
 			std::ostringstream shaderSourceStream;
 			shaderSourceStream
-				<< "#include \"nbl/builtin/hlsl/blit/common.hlsl\"\n"
-				   "#include \"nbl/builtin/hlsl/blit/parameters.hlsl\"\n"
-				   "#include \"nbl/builtin/hlsl/blit/compute_blit.hlsl\"\n";
+				<< "#version 460 core\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << workgroupSize << "\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
+				<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
+				<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n";
+
+			const auto castedFormat = getOutImageViewFormat(outFormat);
+			const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
+
+			const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 			shaderSourceStream
-				<< "typedef nbl::hlsl::blit::consteval_parameters_t<" << workgroupSize << ", 1, 1, " << smemFloatCount << ", "
-				<< outChannelCount << ", " << blitDimCount << ", " << paddedAlphaBinCount << "> ceval_params_t;\n";
+				<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
+				<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
 
-			shaderSourceStream
-				<< "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
-				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
-				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
-			       "SamplerState inSamp;\n"
+			const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+			const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
-				   "[[vk::image_format(\""<< formatQualifier << "\")]]\n"
-				   "[[vk::binding(1, 0)]]\n"
-				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::image_t outImg;\n"
+			const uint32_t smemFloatCount = m_availableSharedMemory / (sizeof(float) * outChannelCount);
+			shaderSourceStream << "#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n";
 
-				   "[[vk::binding(0, 1)]] Buffer<float32_t4> kernelWeights;\n"
-			       "[[vk::push_constant]] nbl::hlsl::blit::parameters_t params;"
-				   "groupshared float32_t sMem[" << m_availableSharedMemory / sizeof(float) << "];\n";
-				
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				shaderSourceStream
-					<< "[[vk::binding(2 , 0)]] RWStructuredBuffer<uint32_t> statsBuff;\n"
-					   "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { InterlockedAdd(statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + bucket], v); } };\n";
-			}
-			else
-			{
-				shaderSourceStream << "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { } };\n";
-			}
+				shaderSourceStream << "#define _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_\n";
+			if (outFormat != castedFormat)
+				shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
+			shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
 
-			shaderSourceStream
-				<< "struct KernelWeightsAccessor { float32_t4 get(float32_t idx) { return kernelWeights[idx]; } };\n"
-				   "struct SharedAccessor { float32_t get(float32_t idx) { return sMem[idx]; } void set(float32_t idx, float32_t val) { sMem[idx] = val; } };\n"
-				   "struct InCSAccessor { float32_t4 get(float32_t3 c, uint32_t l) { return inCS.SampleLevel(inSamp, nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<float32_t>(c, l), 0); } };\n"
-				   "struct OutImgAccessor { void set(int32_t3 c, uint32_t l, float32_t4 v) { outImg[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<int32_t>(c, l)] = v; } };\n"
-
-				   "[numthreads(ceval_params_t::WorkGroupSize, 1, 1)]\n"
-				   "void main(uint32_t3 workGroupID : SV_GroupID, uint32_t localInvocationIndex : SV_GroupIndex)\n"
-				   "{\n"
-				   "	nbl::hlsl::blit::compute_blit_t<ceval_params_t> blit = nbl::hlsl::blit::compute_blit_t<ceval_params_t>::create(params);\n"
-				   "    InCSAccessor inCSA; OutImgAccessor outImgA; KernelWeightsAccessor kwA; HistogramAccessor hA; SharedAccessor sA;\n"
-				   "	blit.execute(inCSA, outImgA, kwA, hA, sA, workGroupID, localInvocationIndex);\n"
-				   "}\n";
-
-			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
+			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "CComputeBlitGLSL::createBlitSpecializedShader");
 			auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 			auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 
@@ -325,7 +297,7 @@ namespace nbl::video
 
 		template <typename BlitUtilities>
 		inline void buildParameters(
-			nbl::hlsl::blit::parameters_t& outPC,
+			nbl_glsl_blit_parameters_t& outPC,
 			const core::vectorSIMDu32& inImageExtent,
 			const core::vectorSIMDu32& outImageExtent,
 			const asset::IImage::E_TYPE								imageType,
@@ -334,8 +306,8 @@ namespace nbl::video
 			const uint32_t											layersToBlit = 1,
 			const float												referenceAlpha = 0.f)
 		{
-			nbl::hlsl::uint16_t3 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
-			nbl::hlsl::uint16_t3 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
+			core::vectorSIMDu32 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
+			core::vectorSIMDu32 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
 
 			if (imageType < asset::IImage::ET_3D)
 			{
@@ -348,8 +320,9 @@ namespace nbl::video
 			assert((inDim.x < maxImageDims.x) && (inDim.y < maxImageDims.y) && (inDim.z < maxImageDims.z));
 			assert((outDim.x < maxImageDims.x) && (outDim.y < maxImageDims.y) && (outDim.z < maxImageDims.z));
 
-			outPC.inputDims = inDim;
-			outPC.outputDims = outDim;
+			outPC.dims.x = (outDim.x << 16) | inDim.x;
+			outPC.dims.y = (outDim.y << 16) | inDim.y;
+			outPC.dims.z = (outDim.z << 16) | inDim.z;
 
 			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
 
@@ -373,14 +346,10 @@ namespace nbl::video
 
 			const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
 			assert((phaseCount.x < maxImageDims.x) && (phaseCount.y < maxImageDims.y) && (phaseCount.z < maxImageDims.z));
-			
-			outPC.windowDims.x = windowDim.x;
-			outPC.windowDims.y = windowDim.y;
-			outPC.windowDims.z = windowDim.z;
 
-			outPC.phaseCount.x = phaseCount.x;
-			outPC.phaseCount.y = phaseCount.y;
-			outPC.phaseCount.z = phaseCount.z;
+			outPC.windowDimPhaseCount.x = (phaseCount.x << 16) | windowDim.x;
+			outPC.windowDimPhaseCount.y = (phaseCount.y << 16) | windowDim.y;
+			outPC.windowDimPhaseCount.z = (phaseCount.z << 16) | windowDim.z;
 
 			outPC.kernelWeightsOffsetY = phaseCount.x * windowDim.x;
 			outPC.iterationRegionYPrefixProducts = { outputTexelsPerWG.y, outputTexelsPerWG.y * outputTexelsPerWG.x, outputTexelsPerWG.y * outputTexelsPerWG.x * preloadRegion.z };
@@ -599,7 +568,7 @@ namespace nbl::video
 		{
 			const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
 
-			nbl::hlsl::blit::parameters_t pushConstants;
+			nbl_glsl_blit_parameters_t pushConstants;
 			buildParameters<BlitUtilities>(pushConstants, inImageExtent, outImageExtent, inImageType, inImageFormat, kernels, layersToBlit, referenceAlpha);
 
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
@@ -826,11 +795,11 @@ namespace nbl::video
 
 		core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
 
-		CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		CComputeBlitGLSL(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 
-		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl::hlsl::blit::parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
+		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
 		{
-			cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
+			cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
 			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 		}
 
@@ -920,5 +889,5 @@ namespace nbl::video
 	};
 }
 
-#define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+#define _NBL_VIDEO_C_COMPUTE_BLIT_GLSL_H_INCLUDED_
 #endif
