@@ -273,9 +273,9 @@ struct numeric_limits : std::numeric_limits<T>
     NBL_CONSTEXPR_STATIC_INLINE T epsilon = base::epsilon();
     NBL_CONSTEXPR_STATIC_INLINE T round_error = base::round_error();
 
-    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast(base::quiet_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast(base::signaling_NaN());
-    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast(base::infinity());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type quiet_NaN     = std::bit_cast<uint_type, T>(base::quiet_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type signaling_NaN = std::bit_cast<uint_type, T>(base::signaling_NaN());
+    NBL_CONSTEXPR_STATIC_INLINE uint_type infinity      = std::bit_cast<uint_type, T>(base::infinity());
 };
 
 #endif
