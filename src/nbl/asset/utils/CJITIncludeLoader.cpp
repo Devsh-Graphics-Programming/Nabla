@@ -1,6 +1,7 @@
+#include "nbl/asset/utils/CJITIncludeLoader.h"
 
-#include "CJITIncludeLoader.h"
-
+namespace nbl::video
+{
 
 CJITIncludeLoader::CJITIncludeLoader(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
 {
@@ -52,4 +53,6 @@ std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& li
 
         #endif  // _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
     )===";
+}
+
 }

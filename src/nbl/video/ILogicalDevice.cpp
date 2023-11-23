@@ -6,6 +6,17 @@ using namespace nbl::video;
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
 
+void ILogicalDevice::addJITIncludeLoader()
+{
+    if(auto cc = (m_physicalDevice && m_compilerSet) ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL) : nullptr)
+    {
+        if(auto finder = cc->getDefaultIncludeFinder())
+        {
+            finder->addSearchPath("", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_physicalDevice->getFeatures()));
+        }
+    }
+}
+
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
 {
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
