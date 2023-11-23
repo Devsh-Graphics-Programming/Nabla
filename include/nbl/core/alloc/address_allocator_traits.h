@@ -155,6 +155,7 @@ namespace nbl::core
             _NBL_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
             _NBL_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
 
+            // TODO: make the printer customizable without making a `core`->`system` circular dep
             static inline void          printDebugInfo()
             {
                 printf("has_func_multi_alloc_addr : %s\n",                  has_func_multi_alloc_addr<AddressAlloc>::value ? "true":"false");
