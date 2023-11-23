@@ -138,7 +138,8 @@ bool ISystem::copy(const system::path& from, const system::path& to)
             createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
             if (auto readF=readFileFut.acquire())
             {
-                auto& readFptr = *readF;
+                // the consts here are super important
+                const core::smart_refctd_ptr<const IFile>& readFptr = *readF;
                 if (auto pSrc=readFptr->getMappedPointer())
                 {
                     IFile::success_t bytesWritten;

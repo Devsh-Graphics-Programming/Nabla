@@ -137,9 +137,6 @@ struct SShaderMemoryBlock
 
     SMember::SMembers members;
 
-    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
-    std::string name;
-
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.
     size_t size;
@@ -174,6 +171,8 @@ struct SShaderPushConstant : public impl::SShaderMemoryBlock
 
 struct SShaderResourceVariant
 {
+    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
+    std::string name;
     //! binding
     uint32_t binding;
     E_SHADER_RESOURCE_TYPE type;
@@ -185,6 +184,7 @@ struct SShaderResourceVariant
     //! If descCountIsSpecConstant is true, than descriptorCount is ID of spec constant which is going to be size of this array
     //! Then user can look up default value of this specialization constant in SIntrospectionData::specConstants.
     bool descCountIsSpecConstant;
+
 
     template<E_SHADER_RESOURCE_TYPE restype>
     SShaderResource<restype>& get() { return reinterpret_cast<SShaderResource<restype>&>(variant); }

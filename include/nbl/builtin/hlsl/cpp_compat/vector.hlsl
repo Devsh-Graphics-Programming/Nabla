@@ -1,65 +1,20 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_VECTOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_VECTOR_INCLUDED_
 
+// stuff for C++
 #ifndef __HLSL_VERSION 
+#include <stdint.h>
+
+#include <half.h>
 
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 #include <glm/detail/_swizzle.hpp>
-#include <stdint.h>
-#include <openexr/IlmBase/Half/half.h>
 
 namespace nbl::hlsl
 {
-
 template<typename T, uint16_t N>
 using vector = glm::vec<N, T>;
-
-// ideally we should have sized bools, but no idea what they'd be
-using bool4 = vector<bool, 4>;
-using bool3 = vector<bool, 3>;
-using bool2 = vector<bool, 2>;
-using bool1 = vector<bool, 1>;
-
-using int16_t4 = vector<int16_t, 4>;
-using int16_t3 = vector<int16_t, 3>;
-using int16_t2 = vector<int16_t, 2>;
-using int16_t1 = vector<int16_t, 1>;
-
-using uint16_t4 = vector<uint16_t, 4>;
-using uint16_t3 = vector<uint16_t, 3>;
-using uint16_t2 = vector<uint16_t, 2>;
-using uint16_t1 = vector<uint16_t, 1>;
-
-using int32_t4 = vector<int32_t, 4>;
-using int32_t3 = vector<int32_t, 3>;
-using int32_t2 = vector<int32_t, 2>;
-using int32_t1 = vector<int32_t, 1>;
-
-using uint32_t4 = vector<uint32_t, 4>;
-using uint32_t3 = vector<uint32_t, 3>;
-using uint32_t2 = vector<uint32_t, 2>;
-using uint32_t1 = vector<uint32_t, 1>;
-
-// TODO: halfN -> needs class implementation or C++23 std:float16_t
-
-using float16_t = half;
-using float16_t4 = vector<float16_t, 4>;
-using float16_t3 = vector<float16_t, 3>;
-using float16_t2 = vector<float16_t, 2>;
-using float16_t1 = vector<float16_t, 1>;
-
-using float32_t = float;
-using float32_t4 = vector<float32_t, 4>;
-using float32_t3 = vector<float32_t, 3>;
-using float32_t2 = vector<float32_t, 2>;
-using float32_t1 = vector<float32_t, 1>;
-
-using float64_t = double;
-using float64_t4 = vector<float64_t, 4>;
-using float64_t3 = vector<float64_t, 3>;
-using float64_t2 = vector<float64_t, 2>;
-using float64_t1 = vector<float64_t, 1>;
 
 template<typename T, uint16_t N>
 glm::vec<N, bool> operator<(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
@@ -86,5 +41,39 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
 }
 }
 #endif
+
+// general typedefs for both langs
+namespace nbl
+{
+namespace hlsl
+{
+typedef half float16_t;
+typedef float float32_t;
+typedef double float64_t;
+
+#define NBL_TYPEDEF_VECTORS(T) \
+typedef vector<T,4> T ## 4; \
+typedef vector<T,3> T ## 3; \
+typedef vector<T,2> T ## 2; \
+typedef vector<T,1> T ## 1
+
+// ideally we should have sized bools, but no idea what they'd be
+NBL_TYPEDEF_VECTORS(bool);
+
+NBL_TYPEDEF_VECTORS(int16_t);
+NBL_TYPEDEF_VECTORS(int32_t);
+NBL_TYPEDEF_VECTORS(int64_t);
+
+NBL_TYPEDEF_VECTORS(uint16_t);
+NBL_TYPEDEF_VECTORS(uint32_t);
+NBL_TYPEDEF_VECTORS(uint64_t);
+
+NBL_TYPEDEF_VECTORS(float16_t);
+NBL_TYPEDEF_VECTORS(float32_t);
+NBL_TYPEDEF_VECTORS(float64_t);
+
+#undef NBL_TYPEDEF_VECTORS
+}
+}
 
 #endif

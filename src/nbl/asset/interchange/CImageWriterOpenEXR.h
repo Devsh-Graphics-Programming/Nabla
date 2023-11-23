@@ -37,11 +37,17 @@ class CImageWriterOpenEXR final : public IImageWriter
 
 		uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+		bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override
+		{
+			return false; // TODO: Nahim implement in cpp file please
+		}
 
 	private:
 
-		bool writeImageBinary(system::IFile* file, const asset::ICPUImage* image);
+		bool writeImageBinary(system::IFile* file, const asset::ICPUImage* image)
+		{
+			return false; // TODO: Nahim implement in cpp file please
+		}
 };
 
 }

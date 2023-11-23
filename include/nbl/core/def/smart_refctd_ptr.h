@@ -109,7 +109,7 @@ inline smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&& sm
 }
 
 template< class U, class T >
-inline smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>&& smart_ptr)
+inline smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>& smart_ptr)
 {
 	return smart_refctd_ptr_static_cast<U,T>(std::move(smart_ptr));
 }
@@ -129,7 +129,7 @@ inline smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&& s
 }
 
 template< class U, class T >
-inline smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr)
+inline smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>& smart_ptr)
 {
 	return smart_refctd_ptr_dynamic_cast<U,T>(std::move(smart_ptr));
 }

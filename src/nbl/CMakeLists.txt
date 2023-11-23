@@ -242,7 +242,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderJPG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderPNG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp # TODO: Nahim
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLILoader.cpp
 
 # Image writers
@@ -250,7 +250,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterJPG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterPNG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLIWriter.cpp
 	
 # Material compiler
@@ -339,8 +339,6 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
-	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
-	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -468,7 +466,11 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC BEFORE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include")
+target_include_directories(Nabla PUBLIC 
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
+)
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -495,21 +497,30 @@ endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	add_dependencies(Nabla OpenEXR::IlmImf)
+	add_dependencies(Nabla OpenEXR)
 	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
+		target_link_libraries(Nabla INTERFACE OpenEXR)
 	else()
-		target_link_libraries(Nabla PRIVATE OpenEXR::IlmImf)
+		target_link_libraries(Nabla PRIVATE OpenEXR)
 	endif()
+	
 	target_include_directories(
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Iex
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IexMath
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Imath
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
+		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>				   
+	)
+else()
+	add_dependencies(Nabla OpenEXRCore)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE OpenEXRCore)
+	else()
+		target_link_libraries(Nabla PRIVATE OpenEXRCore)
+	endif()
+	
+	target_include_directories(
+		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's Half-only dependency					   
 	)
 endif()
+
+# GLI
 if(_NBL_COMPILE_WITH_GLI_)
 	add_dependencies(Nabla gli)
 	if(NBL_STATIC_BUILD)
@@ -525,17 +536,16 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
-	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
+add_custom_target(dxcompiler 
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
+	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
 
-add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
 add_dependencies(Nabla dxcompiler)
 add_dependencies(3rdparty dxcompiler)
 
-target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
 else()
@@ -583,6 +593,15 @@ target_compile_definitions(Nabla
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
+# Boost
+add_dependencies(Nabla boost_wave)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE boost_wave)
+else()
+	target_link_libraries(Nabla PRIVATE boost_wave)
+endif()
+
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
@@ -597,7 +616,6 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	)
 	
 	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
 	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
@@ -614,9 +632,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	
 	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
-	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
-		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
-	endforeach()
+	get_target_property(NABLA_RESOURCES_TO_EMBED_PUBLIC nblBuiltinResourceData BUILTIN_RESOURCES)
 	
 	target_sources(Nabla PRIVATE 
 		${NABLA_RESOURCES_TO_EMBED_PUBLIC}
@@ -688,20 +704,9 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
 	if (_NBL_COMPILE_WITH_OPEN_EXR_)
-		# OpenEXR guys, please correct installation targets to avoid warnings!
-		set_target_properties(Half PROPERTIES PUBLIC_HEADER "")
-		set_target_properties(Iex PROPERTIES PUBLIC_HEADER "")
-		set_target_properties(IexMath PROPERTIES PUBLIC_HEADER "")
-		set_target_properties(IlmImf PROPERTIES PUBLIC_HEADER "")
-		set_target_properties(IlmThread PROPERTIES PUBLIC_HEADER "")
-		set_target_properties(Imath PROPERTIES PUBLIC_HEADER "")
-	
-		nbl_install_lib(Half)
-		nbl_install_lib(Iex)
-		nbl_install_lib(IexMath)
-		nbl_install_lib(IlmImf)
-		nbl_install_lib(IlmThread)
-		nbl_install_lib(Imath)
+		nbl_install_lib(OpenEXR)
+	else()
+		nbl_install_lib(OpenEXRCore)
 	endif()
 	nbl_install_lib(png_static)
 

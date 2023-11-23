@@ -13,7 +13,8 @@
       "description": "main CI configure preset for inheritance",
       "cacheVariables": {
 		"NBL_CI_MODE": "ON",
-        "NBL_UPDATE_GIT_SUBMODULE": "OFF",
+		"NBL_CI_GIT_SUBMODULES_SHALLOW": "ON",
+        "NBL_UPDATE_GIT_SUBMODULE": "ON",
 		"NBL_COMPILE_WITH_CUDA": "OFF",
 		"NBL_BUILD_OPTIX": "OFF",
 		"NBL_BUILD_MITSUBA_LOADER": "OFF",
