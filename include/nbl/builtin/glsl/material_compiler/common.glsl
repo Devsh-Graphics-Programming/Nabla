@@ -216,6 +216,10 @@ bool nbl_glsl_MC_op_isDelta(in uint op)
 #include <nbl/builtin/glsl/bump_mapping/utils.glsl>
 #endif
 
+// OptiX likes this one better
+#define nbl_glsl_MC_pullUpNormal nbl_glsl_pullUpNormal_towardsV
+
+
 // current interaction is a global (for now I guess)
 nbl_glsl_MC_interaction_t currInteraction;
 
@@ -597,9 +601,6 @@ void nbl_glsl_MC_runTexPrefetchStream(in nbl_glsl_MC_instr_stream_t stream, in v
 #endif
 	}
 }
-
-// OptiX likes this one better
-#define nbl_glsl_MC_pullUpNormal nbl_glsl_pullUpNormal_towardsV
 
 #ifdef NORM_PRECOMP_STREAM
 void nbl_glsl_MC_runNormalPrecompStream(in nbl_glsl_MC_instr_stream_t stream, in nbl_glsl_MC_precomputed_t precomp)
