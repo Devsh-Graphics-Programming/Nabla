@@ -496,28 +496,35 @@ endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	add_dependencies(Nabla OpenEXR)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXR)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXR)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>				   
-	)
-else()
-	add_dependencies(Nabla OpenEXRCore)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXRCore)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXRCore)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's Half-only dependency					   
-	)
+    add_dependencies(Nabla OpenEXR)
+    if(NBL_STATIC_BUILD)
+        target_link_libraries(Nabla INTERFACE OpenEXR)
+    else()
+        target_link_libraries(Nabla PRIVATE OpenEXR)
+    endif()
+    
+    target_include_directories(
+        Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
+    )
 endif()
+
+add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
+if(NBL_STATIC_BUILD)
+    target_link_libraries(Nabla INTERFACE 
+      OpenEXRCore
+      OpenEXRUtil
+)
+else()
+    target_link_libraries(Nabla PRIVATE 
+      OpenEXRCore
+      OpenEXRUtil  
+  )
+endif()
+
+target_include_directories(
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's core headers
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES> # for OpenEXR's util headers                
+)
 
 # GLI
 if(_NBL_COMPILE_WITH_GLI_)
@@ -706,6 +713,7 @@ if(NBL_STATIC_BUILD)
 		nbl_install_lib(OpenEXR)
 	else()
 		nbl_install_lib(OpenEXRCore)
+		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
 
