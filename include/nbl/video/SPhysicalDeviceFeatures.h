@@ -1896,6 +1896,7 @@ struct SPhysicalDeviceFeatures
 
         if (mixedAttachmentSamples && !_rhs.mixedAttachmentSamples) return false;
 
+
         if (accelerationStructure && !_rhs.accelerationStructure) return false;
         if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
         if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
@@ -1913,7 +1914,6 @@ struct SPhysicalDeviceFeatures
         if (fragmentDensityMap && !_rhs.fragmentDensityMap) return false;
         if (fragmentDensityMapDynamic && !_rhs.fragmentDensityMapDynamic) return false;
         if (fragmentDensityMapNonSubsampledImages && !_rhs.fragmentDensityMapNonSubsampledImages) return false;
-        if (fragmentDensityMapDeferred && !_rhs.fragmentDensityMapDeferred) return false;
 
         if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
 
@@ -1940,6 +1940,8 @@ struct SPhysicalDeviceFeatures
 
         if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
         if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
+
+        if (fragmentDensityMapDeferred && !_rhs.fragmentDensityMapDeferred) return false;
 
         if (rasterizationOrderColorAttachmentAccess && !_rhs.rasterizationOrderColorAttachmentAccess) return false;
         if (rasterizationOrderDepthAttachmentAccess && !_rhs.rasterizationOrderDepthAttachmentAccess) return false;
