@@ -26,13 +26,9 @@ namespace nbl::asset
 class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
-        virtual ~ICPUBuffer()
-        {
-            this->convertToDummyObject();
-        }
-
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
         ICPUBuffer(size_t sizeInBytes, void* dat) : asset::IBuffer({ dat ? sizeInBytes : 0,EUF_TRANSFER_DST_BIT }), data(dat) {}
+
     public:
         //! Constructor. TODO: remove, alloc can fail, should be a static create method instead!
         /** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
@@ -40,13 +36,13 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         ICPUBuffer(size_t sizeInBytes) : asset::IBuffer({0,EUF_TRANSFER_DST_BIT})
         {
             data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
-            if (!data)
+            if (!data) // FIXME: cannot fail like that, need factory `create` methods
                 return;
 
             m_creationParams.size = sizeInBytes;
         }
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
         {
             auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(m_creationParams.size);
             clone_common(cp.get());
@@ -55,33 +51,29 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+        void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override final
         {
             if (!canBeConvertedToDummy())
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-            if (data)
-                _NBL_ALIGNED_FREE(data);
-            data = nullptr;
-            m_creationParams.size = 0ull;
+            freeData();
             isDummyObjectForCacheAliasing = true;
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
-        inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+        inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        virtual size_t conservativeSizeEstimate() const override { return getSize(); }
+        size_t conservativeSizeEstimate() const override final { return getSize(); }
 
         //! Returns pointer to data.
-        virtual const void* getPointer() const {return data;}
-        virtual void* getPointer() 
+        const void* getPointer() const {return data;}
+        void* getPointer() 
         { 
             assert(!isImmutable_debug());
             return data;
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool canBeRestoredFrom(const IAsset* _other) const override final
         {
             if (!_other)
                 return false;
@@ -109,12 +101,25 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
 
     protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override final
         {
             auto* other = static_cast<ICPUBuffer*>(_other);
 
+            // NO THIS IS A NIGHTMARE!
+            // FIXME: ONLY SWAP FOR COMPATIBLE ALLOCATORS! OTHERWISE MEMCPY!
             if (willBeRestoredFrom(_other))
                 std::swap(data, other->data);
+        }
+
+        // REMEMBER TO CALL FROM DTOR!
+        // TODO: idea, make the `ICPUBuffer` an ADT, and use the default allocator CCPUBuffer instead for consistency
+        // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
+        virtual void freeData()
+        {
+            if (data)
+                _NBL_ALIGNED_FREE(data);
+            data = nullptr;
+            m_creationParams.size = 0ull;
         }
 
         void* data;
@@ -153,33 +158,26 @@ using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>,
     */
 
 template<typename Allocator>
-class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
+class CCustomAllocatorCPUBuffer<Allocator,true> : public ICPUBuffer
 {
         static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
     protected:
         Allocator m_allocator;
 
-        virtual ~CCustomAllocatorCPUBuffer()
+        virtual ~CCustomAllocatorCPUBuffer() final
         {
-            this->convertToDummyObject();
+            freeData();
         }
-
-    public:
-        CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
+        inline void freeData() override
         {
-        }
-
-        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-        {
-            if (isDummyObjectForCacheAliasing)
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!canBeConvertedToDummy())
-                return;
-
             if (ICPUBuffer::data)
                 m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::m_creationParams.size);
             ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
+        }
+
+    public:
+        CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes,dat), m_allocator(std::move(alctr))
+        {
         }
 };
 
@@ -187,8 +185,10 @@ template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
 {
         using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
+
     protected:
         virtual ~CCustomAllocatorCPUBuffer() = default;
+        inline void freeData() override {}
 
     public:
         using Base::Base;

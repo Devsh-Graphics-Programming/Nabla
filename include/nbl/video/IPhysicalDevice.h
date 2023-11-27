@@ -416,7 +416,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 // others
                 uint32_t log2MaxSamples : 3; // 0 means cant use as a multisample image format
 
-                SUsage()
+                constexpr SUsage()
                     : sampledImage(0)
                     , linearlySampledImage(0)
                     , minmaxSampledImage(0)
@@ -440,11 +440,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 {}
 
                 // Fields with 0 are deduced as false. User may patch it up later
-                SUsage(core::bitflag<IGPUImage::E_USAGE_FLAGS> usages):
-                    sampledImage(usages.hasFlags(IGPUImage::EUF_SAMPLED_BIT)),
+                constexpr SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages) :
+                    sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
                     linearlySampledImage(0),
                     minmaxSampledImage(0),
-                    storageImage(usages.hasFlags(IGPUImage::EUF_STORAGE_BIT)),
+                    storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
                     storageImageAtomic(0),
                     attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
                     attachmentBlend(0),
@@ -463,7 +463,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     log2MaxSamples(0)
                 {}
 
-                inline SUsage operator & (const SUsage& other) const
+                constexpr SUsage operator&(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage & other.sampledImage;
@@ -489,7 +489,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline SUsage operator | (const SUsage& other) const
+                constexpr SUsage operator|(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage | other.sampledImage;
@@ -516,7 +516,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 }
 
                 // TODO: do we even need this operator?
-                inline SUsage operator ^ (const SUsage& other) const
+                constexpr SUsage operator^(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage ^ other.sampledImage;
@@ -543,7 +543,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline bool operator<(const SUsage& other) const
+                constexpr bool operator<(const SUsage& other) const
                 {
                     if (sampledImage && !other.sampledImage) return false;
                     if (linearlySampledImage && !other.linearlySampledImage) return false;
@@ -568,7 +568,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return true;
                 }
 
-                inline bool operator == (const SUsage& other) const
+                constexpr bool operator==(const SUsage& other) const
                 {
                     return
                         (sampledImage == other.sampledImage) &&

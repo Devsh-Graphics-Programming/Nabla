@@ -231,17 +231,9 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
 
-	# TODO: correct those bugs, use generator expressions
 	target_include_directories(${LIB_NAME}
-		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
-		PUBLIC ${CMAKE_SOURCE_DIR}/include
-		PUBLIC ${CMAKE_SOURCE_DIR}/src
-		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
+		PUBLIC $<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>
 		PRIVATE ${LIB_INCLUDES}
 	)
 	
