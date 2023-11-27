@@ -680,6 +680,9 @@ public:
 
     core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) override
     {
+        if (!cpushader)
+            return nullptr;
+
         const char* entryPoint = "main";
         const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
 
