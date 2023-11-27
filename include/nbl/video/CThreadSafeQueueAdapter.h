@@ -51,6 +51,22 @@ class CThreadSafeQueueAdapter final : public IQueue
             return originalQueue->endCapture(); 
         }
 
+        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color=core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) override
+        {
+            std::lock_guard g(m);
+            return originalQueue->insertDebugMarker(name,color);
+        }
+        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color=core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) override
+        {
+            std::lock_guard g(m);
+            return originalQueue->beginDebugMarker(name,color);
+        }
+        virtual bool endDebugMarker() override
+        {
+            std::lock_guard g(m);
+            return originalQueue->endDebugMarker();
+        }
+
         inline IQueue* getUnderlyingQueue() const
         {
             return originalQueue.get();

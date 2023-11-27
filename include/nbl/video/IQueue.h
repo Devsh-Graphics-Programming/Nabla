@@ -31,7 +31,7 @@ class IQueue : public core::Interface, public core::Unmovable
             SPARSE_BINDING_BIT = 0x08,
             PROTECTED_BIT = 0x10
         };
-        enum class CREATE_FLAGS : uint32_t
+        enum class CREATE_FLAGS : uint8_t
         {
             NONE = 0x00u,
             PROTECTED_BIT = 0x01u
@@ -42,10 +42,26 @@ class IQueue : public core::Interface, public core::Unmovable
         inline uint32_t getFamilyIndex() const { return m_familyIndex; }
         inline float getPriority() const { return m_priority; }
 
+        // When dealing with external/foreign queues treat `other` as nullptr
+        inline bool needsOwnershipTransfer(const IGPUQueue* other) const
+        {
+            if (!other)
+                return true;
+
+            if (m_familyIndex==other->m_familyIndex)
+                return false;
+
+            // TODO: take into account concurrent sharing indices, but then we'll need to remember the concurrent sharing family indices
+            return true;
+        }
+
 
         // for renderdoc and friends
         virtual bool startCapture() = 0;
         virtual bool endCapture() = 0;
+        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool endDebugMarker() = 0;
 
         //
         enum class RESULT : uint8_t

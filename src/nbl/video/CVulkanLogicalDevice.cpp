@@ -485,6 +485,9 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
 
 core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer)
 {
+    if (!cpushader)
+        return nullptr;
+
     const char* entryPoint = "main"; // every compiler seems to be handicapped this way?
     const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
 
@@ -506,7 +509,9 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smar
         commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
 
         commonCompileOptions.stage = shaderStage;
-        commonCompileOptions.genDebugInfo = true;
+        commonCompileOptions.debugInfoFlags =
+            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
         commonCompileOptions.spirvOptimizer = optimizer;
         commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
@@ -533,7 +538,20 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smar
     vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
     vk_createInfo.codeSize = spirv->getSize();
     vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
-        
+
+    // for debugging 
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_physicalDevice->getSystem()->createFile(future, system::path(cpushader->getFilepathHint()).parent_path() / "compiled.spv", system::IFileBase::ECF_WRITE);
+        if (auto file = future.acquire(); file && bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ, vk_createInfo.pCode, 0, vk_createInfo.codeSize);
+            succ.getBytesProcessed(true);
+        }
+    }
+
     VkShaderModule vk_shaderModule;
     if (m_devf.vk.vkCreateShaderModule(m_vkdev,&vk_createInfo,nullptr,&vk_shaderModule)==VK_SUCCESS)
         return core::make_smart_refctd_ptr<video::CVulkanShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),spirvShader->getStage(),std::string(cpushader->getFilepathHint()),vk_shaderModule);
