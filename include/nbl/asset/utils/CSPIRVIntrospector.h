@@ -33,9 +33,36 @@ namespace nbl::asset
 class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 {
 	public:
-
-		class NBL_API2 CIntrospectionData : public core::IReferenceCounted
+		static IDescriptor::E_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
 		{
+			switch (_t)
+			{
+				case ESRT_COMBINED_IMAGE_SAMPLER:
+					return IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
+					break;
+				case ESRT_STORAGE_IMAGE:
+					return IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
+					break;
+				case ESRT_UNIFORM_TEXEL_BUFFER:
+					return IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
+					break;
+				case ESRT_STORAGE_TEXEL_BUFFER:
+					return IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER;
+					break;
+				case ESRT_UNIFORM_BUFFER:
+					return IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
+					break;
+				case ESRT_STORAGE_BUFFER:
+					return IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
+					break;
+				default:
+					break;
+			}
+			return IDescriptor::E_TYPE::ET_COUNT;
+		}
+
+	class NBL_API2 CIntrospectionData : public core::IReferenceCounted
+	{
 		protected:
 			~CIntrospectionData();
 
@@ -64,6 +91,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			struct {
 				bool present;
+				core::string name;
 				SShaderPushConstant info;
 			} pushConstant;
 
@@ -104,7 +132,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		CSPIRVIntrospector() = default;
 
 		//! params.cpuShader.contentType should be ECT_SPIRV
-		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::genDebugInfo with no `spirvOptimizer` used in order to include names in introspection data
+		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::debugInfoFlags enabling EDIF_SOURCE_BIT implicitly or explicitly, with no `spirvOptimizer` used in order to include names in introspection data
 		core::smart_refctd_ptr<const CIntrospectionData> introspect(const SIntrospectionParams& params, bool insertToCache = true);
 
 		//

@@ -67,6 +67,8 @@ class IBackendObject : public virtual core::IReferenceCounted
 
         const char* getObjectDebugName() const { return m_debugName; }
 
+        // TODO: consider setting tags for backend objects: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkSetDebugUtilsObjectTagEXT.html
+
     protected:
         virtual ~IBackendObject() = default;
 

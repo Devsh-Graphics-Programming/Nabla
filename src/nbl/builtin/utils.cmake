@@ -15,10 +15,10 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 	endif()
 	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
-	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}} PARENT_SCOPE) # override
+	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	
 	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_}${_OPTIONAL_ALIASES_}")
-	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_} PARENT_SCOPE) # override
+	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_}) # override
 	
 	unset(_OPTIONAL_ALIASES_)
 	unset(_ALIAS_ARGS_)
@@ -114,7 +114,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
-			message(FATAL_ERROR "${NBL_BUILTIN_RESOURCE_ABS_PATH} does not exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")
@@ -169,7 +169,9 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	if(NOT DEFINED _NABLA_INCLUDE_DIRECTORIES_) # TODO, validate by populating generator expressions if any and checking whether a path to the BuildConfigOptions.h exists per config
-		message(ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		if(NOT _NBL_INTERNAL_BR_CREATION_) # trust internal Nabla BR targets, include search paths may be added later
+			message(FATAL_ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
+		endif()
 	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 
@@ -185,6 +187,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
+	
 	set(NBL_BUILTIN_RESOURCES_HEADERS
 		"${NBL_BUILTIN_RESOURCES_HEADER}"
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
@@ -215,4 +218,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_SOURCE_DIRECTORY _OUTPUT_SOURCE_DIRECTORY_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_HEADERS NBL_BUILTIN_RESOURCES_HEADERS)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY _OUTPUT_INCLUDE_SEARCH_DIRECTORY_)
+	
+	if(MSVC AND NBL_SANITIZE_ADDRESS)
+		set_property(TARGET ${_TARGET_NAME_} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+	endif()
 endfunction()

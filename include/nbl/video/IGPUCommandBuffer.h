@@ -22,6 +22,7 @@ namespace nbl::video
 // depr
 class IGPUMeshBuffer;
 
+// TODO: drop the `IGPU` prefix
 class NBL_API2 IGPUCommandBuffer : public IBackendObject
 {
     public:
@@ -365,6 +366,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
+        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool endDebugMarker() = 0;
+
         // Vulkan: const VkCommandBuffer*
         virtual const void* getNativeHandle() const = 0;
 
@@ -374,13 +379,14 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         friend class IQueue;
 
         IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IGPUCommandPool::BUFFER_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger);
-        virtual ~IGPUCommandBuffer()
+
+        // meant to be invoked by most derived class
+        // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
+        inline void out_of_order_dtor()
         {
             // Only release the resources if the parent pool has not been reset because if it has been then the resources will already be released.
             if (!checkForParentPoolReset())
-            {
                 releaseResourcesBackToPool();
-            }
         }
 
         static void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** const _destPplnLayouts)
@@ -642,7 +648,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
     
         IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList = {};
 
-        uint64_t m_resetCheckedStamp = 0;
+        uint64_t m_resetCheckedStamp;
         STATE m_state = STATE::INITIAL;
         // only useful while recording
         SInheritanceInfo m_cachedInheritanceInfo;

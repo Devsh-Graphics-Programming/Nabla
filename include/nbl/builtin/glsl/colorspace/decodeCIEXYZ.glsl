@@ -5,26 +5,36 @@
 #ifndef _NBL_BUILTIN_GLSL_COLOR_SPACE_DECODE_CIE_XYZ_INCLUDED_
 #define _NBL_BUILTIN_GLSL_COLOR_SPACE_DECODE_CIE_XYZ_INCLUDED_
 
-const mat3 nbl_glsl_XYZtoscRGB = mat3(  vec3( 3.2404542,-0.9692660, 0.0556434),
-                                        vec3(-1.5371385, 1.8760108,-0.2040259),
-                                        vec3(-0.4985314, 0.0415560, 1.0572252));
+const mat3 nbl_glsl_XYZtoscRGB = mat3(
+    vec3( 3.240970f, -0.969244f,  0.055630f),
+    vec3(-1.537383f,  1.875968f, -0.203977f),
+    vec3(-0.498611f,  0.041555f,  1.056972f)
+);
 
 const mat3 nbl_glsl_XYZtosRGB = nbl_glsl_XYZtoscRGB;
 
 const mat3 nbl_glsl_XYZtoBT709 = nbl_glsl_XYZtoscRGB;
 
   
-const mat3 nbl_glsl_XYZtoDisplay_P3 = mat3( vec3( 2.4934969,-0.8294890, 0.0358458),
-                                            vec3(-0.9313836, 1.7626641,-0.0761724),
-                                            vec3(-0.4027108, 0.0236247, 0.9568845));
+const mat3 nbl_glsl_XYZtoDisplay_P3 = mat3(
+    vec3( 2.4934969119f,-0.8294889696f, 0.0358458302f),
+    vec3(-0.9313836179f, 1.7626640603f,-0.0761723893f),
+    vec3(-0.4027107845f, 0.0236246858f, 0.9568845240f)
+);
 
 
-const mat3 nbl_glsl_XYZtoDCI_P3 = mat3(vec3(1.0,0.0,0.0),vec3(0.0,1.0,0.0),vec3(0.0,0.0,1.0));
+const mat3 nbl_glsl_XYZtoDCI_P3 = mat3(
+    vec3(1.0f,0.0f,0.0f),
+    vec3(0.0f,1.0f,0.0f),
+    vec3(0.0f,0.0f,1.0f)
+);
 
  
-const mat3 nbl_glsl_XYZtoBT2020 = mat3( vec3( 1.7166512,-0.6666844, 0.0176399),
-                                        vec3(-0.3556708, 1.6164812,-0.0427706),
-                                        vec3(-0.2533663, 0.0157685, 0.9421031));
+const mat3 nbl_glsl_XYZtoBT2020 = mat3(
+    vec3( 1.716651f,-0.666684f, 0.017640f),
+    vec3(-0.355671f, 1.616481f,-0.042771f),
+    vec3(-0.253366f, 0.015769f, 0.942103f)
+);
  
 const mat3 nbl_glsl_XYZtoHDR10_ST2084 = nbl_glsl_XYZtoBT2020;
 
@@ -33,19 +43,25 @@ const mat3 nbl_glsl_XYZtoDOLBYIVISION = nbl_glsl_XYZtoBT2020;
 const mat3 nbl_glsl_XYZtoHDR10_HLG = nbl_glsl_XYZtoBT2020;
 
 
-const mat3 nbl_glsl_XYZtoAdobeRGB = mat3(   vec3( 2.04159,-0.96924, 0.01344),
-                                            vec3(-0.56501, 1.87597,-0.11836),
-                                            vec3(-0.34473, 0.04156, 1.01517));
+const mat3 nbl_glsl_XYZtoAdobeRGB = mat3(
+    vec3( 2.0415879038f,-0.9692436363f, 0.0134442806f),
+    vec3(-0.5650069743f, 1.8759675015f,-0.1183623922f),
+    vec3(-0.3447313508f, 0.0415550574f, 1.0151749944f)
+);
 
 
-const mat3 nbl_glsl_XYZtoACES2065_1 = mat3( vec3( 1.0498110175, 0.0000000000,-0.0000974845),
-                                            vec3(-0.4959030231, 1.3733130458, 0.0982400361),
-                                            vec3( 0.0000000000, 0.0000000000, 0.9912520182));
+const mat3 nbl_glsl_XYZtoACES2065_1 = mat3(
+    vec3( 1.0498110175f, -0.4959030231f, 0.0000000000f),
+    vec3( 0.0000000000f,  1.3733130458f, 0.0000000000f),
+    vec3(-0.0000974845f,  0.0982400361f, 0.9912520182f)
+);
 
 
-const mat3 nbl_glsl_XYZtoACEScc = mat3( vec3( 1.6410234,-0.6636629, 0.0117219),
-                                        vec3(-0.3248033, 1.6153316,-0.0082844),
-                                        vec3(-0.2364247, 0.0167563, 0.9883949));
+const mat3 nbl_glsl_XYZtoACEScc = mat3(
+    vec3( 1.6410233797f,-0.6636628587f, 0.0117218943f),
+    vec3(-0.3248032942f, 1.6153315917f,-0.0082844420f),
+    vec3(-0.2364246952f, 0.0167563477f, 0.9883948585f)
+);
 
 const mat3 nbl_glsl_XYZtoACEScct = nbl_glsl_XYZtoACEScc;
 

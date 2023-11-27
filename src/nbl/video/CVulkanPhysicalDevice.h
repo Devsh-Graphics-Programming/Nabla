@@ -110,7 +110,6 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             // [NOOP] If sparseImageFloat32Atomics is enabled, shaderImageFloat32Atomics must be enabled
             // [NOOP] If sparseImageFloat32AtomicAdd is enabled, shaderImageFloat32AtomicAdd must be enabled
             // [NOOP] If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
-
         }
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;

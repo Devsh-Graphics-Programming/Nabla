@@ -30,7 +30,7 @@ std::string IShaderCompiler::escapeFilename(std::string&& code)
 void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
 {
     // TODO: replace this with a proper-ish proprocessor and includer one day
-    std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+    std::regex directive("#(?!(( |\t|\r|\v|\f)*(include|version|pragma shader_stage)))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
     //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
     _code = std::regex_replace(_code, directive, IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
 }
@@ -119,18 +119,18 @@ std::string IShaderCompiler::preprocessShader(
     return preprocessShader(std::move(code), stage, preprocessOptions);
 }
 
-std::string IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
 
     for (const auto& pattern : builtinNames)
         if (std::regex_match(includeName, pattern.first))
         {
-            auto a = pattern.second(includeName);
-            return a;
+            if(auto contents = pattern.second(includeName); !contents.empty())
+                return contents;
         }
 
-    return {};
+    return std::nullopt;
 }
 
 core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFromPath(const std::string& _path)
@@ -148,7 +148,7 @@ core::vector<std::string> IShaderCompiler::IIncludeGenerator::parseArgumentsFrom
 IShaderCompiler::CFileSystemIncludeLoader::CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system) : m_system(std::move(system))
 {}
 
-std::string IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const
 {
     system::path path = searchPath / includeName;
     if (std::filesystem::exists(path))
@@ -162,6 +162,8 @@ std::string IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::
             return {};
         future.acquire().move_into(f);
     }
+    if (!f)
+        return std::nullopt;
     const size_t size = f->getSize();
 
     std::string contents(size, '\0');
@@ -182,25 +184,23 @@ IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::I
 // ! includes within <>
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within <> of the include preprocessing directive
-std::string IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const
 {
-    std::string ret = tryIncludeGenerators(includeName);
-    if (ret.empty())
-        ret = trySearchPaths(includeName);
-    if (ret.empty())
-        ret = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
-    return ret;
+    if (auto contents = tryIncludeGenerators(includeName)) 
+        return contents;
+    if (auto contents = trySearchPaths(includeName)) 
+        return contents;
+    return m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 }
 
 // ! includes within ""
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within "" of the include preprocessing directive
-std::string IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const
 {
-    std::string ret = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
-    if (ret.empty())
-        ret = trySearchPaths(includeName);
-    return ret;
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
+        return contents;
+    return trySearchPaths(includeName);
 }
 
 void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader)
@@ -226,19 +226,19 @@ void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<
     m_generators.insert(found, generatorToAdd);
 }
 
-std::string IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const
 {
-    std::string ret;
     for (const auto& itr : m_loaders)
     {
-        ret = itr.loader->getInclude(itr.searchPath, includeName);
-        if (!ret.empty())
-            break;
+        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName))
+        {
+            return contents;
+        }
     }
-    return ret;
+    return std::nullopt;
 }
 
-std::string IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& includeName) const
+std::optional<std::string> IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& includeName) const
 {
     // Need custom function because std::filesystem doesn't consider the parameters we use after the extension like CustomShader.hlsl/512/64
     auto removeExtension = [](const std::string& str)
@@ -280,15 +280,14 @@ std::string IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::str
 
         for (auto generatorIt = begin; generatorIt != end; generatorIt++)
         {
-            auto str = (*generatorIt)->getInclude(includeName);
-            if (!str.empty())
-                return str;
+            if (auto contents = (*generatorIt)->getInclude(includeName))
+                return contents;
         }
 
         path = path.parent_path();
     }
 
-    return "";
+    return std::nullopt;
 }
 
 void IShaderCompiler::insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const

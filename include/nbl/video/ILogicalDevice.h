@@ -24,16 +24,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
     public:
         struct SQueueCreationParams
         {
-            IQueue::CREATE_FLAGS flags;
-            uint32_t familyIndex;
-            uint32_t count;
-            const float* priorities;
+            constexpr static inline uint8_t MaxQueuesInFamily = 63;
+
+            IGPUQueue::E_CREATE_FLAGS flags = IGPUQueue::ECF_NONE;
+            uint8_t familyIndex = 0xff;
+            uint8_t count = 0;
+            std::array<float,MaxQueuesInFamily> priorities = []()->auto{
+                std::array<float,MaxQueuesInFamily> retval;retval.fill(IGPUQueue::DEFAULT_QUEUE_PRIORITY);return retval;
+            }();
         };
         struct SCreationParams
         {
+            constexpr static inline uint8_t MaxQueueFamilies = 16;
+
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueParams;
-            SPhysicalDeviceFeatures featuresToEnable;
+            std::array<SQueueCreationParams,MaxQueueFamilies> queueParams = {};
+            SPhysicalDeviceFeatures featuresToEnable = {};
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
@@ -605,11 +611,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // utility func
         inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const core::SRange<const IGPUDescriptorSetLayout*>& layouts, const uint32_t* setCounts=nullptr)
         {
-            IDescriptorPool::SCreateInfo createInfo;
+            IDescriptorPool::SCreateInfo createInfo = {};
             createInfo.flags = flags;
 
             auto setCountsIt = setCounts;
-            for (auto& layout : layouts)
+            for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
+            if (*curLayout)
             {
                 if (!layout)
                     continue;
@@ -925,8 +932,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ) = 0;
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
-
-
 
 
 

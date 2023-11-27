@@ -19,6 +19,7 @@ bool CVulkanQueue::startCapture()
     m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
 	return true;
 }
+
 bool CVulkanQueue::endCapture()
 {
 	if (!m_rdoc_api)
@@ -92,5 +93,65 @@ auto CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _
     const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,_count,submits.data(),VK_NULL_HANDLE);
     return getResultFrom(vk_result);
 }
+
+bool CVulkanQueue::startCapture() 
+{
+	if(m_rdoc_api == nullptr)
+		return false;
+    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+	return true;
+}
+
+bool CVulkanQueue::endCapture()
+{
+	if(m_rdoc_api == nullptr)
+		return false;
+    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+	return true;
+}
+
+bool CVulkanQueue::insertDebugMarker(const char* name, const core::vector4df_SIMD& color)
+{
+    // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+    if (vkQueueInsertDebugUtilsLabelEXT == 0)
+        return false;
+
+    VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+    labelInfo.pLabelName = name;
+    labelInfo.color[0] = color.x;
+    labelInfo.color[1] = color.y;
+    labelInfo.color[2] = color.z;
+    labelInfo.color[3] = color.w;
+
+    vkQueueBeginDebugUtilsLabelEXT(m_vkQueue, &labelInfo);
+    return true;
+}
+
+bool CVulkanQueue::beginDebugMarker(const char* name, const core::vector4df_SIMD& color)
+{
+    // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+    if (vkQueueBeginDebugUtilsLabelEXT == 0)
+        return false;
+
+    VkDebugUtilsLabelEXT labelInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+    labelInfo.pLabelName = name;
+    labelInfo.color[0] = color.x;
+    labelInfo.color[1] = color.y;
+    labelInfo.color[2] = color.z;
+    labelInfo.color[3] = color.w;
+    vkQueueBeginDebugUtilsLabelEXT(m_vkQueue, &labelInfo);
+
+    return true;
+}
+
+bool CVulkanQueue::endDebugMarker()
+{
+    // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
+    if (vkQueueEndDebugUtilsLabelEXT == 0)
+        return false;
+    vkQueueEndDebugUtilsLabelEXT(m_vkQueue);
+    return true;
+}
+
 
 }

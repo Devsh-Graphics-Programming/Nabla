@@ -37,6 +37,9 @@ class CVulkanQueue final : public IQueue
 
         bool startCapture() override;
         bool endCapture() override;
+        bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+        bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+        bool endDebugMarker() override;
         
         inline const void* getNativeHandle() const override {return &m_vkQueue;}
         inline VkQueue getInternalObject() const {return m_vkQueue;}

@@ -1,7 +1,11 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ISystemFile.h"
 #include "nbl/system/CFileView.h"
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
+#include "spirv/builtin/CArchive.h"
+#include "boost/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include "nbl/system/CArchiveLoaderZip.h"
 #include "nbl/system/CArchiveLoaderTar.h"
@@ -15,10 +19,15 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(nullptr));
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
     
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
     #else
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr), "nbl/builtin");
+    // TODO: absolute default entry paths? we should do something with it
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DXC_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "dxc");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
     #endif
 }
 
@@ -129,7 +138,8 @@ bool ISystem::copy(const system::path& from, const system::path& to)
             createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
             if (auto readF=readFileFut.acquire())
             {
-                auto& readFptr = *readF;
+                // the consts here are super important
+                const core::smart_refctd_ptr<const IFile>& readFptr = *readF;
                 if (auto pSrc=readFptr->getMappedPointer())
                 {
                     IFile::success_t bytesWritten;

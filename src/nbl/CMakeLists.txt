@@ -112,6 +112,8 @@ if(NBL_BUILD_ANDROID)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
+nbl_generate_conf_files()
+
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
@@ -124,20 +126,9 @@ if (NBL_COMPILE_WITH_CUDA)
 	endif()
 endif()
 
-set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
-
 #set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
 
 set(__NBL_FAST_MATH ${NBL_FAST_MATH})
-set(_NBL_DEBUG 0)
-set(_NBL_RELWITHDEBINFO 0)
-configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELEASE}/BuildConfigOptions.h")
-set(_NBL_DEBUG 0)
-set(_NBL_RELWITHDEBINFO 1)
-configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
-set(_NBL_DEBUG 1)
-set(_NBL_RELWITHDEBINFO 0)
-configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 # a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
@@ -244,6 +235,7 @@ set(NBL_ASSET_SOURCES
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/filters/CBasicImageFilterCommon.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/filters/kernels/CConvolutionWeightFunction.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CDerivativeMapCreator.cpp
 
 # Image loaders
@@ -251,7 +243,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderJPG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderPNG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp # TODO: Nahim
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLILoader.cpp
 
 # Image writers
@@ -259,7 +251,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterJPG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterPNG.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLIWriter.cpp
 	
 # Material compiler
@@ -350,8 +342,6 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
         ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
-	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
-	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -425,6 +415,9 @@ if(_NBL_BUILD_DPL_)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
 
+# boost
+target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
+
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
 		${CMAKE_THREAD_LIBS_INIT}
@@ -476,7 +469,11 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC BEFORE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include")
+target_include_directories(Nabla PUBLIC 
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
+	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
+)
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -503,21 +500,37 @@ endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	add_dependencies(Nabla OpenEXR::IlmImf)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXR::IlmImf)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXR::IlmImf)
-	endif()
-	target_include_directories(
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Iex
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IexMath
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Imath
-		Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
-	)
+    add_dependencies(Nabla OpenEXR)
+    if(NBL_STATIC_BUILD)
+        target_link_libraries(Nabla INTERFACE OpenEXR)
+    else()
+        target_link_libraries(Nabla PRIVATE OpenEXR)
+    endif()
+    
+    target_include_directories(
+        Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
+    )
 endif()
+
+add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
+if(NBL_STATIC_BUILD)
+    target_link_libraries(Nabla INTERFACE 
+      OpenEXRCore
+      OpenEXRUtil
+)
+else()
+    target_link_libraries(Nabla PRIVATE 
+      OpenEXRCore
+      OpenEXRUtil  
+  )
+endif()
+
+target_include_directories(
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's core headers
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES> # for OpenEXR's util headers                
+)
+
+# GLI
 if(_NBL_COMPILE_WITH_GLI_)
 	add_dependencies(Nabla gli)
 	if(NBL_STATIC_BUILD)
@@ -533,30 +546,22 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
-	endif()
-endif()
-
-add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
-	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -v -j${_NBL_JOBS_AMOUNT_} --clean-first
+add_custom_target(dxcompiler 
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
+	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
 
-add_custom_target(dxcompiler DEPENDS "${DXC_LIB}" "${DXC_DLL}")
 add_dependencies(Nabla dxcompiler)
+add_dependencies(3rdparty dxcompiler)
 
-target_include_directories(Nabla PRIVATE "${DXC_INCLUDE_DIRECTORIES}")
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
 else()
 	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
 endif()
 	
-
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
 	target_include_directories(Nabla PUBLIC 
@@ -598,26 +603,46 @@ target_compile_definitions(Nabla
 	INTERFACE _NBL_PCH_IGNORE_PRIVATE_HEADERS
 )
 
+# Boost
+add_dependencies(Nabla boost_wave)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE boost_wave)
+else()
+	target_link_libraries(Nabla PRIVATE boost_wave)
+endif()
+
 if(NBL_EMBED_BUILTIN_RESOURCES)
+	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
+	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	
+	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	
+	target_include_directories(Nabla PUBLIC 
+		"${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+	)
+	
 	add_subdirectory(builtin)
-	NBL_ADD_BUILTIN_RESOURCES(nblBuiltinResourceData) # internal, must be added with the macro to properly propagate scope
-	add_dependencies(Nabla nblBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ INTERFACE)
 	else()
-		target_link_libraries(Nabla PRIVATE 
-			nblBuiltinResourceData
-		)
+		set(_NBL_LINK_QUALIFIER_ PRIVATE)
 	endif()
 	
-	# always install builtins (some may be included in cpp regardless if embedded or not)
+	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
+		nblBuiltinResourceData
+		dxcBuiltinResourceData
+		boostBuiltinResourceData
+	)
+	
+	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
-	foreach(X IN LISTS NBL_RESOURCES_TO_EMBED)
-		list(APPEND NABLA_RESOURCES_TO_EMBED_PUBLIC "${NBL_ROOT_PATH}/include/${_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${X}")
-	endforeach()
+	get_target_property(NABLA_RESOURCES_TO_EMBED_PUBLIC nblBuiltinResourceData BUILTIN_RESOURCES)
 	
 	target_sources(Nabla PRIVATE 
 		${NABLA_RESOURCES_TO_EMBED_PUBLIC}
@@ -663,33 +688,23 @@ if(NOT NBL_STATIC_BUILD)
 	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
-nbl_install_headers("${NABLA_HEADERS_PUBLIC}" "${NBL_ROOT_PATH}/include")
+nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 if(NOT NBL_STATIC_BUILD)
-	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" "")
+	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
 endif()
-nbl_install_file("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
+nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
+	nbl_install_builtin_resources(dxcBuiltinResourceData)
+	nbl_install_builtin_resources(boostBuiltinResourceData)
 endif()
-
-# TODO: @AnastazIuk change macros to functions! https://github.com/buildaworldnet/IrrlichtBAW/issues/311
-macro(nbl_install_program _TRGT)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION lib CONFIGURATIONS Release)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
-endmacro()
-macro(nbl_install_lib _TRGT)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
-endmacro()
 
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
-nbl_install_lib(Nabla)
+nbl_install_lib_spec(Nabla "nbl")
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds
@@ -699,12 +714,10 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
 	if (_NBL_COMPILE_WITH_OPEN_EXR_)
-		nbl_install_lib(Half)
-		nbl_install_lib(Iex)
-		nbl_install_lib(IexMath)
-		nbl_install_lib(IlmImf)
-		nbl_install_lib(IlmThread)
-		nbl_install_lib(Imath)
+		nbl_install_lib(OpenEXR)
+	else()
+		nbl_install_lib(OpenEXRCore)
+		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
 
@@ -724,11 +737,14 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
 	nbl_install_lib(volk)
+	
 	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
 		nbl_install_program(tbbmalloc_proxy)
 	endif()
 else()
-	nbl_install_program(Nabla)
+	nbl_install_program_spec(Nabla "nbl")
 endif()
+
+nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")

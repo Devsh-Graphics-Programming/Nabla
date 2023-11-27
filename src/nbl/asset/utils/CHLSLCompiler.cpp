@@ -3,7 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
+#include "spirv/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 
 #ifdef _NBL_PLATFORM_WINDOWS_
@@ -18,6 +21,10 @@
 #include <iterator>
 #include <codecvt>
 
+#include <boost/wave.hpp>
+#include <boost/wave/cpplexer/cpp_lex_token.hpp>
+#include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+
 #define TCPP_IMPLEMENTATION
 #include <tcpp/source/tcppLibrary.hpp>
 #undef TCPP_IMPLEMENTATION
@@ -26,7 +33,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
 namespace nbl::asset::hlsl::impl
 {
@@ -58,7 +65,7 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-static tcpp::IInputStream* getInputStreamInclude(
+static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     const IShaderCompiler::CIncludeFinder* inclFinder,
     const system::ISystem* fs,
     uint32_t maxInclCnt,
@@ -70,11 +77,10 @@ static tcpp::IInputStream* getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-    std::string res_str;
-
     std::filesystem::path relDir;
-    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
-    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
+    const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
+    const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
     if (!reqFromBuiltin && !reqBuiltin)
     {
         //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
@@ -83,18 +89,33 @@ static tcpp::IInputStream* getInputStreamInclude(
         //  or path relative to executable's working directory (""-type).
         relDir = std::filesystem::path(requestingSource).parent_path();
     }
+    #else
+    const bool reqBuiltin = false;
+    #endif // NBL_EMBED_BUILTIN_RESOURCES
     std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
 
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
+    std::optional<std::string> result;
     if (isRelative)
-        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
+        result = inclFinder->getIncludeRelative(relDir, requestedSource);
     else //shaderc_include_type_standard
-        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
+        result = inclFinder->getIncludeStandard(relDir, requestedSource);
 
-    if (!res_str.size()) {
-        return new tcpp::StringInputStream("#error File not found");
+    if (!result) 
+    {
+        /*
+            Alternative could be found in the commit 2a66b4b20c579ea730aa3dd8af707847c01def64
+            if ever HLSL gets system headers we might just want to let includes be includes and 
+            DXC handle everything else we don't know about
+        */
+        std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
+        re.append("error ");
+        re.append(requestedSource);
+        re.append(" not found\n");
+        includeStack.push_back(includeStack.back());
+        return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
     }
 
     // Figure out what line in the current file this #include was
@@ -105,6 +126,7 @@ static tcpp::IInputStream* getInputStreamInclude(
         (includeStack.size() > 1 ? leadingLinesImports : 0);
     auto lastItemInIncludeStack = includeStack.back();
 
+    auto& res_str = *result;
     IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
     res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
     res_str = res_str + "\n" +
@@ -115,7 +137,7 @@ static tcpp::IInputStream* getInputStreamInclude(
 
     includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
 
-    return new tcpp::StringInputStream(std::move(res_str));
+    return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::move(res_str)));
 }
 
 class DxcCompilationResult
@@ -133,7 +155,12 @@ public:
 
 DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    if (options.genDebugInfo)
+    // Append Commandline options into source only if debugInfoFlags will emit source
+    auto sourceEmittingFlags =
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT |
+        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
+    if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
         insertion << "// commandline compiler options : ";
@@ -202,6 +229,24 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
+    using lex_token_t = boost::wave::cpplexer::lex_token<>;
+    using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
+    using wave_context_t = boost::wave::context<
+        core::string::iterator,
+        lex_iterator_t,
+        boost::wave::iteration_context_policies::load_file_to_string/*,
+        TODO: OurCustomDirectiveHooks -> for pragmas and includes!
+        */
+    >;
+
+    // TODO: change `code` to `const core::string&` because its supposed to be immutable
+    wave_context_t context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data()/*,TODO: instance of OurCustomDirectiveHooks*/);
+//    context.add_include_path
+//    context.add_sysinclude_path <- for dem builtins! / preprocessOptions.includeFinder?
+//    context.add_macro_definition from preprocessOptions.extraDefines
+    core::string resolvedString;
+    // TODO: fill `resolvedString` with `[context.begin(),context.end()]`
+
     // Line 1 comes before all the extra defines in the main shader
     insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
 
@@ -217,15 +262,15 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // Keep track of the line in the original file where each #include was on each level of the include stack
     std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
+    
+    tcpp::Lexer lexer(tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(code)));
 
-    tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
-    tcpp::Lexer lexer(codeIs);
-    tcpp::Preprocessor proc(
-        lexer,
-        [&](auto errorInfo) {
+    tcpp::Preprocessor::TPreprocessorConfigInfo info;
+    {
+        info.mOnErrorCallback = [&](auto errorInfo) {
             preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-        },
-        [&](auto path, auto isSystemPath) {
+        };
+        info.mOnIncludeCallback = [&](auto path, auto isSystemPath) {
             if (preprocessOptions.includeFinder)
             {
                 return getInputStreamInclude(
@@ -236,12 +281,16 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             }
             else
             {
-                return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
+                lineOffsetStack.push_back(lineOffsetStack.back()); // have to push something because pop-include expects something
+                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler\n")));
             }
-        },
-        [&]() {
+        };
+        info.mOnPopIncludeCallback = [&]() {
             lineOffsetStack.pop_back();
-        }
+        };
+    }
+    tcpp::Preprocessor proc(
+        lexer, info        
     );
 
     proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
@@ -283,8 +332,21 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         return std::string("");
     });
 
-    auto resolvedString = proc.Process();
+    resolvedString = proc.Process();
     IShaderCompiler::reenableDirectives(resolvedString);
+
+    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
+        if (auto file=future.acquire(); file&&bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
+            succ.getBytesProcessed(true);
+        }
+    }
 
     return resolvedString;
 }
@@ -347,8 +409,15 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 
     std::vector<LPCWSTR> arguments = {
         L"-spirv",
-        L"-HV", L"2021",
+        L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
+        L"-Zpr", // Packs matrices in row-major order by default
+        L"-enable-16bit-types",
+        L"-fvk-use-scalar-layout",
+        L"-Wno-c++11-extensions",
+        L"-Wno-c++1z-extensions",
+        L"-Wno-gnu-static-float-init",
+        L"-fspv-target-env=vulkan1.3"
     };
 
     // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
@@ -363,15 +432,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
 
     // Debug only values
-    if (hlslOptions.genDebugInfo)
-    {
-        arguments.insert(arguments.end(), {
-            DXC_ARG_DEBUG,
-            L"-Qembed_debug",
-            L"-fspv-debug=vulkan-with-source",
-            L"-fspv-debug=file"
-        });
-    }
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+        arguments.push_back(L"-fspv-debug=file");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+        arguments.push_back(L"-fspv-debug=source");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+        arguments.push_back(L"-fspv-debug=line");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+        arguments.push_back(L"-fspv-debug=tool");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+        arguments.push_back(L"-fspv-debug=vulkan-with-source");
 
     auto compileResult = dxcCompile(
         this, 
