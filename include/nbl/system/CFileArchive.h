@@ -73,37 +73,6 @@ class NBL_API2 CFileArchive : public IFileArchive
 		static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
 
-	public:
-		inline core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) override
-		{
-			const auto* item = getItemFromPath(pathRelativeToArchive);
-			if (!item)
-				return nullptr;
-			
-			switch (item->allocatorType)
-			{
-				case EAT_NULL:
-					return getFile_impl<CNullAllocator>(item);
-					break;
-				case EAT_MALLOC:
-					return getFile_impl<CPlainHeapAllocator>(item);
-					break;
-				case EAT_VIRTUAL_ALLOC:
-					return getFile_impl<VirtualMemoryAllocator>(item);
-					break;
-				case EAT_APK_ALLOCATOR:
-					#ifdef _NBL_PLATFORM_ANDROID_
-					return getFile_impl<CFileViewAPKAllocator>(item);
-					#else
-					assert(false);
-					#endif
-					break;
-				default: // directory or something
-					break;
-			}
-			return nullptr;
-		}
-
 	protected:
 		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, std::shared_ptr<core::vector<SFileList::SEntry>> _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
@@ -123,24 +92,60 @@ class NBL_API2 CFileArchive : public IFileArchive
 			_NBL_ALIGNED_FREE(m_fileFlags);
 		}
 		
-		template<class Allocator>
-		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const IFileArchive::SFileList::SEntry* item)
+		inline core::smart_refctd_ptr<IFile> getFile_impl(const SFileList::found_t& found, const core::bitflag<IFile::E_CREATE_FLAGS> flags, const std::string_view& password) override
 		{
-			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+item->ID*SIZEOF_INNER_ARCHIVE_FILE);
+			switch (found->allocatorType)
+			{
+				case EAT_NULL:
+					return getFile_impl<CNullAllocator>(found,flags);
+					break;
+				case EAT_MALLOC:
+					return getFile_impl<CPlainHeapAllocator>(found,flags);
+					break;
+				case EAT_VIRTUAL_ALLOC:
+					return getFile_impl<VirtualMemoryAllocator>(found,flags);
+					break;
+				case EAT_APK_ALLOCATOR:
+					#ifdef _NBL_PLATFORM_ANDROID_
+					return getFile_impl<CFileViewAPKAllocator>(found,flags);
+					#else
+					assert(false);
+					#endif
+					break;
+				default: // directory or something
+					break;
+			}
+			return nullptr;
+		}
+		
+		template<class Allocator>
+		inline core::smart_refctd_ptr<CInnerArchiveFile<Allocator>> getFile_impl(const SFileList::found_t& found, core::bitflag<IFile::E_CREATE_FLAGS> flags)
+		{
+			// TODO: figure out a new system of cached allocations which can handle files being added/removed from an archive,
+			// which will also allow for changing the flags that a File View is created with.
+			if (flags.hasFlags(IFile::ECF_MAPPABLE))
+			{
+				m_logger.log("Overriding file flags for %s, creating it as mappable anyway.",ILogger::ELL_INFO,found->pathRelativeToArchive.c_str());
+				flags |= IFile::ECF_MAPPABLE;
+			}
+			// IFileArchive should have already checked for this, stay like this until we allow write access to archived files
+			assert(!flags.hasFlags(IFile::ECF_WRITE));
+
+			auto* file = reinterpret_cast<CInnerArchiveFile<Allocator>*>(m_filesBuffer+found->ID*SIZEOF_INNER_ARCHIVE_FILE);
 			// NOTE: Intentionally calling grab() on maybe-not-existing object!
 			const auto oldRefcount = file->grab();
 
 			if (oldRefcount==0) // need to construct (previous refcount was 0)
 			{
-				const auto fileBuffer = getFileBuffer(item);
+				const auto fileBuffer = getFileBuffer(found);
 				// Might have barged inbetween a refctr drop and finish of a destructor + delete,
 				// need to wait for the "alive" flag to become `false` which tells us `operator delete` has finished.
-				m_fileFlags[item->ID].wait(true);
+				m_fileFlags[found->ID].wait(true);
 				// coast is clear, do placement new
-				new (file, &m_fileFlags[item->ID]) CInnerArchiveFile<Allocator>(
-					m_fileFlags+item->ID,
-					getDefaultAbsolutePath()/item->pathRelativeToArchive,
-					IFile::ECF_READ, // TODO: stay like this until we allow write access to archived files
+				new (file, &m_fileFlags[found->ID]) CInnerArchiveFile<Allocator>(
+					m_fileFlags+found->ID,
+					getDefaultAbsolutePath()/found->pathRelativeToArchive,
+					flags, 
 					fileBuffer.buffer,
 					fileBuffer.size,
 					Allocator(fileBuffer.allocatorState) // no archive uses stateful allocators yet
@@ -150,14 +155,14 @@ class NBL_API2 CFileArchive : public IFileArchive
 			return core::smart_refctd_ptr<CInnerArchiveFile<Allocator>>(file,core::dont_grab);
 		}
 
-		// this function will return a buffer that needs to be deallocated with an allocator matching `item->allocatorType`
+		// this function will return a buffer that needs to be deallocated with an allocator matching `found->allocatorType`
 		struct file_buffer_t
 		{
 			void* buffer;
 			size_t size;
 			void* allocatorState;
 		};
-		virtual file_buffer_t getFileBuffer(const IFileArchive::SFileList::SEntry* item) = 0;
+		virtual file_buffer_t getFileBuffer(const SFileList::found_t& found) = 0;
 
 		std::atomic_flag* m_fileFlags = nullptr;
 		std::byte* m_filesBuffer = nullptr;
