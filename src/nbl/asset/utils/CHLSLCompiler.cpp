@@ -166,10 +166,18 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         context.add_macro_definition(define.identifier.data()+core::string("=")+define.definition.data());
 
     // preprocess
-    std::stringstream stream = std::stringstream();
-    for (auto i=context.begin(); i!=context.end(); i++)
-        stream << i->get_value();
-    core::string resolvedString = stream.str();
+    core::string resolvedString;
+    try
+    {
+        std::stringstream stream = std::stringstream();
+        for (auto i=context.begin(); i!=context.end(); i++)
+            stream << i->get_value();
+        resolvedString = stream.str();
+    }
+    catch (...)
+    {
+        preprocessOptions.logger.log("Boost.Wave exception caught!",system::ILogger::ELL_ERROR);
+    }
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
     if constexpr (true)
@@ -217,34 +225,35 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
 
     // Set profile two letter prefix based on stage
-    switch (stage) {
-    case asset::IShader::ESS_VERTEX:
-        targetProfile.replace(0, 2, L"vs");
-        break;
-    case asset::IShader::ESS_TESSELLATION_CONTROL:
-        targetProfile.replace(0, 2, L"ds");
-        break;
-    case asset::IShader::ESS_TESSELLATION_EVALUATION:
-        targetProfile.replace(0, 2, L"hs");
-        break;
-    case asset::IShader::ESS_GEOMETRY:
-        targetProfile.replace(0, 2, L"gs");
-        break;
-    case asset::IShader::ESS_FRAGMENT:
-        targetProfile.replace(0, 2, L"ps");
-        break;
-    case asset::IShader::ESS_COMPUTE:
-        targetProfile.replace(0, 2, L"cs");
-        break;
-    case asset::IShader::ESS_TASK:
-        targetProfile.replace(0, 2, L"as");
-        break;
-    case asset::IShader::ESS_MESH:
-        targetProfile.replace(0, 2, L"ms");
-        break;
-    default:
-        hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
-        return nullptr;
+    switch (stage)
+    {
+        case asset::IShader::ESS_VERTEX:
+            targetProfile.replace(0, 2, L"vs");
+            break;
+        case asset::IShader::ESS_TESSELLATION_CONTROL:
+            targetProfile.replace(0, 2, L"ds");
+            break;
+        case asset::IShader::ESS_TESSELLATION_EVALUATION:
+            targetProfile.replace(0, 2, L"hs");
+            break;
+        case asset::IShader::ESS_GEOMETRY:
+            targetProfile.replace(0, 2, L"gs");
+            break;
+        case asset::IShader::ESS_FRAGMENT:
+            targetProfile.replace(0, 2, L"ps");
+            break;
+        case asset::IShader::ESS_COMPUTE:
+            targetProfile.replace(0, 2, L"cs");
+            break;
+        case asset::IShader::ESS_TASK:
+            targetProfile.replace(0, 2, L"as");
+            break;
+        case asset::IShader::ESS_MESH:
+            targetProfile.replace(0, 2, L"ms");
+            break;
+        default:
+            hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
+            return nullptr;
     };
 
     std::vector<LPCWSTR> arguments = {
