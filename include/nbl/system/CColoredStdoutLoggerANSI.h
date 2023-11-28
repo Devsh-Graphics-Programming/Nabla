@@ -40,6 +40,7 @@ class CColoredStdoutLoggerANSI : public IThreadsafeLogger
           assert(false);
           break;
       }
+      printf("\x1b[0m");
       fflush(stdout);
     }
 };
