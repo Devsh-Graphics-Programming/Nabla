@@ -26,75 +26,81 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
-		public:
-			virtual std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
+			public:
+				struct found_t
+				{
+					system::path absolutePath = {};
+					std::string contents = {};
+
+					explicit inline operator bool() const {return !absolutePath.empty();}
+				};
+				virtual found_t getInclude(const system::path& searchPath, const std::string& includeName) const = 0;
 		};
 
 		class NBL_API2 IIncludeGenerator : public core::IReferenceCounted
 		{
-		public:
-			// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
-			virtual std::optional<std::string> getInclude(const std::string& includeName) const;
+			public:
+				// ! if includeName doesn't begin with prefix from `getPrefix` this function will return an empty string
+				virtual IIncludeLoader::found_t getInclude(const std::string& includeName) const;
 
-			virtual std::string_view getPrefix() const = 0;
+				virtual std::string_view getPrefix() const = 0;
 
-		protected:
+			protected:
 
-			using HandleFunc_t = std::function<std::string(const std::string&)>;
-			virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
+				using HandleFunc_t = std::function<std::string(const std::string&)>;
+				virtual core::vector<std::pair<std::regex,HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
 
-			// ! Parses arguments from include path
-			// ! template is path/to/shader.hlsl/arg0/arg1/...
-			static core::vector<std::string> parseArgumentsFromPath(const std::string& _path);
+				// ! Parses arguments from include path
+				// ! template is path/to/shader.hlsl/arg0/arg1/...
+				static core::vector<std::string> parseArgumentsFromPath(const std::string& _path);
 		};
 
 		class NBL_API2 CFileSystemIncludeLoader : public IIncludeLoader
 		{
-		public:
-			CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
+			public:
+				CFileSystemIncludeLoader(core::smart_refctd_ptr<system::ISystem>&& system);
 
-			std::optional<std::string> getInclude(const system::path& searchPath, const std::string& includeName) const override;
+				IIncludeLoader::found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
 
-		protected:
-			core::smart_refctd_ptr<system::ISystem> m_system;
+			protected:
+				core::smart_refctd_ptr<system::ISystem> m_system;
 		};
 
 		class NBL_API2 CIncludeFinder : public core::IReferenceCounted
 		{
-		public:
-			CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system);
+			public:
+				CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system);
 
-			// ! includes within <>
-			// @param requestingSourceDir: the directory where the incude was requested
-			// @param includeName: the string within <> of the include preprocessing directive
-			std::optional<std::string> getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
+				// ! includes within <>
+				// @param requestingSourceDir: the directory where the incude was requested
+				// @param includeName: the string within <> of the include preprocessing directive
+				IIncludeLoader::found_t getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const;
 
-			// ! includes within ""
-			// @param requestingSourceDir: the directory where the incude was requested
-			// @param includeName: the string within "" of the include preprocessing directive
-			std::optional<std::string> getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
+				// ! includes within ""
+				// @param requestingSourceDir: the directory where the incude was requested
+				// @param includeName: the string within "" of the include preprocessing directive
+				IIncludeLoader::found_t getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const;
 
-			inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
+				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
-			void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader);
+				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader);
 
-			void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
+				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator);
 
-		protected:
+			protected:
+				IIncludeLoader::found_t trySearchPaths(const std::string& includeName) const;
 
-			std::optional<std::string> trySearchPaths(const std::string& includeName) const;
+				IIncludeLoader::found_t tryIncludeGenerators(const std::string& includeName) const;
 
-			std::optional<std::string> tryIncludeGenerators(const std::string& includeName) const;
+				struct LoaderSearchPath
+				{
+					core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
+					std::string searchPath = {};
+				};
 
-			struct LoaderSearchPath
-			{
-				core::smart_refctd_ptr<IIncludeLoader> loader = nullptr;
-				std::string searchPath = {};
-			};
-
-			std::vector<LoaderSearchPath> m_loaders;
-			std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
-			core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
+				std::vector<LoaderSearchPath> m_loaders;
+				std::vector<core::smart_refctd_ptr<IIncludeGenerator>> m_generators;
+				core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
 		enum class E_SPIRV_VERSION : uint32_t

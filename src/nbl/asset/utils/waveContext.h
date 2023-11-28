@@ -441,11 +441,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     std::string file_path(s);
 
     // call the 'found_include_directive' hook function
-    if (ctx.get_hooks().found_include_directive(ctx.derived(),f,include_next))
+    if (ctx.get_hooks().found_include_directive(ctx.derived(),f,false))
         return true;    // client returned false: skip file to include
     file_path = util::impl::unescape_lit(file_path);
 
-    std::optional<std::string> result;
+    IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
     if (includeFinder)
     {
@@ -462,22 +462,20 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         return false;
     }
 
-    ctx.located_include_content = std::move(*result);
+    ctx.located_include_content = std::move(result.contents);
     // the new include file determines the actual current directory
-    // TODO: the found file can be in a completely different place
-    nbl::system::path abs_path = ctx.get_current_directory()/file_path;
-    ctx.set_current_directory(abs_path);
+    ctx.set_current_directory(result.absolutePath);
 
     {
         // preprocess the opened file
         boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
-            new iteration_context_type(ctx,abs_path.string().c_str(),act_pos,
+            new iteration_context_type(ctx,result.absolutePath.string().c_str(),act_pos,
                 boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
                 is_system ? base_iteration_context_type::system_header :
                 base_iteration_context_type::user_header));
 
         // call the include policy trace function
-        ctx.get_hooks().opened_include_file(ctx.derived(), file_path, abs_path.string(), is_system);
+        ctx.get_hooks().opened_include_file(ctx.derived(),file_path,result.absolutePath.string(),is_system);
 
         // store current file position
         iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
