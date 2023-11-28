@@ -98,15 +98,17 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     )
     {
         auto optionStr = option.get_value().c_str();
-        if (strcmp(optionStr, "shader_stage") == 0) 
+        if (strcmp(optionStr,"shader_stage")==0) 
         {
             auto valueIter = values.begin();
-            if (valueIter == values.end()) {
+            if (valueIter == values.end())
+            {
                 m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. No shaderstage option given", nbl::system::ILogger::ELL_ERROR);
                 return false;
             }
             auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
-            core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
+            const static core::unordered_map<std::string,IShader::E_SHADER_STAGE> stageFromIdent =
+            {
                 { "vertex", IShader::ESS_VERTEX },
                 { "fragment", IShader::ESS_FRAGMENT },
                 { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
