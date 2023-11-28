@@ -42,7 +42,7 @@ class IWindow : public core::IReferenceCounted
             ECF_NONE = 0
         };
 
-        class IEventCallback : public core::IReferenceCounted
+        class IEventCallback : public virtual core::IReferenceCounted
         {
             public:
                 // TODO: rethink our boolean returns
