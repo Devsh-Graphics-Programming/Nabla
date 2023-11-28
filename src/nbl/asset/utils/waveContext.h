@@ -34,22 +34,22 @@ struct load_file_or_builtin_to_string
                 using iterator_type = typename IterContextT::iterator_type;
 
                 std::string filepath(iter_ctx.filename.begin(), iter_ctx.filename.end());
-                auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
-                if (inclFinder) 
-                {
-                    std::optional<std::string> result;
-                    system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
-                    if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
-                        result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
-                    else // regular #include "..."
-                        result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
+                const auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
+                assert(inclFinder);
 
-                    if (!result)
-                        BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
-                            bad_include_file, iter_ctx.filename.c_str(), act_pos);
-                    auto& res_str = *result;
-                    iter_ctx.instring = res_str;
-                }
+                std::optional<std::string> result;
+                system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
+                if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
+                    result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
+                else // regular #include "..."
+                    result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
+
+                if (!result)
+                    BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
+                        bad_include_file, iter_ctx.filename.c_str(), act_pos);
+                auto& res_str = *result;
+                iter_ctx.instring = res_str;
+
                 iter_ctx.first = iterator_type(
                     iter_ctx.instring.begin(), iter_ctx.instring.end(),
                     PositionT(iter_ctx.filename), language);
@@ -75,7 +75,9 @@ struct custom_preprocessing_hooks : public boost::wave::context_policies::defaul
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name) 
     {
-        //on builtin return true
+        if (!m_includeFinder)
+            return false;
+
         dir_path = ctx.get_current_directory().string();
         std::optional<std::string> result;
         if (is_system) {
@@ -96,10 +98,11 @@ struct custom_preprocessing_hooks : public boost::wave::context_policies::defaul
 
     // interpretation of #pragma's of the form 'wave option[(value)]'
     template <typename ContextT, typename ContainerT>
-    bool
-        interpret_pragma(ContextT const& ctx, ContainerT& pending,
-            typename ContextT::token_type const& option, ContainerT const& values,
-            typename ContextT::token_type const& act_token)
+    bool interpret_pragma(
+        ContextT const& ctx, ContainerT& pending,
+        typename ContextT::token_type const& option, ContainerT const& values,
+        typename ContextT::token_type const& act_token
+    )
     {
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr, "shader_stage") == 0) 
@@ -121,7 +124,7 @@ struct custom_preprocessing_hooks : public boost::wave::context_policies::defaul
             auto found = stageFromIdent.find(shaderStageIdentifier);
             if (found == stageFromIdent.end())
             {
-                m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier);
+                m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier.c_str());
                 return false;
             }
             valueIter++;
@@ -135,11 +138,14 @@ struct custom_preprocessing_hooks : public boost::wave::context_policies::defaul
         return false;
     }
 
-
     template <typename ContextT, typename ContainerT>
-    bool found_error_directive(ContextT const& ctx, ContainerT const& message) {
-        m_logger.log("Pre-processor error:\n%s", nbl::system::ILogger::ELL_ERROR, message);
-        return true;
+    bool found_error_directive(ContextT const& ctx, ContainerT const& message)
+    {
+        std::ostringstream stream;
+        for (const auto& token : message)
+            stream << token.get_value();
+        m_logger.log("Pre-processor encountered error directive:\n%s", nbl::system::ILogger::ELL_ERROR, stream.str().c_str());
+        return false;
     }
 };
 
