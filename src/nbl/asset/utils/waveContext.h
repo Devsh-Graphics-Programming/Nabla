@@ -31,23 +31,9 @@ struct load_to_string final
             template <typename PositionT>
             static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
-                using iterator_type = typename IterContextT::iterator_type;
+                iter_ctx.instring = iter_ctx.ctx.get_located_include_content();
 
-                std::string filepath(iter_ctx.filename.begin(),iter_ctx.filename.end());
-                const auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
-                assert(inclFinder);
-
-                std::optional<std::string> result;
-                system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
-                if (iter_ctx.type==IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
-                    result = inclFinder->getIncludeStandard(requestingSourceDir,filepath);
-                else // regular #include "..."
-                    result = inclFinder->getIncludeRelative(requestingSourceDir,filepath);
-
-                // If located then must be possible to open!
-                assert(result);
-                iter_ctx.instring = *result;
-
+                using iterator_type = IterContextT::iterator_type;
                 iter_ctx.first = iterator_type(iter_ctx.instring.begin(),iter_ctx.instring.end(),PositionT(iter_ctx.filename),language);
                 iter_ctx.last = iterator_type();
             }
@@ -83,6 +69,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
             return false;
         }
+        ctx.set_located_include_content(std::move(*result));
         // TODO:
         native_name = file_path;
         return true;
@@ -147,29 +134,6 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     const IShaderCompiler::CIncludeFinder* m_includeFinder;
     system::logger_opt_ptr m_logger;
     IShader::E_SHADER_STAGE m_pragmaStage;
-};
-
-class include_paths final
-{
-    public:
-        inline include_paths() : current_dir() {}
-
-        // Nabla Additions Start
-        system::path get_current_directory() const
-        {
-            return current_dir;
-        }
-        void set_current_directory(char const* path_)
-        {
-            namespace fs = nbl::system;
-            fs::path filepath(path_);
-            fs::path filename = current_dir.is_absolute() ? filepath : (current_dir / filepath);
-            current_dir = filename.parent_path();
-        }
-        // Nabla Additions End
-
-    private:
-        system::path current_dir;
 };
 
 class context : private boost::noncopyable
@@ -364,10 +328,24 @@ class context : private boost::noncopyable
         }
 
         // Nabla Additions Start
-        // return the directory of the currently preprocessed file
         system::path get_current_directory() const
         {
-            return includes.get_current_directory();
+            return current_dir;
+        }
+        void set_current_directory(char const* path_)
+        {
+            namespace fs = nbl::system;
+            fs::path filepath(path_);
+            fs::path filename = current_dir.is_absolute() ? filepath : (current_dir / filepath);
+            current_dir = filename.parent_path();
+        }
+        void set_located_include_content(core::string&& content)
+        {
+            located_include_content = std::move(content);
+        }
+        const core::string& get_located_include_content() const
+        {
+            return located_include_content;
         }
         // Nabla Additions End
 
@@ -385,7 +363,7 @@ class context : private boost::noncopyable
                 return;
 
             nbl::system::path fpath(filename);
-            includes.set_current_directory(fpath.string().c_str());
+            set_current_directory(fpath.string().c_str());
             has_been_initialized = true;  // execute once
         }
 
@@ -393,12 +371,6 @@ class context : private boost::noncopyable
         bool is_defined_macro(IteratorT2 const& begin, IteratorT2 const& end) const
         {
             return macros.is_defined(begin, end);
-        }
-
-        // maintain include paths (helper functions)
-        void set_current_directory(char const* path_)
-        {
-            includes.set_current_directory(path_);
         }
 
         // conditional compilation contexts
@@ -477,8 +449,13 @@ class context : private boost::noncopyable
         bool has_been_initialized;          // set cwd once
         std::string current_relative_filename;        // real relative name of current preprocessed file
 
+        // Nabla Additions Start
+        // these are temporaries!
+        system::path current_dir;
+        core::string located_include_content;
+        // Nabla Additions End
+
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
-        include_paths includes;    // lists of include directories to search
         iteration_context_stack_type iter_ctxs;       // iteration contexts
         macromap_type macros;                         // map of defined macros
         boost::wave::language_support language;       // supported language/extensions
