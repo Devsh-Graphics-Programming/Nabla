@@ -2,7 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
-#include "nbl/asset/utils/waveContext.h"
 #include "nbl/asset/utils/shadercUtils.h"
 // TODO: review
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
@@ -29,140 +28,14 @@ using Microsoft::WRL::ComPtr;
 
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
+
 namespace nbl::asset::impl
 {
-    struct DXC 
-    {
-        ComPtr<IDxcUtils> m_dxcUtils;
-        ComPtr<IDxcCompiler3> m_dxcCompiler;
-    };
-
-
-    // for including builtins 
-    struct load_file_or_builtin_to_string
-    {
-        template <typename IterContextT>
-        class inner
-        {
-        public:
-            template <typename PositionT>
-            static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
-            {
-                using iterator_type = typename IterContextT::iterator_type;
-
-                std::string filepath(iter_ctx.filename.begin(), iter_ctx.filename.end());
-                auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
-                if (inclFinder) 
-                {
-                    std::optional<std::string> result;
-                    system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
-                    if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
-                        result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
-                    else // regular #include "..."
-                        result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
-
-                    if (!result)
-                        BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
-                            bad_include_file, iter_ctx.filename.c_str(), act_pos);
-                    auto& res_str = *result;
-                    iter_ctx.instring = res_str;
-                }
-                iter_ctx.first = iterator_type(
-                    iter_ctx.instring.begin(), iter_ctx.instring.end(),
-                    PositionT(iter_ctx.filename), language);
-                iter_ctx.last = iterator_type();
-            }
-
-        private:
-            std::string instring;
-        };
-    };
-
-
-    struct custom_preprocessing_hooks : public boost::wave::context_policies::default_preprocessing_hooks
-    {
-
-        custom_preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
-            : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
-
-        const IShaderCompiler::CIncludeFinder* m_includeFinder;
-        system::logger_opt_ptr m_logger;
-        IShader::E_SHADER_STAGE m_pragmaStage;
-
-
-        template <typename ContextT>
-        bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name) 
-        {
-            //on builtin return true
-            dir_path = ctx.get_current_directory().string();
-            std::optional<std::string> result;
-            if (is_system) {
-                result = m_includeFinder->getIncludeStandard(dir_path, file_path);
-                dir_path = "";
-            }
-            else
-                result = m_includeFinder->getIncludeRelative(dir_path, file_path);
-            if (!result)
-            {
-                m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
-                return false;
-            }
-            native_name = file_path;
-            return true;
-        }
-
-
-        // interpretation of #pragma's of the form 'wave option[(value)]'
-        template <typename ContextT, typename ContainerT>
-        bool
-            interpret_pragma(ContextT const& ctx, ContainerT& pending,
-                typename ContextT::token_type const& option, ContainerT const& values,
-                typename ContextT::token_type const& act_token)
-        {
-            auto optionStr = option.get_value().c_str();
-            if (strcmp(optionStr, "shader_stage") == 0) 
-            {
-                auto valueIter = values.begin();
-                if (valueIter == values.end()) {
-                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. No shaderstage option given", nbl::system::ILogger::ELL_ERROR);
-                    return false;
-                }
-                auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
-                core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
-                    { "vertex", IShader::ESS_VERTEX },
-                    { "fragment", IShader::ESS_FRAGMENT },
-                    { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
-                    { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
-                    { "geometry", IShader::ESS_GEOMETRY },
-                    { "compute", IShader::ESS_COMPUTE }
-                };
-                auto found = stageFromIdent.find(shaderStageIdentifier);
-                if (found == stageFromIdent.end())
-                {
-                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier);
-                    return false;
-                }
-                valueIter++;
-                if (valueIter != values.end()) {
-                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Too many arguments", nbl::system::ILogger::ELL_ERROR);
-                    return false;
-                }
-                m_pragmaStage = found->second;
-                return true;
-            }
-            return false;
-        }
-
-
-        template <typename ContextT, typename ContainerT>
-        bool found_error_directive(ContextT const& ctx, ContainerT const& message) {
-            m_logger.log("Pre-processor error:\n%s", nbl::system::ILogger::ELL_ERROR, message);
-            return true;
-        }
-
-    };
-
-
+struct DXC 
+{
+    ComPtr<IDxcUtils> m_dxcUtils;
+    ComPtr<IDxcCompiler3> m_dxcCompiler;
+};
 }
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
@@ -182,15 +55,14 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     };
 }
 
-
 CHLSLCompiler::~CHLSLCompiler()
 {
     delete m_dxcCompilerTypes;
 }
 
-class DxcCompilationResult
+
+struct DxcCompilationResult
 {
-public:
     ComPtr<IDxcBlobEncoding> errorMessages;
     ComPtr<IDxcBlob> objectBlob;
     ComPtr<IDxcResult> compileResult;
@@ -200,7 +72,6 @@ public:
         return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
     }
 };
-
 
 DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
@@ -276,13 +147,12 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
 }
 
 
-using lex_token_t = boost::wave::cpplexer::lex_token<>;
-using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
+#include "nbl/asset/utils/waveContext.h"
 using wave_context_t = nbl::wave::context<std::string::iterator>;
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    impl::custom_preprocessing_hooks hooks(preprocessOptions);
+    wave::custom_preprocessing_hooks hooks(preprocessOptions);
     wave_context_t context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), hooks);
     auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
     context.set_language(static_cast<boost::wave::language_support>(language));
@@ -297,9 +167,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     // preprocess
     std::stringstream stream = std::stringstream();
-    for (auto i = context.begin(); i != context.end(); i++) {
+    for (auto i=context.begin(); i!=context.end(); i++)
         stream << i->get_value();
-    }
     core::string resolvedString = stream.str();
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
@@ -314,8 +183,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             succ.getBytesProcessed(true);
         }
     }
+
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
+
     return resolvedString;
 }
 
@@ -441,85 +312,5 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     code.insert(0u, ins.str());
-}
-
-
-
-
-template<> inline bool boost::wave::impl::pp_iterator_functor<wave_context_t>::on_include_helper(char const* f, char const* s,
-    bool is_system, bool include_next)
-{
-    namespace fs = boost::filesystem;
-
-    // try to locate the given file, searching through the include path lists
-    std::string file_path(s);
-    std::string dir_path;
-#if BOOST_WAVE_SUPPORT_INCLUDE_NEXT != 0
-    char const* current_name = include_next ? iter_ctx->real_filename.c_str() : 0;
-#else
-    char const* current_name = 0; // never try to match current file name
-#endif
-
-    // call the 'found_include_directive' hook function
-    if (ctx.get_hooks().found_include_directive(ctx.derived(), f, include_next))
-        return true;    // client returned false: skip file to include
-
-    file_path = util::impl::unescape_lit(file_path);
-    std::string native_path_str;
-
-    if (!ctx.get_hooks().locate_include_file(ctx, file_path, is_system,
-        current_name, dir_path, native_path_str))
-    {
-        BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file,
-            file_path.c_str(), act_pos);
-        return false;
-    }
-
-    // test, if this file is known through a #pragma once directive
-#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
-    if (!ctx.has_pragma_once(native_path_str))
-#endif
-    {
-        // the new include file determines the actual current directory
-        ctx.set_current_directory(native_path_str.c_str());
-
-        // preprocess the opened file
-        boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
-            new iteration_context_type(ctx, native_path_str.c_str(), act_pos,
-                boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
-                is_system ? base_iteration_context_type::system_header :
-                base_iteration_context_type::user_header));
-
-        // call the include policy trace function
-        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path,
-            is_system);
-
-        // store current file position
-        iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
-        iter_ctx->filename = act_pos.get_file();
-        iter_ctx->line = act_pos.get_line();
-        iter_ctx->if_block_depth = ctx.get_if_block_depth();
-        iter_ctx->emitted_lines = (unsigned int)(-1);   // force #line directive
-
-        // push the old iteration context onto the stack and continue with the new
-        ctx.push_iteration_context(act_pos, iter_ctx);
-        iter_ctx = new_iter_ctx;
-        seen_newline = true;        // fake a newline to trigger pp_directive
-        must_emit_line_directive = true;
-
-        act_pos.set_file(iter_ctx->filename);  // initialize file position
-#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
-        fs::path rfp(iter_ctx->real_filename.c_str()); 
-        std::string real_filename(rfp.string());
-        ctx.set_current_filename(real_filename.c_str());
-#endif
-
-        ctx.set_current_relative_filename(dir_path.c_str());
-        iter_ctx->real_relative_filename = dir_path.c_str();
-
-        act_pos.set_line(iter_ctx->line);
-        act_pos.set_column(0);
-    }
-    return true;
 }
 #endif
