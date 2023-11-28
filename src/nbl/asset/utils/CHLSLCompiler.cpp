@@ -2,12 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
+#include "nbl/asset/utils/waveContext.h"
 #include "nbl/asset/utils/shadercUtils.h"
+// TODO: review
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
 #endif // NBL_EMBED_BUILTIN_RESOURCES
-
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
@@ -21,13 +22,6 @@
 #include <iterator>
 #include <codecvt>
 
-#include <boost/wave.hpp>
-#include <boost/wave/cpplexer/cpp_lex_token.hpp>
-#include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
-
-#define TCPP_IMPLEMENTATION
-#include <tcpp/source/tcppLibrary.hpp>
-#undef TCPP_IMPLEMENTATION
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -35,12 +29,140 @@ using Microsoft::WRL::ComPtr;
 
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
-namespace nbl::asset::hlsl::impl
+namespace nbl::asset::impl
 {
-    struct DXC {
+    struct DXC 
+    {
         ComPtr<IDxcUtils> m_dxcUtils;
         ComPtr<IDxcCompiler3> m_dxcCompiler;
     };
+
+
+    // for including builtins 
+    struct load_file_or_builtin_to_string
+    {
+        template <typename IterContextT>
+        class inner
+        {
+        public:
+            template <typename PositionT>
+            static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
+            {
+                using iterator_type = typename IterContextT::iterator_type;
+
+                std::string filepath(iter_ctx.filename.begin(), iter_ctx.filename.end());
+                auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
+                if (inclFinder) 
+                {
+                    std::optional<std::string> result;
+                    system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
+                    if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
+                        result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
+                    else // regular #include "..."
+                        result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
+
+                    if (!result)
+                        BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
+                            bad_include_file, iter_ctx.filename.c_str(), act_pos);
+                    auto& res_str = *result;
+                    iter_ctx.instring = res_str;
+                }
+                iter_ctx.first = iterator_type(
+                    iter_ctx.instring.begin(), iter_ctx.instring.end(),
+                    PositionT(iter_ctx.filename), language);
+                iter_ctx.last = iterator_type();
+            }
+
+        private:
+            std::string instring;
+        };
+    };
+
+
+    struct custom_preprocessing_hooks : public boost::wave::context_policies::default_preprocessing_hooks
+    {
+
+        custom_preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
+            : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
+
+        const IShaderCompiler::CIncludeFinder* m_includeFinder;
+        system::logger_opt_ptr m_logger;
+        IShader::E_SHADER_STAGE m_pragmaStage;
+
+
+        template <typename ContextT>
+        bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name) 
+        {
+            //on builtin return true
+            dir_path = ctx.get_current_directory().string();
+            std::optional<std::string> result;
+            if (is_system) {
+                result = m_includeFinder->getIncludeStandard(dir_path, file_path);
+                dir_path = "";
+            }
+            else
+                result = m_includeFinder->getIncludeRelative(dir_path, file_path);
+            if (!result)
+            {
+                m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
+                return false;
+            }
+            native_name = file_path;
+            return true;
+        }
+
+
+        // interpretation of #pragma's of the form 'wave option[(value)]'
+        template <typename ContextT, typename ContainerT>
+        bool
+            interpret_pragma(ContextT const& ctx, ContainerT& pending,
+                typename ContextT::token_type const& option, ContainerT const& values,
+                typename ContextT::token_type const& act_token)
+        {
+            auto optionStr = option.get_value().c_str();
+            if (strcmp(optionStr, "shader_stage") == 0) 
+            {
+                auto valueIter = values.begin();
+                if (valueIter == values.end()) {
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. No shaderstage option given", nbl::system::ILogger::ELL_ERROR);
+                    return false;
+                }
+                auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
+                core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
+                    { "vertex", IShader::ESS_VERTEX },
+                    { "fragment", IShader::ESS_FRAGMENT },
+                    { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
+                    { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
+                    { "geometry", IShader::ESS_GEOMETRY },
+                    { "compute", IShader::ESS_COMPUTE }
+                };
+                auto found = stageFromIdent.find(shaderStageIdentifier);
+                if (found == stageFromIdent.end())
+                {
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier);
+                    return false;
+                }
+                valueIter++;
+                if (valueIter != values.end()) {
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Too many arguments", nbl::system::ILogger::ELL_ERROR);
+                    return false;
+                }
+                m_pragmaStage = found->second;
+                return true;
+            }
+            return false;
+        }
+
+
+        template <typename ContextT, typename ContainerT>
+        bool found_error_directive(ContextT const& ctx, ContainerT const& message) {
+            m_logger.log("Pre-processor error:\n%s", nbl::system::ILogger::ELL_ERROR, message);
+            return true;
+        }
+
+    };
+
+
 }
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
@@ -54,88 +176,16 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcCompilerTypes = new nbl::asset::hlsl::impl::DXC{
+    m_dxcCompilerTypes = new impl::DXC{
         utils,
         compiler
     };
 }
 
+
 CHLSLCompiler::~CHLSLCompiler()
 {
     delete m_dxcCompilerTypes;
-}
-
-static tcpp::TInputStreamUniquePtr getInputStreamInclude(
-    const IShaderCompiler::CIncludeFinder* inclFinder,
-    const system::ISystem* fs,
-    uint32_t maxInclCnt,
-    const char* requestingSource,
-    const char* requestedSource,
-    bool isRelative, // true for #include "string"; false for #include <string>
-    uint32_t lexerLineIndex,
-    uint32_t leadingLinesImports,
-    std::vector<std::pair<uint32_t, std::string>>& includeStack
-)
-{
-    std::filesystem::path requestingSourceDir;
-    #ifdef NBL_EMBED_BUILTIN_RESOURCES
-    const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
-    const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
-    //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-    //  This rule applies also while a builtin is #includ`ing another builtin.
-    //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-    //  or path relative to executable's working directory (""-type).
-    if (!reqFromBuiltin && !reqBuiltin)
-    #else
-    const bool reqBuiltin = false;
-    #endif // NBL_EMBED_BUILTIN_RESOURCES
-        requestingSourceDir = system::path(requestingSource).parent_path();
-
-    system::path name = isRelative ? (requestingSourceDir / requestedSource) : (requestedSource);
-    if (std::filesystem::exists(name) && !reqBuiltin)
-        name = std::filesystem::absolute(name);
-
-    std::optional<std::string> result;
-    if (isRelative)
-        result = inclFinder->getIncludeRelative(requestingSourceDir, requestedSource);
-    else //shaderc_include_type_standard
-        result = inclFinder->getIncludeStandard(requestingSourceDir, requestedSource);
-
-    if (!result) 
-    {
-        /*
-            Alternative could be found in the commit 2a66b4b20c579ea730aa3dd8af707847c01def64
-            if ever HLSL gets system headers we might just want to let includes be includes and 
-            DXC handle everything else we don't know about
-        */
-        std::string re(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
-        re.append("error ");
-        re.append(requestedSource);
-        re.append(" not found\n");
-        includeStack.push_back(includeStack.back());
-        return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(re));
-    }
-
-    // Figure out what line in the current file this #include was
-    // That would be the current lexer line, minus the line where the current file was included
-    uint32_t lineInCurrentFileWithInclude = lexerLineIndex -
-        // if this is 2 includes deep (include within include), subtract leading import lines
-        // from the previous include
-        (includeStack.size() > 1 ? leadingLinesImports : 0);
-    auto lastItemInIncludeStack = includeStack.back();
-
-    auto& res_str = *result;
-    IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
-    res_str = res_str + "\n" +
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineInCurrentFileWithInclude - lastItemInIncludeStack.first - 1).c_str() + " \"" + lastItemInIncludeStack.second.c_str() + "\"\n";
-
-    // Offset the lines this include takes up for subsequent includes
-    includeStack.back().first += std::count(res_str.begin(), res_str.end(), '\n');
-
-    includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
-
-    return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::move(res_str)));
 }
 
 class DxcCompilationResult
@@ -151,7 +201,8 @@ public:
     }
 };
 
-DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
+
+DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -161,7 +212,7 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "// commandline compiler options : ";
+        insertion << "//#pragma compile_flags ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -225,114 +276,40 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 }
 
 
+using lex_token_t = boost::wave::cpplexer::lex_token<>;
+using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
+using wave_context_t = nbl::wave::context<std::string::iterator>;
+
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    using lex_token_t = boost::wave::cpplexer::lex_token<>;
-    using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
-    using wave_context_t = boost::wave::context<
-        core::string::iterator,
-        lex_iterator_t,
-        boost::wave::iteration_context_policies::load_file_to_string/*,
-        TODO: OurCustomDirectiveHooks -> for pragmas and includes!
-        */
-    >;
-
-    // TODO: change `code` to `const core::string&` because its supposed to be immutable
-    wave_context_t context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data()/*,TODO: instance of OurCustomDirectiveHooks*/);
-//    context.add_include_path
-//    context.add_sysinclude_path <- for dem builtins! / preprocessOptions.includeFinder?
-//    context.add_macro_definition from preprocessOptions.extraDefines
-    core::string resolvedString;
-    // TODO: fill `resolvedString` with `[context.begin(),context.end()]`
-
-    // Line 1 comes before all the extra defines in the main shader
-    insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
-
-    uint32_t defineLeadingLinesMain = 1;
-    uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
-    if (preprocessOptions.extraDefines.size())
+    impl::custom_preprocessing_hooks hooks(preprocessOptions);
+    wave_context_t context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), hooks);
+    auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
+    context.set_language(static_cast<boost::wave::language_support>(language));
+    context.add_macro_definition("__HLSL_VERSION");
+   
+     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+    // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
+    // to match boost wave syntax
+    // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
+    for (auto iter = preprocessOptions.extraDefines.begin(); iter!=preprocessOptions.extraDefines.end(); iter++)
     {
-        insertExtraDefines(code, preprocessOptions.extraDefines);
-        defineLeadingLinesMain += preprocessOptions.extraDefines.size();
+        std::string s = *iter;
+        size_t firstParenthesis = s.find(')');
+        if (firstParenthesis == -1) firstParenthesis = 0;
+        size_t firstWhitespace = s.find(' ', firstParenthesis);
+        if (firstWhitespace != -1)
+            s[firstWhitespace] = '=';
+        context.add_macro_definition(s);
     }
 
-    IShaderCompiler::disableAllDirectivesExceptIncludes(code);
-
-    // Keep track of the line in the original file where each #include was on each level of the include stack
-    std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
+    // preprocess
+    std::stringstream stream = std::stringstream();
+    for (auto i = context.begin(); i != context.end(); i++) {
+        stream << i->get_value();
+    }
+    core::string resolvedString = stream.str();
     
-    tcpp::Lexer lexer(tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(code)));
-
-    tcpp::Preprocessor::TPreprocessorConfigInfo info;
-    {
-        info.mOnErrorCallback = [&](auto errorInfo) {
-            preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-        };
-        info.mOnIncludeCallback = [&](auto path, auto isSystemPath) {
-            if (preprocessOptions.includeFinder)
-            {
-                return getInputStreamInclude(
-                    preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
-                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath,
-                    lexer.GetCurrLineIndex(), leadingLinesImports, lineOffsetStack
-                );
-            }
-            else
-            {
-                lineOffsetStack.push_back(lineOffsetStack.back()); // have to push something because pop-include expects something
-                return tcpp::TInputStreamUniquePtr(new tcpp::StringInputStream(std::string("#error No include handler\n")));
-            }
-        };
-        info.mOnPopIncludeCallback = [&]() {
-            lineOffsetStack.pop_back();
-        };
-    }
-    tcpp::Preprocessor proc(
-        lexer, info        
-    );
-
-    proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        auto token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::OPEN_BRACKET) return std::string("#error Malformed shader_stage pragma");
-
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::IDENTIFIER) return std::string("#error Malformed shader_stage pragma");
-
-        auto& shaderStageIdentifier = token.mRawView;
-        core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
-            { "vertex", IShader::ESS_VERTEX },
-            { "fragment", IShader::ESS_FRAGMENT },
-            { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
-            { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
-            { "geometry", IShader::ESS_GEOMETRY },
-            { "compute", IShader::ESS_COMPUTE }
-        };
-
-        auto found = stageFromIdent.find(shaderStageIdentifier);
-        if (found == stageFromIdent.end())
-        {
-            return std::string("#error Malformed shader_stage pragma, unknown stage");
-        }
-        stage = found->second;
-
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::CLOSE_BRACKET) return std::string("#error Malformed shader_stage pragma");
-
-        while (lexer.HasNextToken()) {
-            auto token = lexer.GetNextToken();
-            if (token.mType == tcpp::E_TOKEN_TYPE::NEWLINE) break;
-            if (token.mType != tcpp::E_TOKEN_TYPE::SPACE) return std::string("#error Malformed shader_stage pragma");
-        }
-
-        return std::string("");
-    });
-
-    resolvedString = proc.Process();
-    IShaderCompiler::reenableDirectives(resolvedString);
-
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
     if constexpr (true)
     {
@@ -345,9 +322,11 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             succ.getBytesProcessed(true);
         }
     }
-
+    if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
+        stage = context.get_hooks().m_pragmaStage;
     return resolvedString;
 }
+
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
@@ -466,9 +445,89 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
 
+
 void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     code.insert(0u, ins.str());
 }
 
+
+
+
+template<> inline bool boost::wave::impl::pp_iterator_functor<wave_context_t>::on_include_helper(char const* f, char const* s,
+    bool is_system, bool include_next)
+{
+    namespace fs = boost::filesystem;
+
+    // try to locate the given file, searching through the include path lists
+    std::string file_path(s);
+    std::string dir_path;
+#if BOOST_WAVE_SUPPORT_INCLUDE_NEXT != 0
+    char const* current_name = include_next ? iter_ctx->real_filename.c_str() : 0;
+#else
+    char const* current_name = 0; // never try to match current file name
+#endif
+
+    // call the 'found_include_directive' hook function
+    if (ctx.get_hooks().found_include_directive(ctx.derived(), f, include_next))
+        return true;    // client returned false: skip file to include
+
+    file_path = util::impl::unescape_lit(file_path);
+    std::string native_path_str;
+
+    if (!ctx.get_hooks().locate_include_file(ctx, file_path, is_system,
+        current_name, dir_path, native_path_str))
+    {
+        BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file,
+            file_path.c_str(), act_pos);
+        return false;
+    }
+
+    // test, if this file is known through a #pragma once directive
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    if (!ctx.has_pragma_once(native_path_str))
+#endif
+    {
+        // the new include file determines the actual current directory
+        ctx.set_current_directory(native_path_str.c_str());
+
+        // preprocess the opened file
+        boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
+            new iteration_context_type(ctx, native_path_str.c_str(), act_pos,
+                boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
+                is_system ? base_iteration_context_type::system_header :
+                base_iteration_context_type::user_header));
+
+        // call the include policy trace function
+        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path,
+            is_system);
+
+        // store current file position
+        iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
+        iter_ctx->filename = act_pos.get_file();
+        iter_ctx->line = act_pos.get_line();
+        iter_ctx->if_block_depth = ctx.get_if_block_depth();
+        iter_ctx->emitted_lines = (unsigned int)(-1);   // force #line directive
+
+        // push the old iteration context onto the stack and continue with the new
+        ctx.push_iteration_context(act_pos, iter_ctx);
+        iter_ctx = new_iter_ctx;
+        seen_newline = true;        // fake a newline to trigger pp_directive
+        must_emit_line_directive = true;
+
+        act_pos.set_file(iter_ctx->filename);  // initialize file position
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        fs::path rfp(iter_ctx->real_filename.c_str()); 
+        std::string real_filename(rfp.string());
+        ctx.set_current_filename(real_filename.c_str());
+#endif
+
+        ctx.set_current_relative_filename(dir_path.c_str());
+        iter_ctx->real_relative_filename = dir_path.c_str();
+
+        act_pos.set_line(iter_ctx->line);
+        act_pos.set_column(0);
+    }
+    return true;
+}
 #endif
