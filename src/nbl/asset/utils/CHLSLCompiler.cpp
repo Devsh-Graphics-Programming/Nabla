@@ -152,8 +152,7 @@ using wave_context_t = nbl::wave::context<std::string::iterator>;
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    wave::custom_preprocessing_hooks hooks(preprocessOptions);
-    wave_context_t context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), hooks);
+    wave_context_t context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
     context.set_language(static_cast<boost::wave::language_support>(language));
     context.add_macro_definition("__HLSL_VERSION");
