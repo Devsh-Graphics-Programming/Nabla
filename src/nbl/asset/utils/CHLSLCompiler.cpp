@@ -148,11 +148,10 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
 
 
 #include "nbl/asset/utils/waveContext.h"
-using wave_context_t = nbl::wave::context<std::string::iterator>;
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    wave_context_t context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
+    nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
     context.set_language(static_cast<boost::wave::language_support>(language));
     context.add_macro_definition("__HLSL_VERSION");
@@ -173,9 +172,13 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             stream << i->get_value();
         resolvedString = stream.str();
     }
+    catch (boost::wave::preprocess_exception& e)
+    {
+        preprocessOptions.logger.log("Boost.Wave %s exception caught!",system::ILogger::ELL_ERROR,e.what());
+    }
     catch (...)
     {
-        preprocessOptions.logger.log("Boost.Wave exception caught!",system::ILogger::ELL_ERROR);
+        preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
     }
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer

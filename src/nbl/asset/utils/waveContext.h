@@ -22,7 +22,7 @@ using namespace boost::wave;
 using namespace boost::wave::util;
 
 // for including builtins 
-struct load_to_string
+struct load_to_string final
 {
     template <typename IterContextT>
     class inner
@@ -44,10 +44,9 @@ struct load_to_string
                 else // regular #include "..."
                     result = inclFinder->getIncludeRelative(requestingSourceDir,filepath);
 
-                if (result)
-                    iter_ctx.instring = *result;
-                else
-                    iter_ctx.instring = "#error \""+filepath+"\" not found\n";
+                // If located then must be possible to open!
+                assert(result);
+                iter_ctx.instring = *result;
 
                 iter_ctx.first = iterator_type(iter_ctx.instring.begin(),iter_ctx.instring.end(),PositionT(iter_ctx.filename),language);
                 iter_ctx.last = iterator_type();
@@ -59,14 +58,10 @@ struct load_to_string
 };
 
 
-struct preprocessing_hooks : public boost::wave::context_policies::default_preprocessing_hooks
+struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
         : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
-
-    const IShaderCompiler::CIncludeFinder* m_includeFinder;
-    system::logger_opt_ptr m_logger;
-    IShader::E_SHADER_STAGE m_pragmaStage;
 
 
     template <typename ContextT>
@@ -79,10 +74,7 @@ struct preprocessing_hooks : public boost::wave::context_policies::default_prepr
         dir_path = ctx.get_current_directory().string();
         std::optional<std::string> result;
         if (is_system)
-        {
             result = m_includeFinder->getIncludeStandard(dir_path, file_path);
-            dir_path = "";
-        }
         else
             result = m_includeFinder->getIncludeRelative(dir_path, file_path);
 
@@ -148,28 +140,19 @@ struct preprocessing_hooks : public boost::wave::context_policies::default_prepr
         m_logger.log("Pre-processor encountered error directive:\n%s", nbl::system::ILogger::ELL_ERROR, stream.str().c_str());
         return false;
     }
+
+
+    const IShaderCompiler::CIncludeFinder* m_includeFinder;
+    system::logger_opt_ptr m_logger;
+    IShader::E_SHADER_STAGE m_pragmaStage;
 };
 
-class include_paths
+class include_paths final
 {
-    private:
-        typedef std::list<std::pair<system::path, std::string> >
-            include_list_type;
-        typedef include_list_type::value_type include_value_type;
-
     public:
-        inline include_paths() : was_sys_include_path(false), current_dir() {}
+        inline include_paths() : current_dir() {}
 
-        bool add_include_path(char const* path_, bool is_system = false)
-        {
-            return add_include_path(path_, (is_system || was_sys_include_path) ?
-                system_include_paths : user_include_paths);
-        }
-
-        void set_sys_include_delimiter() { was_sys_include_path = true; }
-
-        bool find_include_file(std::string& s, std::string& dir, bool is_system, char const* current_file) const;
-
+        // Nabla Additions Start
         system::path get_current_directory() const
         {
             return current_dir;
@@ -181,43 +164,30 @@ class include_paths
             fs::path filename = current_dir.is_absolute() ? filepath : (current_dir / filepath);
             current_dir = filename.parent_path();
         }
-
-    protected:
-        bool find_include_file(std::string& s, std::string& dir,
-            include_list_type const& pathes, char const*) const;
-        bool add_include_path(char const* path_, include_list_type& pathes_);
+        // Nabla Additions End
 
     private:
-        include_list_type user_include_paths;
-        include_list_type system_include_paths;
-        bool was_sys_include_path;          // saw a set_sys_include_delimiter()
         system::path current_dir;
 };
 
-template <
-    typename IteratorT,
-    typename LexIteratorT = boost::wave::cpplexer::lex_iterator<boost::wave::cpplexer::lex_token<>>
->
 class context : private boost::noncopyable
 {
     private:
         using actual_context_type = context;
 
     public:
-        // public typedefs
-        typedef typename LexIteratorT::token_type       token_type;
-        typedef typename token_type::string_type        string_type;
+        using token_type = boost::wave::cpplexer::lex_token<>;
+        using string_type = token_type::string_type;
 
-        typedef IteratorT                               target_iterator_type;
-        typedef LexIteratorT                            lexer_type;
+        using target_iterator_type = core::string::iterator;
+        using lexer_type = boost::wave::cpplexer::lex_iterator<token_type>;
         typedef pp_iterator<context>                    iterator_type;
 
         using input_policy_type = load_to_string;
-        typedef typename token_type::position_type      position_type;
+        using position_type = token_type::position_type;
 
         // type of a token sequence
-        typedef std::list<token_type, boost::fast_pool_allocator<token_type> >
-            token_sequence_type;
+        using token_sequence_type = std::list<token_type,boost::fast_pool_allocator<token_type>>;
 
     private:
         // stack of shared_ptr's to the pending iteration contexts
@@ -266,15 +236,6 @@ class context : private boost::noncopyable
         }
 
         // maintain include paths
-        bool add_include_path(char const* path_)
-        {
-            return includes.add_include_path(path_, false);
-        }
-        bool add_sysinclude_path(char const* path_)
-        {
-            return includes.add_include_path(path_, true);
-        }
-        void set_sysinclude_delimiter() { includes.set_sys_include_delimiter(); }
         typename iteration_context_stack_type::size_type get_iteration_depth() const
         {
             return iter_ctxs.size();
@@ -400,11 +361,13 @@ class context : private boost::noncopyable
             return *static_cast<actual_context_type const*>(this);
         }
 
+        // Nabla Additions Start
         // return the directory of the currently preprocessed file
-        nbl::system::path get_current_directory() const
+        system::path get_current_directory() const
         {
             return includes.get_current_directory();
         }
+        // Nabla Additions End
 
 #if !defined(BOOST_NO_MEMBER_TEMPLATE_FRIENDS)
     protected:
@@ -416,15 +379,12 @@ class context : private boost::noncopyable
         // make sure the context has been initialized
         void init_context()
         {
-            if (!has_been_initialized) {
-                std::string fname(filename);
-                if (filename != "<Unknown>" && filename != "<stdin>") {
-                    nbl::system::path fpath(filename);
-                    fname = fpath.string();
-                    includes.set_current_directory(fname.c_str());
-                }
-                has_been_initialized = true;  // execute once
-            }
+            if (has_been_initialized)
+                return;
+
+            nbl::system::path fpath(filename);
+            includes.set_current_directory(fpath.string().c_str());
+            has_been_initialized = true;  // execute once
         }
 
         template <typename IteratorT2>
@@ -507,12 +467,6 @@ class context : private boost::noncopyable
             return current_relative_filename;
         }
 
-        bool find_include_file(std::string& s, std::string& d, bool is_system,
-            char const* current_file) const
-        {
-            return includes.find_include_file(s, d, is_system, current_file);
-        }
-
     private:
         // the main input stream
         target_iterator_type first;         // underlying input stream
@@ -532,7 +486,7 @@ class context : private boost::noncopyable
 }
 
 
-template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context<std::string::iterator>>::on_include_helper(char const* f, char const* s, bool is_system, bool include_next)
+template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context>::on_include_helper(char const* f, char const* s, bool is_system, bool include_next)
 {
     assert(!include_next);
     namespace fs = boost::filesystem;
@@ -547,11 +501,9 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     file_path = util::impl::unescape_lit(file_path);
     std::string native_path_str;
-
     if (!ctx.get_hooks().locate_include_file(ctx, file_path, is_system, nullptr, dir_path, native_path_str))
     {
-        BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file,
-            file_path.c_str(), act_pos);
+        BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
     }
 
@@ -568,8 +520,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
                 base_iteration_context_type::user_header));
 
         // call the include policy trace function
-        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path,
-            is_system);
+        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path, is_system);
 
         // store current file position
         iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
