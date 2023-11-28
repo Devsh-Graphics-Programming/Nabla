@@ -77,31 +77,29 @@ static tcpp::TInputStreamUniquePtr getInputStreamInclude(
     std::vector<std::pair<uint32_t, std::string>>& includeStack
 )
 {
-    std::filesystem::path relDir;
+    std::filesystem::path requestingSourceDir;
     #ifdef NBL_EMBED_BUILTIN_RESOURCES
     const bool reqFromBuiltin = nbl::builtin::hasPathPrefix(requestingSource) || spirv::builtin::hasPathPrefix(requestingSource);
     const bool reqBuiltin = nbl::builtin::hasPathPrefix(requestedSource) || spirv::builtin::hasPathPrefix(requestedSource);
+    //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
+    //  This rule applies also while a builtin is #includ`ing another builtin.
+    //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
+    //  or path relative to executable's working directory (""-type).
     if (!reqFromBuiltin && !reqBuiltin)
-    {
-        //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-        //  This rule applies also while a builtin is #includ`ing another builtin.
-        //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-        //  or path relative to executable's working directory (""-type).
-        relDir = std::filesystem::path(requestingSource).parent_path();
-    }
     #else
     const bool reqBuiltin = false;
     #endif // NBL_EMBED_BUILTIN_RESOURCES
-    std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
+        requestingSourceDir = system::path(requestingSource).parent_path();
 
+    system::path name = isRelative ? (requestingSourceDir / requestedSource) : (requestedSource);
     if (std::filesystem::exists(name) && !reqBuiltin)
         name = std::filesystem::absolute(name);
 
     std::optional<std::string> result;
     if (isRelative)
-        result = inclFinder->getIncludeRelative(relDir, requestedSource);
+        result = inclFinder->getIncludeRelative(requestingSourceDir, requestedSource);
     else //shaderc_include_type_standard
-        result = inclFinder->getIncludeStandard(relDir, requestedSource);
+        result = inclFinder->getIncludeStandard(requestingSourceDir, requestedSource);
 
     if (!result) 
     {

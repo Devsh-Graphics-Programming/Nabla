@@ -74,7 +74,7 @@ class NBL_API2 CFileArchive : public IFileArchive
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
 
 	protected:
-		CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, std::shared_ptr<core::vector<SFileList::SEntry>> _items) :
+		inline CFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger, std::shared_ptr<core::vector<SFileList::SEntry>> _items) :
 			IFileArchive(std::move(_defaultAbsolutePath),std::move(logger))
 		{
 			setItemList(_items);
@@ -86,7 +86,7 @@ class NBL_API2 CFileArchive : public IFileArchive
 				m_fileFlags[i].clear();
 			memset(m_filesBuffer,0,fileCount*SIZEOF_INNER_ARCHIVE_FILE);
 		}
-		~CFileArchive()
+		inline ~CFileArchive()
 		{ 
 			_NBL_ALIGNED_FREE(m_filesBuffer);
 			_NBL_ALIGNED_FREE(m_fileFlags);
