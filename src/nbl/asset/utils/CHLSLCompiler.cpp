@@ -152,8 +152,6 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
-    auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
-    context.set_language(static_cast<boost::wave::language_support>(language));
     context.add_macro_definition("__HLSL_VERSION");
    
      // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 

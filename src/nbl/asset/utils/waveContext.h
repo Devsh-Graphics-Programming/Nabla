@@ -49,32 +49,12 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
         : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
 
-
     template <typename ContextT>
-    bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name) 
+    bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
     {
-        assert(current_name==nullptr);
-        if (!m_includeFinder)
-            return false;
-
-        dir_path = ctx.get_current_directory().string();
-        std::optional<std::string> result;
-        if (is_system)
-            result = m_includeFinder->getIncludeStandard(dir_path, file_path);
-        else
-            result = m_includeFinder->getIncludeRelative(dir_path, file_path);
-
-        if (!result)
-        {
-            m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
-            return false;
-        }
-        ctx.set_located_include_content(std::move(*result));
-        // TODO:
-        native_name = file_path;
-        return true;
+        assert(false); // should never be called
+        return false;
     }
-
 
     // interpretation of #pragma's of the form 'wave option[(value)]'
     template <typename ContextT, typename ContainerT>
@@ -172,8 +152,9 @@ class context : private boost::noncopyable
             , current_relative_filename(fname)
             , macros(*this_())
             , language(language_support(
-                support_cpp
+                support_cpp20
                 | support_option_convert_trigraphs
+                | support_option_preserve_comments
                 | support_option_emit_line_directives
                 | support_option_emit_pragma_directives
                 | support_option_insert_whitespace
@@ -291,13 +272,6 @@ class context : private boost::noncopyable
         }
 
         // access current language options
-        void set_language(boost::wave::language_support language_,
-            bool reset_macros = true)
-        {
-            language = language_;
-            if (reset_macros)
-                reset_macro_definitions();
-        }
         boost::wave::language_support get_language() const { return language; }
 
         position_type& get_main_pos() { return macros.get_main_pos(); }
@@ -328,20 +302,13 @@ class context : private boost::noncopyable
         }
 
         // Nabla Additions Start
-        system::path get_current_directory() const
+        const system::path& get_current_directory() const
         {
             return current_dir;
         }
-        void set_current_directory(char const* path_)
+        void set_current_directory(const system::path& filepath)
         {
-            namespace fs = nbl::system;
-            fs::path filepath(path_);
-            fs::path filename = current_dir.is_absolute() ? filepath : (current_dir / filepath);
-            current_dir = filename.parent_path();
-        }
-        void set_located_include_content(core::string&& content)
-        {
-            located_include_content = std::move(content);
+            current_dir = filepath.parent_path();
         }
         const core::string& get_located_include_content() const
         {
@@ -362,8 +329,7 @@ class context : private boost::noncopyable
             if (has_been_initialized)
                 return;
 
-            nbl::system::path fpath(filename);
-            set_current_directory(fpath.string().c_str());
+            set_current_directory(system::path(filename));
             has_been_initialized = true;  // execute once
         }
 
@@ -445,8 +411,9 @@ class context : private boost::noncopyable
         // the main input stream
         target_iterator_type first;         // underlying input stream
         target_iterator_type last;
-        std::string filename;               // associated main filename
+        const std::string filename;               // associated main filename
         bool has_been_initialized;          // set cwd once
+
         std::string current_relative_filename;        // real relative name of current preprocessed file
 
         // Nabla Additions Start
@@ -458,7 +425,7 @@ class context : private boost::noncopyable
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
         iteration_context_stack_type iter_ctxs;       // iteration contexts
         macromap_type macros;                         // map of defined macros
-        boost::wave::language_support language;       // supported language/extensions
+        const boost::wave::language_support language;       // supported language/extensions
         preprocessing_hooks hooks;                    // hook policy instance
 };
 
@@ -472,34 +439,45 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     // try to locate the given file, searching through the include path lists
     std::string file_path(s);
-    std::string dir_path;
 
     // call the 'found_include_directive' hook function
     if (ctx.get_hooks().found_include_directive(ctx.derived(),f,include_next))
         return true;    // client returned false: skip file to include
-
     file_path = util::impl::unescape_lit(file_path);
-    std::string native_path_str;
-    if (!ctx.get_hooks().locate_include_file(ctx, file_path, is_system, nullptr, dir_path, native_path_str))
+
+    std::optional<std::string> result;
+    auto* includeFinder = ctx.get_hooks().m_includeFinder;
+    if (includeFinder)
     {
+        if (is_system)
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(),file_path);
+        else
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
+    }
+
+    if (!result)
+    {
+        ctx.get_hooks().m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
     }
 
-    // test, if this file is known through a #pragma once directive
-    {
-        // the new include file determines the actual current directory
-        ctx.set_current_directory(native_path_str.c_str());
+    ctx.located_include_content = std::move(*result);
+    // the new include file determines the actual current directory
+    // TODO: the found file can be in a completely different place
+    nbl::system::path abs_path = ctx.get_current_directory()/file_path;
+    ctx.set_current_directory(abs_path);
 
+    {
         // preprocess the opened file
         boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
-            new iteration_context_type(ctx, native_path_str.c_str(), act_pos,
+            new iteration_context_type(ctx,abs_path.string().c_str(),act_pos,
                 boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
                 is_system ? base_iteration_context_type::system_header :
                 base_iteration_context_type::user_header));
 
         // call the include policy trace function
-        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path, is_system);
+        ctx.get_hooks().opened_include_file(ctx.derived(), file_path, abs_path.string(), is_system);
 
         // store current file position
         iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
@@ -516,12 +494,13 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
         act_pos.set_file(iter_ctx->filename);  // initialize file position
 
-        ctx.set_current_relative_filename(dir_path.c_str());
-        iter_ctx->real_relative_filename = dir_path.c_str();
+        ctx.set_current_relative_filename(file_path.c_str());
+        iter_ctx->real_relative_filename = file_path.c_str();
 
         act_pos.set_line(iter_ctx->line);
         act_pos.set_column(0);
     }
+
     return true;
 }
 #endif
