@@ -133,9 +133,12 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 
 std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    if (preprocessOptions.extraDefines.size())
+    if (!preprocessOptions.extraDefines.empty())
     {
-        insertExtraDefines(code, preprocessOptions.extraDefines);
+        std::ostringstream insertion;
+        for (const auto& define : preprocessOptions.extraDefines)
+            insertion << "#define " << define.identifier << " " << define.definition << "\n";
+        insertIntoStart(code,std::move(insertion));
     }
     IShaderCompiler::disableAllDirectivesExceptIncludes(code);
     disableGlDirectives(code);
@@ -145,7 +148,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     if (preprocessOptions.includeFinder != nullptr)
     {
-        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
+        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), /*maxSelfInclusionCount*/5));//custom #include handler
     }
     const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
     auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);

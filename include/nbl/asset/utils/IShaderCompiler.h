@@ -115,8 +115,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
-			uint32_t maxSelfInclusionCount = 4u;
-			core::SRange<const char* const> extraDefines = {nullptr, nullptr};
+			struct SMacroDefinition
+			{
+				std::string_view identifier;
+				std::string_view definition;
+			};
+			std::span<const SMacroDefinition> extraDefines = {};
 		};
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
@@ -289,8 +293,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	protected:
 
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
-
-		void insertExtraDefines(std::string& code, const core::SRange<const char* const>& defines) const;
 
 		core::smart_refctd_ptr<system::ISystem> m_system;
 	private:
