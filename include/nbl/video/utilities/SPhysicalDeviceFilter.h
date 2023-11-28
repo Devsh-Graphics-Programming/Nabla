@@ -22,18 +22,32 @@ namespace nbl::video
             size_t size = 0ull;
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryFlags = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
         };
-        MemoryRequirement* memoryRequirements = nullptr;
+        const MemoryRequirement* memoryRequirements = nullptr;
         uint32_t memoryRequirementsCount = 0u;
         
         struct QueueRequirement
         {
+            inline bool familyMatches(const IPhysicalDevice::SQueueFamilyProperties& props) const
+            {
+                if (!props.queueFlags.hasFlags(requiredFlags))
+                    return false;
+
+                // doesn't have disallowed flags
+                if ((props.queueFlags&disallowedFlags).value)
+                    return false;
+
+                return maxImageTransferGranularity.width >= props.minImageTransferGranularity.width &&
+                        maxImageTransferGranularity.height >= props.minImageTransferGranularity.height &&
+                        maxImageTransferGranularity.depth >= props.minImageTransferGranularity.depth;
+            }
+
             core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> requiredFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
             core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> disallowedFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
             uint32_t queueCount = 0u;
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
         };
-        QueueRequirement* queueRequirements = nullptr;
+        const QueueRequirement* queueRequirements = nullptr;
         uint32_t queueRequirementsCount = 0u;
 
         // To determine whether a queue family of a physical device supports presentation to a given surface
@@ -47,6 +61,18 @@ namespace nbl::video
         SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
         uint32_t requiredSurfaceCompatibilitiesCount = 0u;
 
+
+        // sift through multiple devices
+        core::set<IPhysicalDevice*> operator()(const core::SRange<IPhysicalDevice* const>& physicalDevices) const
+        {
+		    core::set<IPhysicalDevice*> ret;
+		    for (auto& physDev : physicalDevices)
+			if (meetsRequirements(physDev))
+				ret.insert(physDev);
+            return ret;
+        }
+
+        // check one device
         bool meetsRequirements(const IPhysicalDevice * const physicalDevice) const
         {
             const auto& properties = physicalDevice->getProperties();
@@ -148,25 +174,11 @@ namespace nbl::video
                 for (uint32_t qfam = 0; qfam < queueProps.size(); ++qfam)
                 {
                     const auto& queueFamilyProps = queueProps[qfam];
-
-                    // has requiredFlags
-                    if (queueFamilyProps.queueFlags.hasFlags(queueReqs.requiredFlags))
-                    {
-                        // doesn't have disallowed flags
-                        if ((queueFamilyProps.queueFlags & queueReqs.disallowedFlags).value == 0)
-                        {
-                            // imageTransferGranularity
-                            if (queueReqs.maxImageTransferGranularity.width > queueFamilyProps.minImageTransferGranularity.width &&
-                                queueReqs.maxImageTransferGranularity.height > queueFamilyProps.minImageTransferGranularity.height &&
-                                queueReqs.maxImageTransferGranularity.depth > queueFamilyProps.minImageTransferGranularity.depth)
-                            {
-                                queueCount = (queueFamilyProps.queueCount > queueCount) ? 0ull : queueCount - queueFamilyProps.queueCount;
-                            }
-                        }
-                    }
+                    if (queueReqs.familyMatches(queueFamilyProps))
+                        queueCount -= core::min(queueFamilyProps.queueCount,queueCount);
                 }
 
-                if (queueCount > 0)
+                if (queueCount>0)
                     return false;
             }
 

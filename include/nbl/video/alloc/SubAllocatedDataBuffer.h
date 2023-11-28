@@ -195,13 +195,13 @@ class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryA
         }
 
         //!
-        inline void         cull_frees() noexcept
+        inline uint32_t         cull_frees() noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.cullEvents(0u);
+            return deferredFrees.cullEvents(0u);
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more

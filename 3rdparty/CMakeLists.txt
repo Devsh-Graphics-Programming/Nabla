@@ -160,24 +160,34 @@ add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
 
-#openexr
+# OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
-if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-	set(BUILD_SHARED_LIBS OFF)
-	set(BUILD_STATIC_LIBS OFF)
-	set(BUILD_TESTING OFF)
-	set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-	set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-	set(OPENEXR_VIEWERS_ENABLE OFF CACHE STRING "" FORCE)
-	add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
-endif()
 
+# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
+# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
+# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
+# but it's core 
+
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
+set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
+set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
+set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
+set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
+
+add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -193,10 +203,6 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
-
-
-nbl_adjust_flags()
-
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -295,12 +301,7 @@ option(GLM_TEST_ENABLE "Build unit tests" OFF)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
-
 if (NBL_BUILD_MITSUBA_LOADER)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./libexpat)
-	endif()
-
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
    option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
@@ -321,25 +322,13 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-
 if (NBL_BUILD_BULLET)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./bullet3)
-	endif()
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
-
-
-if (NBL_COMPILE_WITH_CUDA)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./jitify)
-	endif()
-endif()
-
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS
@@ -362,18 +351,15 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
+				Imath
+				OpenEXRCore
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
-	    IlmBaseConfig
-		IlmImfConfig
-		Imath
-		IlmThread
-		IlmImf
-		Half
+		OpenEXR
 		Iex
-		IexMath
+		IlmThread
 	)
 endif()
 if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
@@ -398,10 +384,16 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		else()
 			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(MSVC AND NBL_SANITIZE_ADDRESS)
+			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+		endif()
 endforeach()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
+
+nbl_adjust_flags()
 
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
