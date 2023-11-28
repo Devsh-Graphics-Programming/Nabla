@@ -32,8 +32,572 @@ using Microsoft::WRL::ComPtr;
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
 
 
+namespace nbl::wave {
+    using namespace boost;
+    using namespace boost::wave;
+    using namespace boost::wave::util;
 
-namespace nbl::asset::hlsl::impl
+
+    class include_paths
+    {
+    private:
+        typedef std::list<std::pair<system::path, std::string> >
+            include_list_type;
+        typedef include_list_type::value_type include_value_type;
+
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        typedef boost::wave::util::bidirectional_map<std::string, std::string>::type
+            pragma_once_set_type;
+#endif
+
+    public:
+        include_paths()
+            : was_sys_include_path(false),
+            current_dir(),
+            current_rel_dir()
+        {}
+
+        bool add_include_path(char const* path_, bool is_system = false)
+        {
+            return add_include_path(path_, (is_system || was_sys_include_path) ?
+                system_include_paths : user_include_paths);
+        }
+
+        void set_sys_include_delimiter() { was_sys_include_path = true; }
+
+        bool find_include_file(std::string& s, std::string& dir, bool is_system,
+            char const* current_file) const;
+        system::path get_current_directory() const
+        {
+            return current_dir;
+        }
+        void set_current_directory(char const* path_) {
+            namespace fs = nbl::system;
+            fs::path filepath(path_);
+            fs::path filename = current_dir.is_absolute() ? filepath : (current_dir / filepath);
+            current_rel_dir.clear();
+            current_rel_dir = filepath.parent_path();
+            current_dir = filename.parent_path();
+        }
+
+    protected:
+        bool find_include_file(std::string& s, std::string& dir,
+            include_list_type const& pathes, char const*) const;
+        bool add_include_path(char const* path_, include_list_type& pathes_);
+
+    private:
+        include_list_type user_include_paths;
+        include_list_type system_include_paths;
+        bool was_sys_include_path;          // saw a set_sys_include_delimiter()
+        system::path current_dir;
+        system::path current_rel_dir;
+
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    public:
+        bool has_pragma_once(std::string const& filename)
+        {
+            using boost::multi_index::get;
+            return get<boost::wave::util::from>(pragma_once_files).find(filename) != pragma_once_files.end();
+        }
+        bool add_pragma_once_header(std::string const& filename,
+            std::string const& guard_name)
+        {
+            typedef pragma_once_set_type::value_type value_type;
+            return pragma_once_files.insert(value_type(filename, guard_name)).second;
+        }
+        bool remove_pragma_once_header(std::string const& guard_name)
+        {
+            typedef pragma_once_set_type::index_iterator<boost::wave::util::to>::type to_iterator;
+            typedef std::pair<to_iterator, to_iterator> range_type;
+
+            range_type r = pragma_once_files.get<boost::wave::util::to>().equal_range(guard_name);
+            if (r.first != r.second) {
+                using boost::multi_index::get;
+                get<boost::wave::util::to>(pragma_once_files).erase(r.first, r.second);
+                return true;
+            }
+            return false;
+        }
+
+    private:
+        pragma_once_set_type pragma_once_files;
+#endif
+    };
+
+    struct this_type {};
+
+    template <
+        typename IteratorT,
+        typename LexIteratorT = lex_iterator_t,
+        typename InputPolicyT = nbl::asset::impl::load_file_or_builtin_to_string,
+        typename HooksT = nbl::asset::impl::custom_preprocessing_hooks,
+        typename DerivedT = this_type
+    >
+    class context : private boost::noncopyable
+    {
+    private:
+        typedef typename mpl::if_<
+            boost::is_same<DerivedT, this_type>, context, DerivedT
+        >::type actual_context_type;
+
+    public:
+        // public typedefs
+        typedef typename LexIteratorT::token_type       token_type;
+        typedef typename token_type::string_type        string_type;
+
+        typedef IteratorT                               target_iterator_type;
+        typedef LexIteratorT                            lexer_type;
+        typedef pp_iterator<context>                    iterator_type;
+
+        typedef InputPolicyT                            input_policy_type;
+        typedef typename token_type::position_type      position_type;
+
+        // type of a token sequence
+        typedef std::list<token_type, boost::fast_pool_allocator<token_type> >
+            token_sequence_type;
+        // type of the policies
+        typedef HooksT                                  hook_policy_type;
+
+    private:
+        // stack of shared_ptr's to the pending iteration contexts
+        typedef boost::shared_ptr<base_iteration_context<context, lexer_type> >
+            iteration_ptr_type;
+        typedef boost::wave::util::iteration_context_stack<iteration_ptr_type>
+            iteration_context_stack_type;
+        typedef typename iteration_context_stack_type::size_type iter_size_type;
+
+        context* this_() { return this; }           // avoid warning in constructor
+
+    public:
+        context(target_iterator_type const& first_, target_iterator_type const& last_,
+            char const* fname = "<Unknown>", HooksT const& hooks_ = HooksT())
+            : first(first_), last(last_), filename(fname)
+            , has_been_initialized(false)
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+            , current_filename(fname)
+#endif
+            , current_relative_filename(fname)
+            , macros(*this_())
+            , language(language_support(
+                support_cpp
+                | support_option_convert_trigraphs
+                | support_option_emit_line_directives
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+                | support_option_include_guard_detection
+#endif
+#if BOOST_WAVE_EMIT_PRAGMA_DIRECTIVES != 0
+                | support_option_emit_pragma_directives
+#endif
+                | support_option_insert_whitespace
+            ))
+            , hooks(hooks_)
+        {
+            macros.init_predefined_macros(fname);
+        }
+
+        // default copy constructor
+        // default assignment operator
+        // default destructor
+
+        // iterator interface
+        iterator_type begin()
+        {
+            return iterator_type(*this, first, last, position_type(filename.c_str()));
+        }
+        iterator_type begin(target_iterator_type const& first_, target_iterator_type const& last_)
+        {
+            return iterator_type(*this, first_, last_, position_type(filename.c_str()));
+        }
+        iterator_type end() const
+        {
+            return iterator_type();
+        }
+
+        // maintain include paths
+        bool add_include_path(char const* path_)
+        {
+            return includes.add_include_path(path_, false);
+        }
+        bool add_sysinclude_path(char const* path_)
+        {
+            return includes.add_include_path(path_, true);
+        }
+        void set_sysinclude_delimiter() { includes.set_sys_include_delimiter(); }
+        typename iteration_context_stack_type::size_type get_iteration_depth() const
+        {
+            return iter_ctxs.size();
+        }
+
+        // maintain defined macros
+#if BOOST_WAVE_ENABLE_COMMANDLINE_MACROS != 0
+        template <typename StringT>
+        bool add_macro_definition(StringT macrostring, bool is_predefined = false)
+        {
+            return boost::wave::util::add_macro_definition(*this,
+                util::to_string<std::string>(macrostring), is_predefined,
+                get_language());
+        }
+#endif
+        // Define and undefine macros, macro introspection
+        template <typename StringT>
+        bool add_macro_definition(StringT const& name, position_type const& pos,
+            bool has_params, std::vector<token_type>& parameters,
+            token_sequence_type& definition, bool is_predefined = false)
+        {
+            return macros.add_macro(
+                token_type(T_IDENTIFIER, util::to_string<string_type>(name), pos),
+                has_params, parameters, definition, is_predefined);
+        }
+        template <typename StringT>
+        bool is_defined_macro(StringT const& str) const
+        {
+            return macros.is_defined(util::to_string<string_type>(str));
+        }
+        template <typename StringT>
+        bool get_macro_definition(StringT const& name,
+            bool& has_params, bool& is_predefined, position_type& pos,
+            std::vector<token_type>& parameters,
+            token_sequence_type& definition) const
+        {
+            return macros.get_macro(util::to_string<string_type>(name),
+                has_params, is_predefined, pos, parameters, definition);
+        }
+        template <typename StringT>
+        bool remove_macro_definition(StringT const& undefname, bool even_predefined = false)
+        {
+            // strip leading and trailing whitespace
+            string_type name = util::to_string<string_type>(undefname);
+            typename string_type::size_type pos = name.find_first_not_of(" \t");
+            if (pos != string_type::npos) {
+                typename string_type::size_type endpos = name.find_last_not_of(" \t");
+                name = name.substr(pos, endpos - pos + 1);
+            }
+
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+            // ensure this gets removed from the list of include guards as well
+            includes.remove_pragma_once_header(
+                util::to_string<std::string>(name));
+#endif
+            return macros.remove_macro(name, macros.get_main_pos(), even_predefined);
+        }
+        void reset_macro_definitions()
+        {
+            macros.reset_macromap(); macros.init_predefined_macros();
+        }
+
+        // Iterate over names of defined macros
+        typedef boost::wave::util::macromap<context> macromap_type;
+        typedef typename macromap_type::name_iterator name_iterator;
+        typedef typename macromap_type::const_name_iterator const_name_iterator;
+
+        name_iterator macro_names_begin() { return macros.begin(); }
+        name_iterator macro_names_end() { return macros.end(); }
+        const_name_iterator macro_names_begin() const { return macros.begin(); }
+        const_name_iterator macro_names_end() const { return macros.end(); }
+
+        // This version now is used internally mainly, but since it was a documented
+        // API function we leave it in the public interface.
+        bool add_macro_definition(token_type const& name, bool has_params,
+            std::vector<token_type>& parameters, token_sequence_type& definition,
+            bool is_predefined = false)
+        {
+            return macros.add_macro(name, has_params, parameters, definition,
+                is_predefined);
+        }
+
+        // get the Wave version information
+        static std::string get_version()
+        {
+            boost::wave::util::predefined_macros p;
+            return util::to_string<std::string>(p.get_fullversion());
+        }
+        static std::string get_version_string()
+        {
+            boost::wave::util::predefined_macros p;
+            return util::to_string<std::string>(p.get_versionstr());
+        }
+
+        // access current language options
+        void set_language(boost::wave::language_support language_,
+            bool reset_macros = true)
+        {
+            language = language_;
+            if (reset_macros)
+                reset_macro_definitions();
+        }
+        boost::wave::language_support get_language() const { return language; }
+
+        position_type& get_main_pos() { return macros.get_main_pos(); }
+        position_type const& get_main_pos() const { return macros.get_main_pos(); }
+
+        // change and ask for maximal possible include nesting depth
+        void set_max_include_nesting_depth(iter_size_type new_depth)
+        {
+            iter_ctxs.set_max_include_nesting_depth(new_depth);
+        }
+        iter_size_type get_max_include_nesting_depth() const
+        {
+            return iter_ctxs.get_max_include_nesting_depth();
+        }
+
+        // access the policies
+        hook_policy_type& get_hooks() { return hooks; }
+        hook_policy_type const& get_hooks() const { return hooks; }
+
+        // return type of actually used context type (might be the derived type)
+        actual_context_type& derived()
+        {
+            return *static_cast<actual_context_type*>(this);
+        }
+        actual_context_type const& derived() const
+        {
+            return *static_cast<actual_context_type const*>(this);
+        }
+
+        // return the directory of the currently preprocessed file
+        nbl::system::path get_current_directory() const
+        {
+            return includes.get_current_directory();
+        }
+
+#if !defined(BOOST_NO_MEMBER_TEMPLATE_FRIENDS)
+    protected:
+        friend class boost::wave::pp_iterator<context>;
+        friend class boost::wave::impl::pp_iterator_functor<context>;
+        friend class boost::wave::util::macromap<context>;
+#endif
+
+        // make sure the context has been initialized
+        void init_context()
+        {
+            if (!has_been_initialized) {
+                std::string fname(filename);
+                if (filename != "<Unknown>" && filename != "<stdin>") {
+                    nbl::system::path fpath(filename);
+                    fname = fpath.string();
+                    includes.set_current_directory(fname.c_str());
+                }
+                has_been_initialized = true;  // execute once
+            }
+        }
+
+        template <typename IteratorT2>
+        bool is_defined_macro(IteratorT2 const& begin, IteratorT2 const& end) const
+        {
+            return macros.is_defined(begin, end);
+        }
+
+        // maintain include paths (helper functions)
+        void set_current_directory(char const* path_)
+        {
+            includes.set_current_directory(path_);
+        }
+
+        // conditional compilation contexts
+        bool get_if_block_status() const { return ifblocks.get_status(); }
+        bool get_if_block_some_part_status() const
+        {
+            return ifblocks.get_some_part_status();
+        }
+        bool get_enclosing_if_block_status() const
+        {
+            return ifblocks.get_enclosing_status();
+        }
+        void enter_if_block(bool new_status)
+        {
+            ifblocks.enter_if_block(new_status);
+        }
+        bool enter_elif_block(bool new_status)
+        {
+            return ifblocks.enter_elif_block(new_status);
+        }
+        bool enter_else_block() { return ifblocks.enter_else_block(); }
+        bool exit_if_block() { return ifblocks.exit_if_block(); }
+        typename boost::wave::util::if_block_stack::size_type get_if_block_depth() const
+        {
+            return ifblocks.get_if_block_depth();
+        }
+
+        // stack of iteration contexts
+        iteration_ptr_type pop_iteration_context()
+        {
+            iteration_ptr_type top = iter_ctxs.top(); iter_ctxs.pop(); return top;
+        }
+        void push_iteration_context(position_type const& act_pos, iteration_ptr_type iter_ctx)
+        {
+            iter_ctxs.push(*this, act_pos, iter_ctx);
+        }
+
+        template <typename IteratorT2>
+        token_type expand_tokensequence(IteratorT2& first_, IteratorT2 const& last_,
+            token_sequence_type& pending, token_sequence_type& expanded,
+            bool& seen_newline, bool expand_defined = false,
+            bool expand_has_include = false)
+        {
+            return macros.expand_tokensequence(first_, last_, pending, expanded,
+                seen_newline, expand_defined, expand_has_include);
+        }
+
+        template <typename IteratorT2>
+        void expand_whole_tokensequence(IteratorT2& first_, IteratorT2 const& last_,
+            token_sequence_type& expanded, bool expand_defined = true,
+            bool expand_has_include = true)
+        {
+            macros.expand_whole_tokensequence(
+                expanded, first_, last_,
+                expand_defined, expand_has_include);
+
+            // remove any contained placeholder
+            boost::wave::util::impl::remove_placeholders(expanded);
+        }
+
+    public:
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        // support for #pragma once
+        // maintain the real name of the current preprocessed file
+        void set_current_filename(char const* real_name)
+        {
+            current_filename = real_name;
+        }
+        std::string const& get_current_filename() const
+        {
+            return current_filename;
+        }
+
+        // maintain the list of known headers containing #pragma once
+        bool has_pragma_once(std::string const& filename_)
+        {
+            return includes.has_pragma_once(filename_);
+        }
+        bool add_pragma_once_header(std::string const& filename_,
+            std::string const& guard_name)
+        {
+            get_hooks().detected_include_guard(derived(), filename_, guard_name);
+            return includes.add_pragma_once_header(filename_, guard_name);
+        }
+        bool add_pragma_once_header(token_type const& pragma_,
+            std::string const& filename_)
+        {
+            get_hooks().detected_pragma_once(derived(), pragma_, filename_);
+            return includes.add_pragma_once_header(filename_,
+                "__BOOST_WAVE_PRAGMA_ONCE__");
+        }
+#endif
+
+        void set_current_relative_filename(char const* real_name)
+        {
+            current_relative_filename = real_name;
+        }
+        std::string const& get_current_relative_filename() const
+        {
+            return current_relative_filename;
+        }
+
+        bool find_include_file(std::string& s, std::string& d, bool is_system,
+            char const* current_file) const
+        {
+            return includes.find_include_file(s, d, is_system, current_file);
+        }
+
+#if BOOST_WAVE_SERIALIZATION != 0
+    public:
+        BOOST_STATIC_CONSTANT(unsigned int, version = 0x10);
+        BOOST_STATIC_CONSTANT(unsigned int, version_mask = 0x0f);
+
+    private:
+        friend class boost::serialization::access;
+        template<class Archive>
+        void save(Archive& ar, const unsigned int version) const
+        {
+            using namespace boost::serialization;
+
+            string_type cfg(BOOST_PP_STRINGIZE(BOOST_WAVE_CONFIG));
+            string_type kwd(BOOST_WAVE_PRAGMA_KEYWORD);
+            string_type strtype(BOOST_PP_STRINGIZE((BOOST_WAVE_STRINGTYPE)));
+            ar& make_nvp("config", cfg);
+            ar& make_nvp("pragma_keyword", kwd);
+            ar& make_nvp("string_type", strtype);
+
+            ar& make_nvp("language_options", language);
+            ar& make_nvp("macro_definitions", macros);
+            ar& make_nvp("include_settings", includes);
+        }
+        template<class Archive>
+        void load(Archive& ar, const unsigned int loaded_version)
+        {
+            using namespace boost::serialization;
+            if (version != (loaded_version & ~version_mask)) {
+                BOOST_WAVE_THROW_CTX((*this), preprocess_exception,
+                    incompatible_config, "cpp_context state version",
+                    get_main_pos());
+                return;
+            }
+
+            // check compatibility of the stored information
+            string_type config, pragma_keyword, string_type_str;
+
+            // BOOST_PP_STRINGIZE(BOOST_WAVE_CONFIG)
+            ar& make_nvp("config", config);
+            if (config != BOOST_PP_STRINGIZE(BOOST_WAVE_CONFIG)) {
+                BOOST_WAVE_THROW_CTX((*this), preprocess_exception,
+                    incompatible_config, "BOOST_WAVE_CONFIG", get_main_pos());
+                return;
+            }
+
+            // BOOST_WAVE_PRAGMA_KEYWORD
+            ar& make_nvp("pragma_keyword", pragma_keyword);
+            if (pragma_keyword != BOOST_WAVE_PRAGMA_KEYWORD) {
+                BOOST_WAVE_THROW_CTX((*this), preprocess_exception,
+                    incompatible_config, "BOOST_WAVE_PRAGMA_KEYWORD",
+                    get_main_pos());
+                return;
+            }
+
+            // BOOST_PP_STRINGIZE((BOOST_WAVE_STRINGTYPE))
+            ar& make_nvp("string_type", string_type_str);
+            if (string_type_str != BOOST_PP_STRINGIZE((BOOST_WAVE_STRINGTYPE))) {
+                BOOST_WAVE_THROW_CTX((*this), preprocess_exception,
+                    incompatible_config, "BOOST_WAVE_STRINGTYPE", get_main_pos());
+                return;
+            }
+
+            try {
+                // read in the useful bits
+                ar& make_nvp("language_options", language);
+                ar& make_nvp("macro_definitions", macros);
+                ar& make_nvp("include_settings", includes);
+            }
+            catch (boost::wave::preprocess_exception const& e) {
+                // catch version mismatch exceptions and call error handler
+                get_hooks().throw_exception(derived(), e);
+            }
+        }
+        BOOST_SERIALIZATION_SPLIT_MEMBER()
+#endif
+
+    private:
+        // the main input stream
+        target_iterator_type first;         // underlying input stream
+        target_iterator_type last;
+        std::string filename;               // associated main filename
+        bool has_been_initialized;          // set cwd once
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        std::string current_filename;       // real name of current preprocessed file
+#endif
+        std::string current_relative_filename;        // real relative name of current preprocessed file
+
+        boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
+        include_paths includes;    // lists of include directories to search
+        iteration_context_stack_type iter_ctxs;       // iteration contexts
+        macromap_type macros;                         // map of defined macros
+        boost::wave::language_support language;       // supported language/extensions
+        hook_policy_type hooks;                       // hook policy instance
+    };
+
+}
+
+
+namespace nbl::asset::impl
 {
     struct DXC 
     {
@@ -45,111 +609,73 @@ namespace nbl::asset::hlsl::impl
     // for including builtins 
     struct load_file_or_builtin_to_string
     {
-
-    template <typename IterContextT>
-    class inner
-    {
-    public:
-        template <typename PositionT>
-        static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
+        template <typename IterContextT>
+        class inner
         {
-            using iterator_type = typename IterContextT::iterator_type;
-
-            std::string filepath(iter_ctx.filename.begin(), iter_ctx.filename.end());
-            auto inclFinder = iter_ctx.ctx.get_hooks().m_preprocessOptions.includeFinder;
-            if (inclFinder) 
+        public:
+            template <typename PositionT>
+            static void init_iterators(IterContextT& iter_ctx, PositionT const& act_pos, boost::wave::language_support language)
             {
-                std::optional<std::string> result;
-                system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
-                if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
-                    result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
-                else // regular #include "..."
-                    result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
+                using iterator_type = typename IterContextT::iterator_type;
 
-                if (!result)
-                    BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
-                        bad_include_file, iter_ctx.filename.c_str(), act_pos);
-                auto& res_str = *result;
-                iter_ctx.instring = res_str;
-            }
-            else // include finder not provided
-            {
-                auto builtin_pair = nbl::builtin::get_resource_runtime(filepath);
-                if (builtin_pair.first) // builtin exists
+                std::string filepath(iter_ctx.filename.begin(), iter_ctx.filename.end());
+                auto inclFinder = iter_ctx.ctx.get_hooks().m_includeFinder;
+                if (inclFinder) 
                 {
-                    iter_ctx.instring = std::string(builtin_pair.first, builtin_pair.first + builtin_pair.second);
-                }
-                else // default boost behavior
-                {
-                    // read in the file
-                    boost::filesystem::ifstream instream(iter_ctx.filename.c_str());
-                    if (!instream.is_open()) {
+                    std::optional<std::string> result;
+                    system::path requestingSourceDir(iter_ctx.ctx.get_current_directory().string());
+                    if (iter_ctx.type == IterContextT::base_type::file_type::system_header) // is it a sys include (#include <...>)?
+                        result = inclFinder->getIncludeStandard(requestingSourceDir, filepath);
+                    else // regular #include "..."
+                        result = inclFinder->getIncludeRelative(requestingSourceDir, filepath);
+
+                    if (!result)
                         BOOST_WAVE_THROW_CTX(iter_ctx.ctx, boost::wave::preprocess_exception,
                             bad_include_file, iter_ctx.filename.c_str(), act_pos);
-                        return;
-                    }
-                    instream.unsetf(std::ios::skipws);
-
-                    iter_ctx.instring.assign(
-                        std::istreambuf_iterator<char>(instream.rdbuf()),
-                        std::istreambuf_iterator<char>());
+                    auto& res_str = *result;
+                    iter_ctx.instring = res_str;
                 }
+                iter_ctx.first = iterator_type(
+                    iter_ctx.instring.begin(), iter_ctx.instring.end(),
+                    PositionT(iter_ctx.filename), language);
+                iter_ctx.last = iterator_type();
             }
-            iter_ctx.first = iterator_type(
-                iter_ctx.instring.begin(), iter_ctx.instring.end(),
-                PositionT(iter_ctx.filename), language);
-            iter_ctx.last = iterator_type();
-        }
 
-    private:
-        std::string instring;
-    };
+        private:
+            std::string instring;
+        };
     };
 
 
     struct custom_preprocessing_hooks : public boost::wave::context_policies::default_preprocessing_hooks
     {
 
-        custom_preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions, IShader::E_SHADER_STAGE& _stage) 
-            : m_preprocessOptions(_preprocessOptions), m_stage(_stage) {}
+        custom_preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
+            : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
 
-        IShaderCompiler::SPreprocessorOptions m_preprocessOptions;
-        IShader::E_SHADER_STAGE m_stage;
+        const IShaderCompiler::CIncludeFinder* m_includeFinder;
+        system::logger_opt_ptr m_logger;
+        IShader::E_SHADER_STAGE m_pragmaStage;
 
 
         template <typename ContextT>
         bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name) 
         {
             //on builtin return true
-            //default returns false if file does not exist
-            //if (builtin::hasPathPrefix(file_path))
-            //{
-            //    file_path = file_path.substr(builtin::pathPrefix.size() + 1); //trim path
-            //    return true;
-            //}
-            auto inclFinder = m_preprocessOptions.includeFinder;
             dir_path = ctx.get_current_directory().string();
             std::optional<std::string> result;
-            if (is_system)
-                result = inclFinder->getIncludeStandard(dir_path, file_path);
-            else //shaderc_include_type_standard
-                result = inclFinder->getIncludeRelative(dir_path, file_path);
+            if (is_system) {
+                result = m_includeFinder->getIncludeStandard(dir_path, file_path);
+                dir_path = "";
+            }
+            else
+                result = m_includeFinder->getIncludeRelative(dir_path, file_path);
             if (!result)
-                return false;
-            else {
-                native_name = file_path;
-                return true;
-            }
-
-            namespace fs = boost::filesystem;
-
-            fs::path native_path(boost::wave::util::create_path(file_path));
-            if (!fs::exists(native_path)) {
-
-                m_preprocessOptions.logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
-
+            {
+                m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
                 return false;
             }
+            native_name = file_path;
             return true;
         }
 
@@ -166,7 +692,7 @@ namespace nbl::asset::hlsl::impl
             {
                 auto valueIter = values.begin();
                 if (valueIter == values.end()) {
-                    m_preprocessOptions.logger.log("Pre-processor error:\nMalformed shader_stage pragma. No shaderstage option given", nbl::system::ILogger::ELL_ERROR);
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. No shaderstage option given", nbl::system::ILogger::ELL_ERROR);
                     return false;
                 }
                 auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
@@ -181,15 +707,15 @@ namespace nbl::asset::hlsl::impl
                 auto found = stageFromIdent.find(shaderStageIdentifier);
                 if (found == stageFromIdent.end())
                 {
-                    m_preprocessOptions.logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier);
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Unknown stage '%s'", nbl::system::ILogger::ELL_ERROR, shaderStageIdentifier);
                     return false;
                 }
                 valueIter++;
                 if (valueIter != values.end()) {
-                    m_preprocessOptions.logger.log("Pre-processor error:\nMalformed shader_stage pragma. Too many arguments", nbl::system::ILogger::ELL_ERROR);
+                    m_logger.log("Pre-processor error:\nMalformed shader_stage pragma. Too many arguments", nbl::system::ILogger::ELL_ERROR);
                     return false;
                 }
-                m_stage = found->second;
+                m_pragmaStage = found->second;
                 return true;
             }
             return false;
@@ -198,7 +724,7 @@ namespace nbl::asset::hlsl::impl
 
         template <typename ContextT, typename ContainerT>
         bool found_error_directive(ContextT const& ctx, ContainerT const& message) {
-            m_preprocessOptions.logger.log("Pre-processor error:\n%s", nbl::system::ILogger::ELL_ERROR, message);
+            m_logger.log("Pre-processor error:\n%s", nbl::system::ILogger::ELL_ERROR, message);
             return true;
         }
 
@@ -218,7 +744,7 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcCompilerTypes = new hlsl::impl::DXC{
+    m_dxcCompilerTypes = new impl::DXC{
         utils,
         compiler
     };
@@ -245,7 +771,7 @@ public:
 };
 
 
-DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
+DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -255,7 +781,7 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, hlsl::impl::DXC* 
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "// commandline compiler options : ";
+        insertion << "//#pragma compile_flags ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -319,20 +845,20 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, hlsl::impl::DXC* 
 }
 
 
+using lex_token_t = boost::wave::cpplexer::lex_token<>;
+using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
+using wave_context_t = nbl::wave::context<std::string::iterator>;
+
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    using lex_token_t = boost::wave::cpplexer::lex_token<>;
-    using lex_iterator_t = boost::wave::cpplexer::lex_iterator<lex_token_t>;
-    using wave_context_t = boost::wave::context<core::string::iterator, lex_iterator_t, hlsl::impl::load_file_or_builtin_to_string, hlsl::impl::custom_preprocessing_hooks>;
 
-    hlsl::impl::custom_preprocessing_hooks hooks(preprocessOptions, stage);
-    std::string startingFileIdentifier = std::string("../") + preprocessOptions.sourceIdentifier.data();
-    wave_context_t context(code.begin(), code.end(), startingFileIdentifier.data(), hooks);
+    impl::custom_preprocessing_hooks hooks(preprocessOptions);
+    wave_context_t context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), hooks);
     auto language = boost::wave::support_cpp20 | boost::wave::support_option_preserve_comments | boost::wave::support_option_emit_line_directives;
     context.set_language(static_cast<boost::wave::language_support>(language));
     context.add_macro_definition("__HLSL_VERSION");
-    //TODO fix bad syntax and uncomment
-    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+   
+     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
     // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
     // to match boost wave syntax
     // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
@@ -351,7 +877,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     std::stringstream stream = std::stringstream();
     for (auto i = context.begin(); i != context.end(); i++) {
         stream << i->get_value();
-        std::cout<< i->get_value();
     }
     core::string resolvedString = stream.str();
     
@@ -367,7 +892,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             succ.getBytesProcessed(true);
         }
     }
-    stage = context.get_hooks().m_stage;
+    if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
+        stage = context.get_hooks().m_pragmaStage;
     return resolvedString;
 }
 
@@ -493,5 +1019,85 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
 void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     code.insert(0u, ins.str());
+}
+
+
+
+
+template<> inline bool boost::wave::impl::pp_iterator_functor<wave_context_t>::on_include_helper(char const* f, char const* s,
+    bool is_system, bool include_next)
+{
+    namespace fs = boost::filesystem;
+
+    // try to locate the given file, searching through the include path lists
+    std::string file_path(s);
+    std::string dir_path;
+#if BOOST_WAVE_SUPPORT_INCLUDE_NEXT != 0
+    char const* current_name = include_next ? iter_ctx->real_filename.c_str() : 0;
+#else
+    char const* current_name = 0; // never try to match current file name
+#endif
+
+    // call the 'found_include_directive' hook function
+    if (ctx.get_hooks().found_include_directive(ctx.derived(), f, include_next))
+        return true;    // client returned false: skip file to include
+
+    file_path = util::impl::unescape_lit(file_path);
+    std::string native_path_str;
+
+    if (!ctx.get_hooks().locate_include_file(ctx, file_path, is_system,
+        current_name, dir_path, native_path_str))
+    {
+        BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file,
+            file_path.c_str(), act_pos);
+        return false;
+    }
+
+    // test, if this file is known through a #pragma once directive
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+    if (!ctx.has_pragma_once(native_path_str))
+#endif
+    {
+        // the new include file determines the actual current directory
+        ctx.set_current_directory(native_path_str.c_str());
+
+        // preprocess the opened file
+        boost::shared_ptr<base_iteration_context_type> new_iter_ctx(
+            new iteration_context_type(ctx, native_path_str.c_str(), act_pos,
+                boost::wave::enable_prefer_pp_numbers(ctx.get_language()),
+                is_system ? base_iteration_context_type::system_header :
+                base_iteration_context_type::user_header));
+
+        // call the include policy trace function
+        ctx.get_hooks().opened_include_file(ctx.derived(), dir_path, file_path,
+            is_system);
+
+        // store current file position
+        iter_ctx->real_relative_filename = ctx.get_current_relative_filename().c_str();
+        iter_ctx->filename = act_pos.get_file();
+        iter_ctx->line = act_pos.get_line();
+        iter_ctx->if_block_depth = ctx.get_if_block_depth();
+        iter_ctx->emitted_lines = (unsigned int)(-1);   // force #line directive
+
+        // push the old iteration context onto the stack and continue with the new
+        ctx.push_iteration_context(act_pos, iter_ctx);
+        iter_ctx = new_iter_ctx;
+        seen_newline = true;        // fake a newline to trigger pp_directive
+        must_emit_line_directive = true;
+
+        act_pos.set_file(iter_ctx->filename);  // initialize file position
+#if BOOST_WAVE_SUPPORT_PRAGMA_ONCE != 0
+        fs::path rfp(iter_ctx->real_filename.c_str()); 
+        std::string real_filename(rfp.string());
+        ctx.set_current_filename(real_filename.c_str());
+#endif
+
+        ctx.set_current_relative_filename(dir_path.c_str());
+        iter_ctx->real_relative_filename = dir_path.c_str();
+
+        act_pos.set_line(iter_ctx->line);
+        act_pos.set_column(0);
+    }
+    return true;
 }
 #endif
