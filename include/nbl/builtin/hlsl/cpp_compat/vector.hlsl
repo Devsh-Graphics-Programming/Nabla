@@ -79,14 +79,4 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
 }
 #endif
 
-namespace nbl
-{
-namespace hlsl
-{
-// TODO: add NBL_CONST_REF_ARG()
-template<typename float_t>
-float_t cross2D(vector<float_t, 2> lhs, vector<float_t, 2> rhs) { return lhs.x*rhs.y - lhs.y*rhs.x; }    
-}
-}
-
 #endif
