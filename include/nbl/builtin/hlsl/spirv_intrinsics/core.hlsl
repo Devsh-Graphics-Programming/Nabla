@@ -19,7 +19,6 @@ namespace hlsl
 namespace spirv
 {
 
-#pragma region ATOMICS
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
@@ -95,9 +94,9 @@ int32_t atomicCompSwap([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, 
 template<>
 [[vk::ext_instruction( spv::OpAtomicCompareExchange )]]
 uint32_t atomicCompSwap([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, uint32_t value, uint32_t comparator);
-#pragma endregion ATOMICS
 
-#pragma region BARRIERS
+
+
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
@@ -108,16 +107,12 @@ void controlBarrier(uint32_t executionScope, uint32_t memoryScope, uint32_t memo
 
 [[vk::ext_instruction( spv::OpMemoryBarrier )]]
 void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
-#pragma endregion BARRIERS
 
-#pragma region CONVERSION
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
-
-#pragma endregion CONVERSION
 }
 #endif
 }

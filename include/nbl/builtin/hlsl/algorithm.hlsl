@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 
+#include "nbl/builtin/hlsl/functional.hlsl"
+
 namespace nbl
 {
 namespace hlsl
@@ -99,10 +101,12 @@ uint lower_bound(inout Accessor accessor, const uint begin, const uint end, cons
 template<class Accessor, class Comparator>
 uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
 {
-    using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
-    TransformedComparator transformedComparator;
+    //using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
+    //TransformedComparator transformedComparator;
+    
+    impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> transformedComparator;
     transformedComparator.comp = comp;
-    return lower_bound<Accessor,TransformedComparator>(accessor,begin,end,value,transformedComparator);
+    return lower_bound<Accessor,impl::lower_to_upper_comparator_transform_t<Accessor,Comparator> >(accessor,begin,end,value,transformedComparator);
 }
 
 
@@ -113,16 +117,20 @@ namespace impl
 template<class Accessor, typename T>
 uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
 {
-    using Comparator = impl::comparator_lt_t<T>;
-    Comparator comp;
-    return nbl::hlsl::lower_bound<Accessor,Comparator>(accessor,begin,end,value,comp);
+    //using Comparator = nbl::hlsl::less<T>;
+    //Comparator comp;
+    
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::lower_bound<Accessor, nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 template<class Accessor, typename T>
 uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
 {
-    using Comparator = impl::comparator_lt_t<T>;
-    Comparator comp;
-    return nbl::hlsl::upper_bound<Accessor,Comparator>(accessor,begin,end,value,comp);
+    //using Comparator = nbl::hlsl::less<T>;
+    //Comparator comp;
+    
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::upper_bound<Accessor, nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 
 }

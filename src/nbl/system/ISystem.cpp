@@ -26,7 +26,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DXC_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "dxc");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
     #endif
 }
@@ -192,7 +192,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
         const auto found = findFileInArchive(filename);
         if (found.archive)
         {
-            auto file = found.archive->getFile(found.pathRelativeToArchive,accessToken);
+            auto file = found.archive->getFile(found.pathRelativeToArchive,flags,accessToken);
             if (file)
             {
                 future.set_result(std::move(file));

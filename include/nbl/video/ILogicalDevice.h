@@ -13,6 +13,7 @@
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/ISwapchain.h"
+#include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video
 {
@@ -542,12 +543,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Shaders
-        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraShaderDefines() const
-        {
-            const char* const* begin = m_extraShaderDefines.data();
-            return {begin,begin+m_extraShaderDefines.size()};
-        }
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr) = 0;
         core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
         {
@@ -1087,10 +1082,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             return !memory || !memory->isMappable() || !memory->getMemoryPropertyFlags().hasFlags(IDeviceMemoryAllocation::EMPF_DEVICE_LOCAL_BIT);
         }
-
-
-        core::vector<char> m_shaderDefineStringPool;
-        core::vector<const char*> m_extraShaderDefines;
 };
 
 

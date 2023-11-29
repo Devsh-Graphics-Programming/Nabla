@@ -14,6 +14,12 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 		endforeach()
 	endif()
 	
+	list(FIND ${_BUNDLE_NAME_} "${_LBR_PATH_}" _NBL_FOUND_)
+	
+	if(NOT "${_NBL_FOUND_}" STREQUAL "-1")
+		message(FATAL_ERROR "Duplicated \"${_LBR_PATH_}\" builtin resource list-request detected to \"${_BUNDLE_NAME_}\", remove the entry!")
+	endif()
+	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
 	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	

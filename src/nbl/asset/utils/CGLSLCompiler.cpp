@@ -77,7 +77,7 @@ namespace nbl::asset::impl
             if (std::filesystem::exists(name) && !reqBuiltin)
                 name = std::filesystem::absolute(name);
 
-            std::optional<std::string> result;
+            IShaderCompiler::IIncludeLoader::found_t result;
             if (_type == shaderc_include_type_relative)
             {
                 result = m_defaultIncludeFinder->getIncludeRelative(relDir, _requested_source);
@@ -87,7 +87,8 @@ namespace nbl::asset::impl
                 result = m_defaultIncludeFinder->getIncludeStandard(relDir, _requested_source);
             }
 
-            if (!result) {
+            if (!result)
+            {
                 const char* error_str = "Could not open file";
                 res->content_length = strlen(error_str);
                 res->content = new char[res->content_length + 1u];
@@ -95,8 +96,9 @@ namespace nbl::asset::impl
                 res->source_name_length = 0u;
                 res->source_name = "";
             }
-            else {
-                auto& res_str = *result;
+            else
+            {
+                auto res_str = std::move(result.contents);
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
                 disableGlDirectives(res_str);
@@ -133,9 +135,12 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 
 std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
-    if (preprocessOptions.extraDefines.size())
+    if (!preprocessOptions.extraDefines.empty())
     {
-        insertExtraDefines(code, preprocessOptions.extraDefines);
+        std::ostringstream insertion;
+        for (const auto& define : preprocessOptions.extraDefines)
+            insertion << "#define " << define.identifier << " " << define.definition << "\n";
+        insertIntoStart(code,std::move(insertion));
     }
     IShaderCompiler::disableAllDirectivesExceptIncludes(code);
     disableGlDirectives(code);
@@ -145,7 +150,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 
     if (preprocessOptions.includeFinder != nullptr)
     {
-        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u));//custom #include handler
+        options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), /*maxSelfInclusionCount*/5));//custom #include handler
     }
     const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
     auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);

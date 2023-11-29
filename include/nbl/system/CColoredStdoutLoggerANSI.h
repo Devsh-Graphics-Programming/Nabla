@@ -22,19 +22,19 @@ class CColoredStdoutLoggerANSI : public IThreadsafeLogger
       switch (logLevel)
       {
         case ELL_DEBUG:
-          printf("\x1b[37m%s", str.data()); // White
+          printf("\x1b[37m%s\x1b[0m", str.data()); // White
           break;
         case ELL_INFO:
-          printf("\x1b[37m%s", str.data()); // White
+          printf("\x1b[37m%s\x1b[0m", str.data()); // White
           break;
         case ELL_WARNING:
-          printf("\x1b[33m%s", str.data()); // yellow
+          printf("\x1b[33m%s\x1b[0m", str.data()); // yellow
           break;
         case ELL_ERROR:
-          printf("\x1b[31m%s", str.data()); // red
+          printf("\x1b[31m%s\x1b[0m", str.data()); // red
           break;
         case ELL_PERFORMANCE:
-          printf("\x1b[34m%s", str.data()); // blue
+          printf("\x1b[34m%s\x1b[0m", str.data()); // blue
           break;
         case ELL_NONE:
           assert(false);

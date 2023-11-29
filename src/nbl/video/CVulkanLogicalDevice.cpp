@@ -506,7 +506,7 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smar
         commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
         commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
         commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-        commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
+        commonCompileOptions.preprocessorOptions.extraDefines = {};
 
         commonCompileOptions.stage = shaderStage;
         commonCompileOptions.debugInfoFlags =
