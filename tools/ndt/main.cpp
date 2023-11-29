@@ -34,6 +34,9 @@ public:
 
     bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
     {
+        if (!base_t::onAppInitialized(std::move(system)))
+            return false;
+        
         auto argc = argv.size();
 
         core::vector<std::string> arguments(argv + 1, argv + argc);
