@@ -3,15 +3,17 @@
 
 // nsc input/simple_shader.hlsl -T ps_6_0 -E Main -Fo output/shader.ps
 
+#include "nbl/system/IApplicationFramework.h"
+
 #include <iostream>
 #include <cstdlib>
-#include <vector>
+
 
 
 bool no_nbl_builtins;
 
 
-bool noNblBuiltinsEnabled(const std::vector<std::string>& args)
+bool noNblBuiltinsEnabled(const core::vector<std::string>& args)
 {
     for (auto i=0; i<args.size(); i++)
     {
@@ -23,30 +25,37 @@ bool noNblBuiltinsEnabled(const std::vector<std::string>& args)
 
 
 
-int main(int argc, char* argv[])
+class ShaderCompiler final : public system::IApplicationFramework
 {
-    // std::cout << "\n\t\t:: ::\n";
-    // std::cout << "\tNABLA SHADER COMPILER";
-    // std::cout << "\n\t\t:: ::\n\n";
+    using base_t = system::IApplicationFramework;
 
+public:
+    using base_t::base_t;
 
-    std::vector<std::string> arguments(argv + 1, argv + argc);
-
-    no_nbl_builtins = noNblBuiltinsEnabled(arguments);
-
-    std::string command = "dxc.exe";
-    for (std::string arg : arguments)
+    bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
     {
-        command.append(" ").append(arg);
+        auto argc = argv.size();
+
+        core::vector<std::string> arguments(argv + 1, argv + argc);
+
+        no_nbl_builtins = noNblBuiltinsEnabled(arguments);
+
+        std::string command = "dxc.exe";
+        for (std::string arg : arguments)
+        {
+            command.append(" ").append(arg);
+        }
+
+        int execute = std::system(command.c_str());
+
+        std::cout << "-no-nbl-builtins - " << no_nbl_builtins;
+
+
+        return true;
     }
 
-    int execute = std::system(command.c_str());
 
-    std::string flag_set = no_nbl_builtins ? "TRUE" : "FALSE";
+    void workLoopBody() override {}
 
-    std::cout << "-no-nbl-builtins - " << flag_set;
-
-
-    std::cout << "\n\n\n\n  PRESS ENTER TO EXIT(): ";
-    std::cin.get();
-}
+    bool keepRunning() override { return false; }
+};
