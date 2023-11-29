@@ -29,7 +29,7 @@
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
-#include "nbl/video/SPhysicalDeviceFeatures.h"
+#include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video
 {
@@ -502,7 +502,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 (*m_offsets)[qci.familyIndex + 1u] = qci.count;
             }
             std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
+
+            addJITIncludeLoader();
         }
+
+        void addJITIncludeLoader();
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
