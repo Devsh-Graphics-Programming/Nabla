@@ -10,21 +10,6 @@
 
 
 
-bool no_nbl_builtins;
-
-
-bool noNblBuiltinsEnabled(const core::vector<std::string>& args)
-{
-    for (auto i=0; i<args.size(); i++)
-    {
-        if (args[i] == "-no-nbl-builtins")
-            return true;
-    }
-    return false;
-}
-
-
-
 class ShaderCompiler final : public system::IApplicationFramework
 {
     using base_t = system::IApplicationFramework;
@@ -41,7 +26,14 @@ public:
 
         core::vector<std::string> arguments(argv + 1, argv + argc);
 
-        no_nbl_builtins = noNblBuiltinsEnabled(arguments);
+        for (auto i=0; i<argc; i++)
+        {
+            if (argv[i] == "-no-nbl-builtins")
+            {
+                no_nbl_builtins = true;
+                break;
+            }
+        }
 
         std::string command = "dxc.exe";
         for (std::string arg : arguments)
@@ -61,4 +53,8 @@ public:
     void workLoopBody() override {}
 
     bool keepRunning() override { return false; }
+
+
+private:
+    bool no_nbl_builtins{false};
 };
