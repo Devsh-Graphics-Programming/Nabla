@@ -496,28 +496,35 @@ endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	add_dependencies(Nabla OpenEXR)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXR)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXR)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>				   
-	)
-else()
-	add_dependencies(Nabla OpenEXRCore)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXRCore)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXRCore)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's Half-only dependency					   
-	)
+    add_dependencies(Nabla OpenEXR)
+    if(NBL_STATIC_BUILD)
+        target_link_libraries(Nabla INTERFACE OpenEXR)
+    else()
+        target_link_libraries(Nabla PRIVATE OpenEXR)
+    endif()
+    
+    target_include_directories(
+        Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
+    )
 endif()
+
+add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
+if(NBL_STATIC_BUILD)
+    target_link_libraries(Nabla INTERFACE 
+      OpenEXRCore
+      OpenEXRUtil
+)
+else()
+    target_link_libraries(Nabla PRIVATE 
+      OpenEXRCore
+      OpenEXRUtil  
+  )
+endif()
+
+target_include_directories(
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's core headers
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES> # for OpenEXR's util headers                
+)
 
 # GLI
 if(_NBL_COMPILE_WITH_GLI_)
@@ -530,7 +537,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
-# DXC
+# DXC (TODO: nah, lets remove/disable it)
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
@@ -603,19 +610,19 @@ endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
-	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ spirvBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	
-	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	target_include_directories(spirvBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
 	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
 	
 	target_include_directories(Nabla PUBLIC 
-		"${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		"${_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
 		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
 	)
 	
 	add_subdirectory(builtin)
-	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData spirvBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
 		set(_NBL_LINK_QUALIFIER_ INTERFACE)
@@ -625,7 +632,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	
 	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
 		nblBuiltinResourceData
-		dxcBuiltinResourceData
+		spirvBuiltinResourceData
 		boostBuiltinResourceData
 	)
 	
@@ -686,7 +693,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
-	nbl_install_builtin_resources(dxcBuiltinResourceData)
+	nbl_install_builtin_resources(spirvBuiltinResourceData)
 	nbl_install_builtin_resources(boostBuiltinResourceData)
 endif()
 
@@ -706,6 +713,7 @@ if(NBL_STATIC_BUILD)
 		nbl_install_lib(OpenEXR)
 	else()
 		nbl_install_lib(OpenEXRCore)
+		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
 

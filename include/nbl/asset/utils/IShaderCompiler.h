@@ -210,7 +210,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
 		{
-			assert(original == nullptr || (!original->isADummyObjectForCache() && original->isContentHighLevelLanguage()));
+			if (!original || original->isADummyObjectForCache() || !original->isContentHighLevelLanguage())
+				return nullptr;
 
 			constexpr auto getMaxSize = [](auto num) -> size_t
 			{
@@ -230,12 +231,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				}
 			};
 			constexpr size_t templateArgsCount = sizeof...(Args);
-			size_t origLen = original ? original->getContent()->getSize():0u;
-			size_t formatArgsCharSize = (getMaxSize(args) + ...);
-			size_t formatSize = strlen(fmt);
+			const size_t origLen = original ? original->getContent()->getSize():0u;
+			const size_t formatArgsCharSize = (getMaxSize(args) + ...);
+			const size_t formatSize = strlen(fmt);
 			// 2 is an average size of a format (% and a letter) in chars. 
 			// Assuming the format contains only one letter, but if it's 2, the outSize is gonna be a touch bigger.
-			size_t outSize = origLen + formatArgsCharSize + formatSize - 2 * templateArgsCount;
+			constexpr size_t nullTerminatorSize = 1u;
+			size_t outSize = origLen + formatArgsCharSize + formatSize + nullTerminatorSize - 2 * templateArgsCount;
 
 			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = nbl::core::make_smart_refctd_ptr<ICPUBuffer>(outSize);
 

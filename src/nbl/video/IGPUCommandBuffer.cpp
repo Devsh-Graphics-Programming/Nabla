@@ -24,8 +24,7 @@ bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceIn
     }
 
     checkForParentPoolReset();
-    m_resetCheckedStamp = m_cmdpool->getResetCounter();
-
+    // still not initial and pool wasn't reset
     if (m_state != ES_INITIAL)
     {
         releaseResourcesBackToPool();
@@ -39,6 +38,8 @@ bool IGPUCommandBuffer::begin(core::bitflag<E_USAGE> flags, const SInheritanceIn
         m_state = ES_INITIAL;
     }
 
+    // still not initial (we're trying to single-reset a commandbuffer that cannot be individually reset)
+    // should have been caught out above
     assert(m_state == ES_INITIAL);
 
     if (inheritanceInfo != nullptr)

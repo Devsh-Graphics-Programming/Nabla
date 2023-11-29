@@ -100,19 +100,21 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 
 	protected:
 		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
-			m_defaultAbsolutePath(std::move(_defaultAbsolutePath)), m_logger(std::move(logger)) {}
+			m_defaultAbsolutePath(std::move(_defaultAbsolutePath.make_preferred())), m_logger(std::move(logger))
+		{
+		}
 
 		inline const SFileList::SEntry* getItemFromPath(const system::path& pathRelativeToArchive) const
 		{
             const  SFileList::SEntry itemToFind = { pathRelativeToArchive };
 			auto items = m_items.load();
 			const auto found = std::lower_bound(items->begin(), items->end(),itemToFind);
-			if (found== items->end() || found->pathRelativeToArchive != pathRelativeToArchive)
+			if (found==items->end() || found->pathRelativeToArchive != pathRelativeToArchive)
 				return nullptr;
 			return &(*found);
 		}
 
-		path m_defaultAbsolutePath;
+		const path m_defaultAbsolutePath;
 		// files and directories
 		//
 		system::logger_opt_smart_ptr m_logger;
