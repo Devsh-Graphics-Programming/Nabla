@@ -18,29 +18,36 @@ auto CJITIncludeLoader::getInclude(const system::path& searchPath, const std::st
 std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
 {
     return R"===(
-        #ifndef _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
-        #define _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
+#define _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
 
-        namespace nbl
-        {
-        namespace hlsl
-        {
-        namespace jit
-        {
-            struct device_capabilities
-            {
-                NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + std::to_string(features.shaderFloat64) + R"===(;
-                NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = )===" + std::to_string(features.shaderDrawParameters) + R"===(;
-                NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic = )===" + std::to_string(limits.shaderSubgroupArithmetic) + R"===(;
-                NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock = )===" + std::to_string(features.fragmentShaderPixelInterlock) + R"===(;
+#include <nbl/builtin/hlsl/device_capabilities_traits.hlsl>
 
-                NBL_CONSTEXPR_STATIC_INLINE uint16_t maxOptimallyResidentWorkgroupInvocations = )===" + std::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
-            };
-        }
-        }
-        }
+namespace nbl
+{
+namespace hlsl
+{
+namespace jit
+{
+    struct device_capabilities
+    {
+        NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + std::to_string(features.shaderFloat64) + R"===(;
+        NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = )===" + std::to_string(features.shaderDrawParameters) + R"===(;
+        NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic = )===" + std::to_string(limits.shaderSubgroupArithmetic) + R"===(;
+        NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock = )===" + std::to_string(features.fragmentShaderPixelInterlock) + R"===(;
 
-        #endif  // _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t maxOptimallyResidentWorkgroupInvocations = )===" + std::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
+    };
+
+//TODO: when `device_capabilities_traits` is ready
+//typedef nbl::hlsl::device_capabilities_traits<device_capabilities> device_capabilities_traits;
+//for now just alias them
+typedef device_capabilities device_capabilities_traits;
+}
+}
+}
+
+#endif  // _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
     )===";
 }
 }
