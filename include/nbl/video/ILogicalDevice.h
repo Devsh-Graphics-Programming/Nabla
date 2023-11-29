@@ -479,34 +479,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
-        {
-            uint32_t qcnt = 0u;
-            uint8_t greatestFamNum = 0u;
-            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
-            {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
-                qcnt += params.queueParams[i].count;
-            }
-
-            m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-            m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-            
-            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
-            {
-                const auto& qci = params.queueParams[i];
-                if (qci.familyIndex == greatestFamNum)
-                    continue;
-
-                (*m_offsets)[qci.familyIndex + 1u] = qci.count;
-            }
-            std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
-
-            addJITIncludeLoader();
-        }
-
-        void addJITIncludeLoader();
+        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params);
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 

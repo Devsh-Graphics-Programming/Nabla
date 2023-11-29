@@ -4,18 +4,35 @@ using namespace nbl;
 using namespace nbl::video;
 
 
-E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
-
-void ILogicalDevice::addJITIncludeLoader()
+ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
+    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
 {
-    if(auto cc = (m_physicalDevice && m_compilerSet) ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL) : nullptr)
+    uint32_t qcnt = 0u;
+    uint8_t greatestFamNum = 0u;
+    for (uint32_t i=0u; i<params.queueParamsCount; ++i)
     {
-        if(auto finder = cc->getDefaultIncludeFinder())
-        {
-            finder->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_physicalDevice->getFeatures()));
-        }
+        greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
+        qcnt += params.queueParams[i].count;
     }
+
+    m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
+    m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
+            
+    for (uint32_t i=0u; i<params.queueParamsCount; ++i)
+    {
+        const auto& qci = params.queueParams[i];
+        if (qci.familyIndex == greatestFamNum)
+            continue;
+
+        (*m_offsets)[qci.familyIndex + 1u] = qci.count;
+    }
+    std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
+
+    if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL):nullptr)
+        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit",core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(),m_physicalDevice->getFeatures()));
 }
+
+E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
 {

@@ -1,28 +1,17 @@
-#include "nbl/asset/utils/CJITIncludeLoader.h"
+#include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video
 {
-
-CJITIncludeLoader::CJITIncludeLoader(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features)
+auto CJITIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const -> found_t
 {
-    m_includes["nbl/builtin/hlsl/jit/device_capabilities.hlsl"] = collectDeviceCaps(limits, features);
-}
-
-std::optional<std::string> CJITIncludeLoader::getInclude(const system::path& searchPath, const std::string& includeName) const
-{
-    system::path path = searchPath / includeName;
-
-    assert(searchPath == "nbl/builtin/hlsl/jit");
+    assert(searchPath=="nbl/builtin/hlsl/jit");
     
     // Look up the content in m_includes map
-    auto it = m_includes.find(path);
-    if (it != m_includes.end())
-    {
-        // Return the content of the specified include file
-        return it->second;
-    }
+    auto it = m_includes.find(includeName);
+    if (it!=m_includes.end())
+        return {includeName,it->second};
 
-    return std::nullopt;
+    return {};
 }
 
 
@@ -54,5 +43,4 @@ std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& li
         #endif  // _NBL_BUILTIN_HLSL_JIT_DEVICE_CAPABILITIES_INCLUDED_
     )===";
 }
-
 }
