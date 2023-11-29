@@ -198,7 +198,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CHLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
-	
+
 # Pipeline loaders
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGraphicsPipelineLoaderMTL.cpp
 
@@ -280,6 +280,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
 # Vulkan
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp

@@ -261,6 +261,8 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/type_traits.hlsl")
 #metaprogramming
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/mpl.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/member_test_macros.hlsl")
+#device capability
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/device_capabilities_traits.hlsl")
 #extra math
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/impl.hlsl")

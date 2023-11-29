@@ -8,6 +8,8 @@ using namespace video;
 //
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
+	// TODO: rewrite in HLSL!
+#if 0
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
 	m_alignment = core::max(deviceLimits.minSSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
@@ -53,6 +55,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
 	auto layout = m_device->createPipelineLayout(&baseDWORD,&baseDWORD+1u,std::move(dsLayout));
 	m_pipeline = m_device->createComputePipeline(nullptr,std::move(layout),std::move(specshader));
+#endif
 }
 
 

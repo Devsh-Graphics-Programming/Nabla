@@ -41,10 +41,10 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::found_t& found)
 {
-	assert(item->allocatorType==EAT_NULL);
-	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size,nullptr};
+	assert(found->allocatorType==EAT_NULL);
+	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+found->offset,found->size,nullptr};
 }
 
 

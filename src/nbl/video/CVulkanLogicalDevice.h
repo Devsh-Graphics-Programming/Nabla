@@ -68,11 +68,6 @@ public:
                 (*m_queues)[ix] = new CThreadSafeGPUQueueAdapter(this, new CVulkanQueue(this, rdoc, vkinst, q, famIx, flags, priority));
             }
         }
-        
-        std::ostringstream pool;
-        bool runningInRenderdoc = (rdoc != nullptr);
-        addCommonShaderDefines(pool,runningInRenderdoc);
-        finalizeShaderDefinePool(std::move(pool));
 
         m_dummyDSLayout = createDescriptorSetLayout(nullptr, nullptr);
     }
@@ -703,7 +698,7 @@ public:
             commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
             commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
             commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-            commonCompileOptions.preprocessorOptions.extraDefines = getExtraShaderDefines();
+            commonCompileOptions.preprocessorOptions.extraDefines = {};
 
             commonCompileOptions.stage = shaderStage;
             commonCompileOptions.debugInfoFlags = 

@@ -71,6 +71,8 @@ class IFileBase : public core::IReferenceCounted
 		core::bitflag<E_CREATE_FLAGS> m_flags;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IFileBase::E_CREATE_FLAGS);
+
 }
 
 #endif
