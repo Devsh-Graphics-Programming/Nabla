@@ -153,11 +153,11 @@ class context : private boost::noncopyable
             , macros(*this_())
             , language(language_support(
                 support_cpp20
-                | support_option_convert_trigraphs
                 | support_option_preserve_comments
                 | support_option_emit_line_directives
                 | support_option_emit_pragma_directives
-                | support_option_insert_whitespace
+//                | support_option_emit_contnewlines
+//                | support_option_insert_whitespace
             ))
             , hooks(hooks_)
         {
