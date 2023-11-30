@@ -7,3 +7,15 @@ services:
     image: artifactory.devsh.eu/nabla/windows/base:latest
     container_name: devsh.nabla.windows.base
     entrypoint: ["cmd", "/c", "echo", "Created base container is not intended for user usage, exiting!"]
+  instance:
+    build:
+      context: ./project
+    image: artifactory.devsh.eu/nabla/windows/instance:latest
+    container_name: devsh.nabla.windows.instance
+    depends_on:
+      - base
+    deploy:
+      resources:
+        limits:
+          cpus: '0.60'
+          memory: 4GB
