@@ -1,0 +1,9 @@
+version: '3'
+
+services:
+  base:
+    build:
+      context: .
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    container_name: devsh.nabla.windows.base
+    entrypoint: ["cmd", "/c", "echo", "Created base container is not intended for user usage, exiting!"]
