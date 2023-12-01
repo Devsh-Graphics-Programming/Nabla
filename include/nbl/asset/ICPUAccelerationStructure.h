@@ -359,7 +359,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			{
 				auto* blas = instance.getBase().blas.get();
 				if (blas)
-					instance.getBase().blas = blas->clone(_depth);
+					instance.getBase().blas = core::move_and_static_cast<ICPUBottomLevelAccelerationStructure>(blas->clone(_depth));
 			}
 
 			return cp;

@@ -15,7 +15,7 @@ class CThreadSafeQueueAdapter final : public IQueue
         friend class ISwapchain;
     protected:
         std::unique_ptr<IQueue> originalQueue = nullptr;
-        std::mutex m;
+        mutable std::mutex m;
 
         inline RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) override
         {
