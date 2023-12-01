@@ -135,7 +135,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
 
     // still not initial (we're trying to single-reset a commandbuffer that cannot be individually reset)
     // should have been caught out above
-    assert(m_state == ES_INITIAL);
+    assert(m_state == STATE::INITIAL);
 
     m_recordingFlags = flags;
     m_state = STATE::RECORDING;
@@ -794,12 +794,7 @@ bool IGPUCommandBuffer::invalidDynamic(const uint32_t first, const uint32_t coun
     if (count==0u)
         return true;
 
-    if (getOriginDevice()->getEnabledFeatures().multiViewport)
-    {
-        if (first+count>getOriginDevice()->getPhysicalDevice()->getLimits().maxViewports)
-            return true;
-    }
-    else if (first!=0u || count!=1u)
+    if (first+count>getOriginDevice()->getPhysicalDevice()->getLimits().maxViewports)
         return true;
 
     return false;
@@ -1255,7 +1250,7 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
 
     for (uint32_t i=0u; i<count; ++i)
     {
-        if (!cmdbufs[i] || cmdbufs[i]->getLevel()!=LEVEL::SECONDARY)
+        if (!cmdbufs[i] || cmdbufs[i]->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::SECONDARY)
             return false;
 
         if (!this->isCompatibleDevicewise(cmdbufs[i]))

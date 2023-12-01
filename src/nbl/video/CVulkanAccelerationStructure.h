@@ -12,6 +12,47 @@
 
 namespace nbl::video
 {
+class CVulkanLogicalDevice;
+
+
+template<class GPUAccelerationStructure>
+class CVulkanAccelerationStructure : public GPUAccelerationStructure
+{
+	public:
+		inline const void* getNativeHandle() const { return &m_vkAccelerationStructure; }
+		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
+	
+		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
+		bool wasBuildSuccessful(const IDeferredOperation* const deferredOp) override;
+
+	protected:
+		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);
+		~CVulkanAccelerationStructure();
+
+		VkAccelerationStructureKHR m_vkAccelerationStructure;
+		VkDeviceAddress m_deviceAddress;
+		
+};
+
+class CVulkanBottomLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>
+{
+		using Base = CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>;
+
+	public:
+		using Base::Base;
+
+		inline device_op_ref_t getReferenceForDeviceOperations() const override {return {m_deviceAddress};}
+		inline host_op_ref_t getReferenceForHostOperations() const override {return {reinterpret_cast<uint64_t>(m_vkAccelerationStructure)};}
+};
+
+class CVulkanTopLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>
+{
+		using Base = CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>;
+
+	public:
+		using Base::Base;
+};
+
 
 //! all these utilities cannot be nested because of the complex inheritance between `IGPUAccelerationStructure` and the Vulkan classes
 inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
@@ -137,7 +178,7 @@ void getVkASGeometryFrom(const IGPUTopLevelAccelerationStructure::BuildInfo<Buff
 	outBase.geometry.instances.arrayOfPointers = info.buildFlags.hasFlags(IGPUTopLevelAccelerationStructure::BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
 	outBase.geometry.instances.data = QueryOnly ? NullAddress:getVkDeviceOrHostConstAddress<BufferType>(info.instanceData);
 	// no "geometry flags" are valid for all instances!
-	vk_geom.flags = static_cast<VkGeometryFlagsKHR>(0u);
+	outBase.flags = static_cast<VkGeometryFlagsKHR>(0u);
 }
 
 // TODO: do BLASes with vertex motion need `VK_BUILD_ACCELERATION_STRUCTURE_MOTION_BIT_NV` ?
@@ -208,46 +249,6 @@ inline VkAccelerationStructureBuildRangeInfoKHR getVkASBuildRangeInfo(const IGPU
 		.firstVertex = 0, .transformOffset = 0
 	};
 }
-
-
-class CVulkanLogicalDevice;
-
-
-template<class GPUAccelerationStructure>
-class CVulkanAccelerationStructure : public GPUAccelerationStructure
-{
-	public:
-		inline const void* getNativeHandle() const { return &m_accelerationStructure; }
-		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
-	
-		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
-		bool wasBuildSuccessful(const IDeferredOperation* const deferredOp) override;
-
-	protected:
-		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);
-		~CVulkanAccelerationStructure();
-
-		VkAccelerationStructureKHR m_vkAccelerationStructure;
-		VkDeviceAddress m_deviceAddress;
-		
-};
-
-class CVulkanBottomLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>
-{
-	public:
-		using CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>::CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>;
-
-		inline device_op_ref_t getReferenceForDeviceOperations() const override {return {m_deviceAddress};}
-		inline host_op_ref_t getReferenceForHostOperations() const override {return {reinterpret_cast<uint64_t>(m_vkAccelerationStructure)};}
-
-	private:
-};
-
-class CVulkanTopLevelAccelerationStructure final : public CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>
-{
-	public:
-		using CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>::CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>;
-};
 
 }
 
