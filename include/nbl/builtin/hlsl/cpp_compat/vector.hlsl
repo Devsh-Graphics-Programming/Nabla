@@ -10,9 +10,6 @@
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm/glm.hpp>
 #include <glm/glm/detail/_swizzle.hpp>
-#include <stdint.h>
-#include <openexr/IlmBase/Half/half.h>
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
 namespace nbl::hlsl
 {
