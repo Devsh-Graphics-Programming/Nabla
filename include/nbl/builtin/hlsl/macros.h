@@ -6,6 +6,15 @@
 
 #ifdef __HLSL_VERSION 
 #define static_assert(...) _Static_assert(__VA_ARGS__)
+// TODO: switch between enabled and disabled depending on Nabla build config
+#define assert(expr) \
+{ \
+    bool con = (expr); \
+    do { \
+        [branch] if (!con) \
+          vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
+    } while(!con); \
+} 
 #endif
 
 // basics

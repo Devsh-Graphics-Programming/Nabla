@@ -20,8 +20,9 @@ struct Promote
 
 #ifdef __HLSL_VERSION
 
+// TODO: write this scalar-type agnostic!
 template<typename U>
-struct Promote<float32_t1, U>
+struct Promote<float32_t1,U>
 {
     float32_t3 operator()(U v)
     {
@@ -61,9 +62,9 @@ struct Promote<float32_t4, U>
 }
 
 template<typename T, typename U>
-T promote(U v) // TODO: use NBL_CONST_REF_ARG instead of U v
+T promote(const U v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular ref)
 {
-    impl::Promote<T, U> _promote;
+    impl::Promote<T,U> _promote;
     return _promote(v);
 }
 

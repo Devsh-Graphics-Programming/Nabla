@@ -105,6 +105,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 m_device->mapMemory(memoryRange, access);
 
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
+                m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
             }
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
@@ -132,6 +133,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 m_device->mapMemory(memoryRange, access);
 
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
+                m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
             }
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
@@ -600,6 +602,47 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             void* m_dstPtr;
         };
 
+        //! Used in downloadBufferRangeViaStagingBuffer multi_deallocate objectsToHold, 
+        //! Calls the std::function callback in destructor because allocator will hold on to this object and drop it when it's safe (fence is singnalled and submit has finished)
+        class CDownstreamingDataConsumer final : public core::IReferenceCounted
+        {
+            public:
+                CDownstreamingDataConsumer(
+                    const IDeviceMemoryAllocation::MemoryRange& copyRange,
+                    const std::function<data_consumption_callback_t>& consumeCallback,
+                    core::smart_refctd_ptr<IGPUCommandBuffer>&& cmdBuffer,
+                    StreamingTransientDataBufferMT<>* downstreamingBuffer,
+                    size_t dstOffset=0
+                ) : m_copyRange(copyRange)
+                    , m_consumeCallback(consumeCallback)
+                    , m_cmdBuffer(core::smart_refctd_ptr<IGPUCommandBuffer>(cmdBuffer))
+                    , m_downstreamingBuffer(downstreamingBuffer)
+                    , m_dstOffset(dstOffset)
+                {}
+
+                ~CDownstreamingDataConsumer()
+                {
+                    assert(m_downstreamingBuffer);
+                    auto device = const_cast<ILogicalDevice*>(m_downstreamingBuffer->getBuffer()->getOriginDevice());
+                    if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
+                    {
+                        const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
+                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length, nonCoherentAtomSize);
+                        device->invalidateMappedMemoryRanges(1u, &flushRange);
+                    }
+                    // Call the function
+                    const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
+                    m_consumeCallback(m_dstOffset, copySrc, m_copyRange.length);
+                }
+
+            private:
+                const IDeviceMemoryAllocation::MemoryRange m_copyRange;
+                std::function<data_consumption_callback_t> m_consumeCallback;
+                const core::smart_refctd_ptr<const IGPUCommandBuffer> m_cmdBuffer; // because command buffer submiting the copy shouldn't go out of scope when copy isn't finished
+                StreamingTransientDataBufferMT<>* m_downstreamingBuffer;
+                const size_t m_dstOffset;
+        };
+
         //! Calls the callback to copy the data to a destination Offset
         //! * IMPORTANT: To make the copies ready, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `submissionFence` is signaled.
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
@@ -680,8 +723,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     copy.size = copySize;
                     cmdbuf->copyBuffer(srcBufferRange.buffer.get(), m_defaultDownloadBuffer.get()->getBuffer(), 1u, &copy);
 
-                    auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(downloadedSize, IDeviceMemoryAllocation::MemoryRange(localOffset, copySize), consumeCallback, cmdbuf, m_defaultDownloadBuffer.get(), core::smart_refctd_ptr(m_device));
-
+                    auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(
+                        IDeviceMemoryAllocation::MemoryRange(localOffset,copySize),
+                        consumeCallback,
+                        core::smart_refctd_ptr<IGPUCommandBuffer>(cmdbuf),
+                        m_defaultDownloadBuffer.get(),
+                        downloadedSize
+                    );
                     m_defaultDownloadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(submissionFence), &dataConsumer.get());
 
                     downloadedSize += copySize;
@@ -958,55 +1006,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             core::smart_refctd_ptr<IGPUCommandBuffer> m_newCommandBuffer; // if necessary, then need to hold reference to.
         };
 
-        //! Used in downloadBufferRangeViaStagingBuffer multi_deallocate objectsToHold, 
-        //! Calls the std::function callback in destructor because allocator will hold on to this object and drop it when it's safe (fence is singnalled and submit has finished)
-        class CDownstreamingDataConsumer final : public core::IReferenceCounted
-        {
-        public:
-            CDownstreamingDataConsumer(
-                size_t dstOffset,
-                const IDeviceMemoryAllocation::MemoryRange& copyRange,
-                const std::function<data_consumption_callback_t>& consumeCallback,
-                IGPUCommandBuffer* cmdBuffer,
-                StreamingTransientDataBufferMT<>* downstreamingBuffer,
-                core::smart_refctd_ptr<ILogicalDevice>&& device
-            )
-                : m_dstOffset(dstOffset)
-                , m_copyRange(copyRange)
-                , m_consumeCallback(consumeCallback)
-                , m_cmdBuffer(core::smart_refctd_ptr<IGPUCommandBuffer>(cmdBuffer))
-                , m_downstreamingBuffer(downstreamingBuffer)
-                , m_device(std::move(device))
-            {}
-
-            ~CDownstreamingDataConsumer()
-            {
-                if (m_downstreamingBuffer != nullptr)
-                {
-                    if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
-                    {
-                        const auto nonCoherentAtomSize = m_device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
-                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length, nonCoherentAtomSize);
-                        m_device->invalidateMappedMemoryRanges(1u, &flushRange);
-                    }
-                    // Call the function
-                    const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
-                    m_consumeCallback(m_dstOffset, copySrc, m_copyRange.length);
-                }
-                else
-                {
-                    assert(false);
-                }
-            }
-        private:
-            const size_t m_dstOffset;
-            const IDeviceMemoryAllocation::MemoryRange m_copyRange;
-            std::function<data_consumption_callback_t> m_consumeCallback;
-            core::smart_refctd_ptr<ILogicalDevice> m_device;
-            const core::smart_refctd_ptr<const IGPUCommandBuffer> m_cmdBuffer; // because command buffer submiting the copy shouldn't go out of scope when copy isn't finished
-            StreamingTransientDataBufferMT<>* m_downstreamingBuffer = nullptr;
-        };
-
         core::smart_refctd_ptr<ILogicalDevice> m_device;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
@@ -1014,7 +1013,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
         core::smart_refctd_ptr<CScanner> m_scanner;
-    };
+};
 
 class ImageRegionIterator
 {

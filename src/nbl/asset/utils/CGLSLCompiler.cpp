@@ -151,7 +151,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
-        preprocessOptions.logger.log(res.GetErrorMessage(), system::ILogger::ELL_ERROR);
+        preprocessOptions.logger.log("%s\n", system::ILogger::ELL_ERROR, res.GetErrorMessage().c_str());
         return nullptr;
     }
 

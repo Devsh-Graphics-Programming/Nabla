@@ -392,7 +392,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 uint16_t transferDst : 1u;
                 uint16_t log2MaxSamples : 3u; // 0 means cant use as a multisample image format
 
-                SUsage()
+                constexpr SUsage()
                     : sampledImage(0)
                     , storageImage(0)
                     , storageImageAtomic(0)
@@ -405,7 +405,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     , log2MaxSamples(0)
                 {}
 
-                SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages):
+                constexpr SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages) :
                     log2MaxSamples(0),
                     sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
                     storageImage(usages.hasFlags(asset::IImage::EUF_STORAGE_BIT)),
@@ -419,7 +419,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     storageImageAtomic(0)
                 {}
 
-                inline SUsage operator & (const SUsage& other) const
+                constexpr SUsage operator&(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage & other.sampledImage;
@@ -435,7 +435,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline SUsage operator | (const SUsage& other) const
+                constexpr SUsage operator|(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage | other.sampledImage;
@@ -451,7 +451,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline SUsage operator ^ (const SUsage& other) const
+                constexpr SUsage operator^(const SUsage& other) const
                 {
                     SUsage result;
                     result.sampledImage = sampledImage ^ other.sampledImage;
@@ -467,7 +467,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline bool operator<(const SUsage& other) const
+                constexpr bool operator<(const SUsage& other) const
                 {
                     if (sampledImage && !other.sampledImage) return false;
                     if (storageImage && !other.storageImage) return false;
@@ -482,7 +482,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return true;
                 }
 
-                inline bool operator == (const SUsage& other) const
+                constexpr bool operator==(const SUsage& other) const
                 {
                     return
                         (sampledImage == other.sampledImage) &&
@@ -528,7 +528,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             EQF_NONE = 0,
             EQF_GRAPHICS_BIT = 0x01,
             EQF_COMPUTE_BIT = 0x02,
-            EQF_TRANSFER_BIT = 0x04,
+            EQF_TRANSFER_BIT = 0x04, // TODO: investigate whether GRAPHICS or COMPUTE can NOT report TRANSFER at the same time
             EQF_SPARSE_BINDING_BIT = 0x08,
             EQF_PROTECTED_BIT = 0x10
         };
@@ -574,11 +574,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         auto getQueueFamilyProperties() const 
         {
-            using citer_t = qfam_props_array_t::pointee::const_iterator;
-            return core::SRange<const SQueueFamilyProperties, citer_t, citer_t>(
-                m_qfamProperties->cbegin(),
-                m_qfamProperties->cend()
-            );
+            return core::SRange<const SQueueFamilyProperties>(m_qfamProperties->data(),m_qfamProperties->data()+m_qfamProperties->size());
         }
 
         struct SBufferFormatPromotionRequest {
@@ -727,6 +723,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             format_image_cache_t linearTilingImages;
         } m_formatPromotionCache;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IPhysicalDevice::E_QUEUE_FLAGS)
 
 }
 

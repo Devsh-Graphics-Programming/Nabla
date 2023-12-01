@@ -126,15 +126,17 @@ protected:
 
     IGPUCommandBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, E_LEVEL lvl, core::smart_refctd_ptr<IGPUCommandPool>&& _cmdpool, system::logger_opt_smart_ptr&& logger) : base_t(lvl), IBackendObject(std::move(dev)), m_cmdpool(_cmdpool), m_logger(std::move(logger))
     {
+        // prevent false positives on first `begin()`
+        m_resetCheckedStamp = m_cmdpool->getResetCounter();
     }
 
-    virtual ~IGPUCommandBuffer()
+    // meant to be invoked by most derived class
+    // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
+    inline void out_of_order_dtor()
     {
         // Only release the resources if the parent pool has not been reset because if it has been then the resources will already be released.
         if (!checkForParentPoolReset())
-        {
             releaseResourcesBackToPool();
-        }
     }
 
     system::logger_opt_smart_ptr m_logger;
@@ -286,7 +288,7 @@ private:
         return true;
     }
 
-    uint64_t m_resetCheckedStamp = 0;
+    uint64_t m_resetCheckedStamp;
 
     // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
     // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT

@@ -30,7 +30,7 @@ std::string IShaderCompiler::escapeFilename(std::string&& code)
 void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
 {
     // TODO: replace this with a proper-ish proprocessor and includer one day
-    std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+    std::regex directive("#(?!(( |\t|\r|\v|\f)*(include|version|pragma shader_stage)))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
     //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
     _code = std::regex_replace(_code, directive, IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
 }

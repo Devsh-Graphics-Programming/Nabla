@@ -665,10 +665,7 @@ class IImage : public IDescriptor
 						maxBufferOffset = (maxBufferOffset+1u)*blockByteSize;
 						maxBufferOffset += it->bufferOffset;
 						if (maxBufferOffset>src->getSize())
-						{
-							assert(false);
 							die = true;
-						}
 					#endif
 
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory

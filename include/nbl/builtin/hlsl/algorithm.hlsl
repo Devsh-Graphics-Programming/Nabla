@@ -4,6 +4,8 @@
 #ifndef _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_ALGORITHM_INCLUDED_
 
+#include "nbl/builtin/hlsl/functional.hlsl"
+
 namespace nbl
 {
 namespace hlsl
@@ -111,33 +113,24 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
 namespace impl
 {
 
-template<typename T>
-struct comparator_lt_t
-{
-    bool operator()(const T lhs, const T rhs)
-    {
-        return lhs<rhs;
-    }
-};
-
 // extra indirection due to https://github.com/microsoft/DirectXShaderCompiler/issues/4771
 template<class Accessor, typename T>
 uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
 {
-    //using Comparator = impl::comparator_lt_t<T>;
+    //using Comparator = nbl::hlsl::less<T>;
     //Comparator comp;
     
-    impl::comparator_lt_t<T> comp;
-    return nbl::hlsl::lower_bound<Accessor,impl::comparator_lt_t<T> >(accessor,begin,end,value,comp);
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::lower_bound<Accessor, nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 template<class Accessor, typename T>
 uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
 {
-    //using Comparator = impl::comparator_lt_t<T>;
+    //using Comparator = nbl::hlsl::less<T>;
     //Comparator comp;
     
-    impl::comparator_lt_t<T> comp;
-    return nbl::hlsl::upper_bound<Accessor,impl::comparator_lt_t<T> >(accessor,begin,end,value,comp);
+    nbl::hlsl::less<T> comp;
+    return nbl::hlsl::upper_bound<Accessor, nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 
 }

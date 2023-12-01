@@ -26,7 +26,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DXC_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "dxc");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
     #endif
 }
@@ -138,7 +138,8 @@ bool ISystem::copy(const system::path& from, const system::path& to)
             createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
             if (auto readF=readFileFut.acquire())
             {
-                auto& readFptr = *readF;
+                // the consts here are super important
+                const core::smart_refctd_ptr<const IFile>& readFptr = *readF;
                 if (auto pSrc=readFptr->getMappedPointer())
                 {
                     IFile::success_t bytesWritten;

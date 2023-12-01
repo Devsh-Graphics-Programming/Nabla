@@ -13,8 +13,9 @@ class IGPUSemaphore;
 class IGPUQueue : public core::Interface, public core::Unmovable
 {
     public:
-        enum E_CREATE_FLAGS : uint32_t
+        enum E_CREATE_FLAGS : uint16_t
         {
+            ECF_NONE = 0x0,
             ECF_PROTECTED_BIT = 0x01
         };
 
@@ -62,6 +63,19 @@ class IGPUQueue : public core::Interface, public core::Unmovable
         float getPriority() const { return m_priority; }
         uint32_t getFamilyIndex() const { return m_familyIndex; }
         E_CREATE_FLAGS getFlags() const { return m_flags; }
+
+        // When dealing with external/foreign queues treat `other` as nullptr
+        inline bool needsOwnershipTransfer(const IGPUQueue* other) const
+        {
+            if (!other)
+                return true;
+
+            if (m_familyIndex==other->m_familyIndex)
+                return false;
+            
+            // TODO: take into account concurrent sharing indices, but then we'll need to remember the concurrent sharing family indices
+            return true;
+        }
 
         inline constexpr static float DEFAULT_QUEUE_PRIORITY = 1.f;
 
