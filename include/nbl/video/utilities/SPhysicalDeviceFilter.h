@@ -30,11 +30,12 @@ namespace nbl::video
         {
             inline bool familyMatches(const IPhysicalDevice::SQueueFamilyProperties& props) const
             {
-                if (!props.queueFlags.hasFlags(requiredFlags))
+                const auto& queueFlags = props.queueFlags;
+                if (!queueFlags.hasFlags(requiredFlags))
                     return false;
 
                 // doesn't have disallowed flags
-                if ((props.queueFlags&disallowedFlags).value)
+                if (queueFlags&disallowedFlags)
                     return false;
 
                 return maxImageTransferGranularity.width >= props.minImageTransferGranularity.width &&
@@ -42,8 +43,8 @@ namespace nbl::video
                         maxImageTransferGranularity.depth >= props.minImageTransferGranularity.depth;
             }
 
-            core::bitflag<IQueue::CREATE_FLAGS> requiredFlags = IQueue::CREATE_FLAGS::NONE;
-            core::bitflag<IQueue::CREATE_FLAGS> disallowedFlags = IQueue::CREATE_FLAGS::NONE;
+            core::bitflag<IQueue::FAMILY_FLAGS> requiredFlags = IQueue::FAMILY_FLAGS::NONE;
+            core::bitflag<IQueue::FAMILY_FLAGS> disallowedFlags = IQueue::FAMILY_FLAGS::NONE;
             uint32_t queueCount = 0u;
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
@@ -57,7 +58,7 @@ namespace nbl::video
         {
             ISurface* surface = nullptr;
             // Setting this to `EQF_NONE` means it sufffices to find any queue family that can present to this surface, regardless of flags it might have
-            core::bitflag<IQueue::CREATE_FLAGS> presentationQueueFlags = IQueue::CREATE_FLAGS::NONE;
+            core::bitflag<IQueue::FAMILY_FLAGS> presentationQueueFlags = IQueue::FAMILY_FLAGS::NONE;
         };
         SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
         uint32_t requiredSurfaceCompatibilitiesCount = 0u;
