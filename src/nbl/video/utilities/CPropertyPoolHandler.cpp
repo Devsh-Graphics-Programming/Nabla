@@ -5,6 +5,7 @@
 using namespace nbl;
 using namespace video;
 
+#if 0 // TODO: port
 //
 CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
 {
@@ -598,3 +599,4 @@ uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
 
 	return retval;
 }
+#endif

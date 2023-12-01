@@ -7,8 +7,8 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
     m_depthStencilAttachments(counts.depthStencilAttachmentCount ? core::make_refctd_dynamic_array<depth_stencil_attachments_array_t>(counts.depthStencilAttachmentCount):nullptr),
     m_colorAttachments(counts.colorAttachmentCount ? core::make_refctd_dynamic_array<color_attachments_array_t>(counts.colorAttachmentCount):nullptr),
     m_subpasses(core::make_refctd_dynamic_array<subpass_array_t>(counts.subpassCount)),
-    m_inputAttachments(core::make_refctd_dynamic_array<subpass_array_t>(counts.totalInputAttachmentCount+counts.subpassCount)),
-    m_preserveAttachments(core::make_refctd_dynamic_array<subpass_array_t>(counts.totalPreserveAttachmentCount+counts.subpassCount)),
+    m_inputAttachments(core::make_refctd_dynamic_array<input_attachment_array_t>(counts.totalInputAttachmentCount+counts.subpassCount)),
+    m_preserveAttachments(core::make_refctd_dynamic_array<preserved_attachment_refs_array_t>(counts.totalPreserveAttachmentCount+counts.subpassCount)),
     m_subpassDependencies(counts.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(counts.dependencyCount):nullptr)
 {
     m_params.depthStencilAttachments = m_depthStencilAttachments ? m_depthStencilAttachments->data():(&SCreationParams::DepthStencilAttachmentsEnd);
@@ -43,12 +43,14 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
             core::visit_token_terminated_array(desc.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&inputAttachments](const auto& ia)->bool
             {
                 *(inputAttachments++) = ia;
+                return true;
             });
             *(inputAttachments++) = SCreationParams::SSubpassDescription::InputAttachmentsEnd;
             oit->preserveAttachments = preserveAttachments;
             core::visit_token_terminated_array(desc.preserveAttachments,SCreationParams::SSubpassDescription::AttachmentUnused,[&preserveAttachments](const auto& pa)->bool
             {
                 *(preserveAttachments++) = pa;
+                return true;
             });
             *(preserveAttachments++) = SCreationParams::SSubpassDescription::AttachmentUnused;
             oit++;
@@ -56,8 +58,13 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
         });
     };
 
-    m_params.dependencies = m_subpassDependencies ? m_subpassDependencies->data():(&SCreationParams::DependenciesEnd);
-    std::copy_n(params.dependencies,counts.dependencyCount,m_params.dependencies);
+    if (m_subpassDependencies)
+    {
+        std::copy_n(params.dependencies,counts.dependencyCount,m_subpassDependencies->data());
+        m_params.dependencies = m_subpassDependencies->data();
+    }
+    else
+        m_params.dependencies = &SCreationParams::DependenciesEnd;
 }
 
 }

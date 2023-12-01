@@ -46,7 +46,7 @@ auto IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits) ->
             if (!commandBufferDebugName)
                 commandBufferDebugName = "";
 
-            if (cmdbuf->getLevel()!=IGPUCommandBuffer::LEVEL::PRIMARY)
+            if (cmdbuf->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
             {
                 logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;

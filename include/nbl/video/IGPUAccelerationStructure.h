@@ -256,7 +256,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 						
 						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
 						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
-						for (auto i=0u; i<hasMotion ? 2u:1u; i++)
+						for (auto i=0u; i<(hasMotion ? 2u:1u); i++)
 						if (Base::invalidInputBuffer(geometry.vertexData[i],firstVertexByteOffset,buildRangeInfo.firstVertex+geometry.maxVertex,geometry.vertexStride,vertexAlignment))
 							return false;
 					}
@@ -268,7 +268,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 						
 						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03804
 						// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03805
-						for (auto i=0u; i<hasMotion ? 2u:1u; i++)
+						for (auto i=0u; i<(hasMotion ? 2u:1u); i++)
 						if (Base::invalidInputBuffer(geometry.vertexData[i],buildRangeInfo.primitiveByteOffset+firstVertexByteOffset,indexCount,geometry.vertexStride,vertexAlignment))
 							return false;
 					}

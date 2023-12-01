@@ -4,6 +4,7 @@
 
 namespace nbl::video
 {
+#if 0 // TODO: port
 IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
     IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit)
@@ -754,5 +755,6 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     else
         return false;
 }
+#endif
 
 } // namespace nbl::video

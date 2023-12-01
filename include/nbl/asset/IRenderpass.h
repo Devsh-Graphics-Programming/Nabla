@@ -327,7 +327,7 @@ class IRenderpass
         input_attachment_array_t m_inputAttachments;
         preserved_attachment_refs_array_t m_preserveAttachments;
         subpass_deps_array_t m_subpassDependencies;
-        //
+        // TODO: remember and document what these were about?
         uint32_t m_loadOpDepthStencilAttachmentEnd = ~0u;
         uint32_t m_loadOpColorAttachmentEnd = ~0u;
 };

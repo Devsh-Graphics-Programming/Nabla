@@ -55,15 +55,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //
         inline IQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
         {
-            const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
-            return (*m_queues)[offset+_ix]->getUnderlyingQueue();
+            return getThreadSafeQueue(_familyIx,_ix)->getUnderlyingQueue();
         }
 
         // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
         inline CThreadSafeQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
         {
             const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
-            return (*m_queues)[offset + _ix];
+            return (*m_queues)[offset+_ix];
         }
 
 
