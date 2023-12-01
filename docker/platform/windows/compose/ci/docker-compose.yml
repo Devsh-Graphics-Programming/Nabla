@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  base:
+    build:
+      context: ./instance
+      args:
+      - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    environment:
+    - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
+    - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    container_name: ci.nabla.base.x86_64.windows
+    entrypoint: ["cmd", "/c", "echo", "Created base container is not intended for user usage, exiting!"]
+  instance:
+    build:
+      context: ./project
+    image: artifactory.devsh.eu/nabla/windows/instance:latest
+    container_name: ci.devsh.nabla.windows.instance
+    depends_on:
+      - base
+    deploy:
+      resources:
+        limits:
+          cpus: '0.60'
+          memory: 4GB

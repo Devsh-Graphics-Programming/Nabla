@@ -1,9 +1,11 @@
 # escape=`
 
-ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022-amd64
+ARG BASE_IMAGE=mcr.microsoft.com/windows:20H2-amd64
 
 ARG THIS_PROJECT_WORKING_DIRECTORY="C:\docker"
+ARG THIS_PROJECT_NABLA_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\project\Nabla"
 ARG VULKAN_SDK_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VulkanSDK"
+ARG PERL_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\StrawberryPerl"
 ARG VS_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VS\BuildTools"
 ARG PYTHON_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\Python"
 ARG GIT_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\git"
@@ -56,6 +58,19 @@ RUN `
 	# Cleanup
 	`
 	&& del /q VulkanSDK-Installer.exe
+
+ARG PERL_INSTALL_DIRECTORY
+
+RUN `
+	# Download executable Strawberry Perl 5.28.2 distribution 
+	`
+	curl -SL --output strawberry-perl.msi https://strawberryperl.com/download/5.28.2.1/strawberry-perl-5.28.2.1-64bit.msi `
+	`
+	&& msiexec.exe /i strawberry-perl.msi /quiet /norestart TARGETDIR="%PERL_INSTALL_DIRECTORY%" `
+    `
+	# Cleanup
+	`
+	&& del /q strawberry-perl.msi
 
 ARG PYTHON_INSTALL_DIRECTORY
 
@@ -112,7 +127,7 @@ RUN `
 	`
 	# Add NASM to the system PATH
 	`
-	&& setx PATH "%PATH%;%NASM_INSTALL_DIRECTORY%\cmd" /M `
+	&& setx PATH "%PATH%;%NASM_INSTALL_DIRECTORY%" /M `
 	`
 	# Cleanup
 	`
@@ -122,6 +137,14 @@ ARG THIS_PROJECT_WORKING_DIRECTORY
 
 RUN `
 	setx THIS_PROJECT_WORKING_DIRECTORY "%THIS_PROJECT_WORKING_DIRECTORY%" /M
+
+ARG THIS_PROJECT_NABLA_DIRECTORY
+
+RUN `
+	setx THIS_PROJECT_NABLA_DIRECTORY "%THIS_PROJECT_NABLA_DIRECTORY%" /M
+	
+RUN `
+	git config --system --add safe.directory *
 
 ARG VS_DEV_CMD_DIRECTORY
 

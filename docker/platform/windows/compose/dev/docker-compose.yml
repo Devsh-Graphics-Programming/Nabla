@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  base:
+    build:
+      context: ../
+      args:
+      - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    environment:
+    - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
+    - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    container_name: dev.nabla.base.x86_64.windows
+    networks:
+      - docker_default
+    entrypoint: ["cmd", "/c", "echo", "Created base container is not intended for user usage, exiting!"]
+  nabla.static.release.x86_64:
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    container_name: dev.nabla.static.release.x86_64.windows
+    networks:
+      - docker_default
+    depends_on:
+      - base
+    volumes:
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.60'
+          memory: 4GB
+    entrypoint: ["VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass", "-Command", "%THIS_PROJECT_NABLA_DIRECTORY%\\docker\\platform\\windows\\scripts\\build.bat"]
+networks:
+  docker_default:
+    external: true

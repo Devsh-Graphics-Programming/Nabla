@@ -1279,10 +1279,6 @@ function(NBL_UPDATE_SUBMODULES)
 	else()
 		set(NBL_FORCE "")
 	endif()
-	
-	if(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE OR NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
-		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}\" submodule sync --recursive\n")
-	endif()
 
 	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATHS)
 		set(EXCLUDE_SUBMODULE_PATHS ${EXCLUDE_SUBMODULE_PATHS})
@@ -1299,10 +1295,12 @@ function(NBL_UPDATE_SUBMODULES)
 		endif()
 
 		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
 		else()
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
 		endif()
+		
+		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "${_NBL_EXECUTE_COMMAND_}\n")
 		
 		unset(NBL_EXCLUDE)
 	endmacro()
@@ -1399,9 +1397,19 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
 
 		if(WIN32)
-			find_package(GitBash REQUIRED)
+			if(NBL_UPDATE_GIT_SUBMODULE_NO_SEPARATE_SHELL)
+				set(UPDATE_COMMAND
+					nbl-update-submodules.cmd
+				)
+			
+				execute_process(COMMAND ${UPDATE_COMMAND}
+					WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
+					RESULT_VARIABLE _NBL_TMP_RET_CODE_
+				)
+			else()
+				find_package(GitBash REQUIRED)
 		
-			execute_process(COMMAND "${GIT_BASH_EXECUTABLE}" "-c"
+				execute_process(COMMAND "${GIT_BASH_EXECUTABLE}" "-c"
 [=[
 >&2 echo ""
 clear
@@ -1411,20 +1419,23 @@ clear
 tput setaf 2; echo -e "Submodules have been updated! 
 Created nbl-update-submodules.log in your build directory."
 ]=]
-				WORKING_DIRECTORY ${NBL_ROOT_PATH_BINARY}
-				OUTPUT_VARIABLE _NBL_TMP_OUTPUT_
-				RESULT_VARIABLE _NBL_TMP_RET_CODE_
-				OUTPUT_STRIP_TRAILING_WHITESPACE
-				ERROR_STRIP_TRAILING_WHITESPACE
-			)
-
-			unset(_NBL_TMP_OUTPUT_)
-			unset(_NBL_TMP_RET_CODE_)
+					WORKING_DIRECTORY ${NBL_ROOT_PATH_BINARY}
+					OUTPUT_VARIABLE _NBL_TMP_OUTPUT_
+					RESULT_VARIABLE _NBL_TMP_RET_CODE_
+					OUTPUT_STRIP_TRAILING_WHITESPACE
+					ERROR_STRIP_TRAILING_WHITESPACE
+				)
+				
+				unset(_NBL_TMP_OUTPUT_)
+				unset(_NBL_TMP_RET_CODE_)
+			
+				message(STATUS "Generated \"${NBL_ROOT_PATH_BINARY}/nbl-update-submodules.log\"")
+			endif()
+			
+			message(STATUS "Submodules have been updated!")
 		else()
 			execute_process(COMMAND "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}")
 		endif()
-		
-		message(STATUS "Submodules have been updated! Check \"${NBL_ROOT_PATH_BINARY}/nbl-update-submodules.log\" for more details.")
 	else()
 		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "NBL_UPDATE_GIT_SUBMODULE is turned OFF therefore submodules won't get updated.")
 	endif()
