@@ -199,7 +199,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03767
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03768
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03770
-				template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
+				template<typename T>// requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
 				uint32_t valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const;
 
 				// really expensive to call, `valid` only calls it when `_NBL_DEBUG` is defined
@@ -380,7 +380,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using MaxInputCounts = const uint32_t;
 
 		template<typename BufferType>
-		struct BuildInfo : IGPUAccelerationStructure::BuildInfo<BufferType>
+		struct BuildInfo final : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
 			private:
 				using Base = IGPUAccelerationStructure::BuildInfo<BufferType>;

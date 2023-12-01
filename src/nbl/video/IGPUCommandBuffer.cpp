@@ -120,7 +120,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     checkForParentPoolReset();
 
     // still not initial and pool wasn't reset
-    if (m_state != ES_INITIAL)
+    if (m_state!=STATE::INITIAL)
     {
         releaseResourcesBackToPool();
         if (!canReset())
@@ -580,7 +580,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRang
     if (!cmd)
         return false;
 
-    oit = cmd->getVariableCountResources();
+    auto oit = cmd->getVariableCountResources();
     if constexpr (indirectBuffer)
         *(oit++) = indirectBuffer;
     for (const auto& info : infos)

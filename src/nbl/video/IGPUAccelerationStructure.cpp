@@ -60,18 +60,18 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 
 
 template<class BufferType>
-template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>
+template<typename T>// requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>
 uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const
 {
 	if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
 		return false;
 
 	const auto* device = dstAS->getOriginDevice();
-	if (!validBuildFlags(flags,device->getEnabledFeatures()))
+	if (!validBuildFlags(buildFlags,device->getEnabledFeatures()))
 		return {};
 
 	const auto* physDev = device->getPhysicalDevice();
-	const auto& limits = getPhysicalDevice()->getLimits();
+	const auto& limits = physDev->getLimits();
 
 	const uint32_t geometryCount = inputCount();
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
@@ -121,7 +121,7 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 
 	// destination and scratch
 	uint32_t retval = 2u;
-	if (isUpdate) // source
+	if (Base::isUpdate) // source
 		retval++;
 
 	uint32_t MaxBuffersPerGeometry = 1u;
