@@ -74,29 +74,32 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		using this_real_type = typename std::conditional<std::is_void<CRTP>::value, dynamic_array<T,allocator,void,OverAlignmentTypes...>, CRTP>::type;
 
 	protected:
+		// little explainer what is happening here, the derived CRTP class could have some other ancestors before us, so we need static cast to get pointer to CRTP head
+		inline auto storage() {return reinterpret_cast<std::remove_const_t<T>*>(static_cast<this_real_type*>(this))+this_real_type::dummy_item_count;}
+
 		inline dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t( _alctr,_length )
 		{
 			for (size_t i = 0ull; i < base_t::item_count; ++i)
-				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i);
+				std::allocator_traits<allocator>::construct(base_t::alctr,storage()+i);
 		}
 		inline dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t( _alctr,_length )
 		{
 			for (size_t i = 0ull; i < base_t::item_count; ++i)
-				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i, _val);
+				std::allocator_traits<allocator>::construct(base_t::alctr,storage()+i,_val);
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		inline dynamic_array(const container_t& _containter, const allocator& _alctr = allocator()) : base_t( _alctr,_containter.size())
 		{
 			auto it = _containter.begin();
 			for (size_t i = 0ull; i < base_t::item_count; ++i)
-				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i, *(it++));
+				std::allocator_traits<allocator>::construct(base_t::alctr,storage()+i,*(it++));
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		inline dynamic_array(container_t&& _containter, const allocator& _alctr = allocator()) : base_t( _alctr,_containter.size())
 		{
 			auto it = _containter.begin();
 			for (size_t i = 0ull; i < base_t::item_count; ++i)
-				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i, std::move(*(it++)));
+				std::allocator_traits<allocator>::construct(base_t::alctr,storage()+i,std::move(*(it++)));
 		}
 
 	public:
@@ -105,7 +108,7 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		virtual ~dynamic_array()
 		{
 			for (size_t i = 0ull; i < base_t::item_count; ++i)
-				std::allocator_traits<allocator>::destroy(base_t::alctr, data() + i);
+				std::allocator_traits<allocator>::destroy(base_t::alctr,storage()+i);
 		}
 
 		static inline size_t size_of(size_t length)
@@ -219,9 +222,8 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		inline T&				back() noexcept { return *(end()-1); }
 		inline const T&			back() const noexcept { return *(end()-1); }
 		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
-		// little explainer what is happening here, the derived CRTP class could have some other ancestors before us, so we need static cast to get pointer to CRTP head
-		inline pointer			data() noexcept { return reinterpret_cast<T*>(static_cast<this_real_type*>(this))+this_real_type::dummy_item_count; }
-		inline const_pointer	data() const noexcept { return reinterpret_cast<const T*>(static_cast<const this_real_type*>(this))+this_real_type::dummy_item_count; }
+		inline pointer			data() noexcept { return storage(); }
+		inline const_pointer	data() const noexcept { return reinterpret_cast<const_pointer>(static_cast<const this_real_type*>(this))+this_real_type::dummy_item_count; }
 };
 
 

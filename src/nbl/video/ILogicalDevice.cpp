@@ -19,8 +19,9 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
     m_queueFamilyInfos = core::make_refctd_dynamic_array<q_family_info_array_t>(greatestFamNum+1u);
 
-    for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams,params.queueParams+params.queueParamsCount))
+    for (uint32_t i=0; i<params.queueParamsCount; i++)
     {
+        const auto& qci = params.queueParams[i];
         auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos->operator[](qci.familyIndex));
         {
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
@@ -290,7 +291,7 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
         dstDS->processCopy(copy);
     }
 
-    return updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
+    updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
 
     return true;
 }
