@@ -440,7 +440,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 {}
 
                 // Fields with 0 are deduced as false. User may patch it up later
-                constexpr SUsage(core::bitflag<asset::IImage::E_USAGE_FLAGS> usages) :
+                constexpr SUsage(const core::bitflag<asset::IImage::E_USAGE_FLAGS> usages) :
                     sampledImage(usages.hasFlags(asset::IImage::EUF_SAMPLED_BIT)),
                     linearlySampledImage(0),
                     minmaxSampledImage(0),
@@ -787,8 +787,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         mutable format_promotion_cache_t m_formatPromotionCache;
 };
-
-NBL_ENUM_ADD_BITWISE_OPERATORS(IPhysicalDevice::E_QUEUE_FLAGS)
 
 }
 

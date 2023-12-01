@@ -30,7 +30,7 @@ class CSimpleBufferAllocator : public IBufferAllocator
 
     inline void deallocate(value_type& allocation)
     {
-        allocation = {IDeviceMemoryAllocator::InvalidMemoryOffset,nullptr};
+        allocation = {IDeviceMemoryAllocator::SAllocation::InvalidMemoryOffset,nullptr};
     }
 };
 

@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_ACCELERATION_STRUCTURES_INCLUDED_
 
 
-#include "nbl/builtin/hlsl/common.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
 
 namespace nbl

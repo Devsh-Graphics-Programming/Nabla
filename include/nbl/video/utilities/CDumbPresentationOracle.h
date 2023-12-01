@@ -10,6 +10,7 @@
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 class CDumbPresentationOracle : public IPresentationOracle
 {
 	public:
@@ -88,6 +89,7 @@ class CDumbPresentationOracle : public IPresentationOracle
 		std::chrono::steady_clock::time_point lastTime;
 		std::chrono::microseconds nextPresentationTimeStamp;
 };
+#endif
 
 }
 

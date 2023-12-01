@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-	
+#if 0 // TODO: port
 class IDescriptorSetCache : public core::IReferenceCounted
 {
 	public:
@@ -131,6 +131,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 		DescSetAllocator m_setAllocator;
 		GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> m_deferredReclaims;
 };
+#endif
 
 }
 

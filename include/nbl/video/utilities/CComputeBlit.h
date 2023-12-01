@@ -6,6 +6,7 @@
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
 private:
@@ -889,6 +890,7 @@ private:
 		return paddedAlphaBinCount;
 	}
 };
+#endif
 }
 
 #define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_

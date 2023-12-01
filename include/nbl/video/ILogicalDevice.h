@@ -27,11 +27,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             constexpr static inline uint8_t MaxQueuesInFamily = 63;
 
-            IGPUQueue::E_CREATE_FLAGS flags = IGPUQueue::ECF_NONE;
+            core::bitflag<IQueue::CREATE_FLAGS> flags = IQueue::CREATE_FLAGS::NONE;
             uint8_t familyIndex = 0xff;
             uint8_t count = 0;
             std::array<float,MaxQueuesInFamily> priorities = []()->auto{
-                std::array<float,MaxQueuesInFamily> retval;retval.fill(IGPUQueue::DEFAULT_QUEUE_PRIORITY);return retval;
+                std::array<float,MaxQueuesInFamily> retval;retval.fill(IQueue::DEFAULT_QUEUE_PRIORITY);return retval;
             }();
         };
         struct SCreationParams
@@ -604,24 +604,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createDescriptorPool_impl(createInfo);
         }
         // utility func
-        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const core::SRange<const IGPUDescriptorSetLayout*>& layouts, const uint32_t* setCounts=nullptr)
+        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const std::span<const IGPUDescriptorSetLayout*>& layouts, const uint32_t* setCounts=nullptr)
         {
             IDescriptorPool::SCreateInfo createInfo = {};
             createInfo.flags = flags;
 
             auto setCountsIt = setCounts;
-            for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
-            if (*curLayout)
+            for (auto layout : layouts)
             {
-                if (!layout)
-                    continue;
-                const auto setCount = setCounts ? *(setCountsIt++):1u;
-                createInfo.maxSets += setCount;
-                for (uint32_t t=0; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+                if (layout)
                 {
-                    const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-                    createInfo.maxDescriptorCount[t] += setCount*layout->getDescriptorRedirect(type).getTotalCount();
+                    const auto setCount = setCounts ? *(setCountsIt++):1u;
+                    createInfo.maxSets += setCount;
+                    for (uint32_t t=0; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+                    {
+                        const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+                        createInfo.maxDescriptorCount[t] += setCount*layout->getDescriptorRedirect(type).getTotalCount();
+                    }
                 }
+                setCountsIt++;
             }
         
             return createDescriptorPool(createInfo);

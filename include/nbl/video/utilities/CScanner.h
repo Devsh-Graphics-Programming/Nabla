@@ -143,6 +143,7 @@ prefix sum with subgroup sized workgroups at peak Bandwidth efficiency in about 
 
 Console devs get to bring a gun to a knife fight...
 **/
+#if 0 // legacy & port to HLSL
 class CScanner final : public core::IReferenceCounted
 {
 	public:		
@@ -405,8 +406,7 @@ class CScanner final : public core::IReferenceCounted
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
 		const uint32_t m_workgroupSize;
 };
-
+#endif
 
 }
-
 #endif

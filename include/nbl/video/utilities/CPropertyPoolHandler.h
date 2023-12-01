@@ -16,6 +16,7 @@
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 #define int int32_t
 #define uint uint32_t
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
@@ -237,8 +238,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		uint16_t m_maxPropertiesPerPass;
 		uint32_t m_alignment;
 };
-
+#endif
 
 }
-
 #endif

@@ -14,8 +14,8 @@
 
 namespace nbl::video
 {
-    
 
+#if 0 // TODO: port
 template<class HostAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT;
 
@@ -206,7 +206,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return lock;
         }
 };
-
+#endif
 
 }
 

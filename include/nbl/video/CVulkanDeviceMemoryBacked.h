@@ -39,7 +39,7 @@ class CVulkanDeviceMemoryBacked : public Interface
 
 	protected:
 		inline CVulkanDeviceMemoryBacked(const ILogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle)
-			: Interface(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(creationParams),getRequirements(dev)), m_handle(vkHandle)
+			: Interface(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(_creationParams),obtainRequirements(dev,vkHandle)), m_handle(vkHandle)
 		{
 			assert(vkHandle!=VK_NULL_HANDLE);
 		}

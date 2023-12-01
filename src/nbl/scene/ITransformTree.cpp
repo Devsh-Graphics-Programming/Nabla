@@ -8,7 +8,7 @@
 using namespace nbl;
 using namespace scene;
 
-
+#if 0 // legacy and unported
 ITransformTree::~ITransformTree()
 {
 }
@@ -37,3 +37,4 @@ ITransformTreeWithNormalMatrices::ITransformTreeWithNormalMatrices(
 	m_nodeStorage->getPropertyMemoryBlock(recomputed_stamp_prop_ix).buffer->setObjectDebugName("ITransformTreeWithNormalMatrices::recomputed_stamp_t");
 	m_nodeStorage->getPropertyMemoryBlock(normal_matrix_prop_ix).buffer->setObjectDebugName("ITransformTreeWithNormalMatrices::normal_matrix_t");
 }
+#endif

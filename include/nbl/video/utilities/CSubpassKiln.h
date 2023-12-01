@@ -1,11 +1,11 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_VIDEO_C_SUBPASS_KILN_H_INCLUDED_
 #define _NBL_VIDEO_C_SUBPASS_KILN_H_INCLUDED_
 
 
+#include "nbl/video/SPhysicalDeviceLimits.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
 
@@ -18,7 +18,6 @@ namespace nbl::video
 class CSubpassKiln
 {
     public:
-
         static void enableRequiredFeautres(SPhysicalDeviceFeatures& featuresToEnable)
         {
         }
@@ -36,7 +35,7 @@ class CSubpassKiln
         //
         struct DrawcallInfo
         {
-            alignas(16) uint8_t pushConstantData[SLimits::MaxMaxPushConstantsSize]; // could try to push alignment to 64, if we had containers capable of such allocations
+            alignas(16) uint8_t pushConstantData[SPhysicalDeviceLimits::MaxMaxPushConstantsSize]; // could try to push alignment to 64, if we had containers capable of such allocations
             core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
             core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
             asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};

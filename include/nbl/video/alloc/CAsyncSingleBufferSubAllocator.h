@@ -13,6 +13,7 @@
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 namespace impl
 {
 // HostAllocator allocates both reserved space and the space needed for variable length records on the DeferredFreeFunctor
@@ -20,7 +21,7 @@ template<class AddressAllocator, class HostAllocator>
 class CAsyncSingleBufferSubAllocator
 {
     private:
-        #if 0 // ifdef _NBL_DEBUG
+        #ifdef _NBL_DEBUG
         std::recursive_mutex stAccessVerfier;
         #endif // _NBL_DEBUG
         using ThisType = CAsyncSingleBufferSubAllocator<AddressAllocator,HostAllocator>;
@@ -101,7 +102,7 @@ class CAsyncSingleBufferSubAllocator
                 inline void operator()()
                 {
                     std::destroy_n(reinterpret_cast<ref_t*>(rangeData+numAllocs*2u),numAllocs);
-                    #if 0 // ifdef _NBL_DEBUG
+                    #ifdef _NBL_DEBUG
                     assert(composed && rangeData);
                     #endif // _NBL_DEBUG
                     composed->multi_deallocate(numAllocs,rangeData,rangeData+numAllocs);
@@ -129,7 +130,7 @@ class CAsyncSingleBufferSubAllocator
         //! Returns free events still outstanding
         inline uint32_t cull_frees() noexcept
         {
-            #if 0 // ifdef _NBL_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
@@ -139,7 +140,7 @@ class CAsyncSingleBufferSubAllocator
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
         inline size_type max_size() noexcept
         {
-            #if 0 // ifdef _NBL_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
@@ -160,7 +161,7 @@ class CAsyncSingleBufferSubAllocator
         template<class Clock=typename std::chrono::steady_clock, typename... Args>
         inline size_type multi_allocate(const std::chrono::time_point<Clock>& maxWaitPoint, const Args&... args) noexcept
         {
-            #if 0 // ifdef _NBL_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
@@ -186,7 +187,7 @@ class CAsyncSingleBufferSubAllocator
         //!
         inline void multi_deallocate(core::smart_refctd_ptr<IGPUFence>&& fence, DeferredFreeFunctor&& functor) noexcept
         {
-            #if 0 // ifdef _NBL_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
@@ -194,7 +195,7 @@ class CAsyncSingleBufferSubAllocator
         }
         inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes) noexcept
         {
-            #if 0 // ifdef _NBL_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
@@ -245,7 +246,7 @@ class CAsyncSingleBufferSubAllocatorST final : public core::IReferenceCounted, p
         template<typename... Args>
         CAsyncSingleBufferSubAllocatorST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
-
+#endif
 
 //MT version?
 

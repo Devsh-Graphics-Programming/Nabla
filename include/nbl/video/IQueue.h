@@ -43,7 +43,7 @@ class IQueue : public core::Interface, public core::Unmovable
         inline float getPriority() const { return m_priority; }
 
         // When dealing with external/foreign queues treat `other` as nullptr
-        inline bool needsOwnershipTransfer(const IGPUQueue* other) const
+        inline bool needsOwnershipTransfer(const IQueue* other) const
         {
             if (!other)
                 return true;

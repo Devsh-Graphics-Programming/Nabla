@@ -13,7 +13,7 @@
 namespace nbl::video
 {
 
-	
+#if 0 // TODO: port
 class ICommandPoolCache : public core::IReferenceCounted
 {
 	public:
@@ -123,6 +123,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 		CommandPoolAllocator m_cmdPoolAllocator;
 		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 };
+#endif
 
 }
 
