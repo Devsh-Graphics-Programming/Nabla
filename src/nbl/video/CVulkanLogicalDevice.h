@@ -191,7 +191,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
                 const auto* infoSrc = pDescriptorWrites[i].info;
                 auto* infoDst = const_cast<VkAccelerationStructureKHR*>(vk_writeDescriptorSetAS[i].pAccelerationStructures);
                 for (uint32_t j = 0u; j < pDescriptorWrites[i].count; ++j, ++infoSrc, ++infoDst)
-                    *infoDst = static_cast<const CVulkanAccelerationStructure*>(infoSrc->desc.get())->getInternalObject();
+                    *infoDst = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUAccelerationStructure*>(infoSrc->desc.get())->getNativeHandle());
             } break;
 
             default:
@@ -259,32 +259,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             VkAccelerationStructureMotionInfoNV motionInfo = { VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MOTION_INFO_NV,nullptr,0 };
             motionInfo.maxInstances = params.maxInstanceCount;
 
-<<<<<<< HEAD
-            const bool hasMotionBit = params.flags.hasFlags(IGPUAccelerationStructure::CREATE_FLAGS::MOTION_BIT);
+            const bool hasMotionBit = params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT);
             const auto vk_as = createAccelerationStructure(params,VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,hasMotionBit ? (&motionInfo):nullptr);
             if (vk_as!=VK_NULL_HANDLE)
-=======
-            asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
-
-            commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-            commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-            commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-            commonCompileOptions.preprocessorOptions.extraDefines = {};
-
-            commonCompileOptions.stage = shaderStage;
-            commonCompileOptions.debugInfoFlags = 
-                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
-            commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
-            commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
-
-            if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
-            {
-                // TODO: add specific HLSLCompiler::SOption params
-                spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-            }
-            else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
->>>>>>> f4671482eb56de7cbdc003f023b9848b7c0111a0
             {
                 if (!hasMotionBit)
                     params.maxInstanceCount = getPhysicalDevice()->getLimits().maxAccelerationStructureInstanceCount;
@@ -332,11 +309,10 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
             core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometryCount);
             core::vector<VkAccelerationStructureGeometryMotionTrianglesDataNV> vk_triangleMotions(IsAABB ? 0u:geometryCount);
-            auto out_vk_triangleMotions = vk_triangleMotions.data()+i;
             for (auto i=0u; i<geometryCount; i++)
             {
                 if constexpr (IsAABB)
-                    getVkASGeometryFrom<Geometry::buffer_t,true>(geometries[i],vk_geometries[i],out_vk_triangleMotions);
+                    getVkASGeometryFrom<Geometry::buffer_t,true>(geometries[i],vk_geometries[i],vk_triangleMotions.data()+i);
                 else
                     getVkASGeometryFrom<Geometry::buffer_t,true>(geometries[i],vk_geometries[i]);
             }
