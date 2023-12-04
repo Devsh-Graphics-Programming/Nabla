@@ -67,9 +67,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // descriptor creation
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
 
-        // shaders
-        core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
-
 
 
 
@@ -574,7 +571,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
 
         // shaders
-        core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer) override;
+        core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) override;
         inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& specInfo) override
         {
             return core::make_smart_refctd_ptr<CVulkanSpecializedShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(_unspecialized)),specInfo);

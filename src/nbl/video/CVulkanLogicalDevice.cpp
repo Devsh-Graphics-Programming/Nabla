@@ -483,54 +483,8 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
 }
 
 
-core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader, const asset::ISPIRVOptimizer* optimizer)
+core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader_impl(const asset::ICPUShader* spirvShader)
 {
-    if (!cpushader)
-        return nullptr;
-
-    const char* entryPoint = "main"; // every compiler seems to be handicapped this way?
-    const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
-
-    const asset::ICPUBuffer* source = cpushader->getContent();
-
-    core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
-
-    if (cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        spirvShader = cpushader;
-    else
-    {
-        auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
-
-        asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
-
-        commonCompileOptions.preprocessorOptions.logger = (m_physicalDevice->getDebugCallback()) ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
-        commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-        commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
-        commonCompileOptions.preprocessorOptions.extraDefines = {};
-
-        commonCompileOptions.stage = shaderStage;
-        commonCompileOptions.debugInfoFlags =
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
-        commonCompileOptions.spirvOptimizer = optimizer;
-        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
-
-        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
-        {
-            // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-        }
-        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-        {
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-        }
-        else
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader.get(), commonCompileOptions);
-    }
-
-    if (!spirvShader || !spirvShader->getContent())
-        return nullptr;
-
     auto spirv = spirvShader->getContent();
 
     VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
@@ -539,22 +493,9 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader(core::smar
     vk_createInfo.codeSize = spirv->getSize();
     vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
 
-    // for debugging 
-    if constexpr (true)
-    {
-        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_physicalDevice->getSystem()->createFile(future, system::path(cpushader->getFilepathHint()).parent_path() / "compiled.spv", system::IFileBase::ECF_WRITE);
-        if (auto file = future.acquire(); file && bool(*file))
-        {
-            system::IFile::success_t succ;
-            (*file)->write(succ, vk_createInfo.pCode, 0, vk_createInfo.codeSize);
-            succ.getBytesProcessed(true);
-        }
-    }
-
     VkShaderModule vk_shaderModule;
     if (m_devf.vk.vkCreateShaderModule(m_vkdev,&vk_createInfo,nullptr,&vk_shaderModule)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<video::CVulkanShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),spirvShader->getStage(),std::string(cpushader->getFilepathHint()),vk_shaderModule);
+        return core::make_smart_refctd_ptr<video::CVulkanShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),spirvShader->getStage(),std::string(spirvShader->getFilepathHint()),vk_shaderModule);
     return nullptr;
 }
 

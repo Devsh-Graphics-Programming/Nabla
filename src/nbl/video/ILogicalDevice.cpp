@@ -222,6 +222,71 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
     return createBufferView_impl(underlying,_fmt);
 }
 
+core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
+{
+    if (!cpushader)
+        return nullptr;
+
+    const char* entryPoint = "main"; // every compiler seems to be handicapped this way?
+    const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+
+    core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
+    if (cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpushader);
+    else
+    {
+        auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+
+        asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
+
+        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr;
+        commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+        commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+        commonCompileOptions.preprocessorOptions.extraDefines = {};
+
+        commonCompileOptions.stage = shaderStage;
+        commonCompileOptions.debugInfoFlags =
+            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+        commonCompileOptions.spirvOptimizer = optimizer;
+        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+        {
+            // TODO: add specific HLSLCompiler::SOption params
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+        }
+        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+        {
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+        }
+        else
+            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+
+        if (!spirvShader)
+            return nullptr;
+    }
+
+    auto spirv = spirvShader->getContent();
+    if (!spirv)
+        return nullptr;
+
+    // for debugging 
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_physicalDevice->getSystem()->createFile(future,system::path(cpushader->getFilepathHint()).parent_path()/"compiled.spv",system::IFileBase::ECF_WRITE);
+        if (auto file=future.acquire(); file&&bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ,spirv->getPointer(),0,spirv->getSize());
+            succ.getBytesProcessed(true);
+        }
+    }
+
+    return createShader_impl(spirvShader.get());
+}
+
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings)
 {
     // TODO: MORE VALIDATION, but after descriptor indexing.
