@@ -629,29 +629,27 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Fill out the descriptor sets with descriptors
         bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         //! Renderpasses and Framebuffers
-        virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params) = 0;
-        core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params)
         {
-            if (!params.renderpass->wasCreatedBy(this))
+            IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
+            if (!validation)
                 return nullptr;
+            return createRenderpass_impl(params,std::move(validation));
+        }
+        inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+        {
             if (!IGPUFramebuffer::validate(params))
                 return nullptr;
+
+            if (params.width>getPhysicalDeviceLimits().maxFramebufferWidth ||
+                params.height>getPhysicalDeviceLimits().maxFramebufferHeight ||
+                params.layers>getPhysicalDeviceLimits().maxFramebufferLayers)
+                return nullptr;
+
+            if (!params.renderpass->wasCreatedBy(this))
+                return nullptr;
+
             return createFramebuffer_impl(std::move(params));
         }
 
@@ -929,13 +927,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
 
-
-
-
-
-
-
+        virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
+
+
+
+
+
         virtual void updateDescriptorSets_impl(
             const uint32_t descriptorWriteCount,
             const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,

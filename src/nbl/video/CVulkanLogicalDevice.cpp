@@ -612,6 +612,199 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 }
 
 
+core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation)
+{
+    using params_t = IGPURenderpass::SCreationParams;
+
+    core::vector<VkAttachmentDescription2> attachments(validation.depthStencilAttachmentCount+validation.colorAttachmentCount,{VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,nullptr});
+    {
+        auto outAttachment = attachments.begin();
+        auto failAttachment = [&]<typename T> requires is_any_of_v<T,params_t::SDepthStencilAttachmentDescription,params_t::SColorAttachmentDescription>(const T& desc) -> bool
+        {
+            outAttachment->flags = ;
+            outAttachment->format = getVkFormatFromFormat(desc.format);
+            outAttachment->samples = static_cast<VkSampleCountFlagBits>(desc.samples);
+            outAttachment->stencilLoadOp = ;
+            outAttachment->stencilStoreOp = ;
+
+            outAttachment++;
+            return false;
+        };
+        for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
+        {
+            const auto& desc = params.depthStencilAttachments[i];
+
+            if (failAttachment(params.depthStencilAttachments[i]))
+                return nullptr;
+        }
+        for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
+        {
+            const auto& desc = params.colorAttachments[i];
+            outAttachment->loadOp = desc.loadOp;
+            outAttachment->storeOp = desc.storeOp;
+            outAttachment->initialLayout = getVkImageLayoutFromImageLayout(desc.initialLayout);
+            outAttachment->finalLayout = getVkImageLayoutFromImageLayout(desc.finalLayout);
+
+            if (failAttachment(desc))
+                return nullptr;
+        }
+    }
+
+    core::vector<VkSubpassDescription2> subpasses(validation.subpassCount,{VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,nullptr});
+    {
+    }
+
+    core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
+    {
+    }
+
+    constexpr auto MaxMultiviewViewCount = IGPURenderpass::SCreationParams::MaxMultiviewViewCount;
+    uint32_t viewMasks[MaxMultiviewViewCount] = { 0u };
+    // group up
+    for (auto i=0u; i<MaxMultiviewViewCount; i++)
+    if (params.viewCorrelationGroup[i]<MaxMultiviewViewCount)
+        viewMasks[i] |= 0x1u<<i;
+    // compact (removing zero valued entries)
+    uint32_t viewMaskCount = 0u;
+    for (auto i=0u; i<MaxMultiviewViewCount; i++)
+    if (i!=viewMaskCount)
+        viewMasks[viewMaskCount++] = viewMasks[i];
+
+    // Nothing useful in pNext, didn't implement VRS yet
+    VkRenderPassCreateInfo2 createInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,nullptr};
+    createInfo.flags = 0; // reserved for future use according to Vulkan 1.3.264 spec
+    createInfo.attachmentCount = attachments.size();
+    createInfo.pAttachments = attachments.data();
+    createInfo.subpassCount = subpasses.size();
+    createInfo.pSubpasses = subpasses.data();
+    createInfo.dependencyCount = dependencies.size();
+    createInfo.pDependencies = dependencies.data();
+    createInfo.correlatedViewMaskCount = viewMaskCount;
+    createInfo.pCorrelatedViewMasks = viewMasks;
+#if 0
+
+    constexpr uint32_t MemSz = 1u << 12;
+    constexpr uint32_t MaxAttachmentRefs = MemSz / sizeof(VkAttachmentReference);
+    VkAttachmentReference2 vk_attRefs[MaxAttachmentRefs]; // TODO: initialize properly
+    uint32_t preserveAttRefs[MaxAttachmentRefs];
+
+    uint32_t totalAttRefCount = 0u;
+    uint32_t totalPreserveCount = 0u;
+
+    auto fillUpVkAttachmentRefHandles = [&vk_attRefs, &totalAttRefCount](const uint32_t count, const auto* srcRef, uint32_t& dstCount, auto*& dstRef)
+        {
+            for (uint32_t j = 0u; j < count; ++j)
+            {
+                vk_attRefs[totalAttRefCount + j].attachment = srcRef[j].attachment;
+                vk_attRefs[totalAttRefCount + j].layout = getVkImageLayoutFromImageLayout(srcRef[j].layout);
+            }
+
+            dstRef = srcRef ? vk_attRefs + totalAttRefCount : nullptr;
+            dstCount = count;
+            totalAttRefCount += count;
+        };
+
+    for (uint32_t i = 0u; i < params.subpassCount; ++i)
+    {
+        auto& vk_subpass = vk_subpasses[i];
+        const auto& subpass = params.subpasses[i];
+
+        vk_subpass.flags = static_cast<VkSubpassDescriptionFlags>(subpass.flags);
+        vk_subpass.pipelineBindPoint = static_cast<VkPipelineBindPoint>(subpass.pipelineBindPoint);
+
+        // Copy over input attachments for this subpass
+        fillUpVkAttachmentRefHandles(subpass.inputAttachmentCount, subpass.inputAttachments,
+            vk_subpass.inputAttachmentCount, vk_subpass.pInputAttachments);
+
+        // Copy over color attachments for this subpass
+        fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.colorAttachments,
+            vk_subpass.colorAttachmentCount, vk_subpass.pColorAttachments);
+
+        // Copy over resolve attachments for this subpass
+        vk_subpass.pResolveAttachments = nullptr;
+        if (subpass.resolveAttachments)
+        {
+            uint32_t unused;
+            fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.resolveAttachments, unused, vk_subpass.pResolveAttachments);
+        }
+
+        // Copy over depth-stencil attachment for this subpass
+        vk_subpass.pDepthStencilAttachment = nullptr;
+        if (subpass.depthStencilAttachment)
+        {
+            uint32_t unused;
+            fillUpVkAttachmentRefHandles(1u, subpass.depthStencilAttachment, unused, vk_subpass.pDepthStencilAttachment);
+        }
+
+        // Copy over attachments that need to be preserved for this subpass
+        vk_subpass.preserveAttachmentCount = subpass.preserveAttachmentCount;
+        vk_subpass.pPreserveAttachments = nullptr;
+        if (subpass.preserveAttachments)
+        {
+            for (uint32_t j = 0u; j < subpass.preserveAttachmentCount; ++j)
+                preserveAttRefs[totalPreserveCount + j] = subpass.preserveAttachments[j];
+
+            vk_subpass.pPreserveAttachments = preserveAttRefs + totalPreserveCount;
+            totalPreserveCount += subpass.preserveAttachmentCount;
+        }
+    }
+    assert(totalAttRefCount <= MaxAttachmentRefs);
+    assert(totalPreserveCount <= MaxAttachmentRefs);
+
+    for (uint32_t i = 0u; i < deps.size(); ++i)
+    {
+        const auto& dep = params.dependencies[i];
+        auto& vkdep = deps[i];
+
+        vkdep.srcSubpass = dep.srcSubpass;
+        vkdep.dstSubpass = dep.dstSubpass;
+        vkdep.srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.srcStageMask);
+        vkdep.dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.dstStageMask);
+        vkdep.srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.srcAccessMask);
+        vkdep.dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.dstAccessMask);
+        vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
+    }
+#endif
+    VkRenderPass vk_renderpass;
+    if (m_devf.vk.vkCreateRenderPass2(m_vkdev,&createInfo,nullptr,&vk_renderpass)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanRenderpass>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),params,vk_renderpass);
+    return nullptr;
+}
+
+core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params)
+{
+    auto* const renderpass = static_cast<CVulkanRenderpass*>(params.renderpass.get());
+    core::vector<VkImageView> attachments;
+    {
+        attachments.reserve(renderpass->getDepthStencilAttachmentCount()+renderpass->getColorAttachmentCount());
+        auto pushAttachment = [&attachments](const core::smart_refctd_ptr<IGPUImageView>& view) -> void
+        {
+            attachments.push_back(static_cast<CVulkanImageView*>(view.get())->getInternalObject());
+        };
+
+        for (auto i=0u; i<renderpass->getDepthStencilAttachmentCount(); i++)
+            pushAttachment(params.depthStencilAttachments[i]);
+        for (auto i=0u; i<renderpass->getColorAttachmentCount(); i++)
+            pushAttachment(params.colorAttachments[i]);
+    }
+
+    VkFramebufferCreateInfo createInfo = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,nullptr};
+    createInfo.flags = 0; // WE SHALL NOT EXPOSE IMAGELESS FRAMEBUFFER EXTENSION
+    createInfo.renderPass = renderpass->getInternalObject();
+    createInfo.attachmentCount = attachments.size();
+    createInfo.pAttachments = attachments.data();
+    createInfo.width = params.width;
+    createInfo.height = params.height;
+    createInfo.layers = params.layers;
+    
+    VkFramebuffer vk_framebuffer;
+    if (m_devf.vk.vkCreateFramebuffer(m_vkdev,&createInfo,nullptr,&vk_framebuffer)==VK_SUCCESS)
+        return core::make_smart_refctd_ptr<CVulkanFramebuffer>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(params),vk_framebuffer);
+    return nullptr;
+}
+
+
+
 
 
 
