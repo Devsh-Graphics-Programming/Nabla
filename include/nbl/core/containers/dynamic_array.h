@@ -197,10 +197,10 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 			return !((*this) != _other);
 		}
 
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline iterator			begin() noexcept { return data(); }
 		inline const_iterator	begin() const noexcept { return data(); }
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline iterator			end() noexcept { return data()+size(); }
 		inline const_iterator	end() const noexcept { return data()+size(); }
 		inline const_iterator	cend() const noexcept { return data()+size(); }
@@ -212,16 +212,16 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		inline size_t			bytesize() const noexcept { return base_t::item_count*sizeof(T); }
 
 		inline const T&			operator[](size_t ix) const noexcept { return data()[ix]; }
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline T&				operator[](size_t ix) noexcept { return data()[ix]; }
 		
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline T&				front() noexcept { return *begin(); }
 		inline const T&			front() const noexcept { return *begin(); }
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline T&				back() noexcept { return *(end()-1); }
 		inline const T&			back() const noexcept { return *(end()-1); }
-		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
+		template<typename U=T, typename = typename std::enable_if_t<!is_const>>
 		inline pointer			data() noexcept { return storage(); }
 		inline const_pointer	data() const noexcept { return reinterpret_cast<const_pointer>(static_cast<const this_real_type*>(this))+this_real_type::dummy_item_count; }
 };
