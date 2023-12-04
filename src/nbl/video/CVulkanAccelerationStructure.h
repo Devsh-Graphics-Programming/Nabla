@@ -25,8 +25,9 @@ class CVulkanAccelerationStructure : public GPUAccelerationStructure
 		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;
 		bool wasBuildSuccessful(const IDeferredOperation* const deferredOp) override;
 
+		// public because using can't change the privacy scope
+		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, GPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);
 	protected:
-		CVulkanAccelerationStructure(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& logicalDevice, IGPUAccelerationStructure::SCreationParams&& params, const VkAccelerationStructureKHR accelerationStructure);
 		~CVulkanAccelerationStructure();
 
 		VkAccelerationStructureKHR m_vkAccelerationStructure;
@@ -185,7 +186,7 @@ void getVkASGeometryFrom(const IGPUTopLevelAccelerationStructure::BuildInfo<Buff
 template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
 inline VkBuildAccelerationStructureFlagsKHR getVkASBuildFlagsFrom(const core::bitflag<typename AccelerationStructure::BUILD_FLAGS> in, const bool motionBlur)
 {
-	auto retval =  static_cast<VkBuildAccelerationStructureFlagsKHR>(in);
+	auto retval = static_cast<VkBuildAccelerationStructureFlagsKHR>(in.value);
 	if (motionBlur)
 		retval |= VK_BUILD_ACCELERATION_STRUCTURE_MOTION_BIT_NV;
 	else
@@ -213,7 +214,10 @@ inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(cons
     vk_info.geometryCount = info.inputCount();
     vk_info.pGeometries = p_vk_geometry;
     vk_info.ppGeometries = nullptr;
-    vk_info.scratchData.deviceAddress = info.scratch.buffer->getDeviceAddress()+info.scratch.offset;
+	if constexpr (std::is_same_v<decltype(info.scratch),asset::SBufferBinding<IGPUBuffer>>)
+	    vk_info.scratchData.deviceAddress = info.scratch.buffer->getDeviceAddress()+info.scratch.offset;
+	else
+		vk_info.scratchData.hostAddress = reinterpret_cast<uint8_t*>(info.scratch.buffer->getPointer())+info.scratch.offset;
 
 	if constexpr (IsTLAS)
 	{

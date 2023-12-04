@@ -6,7 +6,7 @@ namespace nbl::video
 {
 
 template<class Interface>
-static IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked::obtainRequirements(const ILogicalDevice* device, const VkResouce_t vkHandle)
+static IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const ILogicalDevice* device, const VkResouce_t vkHandle)
 {
 	assert(device->getAPI()==EAT_VULKAN);
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(device);

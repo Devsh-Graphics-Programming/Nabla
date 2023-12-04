@@ -3,6 +3,11 @@
 
 namespace nbl::video
 {
+CVulkanMemoryAllocation::CVulkanMemoryAllocation(
+    core::smart_refctd_ptr<const CVulkanLogicalDevice>&& dev, const size_t size,
+    const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags, const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
+    const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
+) : IDeviceMemoryAllocation(dev.get(),size,flags,memoryPropertyFlags,isDedicated), m_vulkanDevice(dev.get()), m_deviceMemoryHandle(deviceMemoryHandle) {}
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
@@ -13,7 +18,7 @@ void* CVulkanMemoryAllocation::map_impl(const MemoryRange& range, const core::bi
 {
     void* retval = nullptr;
     const VkMemoryMapFlags vk_memoryMapFlags = 0; // reserved for future use, by Vulkan
-    if (m_vulkanDevice->getFunctionTable()->vk.vkMapMemory(m_vulkanDevice->getInternalObject(),m_deviceMemoryHandle,range.offset,range.size,vk_memoryMapFlags,&retval)!=VK_SUCCESS)
+    if (m_vulkanDevice->getFunctionTable()->vk.vkMapMemory(m_vulkanDevice->getInternalObject(),m_deviceMemoryHandle,range.offset,range.length,vk_memoryMapFlags,&retval)!=VK_SUCCESS)
         return nullptr;
     return retval;
 }
