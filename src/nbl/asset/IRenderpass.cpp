@@ -9,7 +9,8 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
     m_subpasses(core::make_refctd_dynamic_array<subpass_array_t>(counts.subpassCount)),
     m_inputAttachments(core::make_refctd_dynamic_array<input_attachment_array_t>(counts.totalInputAttachmentCount+counts.subpassCount)),
     m_preserveAttachments(core::make_refctd_dynamic_array<preserved_attachment_refs_array_t>(counts.totalPreserveAttachmentCount+counts.subpassCount)),
-    m_subpassDependencies(counts.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(counts.dependencyCount):nullptr)
+    m_subpassDependencies(counts.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(counts.dependencyCount):nullptr),
+    m_viewMaskMSB(counts.viewMaskMSB)
 {
     m_params.depthStencilAttachments = m_depthStencilAttachments ? m_depthStencilAttachments->data():(&SCreationParams::DepthStencilAttachmentsEnd);
     for (auto i=0u; i<counts.depthStencilAttachmentCount; i++)
