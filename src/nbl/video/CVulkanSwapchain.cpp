@@ -114,7 +114,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
         }
     }
 
-    return core::make_smart_refctd_ptr<CVulkanSwapchain>(std::move(device),std::move(params),imageCount,vk_swapchain,adaptorSemaphores);
+    return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,vk_swapchain,adaptorSemaphores),core::dont_grab);
 }
 
 CVulkanSwapchain::CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores)

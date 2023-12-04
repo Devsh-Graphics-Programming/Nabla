@@ -13,6 +13,7 @@ namespace nbl::video
 {
 
 class ILogicalDevice;
+class IQueue;
 
 class IBackendObject : public virtual core::IReferenceCounted
 {
@@ -33,7 +34,7 @@ class IBackendObject : public virtual core::IReferenceCounted
         {
             using base_t = std::remove_pointer_t<base_t_ptr>;
             using derived_t = std::remove_pointer_t<derived_t_ptr>;
-            static_assert(std::is_base_of_v<IBackendObject, base_t>,"base_t should be derived from IBackendObject");
+            static_assert(std::is_same_v<std::remove_pointer_t<base_t>,IQueue> || std::is_base_of_v<IBackendObject,base_t>,"base_t should be derived from IBackendObject");
             static_assert(std::is_base_of_v<base_t,derived_t>,"derived_t should be derived from base_t");
             if (base && !base->wasCreatedBy(device))
                 return nullptr;

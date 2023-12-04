@@ -50,7 +50,7 @@ class IQueryPool : public IBackendObject
             };        
             inline const auto& getCreationParameters() const
             {
-                return params;
+                return m_params;
             }
 
             enum RESULTS_FLAGS : uint8_t
@@ -93,10 +93,10 @@ class IQueryPool : public IBackendObject
             }
 
     protected:
-            explicit inline IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
-                : IBackendObject(std::move(dev)), params(std::move(_params)) {}
+            explicit inline IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& _params) 
+                : IBackendObject(std::move(dev)), m_params(_params) {}
 
-            SCreationParams params;
+            SCreationParams m_params;
 };
 
 }

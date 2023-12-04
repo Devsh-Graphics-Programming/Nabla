@@ -36,7 +36,7 @@ auto CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _
         {
             out[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
             out[i].pNext = nullptr;
-            out[i].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(in[i],m_originDevice)->getInternalObject();
+            out[i].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(in[i].semaphore,m_originDevice)->getInternalObject();
             out[i].value = in[i].value;
             out[i].stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(in[i].stageMask);
             out[i].deviceIndex = 0u; // device groups are a TODO
@@ -85,29 +85,13 @@ auto CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _
         fillSemaphoreInfo(_sb.pWaitSemaphores,_sb.waitSemaphoreCount,waits);
         for (uint32_t j=0u; j<_sb.commandBufferCount; ++j)
         {
-            cmdbufs[j].commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[i],m_originDevice)->getInternalObject();
+            cmdbufs[j].commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[i].cmdbuf,m_originDevice)->getInternalObject();
             cmdbufs[j].deviceMask = 0x1u;
         }
         fillSemaphoreInfo(_sb.pSignalSemaphores,_sb.signalSemaphoreCount,signals);
     }
     const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,_count,submits.data(),VK_NULL_HANDLE);
     return getResultFrom(vk_result);
-}
-
-bool CVulkanQueue::startCapture() 
-{
-	if(m_rdoc_api == nullptr)
-		return false;
-    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
-}
-
-bool CVulkanQueue::endCapture()
-{
-	if(m_rdoc_api == nullptr)
-		return false;
-    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
 }
 
 bool CVulkanQueue::insertDebugMarker(const char* name, const core::vector4df_SIMD& color)
