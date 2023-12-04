@@ -6,22 +6,19 @@ namespace nbl::video
 {
 
 template<class Interface>
-static IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const ILogicalDevice* device, const VkResouce_t vkHandle)
-{
-	assert(device->getAPI()==EAT_VULKAN);
-    const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(device);
-    
+IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const CVulkanLogicalDevice* device, const void* vkHandle)
+{    
     const std::conditional_t<IsImage,VkImageMemoryRequirementsInfo2,VkBufferMemoryRequirementsInfo2> vk_memoryRequirementsInfo = {
-        IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2:VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,vkHandle
+        IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2:VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,*reinterpret_cast<const VkResource_t*>(vkHandle)
     };
 
     VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,nullptr };
     VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,&vk_dedicatedMemoryRequirements };
-    const auto& vk = vulkanDevice->getFunctionTable()->vk;
+    const auto& vk = device->getFunctionTable()->vk;
     if constexpr(IsImage)
-        vk.vkGetImageMemoryRequirements2(vulkanDevice->getInternalObject(),&vk_memoryRequirementsInfo,&vk_memoryRequirements);
+        vk.vkGetImageMemoryRequirements2(device->getInternalObject(),&vk_memoryRequirementsInfo,&vk_memoryRequirements);
     else
-        vk.vkGetBufferMemoryRequirements2(vulkanDevice->getInternalObject(),&vk_memoryRequirementsInfo,&vk_memoryRequirements);
+        vk.vkGetBufferMemoryRequirements2(device->getInternalObject(),&vk_memoryRequirementsInfo,&vk_memoryRequirements);
 
     IDeviceMemoryBacked::SDeviceMemoryRequirements memoryReqs = {};
     memoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
@@ -30,6 +27,13 @@ static IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<
     memoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
     memoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
     return memoryReqs;
+}
+
+template<class Interface>
+CVulkanDeviceMemoryBacked<Interface>::CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle)
+    : Interface(core::smart_refctd_ptr<const CVulkanLogicalDevice>(dev),std::move(_creationParams),obtainRequirements(dev,&vkHandle)), m_handle(vkHandle)
+{
+    assert(vkHandle!=VK_NULL_HANDLE);
 }
 
 template CVulkanDeviceMemoryBacked<IGPUBuffer>;

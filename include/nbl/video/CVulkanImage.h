@@ -11,12 +11,10 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
-
 class CVulkanImage : public CVulkanDeviceMemoryBacked<IGPUImage>
 {
 	public:
-		inline CVulkanImage(const ILogicalDevice* dev, IGPUImage::SCreationParams&& _params, const VkImage _vkimg) : CVulkanDeviceMemoryBacked<IGPUImage>(dev,std::move(_params),_vkimg) {}
+		inline CVulkanImage(const CVulkanLogicalDevice* dev, IGPUImage::SCreationParams&& _params, const VkImage _vkimg) : CVulkanDeviceMemoryBacked<IGPUImage>(dev,std::move(_params),_vkimg) {}
 
 		void setObjectDebugName(const char* label) const override;
 

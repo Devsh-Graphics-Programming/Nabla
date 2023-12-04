@@ -13,18 +13,13 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
+class CVulkanLogicalDevice;
 
 template<class Interface>
 class CVulkanDeviceMemoryBacked : public Interface
 {
 		constexpr static inline bool IsImage = std::is_same_v<Interface,IGPUImage>;
-		using VkResource_t = std::conditional_t<IsImage,VkImage,VkBuffer>;
-		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const ILogicalDevice* device, const VkResource_t vkHandle);
-
-		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
-		size_t m_offset = 0u;
-		VkResource_t m_handle;
+		using VkResource_t = const std::conditional_t<IsImage,VkImage,VkBuffer>;
 
 	public:
 		inline IDeviceMemoryBacked::SMemoryBinding getBoundMemory() const {return {m_memory.get(),m_offset};}
@@ -38,11 +33,14 @@ class CVulkanDeviceMemoryBacked : public Interface
 		inline VkResource_t getInternalObject() const {return m_handle;}
 
 	protected:
-		inline CVulkanDeviceMemoryBacked(const ILogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle)
-			: Interface(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(_creationParams),obtainRequirements(dev,vkHandle)), m_handle(vkHandle)
-		{
-			assert(vkHandle!=VK_NULL_HANDLE);
-		}
+		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle);
+
+	private:
+		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, const void* vkHandle);
+
+		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
+		size_t m_offset = 0u;
+		VkResource_t m_handle;
 };
 
 #ifndef _NBL_VIDEO_C_VULKAN_DEVICE_MEMORY_BACKED_CPP_
