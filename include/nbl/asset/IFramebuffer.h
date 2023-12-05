@@ -82,9 +82,6 @@ class IFramebuffer
                         return true;
 
                     const auto& imgParams = viewParams.image->getCreationParameters();
-                    // We won't support linear attachments
-                    if (imgParams->getTiling()!=IGPUImage::TILING::OPTIMAL)
-                        return true;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-flags-04533
                     if (imgParams.extent.width<params.width)
                         return true;

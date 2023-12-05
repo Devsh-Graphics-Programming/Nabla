@@ -186,6 +186,11 @@ class IRenderpass
 
                     struct SPreserveAttachmentRef
                     {
+                        inline bool operator!=(const SPreserveAttachmentRef& other) const
+                        {
+                            return color!=other.color || index!=other.index;
+                        }
+
                         uint32_t color : 1;
                         uint32_t index : 31;
                     };

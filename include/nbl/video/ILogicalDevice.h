@@ -645,6 +645,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (!params.renderpass->wasCreatedBy(this))
                 return nullptr;
 
+            // We won't support linear attachments
+            auto anyNonOptimalTiling = [](core::smart_refctd_ptr<IGPUImageView>* const attachments, const uint32_t count)->bool
+            {
+                for (auto i=0u; i<count; i++)
+                if (attachments[i]->getCreationParameters().image->getTiling()!=IGPUImage::TILING::OPTIMAL)
+                    return true;
+                return false;
+            };
+            if (anyNonOptimalTiling(params.depthStencilAttachments,params.renderpass->getDepthStencilAttachmentCount()))
+                return nullptr;
+            if (anyNonOptimalTiling(params.colorAttachments,params.renderpass->getColorAttachmentCount()))
+                return nullptr;
+
             return createFramebuffer_impl(std::move(params));
         }
 

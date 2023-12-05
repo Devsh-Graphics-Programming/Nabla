@@ -102,8 +102,9 @@ class smart_refctd_ptr
 		inline explicit operator bool() const { return ptr; }
 		inline bool operator!() const { return !ptr; }
 
-		template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED> && std::is_assignable_v<U,I_REFERENCE_COUNTED>)
-		inline operator smart_refctd_ptr<U>&&() && {return *reinterpret_cast<smart_refctd_ptr<U>>(this);}
+// TODO: later, need to figure out some stuff about fwd declarations of concepts
+//		template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED> && std::is_assignable_v<U,I_REFERENCE_COUNTED>)
+//		inline operator smart_refctd_ptr<U>&&() && {return *reinterpret_cast<smart_refctd_ptr<U>>(this);}
 
 		template<class U>
 		inline bool operator==(const smart_refctd_ptr<U> &other) const { return ptr == other.ptr; }

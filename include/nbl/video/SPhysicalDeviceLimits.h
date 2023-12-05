@@ -1,9 +1,14 @@
 #ifndef _NBL_VIDEO_S_PHYSICAL_DEVICE_LIMITS_H_INCLUDED_
 #define _NBL_VIDEO_S_PHYSICAL_DEVICE_LIMITS_H_INCLUDED_
 
-#include <type_traits>
+
 #include "nbl/asset/utils/CGLSLCompiler.h" // asset::CGLSLCompiler::E_SPIRV_VERSION
+
 #include "nbl/asset/IImage.h"
+#include "nbl/asset/IRenderpass.h"
+
+#include <type_traits>
+
 
 namespace nbl::video
 {
@@ -248,7 +253,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 500000u;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = MinMaxColorAttachments;
 
-    using RESOLVE_MODE_FLAGS = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
+    using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
     core::bitflag<RESOLVE_MODE_FLAGS>   supportedDepthResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
     core::bitflag<RESOLVE_MODE_FLAGS>   supportedStencilResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
     bool                                independentResolveNone = false;
