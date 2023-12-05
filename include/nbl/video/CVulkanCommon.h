@@ -986,6 +986,25 @@ inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId i
     return IPhysicalDevice::E_DRIVER_ID::EDI_UNKNOWN;
 }
 
+inline VkAttachmentLoadOp getVkAttachmentLoadOpFrom(const asset::IRenderpass::LOAD_OP op)
+{
+    return static_cast<VkAttachmentLoadOp>(op);
+}
+inline asset::IRenderpass::LOAD_OP getAttachmentLoadOpFrom(const VkAttachmentLoadOp op)
+{
+    return static_cast<asset::IRenderpass::LOAD_OP>(op);
+}
+
+inline VkAttachmentStoreOp getVkAttachmentStoreOpFrom(const asset::IRenderpass::STORE_OP op)
+{
+    return static_cast<VkAttachmentStoreOp>(op);
+}
+inline asset::IRenderpass::STORE_OP getAttachmentStoreOpFrom(const VkAttachmentStoreOp op)
+{
+    return static_cast<asset::IRenderpass::STORE_OP>(op);
+}
+
+
 }
 
 #endif
