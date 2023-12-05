@@ -34,9 +34,9 @@ try:
     os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
     
     args = parseInputArguments()
-    
+   
     if args.cishallowconfigure:
-        targetRevision = args.cishallowconfigure.split(' ')[1]
+        targetRevision = args.cishallowconfigure
         
         clone(targetRevision)
         configure("static")  # TODO: maybe execute with only
@@ -45,15 +45,15 @@ try:
 
     config = "Release"
     if args.config:
-        config = args.config.split(' ')[1]
+        config = args.config
         
     archValue = "x86_64"
     if args.arch:
-        archValue = args.arch.split(' ')[1]
+        archValue = args.arch
         
     libType = "dynamic"
     if args.libType:
-        libType = args.libType.split(' ')[1]
+        libType = args.libType
 
     configure(libType)
     build(libType, config)

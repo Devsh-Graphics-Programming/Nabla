@@ -8,19 +8,24 @@ services:
       - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
       - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
       - NABLA_TARGET_REVISION=${NABLA_TARGET_REVISION}
+      - THIS_PROJECT_DOCKER_BIND_DIRECTORY=${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     environment:
     - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
     - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
     - NABLA_TARGET_REVISION=${NABLA_TARGET_REVISION}
+    - THIS_PROJECT_DOCKER_BIND_DIRECTORY=${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     image: artifactory.devsh.eu/nabla/windows/base:latest
     container_name: dev.nabla.base.x86_64.windows
     networks:
       - docker_default
     volumes:
+      - type: bind
+        source: ../../../../
+        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
-    entrypoint: ["%THIS_PROJECT_NABLA_DIRECTORY%/docker/platform/windows/scripts/build.bat", "--cishallowconfigure", "%NABLA_TARGET_REVISION%"]
+    entrypoint: ["build.bat", "--cishallowconfigure", "%NABLA_TARGET_REVISION%"]
 networks:
   docker_default:
     external: true
