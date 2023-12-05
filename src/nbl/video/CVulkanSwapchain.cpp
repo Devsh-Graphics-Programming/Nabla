@@ -320,7 +320,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     m_imgCreationParams.queueFamilyIndexCount = m_params.queueFamilyIndexCount;
     m_imgCreationParams.queueFamilyIndices = m_params.queueFamilyIndices;
 
-    return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<const ILogicalDevice>(getOriginDevice()),m_imgMemRequirements,std::move(creationParams),m_images[imageIndex]);
+    return core::make_smart_refctd_ptr<CVulkanImage>(device.get(),m_imgMemRequirements,std::move(creationParams),m_images[imageIndex]);
 }
 
 void CVulkanSwapchain::setObjectDebugName(const char* label) const

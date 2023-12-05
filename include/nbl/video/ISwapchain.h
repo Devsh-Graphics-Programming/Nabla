@@ -118,13 +118,15 @@ class ISwapchain : public IBackendObject
         // for cleaning up external images from `createImage`
         struct CCleanupSwapchainReference : public ICleanup
         {
-            core::smart_refctd_ptr<ISwapchain> m_swapchain;
-            uint32_t m_imageIndex;
-
-            inline ~CCleanupSwapchainReference()
+            CCleanupSwapchainReference(core::smart_refctd_ptr<ISwapchain>&& _swapchain, const uint32_t _imageIndex) :
+                m_swapchain(std::move(_swapchain)), m_imageIndex(_imageIndex) {}
+            inline virtual ~CCleanupSwapchainReference()
             {
                 m_swapchain->freeImageExists(m_imageIndex);
             }
+
+            core::smart_refctd_ptr<ISwapchain> m_swapchain;
+            uint32_t m_imageIndex;
         };
 
         // Vulkan: const VkSwapchainKHR*
