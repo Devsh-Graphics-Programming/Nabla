@@ -389,12 +389,50 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     if (invalidAttachment(params.colorAttachments[i]))
         return nullptr;
 
+    const auto supportedDepthResolveModes = getPhysicalDeviceLimits().supportedDepthResolveModes;
+    const auto supportedStencilResolveModes = getPhysicalDeviceLimits().supportedStencilResolveModes;
+    const auto independentResolve = getPhysicalDeviceLimits().independentResolve;
+    const auto independentResolveNone = getPhysicalDeviceLimits().independentResolveNone;
     const auto maxColorAttachments = getPhysicalDeviceLimits().maxColorAttachments;
     const int32_t maxMultiviewViewCount = getPhysicalDeviceLimits().maxMultiviewViewCount;
     for (auto i=0u; i<validation.subpassCount; i++)
     {
         using subpass_desc_t = IGPURenderpass::SCreationParams::SSubpassDescription;
         const subpass_desc_t& subpass = params.subpasses[i];
+
+        if (subpass.depthStencilAttachment.render.used())
+        {
+            if (subpass.depthStencilAttachment.resolve.used())
+            {
+                using resolve_flag_t = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
+                const resolve_flag_t depthResolve = subpass.depthStencilAttachment.resolveMode.depth;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-depthResolveMode-03183
+                if (!supportedDepthResolveModes.hasFlags(depthResolve))
+                    return nullptr;
+
+                const resolve_flag_t stencilResolve = subpass.depthStencilAttachment.resolveMode.stencil;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-stencilResolveMode-03184
+                if (!supportedStencilResolveModes.hasFlags(stencilResolve))
+                    return nullptr;
+
+                const auto& attachment = params.depthStencilAttachments[subpass.depthStencilAttachment.resolve.attachmentIndex];
+                if (!asset::isStencilOnlyFormat(attachment.format) && !asset::isDepthOnlyFormat(attachment.format))
+                {
+                    if (!independentResolve && depthResolve!=stencilResolve)
+                    {
+                        if (independentResolveNone)
+                        {
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186
+                            if (depthResolve!=resolve_flag_t::NONE && stencilResolve!=resolve_flag_t::NONE)
+                                return nullptr;
+                        }
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185
+                        else
+                            return nullptr;
+                    }
+                }
+            }
+        }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-colorAttachmentCount-03063
         for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)

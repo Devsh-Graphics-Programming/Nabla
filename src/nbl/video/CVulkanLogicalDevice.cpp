@@ -617,22 +617,32 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     using params_t = IGPURenderpass::SCreationParams;
 
     core::vector<VkAttachmentDescription2> attachments(validation.depthStencilAttachmentCount+validation.colorAttachmentCount,{VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2,nullptr});
+    core::vector<VkAttachmentDescriptionStencilLayout> stencilAttachmentLayouts(validation.depthStencilAttachmentCount,{VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT,nullptr});
     {
         auto outAttachment = attachments.begin();
         auto failAttachment = [&]<typename T> requires is_any_of_v<T,params_t::SDepthStencilAttachmentDescription,params_t::SColorAttachmentDescription>(const T& desc) -> bool
         {
-            outAttachment->flags = ;
+            outAttachment->flags = desc.mayAlias ? VK_ATTACHMENT_DESCRIPTION_MAY_ALIAS_BIT:0;
             outAttachment->format = getVkFormatFromFormat(desc.format);
             outAttachment->samples = static_cast<VkSampleCountFlagBits>(desc.samples);
-            outAttachment->stencilLoadOp = ;
-            outAttachment->stencilStoreOp = ;
 
             outAttachment++;
             return false;
         };
-        for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
+        auto outStencilLayout = stencilAttachmentLayouts.data();
+        for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++,outStencilLayout++)
         {
             const auto& desc = params.depthStencilAttachments[i];
+            outAttachment->loadOp = getVkAttachmentLoadOpFrom(desc.loadOp.depth);
+            outAttachment->storeOp = getVkAttachmentStoreOpFrom(desc.storeOp.depth);
+            outAttachment->stencilLoadOp = getVkAttachmentLoadOpFrom(desc.loadOp.actualStencilOp());
+            outAttachment->stencilStoreOp = getVkAttachmentStoreOpFrom(desc.storeOp.actualStencilOp());
+            outAttachment->initialLayout = getVkImageLayoutFromImageLayout(desc.initialLayout.depth);
+            outAttachment->finalLayout = getVkImageLayoutFromImageLayout(desc.finalLayout.depth);
+            // For depth-only formats, the VkAttachmentDescriptionStencilLayout structure is ignored.
+            outAttachment->pNext = outStencilLayout;
+            outStencilLayout->stencilInitialLayout = getVkImageLayoutFromImageLayout(desc.initialLayout.actualStencilLayout());
+            outStencilLayout->stencilFinalLayout = getVkImageLayoutFromImageLayout(desc.finalLayout.actualStencilLayout());
 
             if (failAttachment(params.depthStencilAttachments[i]))
                 return nullptr;
@@ -640,8 +650,8 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
         for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
         {
             const auto& desc = params.colorAttachments[i];
-            outAttachment->loadOp = desc.loadOp;
-            outAttachment->storeOp = desc.storeOp;
+            outAttachment->loadOp = getVkAttachmentLoadOpFrom(desc.loadOp);
+            outAttachment->storeOp = getVkAttachmentStoreOpFrom(desc.storeOp);
             outAttachment->initialLayout = getVkImageLayoutFromImageLayout(desc.initialLayout);
             outAttachment->finalLayout = getVkImageLayoutFromImageLayout(desc.finalLayout);
 
@@ -649,13 +659,122 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
                 return nullptr;
         }
     }
-
+    
     core::vector<VkSubpassDescription2> subpasses(validation.subpassCount,{VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2,nullptr});
+    using subpass_desc_t = IGPURenderpass::SCreationParams::SSubpassDescription;
+    // worst case sizing: 2 attachments, render and resolve for each of the color and depth attachments
+    constexpr size_t MaxWriteableAttachments = (subpass_desc_t::MaxColorAttachments+1u)*2u;
+    core::vector<VkAttachmentReference2> attachmentRef(MaxWriteableAttachments*validation.subpassCount+validation.totalInputAttachmentCount,{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2,nullptr});
+    // one depth-stencil attachment, means 1 resolve depth stencil at most!
+    core::vector<VkSubpassDescriptionDepthStencilResolve> depthStencilResolve(validation.subpassCount,{VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE,nullptr});
+    // one depth-stencil attachmentand possibly one depth-stencil resolve attachment, so max 2 stencil layouts
+    core::vector<VkAttachmentReferenceStencilLayout> stencilLayout(validation.subpassCount*2,{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_STENCIL_LAYOUT,nullptr});
+    core::vector<uint32_t> preserveAttachment(validation.totalPreserveAttachmentCount);
     {
+        auto outSubpass = subpasses.begin();
+        auto outAttachmentRef = attachmentRef.data();
+        auto outStencilLayout = stencilLayout.data();
+        auto pushAttachmentRef = [validation,&outAttachmentRef,&outStencilLayout]<typename layout_t>(const subpass_desc_t::SAttachmentRef<layout_t>& ref)->bool
+        {
+            if (ref.used())
+            {
+                if constexpr (std::is_same_v<layout_t,IGPUImage::SDepthStencilLayout>)
+                {
+                    outAttachmentRef->attachment = ref.attachmentIndex;
+                    outAttachmentRef->layout = getVkImageLayoutFromImageLayout(ref.layout.depth);
+                    outStencilLayout->stencilLayout = getVkImageLayoutFromImageLayout(ref.layout.actualStencilLayout());
+                    outAttachmentRef->pNext = outStencilLayout++;
+                }
+                else
+                {
+                    // need to offset in the whole array
+                    outAttachmentRef->attachment = validation.depthStencilAttachmentCount+ref.attachmentIndex;
+                    outAttachmentRef->layout = getVkImageLayoutFromImageLayout(ref.layout);
+                }
+                // aspect mask gets ignored for anything thats not an input attachment
+            }
+            else
+                outAttachmentRef->attachment = VK_ATTACHMENT_UNUSED;
+            outAttachmentRef++;
+            return ref.used();
+        };
+        auto outDepthStencilResolve = depthStencilResolve.data();
+        auto outPreserveAttachment = preserveAttachment.data();
+        for (uint32_t i=0u; i<validation.subpassCount; i++,outSubpass++)
+        {
+            const subpass_desc_t& subpass = params.subpasses[i];
+            outSubpass->flags = static_cast<VkSubpassDescriptionFlags>(subpass.flags.value);
+            outSubpass->pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            outSubpass->viewMask = subpass.viewMask;
+            outSubpass->inputAttachmentCount = 0;
+            outSubpass->pInputAttachments = outAttachmentRef;
+            core::visit_token_terminated_array(subpass.inputAttachments,subpass_desc_t::InputAttachmentsEnd,[&](const subpass_desc_t::SInputAttachmentRef& inputAttachmentRef)->bool
+            {
+                outAttachmentRef->aspectMask = static_cast<VkImageAspectFlags>(inputAttachmentRef.aspectMask.value);
+                if (inputAttachmentRef.isColor())
+                    pushAttachmentRef(inputAttachmentRef.asColor);
+                else
+                    pushAttachmentRef(inputAttachmentRef.asDepthStencil);
+                outSubpass->inputAttachmentCount++;
+                return true;
+            });
+            outSubpass->colorAttachmentCount = 0;
+            outSubpass->pColorAttachments = outAttachmentRef;
+            for (auto j=0u; j<subpass_desc_t::MaxColorAttachments; j++)
+            {
+                const auto& att = subpass.colorAttachments[j];
+                if (pushAttachmentRef(att.render))
+                    outSubpass->colorAttachmentCount = i+1;
+            }
+            outSubpass->pResolveAttachments = outAttachmentRef;
+            for (auto j=0u; j<outSubpass->colorAttachmentCount; j++)
+                pushAttachmentRef(subpass.colorAttachments[i].resolve);
+            if (subpass.depthStencilAttachment.render.used())
+            {
+                const auto& render = subpass.depthStencilAttachment.render;
+                const auto& resolve = subpass.depthStencilAttachment.resolve;
+                if (resolve.used())
+                {
+                    outDepthStencilResolve->depthResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.depth);
+                    outDepthStencilResolve->stencilResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.stencil);
+                    outDepthStencilResolve->pDepthStencilResolveAttachment = outAttachmentRef;
+                    pushAttachmentRef(resolve);
+                    outSubpass->pNext = outDepthStencilResolve++;
+                }
+                pushAttachmentRef(render);
+                outSubpass->pDepthStencilAttachment = outAttachmentRef++;
+            }
+            else
+                outSubpass->pDepthStencilAttachment = nullptr;
+            outSubpass->pPreserveAttachments = outPreserveAttachment;
+            core::visit_token_terminated_array(subpass.preserveAttachments, subpass_desc_t::PreserveAttachmentsEnd, [&](const subpass_desc_t::SPreserveAttachmentRef& preserveAttachmentRef)->bool
+            {
+                *outPreserveAttachment = preserveAttachmentRef.index;
+                if (preserveAttachmentRef.color)
+                    *outPreserveAttachment += validation.depthStencilAttachmentCount;
+                outPreserveAttachment++;
+                return true;
+            });
+            outSubpass->preserveAttachmentCount = outPreserveAttachment-outSubpass->pPreserveAttachments;
+        }
     }
 
     core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
     {
+        auto outDependency = dependencies.data();
+        auto getSubpassIndex = [](const uint32_t ix){return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL};
+        for (uint32_t i=0u; i<validation.dependencyCount; i++)
+        {
+            const auto& dep = params.dependencies[i];
+            outDependency->srcSubpass = getSubpassIndex(dep.srcSubpass);
+            outDependency->dstSubpass = getSubpassIndex(dep.dstSubpass);
+            outDependency->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
+            outDependency->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
+            outDependency->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
+            outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
+            outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
+            outDependency->viewOffset = dep.viewOffset;
+        }
     }
 
     constexpr auto MaxMultiviewViewCount = IGPURenderpass::SCreationParams::MaxMultiviewViewCount;
@@ -681,90 +800,7 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     createInfo.pDependencies = dependencies.data();
     createInfo.correlatedViewMaskCount = viewMaskCount;
     createInfo.pCorrelatedViewMasks = viewMasks;
-#if 0
 
-    constexpr uint32_t MemSz = 1u << 12;
-    constexpr uint32_t MaxAttachmentRefs = MemSz / sizeof(VkAttachmentReference);
-    VkAttachmentReference2 vk_attRefs[MaxAttachmentRefs]; // TODO: initialize properly
-    uint32_t preserveAttRefs[MaxAttachmentRefs];
-
-    uint32_t totalAttRefCount = 0u;
-    uint32_t totalPreserveCount = 0u;
-
-    auto fillUpVkAttachmentRefHandles = [&vk_attRefs, &totalAttRefCount](const uint32_t count, const auto* srcRef, uint32_t& dstCount, auto*& dstRef)
-        {
-            for (uint32_t j = 0u; j < count; ++j)
-            {
-                vk_attRefs[totalAttRefCount + j].attachment = srcRef[j].attachment;
-                vk_attRefs[totalAttRefCount + j].layout = getVkImageLayoutFromImageLayout(srcRef[j].layout);
-            }
-
-            dstRef = srcRef ? vk_attRefs + totalAttRefCount : nullptr;
-            dstCount = count;
-            totalAttRefCount += count;
-        };
-
-    for (uint32_t i = 0u; i < params.subpassCount; ++i)
-    {
-        auto& vk_subpass = vk_subpasses[i];
-        const auto& subpass = params.subpasses[i];
-
-        vk_subpass.flags = static_cast<VkSubpassDescriptionFlags>(subpass.flags);
-        vk_subpass.pipelineBindPoint = static_cast<VkPipelineBindPoint>(subpass.pipelineBindPoint);
-
-        // Copy over input attachments for this subpass
-        fillUpVkAttachmentRefHandles(subpass.inputAttachmentCount, subpass.inputAttachments,
-            vk_subpass.inputAttachmentCount, vk_subpass.pInputAttachments);
-
-        // Copy over color attachments for this subpass
-        fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.colorAttachments,
-            vk_subpass.colorAttachmentCount, vk_subpass.pColorAttachments);
-
-        // Copy over resolve attachments for this subpass
-        vk_subpass.pResolveAttachments = nullptr;
-        if (subpass.resolveAttachments)
-        {
-            uint32_t unused;
-            fillUpVkAttachmentRefHandles(subpass.colorAttachmentCount, subpass.resolveAttachments, unused, vk_subpass.pResolveAttachments);
-        }
-
-        // Copy over depth-stencil attachment for this subpass
-        vk_subpass.pDepthStencilAttachment = nullptr;
-        if (subpass.depthStencilAttachment)
-        {
-            uint32_t unused;
-            fillUpVkAttachmentRefHandles(1u, subpass.depthStencilAttachment, unused, vk_subpass.pDepthStencilAttachment);
-        }
-
-        // Copy over attachments that need to be preserved for this subpass
-        vk_subpass.preserveAttachmentCount = subpass.preserveAttachmentCount;
-        vk_subpass.pPreserveAttachments = nullptr;
-        if (subpass.preserveAttachments)
-        {
-            for (uint32_t j = 0u; j < subpass.preserveAttachmentCount; ++j)
-                preserveAttRefs[totalPreserveCount + j] = subpass.preserveAttachments[j];
-
-            vk_subpass.pPreserveAttachments = preserveAttRefs + totalPreserveCount;
-            totalPreserveCount += subpass.preserveAttachmentCount;
-        }
-    }
-    assert(totalAttRefCount <= MaxAttachmentRefs);
-    assert(totalPreserveCount <= MaxAttachmentRefs);
-
-    for (uint32_t i = 0u; i < deps.size(); ++i)
-    {
-        const auto& dep = params.dependencies[i];
-        auto& vkdep = deps[i];
-
-        vkdep.srcSubpass = dep.srcSubpass;
-        vkdep.dstSubpass = dep.dstSubpass;
-        vkdep.srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.srcStageMask);
-        vkdep.dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.dstStageMask);
-        vkdep.srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.srcAccessMask);
-        vkdep.dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.dstAccessMask);
-        vkdep.dependencyFlags = static_cast<VkDependencyFlags>(dep.dependencyFlags);
-    }
-#endif
     VkRenderPass vk_renderpass;
     if (m_devf.vk.vkCreateRenderPass2(m_vkdev,&createInfo,nullptr,&vk_renderpass)==VK_SUCCESS)
         return core::make_smart_refctd_ptr<CVulkanRenderpass>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),params,vk_renderpass);

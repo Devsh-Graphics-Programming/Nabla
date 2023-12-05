@@ -248,14 +248,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxDescriptorSetUpdateAfterBindStorageImages = 500000u;
     uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = MinMaxColorAttachments;
 
-    enum class RESOLVE_MODE_FLAGS : uint8_t // TODO: move
-    {
-        NONE = 0,
-        SAMPLE_ZERO_BIT = 0x01u,
-        AVERAGE_BIT = 0x02u,
-        MIN_BIT = 0x04u,
-        MAX_BIT = 0x08u
-    };
+    using RESOLVE_MODE_FLAGS = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
     core::bitflag<RESOLVE_MODE_FLAGS>   supportedDepthResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
     core::bitflag<RESOLVE_MODE_FLAGS>   supportedStencilResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
     bool                                independentResolveNone = false;

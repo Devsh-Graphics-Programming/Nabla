@@ -48,12 +48,12 @@ IRenderpass::IRenderpass(const SCreationParams& params, const SCreationParamVali
             });
             *(inputAttachments++) = SCreationParams::SSubpassDescription::InputAttachmentsEnd;
             oit->preserveAttachments = preserveAttachments;
-            core::visit_token_terminated_array(desc.preserveAttachments,SCreationParams::SSubpassDescription::AttachmentUnused,[&preserveAttachments](const auto& pa)->bool
+            core::visit_token_terminated_array(desc.preserveAttachments,SCreationParams::SSubpassDescription::PreserveAttachmentsEnd,[&preserveAttachments](const auto& pa)->bool
             {
                 *(preserveAttachments++) = pa;
                 return true;
             });
-            *(preserveAttachments++) = SCreationParams::SSubpassDescription::AttachmentUnused;
+            *(preserveAttachments++) = SCreationParams::SSubpassDescription::PreserveAttachmentsEnd;
             oit++;
             return true;
         });

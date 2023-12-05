@@ -184,9 +184,15 @@ class IRenderpass
                     constexpr static inline SInputAttachmentRef InputAttachmentsEnd = {};
                     const SInputAttachmentRef* inputAttachments = &InputAttachmentsEnd;
 
-                    // The arrays pointed to by this array must be terminated by `AttachmentUnused` value, which implicitly satisfies:
+                    struct SPreserveAttachmentRef
+                    {
+                        uint32_t color : 1;
+                        uint32_t index : 31;
+                    };
+                    // The arrays pointed to by this array must be terminated by `PreserveAttachmentsEnd` value, which implicitly satisfies:
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-03073
-                    const uint32_t* preserveAttachments = &AttachmentUnused; // TODO: redesign
+                    constexpr static inline SPreserveAttachmentRef PreserveAttachmentsEnd = {0,AttachmentUnused};
+                    const SPreserveAttachmentRef* preserveAttachments = &PreserveAttachmentsEnd; // TODO: redesign
 
                     // TODO: shading rate attachment
 
@@ -325,7 +331,7 @@ class IRenderpass
         using color_attachments_array_t = core::smart_refctd_dynamic_array<SCreationParams::SColorAttachmentDescription>;
         using subpass_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDescription>;
         using input_attachment_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDescription::SInputAttachmentRef>;
-        using preserved_attachment_refs_array_t = core::smart_refctd_dynamic_array<uint32_t>;
+        using preserved_attachment_refs_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDescription::SPreserveAttachmentRef>;
         using subpass_deps_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDependency>;
         depth_stencil_attachments_array_t m_depthStencilAttachments;
         color_attachments_array_t m_colorAttachments;
@@ -405,8 +411,10 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
             retval.totalInputAttachmentCount++;
             return true;
         });
-        core::visit_token_terminated_array(subpass.preserveAttachments,SCreationParams::SSubpassDescription::AttachmentUnused,[&](const uint32_t ix)->bool
+        core::visit_token_terminated_array(subpass.preserveAttachments,SCreationParams::SSubpassDescription::PreserveAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SPreserveAttachmentRef& preserveAttachmentRef)->bool
         {
+            if (preserveAttachmentRef.index>=(preserveAttachmentRef.color ? retval.colorAttachmentCount:retval.depthStencilAttachmentCount))
+                return setRetvalFalse();
             retval.totalPreserveAttachmentCount++;
             return true;
         });
