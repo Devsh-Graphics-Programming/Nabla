@@ -116,10 +116,10 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             APIVersion conformanceVersion;
         };
 
-        const SProperties& getProperties() const { return m_properties; }
-        const SLimits& getLimits() const { return m_properties.limits; }
-        APIVersion getAPIVersion() const { return m_properties.apiVersion; }
-        const SFeatures& getFeatures() const { return m_features; }
+        const SProperties& getProperties() const { return m_initData.properties; }
+        const SLimits& getLimits() const { return m_initData.properties.limits; }
+        APIVersion getAPIVersion() const { return m_initData.properties.apiVersion; }
+        const SFeatures& getFeatures() const { return m_initData.features; }
 
         struct MemoryType
         {
@@ -150,15 +150,15 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             uint32_t        memoryHeapCount = 0u;
             MemoryHeap      memoryHeaps[VK_MAX_MEMORY_HEAPS] = {};
         };
-        const SMemoryProperties& getMemoryProperties() const { return m_memoryProperties; }
+        const SMemoryProperties& getMemoryProperties() const { return m_initData.memoryProperties; }
         
-        //! Bit `i` in MemoryTypeBitss will be set if m_memoryProperties.memoryTypes[i] has the `flags`
+        //! Bit `i` in MemoryTypeBitss will be set if m_initData.memoryProperties.memoryTypes[i] has the `flags`
         uint32_t getMemoryTypeBitsFromMemoryTypeFlags(core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> flags) const
         {
             uint32_t ret = 0u;
-            for(uint32_t i = 0; i < m_memoryProperties.memoryTypeCount; ++i)
-                if(m_memoryProperties.memoryTypes[i].propertyFlags.hasFlags(flags))
-                    ret |= (1u << i);
+            for(uint32_t i=0; i<m_initData.memoryProperties.memoryTypeCount; ++i)
+            if(m_initData.memoryProperties.memoryTypes[i].propertyFlags.hasFlags(flags))
+                ret |= (1u << i);
             return ret;
         }
 
@@ -384,7 +384,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SUsage m_usages[asset::EF_COUNT] = {};
         };
-        const SFormatBufferUsages& getBufferFormatUsages() const { return m_bufferUsages; };
+        const SFormatBufferUsages& getBufferFormatUsages() const { return m_initData.bufferUsages; };
 
         //
 
@@ -606,8 +606,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             inline bool isSubsetOf(const SFormatImageUsages& other) const
             {
-                for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
-                    if(!(m_usages[i] < other.m_usages[i]))
+                for(uint32_t i=0; i<asset::EF_COUNT; ++i)
+                    if(!(m_usages[i]<other.m_usages[i]))
                         return false;
                 return true;
             }
@@ -615,9 +615,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SUsage m_usages[asset::EF_COUNT] = {};
         };
 
-        const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_linearTilingUsages; }
-        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_optimalTilingUsages; }
-        const SFormatImageUsages& getImageFormatUsages(const IGPUImage::TILING tiling) const {return tiling!=IGPUImage::TILING::OPTIMAL ? m_linearTilingUsages:m_optimalTilingUsages;}
+        const SFormatImageUsages& getImageFormatUsagesLinearTiling() const { return m_initData.linearTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsagesOptimalTiling() const { return m_initData.optimalTilingUsages; }
+        const SFormatImageUsages& getImageFormatUsages(const IGPUImage::TILING tiling) const {return tiling!=IGPUImage::TILING::OPTIMAL ? m_initData.linearTilingUsages:m_initData.optimalTilingUsages;}
 
         /* QueueFamilyProperties2
 * 
@@ -660,7 +660,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         auto getQueueFamilyProperties() const 
         {
-            return core::SRange<const SQueueFamilyProperties>(m_qfamProperties->data(),m_qfamProperties->data()+m_qfamProperties->size());
+            return core::SRange<const SQueueFamilyProperties>(m_initData.qfamProperties->data(),m_initData.qfamProperties->data()+m_initData.qfamProperties->size());
         }
 
         struct SBufferFormatPromotionRequest {
@@ -677,9 +677,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         asset::E_FORMAT promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const;
 
         //
-        inline system::ISystem* getSystem() const {return m_system.get();}
+        inline system::ISystem* getSystem() const {return m_initData.system.get();}
         
-        virtual IDebugCallback* getDebugCallback() const = 0;
+        IDebugCallback* getDebugCallback() const;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(ILogicalDevice::SCreationParams&& params)
         {
@@ -689,17 +689,29 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         }
 
     protected:
-        using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;
-        IPhysicalDevice(
-            core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* const _api,
-            const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
-            const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
-        );
+        struct SInitData final
+        {
+            core::smart_refctd_ptr<system::ISystem> system;
+            IAPIConnection* api; // dumb pointer to avoid circ ref
 
+            SProperties properties = {};
+            SFeatures features = {};
+            SMemoryProperties memoryProperties = {};
+
+            using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;
+            qfam_props_array_t qfamProperties;
+
+            SFormatImageUsages linearTilingUsages = {};
+            SFormatImageUsages optimalTilingUsages = {};
+            SFormatBufferUsages bufferUsages = {};
+        };
+        inline IPhysicalDevice(SInitData&& _initData) : m_initData(std::move(_initData)) {}
+
+        // ILogicalDevice creation
+        bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
         virtual core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) = 0;
 
-        bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
-
+        // static utils
         static inline uint32_t getMaxInvocationsPerComputeUnitsFromDriverID(E_DRIVER_ID driverID)
         {
             const bool isIntelGPU = (driverID == E_DRIVER_ID::EDI_INTEL_OPEN_SOURCE_MESA || driverID == E_DRIVER_ID::EDI_INTEL_PROPRIETARY_WINDOWS);
@@ -734,19 +746,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                 return 220u; // largest from above
         }
 
-        const core::smart_refctd_ptr<system::ISystem> m_system;
-        IAPIConnection* const m_api; // dumb pointer to avoid circ ref
-
-        const SProperties m_properties = {};
-        const SFeatures m_features = {};
-        const SMemoryProperties m_memoryProperties = {};
-
-        const qfam_props_array_t m_qfamProperties;
-
-        const SFormatImageUsages m_linearTilingUsages = {};
-        const SFormatImageUsages m_optimalTilingUsages = {};
-        const SFormatBufferUsages m_bufferUsages = {};
-
+        // Format Promotion
         struct SBufferFormatPromotionRequestHash
         {
             // pack into 64bit for easy hashing 
@@ -769,8 +769,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             inline bool operator()(const SImageFormatPromotionRequest& l, const SImageFormatPromotionRequest& r) const;
         };
 
-
-
+        // TODO: use `using`
         typedef core::unordered_map<SBufferFormatPromotionRequest, asset::E_FORMAT, 
             SBufferFormatPromotionRequestHash, 
             SBufferFormatPromotionRequestEqualTo> format_buffer_cache_t;
@@ -778,13 +777,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             SImageFormatPromotionRequestHash, 
             SImageFormatPromotionRequestEqualTo> format_image_cache_t;
 
-            
         struct format_promotion_cache_t
         {
             format_buffer_cache_t buffers;
             format_image_cache_t optimalTilingImages;
             format_image_cache_t linearTilingImages;
         };
+
+
+        // data members
+        const SInitData m_initData;
         mutable format_promotion_cache_t m_formatPromotionCache;
 };
 

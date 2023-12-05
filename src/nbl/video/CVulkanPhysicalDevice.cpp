@@ -8,8 +8,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 {
     system::logger_opt_ptr logger = api->getDebugCallback()->getLogger();
 
-    IPhysicalDevice::SProperties properties = {};
+    IPhysicalDevice::SInitData initData = {std::move(sys),api};
 
+    auto& properties = initData.properties;
+    auto& features = initData.features;
     // First call just with Vulkan 1.0 API because:
     // "The value of apiVersion may be different than the version returned by vkEnumerateInstanceVersion; either higher or lower.
     //  In such cases, the application must not use functionality that exceeds the version of Vulkan associated with a given object.
@@ -585,9 +587,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_LINE_RASTERIZATION_EXTENSION_NAME))
             properties.limits.lineSubPixelPrecisionBits = lineRasterizationProperties.lineSubPixelPrecisionBits;
 
-        if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
-            properties.limits.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
-
         properties.limits.shaderNonSemanticInfo = isExtensionSupported(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
 
         if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_2_EXTENSION_NAME))
@@ -648,9 +647,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.spirvVersion = asset::IShaderCompiler::E_SPIRV_VERSION::ESV_1_6;
     }
 
-
-    // Get physical device's features
-    SFeatures features = {};
         
     // ! In Vulkan: These will be reported based on availability of an extension and will be enabled by enabling an extension
     // Table 51. Extension Feature Aliases (vkspec 1.3.211)
@@ -663,7 +659,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     // VK_EXT_shader_viewport_index_layer      shaderOutputViewportIndex, shaderOutputLayer
     // but we enable them all from Vulkan1XFeatures anyway!
 
-    // Extensions
+    // Get Device Features
     {
         VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
         setPNextChainTail(&deviceFeatures);
@@ -1179,6 +1175,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax;
         }
 
+        if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
+            properties.limits.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
+
         if (isExtensionSupported(VK_AMD_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_EXTENSION_NAME))
             properties.limits.shaderEarlyAndLateFragmentTests = shaderEarlyAndLateFragmentTestsFeatures.shaderEarlyAndLateFragmentTests;
 
@@ -1213,8 +1212,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     }
 
     // Get physical device's memory properties
-    SMemoryProperties memoryProperties = {};
     {
+        auto& memoryProperties = initData.memoryProperties;
         VkPhysicalDeviceMemoryProperties2 vk_physicalDeviceMemoryProperties = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,nullptr};
         vkGetPhysicalDeviceMemoryProperties2(vk_physicalDevice,&vk_physicalDeviceMemoryProperties);
         memoryProperties.memoryTypeCount = vk_physicalDeviceMemoryProperties.memoryProperties.memoryTypeCount;
@@ -1232,17 +1231,16 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     }
         
     // and family props
-    qfam_props_array_t qfamProperties;
     {
         core::vector<VkQueueFamilyProperties2> qfamprops;
         {
             uint32_t qfamCount = 0u;
-            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,nullptr);
-            qfamprops.resize(qfamCount,{VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr});
-            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice,&qfamCount,qfamprops.data());
+            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, nullptr);
+            qfamprops.resize(qfamCount, { VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr });
+            vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, qfamprops.data());
         }
-        qfamProperties = core::make_refctd_dynamic_array<qfam_props_array_t>(qfamprops.size());
-        auto outIt = qfamProperties->begin();
+        auto qfamPropertiesMutable = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SQueueFamilyProperties>>(qfamprops.size());
+        auto outIt = qfamPropertiesMutable->begin();
         for (auto in : qfamprops)
         {
             const auto& vkqf = in.queueFamilyProperties;
@@ -1252,12 +1250,11 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             outIt->minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
             outIt++;
         }
+        // added lots of utils to smart_refctd_ptr and `refctd_dynamic_array` but to no avail, have to do manually
+        initData.qfamProperties = core::move_and_static_cast<core::refctd_dynamic_array<const SQueueFamilyProperties>>(qfamPropertiesMutable);
     }
 
     // Set Format Usages
-    SFormatImageUsages linearTilingUsages;
-    SFormatImageUsages optimalTilingUsages;
-    SFormatBufferUsages bufferUsages;
     auto anyFlag = [](const VkFormatFeatureFlagBits2 features, const VkFormatFeatureFlagBits2 flags)->bool{return features&flags;};
     auto convert = [anyFlag](const VkFormatFeatureFlagBits2 features)->SFormatImageUsages::SUsage
     {
@@ -1308,30 +1305,25 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkFormatProperties2 dummy = {VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,&vk_formatProps};
         vkGetPhysicalDeviceFormatProperties2(vk_physicalDevice,getVkFormatFromFormat(format),&dummy);
 
-        linearTilingUsages[format] = convert(vk_formatProps.linearTilingFeatures);
-        optimalTilingUsages[format] = convert(vk_formatProps.optimalTilingFeatures);
+        initData.linearTilingUsages[format] = convert(vk_formatProps.linearTilingFeatures);
+        initData.optimalTilingUsages[format] = convert(vk_formatProps.optimalTilingFeatures);
 
+        auto& bufferUsages = initData.bufferUsages[format];
         const VkFormatFeatureFlags2 bufferFeatures = vk_formatProps.bufferFeatures;
-        bufferUsages[format] = {};
-        bufferUsages[format].vertexAttribute = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_VERTEX_BUFFER_BIT);
-        bufferUsages[format].bufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_UNIFORM_TEXEL_BUFFER_BIT);
-        bufferUsages[format].storageBufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_BIT);
-        bufferUsages[format].storageBufferViewAtomic = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_ATOMIC_BIT);
-        bufferUsages[format].accelerationStructureVertex = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR);
-        bufferUsages[format].storageBufferViewLoadWithoutFormat = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
-        bufferUsages[format].storageBufferViewStoreWithoutFormat = anyFlag(bufferFeatures, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
-//        bufferUsages[format].opticalFlowImage = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_IMAGE_BIT_NV);
-//        bufferUsages[format].opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
-//        bufferUsages[format].opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
+        bufferUsages = {};
+        bufferUsages.vertexAttribute = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_VERTEX_BUFFER_BIT);
+        bufferUsages.bufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_UNIFORM_TEXEL_BUFFER_BIT);
+        bufferUsages.storageBufferView = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_BIT);
+        bufferUsages.storageBufferViewAtomic = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_TEXEL_BUFFER_ATOMIC_BIT);
+        bufferUsages.accelerationStructureVertex = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR);
+        bufferUsages.storageBufferViewLoadWithoutFormat = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
+        bufferUsages.storageBufferViewStoreWithoutFormat = anyFlag(bufferFeatures, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
+//        bufferUsages.opticalFlowImage = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_IMAGE_BIT_NV);
+//        bufferUsages.opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
+//        bufferUsages.opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
     }
       
-    return std::unique_ptr<CVulkanPhysicalDevice>(
-        new CVulkanPhysicalDevice(
-            std::move(sys),api,properties,features,memoryProperties,std::move(qfamProperties),
-            linearTilingUsages,optimalTilingUsages,bufferUsages,
-            rdoc,vk_physicalDevice,std::move(availableFeatureSet)
-        )
-    );
+    return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(std::move(initData),rdoc,vk_physicalDevice,std::move(availableFeatureSet)));
 }
 
 
@@ -1578,7 +1570,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         // prime ourselves with good defaults, we actually re-query all available Vulkan <= MinimumApiVersion features so that by default they're all enabled unless we explicitly disable
         vkGetPhysicalDeviceFeatures2(m_vkPhysicalDevice,&vk_deviceFeatures2);
-    
+        const auto& limits = m_initData.properties.limits;
+
         /* Vulkan 1.0 Core  */
         vk_deviceFeatures2.features.robustBufferAccess = enabledFeatures.robustBufferAccess;
         vk_deviceFeatures2.features.fullDrawIndexUint32 = true; // ROADMAP 2022
@@ -1588,7 +1581,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.tessellationShader = enabledFeatures.tessellationShader;
         vk_deviceFeatures2.features.sampleRateShading = true; // ROADMAP 2022
         vk_deviceFeatures2.features.dualSrcBlend = true; // good device support
-        vk_deviceFeatures2.features.logicOp = m_properties.limits.logicOp;
+        vk_deviceFeatures2.features.logicOp = limits.logicOp;
         vk_deviceFeatures2.features.multiDrawIndirect = true; // ROADMAP 2022
         vk_deviceFeatures2.features.drawIndirectFirstInstance = true; // ROADMAP 2022
         vk_deviceFeatures2.features.depthClamp = true; // ROADMAP 2022
@@ -1606,21 +1599,21 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         //vk_deviceFeatures2.features.textureCompressionBC;
         vk_deviceFeatures2.features.occlusionQueryPrecise = true; // ROADMAP 2022
         vk_deviceFeatures2.features.pipelineStatisticsQuery = enabledFeatures.pipelineStatisticsQuery;
-        vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics = m_properties.limits.vertexPipelineStoresAndAtomics;
-        vk_deviceFeatures2.features.fragmentStoresAndAtomics = m_properties.limits.fragmentStoresAndAtomics;
-        vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize = m_properties.limits.shaderTessellationAndGeometryPointSize;
+        vk_deviceFeatures2.features.vertexPipelineStoresAndAtomics = limits.vertexPipelineStoresAndAtomics;
+        vk_deviceFeatures2.features.fragmentStoresAndAtomics = limits.fragmentStoresAndAtomics;
+        vk_deviceFeatures2.features.shaderTessellationAndGeometryPointSize = limits.shaderTessellationAndGeometryPointSize;
         vk_deviceFeatures2.features.shaderImageGatherExtended = true; // ubi
         vk_deviceFeatures2.features.shaderStorageImageExtendedFormats = true; // ROADMAP 2022
-        vk_deviceFeatures2.features.shaderStorageImageMultisample = m_properties.limits.shaderStorageImageMultisample;
-        vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = m_properties.limits.shaderStorageImageReadWithoutFormat;
+        vk_deviceFeatures2.features.shaderStorageImageMultisample = limits.shaderStorageImageMultisample;
+        vk_deviceFeatures2.features.shaderStorageImageReadWithoutFormat = limits.shaderStorageImageReadWithoutFormat;
         vk_deviceFeatures2.features.shaderStorageImageWriteWithoutFormat = true; // ubi
         vk_deviceFeatures2.features.shaderUniformBufferArrayDynamicIndexing = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderSampledImageArrayDynamicIndexing = true; // ROADMAP 2022
         vk_deviceFeatures2.features.shaderStorageBufferArrayDynamicIndexing = true; // ROADMAP 2022
-        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = m_properties.limits.shaderStorageImageArrayDynamicIndexing;
+        vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = true; // good device support
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        vk_deviceFeatures2.features.shaderFloat64 = m_properties.limits.shaderFloat64;
+        vk_deviceFeatures2.features.shaderFloat64 = limits.shaderFloat64;
         vk_deviceFeatures2.features.shaderInt64 = true; // always enable
         vk_deviceFeatures2.features.shaderInt16 = true; // always enable
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;
@@ -1634,18 +1627,18 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.sparseResidency8Samples = false; // not implemented yet
         vk_deviceFeatures2.features.sparseResidency16Samples = false; // not implemented yet
         vk_deviceFeatures2.features.sparseResidencyAliased = false; // not implemented yet
-        vk_deviceFeatures2.features.variableMultisampleRate = m_properties.limits.variableMultisampleRate;
+        vk_deviceFeatures2.features.variableMultisampleRate = limits.variableMultisampleRate;
         vk_deviceFeatures2.features.inheritedQueries = true; // required
 
         /* Vulkan 1.1 Core */
         vulkan11Features.storageBuffer16BitAccess = true; // ubi
         vulkan11Features.uniformAndStorageBuffer16BitAccess = true; // ubi
-        vulkan11Features.storagePushConstant16 = m_properties.limits.storagePushConstant16;
-        vulkan11Features.storageInputOutput16 = m_properties.limits.storageInputOutput16;
+        vulkan11Features.storagePushConstant16 = limits.storagePushConstant16;
+        vulkan11Features.storageInputOutput16 = limits.storageInputOutput16;
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#features-requirements
         vulkan11Features.multiview = true; // required
-        vulkan11Features.multiviewGeometryShader = m_properties.limits.multiviewGeometryShader;
-        vulkan11Features.multiviewTessellationShader = m_properties.limits.multiviewTessellationShader;
+        vulkan11Features.multiviewGeometryShader = limits.multiviewGeometryShader;
+        vulkan11Features.multiviewTessellationShader = limits.multiviewTessellationShader;
         vulkan11Features.variablePointers = true; // require for future HLSL references and pointers
         vulkan11Features.variablePointersStorageBuffer = true; // require for future HLSL references and pointers
         // not yet
@@ -1655,26 +1648,26 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             
         /* Vulkan 1.2 Core */
         vulkan12Features.samplerMirrorClampToEdge = true; // ubiquitous
-        vulkan12Features.drawIndirectCount = m_properties.limits.drawIndirectCount;
+        vulkan12Features.drawIndirectCount = limits.drawIndirectCount;
         vulkan12Features.storageBuffer8BitAccess = true; // ubiquitous
         vulkan12Features.uniformAndStorageBuffer8BitAccess = true; // ubiquitous
-        vulkan12Features.storagePushConstant8 = m_properties.limits.storagePushConstant8;
-        vulkan12Features.shaderBufferInt64Atomics = m_properties.limits.shaderBufferInt64Atomics;
-        vulkan12Features.shaderSharedInt64Atomics = m_properties.limits.shaderSharedInt64Atomics;
-        vulkan12Features.shaderFloat16 = m_properties.limits.shaderFloat16;
+        vulkan12Features.storagePushConstant8 = limits.storagePushConstant8;
+        vulkan12Features.shaderBufferInt64Atomics = limits.shaderBufferInt64Atomics;
+        vulkan12Features.shaderSharedInt64Atomics = limits.shaderSharedInt64Atomics;
+        vulkan12Features.shaderFloat16 = limits.shaderFloat16;
         vulkan12Features.shaderInt8 = true; // ubiquitous
         vulkan12Features.descriptorIndexing = true; // ROADMAP 2022
-        vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = m_properties.limits.shaderInputAttachmentArrayDynamicIndexing;
+        vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = limits.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
-        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = m_properties.limits.shaderUniformBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = limits.shaderUniformBufferArrayNonUniformIndexing;
         vulkan12Features.shaderSampledImageArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageImageArrayNonUniformIndexing = true; // require
-        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = m_properties.limits.shaderInputAttachmentArrayNonUniformIndexing;
+        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = limits.shaderInputAttachmentArrayNonUniformIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = true; // ubiquitous
-        vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = m_properties.limits.descriptorBindingUniformBufferUpdateAfterBind;
+        vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = limits.descriptorBindingUniformBufferUpdateAfterBind;
         vulkan12Features.descriptorBindingSampledImageUpdateAfterBind = true; // implied by `descriptorIndexing`
         vulkan12Features.descriptorBindingStorageImageUpdateAfterBind = true; // implied by `descriptorIndexing`
         vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = true; // implied by `descriptorIndexing`
@@ -1684,7 +1677,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.descriptorBindingPartiallyBound = true; // implied by `descriptorIndexing`
         vulkan12Features.descriptorBindingVariableDescriptorCount = true; // ubiquitous
         vulkan12Features.runtimeDescriptorArray = true; // implied by `descriptorIndexing`
-        vulkan12Features.samplerFilterMinmax = m_properties.limits.samplerFilterMinmax;
+        vulkan12Features.samplerFilterMinmax = limits.samplerFilterMinmax;
         vulkan12Features.scalarBlockLayout = true; // ROADMAP 2022
         vulkan12Features.imagelessFramebuffer = false; // decided against
         vulkan12Features.uniformBufferStandardLayout = true; // required anyway
@@ -1698,9 +1691,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.bufferDeviceAddressMultiDevice = enabledFeatures.bufferDeviceAddressMultiDevice;
         vulkan12Features.vulkanMemoryModel = true; // require
         vulkan12Features.vulkanMemoryModelDeviceScope = true; // require
-        vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = m_properties.limits.vulkanMemoryModelAvailabilityVisibilityChains;
-        vulkan12Features.shaderOutputViewportIndex = m_properties.limits.shaderOutputViewportIndex;
-        vulkan12Features.shaderOutputLayer = m_properties.limits.shaderOutputLayer;
+        vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains = limits.vulkanMemoryModelAvailabilityVisibilityChains;
+        vulkan12Features.shaderOutputViewportIndex = limits.shaderOutputViewportIndex;
+        vulkan12Features.shaderOutputLayer = limits.shaderOutputLayer;
         vulkan12Features.subgroupBroadcastDynamicId = true; // ubiquitous
             
         /* Vulkan 1.3 Core */
@@ -1709,14 +1702,14 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan13Features.descriptorBindingInlineUniformBlockUpdateAfterBind = false; // decided against
         vulkan13Features.pipelineCreationCacheControl = true; // require
         vulkan13Features.privateData = false; // decided against
-        vulkan13Features.shaderDemoteToHelperInvocation = m_properties.limits.shaderDemoteToHelperInvocation;
-        vulkan13Features.shaderTerminateInvocation = m_properties.limits.shaderTerminateInvocation;
+        vulkan13Features.shaderDemoteToHelperInvocation = limits.shaderDemoteToHelperInvocation;
+        vulkan13Features.shaderTerminateInvocation = limits.shaderTerminateInvocation;
         vulkan13Features.subgroupSizeControl = true; // require
         vulkan13Features.computeFullSubgroups = true; // require
         vulkan13Features.synchronization2 = true; // require
         // leave defaulted, enable if supported
         //vulkan13Features.textureCompressionASTC_HDR;
-        vulkan13Features.shaderZeroInitializeWorkgroupMemory = m_properties.limits.shaderZeroInitializeWorkgroupMemory;
+        vulkan13Features.shaderZeroInitializeWorkgroupMemory = limits.shaderZeroInitializeWorkgroupMemory;
         vulkan13Features.dynamicRendering = false; // decided against
         vulkan13Features.shaderIntegerDotProduct = true; // require
         vulkan13Features.maintenance4 = true; // require
@@ -1838,8 +1831,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             qci.pNext = nullptr;
             qci.queueCount = qparams.count;
             qci.queueFamilyIndex = qparams.familyIndex;
-            qci.flags = static_cast<VkDeviceQueueCreateFlags>(qparams.flags);
-            qci.pQueuePriorities = qparams.priorities;
+            qci.flags = static_cast<VkDeviceQueueCreateFlags>(qparams.flags.value);
+            qci.pQueuePriorities = qparams.priorities.data();
         }
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
     
@@ -1851,9 +1844,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
     }
 
     if (!params.compilerSet)
-        params.compilerSet = core::make_smart_refctd_ptr<asset::CCompilerSet>(core::smart_refctd_ptr(m_system));
+        params.compilerSet = core::make_smart_refctd_ptr<asset::CCompilerSet>(core::smart_refctd_ptr(m_initData.system));
 
-    return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<const IAPIConnection>(m_api),m_rdoc_api,this,vk_device,params);
+    return core::make_smart_refctd_ptr<CVulkanLogicalDevice>(core::smart_refctd_ptr<const IAPIConnection>(m_initData.api),m_rdoc_api,this,vk_device,params);
 }
 
 }

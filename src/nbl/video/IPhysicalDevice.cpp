@@ -3,22 +3,20 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(
-    core::smart_refctd_ptr<system::ISystem>&& _system, IAPIConnection* const _api,
-    const SProperties& _properties, const SFeatures& _features, const SMemoryProperties& _memoryProperties, qfam_props_array_t&& _qfamProperties,
-    const SFormatImageUsages& _linearTilingUsages, const SFormatImageUsages& _optimalTilingUsages, const SFormatBufferUsages& _bufferUsages
-) : m_system(std::move(_system)), m_api(_api), m_properties(_properties), m_features(_features), m_memoryProperties(_memoryProperties),
-    m_qfamProperties(std::move(_qfamProperties)), m_linearTilingUsages(_linearTilingUsages), m_optimalTilingUsages(_optimalTilingUsages), m_bufferUsages(_bufferUsages) {}
+IDebugCallback* IPhysicalDevice::getDebugCallback() const
+{
+    return m_initData.api->getDebugCallback();
+}
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
     for (auto i=0u; i<params.queueParamsCount; i++)
     {
         const auto& qci = params.queueParams[i];
-        if (qci.familyIndex >= m_qfamProperties->size())
+        if (qci.familyIndex >= m_initData.qfamProperties->size())
             return false;
 
-        const auto& qfam = (*m_qfamProperties)[qci.familyIndex];
+        const auto& qfam = (*m_initData.qfamProperties)[qci.familyIndex];
         if (qci.count == 0u)
             return false;
         if (qci.count > qfam.queueCount)
@@ -34,7 +32,7 @@ bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreat
         }
     }
     
-    if(!params.featuresToEnable.isSubsetOf(m_features))
+    if(!params.featuresToEnable.isSubsetOf(m_initData.features))
         return false; // Requested features are not all supported by physical device
 
     return true;

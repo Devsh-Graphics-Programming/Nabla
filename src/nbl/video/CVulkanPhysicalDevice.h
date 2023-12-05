@@ -18,12 +18,9 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             
         inline E_API_TYPE getAPIType() const override { return EAT_VULKAN; }
 
-        inline IDebugCallback* getDebugCallback() const override { return m_api->getDebugCallback(); }
-
     protected:
-        template<typename... Args>
-        inline CVulkanPhysicalDevice(Args&&... args, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_set<std::string>&& _extensions)
-            : IPhysicalDevice(std::forward(args)...), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_extensions(std::move(_extensions)) {}
+        inline CVulkanPhysicalDevice(IPhysicalDevice::SInitData&& _initData, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice, core::unordered_set<std::string>&& _extensions)
+            : IPhysicalDevice(std::move(_initData)), m_rdoc_api(rdoc), m_vkPhysicalDevice(vk_physicalDevice), m_extensions(std::move(_extensions)) {}
     
         //! This function makes sure requirements of a requested feature is also set to `true` in SPhysicalDeviceFeatures
         //! Note that this will only fix what is exposed, some may require extensions not exposed currently, that will happen later on.
