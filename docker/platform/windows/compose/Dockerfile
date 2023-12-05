@@ -1,15 +1,12 @@
 # escape=`
 
-ARG BASE_IMAGE=mcr.microsoft.com/windows:20H2-amd64
+ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022
 
 ARG THIS_PROJECT_WORKING_DIRECTORY="C:\docker"
-ARG THIS_PROJECT_NABLA_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\project\Nabla"
+ARG THIS_PROJECT_NABLA_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/repository"
+ARG THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/artifactory"
 ARG VULKAN_SDK_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VulkanSDK"
-ARG PERL_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\StrawberryPerl"
 ARG VS_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VS\BuildTools"
-ARG PYTHON_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\Python"
-ARG GIT_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\git"
-ARG NASM_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\nasm"
 ARG VS_DEV_CMD_DIRECTORY="${VS_INSTALL_DIRECTORY}\Common7\Tools"
 
 FROM ${BASE_IMAGE}
@@ -59,79 +56,35 @@ RUN `
 	`
 	&& del /q VulkanSDK-Installer.exe
 
-ARG PERL_INSTALL_DIRECTORY
+RUN `
+	# Download & install choco packet manager
+	`
+	powershell Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))	
 
 RUN `
-	# Download executable Strawberry Perl 5.28.2 distribution 
+	# Download & install executable Strawberry Perl 5.28.2.1
 	`
-	curl -SL --output strawberry-perl.msi https://strawberryperl.com/download/5.28.2.1/strawberry-perl-5.28.2.1-64bit.msi `
-	`
-	&& msiexec.exe /i strawberry-perl.msi /quiet /norestart TARGETDIR="%PERL_INSTALL_DIRECTORY%" `
-    `
-	# Cleanup
-	`
-	&& del /q strawberry-perl.msi
-
-ARG PYTHON_INSTALL_DIRECTORY
+	choco install -y strawberryperl --version 5.28.2.1
 
 RUN `
-	# Download Python 3.10.9
+	# Download & install Python 3.12.0
 	`
-	curl -SL --output python-installer.exe https://www.python.org/ftp/python/3.10.9/python-3.10.9-amd64.exe `
-	`
-	# Install Python
-	`
-	&& start /w python-installer.exe /quiet TargetDir="%PYTHON_INSTALL_DIRECTORY%" Include_launcher=0 AddToPath=1 InstallAllUsers=1 PrependPath=1 `
-	`
-	# Cleanup
-	`
-	&& del /q python-installer.exe
-
-ARG GIT_INSTALL_DIRECTORY
+	choco install -y python --version 3.12.0
 
 RUN `
-	# Download Git
+	# Download & install git 2.43.0
 	`
-	curl -SL --output git.zip https://github.com/git-for-windows/git/releases/download/v2.41.0.windows.3/MinGit-2.41.0.3-64-bit.zip `
-	`
-	# Create git install directory
-	`
-	&& mkdir "%GIT_INSTALL_DIRECTORY%" `
-	`
-	# Unzip Git.
-	`
-	&& tar -xf git.zip -C "%GIT_INSTALL_DIRECTORY%" `
-	`
-	# Add Git to the system PATH
-	`
-	&& setx PATH "%PATH%;%GIT_INSTALL_DIRECTORY%\cmd" /M `
-	`
-	# Cleanup
-	`
-	&& del /q git.zip
-
-ARG NASM_INSTALL_DIRECTORY
+	choco install -y git --version 2.43.0
 
 RUN `
-	# Download NASM
+	# Download & install nasm 2.16.1
 	`
-	curl -SL --output nasm.zip https://www.nasm.us/pub/nasm/releasebuilds/2.16.02rc5/win64/nasm-2.16.02rc5-win64.zip `
-	`
-	# Create nasm install directory
-	`
-	&& mkdir "%NASM_INSTALL_DIRECTORY%" `
-	`
-	# Unzip NASM
-	`
-	&& tar -xf nasm.zip -C "%NASM_INSTALL_DIRECTORY%" `
-	`
-	# Add NASM to the system PATH
-	`
-	&& setx PATH "%PATH%;%NASM_INSTALL_DIRECTORY%" /M `
-	`
-	# Cleanup
-	`
-	&& del /q nasm.zip
+	choco install -y nasm --version 2.16.1
+	
+RUN `
+	# Download & install nano 7.2.36
+	` 
+	choco install -y nano --version 7.2.36
 
 ARG THIS_PROJECT_WORKING_DIRECTORY
 
@@ -142,6 +95,11 @@ ARG THIS_PROJECT_NABLA_DIRECTORY
 
 RUN `
 	setx THIS_PROJECT_NABLA_DIRECTORY "%THIS_PROJECT_NABLA_DIRECTORY%" /M
+
+ARG THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY
+
+RUN `
+	setx THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY "%THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY%" /M
 	
 RUN `
 	git config --system --add safe.directory *

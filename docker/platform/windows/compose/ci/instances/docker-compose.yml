@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  nabla.static.release.x86_64:
+    image: artifactory.devsh.eu/nabla/windows/instance:latest
+    container_name: dev.nabla.static.release.x86_64.windows
+    networks:
+      - docker_default
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: volume
+        source: aritfactory.nabla
+        target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
+    entrypoint: ["cmd"]
+    #entrypoint: ["VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass", "-Command", "%THIS_PROJECT_BIND_NABLA_DIRECTORY%\\docker\\platform\\windows\\scripts\\build.bat", "--config=Release", "--arch=x86_64", "--libType=static"]
+networks:
+  docker_default:
+    external: true
+volumes:
+    ssh:
+      external: true
+    aritfactory.nabla:
+      external: true

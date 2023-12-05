@@ -3,25 +3,27 @@ version: '3'
 services:
   base:
     build:
-      context: ./instance
+      context: ../
       args:
       - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
       - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+      - NABLA_TARGET_REVISION=${NABLA_TARGET_REVISION}
     environment:
     - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
     - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    - NABLA_TARGET_REVISION=${NABLA_TARGET_REVISION}
     image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: ci.nabla.base.x86_64.windows
-    entrypoint: ["cmd", "/c", "echo", "Created base container is not intended for user usage, exiting!"]
-  instance:
-    build:
-      context: ./project
-    image: artifactory.devsh.eu/nabla/windows/instance:latest
-    container_name: ci.devsh.nabla.windows.instance
-    depends_on:
-      - base
-    deploy:
-      resources:
-        limits:
-          cpus: '0.60'
-          memory: 4GB
+    container_name: dev.nabla.base.x86_64.windows
+    networks:
+      - docker_default
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+    entrypoint: ["%THIS_PROJECT_NABLA_DIRECTORY%/docker/platform/windows/scripts/build.bat", "--cishallowconfigure", "%NABLA_TARGET_REVISION%"]
+networks:
+  docker_default:
+    external: true
+volumes:
+    ssh:
+      external: true
