@@ -17,19 +17,11 @@ namespace hlsl
 namespace impl
 {
 
-template<class T, bool C>
-struct is_const_helper : bool_constant<C>
-{
-    using type = T;
-    NBL_CONSTEXPR_STATIC_INLINE bool is_constant = is_const<T>::value;
-};
-
 enum e_member_presence
 {
-    absent = 0,
-    non_static = 1,
-    as_static = 2,
-    static_constexpr = 3,
+    is_present = 1<<0,
+    is_static  = 1<<1,
+    is_const   = 1<<2,
 };
 
 template<class T>
@@ -55,16 +47,16 @@ namespace hlsl \
 { \
 namespace impl { \
 template<class T, class=void>  \
-struct is_static_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false; }; \
+struct is_static_member_##a: false_type { }; \
 template<class T>  \
-struct is_static_member_##a<T,typename enable_if<!is_same<decltype(T::a),void>::value,void>::type>: is_const_helper<decltype(T::a), true> {}; \
+struct is_static_member_##a<T,typename enable_if<!is_same<decltype(T::a),void>::value,void>::type> : true_type {  }; \
 template<class T, class=void> \
-struct is_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false; using type = void; }; \
+struct is_member_##a: false_type { using type = void; }; \
 template<class T> \
-struct is_member_##a<T,typename enable_if<!is_same<decltype(declval<T>().a),void>::value,void>::type> : is_const_helper<decltype(declval<T>().a), true>{}; \
+struct is_member_##a<T,typename enable_if<!is_same<decltype(declval<T>().a),void>::value,void>::type> : true_type { using type = decltype(declval<T>().a); }; \
 } \
 template<class T> \
-struct has_member_##a {  NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##a<T>::value + impl::is_static_member_##a<T>::value + impl::is_static_member_##a<T>::is_constant); }; \
+struct has_member_##a {  NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##a<T>::value + 2*impl::is_static_member_##a<T>::value + 4*is_const<typename impl::is_member_##a<T>::type>::value); }; \
 template<class T, class F> struct has_member_##a##_with_type : bool_constant<has_member_##a<T>::value && is_same<typename impl::is_member_##a<T>::type, F>::value> {}; \
 } \
 }
