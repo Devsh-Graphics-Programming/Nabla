@@ -186,7 +186,7 @@ class IRenderpass
 
                     // The arrays pointed to by this array must be terminated by `AttachmentUnused` value, which implicitly satisfies:
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-attachment-03073
-                    const uint32_t* preserveAttachments = &AttachmentUnused;
+                    const uint32_t* preserveAttachments = &AttachmentUnused; // TODO: redesign
 
                     // TODO: shading rate attachment
 
@@ -493,9 +493,6 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::valid(const SCrea
     for (auto i=0u; i<MaxColorAttachments; i++)
     {
         if (!colorAttachments[i].valid(params.colorAttachments,colorAttachmentCount))
-            return false;
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-04440
-        if (depthStencilAttachment.render.used() && depthStencilAttachment.render.attachmentIndex==colorAttachments[i].render.attachmentIndex)
             return false;
     }
     bool invalid = false;

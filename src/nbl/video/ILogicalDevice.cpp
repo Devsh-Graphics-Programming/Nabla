@@ -360,3 +360,69 @@ bool ILogicalDevice::updateDescriptorSets(uint32_t descriptorWriteCount, const I
 
     return true;
 }
+
+core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
+{
+    IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
+    if (!validation)
+        return nullptr;
+            
+    const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
+    auto invalidAttachment = [this,&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout,op_t>& desc) -> bool
+    {
+        const auto& usages = optimalTilingUsages[desc.format];
+        // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescription2-samples-08745
+        //if (!usages.sampleCounts.hasFlags(desc.samples))
+            //return true;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pInputAttachments-02897
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pColorAttachments-02898
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pResolveAttachments-09343
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-02900
+        if (!usages.attachment)
+            return true;
+        return false;
+    };
+    for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
+    if (invalidAttachment(params.depthStencilAttachments[i]))
+        return nullptr;
+    for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
+    if (invalidAttachment(params.colorAttachments[i]))
+        return nullptr;
+
+    const auto maxColorAttachments = getPhysicalDeviceLimits().maxColorAttachments;
+    const int32_t maxMultiviewViewCount = getPhysicalDeviceLimits().maxMultiviewViewCount;
+    for (auto i=0u; i<validation.subpassCount; i++)
+    {
+        using subpass_desc_t = IGPURenderpass::SCreationParams::SSubpassDescription;
+        const subpass_desc_t& subpass = params.subpasses[i];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-colorAttachmentCount-03063
+        for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)
+        if (subpass.colorAttachments[j].render.used())
+            return nullptr;
+
+        // TODO: support `VK_EXT_multisampled_render_to_single_sampled`
+        auto samplesForAll = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0);
+        for (auto j=0u; j<maxColorAttachments; j++)
+        {
+            const auto& ref = subpass.colorAttachments[j].render;
+            if (!ref.used())
+                continue;
+
+            const auto samples = params.colorAttachments[ref.attachmentIndex].samples;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06869
+            if (samplesForAll)
+            {
+                if (samples!=samplesForAll)
+                    return nullptr;
+            }
+            else
+                samplesForAll = samples;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-viewMask-06706
+        if (core::findMSB(subpass.viewMask)>=maxMultiviewViewCount)
+            return nullptr;
+    }
+    return createRenderpass_impl(params,std::move(validation));
+}

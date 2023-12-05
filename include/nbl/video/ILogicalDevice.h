@@ -630,15 +630,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
         //! Renderpasses and Framebuffers
-        inline core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params)
-        {
-            IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
-            if (!validation)
-                return nullptr;
-            return createRenderpass_impl(params,std::move(validation));
-        }
+        core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params);
         inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
+            // this validate already checks that Renderpass device creator matches with the images
             if (!IGPUFramebuffer::validate(params))
                 return nullptr;
 
