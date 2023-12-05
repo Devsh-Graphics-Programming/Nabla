@@ -269,7 +269,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             }
             return nullptr;
         }
-
+#if 0
         // acceleration structure modifiers
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
@@ -323,6 +323,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
                 geometryCount,vk_geometries.data(),pMaxPrimitiveCounts
             );
         }
+#endif
         AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur, const uint32_t maxInstanceCount
@@ -428,7 +429,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
 
 
-
+#if 0
     bool createComputePipelines_impl(IGPUPipelineCache* pipelineCache,
         core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
         core::smart_refctd_ptr<IGPUComputePipeline>* output) override
@@ -604,7 +605,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
 
     bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
-
+#endif
 
 
 

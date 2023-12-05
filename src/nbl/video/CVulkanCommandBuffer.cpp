@@ -229,7 +229,7 @@ static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> s
 
     std::conditional_t<rangeNotLayers,VkImageSubresourceRange,VkImageSubresourceLayers> retval = {};
     retval.aspectMask = static_cast<VkImageAspectFlags>(range.aspectMask.value);
-    if constexpr
+    if constexpr (!rangeNotLayers)
         retval.baseMipLevel = range.baseMipLevel;
     retval.levelCount = range.layerCount;
     retval.baseArrayLayer = range.baseArrayLayer;
@@ -371,7 +371,7 @@ bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline*
     return true;
 }
 
-bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets)
+bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* const dynamicOffsets)
 {
     VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
     uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = { 0u };
@@ -487,7 +487,7 @@ bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, cons
     return true;
 }
 
-bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE)
+bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags)
 {
     const auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
     getFunctionTable().vkCmdBeginQuery(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query, vk_flags);

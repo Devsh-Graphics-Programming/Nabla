@@ -7,7 +7,7 @@ namespace nbl::video
 
 CVulkanDeferredOperation::~CVulkanDeferredOperation()
 {
-    assert(getStatus()==E_STATUS::ES_COMPLETED);
+    assert(!isPending());
     const VkDevice vk_device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getInternalObject();
     vkDestroyDeferredOperationKHR(vk_device,m_deferredOp,nullptr);
 }
