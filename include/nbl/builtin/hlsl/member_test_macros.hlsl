@@ -59,12 +59,13 @@ struct is_static_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_con
 template<class T>  \
 struct is_static_member_##a<T,typename enable_if<!is_same<decltype(T::a),void>::value,void>::type>: is_const_helper<decltype(T::a), true> {}; \
 template<class T, class=void> \
-struct is_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false;}; \
+struct is_member_##a: false_type {NBL_CONSTEXPR_STATIC_INLINE bool is_constant = false; using type = void; }; \
 template<class T> \
 struct is_member_##a<T,typename enable_if<!is_same<decltype(declval<T>().a),void>::value,void>::type> : is_const_helper<decltype(declval<T>().a), true>{}; \
 } \
 template<class T> \
 struct has_member_##a {  NBL_CONSTEXPR_STATIC_INLINE e_member_presence value = (e_member_presence)(impl::is_member_##a<T>::value + impl::is_static_member_##a<T>::value + impl::is_static_member_##a<T>::is_constant); }; \
+template<class T, class F> struct has_member_##a##_with_type : bool_constant<has_member_##a<T>::value && is_same<typename impl::is_member_##a<T>::type, F>::value> {}; \
 } \
 }
 
