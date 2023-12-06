@@ -7,7 +7,7 @@ Currently only Windows platform with target x86_64 architecture is supported.
 ### Requirements
 
 - [***Docker Desktop***](https://www.docker.com/products/docker-desktop/)
-- [***Enabled HyperV if you want to virtualise environment or Windows Pro/Enterprise with minimum 19045 OS build version if you want to run containers with no virtualization as host processes (recommended for much better performance)***](https://docs.docker.com/desktop/install/windows-install/#system-requirements)
+- [***Enabled HyperV if you want to virtualize environment or Windows Pro/Enterprise with minimum 19045 OS build version if you want to run containers with no virtualization as host processes (recommended for much better performance)***](https://docs.docker.com/desktop/install/windows-install/#system-requirements)
 
 ### How To
 
@@ -17,13 +17,13 @@ Worth to mention *whenever you launch any **terminal** you execute docker comman
 
 ##### Hyper-V isolation (slow but production safe)
 
-By default Docker Desktop forces you to use either WSL or Hyper-V virtualisation so you just need to run Docker Desktop Engine and make sure you are switched to `Windows Containers` mode - if you want to use virtualised environment then you can just skip to next paragraph with volumes.
+By default Docker Desktop forces you to use either WSL or Hyper-V so you just need to run Docker Desktop Engine and make sure you are switched to `Windows Containers` mode - if you want to use virtualized environment then you can just skip to next paragraph with volumes.
 
 ![Containers for Windows](https://user-images.githubusercontent.com/65064509/152947300-affca592-35a7-4e4c-a7fc-2055ce1ba528.png)
 
 ##### Process isolation (native performance, less safe)
 
-If you want to run containers without virtualisation then you need to go through some steps and execute [Docker Daemon](https://docs.docker.com/config/daemon/) yourself. Process isolation is possible only with Windows Pro or Enterprise edition. Nabla docker pipelines use [Windows Server Core 2022 LTSC](https://hub.docker.com/_/microsoft-windows-servercore) tag images, you can override a base OS image but then you need to [make sure it will work on your machine](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/version-compatibility?tabs=windows-server-2022%2Cwindows-11). By default Docker Desktop installs the Daemon in `C:\Program Files\Docker\Docker\resources` path and is called `dockerd.exe`. To execute the Daemon with process isolation mode you need to 
+If you want to run containers without virtualization then you need to go through some steps and execute [Docker Daemon](https://docs.docker.com/config/daemon/) yourself. Process isolation is possible only with Windows Pro or Enterprise edition. Nabla docker pipelines use [Windows Server Core 2022 LTSC](https://hub.docker.com/_/microsoft-windows-servercore) tag images, you can override a base OS image but then you need to [make sure it will work on your machine](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/version-compatibility?tabs=windows-server-2022%2Cwindows-11). By default Docker Desktop installs the Daemon in `C:\Program Files\Docker\Docker\resources` path and is called `dockerd.exe`. To execute the Daemon with process isolation mode you need to 
 
 ```bash
 dockerd --exec-opt isolation=process
