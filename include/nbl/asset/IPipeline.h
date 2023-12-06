@@ -57,6 +57,7 @@ class IPipeline
 	public:
 		enum E_PIPELINE_CREATION : uint32_t
 		{
+			EPC_NONE = 0,
 			EPC_DISABLE_OPTIMIZATIONS = 1<<0,
 			EPC_ALLOW_DERIVATIVES = 1<<1,
 			EPC_DERIVATIVE = 1<<2,

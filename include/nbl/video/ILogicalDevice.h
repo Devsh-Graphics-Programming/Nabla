@@ -627,7 +627,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createDescriptorPool(createInfo);
         }
         // Fill out the descriptor sets with descriptors
-        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
+        bool updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies);
+        [[deprecated]] inline bool updateDescriptorSets(
+            const uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* const pDescriptorWrites,
+            const uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* const pDescriptorCopies
+        )
+        {
+            return updateDescriptorSets({pDescriptorWrites,pDescriptorWrites+descriptorWriteCount},{pDescriptorCopies,pDescriptorCopies+descriptorCopyCount});
+        }
 
         //! Renderpasses and Framebuffers
         core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params);
@@ -664,124 +671,60 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Pipelines
         // Create a pipeline cache object
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
-        
 
+        inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
+        {
+            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+                return false;
+            for (const auto& ci : params)
+            {
+                if (!ci.layout->wasCreatedBy(this) || !ci.shader->wasCreatedBy(this))
+                    return false;
+                if (ci.basePipeline && !ci.basePipeline->wasCreatedBy(this))
+                    return false;
+            }
+            std::fill_n(output,params.size(),nullptr);
 
-
-
-
-
-
-
-
-
-
-        core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-        ) {
-            if (_pipelineCache && !_pipelineCache->wasCreatedBy(this))
-                return nullptr;
-            if (!_layout->wasCreatedBy(this))
-                return nullptr;
-            if (!_shader->wasCreatedBy(this))
-                return nullptr;
-            const char* debugName = _shader->getObjectDebugName();
-            auto retval = createComputePipeline_impl(_pipelineCache, std::move(_layout), std::move(_shader));
-            if (retval && debugName[0])
-                retval->setObjectDebugName(debugName);
+            createComputePipelines_impl(pipelineCache,params,output);
+            
+            bool retval = true;
+            for (auto i=0u; i<params.size(); i++)
+            {
+                const char* debugName = params[i].shader->getObjectDebugName();
+                if (!output[i])
+                    retval = false;
+                else if (debugName && debugName[0])
+                    output[i]->setObjectDebugName(debugName);
+            }
             return retval;
         }
 
-        bool createComputePipelines(
-            IGPUPipelineCache* pipelineCache,
-            core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
-            core::smart_refctd_ptr<IGPUComputePipeline>* output
-        ) {
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
-                return false;
-            for (const auto& ci : createInfos)
-                if (!ci.layout->wasCreatedBy(this) || !ci.shader->wasCreatedBy(this))
-                    return false;
-            return createComputePipelines_impl(pipelineCache, createInfos, output);
-        }
-
-        bool createComputePipelines(
-            IGPUPipelineCache* pipelineCache,
-            uint32_t count,
-            const IGPUComputePipeline::SCreationParams* createInfos,
-            core::smart_refctd_ptr<IGPUComputePipeline>* output
-        ) 
-        {
-            auto ci = core::SRange<const IGPUComputePipeline::SCreationParams>{createInfos, createInfos+count};
-            return createComputePipelines(pipelineCache, ci, output);
-        }
-
-        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
-            const asset::SVertexInputParams& _vertexInputParams,
-            const asset::SBlendParams& _blendParams,
-            const asset::SPrimitiveAssemblyParams& _primAsmParams,
-            const asset::SRasterizationParams& _rasterParams
-        ) {
-            if (_pipelineCache && !_pipelineCache->wasCreatedBy(this))
-                return nullptr;
-            if (!_layout->wasCreatedBy(this))
-                return nullptr;
-            for (auto s = _shaders; s != _shadersEnd; ++s)
-            {
-                if (!(*s)->wasCreatedBy(this))
-                    return nullptr;
-            }
-            return createRenderpassIndependentPipeline_impl(_pipelineCache, std::move(_layout), _shaders, _shadersEnd, _vertexInputParams, _blendParams, _primAsmParams, _rasterParams);
-        }
-
+        // SOON TO BE DEPRECATED
         bool createRenderpassIndependentPipelines(
-            IGPUPipelineCache* pipelineCache,
-            core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
-        ) {
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& params,
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output
+        )
+        {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return false;
-            for (const IGPURenderpassIndependentPipeline::SCreationParams& ci : createInfos)
+            for (const IGPURenderpassIndependentPipeline::SCreationParams& ci : params)
             {
                 if (!ci.layout->wasCreatedBy(this))
                     return false;
                 for (auto& s : ci.shaders)
-                    if (s && !s->wasCreatedBy(this))
-                        return false;
+                if (s && !s->wasCreatedBy(this))
+                    return false;
             }
-            return createRenderpassIndependentPipelines_impl(pipelineCache, createInfos, output);
+            std::fill_n(output,params.size(),nullptr);
+            createRenderpassIndependentPipelines_impl(pipelineCache,params,output);
+            for (auto i=0u; i<params.size(); i++)
+            if (!output[i])
+                return false;
+            return true;
         }
 
-        bool createRenderpassIndependentPipelines(
-            IGPUPipelineCache* pipelineCache,
-            uint32_t count,
-            const IGPURenderpassIndependentPipeline::SCreationParams* createInfos,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
-        )
-        {
-            auto ci = core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams>{createInfos, createInfos+count};
-            return createRenderpassIndependentPipelines(pipelineCache, ci, output);
-        }
-
-        core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params)
-        {
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
-                return nullptr;
-            if (!params.renderpass->wasCreatedBy(this))
-                return nullptr;
-            if (!params.renderpassIndependent->wasCreatedBy(this))
-                return nullptr;
-            if (!IGPUGraphicsPipeline::validate(params))
-                return nullptr;
-            return createGraphicsPipeline_impl(pipelineCache, std::move(params));
-        }
-
-        bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
+        inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return false;
@@ -794,21 +737,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 if (!IGPUGraphicsPipeline::validate(ci))
                     return false;
             }
-            return createGraphicsPipelines_impl(pipelineCache, params, output);
+            std::fill_n(output,params.size(),nullptr);
+            createGraphicsPipelines_impl(pipelineCache,params,output);
+            for (auto i=0u; i<params.size(); i++)
+            if (!output[i])
+                return false;
+            return true;
         }
-
-        bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, uint32_t count, const IGPUGraphicsPipeline::SCreationParams* params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
-        {
-            auto ci = core::SRange<const IGPUGraphicsPipeline::SCreationParams>{ params, params + count };
-            return createGraphicsPipelines(pipelineCache, ci, output);
-        }
-        
-
-
-
-
-
-
 
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
@@ -935,50 +870,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
 
+        virtual void updateDescriptorSets_impl(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies) = 0;
+
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
 
-
-
-
-
-        virtual void updateDescriptorSets_impl(
-            const uint32_t descriptorWriteCount,
-            const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
-            uint32_t descriptorCopyCount,
-            const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies
-        ) = 0;
-
-        virtual core::smart_refctd_ptr<IGPUComputePipeline> createComputePipeline_impl(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
-        ) = 0;
-        virtual bool createComputePipelines_impl(
-            IGPUPipelineCache* pipelineCache,
-            core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
-            core::smart_refctd_ptr<IGPUComputePipeline>* output
-        ) = 0;
-        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline_impl(
-            IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            IGPUSpecializedShader* const* _shaders, IGPUSpecializedShader* const* _shadersEnd,
-            const asset::SVertexInputParams& _vertexInputParams,
-            const asset::SBlendParams& _blendParams,
-            const asset::SPrimitiveAssemblyParams& _primAsmParams,
-            const asset::SRasterizationParams& _rasterParams
-        ) = 0;
-        virtual bool createRenderpassIndependentPipelines_impl(
-            IGPUPipelineCache* pipelineCache,
-            core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output
-        ) = 0;
-        virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
-        virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
-
-        
-
-
+        virtual void createComputePipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUComputePipeline>* const output) = 0;
+        virtual void createRenderpassIndependentPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) = 0;
+        virtual void createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
         virtual bool getQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;

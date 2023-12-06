@@ -27,11 +27,11 @@ class IGPUComputePipeline : public IBackendObject, public asset::IComputePipelin
 
         struct SCreationParams
         {
-            IPipeline::E_PIPELINE_CREATION flags;
-            core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-            core::smart_refctd_ptr<IGPUSpecializedShader> shader;
-            core::smart_refctd_ptr<IGPUComputePipeline> basePipeline;
-            int32_t basePipelineIndex;
+            IPipeline::E_PIPELINE_CREATION flags = IPipeline::EPC_NONE;
+            core::smart_refctd_ptr<IGPUPipelineLayout> layout = nullptr;
+            core::smart_refctd_ptr<IGPUSpecializedShader> shader = nullptr;
+            core::smart_refctd_ptr<IGPUComputePipeline> basePipeline = nullptr;
+            int32_t basePipelineIndex = -1;
         };
 
     protected:
