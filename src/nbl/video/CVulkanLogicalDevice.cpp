@@ -732,17 +732,19 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
             if (subpass.depthStencilAttachment.render.used())
             {
                 const auto& render = subpass.depthStencilAttachment.render;
+                outSubpass->pDepthStencilAttachment = outAttachmentRef;
+                pushAttachmentRef(render);
+                // have to add reoslve anyway because of multisample to single sample render
+                outSubpass->pNext = outDepthStencilResolve;
+                outDepthStencilResolve->depthResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.depth);
+                outDepthStencilResolve->stencilResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.stencil);
                 const auto& resolve = subpass.depthStencilAttachment.resolve;
                 if (resolve.used())
                 {
-                    outDepthStencilResolve->depthResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.depth);
-                    outDepthStencilResolve->stencilResolveMode = static_cast<VkResolveModeFlagBits>(subpass.depthStencilAttachment.resolveMode.stencil);
                     outDepthStencilResolve->pDepthStencilResolveAttachment = outAttachmentRef;
                     pushAttachmentRef(resolve);
-                    outSubpass->pNext = outDepthStencilResolve++;
                 }
-                pushAttachmentRef(render);
-                outSubpass->pDepthStencilAttachment = outAttachmentRef++;
+                outDepthStencilResolve++;
             }
             else
                 outSubpass->pDepthStencilAttachment = nullptr;
@@ -762,7 +764,7 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
     {
         auto outDependency = dependencies.data();
-        auto getSubpassIndex = [](const uint32_t ix){return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL};
+        auto getSubpassIndex = [](const uint32_t ix)->uint32_t{return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL};
         for (uint32_t i=0u; i<validation.dependencyCount; i++)
         {
             const auto& dep = params.dependencies[i];
@@ -781,13 +783,10 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     uint32_t viewMasks[MaxMultiviewViewCount] = { 0u };
     // group up
     for (auto i=0u; i<MaxMultiviewViewCount; i++)
-    if (params.viewCorrelationGroup[i]<MaxMultiviewViewCount)
+    if (params.viewCorrelationGroup[i]<MaxMultiviewViewCount) // not default
         viewMasks[i] |= 0x1u<<i;
     // compact (removing zero valued entries)
-    uint32_t viewMaskCount = 0u;
-    for (auto i=0u; i<MaxMultiviewViewCount; i++)
-    if (i!=viewMaskCount)
-        viewMasks[viewMaskCount++] = viewMasks[i];
+    const auto viewMaskCount = std::remove_if(viewMasks,viewMasks+MaxMultiviewViewCount,[](const uint32_t mask)->bool{return mask==0;})-viewMasks;
 
     // Nothing useful in pNext, didn't implement VRS yet
     VkRenderPassCreateInfo2 createInfo = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2,nullptr};

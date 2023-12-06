@@ -370,6 +370,10 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
     auto invalidAttachment = [this,&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout,op_t>& desc) -> bool
     {
+        // We won't support linear attachments, so implicitly satisfy
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06499
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06500
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06501
         const auto& usages = optimalTilingUsages[desc.format];
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescription2-samples-08745
         //if (!usages.sampleCounts.hasFlags(desc.samples))
@@ -389,6 +393,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     if (invalidAttachment(params.colorAttachments[i]))
         return nullptr;
 
+    const auto mixedAttachmentSamples = getEnabledFeatures().mixedAttachmentSamples;
     const auto supportedDepthResolveModes = getPhysicalDeviceLimits().supportedDepthResolveModes;
     const auto supportedStencilResolveModes = getPhysicalDeviceLimits().supportedStencilResolveModes;
     const auto independentResolve = getPhysicalDeviceLimits().independentResolve;
@@ -400,37 +405,52 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         using subpass_desc_t = IGPURenderpass::SCreationParams::SSubpassDescription;
         const subpass_desc_t& subpass = params.subpasses[i];
 
+        auto depthSamples = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(128);
         if (subpass.depthStencilAttachment.render.used())
         {
-            if (subpass.depthStencilAttachment.resolve.used())
+            depthSamples = params.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex].samples;
+
+            using resolve_flag_t = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
+            // TODO: seems like `multisampledRenderToSingleSampledEnable` needs resolve modes but not necessarily a resolve attachmen
+            const resolve_flag_t depthResolve = subpass.depthStencilAttachment.resolveMode.depth;
+            const resolve_flag_t stencilResolve = subpass.depthStencilAttachment.resolveMode.stencil;
+            if (subpass.depthStencilAttachment.resolve.used() || /*multisampledToSingleSampledUsed*/false)
             {
-                using resolve_flag_t = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
-                const resolve_flag_t depthResolve = subpass.depthStencilAttachment.resolveMode.depth;
+                const auto& attachment = params.depthStencilAttachments[(subpass.depthStencilAttachment.resolve.used() ? subpass.depthStencilAttachment.resolve:subpass.depthStencilAttachment.render).attachmentIndex];
+
+                const bool hasDepth = !asset::isStencilOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-depthResolveMode-03183
-                if (!supportedDepthResolveModes.hasFlags(depthResolve))
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06874
+                if (hasDepth && !supportedDepthResolveModes.hasFlags(depthResolve))
                     return nullptr;
-
-                const resolve_flag_t stencilResolve = subpass.depthStencilAttachment.resolveMode.stencil;
+;
+                const bool hasStencil = !asset::isDepthOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-stencilResolveMode-03184
-                if (!supportedStencilResolveModes.hasFlags(stencilResolve))
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06875
+                if (hasStencil && !supportedStencilResolveModes.hasFlags(stencilResolve))
                     return nullptr;
 
-                const auto& attachment = params.depthStencilAttachments[subpass.depthStencilAttachment.resolve.attachmentIndex];
-                if (!asset::isStencilOnlyFormat(attachment.format) && !asset::isDepthOnlyFormat(attachment.format))
+                if (hasDepth && hasStencil)
                 {
                     if (!independentResolve && depthResolve!=stencilResolve)
                     {
                         if (independentResolveNone)
                         {
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186
+                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06877
                             if (depthResolve!=resolve_flag_t::NONE && stencilResolve!=resolve_flag_t::NONE)
                                 return nullptr;
                         }
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06876
                         else
                             return nullptr;
                     }
                 }
+
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06873
+                if (/*multisampledToSingleSampledUsed*/false && depthResolve==resolve_flag_t::NONE && stencilResolve==resolve_flag_t::NONE)
+                    return nullptr;
             }
         }
 
@@ -438,9 +458,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)
         if (subpass.colorAttachments[j].render.used())
             return nullptr;
-
         // TODO: support `VK_EXT_multisampled_render_to_single_sampled`
-        auto samplesForAll = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0);
+        auto samplesForAllColor = (depthSamples>IGPUImage::ESCF_64_BIT||mixedAttachmentSamples/*||multisampledRenderToSingleSampled*/) ? static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0):depthSamples;
         for (auto j=0u; j<maxColorAttachments; j++)
         {
             const auto& ref = subpass.colorAttachments[j].render;
@@ -448,19 +467,32 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 continue;
 
             const auto samples = params.colorAttachments[ref.attachmentIndex].samples;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06869
-            if (samplesForAll)
+            // initialize if everything till now was unused
+            if (!samplesForAllColor)
+                samplesForAllColor = samples;
+
+            if (mixedAttachmentSamples)
             {
-                if (samples!=samplesForAll)
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-None-09456
+                if (samples>depthSamples)
                     return nullptr;
             }
-            else
-                samplesForAll = samples;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06869
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06872
+            else if (!false/*multisampledRenderToSingleSampled*/ && samples!=samplesForAllColor)
+                return nullptr;
         }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-viewMask-06706
         if (core::findMSB(subpass.viewMask)>=maxMultiviewViewCount)
             return nullptr;
     }
+
+    for (auto i=0u; i<validation.dependencyCount; i++)
+    {
+        // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03054
+        // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03055
+    }
+
     return createRenderpass_impl(params,std::move(validation));
 }

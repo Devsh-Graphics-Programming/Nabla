@@ -200,6 +200,7 @@ class IRenderpass
                     const SPreserveAttachmentRef* preserveAttachments = &PreserveAttachmentsEnd; // TODO: redesign
 
                     // TODO: shading rate attachment
+                    // TODO: rasterization sample count & downgrade viewMask to 8bit
 
                     uint32_t viewMask = 0u;
                     core::bitflag<FLAGS> flags = FLAGS::NONE;
@@ -501,6 +502,8 @@ inline bool IRenderpass::SCreationParams::SColorAttachmentDescription::valid() c
 
 inline bool IRenderpass::SCreationParams::SSubpassDescription::valid(const SCreationParams& params, const uint32_t depthStencilAttachmentCount, const uint32_t colorAttachmentCount) const
 {
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pNext-06870
+    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pNext-06871
     if (!depthStencilAttachment.valid(params.depthStencilAttachments,depthStencilAttachmentCount))
         return false;
     for (auto i=0u; i<MaxColorAttachments; i++)
@@ -549,6 +552,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachment
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03177
         if (!renderUsed)
             return false;
+        // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pNext-06871
 
         const auto& renderAttachment = descs[render.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03066
