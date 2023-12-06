@@ -3,11 +3,12 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#include <algorithm>
-#include <cmath>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
+#include <algorithm>
+#include <cmath>
+
 namespace nbl::hlsl
 {
 #define NBL_SIMPLE_GLM_PASSTHROUGH(HLSL_ID,GLSL_ID,...) template<typename... Args>\
