@@ -6,30 +6,9 @@
 #define _NBL_BUILTIN_HLSL_SHAPES_BEZIERS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-
-
-// TODO [Przemek]: implement it in intrinsics.h
-#ifndef __HLSL_VERSION
-#include <algorithm>
-
-namespace nbl::hlsl
-{
-
-#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
-template<typename... Args> \
-inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
-{ \
-    return origFunctionName(std::forward<Args>(args)...); \
-}
-
-NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
-
-}
-
-#endif
-
-
+#include <nbl/builtin/hlsl/shapes/util.hlsl>
+#include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
+#include <nbl/builtin/hlsl/limits.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -66,6 +45,15 @@ namespace shapes
             return ret;
         }
 
+        static QuadraticBezier constructBezierWithTwoPointsAndTangents(float64_t2 P0, float64_t2 V0, float64_t2 P2, float64_t2 V2)
+        {
+            QuadraticBezier ret = {};
+            ret.P0 = P0;
+            ret.P2 = P2;
+            ret.P1 = util::LineLineIntersection(P0, V0, P2, V2);
+            return ret;
+        }
+
         float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
         {
             float_t2 position = 
@@ -74,6 +62,29 @@ namespace shapes
                  +       P2 * t         * t;
 
             return position;
+        }
+
+        // TODO[Przemek]: implement YatX as a helper tool in bezier.hlsl Quadratic curve
+        // returns nan if found X is outside of bounds or not found at all
+        float_t calcYatX(float_t x)
+        {
+            const float_t a = P0.x - 2.0 * P1.x + P2.x;
+            const float_t b = 2.0 * (P1.x - P0.x);
+            const float_t c = P0.x - x;
+
+            math::equations::Quadratic<float_t> quadratic = math::equations::Quadratic<float_t>::construct(a, b, c);
+            const float_t2 roots = quadratic.computeRoots();
+ 
+            // _NBL_DEBUG_BREAK_IF(!isnan(roots[0]) && !isnan(roots[1])); // should only have 1 solution
+ 
+            if (roots[0] >= 0.0 && roots[0] <= 1.0)
+                return evaluate(roots[0]).y;
+            else if (roots[1] >= 0.0 && roots[1] <= 1.0)
+                return evaluate(roots[1]).y;
+            else
+                //return 0x7FF8000000000000ull;
+                return numeric_limits<float_t>::quiet_NaN;
+
         }
 
         // from shadertoy: https://www.shadertoy.com/view/stfSzS
