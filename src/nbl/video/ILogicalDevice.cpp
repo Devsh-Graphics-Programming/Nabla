@@ -318,45 +318,59 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies)
 {
-    for (auto i = 0; i < descriptorWriteCount; ++i)
+    SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
+    core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
+    auto outCategory = writeTypes.data();
+    params.pWriteTypes = outCategory;
+    for (const auto& write : descriptorWrites)
     {
-        const auto& write = pDescriptorWrites[i];
-        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
-
-        assert(ds->getLayout()->isCompatibleDevicewise(ds));
-
-        if (!ds->validateWrite(write))
+        auto* ds = write.dstSet;
+        if (!ds || !ds->wasCreatedBy(this))
             return false;
+
+        const auto writeCount = write.count;
+        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write)))
+        {
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                break;
+            default: // validation failed
+                return false;
+        }
+        outCategory++;
     }
 
-    for (auto i = 0; i < descriptorCopyCount; ++i)
+    for (const auto& copy : descriptorCopies)
     {
-        const auto& copy = pDescriptorCopies[i];
-        const auto* srcDS = static_cast<const IGPUDescriptorSet*>(copy.srcSet);
+        const auto* srcDS = copy.srcSet;
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
-
-        if (!dstDS->isCompatibleDevicewise(srcDS))
+        if (!dstDS || !dstDS->wasCreatedBy(this))
+            return false;
+        if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
         if (!dstDS->validateCopy(copy))
             return false;
     }
 
-    for (auto i = 0; i < descriptorWriteCount; ++i)
+    for (auto i=0; i<descriptorWrites.size(); i++)
     {
-        auto& write = pDescriptorWrites[i];
-        auto* ds = static_cast<IGPUDescriptorSet*>(write.dstSet);
-        ds->processWrite(write);
+        const auto& write = descriptorWrites[i];
+        write.dstSet->processWrite(write,params.pWriteTypes[i]);
     }
+    for (const auto& copy : descriptorCopies)
+        copy.dstSet->processCopy(copy);
 
-    for (auto i = 0; i < descriptorCopyCount; ++i)
-    {
-        const auto& copy = pDescriptorCopies[i];
-        auto* dstDS = static_cast<IGPUDescriptorSet*>(pDescriptorCopies[i].dstSet);
-        dstDS->processCopy(copy);
-    }
-
-    updateDescriptorSets_impl(descriptorWriteCount, pDescriptorWrites, descriptorCopyCount, pDescriptorCopies);
+    updateDescriptorSets_impl(params);
 
     return true;
 }
@@ -370,14 +384,16 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
     auto invalidAttachment = [this,&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout,op_t>& desc) -> bool
     {
-        // We won't support linear attachments, so implicitly satisfy
+        // We won't support linear attachments, so implicitly satisfy:
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06499
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06500
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06501
+
         const auto& usages = optimalTilingUsages[desc.format];
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescription2-samples-08745
         //if (!usages.sampleCounts.hasFlags(desc.samples))
             //return true;
+
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pInputAttachments-02897
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pColorAttachments-02898
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pResolveAttachments-09343

@@ -611,6 +611,98 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
     return nullptr;
 }
 
+void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
+{
+    // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of
+    // VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
+    core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(params.writes.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
+    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(69u,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+
+    core::vector<VkDescriptorBufferInfo> vk_bufferInfos(params.bufferCount);
+    core::vector<VkDescriptorImageInfo> vk_imageInfos(params.imageCount);
+    core::vector<VkBufferView> vk_bufferViews(params.bufferViewCount);
+    core::vector<VkAccelerationStructureKHR> vk_accelerationStructures(params.accelerationStructureCount);
+    {
+        auto outWrite = vk_writeDescriptorSets.data();
+        auto outWriteAS = vk_writeDescriptorSetAS.data();
+
+        auto outBufferInfo = vk_bufferInfos.data();
+        auto outImageInfo = vk_imageInfos.data();
+        auto outBufferViewInfo = vk_bufferViews.data();
+        auto outASInfo = vk_accelerationStructures.data();
+        for (auto i=0; i<params.writes.size(); i++)
+        {
+            const auto& write = params.writes[i];
+            const auto type = params.pWriteTypes[i];
+            const auto& infos = write.info;
+
+            outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
+            outWrite->dstBinding = write.binding;
+            outWrite->dstArrayElement = write.arrayElement;
+            outWrite->descriptorType = getVkDescriptorTypeFromDescriptorType(type);
+            outWrite->descriptorCount = write.count;
+            switch (asset::IDescriptor::GetTypeCategory(type))
+            {
+                case asset::IDescriptor::EC_BUFFER:
+                {
+                    outWrite->pBufferInfo = outBufferInfo;
+                    for (auto j=0u; j<write.count; j++,outBufferInfo++)
+                    {
+                        const auto& bufferInfo = infos[j].info.buffer;
+                        outBufferInfo->buffer = static_cast<const CVulkanBuffer*>(infos[j].desc.get())->getInternalObject();
+                        outBufferInfo->offset = bufferInfo.offset;
+                        outBufferInfo->range = bufferInfo.size;
+                    }
+                } break;
+                case asset::IDescriptor::EC_IMAGE:
+                {
+                    outWrite->pImageInfo = outImageInfo;
+                    for (auto j=0u; j<write.count; j++,outImageInfo++)
+                    {
+                        const auto& imageInfo = infos[j].info.image;
+                        outImageInfo->sampler = imageInfo.sampler ? static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject():VK_NULL_HANDLE;
+                        outImageInfo->imageView = static_cast<const CVulkanImageView*>(infos[j].desc.get())->getInternalObject();
+                        outImageInfo->imageLayout = getVkImageLayoutFromImageLayout(imageInfo.imageLayout);
+                    }
+                } break;
+                case asset::IDescriptor::EC_BUFFER_VIEW:
+                {
+                    outWrite->pTexelBufferView = outBufferViewInfo;
+                    for (auto j=0u; j<write.count; j++,outBufferViewInfo++)
+                        *outBufferViewInfo = static_cast<const CVulkanBufferView*>(infos[j].desc.get())->getInternalObject();
+                } break;
+                case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                {
+                    outWriteAS->accelerationStructureCount = write.count;
+                    outWriteAS->pAccelerationStructures = outASInfo;
+                    for (auto j=0u; j<write.count; j++,outASInfo++)
+                        *outASInfo = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUAccelerationStructure*>(infos[j].desc.get())->getNativeHandle());
+                    outWrite->pNext = outWriteAS++;
+                } break;
+                default:
+                    assert(!"Invalid code path.");
+            }
+            outWrite++;
+        }
+    }
+
+    core::vector<VkCopyDescriptorSet> vk_copyDescriptorSets(params.copies.size(),{VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET,nullptr});
+    auto outCopy = vk_copyDescriptorSets.data();
+    for (const auto& copy : params.copies)
+    {
+        outCopy->srcSet = static_cast<const CVulkanDescriptorSet*>(copy.srcSet)->getInternalObject();
+        outCopy->srcBinding = copy.srcBinding;
+        outCopy->srcArrayElement = copy.srcArrayElement;
+        outCopy->dstSet = static_cast<const CVulkanDescriptorSet*>(copy.dstSet)->getInternalObject();
+        outCopy->dstBinding = copy.dstBinding;
+        outCopy->dstArrayElement = copy.dstArrayElement;
+        outCopy->descriptorCount = copy.count;
+        outCopy++;
+    }
+
+    m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),vk_copyDescriptorSets.size(),vk_copyDescriptorSets.data());
+}
+
 
 core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation)
 {
@@ -839,12 +931,29 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
 }
 
 
+void CVulkanLogicalDevice::createComputePipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
+{
+    //
+}
+
+void CVulkanLogicalDevice::createRenderpassIndependentPipelines_impl(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos,
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output)
+{
+    //
+}
+
+void CVulkanLogicalDevice::createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output)
+{
+}
 
 
 
 
 
 
+#if 0
 core::smart_refctd_ptr<IGPUGraphicsPipeline> CVulkanLogicalDevice::createGraphicsPipeline_impl(
     IGPUPipelineCache* pipelineCache,
     IGPUGraphicsPipeline::SCreationParams&& params)
@@ -1230,3 +1339,181 @@ core::smart_refctd_ptr<IGPUCommandPool> CVulkanLogicalDevice::createCommandPool_
         return core::make_smart_refctd_ptr<CVulkanCommandPool>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),flags,familyIx,vk_commandPool);
     return nullptr;
 }
+
+#if 0
+    bool createComputePipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPUComputePipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPUComputePipeline>* output) override
+    {
+        constexpr uint32_t MAX_PIPELINE_COUNT = 100u;
+        assert(createInfos.size() <= MAX_PIPELINE_COUNT);
+
+        const IGPUComputePipeline::SCreationParams* creationParams = createInfos.begin();
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            if ((creationParams[i].layout->getAPIType() != EAT_VULKAN) ||
+                (creationParams[i].shader->getAPIType() != EAT_VULKAN))
+            {
+                return false;
+            }
+        }
+
+        VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
+        if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
+            vk_pipelineCache = IBackendObject::device_compatibility_cast<const CVulkanPipelineCache*>(pipelineCache, this)->getInternalObject();
+
+        VkPipelineShaderStageCreateInfo vk_shaderStageCreateInfos[MAX_PIPELINE_COUNT];
+        VkSpecializationInfo vk_specializationInfos[MAX_PIPELINE_COUNT];
+        constexpr uint32_t MAX_SPEC_CONSTANTS_PER_PIPELINE = 100u;
+        uint32_t mapEntryCount_total = 0u;
+        VkSpecializationMapEntry vk_mapEntries[MAX_PIPELINE_COUNT * MAX_SPEC_CONSTANTS_PER_PIPELINE];
+
+        VkComputePipelineCreateInfo vk_createInfos[MAX_PIPELINE_COUNT];
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            const auto createInfo = createInfos.begin() + i;
+
+            vk_createInfos[i].sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            vk_createInfos[i].pNext = nullptr; // pNext must be either NULL or a pointer to a valid instance of VkPipelineCompilerControlCreateInfoAMD, VkPipelineCreationFeedbackCreateInfoEXT, or VkSubpassShadingPipelineCreateInfoHUAWEI
+            vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(createInfo->flags);
+
+            if (createInfo->shader->getAPIType() != EAT_VULKAN)
+                continue;
+
+            const auto* specShader = IBackendObject::device_compatibility_cast<const CVulkanSpecializedShader*>(createInfo->shader.get(), this);
+
+            vk_shaderStageCreateInfos[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            vk_shaderStageCreateInfos[i].pNext = nullptr; // pNext must be NULL or a pointer to a valid instance of VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT
+            vk_shaderStageCreateInfos[i].flags = 0;
+            vk_shaderStageCreateInfos[i].stage = static_cast<VkShaderStageFlagBits>(specShader->getStage());
+            vk_shaderStageCreateInfos[i].module = specShader->getInternalObject();
+            vk_shaderStageCreateInfos[i].pName = "main";
+            if (specShader->getSpecInfo().m_entries && specShader->getSpecInfo().m_backingBuffer)
+            {
+                uint32_t offset = mapEntryCount_total;
+                assert(specShader->getSpecInfo().m_entries->size() <= MAX_SPEC_CONSTANTS_PER_PIPELINE);
+
+                for (size_t s = 0ull; s < specShader->getSpecInfo().m_entries->size(); ++s)
+                {
+                    const auto entry = specShader->getSpecInfo().m_entries->begin() + s;
+                    vk_mapEntries[offset + s].constantID = entry->specConstID;
+                    vk_mapEntries[offset + s].offset = entry->offset;
+                    vk_mapEntries[offset + s].size = entry->size;
+                }
+                mapEntryCount_total += specShader->getSpecInfo().m_entries->size();
+
+                vk_specializationInfos[i].mapEntryCount = static_cast<uint32_t>(specShader->getSpecInfo().m_entries->size());
+                vk_specializationInfos[i].pMapEntries = vk_mapEntries + offset;
+                vk_specializationInfos[i].dataSize = specShader->getSpecInfo().m_backingBuffer->getSize();
+                vk_specializationInfos[i].pData = specShader->getSpecInfo().m_backingBuffer->getPointer();
+
+                vk_shaderStageCreateInfos[i].pSpecializationInfo = &vk_specializationInfos[i];
+            }
+            else
+            {
+                vk_shaderStageCreateInfos[i].pSpecializationInfo = nullptr;
+            }
+
+            vk_createInfos[i].stage = vk_shaderStageCreateInfos[i];
+
+            vk_createInfos[i].layout = VK_NULL_HANDLE;
+            if (createInfo->layout && (createInfo->layout->getAPIType() == EAT_VULKAN))
+                vk_createInfos[i].layout = IBackendObject::device_compatibility_cast<const CVulkanPipelineLayout*>(createInfo->layout.get(), this)->getInternalObject();
+
+            vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
+            if (createInfo->basePipeline && (createInfo->basePipeline->getAPIType() == EAT_VULKAN))
+                vk_createInfos[i].basePipelineHandle = IBackendObject::device_compatibility_cast<const CVulkanComputePipeline*>(createInfo->basePipeline.get(), this)->getInternalObject();
+
+            vk_createInfos[i].basePipelineIndex = createInfo->basePipelineIndex;
+        }
+        
+        VkPipeline vk_pipelines[MAX_PIPELINE_COUNT];
+        if (m_devf.vk.vkCreateComputePipelines(m_vkdev, vk_pipelineCache, static_cast<uint32_t>(createInfos.size()),
+            vk_createInfos, nullptr, vk_pipelines) == VK_SUCCESS)
+        {
+            for (size_t i = 0ull; i < createInfos.size(); ++i)
+            {
+                const auto createInfo = createInfos.begin() + i;
+
+                output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
+                    core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+                    core::smart_refctd_ptr(createInfo->layout),
+                    core::smart_refctd_ptr(createInfo->shader), vk_pipelines[i]);
+            }
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createRenderpassIndependentPipeline_impl(
+        IGPUPipelineCache* _pipelineCache,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
+        const asset::SRasterizationParams& _rasterParams) override
+    {
+        IGPURenderpassIndependentPipeline::SCreationParams creationParams = {};
+        creationParams.layout = std::move(_layout);
+        const uint32_t shaderCount = std::distance(_shadersBegin, _shadersEnd);
+        for (uint32_t i = 0u; i < shaderCount; ++i)
+            creationParams.shaders[i] = core::smart_refctd_ptr<const IGPUSpecializedShader>(_shadersBegin[i]);
+        creationParams.vertexInput = _vertexInputParams;
+        creationParams.blend = _blendParams;
+        creationParams.primitiveAssembly = _primAsmParams;
+        creationParams.rasterization = _rasterParams;
+
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> creationParamsRange(&creationParams, &creationParams + 1);
+
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> result = nullptr;
+        createRenderpassIndependentPipelines_impl(_pipelineCache, creationParamsRange, &result);
+        return result;
+    }
+
+    bool createRenderpassIndependentPipelines_impl(IGPUPipelineCache* pipelineCache,
+        core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams> createInfos,
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* output) override
+    {
+        if (pipelineCache && pipelineCache->getAPIType() != EAT_VULKAN)
+            return false;
+
+        auto creationParams = createInfos.begin();
+        for (size_t i = 0ull; i < createInfos.size(); ++i)
+        {
+            if (creationParams[i].layout->getAPIType() != EAT_VULKAN)
+                continue;
+
+            uint32_t shaderCount = 0u;
+            for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
+            {
+                auto shader = creationParams[i].shaders[ss];
+                if (shader)
+                {
+                    if (shader->getAPIType() != EAT_VULKAN)
+                        continue;
+
+                    ++shaderCount;
+                }
+            }
+            
+            output[i] = core::make_smart_refctd_ptr<CVulkanRenderpassIndependentPipeline>(
+                core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),
+                core::smart_refctd_ptr(creationParams[i].layout),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders),
+                reinterpret_cast<IGPUSpecializedShader* const*>(creationParams[i].shaders) + shaderCount,
+                creationParams[i].vertexInput,
+                creationParams[i].blend,
+                creationParams[i].primitiveAssembly,
+                creationParams[i].rasterization);
+        }
+
+        return true;
+    }
+
+
+    bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) override;
+#endif

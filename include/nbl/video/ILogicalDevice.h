@@ -870,7 +870,17 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
 
-        virtual void updateDescriptorSets_impl(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies) = 0;
+        struct SUpdateDescriptorSetsParams
+        {
+            std::span<const IGPUDescriptorSet::SWriteDescriptorSet> writes;
+            std::span<const IGPUDescriptorSet::SCopyDescriptorSet> copies;
+            const asset::IDescriptor::E_TYPE* pWriteTypes;
+            uint32_t bufferCount = 0u;
+            uint32_t bufferViewCount = 0u;
+            uint32_t imageCount = 0u;
+            uint32_t accelerationStructureCount = 0u;
+        };
+        virtual void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) = 0;
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
