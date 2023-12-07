@@ -11,6 +11,8 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace shapes
+{
 namespace util
 {
 
@@ -34,6 +36,7 @@ static vector<float_t, 2> LineLineIntersection(vector<float_t, 2> P1, vector<flo
     return intersectionPoint;
 }
 
+}
 }
 }
 }
