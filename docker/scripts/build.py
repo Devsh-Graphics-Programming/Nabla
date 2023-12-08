@@ -19,9 +19,12 @@ def clone(targetRevision):
     subprocess.run(f"git fetch --no-tags --force --progress --depth=1 -- origin {targetRevision}", check=True)
     subprocess.run(f"git checkout {targetRevision}", check=True)
     
-def configure(libType):
+def configure(libType, updateSubmodulesOnly = False):
     subprocess.run(f"cmake . --preset ci-configure-{libType}-msvc", check=True)
-    
+
+def updateSubmodules():
+    subprocess.run(f"cmake -S . -B ./build_submodules_update -DNBL_EXIT_ON_UPDATE_GIT_SUBMODULE=ON -DNBL_CI_GIT_SUBMODULES_SHALLOW=ON", check=True)
+
 def build(libType, config):
     subprocess.run(f"cmake --build --preset ci-build-{libType}-msvc --config {config}", check=True)
 
@@ -44,10 +47,10 @@ try:
     
     if args.init_clone_generate_directories:
         clone(targetRevision)
+        updateSubmodules()
         configure("static")  # TODO: maybe execute with only
         configure("dynamic") # update submodule mode and then configure async
     else:
-        configure(libType)
         if args.build:
             build(libType, config)
     
