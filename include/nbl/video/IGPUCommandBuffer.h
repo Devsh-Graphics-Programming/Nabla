@@ -5,6 +5,8 @@
 
 #include "nbl/asset/asset.h"
 
+#include "nbl/builtin/hlsl/indirect_commands.hlsl"
+
 #include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IQueue.h"
@@ -635,10 +637,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         bool invalidDynamic(const uint32_t first, const uint32_t count);
 
-        template<typename IndirectCommand>
+        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride);
 
-        template<typename IndirectCommand>
+        template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
@@ -672,10 +674,10 @@ extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<I
     const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
 );
 
-extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
-extern template bool IGPUCommandBuffer::invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
-extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
-extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+extern template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 
 extern template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
 extern template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;

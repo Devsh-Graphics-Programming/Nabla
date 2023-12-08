@@ -15,6 +15,7 @@
 namespace nbl::video
 {
     
+#if 0 // rewrite with material compiler
 class CSubpassKiln
 {
     public:
@@ -336,7 +337,7 @@ class CSubpassKiln
                 const IGPUBuffer* indexBuffer = nullptr;
         };
 };
-
+#endif
 }
 
 #endif

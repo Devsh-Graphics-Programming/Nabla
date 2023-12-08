@@ -18,6 +18,7 @@ namespace nbl
 namespace video
 {
 
+#if 0 // REWRITE
 template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
 class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
 {
@@ -109,7 +110,7 @@ bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferDa
     assert(0);
     return false;
 }
-
+#endif
 }
 }
 

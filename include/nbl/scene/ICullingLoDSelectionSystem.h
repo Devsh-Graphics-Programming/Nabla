@@ -12,7 +12,7 @@
 
 namespace nbl::scene
 {
-
+# if 0 // REDO
 class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
@@ -592,7 +592,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		const uint32_t m_workgroupSize;
 };
 
-
+#endif
 } // end namespace nbl::scene
 
 #endif

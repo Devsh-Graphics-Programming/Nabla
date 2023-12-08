@@ -1047,7 +1047,7 @@ bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t in
     return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
 }
 
-template<typename IndirectCommand>
+template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, uint32_t stride)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
@@ -1067,7 +1067,7 @@ bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IG
     return false;
 }
 
-template<typename IndirectCommand>
+template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     if (!getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount)
@@ -1083,7 +1083,7 @@ bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<con
 
 bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    if (invalidDrawIndirect<asset::DrawArraysIndirectCommand_t>(binding,drawCount,stride))
+    if (invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
@@ -1094,7 +1094,7 @@ bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffe
 
 bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
-    if (invalidDrawIndirect<asset::DrawElementsIndirectCommand_t>(binding,drawCount,stride))
+    if (invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(binding,drawCount,stride))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
@@ -1105,7 +1105,7 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
 
 bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
-    if (!invalidDrawIndirectCount<asset::DrawArraysIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
+    if (!invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
@@ -1116,7 +1116,7 @@ bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPU
 
 bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
-    if (!invalidDrawIndirectCount<asset::DrawElementsIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
+    if (!invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(indirectBinding,countBinding,maxDrawCount,stride))
         return false;
     
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
