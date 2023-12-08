@@ -1,11 +1,13 @@
 import os, subprocess, sys, argparse
 
 def parseInputArguments():
-    parser = argparse.ArgumentParser(description="Argument parser")
-    parser.add_argument("--cishallowconfigure", help="Specify target CMake configuration", type=str)
-    parser.add_argument("--config", help="Specify target CMake configuration", type=str)
-    parser.add_argument("--arch", help="Specify target architecture", type=str)
-    parser.add_argument("--libType", help="Specify target library type", type=str)
+    parser = argparse.ArgumentParser(description="Nabla CI Framework cross platform build pipeline script")
+    parser.add_argument("--init-clone-generate-directories", help="This flag tells the script to clone and configure all build directories", type=bool, default=False)
+    parser.add_argument("--build", help="This flag tells the script to build Nabla", type=bool, default=True)
+    parser.add_argument("--target-revision", help="Target revision or branch's HEAD to fetch and checkout", type=str, default="docker")
+    parser.add_argument("--config", help="Target CMake configuration", type=str, default="Release")
+    parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
+    parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
     
     args = parser.parse_args()
     
@@ -28,36 +30,27 @@ try:
 
     if not THIS_PROJECT_NABLA_DIRECTORY:
         raise ValueError("THIS_PROJECT_NABLA_DIRECTORY enviroment variables doesn't exist!")
-    
-    print(f"THIS_PROJECT_NABLA_DIRECTORY=\"{THIS_PROJECT_NABLA_DIRECTORY}\"")
-    
+        
     os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
     
     args = parseInputArguments()
-   
-    if args.cishallowconfigure:
-        targetRevision = args.cishallowconfigure
-        
+    
+    targetRevision = args.target_revision
+    config = args.config
+    arch = args.arch
+    libType = args.libType
+    
+    print(f"Target {targetRevision} revision!")
+    
+    if args.init_clone_generate_directories:
         clone(targetRevision)
         configure("static")  # TODO: maybe execute with only
         configure("dynamic") # update submodule mode and then configure async
-        exit(0)
-
-    config = "Release"
-    if args.config:
-        config = args.config
-        
-    archValue = "x86_64"
-    if args.arch:
-        archValue = args.arch
-        
-    libType = "dynamic"
-    if args.libType:
-        libType = args.libType
-
-    configure(libType)
-    build(libType, config)
-
+    else:
+        configure(libType)
+        if args.build:
+            build(libType, config)
+    
 except subprocess.CalledProcessError as e:
     print(f"Subprocess failed with exit code {e.returncode}")
     sys.exit(e.returncode)

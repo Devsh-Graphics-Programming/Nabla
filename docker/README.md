@@ -80,11 +80,19 @@ to copy your key to `ssh` volume.
 cd .\docker\platform\windows\compose\ci
 ```
 
-and build the base image
+and build the base image. If you want to build *with default setup* 
 
 ```bash
-docker compose up --build
+docker compose build base
 ```
+
+you may also want to change *its base* image (or any other available ARG variable)
+
+```bash
+docker compose build --build-arg BASE_IMAGE="mcr.microsoft.com/windows:ltsc2019" base
+```
+
+in case your operating system doesn't meet some requirements for instance due to your distribution build number which is too low - you should override `BASE_IMAGE` build argument.
 
 #### Adjust permissions of your SSH key in `ssh` volume
 
@@ -94,14 +102,14 @@ To make sure there are no issues with the key ownership and permissions, grant t
 docker run --rm -t -i --mount type=volume,src=ssh,dst=C:/Users/ContainerAdministrator/.ssh --mount type=volume,src=nabla,dst=C:/Users/ContainerAdministrator/Nabla artifactory.devsh.eu/nabla/windows/base icacls.exe C:/Users/ContainerAdministrator/.ssh/id_rsa /reset; icacls.exe C:/Users/ContainerAdministrator/.ssh/id_rsa /GRANT:R 'ContainerAdministrator:(R)'; icacls.exe C:/Users/ContainerAdministrator/.ssh/id_rsa /inheritance:r; ssh -T git@github.com
 ```
 
-note that this creates intermediate container which terminates itself when it finishes with mounted `ssh` volume you just created, it grants permissions to the key and also performs ssh request to github.com with you key - you should see your nickname with a message about successful authentication.
+note that this creates intermediate container which terminates itself on finish with mounted `ssh` volume you created before, it grants permissions to the key and also performs ssh request to *github.com* with you key - you should see your nickname with a message about successful authentication.
 
 #### Run an instance container, cache build directories and commit to instance image
 
-Run base container which will clone Nabla, update submodules and configure build directories with static & dynamic library types, you can also specify additional optional `NABLA_TARGET_REVISION` to force the container to clone specified revision or branch - by default `docker` branch name is taken and its HEAD commit is clonned.
+Run base container which will clone Nabla, update submodules and configure build directories with static & dynamic library types, you can also specify additional optional `--target-revision <NABLA_TARGET_REVISION>` runtime argument at the end to force the container to clone specified revision or branch - by default `docker` branch is taken and its HEAD commit is cloned.
 
 ```bash
-docker compose run -i base <NABLA_TARGET_REVISION>
+docker compose run -i --name dev.nabla.base.x86_64.windows base
 ```
 
 Once everything is built commit your container to an instance image by executing
