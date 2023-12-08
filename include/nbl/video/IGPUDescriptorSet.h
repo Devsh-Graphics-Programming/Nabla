@@ -62,10 +62,11 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
         void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
 
+        using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(redirect_t::binding_number_t{ binding }).data;
             if (localOffset == ~0)
                 return nullptr;
 
@@ -73,7 +74,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (!descriptors)
                 return nullptr;
 
-            return descriptors + localOffset;
+            return descriptors+localOffset;
         }
         // small utility
         inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
@@ -81,8 +82,6 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             for (auto t=0u; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
             {
                 const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-
-                using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
                 const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
                 if (bindingRedirect.getStorageOffset(redirect_t::binding_number_t{binding}).data!=redirect_t::Invalid)
                     return type;
@@ -92,7 +91,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(redirect_t::binding_number_t{ binding }).data;
             if (localOffset == getLayout()->getMutableSamplerRedirect().Invalid)
                 return nullptr;
 

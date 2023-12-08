@@ -36,8 +36,6 @@ class IDescriptor : public virtual core::IReferenceCounted
 
 			ET_COUNT
 		};
-		virtual E_TYPE getType() const = 0;
-
 		enum E_CATEGORY : uint8_t
 		{
 			EC_BUFFER = 0,
@@ -50,22 +48,22 @@ class IDescriptor : public virtual core::IReferenceCounted
 		{
 			switch (type)
 			{
-				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER: [[fallthrough]]
-				case E_TYPE::ET_STORAGE_IMAGE: [[fallthrough]]
+				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+				case E_TYPE::ET_STORAGE_IMAGE:
 				case E_TYPE::ET_INPUT_ATTACHMENT:
 					return EC_IMAGE;
 					break;
-				case E_TYPE::ET_UNIFORM_TEXEL_BUFFER: [[fallthrough]]
+				case E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
 				case E_TYPE::ET_STORAGE_TEXEL_BUFFER:
 					return EC_BUFFER_VIEW;
 					break;
-				case E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]]
-				case E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]]
-				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]]
+				case E_TYPE::ET_UNIFORM_BUFFER:
+				case E_TYPE::ET_STORAGE_BUFFER:
+				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
 				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
 					return EC_BUFFER_VIEW;
 					break;
-				case E_TYPE::ET_ACCELERATION_STRUCTURE: [[fallthrough]]
+				case E_TYPE::ET_ACCELERATION_STRUCTURE:
 					return EC_ACCELERATION_STRUCTURE;
 					break;
 				default:
@@ -73,7 +71,8 @@ class IDescriptor : public virtual core::IReferenceCounted
 			}
 			return EC_COUNT;
 		}
-		inline E_CATEGORY getTypeCategory() const {return GetTypeCategory(getType());}
+
+		virtual E_CATEGORY getTypeCategory() const = 0;
 
 	protected:
 		virtual ~IDescriptor() = default;
