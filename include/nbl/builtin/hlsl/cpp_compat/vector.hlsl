@@ -8,8 +8,8 @@
 #include <half.h>
 
 #define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#include <glm/detail/_swizzle.hpp>
+#include <glm/glm/glm.hpp>
+#include <glm/glm/detail/_swizzle.hpp>
 
 namespace nbl::hlsl
 {
@@ -39,6 +39,7 @@ glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rh
 {
     return glm::greaterThanEqual<N, T>(lhs, rhs);
 }
+
 }
 #endif
 
