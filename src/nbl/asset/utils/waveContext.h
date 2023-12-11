@@ -47,7 +47,7 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
+        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() {}
 
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
@@ -97,6 +97,18 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             m_pragmaStage = found->second;
             return true;
         }
+        
+        if (strcmp(optionStr, "dxc_compile_flags") == 0) {
+            m_dxc_compile_flags_override.clear();
+            for (auto valueIter = values.begin(); valueIter != values.end(); valueIter++) {
+                std::string compiler_option_s = std::string(valueIter->get_value().c_str());
+                if (compiler_option_s[0] == '"' && compiler_option_s[compiler_option_s.length() - 1] == '"')
+                    compiler_option_s = compiler_option_s.substr(1, compiler_option_s.length() - 2);
+                m_dxc_compile_flags_override.push_back(compiler_option_s);
+            }
+            
+        }
+
         return false;
     }
 
@@ -114,6 +126,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     const IShaderCompiler::CIncludeFinder* m_includeFinder;
     system::logger_opt_ptr m_logger;
     IShader::E_SHADER_STAGE m_pragmaStage;
+    std::vector<std::string> m_dxc_compile_flags_override;
 };
 
 class context : private boost::noncopyable
