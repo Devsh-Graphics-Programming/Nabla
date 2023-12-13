@@ -1,9 +1,9 @@
 import os, subprocess, sys, argparse, glob, asyncio
 
 def parseInputArguments():
-    parser = argparse.ArgumentParser(description="Nabla CI Framework cross-platform build pipeline script")
-    parser.add_argument("--init-clone-generate-directories", help="This flag tells the script to clone and configure all build directories", action='store_true')
-    parser.add_argument("--build", help="This flag tells the script to build Nabla", action='store_true')
+    parser = argparse.ArgumentParser(description="Nabla CI Framework cross platform build pipeline script")
+    parser.add_argument("--init-clone-generate-directories", help="This flag tells the script to clone and configure all build directories", type=bool, default=False)
+    parser.add_argument("--build", help="This flag tells the script to build Nabla", type=bool, default=True)
     parser.add_argument("--target-revision", help="Target revision or branch's HEAD to fetch and checkout", type=str, default="docker")
     parser.add_argument("--config", help="Target CMake configuration", type=str, default="Release")
     parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
