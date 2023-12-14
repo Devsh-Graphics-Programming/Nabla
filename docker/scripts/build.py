@@ -47,9 +47,15 @@ def getCPackBundleHash(buildDirectory, target, component="ALL", relativeDirector
 
 async def main():
     try:
-        THIS_PROJECT_NABLA_DIRECTORY = "../../"
+		THIS_PROJECT_NABLA_DIRECTORY = os.environ.get('THIS_PROJECT_NABLA_DIRECTORY', '')
 
-        THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY = "../../artifacts"
+        if not THIS_PROJECT_NABLA_DIRECTORY:
+            raise ValueError("THIS_PROJECT_NABLA_DIRECTORY enviroment variables doesn't exist!")
+
+        THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY = os.environ.get('THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY', '')
+
+        if not THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY:
+            print("THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY not defined, using default <buildPath>/package/<configuration> path for artifacts")
             
         os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
 
