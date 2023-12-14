@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_CPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
@@ -19,9 +18,9 @@ namespace asset
 	@see IRenderpassIndependentPipeline
 */
 
-class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
+class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUSpecializedShader>, public IAsset
 {
-		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
+		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader>;
 
 	public:
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
@@ -36,7 +35,14 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
 
-		using base_t::base_t;
+		ICPURenderpassIndependentPipeline(
+			core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout,
+			const std::span<const ICPUSpecializedShader*>& _shaders,
+			const SVertexInputParams& _vertexInputParams,
+			const SBlendParams& _blendParams,
+			const SPrimitiveAssemblyParams& _primAsmParams,
+			const SRasterizationParams& _rasterParams
+		) : base_t(_shaders,_vertexInputParams,_blendParams,_primAsmParams,_rasterParams), m_layout(std::move(_layout)) {}
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -143,8 +149,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			MEMCMP_MEMBER(m_primAsmParams);
 			MEMCMP_MEMBER(m_rasterParams);
 #undef MECMP_MEMBER
-			if (m_disableOptimizations != other->m_disableOptimizations)
-				return false;
 
 			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 			{
@@ -160,6 +164,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 
 	protected:
+		virtual ~ICPURenderpassIndependentPipeline() = default;
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
@@ -186,7 +192,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			return false;
 		}
 
-		virtual ~ICPURenderpassIndependentPipeline() = default;
+		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
 };
 
 }
