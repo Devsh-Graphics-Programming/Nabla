@@ -227,8 +227,43 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     if (!cpushader)
         return nullptr;
 
-    const char* entryPoint = "main"; // every compiler seems to be handicapped this way?
     const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+    const auto& features = getEnabledFeatures();
+    switch (shaderStage)
+    {
+        case IGPUShader::ESS_VERTEX:
+            break;
+        case IGPUShader::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+        case IGPUShader::ESS_TESSELLATION_EVALUATION:
+            if (!features.tessellationShader)
+                return nullptr;
+            break;
+        case IGPUShader::ESS_GEOMETRY:
+            if (!features.geometryShader)
+                return nullptr;
+            break;
+        case IGPUShader::ESS_FRAGMENT: [[fallthrough]];
+        case IGPUShader::ESS_COMPUTE:
+            break;
+        // unsupported yet
+        case IGPUShader::ESS_TASK: [[fallthrough]];
+        case IGPUShader::ESS_MESH:
+            return nullptr;
+            break;
+        case IGPUShader::ESS_RAYGEN: [[fallthrough]];
+        case IGPUShader::ESS_ANY_HIT: [[fallthrough]];
+        case IGPUShader::ESS_CLOSEST_HIT: [[fallthrough]];
+        case IGPUShader::ESS_MISS: [[fallthrough]];
+        case IGPUShader::ESS_INTERSECTION: [[fallthrough]];
+        case IGPUShader::ESS_CALLABLE:
+            if (!features.rayTracingPipeline)
+                return nullptr;
+            break;
+        default:
+            // Implicit unsupported stages or weird multi-bit stage enum values
+            return nullptr;
+            break;
+    }
 
     core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
     if (cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
