@@ -38,8 +38,15 @@ void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
     // Cooley-Tukey
     for (uint32_t stride = 2; stride <= N; stride *= 2)
     {
-        complex::complex_t<T> twiddle_factor = { cos((is_inverse ? 2.0 : -2.0) * 3.14 / stride), sin((is_inverse ? 2.0 : -2.0) * 3.14 / stride) };
-
+        complex::complex_t<T> twiddle_factor;
+        if(is_inverse)
+        {
+            twiddle_factor = { cos(2.0 * 3.14 / stride), sin(2.0 * 3.14 / stride) };
+        }
+        else
+        {
+            twiddle_factor = { cos(-2.0 * 3.14 / stride), sin(-2.0 * 3.14 / stride) };
+        }
         for (uint32_t start = 0; start < N; start += stride)
         {
             complex::complex_t<T> w = { 1, 0 };
@@ -58,9 +65,8 @@ void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
     // If it's an inverse FFT, divide by N
     if (is_inverse)
     {
-        T scale = T(1) / T(N);
         for (uint32_t i = 0; i < N; ++i)
-            data[i] = complex::mul<T>(data[i], scale);
+            data[i] = complex::div<T>(data[i], N);
     }
 }
 
