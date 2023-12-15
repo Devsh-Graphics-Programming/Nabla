@@ -14,6 +14,8 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace complex
+{
 
 
 template<typename T>
@@ -24,7 +26,7 @@ struct complex_t
 };
 
 template<typename T>
-complex_t<T> add(const complex_t<T> a, const complex_t<T> b)
+complex_t<T> plus(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -35,7 +37,7 @@ complex_t<T> add(const complex_t<T> a, const complex_t<T> b)
 }
 
 template<typename T>
-complex_t<T> subract(const complex_t<T> a, const complex_t<T> b)
+complex_t<T> minus(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -46,7 +48,7 @@ complex_t<T> subract(const complex_t<T> a, const complex_t<T> b)
 }
 
 template<typename T>
-complex_t<T> multiply(const complex_t<T> a, const complex_t<T> b)
+complex_t<T> mul(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -56,8 +58,20 @@ complex_t<T> multiply(const complex_t<T> a, const complex_t<T> b)
     return result;
 }
 
+// multiply by scalar
 template<typename T>
-complex_t<T> divide(const complex_t<T> a, const complex_t<T> b)
+complex_t<T> mul(const complex_t<T> c, T scalar)
+{
+    complex_t<T> result;
+    result.real = c.real * scalar;
+    result.imag = c.imag * scalar;
+
+    return result;
+}
+
+
+template<typename T>
+complex_t<T> div(const complex_t<T> a, const complex_t<T> b)
 {
     complex_t<T> result;
 
@@ -68,9 +82,22 @@ complex_t<T> divide(const complex_t<T> a, const complex_t<T> b)
     return result;
 }
 
+// Divide by scalar
+template<typename T>
+complex_t<T> div(const complex_t<T> c, T scalar)
+{
+    complex_t<T> result;
+    result.real = c.real / scalar;
+    result.imag = c.imag / scalar;
+
+    return result;
+}
+
 
 }
 }
+}
+
 
 #endif
 
