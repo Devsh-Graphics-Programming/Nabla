@@ -43,19 +43,19 @@ class IPipeline : public IBackendObject
 				}
 
 				const IGPUPipelineLayout* layout = nullptr;
-				// if you set this, then we don't take `basePipelineIndex` into account
+				// If you set this, then we don't take `basePipelineIndex` into account, the pointer takes precedence
 				const CRTP* basePipeline = nullptr;
 				int32_t basePipelineIndex = NotDerivingFromPreviousPipeline;
 
 			protected:
-				// TODO: split into separate enums per pipeline type!
+				// This is not public to make sure that different pipelines only get the enums they support
 				enum class FLAGS : uint64_t
 				{
-					NONE = 0,
+					NONE = 0, // disallowed in maintanance5
 					DISABLE_OPTIMIZATIONS = 1<<0,
 					ALLOW_DERIVATIVES = 1<<1,
 					
-					//I can just guess this
+					// I can just derive this
 					//DERIVATIVE = 1<<2,
 
 					// Graphics Pipelines only
@@ -69,8 +69,12 @@ class IPipeline : public IBackendObject
 
 					CAPTURE_STATISTICS = 1<<6,
 					CAPTURE_INTERNAL_REPRESENTATIONS = 1<<7,
+
+					// We require Pipeline Cache Control feature so those are satisfied:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-pipelineCreationCacheControl-02875
 					FAIL_ON_PIPELINE_COMPILE_REQUIRED = 1<<8,
 					EARLY_RETURN_ON_FAILURE = 1<<9,
+
 					LINK_TIME_OPTIMIZATION = 1<<10,
 
 					//Not Supported Yet
@@ -85,7 +89,7 @@ class IPipeline : public IBackendObject
 					//RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 1<<17,
 
 					// Not Supported Yet
-					//INDIRECT_BINDABLE_BIT_NV = 1<<18,
+					//INDIRECT_BINDABLE_NV = 1<<18,
 
 					// Ray Tracing Pipelines only
 					//RAY_TRACING_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_BIT_KHR = 1<<19,
@@ -95,15 +99,18 @@ class IPipeline : public IBackendObject
 					//RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR = 1<<21,
 					//RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT = 1<<22,
 
-					RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = 1<<23,
+					RETAIN_LINK_TIME_OPTIMIZATION_INFO = 1<<23,
 
 					// Ray Tracing Pipelines only
 					//RAY_TRACING_OPACITY_MICROMAP_BIT_EXT = 1<<24,
-					//RAY_TRACING_DISPLACEMENT_MICROMAP_BIT_NV = 1<<25,
+					//COLOR_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT = 1<<25,
+					//DEPTH_STENCIL_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT = 1<<26,
 
 					// Not Supported Yet
-					//NO_PROTECTED_ACCESS=1<<26,
-					//PROTECTED_ACCESS_ONLY=1<<27,
+					//NO_PROTECTED_ACCESS=1<<27,
+					//RAY_TRACING_DISPLACEMENT_MICROMAP_BIT_NV = 1<<28,
+					//DESCRIPTOR_VUFFER_BIT=1<<29,
+					//PROTECTED_ACCESS_ONLY=1<<30,
 				};
 		};
 

@@ -543,10 +543,53 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Shaders
         core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
+        // After `maintenance5` becomes ubiquitous we can probably deprecate this method and get rid of specialized shader as an asset type
+        // maybe lets do it while getting rid of RenderpassIndependentGraphicsPipeline, IMeshBuffer and IMesh 
         inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
         {
-            if (!_unspecialized->wasCreatedBy(this))
+            // TODO: figure out how `maintenance5` and Graphics Pipeline Libraries work
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
+            if (!_unspecialized || !_unspecialized->wasCreatedBy(this))
                 return nullptr;
+
+            // Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
+            if (!_specInfo.entryPoint.empty())
+                return nullptr;
+
+            // Impossible to efficiently check anything from:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
+            // to:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
+            // and from:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
+            // to:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
+            
+            // by requiring Nabla Core Profile features we implicitly satisfy:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
+            
+            const auto stage = _unspecialized->getStage();
+            // Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
+            if (_specInfo.m_requireFullSubgroups)
+            switch (stage)
+            {
+                case IGPUShader::ESS_COMPUTE: [[fallthrough]];
+                case IGPUShader::ESS_TASK: [[fallthrough]];
+                case IGPUShader::ESS_MESH:
+                    break;
+                default:
+                    return nullptr;
+                    break;
+            }
+            // Because our API is sane, it satisfies the following by construction:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
+            
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
+            if (_specInfo.m_requiredSubgroupSize>=IGPUSpecializedShader::SInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(stage))
+                return nullptr;
+
             auto retval = createSpecializedShader_impl(_unspecialized,_specInfo);
             const auto path = _unspecialized->getFilepathHint();
             if (retval && !path.empty())
@@ -670,20 +713,21 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Pipelines
         // Create a pipeline cache object
-        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache() { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) { return nullptr; }
 
         inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
         {
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+            std::fill_n(output,params.size(),nullptr);
+            if (invalidCreatePipelines(pipelineCache,params))
                 return false;
             for (const auto& ci : params)
             {
-                if (!ci.layout->wasCreatedBy(this) || !ci.shader->wasCreatedBy(this))
+                if (!ci.shader || !ci.shader->wasCreatedBy(this))
                     return false;
-                if (ci.basePipeline && !ci.basePipeline->wasCreatedBy(this))
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
+                if (ci.shader->getStage()!=IGPUShader::ESS_COMPUTE)
                     return false;
             }
-            std::fill_n(output,params.size(),nullptr);
 
             createComputePipelines_impl(pipelineCache,params,output);
             
@@ -701,23 +745,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         // SOON TO BE DEPRECATED
         bool createRenderpassIndependentPipelines(
-            IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& params,
             core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output
         )
         {
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+            std::fill_n(output, params.size(), nullptr);
+            if (invalidCreatePipelines(nullptr,params))
                 return false;
             for (const IGPURenderpassIndependentPipeline::SCreationParams& ci : params)
             {
-                if (!ci.layout->wasCreatedBy(this))
-                    return false;
                 for (auto& s : ci.shaders)
                 if (s && !s->wasCreatedBy(this))
                     return false;
             }
-            std::fill_n(output,params.size(),nullptr);
-            createRenderpassIndependentPipelines_impl(pipelineCache,params,output);
+
+            createRenderpassIndependentPipelines_impl(params,output);
+
             for (auto i=0u; i<params.size(); i++)
             if (!output[i])
                 return false;
@@ -726,19 +769,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
+            std::fill_n(output,params.size(),nullptr);
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return false;
+
             for (const auto& ci : params)
             {
+                if (!ci.valid())
+                    return false;
                 if (!ci.renderpass->wasCreatedBy(this))
                     return false;
                 if (!ci.renderpassIndependent->wasCreatedBy(this))
                     return false;
-                if (!IGPUGraphicsPipeline::validate(ci))
-                    return false;
             }
-            std::fill_n(output,params.size(),nullptr);
+
             createGraphicsPipelines_impl(pipelineCache,params,output);
+            
             for (auto i=0u; i<params.size(); i++)
             if (!output[i])
                 return false;
@@ -884,9 +930,34 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
+        
+        template<typename CreationParams>
+        inline bool invalidCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams>& params)
+        {
+            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+                return nullptr;
+            for (auto i=0; i<params.size(); i++)
+            {
+                const auto& ci = params[i];
+                if (!ci.layout || !ci.layout->wasCreatedBy(this))
+                    return nullptr;
 
+                constexpr auto AllowDerivativesFlag = SCreationParams::FLAGS::ALLOW_DERIVATIVES;
+                if (ci.basePipeline)
+                {
+                    if (!ci.basePipeline->wasCreatedBy(this))
+                        return true;
+                    if (!ci.basePipeline->getCreationFlags().hasFlag(AllowDerivativesFlag))
+                        return true;
+                }
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07985
+                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || !params[ci.basePipelineIndex].flags.hasFlag(AllowDerivativesFlag))
+                    return true;
+            }
+            return params.empty();
+        }
         virtual void createComputePipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUComputePipeline>* const output) = 0;
-        virtual void createRenderpassIndependentPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) = 0;
+        virtual void createRenderpassIndependentPipelines_impl(const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) = 0;
         virtual void createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;

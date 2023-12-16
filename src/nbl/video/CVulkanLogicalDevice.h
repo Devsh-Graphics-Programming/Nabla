@@ -292,7 +292,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // pipelines
         void createComputePipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUComputePipeline>* const output) override;
-        void createRenderpassIndependentPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) override;
+        void createRenderpassIndependentPipelines_impl(const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) override;
         void createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output) override;
 
         // queries

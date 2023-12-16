@@ -8,37 +8,62 @@
 #include "nbl/asset/IComputePipeline.h"
 
 #include "nbl/video/IGPUSpecializedShader.h"
-#include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/IPipeline.h"
 
 
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public IBackendObject, public asset::IComputePipeline<IGPUSpecializedShader,IGPUPipelineLayout>
+class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>, public asset::IComputePipeline<const IGPUSpecializedShader>
 {
-        using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
+        using pipeline_t = IPipeline<IGPUComputePipeline>;
+        using base_t = asset::IComputePipeline<const IGPUSpecializedShader>;
 
     public:
-        IGPUComputePipeline(
-            core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs
-        ) : IBackendObject(std::move(dev)), base_t(std::move(_layout),std::move(_cs)) {}
-
-        struct SCreationParams
+        struct SCreationParams final : pipeline_t::SCreationParams
         {
-            IPipeline::E_PIPELINE_CREATION flags = IPipeline::EPC_NONE;
-            core::smart_refctd_ptr<IGPUPipelineLayout> layout = nullptr;
-            core::smart_refctd_ptr<IGPUSpecializedShader> shader = nullptr;
-            core::smart_refctd_ptr<IGPUComputePipeline> basePipeline = nullptr;
-            int32_t basePipelineIndex = -1;
+            // By construction we satisfy from:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-03365
+            // to:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-04945
+            // and:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07367
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07996
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
+            enum class FLAGS : uint64_t
+            {
+                NONE = base_flag(NONE),
+                DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
+                ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
+                DISPATCH_BASE = 1<<4,
+                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
+                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
+                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
+                EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+                LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
+                RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO),
+                // Not Supported Yet
+                //CREATE_LIBRARY = base_flag(CREATE_LIBRARY),
+                // Not Supported Yet
+                //INDIRECT_BINDABLE_NV = base_flag(INDIRECT_BINDABLE_NV),
+            };
+            #undef base_flag
+
+            // TODO: Could guess the required flags from SPIR-V introspection of declared caps
+            core::bitflag<FLAGS> flags = FLAGS::NONE;
+            const IGPUSpecializedShader* shader = nullptr;
         };
 
+        inline SCreationParams::FLAGS getCreationFlags() const {return m_flags;}
+
     protected:
+        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUSpecializedShader>&& _cs, const SCreationParams::FLAGS _flags) :
+            pipeline_t(std::move(dev)), base_t(std::move(_cs)), m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
-        bool m_allowDispatchBase = false;
+        const SCreationParams::FLAGS m_flags;
 };
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUComputePipeline::SCreationParams::FLAGS)
 
 }
 

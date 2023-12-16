@@ -18,23 +18,24 @@ class IGraphicsPipeline
 
         struct SCreationParams
         {
+            inline bool valid() const
+            {
+                if (!renderpassIndependent || !renderpass)
+                    return false;
+
+                if (subpassIx>=renderpass->getSubpassCount())
+                    return false;
+
+                // TODO: check rasterization samples, etc.
+                //rp->getCreationParameters().subpasses[i]
+                return true;
+            }
+
             core::smart_refctd_ptr<renderpass_independent_t> renderpassIndependent = nullptr;
             IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamples = IImage::ESCF_1_BIT;
             core::smart_refctd_ptr<RenderpassType> renderpass = nullptr;
             uint32_t subpassIx = 0u;
         };
-
-        static inline bool validate(const SCreationParams& params)
-        {
-            const auto& rp = params.renderpass;
-            if (params.subpassIx>=rp->getSubpassCount())
-                return false;
-
-            // TODO: check rasterization samples, etc.
-            //rp->getCreationParameters().subpasses[i]
-
-            return true;
-        }
 
         const SCreationParams& getCreationParameters() const { return m_params; }
 
