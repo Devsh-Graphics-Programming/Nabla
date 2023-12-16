@@ -64,8 +64,6 @@ namespace shapes
             return position;
         }
 
-        // TODO[Przemek]: implement YatX as a helper tool in bezier.hlsl Quadratic curve
-        // returns nan if found X is outside of bounds or not found at all
         float_t calcYatX(float_t x)
         {
             const float_t a = P0.x - 2.0 * P1.x + P2.x;
@@ -85,6 +83,27 @@ namespace shapes
                 //return 0x7FF8000000000000ull;
                 return numeric_limits<float_t>::quiet_NaN;
 
+        }
+
+        void splitFromStart(double t)
+        {
+            P0 = P0;
+            P1 = (1.0 - t) * P0 + t * P1;
+            P2 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
+        }
+
+        void splitToEnd(double t)
+        {
+            P0 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
+            P1 = (1.0 - t) * P1 + t * P2;
+            P2 = P2;
+        }
+
+        void rotate(NBL_CONST_REF_ARG(float_t2x2) rotation)
+        {
+            P0 = mul(rotation, P0);
+            P1 = mul(rotation, P1);
+            P2 = mul(rotation, P2);
         }
 
         // from shadertoy: https://www.shadertoy.com/view/stfSzS
