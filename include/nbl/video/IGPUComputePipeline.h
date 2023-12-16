@@ -5,19 +5,15 @@
 #define _NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED_
 
 
-#include "nbl/asset/IComputePipeline.h"
-
-#include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IPipeline.h"
 
 
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>, public asset::IComputePipeline<const IGPUSpecializedShader>
+class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
 {
         using pipeline_t = IPipeline<IGPUComputePipeline>;
-        using base_t = asset::IComputePipeline<const IGPUSpecializedShader>;
 
     public:
         struct SCreationParams final : pipeline_t::SCreationParams
@@ -51,14 +47,13 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>, public asset:
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-            const IGPUSpecializedShader* shader = nullptr;
+            IGPUShader::SSpecInfo shader = nullptr;
         };
 
         inline SCreationParams::FLAGS getCreationFlags() const {return m_flags;}
 
     protected:
-        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<const IGPUSpecializedShader>&& _cs, const SCreationParams::FLAGS _flags) :
-            pipeline_t(std::move(dev)), base_t(std::move(_cs)), m_flags(_flags) {}
+        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams::FLAGS _flags) : pipeline_t(std::move(dev)), m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
         const SCreationParams::FLAGS m_flags;

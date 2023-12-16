@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 
-#include "nbl/video/IGPUSpecializedShader.h"
+#include "nbl/video/IGPUShader.h"
 #include "nbl/video/IPipeline.h"
 
 
@@ -18,27 +18,29 @@ namespace nbl::video
 /*
 	@see IRenderpassIndependentPipeline
 */
-class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndependentPipeline>, public asset::IRenderpassIndependentPipeline<const IGPUSpecializedShader>
+class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndependentPipeline>, public asset::IRenderpassIndependentPipeline<IGPUShader>
 {
 		using pipeline_t = IPipeline<IGPURenderpassIndependentPipeline>;
-		using base_t = asset::IRenderpassIndependentPipeline<const IGPUSpecializedShader>;
+		using base_t = asset::IRenderpassIndependentPipeline<IGPUShader>;
 
 	public:
 		struct SCreationParams final : pipeline_t::SCreationParams, base_t::SCreationParams
 		{
-			using base_t = pipeline_t::SCreationParams;
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
             enum class FLAGS : uint64_t
             {
-                NONE = base_t::NONE,
-                DISABLE_OPTIMIZATIONS = base_t::DISABLE_OPTIMIZATIONS,
-                ALLOW_DERIVATIVES = base_t::ALLOW_DERIVATIVES,
-                CAPTURE_STATISTICS = base_t::CAPTURE_STATISTICS,
-                CAPTURE_INTERNAL_REPRESENTATIONS = base_t::CAPTURE_INTERNAL_REPRESENTATIONS,
-                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_t::FAIL_ON_PIPELINE_COMPILE_REQUIRED,
-                EARLY_RETURN_ON_FAILURE = base_t::EARLY_RETURN_ON_FAILURE,
-                LINK_TIME_OPTIMIZATION = base_t::LINK_TIME_OPTIMIZATION,
-                RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_t::RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT
+                NONE = base_flag(NONE),
+                DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
+                ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
+                VIEW_INDEX_FROM_DEVICE_INDEX = 1<<3,
+                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
+                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
+                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
+                EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+                LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
+                RETAIN_LINK_TIME_OPTIMIZATION_INFO = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO)
             };
+            #undef base_flag
 		};
 
 	protected:
