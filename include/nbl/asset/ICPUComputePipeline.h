@@ -1,28 +1,23 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_CPU_COMPUTE_PIPELINE_H_INCLUDED_
 #define _NBL_ASSET_I_CPU_COMPUTE_PIPELINE_H_INCLUDED_
 
-#include "nbl/asset/IComputePipeline.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/ICPUSpecializedShader.h"
+#include "nbl/asset/ICPUShader.h"
 
 namespace nbl::asset
 {
 
 //! CPU Version of Compute Pipeline
-/*
-    @see IComputePipeline
-*/
-
-class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader>, public IAsset
+class ICPUComputePipeline : public IAsset
 {
-        using base_t = IComputePipeline<ICPUSpecializedShader>;
-
     public:
-        ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, core::smart_refctd_ptr<ICPUSpecializedShader>&& _cs) :
-            base_t(std::move(_cs)), m_layout(std::move(_layout)) {}
+        static core::smart_refctd_ptr<ICPUComputePipeline> create()
+        {
+            return nullptr;
+        }
 
         size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
         void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -88,6 +83,8 @@ class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader>, publ
         }
 
     protected:
+        ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const ICPUShader::SSpecInfo& _cs) :
+            base_t(std::move(_cs)), m_layout(std::move(_layout)) {}
         virtual ~ICPUComputePipeline() = default;
 
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -109,6 +106,8 @@ class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader>, publ
         }
 
         core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
+        const ICPUShader::SSpecInfo m_info;
+        core::smart_refctd_ptr<ICPUShader> m_shader;
 };
 
 }

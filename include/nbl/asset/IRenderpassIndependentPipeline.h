@@ -12,7 +12,6 @@
 #include "nbl/builtin/cache/ICacheKeyCreator.h"
 
 #include "nbl/asset/format/EFormat.h"
-#include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/RasterizationStates.h"
@@ -79,7 +78,7 @@ static_assert(sizeof(SVertexInputParams)==(sizeof(uint16_t)*2u+SVertexInputParam
     and a pipeline layout.
 */
 
-template<typename SpecShaderType>
+template<typename ShaderType>
 class IRenderpassIndependentPipeline
 {
 	public:
@@ -92,40 +91,18 @@ class IRenderpassIndependentPipeline
         };
         struct SCreationParams
         {
-            std::span<SpecShaderType*> shaders;
+            std::span<const ShaderType::SSpecInfo> shaders = {};
             SCachedCreationParams cached = {};
         };
-
-		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const
-        {
-            return m_shaders[core::findLSB<uint32_t>(_stage)].get();
-        }
-        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const
-        {
-            return m_shaders[_ix].get();
-        }
 
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}
 
 	protected:
         constexpr static inline size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
-        IRenderpassIndependentPipeline(const SCreationParams& params) : m_cachedParams(params.cached)
-        {
-            for (const auto shdr : _shaders)
-            if (shdr)
-            {
-                const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-                assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
-                assert(!m_shaders[ix]);//must be maximum of 1 for each stage
-                m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
-            }
-        }
+        IRenderpassIndependentPipeline(const SCreationParams& params) : m_cachedParams(params.cached) {}
         virtual ~IRenderpassIndependentPipeline() = default;
 
-
-        // TODO: later get rid of `VkShaderModule` cause of maintanance5
-        core::smart_refctd_ptr<SpecShaderType> m_shaders[GRAPHICS_SHADER_STAGE_COUNT] = {};
 
         SCachedCreationParams m_cachedParams;
 };

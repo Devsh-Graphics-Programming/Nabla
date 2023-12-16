@@ -8,7 +8,6 @@
 #include "nbl/system/ISystem.h"
 
 #include "nbl/asset/IImage.h" //for VkExtent3D only
-#include "nbl/asset/ISpecializedShader.h"
 
 #include "nbl/video/EApiType.h"
 #include "nbl/video/debug/IDebugCallback.h"

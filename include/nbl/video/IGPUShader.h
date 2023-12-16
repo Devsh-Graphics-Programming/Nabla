@@ -21,12 +21,12 @@ namespace nbl::video
 
 class IGPUShader : public asset::IShader, public IBackendObject
 {
+    public:
+        using SSpecInfo = asset::IShader::SSpecInfo<IGPUShader>;
+
     protected:
-        explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-            const IShader::E_SHADER_STAGE shaderStage,
-            std::string&& filepathHint)
-            : IBackendObject(std::move(dev)), IShader(shaderStage, std::move(filepathHint))
-        {}
+        explicit IGPUShader(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const IShader::E_SHADER_STAGE shaderStage, std::string&& filepathHint)
+            : IBackendObject(std::move(dev)), IShader(shaderStage, std::move(filepathHint)) {}
 
         virtual ~IGPUShader() = default;
 };

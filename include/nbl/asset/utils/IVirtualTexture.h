@@ -13,7 +13,6 @@
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-#include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/IImageView.h"
 #include "nbl/asset/IDescriptorSetLayout.h"

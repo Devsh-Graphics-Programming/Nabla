@@ -1,22 +1,18 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
+#define _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED__
-#define __NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED__
 
 #include <algorithm>
 #include <array>
 
-
 #include "nbl/macros.h"
 #include "nbl/core/declarations.h"
 
-#include "nbl/asset/ISpecializedShader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Push Constant Ranges
@@ -160,6 +156,4 @@ public:
 };
 
 }
-}
-
 #endif
