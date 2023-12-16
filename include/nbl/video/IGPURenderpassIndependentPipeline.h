@@ -8,7 +8,7 @@
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 
 #include "nbl/video/IGPUSpecializedShader.h"
-#include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/IPipeline.h"
 
 
 namespace nbl::video
@@ -18,32 +18,31 @@ namespace nbl::video
 /*
 	@see IRenderpassIndependentPipeline
 */
-class IGPURenderpassIndependentPipeline : public IBackendObject, public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader,IGPUPipelineLayout>
+class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndependentPipeline>, public asset::IRenderpassIndependentPipeline<const IGPUSpecializedShader>
 {
-		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader,IGPUPipelineLayout>;
+		using pipeline_t = IPipeline<IGPURenderpassIndependentPipeline>;
+		using base_t = asset::IRenderpassIndependentPipeline<const IGPUSpecializedShader>;
 
 	public:
-		IGPURenderpassIndependentPipeline(
-			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-			IGPUSpecializedShader* const* _shadersBegin, IGPUSpecializedShader* const* _shadersEnd,
-			const asset::SVertexInputParams& _vertexInputParams,
-			const asset::SBlendParams& _blendParams,
-			const asset::SPrimitiveAssemblyParams& _primAsmParams,
-			const asset::SRasterizationParams& _rasterParams
-		) : IBackendObject(std::move(dev)), base_t(std::move(_layout),_shadersBegin,_shadersEnd,_vertexInputParams,_blendParams,_primAsmParams,_rasterParams) {}
-
-		struct SCreationParams
+		struct SCreationParams final : pipeline_t::SCreationParams, base_t::SCreationParams
 		{
-			core::smart_refctd_ptr<IGPUPipelineLayout> layout;
-			core::smart_refctd_ptr<const IGPUSpecializedShader> shaders[GRAPHICS_SHADER_STAGE_COUNT];
-			asset::SVertexInputParams vertexInput;
-			asset::SBlendParams blend;
-			asset::SPrimitiveAssemblyParams primitiveAssembly;
-			asset::SRasterizationParams rasterization;
+			using base_t = pipeline_t::SCreationParams;
+            enum class FLAGS : uint64_t
+            {
+                NONE = base_t::NONE,
+                DISABLE_OPTIMIZATIONS = base_t::DISABLE_OPTIMIZATIONS,
+                ALLOW_DERIVATIVES = base_t::ALLOW_DERIVATIVES,
+                CAPTURE_STATISTICS = base_t::CAPTURE_STATISTICS,
+                CAPTURE_INTERNAL_REPRESENTATIONS = base_t::CAPTURE_INTERNAL_REPRESENTATIONS,
+                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_t::FAIL_ON_PIPELINE_COMPILE_REQUIRED,
+                EARLY_RETURN_ON_FAILURE = base_t::EARLY_RETURN_ON_FAILURE,
+                LINK_TIME_OPTIMIZATION = base_t::LINK_TIME_OPTIMIZATION,
+                RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_t::RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT
+            };
 		};
 
 	protected:
+		IGPURenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const base_t::SCreationParams& params) : pipeline_t(std::move(dev)), base_t(params) {}
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };
 

@@ -11,12 +11,23 @@
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IQueue.h"
 
-
+// TODO: remove
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
 #include <type_traits>
 
+// leaving it in asset namespace for now because we'll probably re-use these in our CPUCommandGraphs 
+namespace nbl::asset
+{
+enum E_DEPENDENCY_FLAGS : uint8_t
+{
+    EDF_NONE = 0x00,
+    EDF_BY_REGION_BIT = 0x01,
+    EDF_VIEW_LOCAL_BIT = 0x02,
+    EDF_DEVICE_GROUP_BIT = 0x04
+};
+}
 
 namespace nbl::video
 {

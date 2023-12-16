@@ -6,13 +6,7 @@
 namespace nbl::asset
 {
 
-enum E_STENCIL_FACE_FLAGS : uint32_t
-{
-    ESFF_FRONT_BIT = 0x01,
-    ESFF_BACK_BIT = 0x02,
-    ESFF_FACE_AND_FRONT = 0x03
-};
-
+// would be in a common asset::IPipeline if it existed
 enum E_PIPELINE_BIND_POINT : uint8_t
 {
     EPBP_GRAPHICS = 0,
@@ -21,6 +15,7 @@ enum E_PIPELINE_BIND_POINT : uint8_t
     EPBP_COUNT
 };
 
+// here because acceleration structures need them too
 enum E_INDEX_TYPE : uint8_t
 {
     EIT_16BIT = 0,
@@ -324,14 +319,6 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_F
 
     return retval;
 }
-
-enum E_DEPENDENCY_FLAGS : uint8_t
-{
-    EDF_NONE = 0x00,
-    EDF_BY_REGION_BIT = 0x01,
-    EDF_VIEW_LOCAL_BIT = 0x02,
-    EDF_DEVICE_GROUP_BIT = 0x04
-};
 
 }
 

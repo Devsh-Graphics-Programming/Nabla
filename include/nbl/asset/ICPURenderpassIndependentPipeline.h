@@ -24,19 +24,38 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 	public:
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
+		constexpr static inline uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
 		// TODO: @Crisspl HOW ON EARTH DOES THIS MAKE SENSE!?
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
-        _NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
+		constexpr static inline uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
+		constexpr static inline uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
 		// from here its good
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
+		constexpr static inline uint32_t PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
+		constexpr static inline uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW;
+		constexpr static inline uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
+		constexpr static inline uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
 
 		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params) : base_t(params), m_layout(std::move(_layout)) {}
 
+		// non-const getters and setters for base
+		inline ICPUSpecializedShader* getShaderAtStage(IShader::E_SHADER_STAGE _stage)
+		{
+			assert(!isImmutable_debug());
+			return m_shaders[core::findLSB<uint32_t>(_stage)].get();
+		}
+		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix)
+		{
+			assert(!isImmutable_debug());
+			return m_shaders[_ix].get();
+		}
+
+		inline void setShaderAtStage(IShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr)
+		{
+			assert(!isImmutable_debug());
+			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr);
+		}
+
+		// IAsset implementations
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
@@ -51,63 +70,23 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			}
 		}
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        core::smart_refctd_ptr<IAsset> clone(const uint32_t _depth = ~0u) const override
         {
-            core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
-
-            std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, GRAPHICS_SHADER_STAGE_COUNT> shaders;
-            for (uint32_t i = 0u; i < shaders.size(); ++i)
-                shaders[i] = (_depth > 0u && m_shaders[i]) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shaders[i]->clone(_depth-1u)) : m_shaders[i];
-            std::array<ICPUSpecializedShader*, GRAPHICS_SHADER_STAGE_COUNT> shaders_raw;
-            for (uint32_t i = 0u; i < shaders.size(); ++i)
-                shaders_raw[i] = shaders[i].get();
-            std::sort(shaders_raw.begin(), shaders_raw.end(), [](ICPUSpecializedShader* a, ICPUSpecializedShader* b) { return (a && !b); });
-
-            auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),
-                shaders_raw.data(), &*std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
-                m_vertexInputParams, m_blendParams, m_primAsmParams, m_rasterParams
-            );
+            core::smart_refctd_ptr<ICPUPipelineLayout> layout;
+            if (_depth>0u && m_layout)
+				layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u));
+			else
+				layout = m_layout;
+			
+            auto pShaders = &m_shaders->get();
+			const SCreationParams params = {.shaders={const_cast<ICPUSpecializedShader**>(pShaders),GRAPHICS_SHADER_STAGE_COUNT},.cached=getCachedCreationParams()};
+            auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),params);
             clone_common(cp.get());
-
             return cp;
         }
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		inline ICPUSpecializedShader* getShaderAtStage(IShader::E_SHADER_STAGE _stage) 
-		{ 
-			assert(!isImmutable_debug());
-			return m_shaders[core::findLSB<uint32_t>(_stage)].get(); 
-		}
-		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) 
-		{
-			assert(!isImmutable_debug());
-			return m_shaders[_ix].get();
-		}
-		inline const ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
-
-//
-
-		inline ICPUPipelineLayout* getLayout()
-		{
-			assert(!isImmutable_debug());
-			return m_layout.get();
-		}
-		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
-
-
-		inline void setShaderAtStage(IShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) 
-		{
-			assert(!isImmutable_debug());
-			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); 
-		}
-
-		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) 
-		{
-			assert(!isImmutable_debug());
-			m_layout = std::move(_layout);
-		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
@@ -126,6 +105,20 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 				return false;
 
 			return true;
+		}
+
+		// extras for this class
+		inline ICPUPipelineLayout* getLayout()
+		{
+			assert(!isImmutable_debug());
+			return m_layout.get();
+		}
+		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
+
+		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) 
+		{
+			assert(!isImmutable_debug());
+			m_layout = std::move(_layout);
 		}
 
 	protected:
