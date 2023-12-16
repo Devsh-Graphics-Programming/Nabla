@@ -35,7 +35,6 @@ class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<
     protected:
         virtual ~IGPUPipelineLayout() = default;
 };
-
 }
 
 #endif

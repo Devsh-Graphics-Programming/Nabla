@@ -11,9 +11,9 @@
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline,IGPURenderpass>
+class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<const IGPURenderpassIndependentPipeline,const IGPURenderpass>
 {
-        using base_t = asset::IGraphicsPipeline<IGPURenderpassIndependentPipeline,IGPURenderpass>;
+        using base_t = asset::IGraphicsPipeline<const IGPURenderpassIndependentPipeline,const IGPURenderpass>;
 
     protected:
         ~IGPUGraphicsPipeline() = default;
