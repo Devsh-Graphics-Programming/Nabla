@@ -61,6 +61,21 @@ class ISpecializedShader : public virtual core::IReferenceCounted // TODO: do we
 		class SInfo
 		{
 			public:
+				// Nabla requires device's reported subgroup size to be between 4 and 128
+				enum class SUBGROUP_SIZE : uint8_t
+				{
+					// No constraint but probably means `gl_SubgroupSize` is Dynamically Uniform
+					UNKNOWN=0,
+					// Allows the Subgroup Uniform `gl_SubgroupSize` to be non-Dynamically Uniform and vary between Device's min and max
+					VARYING=1,
+					// The rest we encode as log2(x) of the required value
+					REQUIRE_4=2,
+					REQUIRE_8=3,
+					REQUIRE_16=4,
+					REQUIRE_32=5,
+					REQUIRE_64=6,
+					REQUIRE_128=7
+				};
 
 				//! Structure specifying a specialization map entry
 				/*
@@ -68,7 +83,6 @@ class ISpecializedShader : public virtual core::IReferenceCounted // TODO: do we
 					in a shader, \bsize\b and \boffset'b must match 
 					to \isuch an ID\i accordingly.
 				*/
-
 				struct SMapEntry
 				{
 					uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
@@ -140,9 +154,6 @@ class ISpecializedShader : public virtual core::IReferenceCounted // TODO: do we
 						return {nullptr, 0u};
 				}
 
-				std::string entryPoint;										//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
-				core::smart_refctd_dynamic_array<SMapEntry> m_entries;		//!< A specialization map entry
-				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;			//!< A buffer containing the actual constant values to specialize with
 				//
 				core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
 				const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}
@@ -157,6 +168,13 @@ class ISpecializedShader : public virtual core::IReferenceCounted // TODO: do we
 					m_entries = std::move(_entries);
 					m_backingBuffer = std::move(_backingBuff);
 				}
+
+				std::string entryPoint = "main";									//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
+				core::smart_refctd_dynamic_array<SMapEntry> m_entries;				//!< A specialization map entry
+				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;					//!< A buffer containing the actual constant values to specialize with
+				SUBGROUP_SIZE m_requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
+				// Valid only for Compute, Mesh and Task shaders
+				uint8_t m_requireFullSubgroups : 1 = false;
 		};
 
 	protected:

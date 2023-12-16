@@ -307,7 +307,6 @@ struct SPhysicalDeviceFeatures
     //bool shaderTerminateInvocation;         // or VK_KHR_shader_terminate_invocation
     
     // [REQUIRE] Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control
-    // TODO: implement!
     //bool subgroupSizeControl  = true;
     //bool computeFullSubgroups = true;
     
@@ -1671,7 +1670,7 @@ struct SPhysicalDeviceFeatures
     // VK_EXT_extension_461
     // VK_EXT_extension_462
 
-    // [DO NOT EXPOSE] stupid to expose, it would be extremely dumb to want to provide some identifiers instead of VkShaderModule outside of some emulator which has no control over pipeline combo explosion
+    // [TODO LATER] Basically a custom hash/ID for which you can use instead of SPIR-V contents to look up IGPUShader in the cache
     /* VK_EXT_shader_module_identifier */
 
     // [DO NOT EXPOSE] We don't support yet

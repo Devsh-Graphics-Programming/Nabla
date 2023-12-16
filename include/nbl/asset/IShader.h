@@ -22,7 +22,7 @@ namespace nbl::asset
 
 //! Interface class for Unspecialized Shaders
 /*
-	The purpose for the class is for storing raw GLSL code
+	The purpose for the class is for storing raw HLSL code
 	to be compiled or already compiled (but unspecialized) 
 	SPIR-V code. Such a shader has to be passed
 	to Specialized Shader constructor.
@@ -62,8 +62,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 		};
 
 		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
-			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
-		{}
+			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint)) {}
 
 		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
 
