@@ -35,14 +35,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
 
-		ICPURenderpassIndependentPipeline(
-			core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout,
-			const std::span<const ICPUSpecializedShader*>& _shaders,
-			const SVertexInputParams& _vertexInputParams,
-			const SBlendParams& _blendParams,
-			const SPrimitiveAssemblyParams& _primAsmParams,
-			const SRasterizationParams& _rasterParams
-		) : base_t(_shaders,_vertexInputParams,_blendParams,_primAsmParams,_rasterParams), m_layout(std::move(_layout)) {}
+		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params) : base_t(params), m_layout(std::move(_layout)) {}
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -82,13 +75,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline ICPUPipelineLayout* getLayout() 
-		{
-			assert(!isImmutable_debug());
-			return m_layout.get(); 
-		}
-		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
-
 		inline ICPUSpecializedShader* getShaderAtStage(IShader::E_SHADER_STAGE _stage) 
 		{ 
 			assert(!isImmutable_debug());
@@ -101,30 +87,15 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 		inline const ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
-		inline SBlendParams& getBlendParams() 
+//
+
+		inline ICPUPipelineLayout* getLayout()
 		{
 			assert(!isImmutable_debug());
-			return m_blendParams;
+			return m_layout.get();
 		}
-		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
-		inline SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() 
-		{
-			assert(!isImmutable_debug());
-			return m_primAsmParams;
-		}
-		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
-		inline SRasterizationParams& getRasterizationParams() 
-		{
-			assert(!isImmutable_debug());
-			return m_rasterParams;
-		}
-		inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
-		inline SVertexInputParams& getVertexInputParams() 
-		{
-			assert(!isImmutable_debug());
-			return m_vertexInputParams; 
-		}
-		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
+		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
+
 
 		inline void setShaderAtStage(IShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) 
 		{
@@ -141,14 +112,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
-#define MEMCMP_MEMBER(m) \
-			if (memcmp(&m, &other->m, sizeof(m)) != 0) \
-				return false
-			MEMCMP_MEMBER(m_vertexInputParams);
-			MEMCMP_MEMBER(m_blendParams);
-			MEMCMP_MEMBER(m_primAsmParams);
-			MEMCMP_MEMBER(m_rasterParams);
-#undef MECMP_MEMBER
+			if (memcmp(&m_cachedParams,&other->m_cachedParams,sizeof(m_cachedParams))!=0)
+				return false;
 
 			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 			{

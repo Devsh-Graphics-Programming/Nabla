@@ -1,11 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
-#define __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
-
-#include <algorithm>
+#ifndef _NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
+#define _NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED_
 
 
 #include "nbl/macros.h"
@@ -13,20 +10,22 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/builtin/cache/ICacheKeyCreator.h"
+
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/ISpecializedShader.h"
-#include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IShader.h"
 
+#include <algorithm>
+
+// TODO: get rid of this
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
+// move all these structs and enums somewhere!
 struct SViewport
 {
     float x, y;
@@ -479,61 +478,56 @@ static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SB
     Graphics pipelines consist of multiple shader stages,
     multiple fixed-function pipeline stages, 
     and a pipeline layout.
-
-    @see IPipeline
 */
 
-template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
+template<typename SpecShaderType>
+class IRenderpassIndependentPipeline
 {
 	public:
-		_NBL_STATIC_INLINE_CONSTEXPR size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
+        struct SCachedCreationParams
+        {
+            SVertexInputParams vertexInput = {};
+            SPrimitiveAssemblyParams primitiveAssembly = {};
+            SRasterizationParams rasterization = {};
+            SBlendParams blend = {};
+        };
+        struct SCreationParams
+        {
+            std::span<const SpecShaderType> shaders;
+            SCachedCreationParams cached = {};
+        };
 
-		IRenderpassIndependentPipeline(
-			core::smart_refctd_ptr<LayoutType>&& _layout,
-			SpecShaderType*const * _shadersBegin, SpecShaderType*const * _shadersEnd, 
-			const SVertexInputParams& _vertexInputParams,
-			const SBlendParams& _blendParams,
-			const SPrimitiveAssemblyParams& _primAsmParams,
-			const SRasterizationParams& _rasterParams
-		) : IPipeline<LayoutType>(std::move(_layout)),
-			m_blendParams(_blendParams),
-			m_primAsmParams(_primAsmParams),
-			m_rasterParams(_rasterParams),
-			m_vertexInputParams(_vertexInputParams)
-		{
-			auto shaders = core::SRange<SpecShaderType* const>(_shadersBegin, _shadersEnd);
-			for (auto shdr : shaders)
-			{
-				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-				assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
-				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
-				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
-			}
-		}
-		virtual ~IRenderpassIndependentPipeline() = default;
+		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const
+        {
+            return m_shaders[core::findLSB<uint32_t>(_stage)].get();
+        }
+        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const
+        {
+            return m_shaders[_ix].get();
+        }
 
-	public:
-		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
-
-		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-        inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
-
-		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
-		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
-		inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
-		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
+        inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}
 
 	protected:
+        constexpr static inline size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
+
+        IRenderpassIndependentPipeline(const SCreationParams& params) : m_cachedParams(params.cached)
+        {
+            for (const auto shdr : _shaders)
+            {
+                const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
+                assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
+                assert(!m_shaders[ix]);//must be maximum of 1 for each stage
+                m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
+            }
+        }
+        virtual ~IRenderpassIndependentPipeline() = default;
+
+
 		core::smart_refctd_ptr<SpecShaderType> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
 
-		SBlendParams m_blendParams;
-		SPrimitiveAssemblyParams m_primAsmParams;
-		SRasterizationParams m_rasterParams;
-		SVertexInputParams m_vertexInputParams;
+        SCachedCreationParams m_cachedParams;
 };
 
 }
-}
-
 #endif
