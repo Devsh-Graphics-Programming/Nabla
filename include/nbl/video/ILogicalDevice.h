@@ -543,59 +543,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Shaders
         core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
-        // After `maintenance5` becomes ubiquitous we can probably deprecate this method and get rid of specialized shader as an asset type
-        // maybe lets do it while getting rid of RenderpassIndependentGraphicsPipeline, IMeshBuffer and IMesh 
-        inline core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
-        {
-            // TODO: figure out how `maintenance5` and Graphics Pipeline Libraries work
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
-            if (!_unspecialized || !_unspecialized->wasCreatedBy(this))
-                return nullptr;
-
-            // Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
-            if (!_specInfo.entryPoint.empty())
-                return nullptr;
-
-            // Impossible to efficiently check anything from:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
-            // to:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
-            // and from:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
-            // to:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
-            
-            // by requiring Nabla Core Profile features we implicitly satisfy:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
-            
-            const auto stage = _unspecialized->getStage();
-            // Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
-            if (_specInfo.m_requireFullSubgroups)
-            switch (stage)
-            {
-                case IGPUShader::ESS_COMPUTE: [[fallthrough]];
-                case IGPUShader::ESS_TASK: [[fallthrough]];
-                case IGPUShader::ESS_MESH:
-                    break;
-                default:
-                    return nullptr;
-                    break;
-            }
-            // Because our API is sane, it satisfies the following by construction:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
-            
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-            if (_specInfo.m_requiredSubgroupSize>=IGPUSpecializedShader::SInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(stage))
-                return nullptr;
-
-            auto retval = createSpecializedShader_impl(_unspecialized,_specInfo);
-            const auto path = _unspecialized->getFilepathHint();
-            if (retval && !path.empty())
-                retval->setObjectDebugName(path.c_str());
-            return retval;
-        }
 
         //! Layouts
         // Create a descriptor set layout (@see ICPUDescriptorSetLayout)
@@ -720,12 +667,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             std::fill_n(output,params.size(),nullptr);
             if (invalidCreatePipelines(pipelineCache,params))
                 return false;
+
+            // TODO: share the shader validation!
+#if 0
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
+            if (!_unspecialized->wasCreatedBy(this))
+                return nullptr;
+            
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
+            if (_specInfo.m_requiredSubgroupSize>=IGPUSpecializedShader::SInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(stage))
+                return nullptr;
+#endif
             for (const auto& ci : params)
             {
-                if (!ci.shader || !ci.shader->wasCreatedBy(this))
-                    return false;
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (ci.shader->getStage()!=IGPUShader::ESS_COMPUTE)
+                if (!ci.shader.shader->wasCreatedBy(this))
                     return false;
             }
 
@@ -734,7 +689,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             bool retval = true;
             for (auto i=0u; i<params.size(); i++)
             {
-                const char* debugName = params[i].shader->getObjectDebugName();
+                const char* debugName = params[i].shader.shader->getObjectDebugName();
                 if (!output[i])
                     retval = false;
                 else if (debugName && debugName[0])
@@ -755,7 +710,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (const IGPURenderpassIndependentPipeline::SCreationParams& ci : params)
             {
                 for (auto& s : ci.shaders)
-                if (s && !s->wasCreatedBy(this))
+                if (s.shader && !s.shader->wasCreatedBy(this))
                     return false;
             }
 
@@ -904,7 +859,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) = 0;
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) = 0;
@@ -939,7 +893,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (auto i=0; i<params.size(); i++)
             {
                 const auto& ci = params[i];
-                if (!ci.layout || !ci.layout->wasCreatedBy(this))
+                if (!ci.valid() || !ci.layout->wasCreatedBy(this))
                     return nullptr;
 
                 constexpr auto AllowDerivativesFlag = SCreationParams::FLAGS::ALLOW_DERIVATIVES;

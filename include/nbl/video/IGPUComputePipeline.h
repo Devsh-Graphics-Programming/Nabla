@@ -45,9 +45,15 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
             };
             #undef base_flag
 
+            inline bool valid() const
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
+                return layout && shader.valid() && shader.shader->getStage()==IGPUShader::ESS_COMPUTE;
+            }
+
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-            IGPUShader::SSpecInfo shader = nullptr;
+            IGPUShader::SSpecInfo shader = {};
         };
 
         inline SCreationParams::FLAGS getCreationFlags() const {return m_flags;}

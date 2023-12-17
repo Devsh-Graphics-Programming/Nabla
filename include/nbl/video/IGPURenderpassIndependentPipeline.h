@@ -41,6 +41,11 @@ class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndepen
                 RETAIN_LINK_TIME_OPTIMIZATION_INFO = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO)
             };
             #undef base_flag
+
+            inline bool valid() const
+            {
+                return layout && base_t::SCreationParams::valid();
+            }
 		};
 
 	protected:

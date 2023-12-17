@@ -325,7 +325,11 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
         }
     }
 
-    return createShader_impl(spirvShader.get());
+    auto retval = createShader_impl(spirvShader.get());
+    const auto path = cpushader->getFilepathHint();
+    if (retval && !path.empty())
+        retval->setObjectDebugName(path.c_str());
+    return retval;
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings)
