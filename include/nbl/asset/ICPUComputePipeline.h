@@ -14,12 +14,20 @@ namespace nbl::asset
 class ICPUComputePipeline : public IAsset
 {
     public:
-        static core::smart_refctd_ptr<ICPUComputePipeline> create()
+        static core::smart_refctd_ptr<ICPUComputePipeline> create(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const ICPUShader::SSpecInfo& _cs)
         {
-            return nullptr;
+            if (!_layout)
+                return nullptr;
+            auto retval = new ICPUComputePipeline(std::move(_layout));
+            if (!retval->setSpecInfo(_cs))
+            {
+                retval->drop();
+                return nullptr;
+            }
+            return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
         }
 
-        size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
+        size_t conservativeSizeEstimate() const override {return sizeof(m_layout)+sizeof(m_info);}
         void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	    {
             convertToDummyObject_common(referenceLevelsBelowToConvert);
@@ -35,18 +43,30 @@ class ICPUComputePipeline : public IAsset
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
-            core::smart_refctd_ptr<ICPUSpecializedShader> shader = (_depth > 0u && m_shader) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shader->clone(_depth-1u)) : m_shader;
+            core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth>0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)):m_layout;
+            core::smart_refctd_ptr<ICPUShader> shader = (_depth>0u && m_shader) ? core::smart_refctd_ptr_static_cast<ICPUShader>(m_shader->clone(_depth-1u)):m_shader;
 
-            auto cp = core::make_smart_refctd_ptr<ICPUComputePipeline>(std::move(layout), std::move(shader));
-            clone_common(cp.get());
+            auto cp = new ICPUComputePipeline(std::move(layout));
+            cp->setSpecInfo(m_info);
+            clone_common(cp);
 
-            return cp;
+            return core::smart_refctd_ptr<ICPUComputePipeline>(cp,core::dont_grab);
         }
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
+        bool canBeRestoredFrom(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUComputePipeline*>(_other);
+            if (!m_shader->canBeRestoredFrom(m_shader.get()))
+                return false;
+            if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
+                return false;
+            return true;
+        }
+
+        //
         ICPUPipelineLayout* getLayout() 
         {
             assert(!isImmutable_debug());
@@ -60,31 +80,28 @@ class ICPUComputePipeline : public IAsset
             m_layout = std::move(_layout);
         }
 
-        ICPUSpecializedShader* getShader()
+        // The getters are weird because the shader pointer needs patching
+        inline IShader::SSpecInfo<ICPUShader> getSpecInfo()
         {
             assert(!isImmutable_debug());
-            return m_shader.get();
+            return m_info;
         }
-        const ICPUSpecializedShader* getShader() const { return m_shader.get(); }
-        void setShader(ICPUSpecializedShader* _cs) 
+        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return m_info;}
+        inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
         {
             assert(!isImmutable_debug());
-            m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
-        }
-
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUComputePipeline*>(_other);
-            if (!m_shader->canBeRestoredFrom(m_shader.get()))
+            if (!info.valid())
                 return false;
-            if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
+            if (!info.shader->getStage()!=ICPUShader::ESS_COMPUTE)
                 return false;
+            m_info = info;
+            m_shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+            m_info.shader = m_shader.get();
             return true;
         }
 
     protected:
-        ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const ICPUShader::SSpecInfo& _cs) :
-            base_t(std::move(_cs)), m_layout(std::move(_layout)) {}
+        ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) : m_layout(std::move(_layout)) {}
         virtual ~ICPUComputePipeline() = default;
 
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -106,8 +123,8 @@ class ICPUComputePipeline : public IAsset
         }
 
         core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
-        const ICPUShader::SSpecInfo m_info;
-        core::smart_refctd_ptr<ICPUShader> m_shader;
+        core::smart_refctd_ptr<ICPUShader> m_shader = {};
+        ICPUShader::SSpecInfo m_info = {};
 };
 
 }

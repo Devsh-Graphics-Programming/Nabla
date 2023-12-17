@@ -33,9 +33,19 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		constexpr static inline uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
 		using SCreationParams = base_t::SCreationParams;
+		static core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> create(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params)
+		{
+            if (!_layout || !params.valid())
+                return nullptr;
+            auto retval = new ICPURenderpassIndependentPipeline(std::move(_layout),params.cached);
+            for (const auto spec : params.shaders)
+            if (spec.shader)
+				retval->setSpecInfo(spec);
+            return core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(retval,core::dont_grab);
+		}
 
 		// IAsset implementations
-		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
+		size_t conservativeSizeEstimate() const override { return sizeof(base_t)+sizeof(m_layout)+sizeof(ICPUShader::SSpecInfo)*5; }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert)
@@ -43,9 +53,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
                 //intentionally parent is not converted
                 --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-				for (auto i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
-                if (m_shaders[i])
-					m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
+				for (auto& shader : m_shaders)
+                if (shader)
+					shader->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 		}
 
@@ -56,15 +66,14 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 				layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u));
 			else
 				layout = m_layout;
-
-#if 0
-            auto pShaders = &m_shaders->get();
-			const SCreationParams params = {.shaders={const_cast<ICPUSpecializedShader**>(pShaders),GRAPHICS_SHADER_STAGE_COUNT},.cached=getCachedCreationParams()};
-            auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),params);
-            clone_common(cp.get());
-            return cp;
-#endif
-			return nullptr;
+			
+            auto cp = new ICPURenderpassIndependentPipeline(std::move(layout),m_cachedParams);
+            for (const auto spec : m_infos)
+            if (spec.shader)
+				cp->setSpecInfo(spec);
+            clone_common(cp);
+			
+            return core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(cp,core::dont_grab);
         }
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
@@ -76,9 +85,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			if (memcmp(&m_cachedParams,&other->m_cachedParams,sizeof(m_cachedParams))!=0)
 				return false;
 
-			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
+			for (uint32_t i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; ++i)
 			{
-				if ((!m_shaders[i]) != (!other->m_shaders[i]))
+				if (m_infos[i].equalAllButShader(other->m_infos[i]))
 					return false;
 				if (m_shaders[i] && !m_shaders[i]->canBeRestoredFrom(other->m_shaders[i].get()))
 					return false;
@@ -109,47 +118,41 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_layout = std::move(_layout);
 		}
 
-#if 0
-		inline const SpecShaderType* getShaderAtStage(IShader::E_SHADER_STAGE _stage) const
-		{
-			return m_shaders[core::findLSB<uint32_t>(_stage)].get();
-		}
-		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const
-		{
-			return m_shaders[_ix].get();
-		}
-		inline ICPUSpecializedShader* getShaderAtStage(IShader::E_SHADER_STAGE _stage)
+		// The getters are weird because the shader pointer needs patching
+		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
 		{
 			assert(!isImmutable_debug());
-			return m_shaders[core::findLSB<uint32_t>(_stage)].get();
+			const auto stageIx = core::findLSB(stage);
+			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || core::bitCount(stage)!=1)
+				return {};
+			return m_infos[stageIx];
 		}
-		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix)
+		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
+		{
+			const auto stageIx = core::findLSB(stage);
+			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || core::bitCount(stage)!=1)
+				return {};
+			return m_infos[stageIx];
+		}
+		inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
 		{
 			assert(!isImmutable_debug());
-			return m_shaders[_ix].get();
+			if (!info.valid())
+				return false;
+			const auto stage = info.shader->getStage();
+			const auto stageIx = core::findLSB(stage);
+			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || core::bitCount(stage)!=1)
+				return false;
+			m_infos[stageIx] = info;
+			m_shaders[stageIx] = core::smart_refctd_ptr<ICPUShader>(info.shader);
+			m_infos[stageIx].shader = m_shaders[stageIx].get();
+			return true;
 		}
 
-		inline void setShaderAtStage(IShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr)
-		{
-			assert(!isImmutable_debug());
-			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr);
-		}
-#endif
 	protected:
 		constexpr static inline uint32_t GRAPHICS_SHADER_STAGE_COUNT = 5;
-		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params) : base_t(params), m_layout(std::move(_layout))
-		{
-            for (const auto spec : params.shaders)
-            if (spec.shader)
-            {
-#if 0
-                const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-                assert(ix < static_cast<int32_t>(GRAPHICS_SHADER_STAGE_COUNT));
-                assert(!m_shaders[ix]);//must be maximum of 1 for each stage
-                m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
-#endif
-            }
-		}
+		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const base_t::SCachedCreationParams& params)
+			: base_t(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
@@ -161,7 +164,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 				--_levelsBelow;
 
 				restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
-				for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
+				for (uint32_t i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; ++i)
 				if (m_shaders[i])
 					restoreFromDummy_impl_call(m_shaders[i].get(), other->m_shaders[i].get(), _levelsBelow);
 			}
@@ -179,10 +182,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
-		core::smart_refctd_ptr<ICPUShader> m_shaders[GRAPHICS_SHADER_STAGE_COUNT] = {};
-#if 0
-		SCreationParams m_params[GRAPHICS_SHADER_STAGE_COUNT] = {};
-#endif
+		std::array<core::smart_refctd_ptr<ICPUShader>,GRAPHICS_SHADER_STAGE_COUNT> m_shaders = {};
+		std::array<ICPUShader::SSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> m_infos = {};
 };
 
 }

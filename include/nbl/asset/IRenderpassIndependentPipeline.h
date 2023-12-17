@@ -91,6 +91,28 @@ class IRenderpassIndependentPipeline
         };
         struct SCreationParams
         {
+            inline bool valid() const
+            {
+                const ShaderType* pVertexShader = nullptr;
+                std::bitset<GRAPHICS_SHADER_STAGE_COUNT> stagePresence = {};
+                for (const auto info : shaders)
+                if (info.shader)
+                {
+                    if (!info.valid())
+                        return false;
+                    const auto stage = info.shader->getStage();
+                    if (stage>=GRAPHICS_SHADER_STAGE_COUNT)
+                        return false;
+                    const auto stageIx = core::findLSB(stage);
+                    if (stagePresence.test(stageIx))
+                        return false;
+                    stagePresence.set(stageIx);
+                }
+                if (!pVertexShader)
+                    return false;
+                return true;
+            }
+
             std::span<const ShaderType::SSpecInfo> shaders = {};
             SCachedCreationParams cached = {};
         };
@@ -100,7 +122,7 @@ class IRenderpassIndependentPipeline
 	protected:
         constexpr static inline size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
-        IRenderpassIndependentPipeline(const SCreationParams& params) : m_cachedParams(params.cached) {}
+        IRenderpassIndependentPipeline(const SCachedCreationParams& _cachedParams) : m_cachedParams(_cachedParams) {}
         virtual ~IRenderpassIndependentPipeline() = default;
 
 
