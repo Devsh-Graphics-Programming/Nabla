@@ -16,7 +16,6 @@
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanShader.h"
-#include "nbl/video/CVulkanSpecializedShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
 #include "nbl/video/CVulkanDescriptorSetLayout.h"
 #include "nbl/video/CVulkanSampler.h"
@@ -288,7 +287,11 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // pipelines
         void createComputePipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUComputePipeline>* const output) override;
-        void createRenderpassIndependentPipelines_impl(const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) override;
+        inline void createRenderpassIndependentPipelines_impl(const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output) override
+        {
+            for (size_t i=0ull; i<createInfos.size(); ++i)
+                output[i] = core::make_smart_refctd_ptr<CVulkanRenderpassIndependentPipeline>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),createInfos[i]);
+        }
         void createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output) override;
 
         // queries
