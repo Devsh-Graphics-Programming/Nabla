@@ -849,7 +849,7 @@ auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regBudg
 			srcRegs.pop();
 		}
 
-		_out_maxUsedReg = std::max(srcs[0],srcs[1]);
+		_out_maxUsedReg = std::max(_out_maxUsedReg,std::max(srcs[0],srcs[1]));
 
 		// increment instruction interator
 		++j;
