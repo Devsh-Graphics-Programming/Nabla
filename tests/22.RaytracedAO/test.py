@@ -88,7 +88,6 @@ class RendersTest(CITest):
         self.error_threshold_value = error_threshold_value
         self.allowed_error_pixel_count = allowed_error_pixel_count
         self.ssim_error_threshold_value = float(ssim_error_threshold_value)
-        self.cout_json_regex = re.compile(r"(?<=\[JSON\] )(.+[\n\r]*)+(?=[\n\r]*\[ENDJSON\])")
 
     def __get_lds_hash(self):
         # self._change_working_dir()
@@ -138,11 +137,21 @@ class RendersTest(CITest):
 
 
     def __find_json_in_console_output(self, console_output):
-        match = self.cout_json_regex.search(console_output)
-        if match:
-            # parse json into a dictionary
-            jsonstring = match.group()
-            return json.loads(jsonstring)
+        BEGIN = '[JSON]'
+        END = '[ENDJSON]'
+        matches = []
+        search_idx = 0
+        begin = console_output.find(BEGIN)
+        end = console_output.find(END)
+        while begin != -1 and end != -1:
+            begin += len(BEGIN)
+            match = console_output[begin:end-1]
+            matches.append(match)
+            search_idx = end + len(END)
+            begin = console_output.find(BEGIN, search_idx)
+            end = console_output.find(END, search_idx)
+        if len(matches) > 0:
+            return [json.loads(jsonstring) for jsonstring in matches]
         elif self.print_warnings:
             print(f"[WARNING] No json output found in pathtracer cout")
         return None
@@ -221,7 +230,7 @@ class RendersTest(CITest):
         return input_line.strip("\n\r "), options            
 
     # run a test for a single line of input for pathtracer
-    def _impl_run_single(self, input_args:str) -> dict:
+    def _impl_run_single(self, input_args:str) -> list:
         executable_arg, options = self.__parse_input_line(input_args)
 
         # get scene options, either custom or default 
@@ -234,87 +243,95 @@ class RendersTest(CITest):
             if self.print_warnings:
                 print(f"[ERROR] Scene option contain both --rel and bot --abs.")
 
-        results_images = []
-        result_status = True
-        result_color = "green"
-        scene_name = None 
+        
+        result = []
         raytracer_bash_command = str(self.executable.absolute()) + ' -SCENE=' + executable_arg + ' -PROCESS_SENSORS RenderAllThenTerminate 0'
         console_output = subprocess.run(raytracer_bash_command, capture_output=True).stdout.decode().strip()
+        if self.print_warnings:
+                print(f'[INFO] Console output for program "{raytracer_bash_command}"\n\n{console_output}\n\n')
         raytracer_generated_files = self.__find_json_in_console_output(console_output)
-        if raytracer_generated_files is not None:
-            for render_type, filepath in raytracer_generated_files.items():
-                render_type = render_type.strip().removeprefix("output_")
-                results_image = {
-                    "identifier": render_type,
-                    "filename": filepath.split("/")[-1].split("\\")[-1]
-                }
-                if scene_name is None:
-                    scene_name = results_image["filename"].split(".")[0].replace('/', '_').replace('\\','_').removeprefix("Render_")
-                    ref_subdir = (('/'+scene_name) if PUT_REFERENCES_IN_FOLDERS else '') 
-                    diff_subdir = (('/'+scene_name) if PUT_DIFFERENCES_IN_FOLDERS else '') 
-                    render_subdir = (('/'+scene_name) if PUT_RENDERS_IN_FOLDERS else '') 
-                reference_filepath = Path(str(self.references_repo_dir) + ref_subdir + '/' + filepath)
+        if raytracer_generated_files is not None and len(raytracer_generated_files) > 0:
+            for rtx_gen_output_dict in raytracer_generated_files:
+                results_images = []
+                result_status = True
+                result_color = "green"
+                scene_name = None 
+                for render_type, filepath in rtx_gen_output_dict.items():
+                    render_type = render_type.strip().removeprefix("output_")
+                    filename = filepath.split("/")[-1].split("\\")[-1]
+                    full_filepath = str(self.working_dir) + '/' + filepath
+                    results_image = {
+                        "identifier": render_type,
+                        "filename": filename
+                    }
 
-                reference_store_filepath = Path(str(self.data_references_abs_dir) + ref_subdir + '/' + filepath)
-                if not reference_store_filepath.parent.exists():
-                    os.makedirs(reference_store_filepath.parent)
-                reference_store_filepath_rel = self.data_references_rel_dir + ref_subdir + '/' + filepath
+                    if scene_name is None:
+                        scene_name = results_image["filename"].split(".")[0].replace('/', '_').replace('\\','_').removeprefix("Render_")
+                        ref_subdir = (('/'+scene_name) if PUT_REFERENCES_IN_FOLDERS else '') 
+                        diff_subdir = (('/'+scene_name) if PUT_DIFFERENCES_IN_FOLDERS else '') 
+                        render_subdir = (('/'+scene_name) if PUT_RENDERS_IN_FOLDERS else '') 
+                    reference_filepath = Path(str(self.references_repo_dir) + ref_subdir + '/' + filepath)
 
-                render_storage_filepath = Path(str(self.data_renders_abs_dir) + render_subdir + '/' + filepath)
-                if not render_storage_filepath.parent.exists():
-                    os.makedirs(render_storage_filepath.parent)
-                render_store_filepath_rel = self.data_renders_rel_dir + render_subdir + '/' + filepath
+                    reference_store_filepath = Path(str(self.data_references_abs_dir) + ref_subdir + '/' + filepath)
+                    if not reference_store_filepath.parent.exists():
+                        os.makedirs(reference_store_filepath.parent)
+                    reference_store_filepath_rel = self.data_references_rel_dir + ref_subdir + '/' + filepath
 
-                difference_filename = self.__append_before_extension(filepath,"_diff")
-                difference_filepath = Path(str(self.data_diffs_abs_dir) + diff_subdir + '/' + difference_filename)
-                if not difference_filepath.parent.exists():
-                    os.makedirs(difference_filepath.parent)
-                difference_store_filepath_rel = self.data_diffs_rel_dir + diff_subdir + '/' + difference_filename
+                    render_storage_filepath = Path(str(self.data_renders_abs_dir) + render_subdir + '/' + filepath)
+                    if not render_storage_filepath.parent.exists():
+                        os.makedirs(render_storage_filepath.parent)
+                    render_store_filepath_rel = self.data_renders_rel_dir + render_subdir + '/' + filepath
 
-                reference_exists = reference_filepath.exists()
+                    difference_filename = self.__append_before_extension(filepath,"_diff")
+                    difference_filepath = Path(str(self.data_diffs_abs_dir) + diff_subdir + '/' + difference_filename)
+                    if not difference_filepath.parent.exists():
+                        os.makedirs(difference_filepath.parent)
+                    difference_store_filepath_rel = self.data_diffs_rel_dir + diff_subdir + '/' + difference_filename
 
-                if not reference_exists:
-                    if self.print_warnings:
-                        print(f"[WARNING] File {filepath} does not have a reference")
-                    results_image["status"] = "passed"
-                    results_image["status_color"] = "orange"
-                    results_image["details"] = "Missing reference" 
-                    result_color = "orange"
-                    results_image["render"] = str(render_store_filepath_rel) 
-                
-                    shutil.copy(filepath, reference_store_filepath)
-                    shutil.move(filepath, render_storage_filepath)
-                else: 
-                    status = True
-                    if render_type == "denoised":
-                        ssim_diff = self.__ssim_test(filepath, reference_filepath)
-                        results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
-                        status = ssim_error_threshold_value > ssim_diff
-                    else:
-                        status, details = self.__histogram_test(filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
-                        results_image["details"] = details
-                    self.__create_diff_image(filepath, reference_filepath, difference_filepath)
-                    results_image["render"] = render_store_filepath_rel
-                    results_image["reference"] = reference_store_filepath_rel
-                    results_image["difference"] = difference_store_filepath_rel
-                    if not status:
-                        results_image["status"] = "failed"
-                        results_image["status_color"] = "red"
-                        result_status = False
-                        result_color = "red"
-                    else:
+                    reference_exists = reference_filepath.exists()
+
+                    if not reference_exists:
+                        if self.print_warnings:
+                            print(f"[WARNING] File {filepath} does not have a reference")
                         results_image["status"] = "passed"
-                        results_image["status_color"] = "green"
-                    shutil.copy(reference_filepath, reference_store_filepath)
-                    shutil.move(filepath, render_storage_filepath)
-                results_images.append(results_image)
-        return {
-            'status': 'passed' if result_status else 'failed',
-            'status_color': result_color,
-            'scene_name': scene_name,
-            'array': results_images
-        }
-    
+                        results_image["status_color"] = "orange"
+                        results_image["details"] = "Missing reference" 
+                        result_color = "orange"
+                        results_image["render"] = str(render_store_filepath_rel) 
+                    
+                        shutil.copy(full_filepath, reference_store_filepath)
+                        shutil.move(full_filepath, render_storage_filepath)
+                    else: 
+                        status = True
+                        if render_type == "denoised":
+                            ssim_diff = self.__ssim_test(full_filepath, reference_filepath)
+                            results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
+                            status = ssim_error_threshold_value > ssim_diff
+                        else:
+                            status, details = self.__histogram_test(full_filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
+                            results_image["details"] = details
+                        self.__create_diff_image(full_filepath, reference_filepath, difference_filepath)
+                        results_image["render"] = render_store_filepath_rel
+                        results_image["reference"] = reference_store_filepath_rel
+                        results_image["difference"] = difference_store_filepath_rel
+                        if not status:
+                            results_image["status"] = "failed"
+                            results_image["status_color"] = "red"
+                            result_status = False
+                            result_color = "red"
+                        else:
+                            results_image["status"] = "passed"
+                            results_image["status_color"] = "green"
+                        shutil.copy(reference_filepath, reference_store_filepath)
+                        shutil.move(full_filepath, render_storage_filepath)
+                    results_images.append(results_image)
+                result.append({
+                    'status': 'passed' if result_status else 'failed',
+                    'status_color': result_color,
+                    'scene_name': scene_name,
+                    'array': results_images
+                })
+        return result
 
     # add additional information to the json
     def _impl_append_summary_pre(self, summary: dict):
@@ -363,4 +380,17 @@ def run_all_tests(args):
 
 
 if __name__ == '__main__':
-    run_all_tests(sys.argv[1::])
+    args = sys.argv[1::]
+    if len(args) == 0: # handle default args when launched by an user
+        imgmagic_path = input("enter path to image magick:\n")  
+        nabla_path = str(Path(__file__).parent.parent.parent)
+        args = [
+            nabla_path + '/examples_tests/22.raytracedao/bin/raytracedao.exe',
+            nabla_path + '/examples_tests/media/mitsuba/public_test_scenes.txt',
+            nabla_path + '/examples_tests/media/Ditt-Reference-Scenes/private_test_scenes.txt',
+            nabla_path,
+            imgmagic_path,
+            nabla_path + '/ci/22.RaytracedAO/references/public',
+            nabla_path + '/ci/22.RaytracedAO/references/private',
+        ]
+    run_all_tests(args)

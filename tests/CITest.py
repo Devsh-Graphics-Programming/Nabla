@@ -17,7 +17,7 @@ class CITest:
 
     # here are the methods that need to be implemented in a derived class
     # must override 
-    def _impl_run_single(self, input_args) -> dict:
+    def _impl_run_single(self, input_args) -> list:
         pass
 
     # optional override
@@ -131,28 +131,33 @@ class CITest:
                     testnum = testnum + 1
 
                     # run the test
-                    result = self._impl_run_single(line)
+                    result_list = self._impl_run_single(line)
 
                     # result is a dictionary, add additional fields
-                    result["index"] = testnum 
-                    is_failure = result["status"] == 'failed'
+                    for result in result_list: 
+                        result["index"] = testnum 
+                    failure_count = sum(1 if result["status"] == 'failed' else 0 for result in result_list)
 
-                    if is_failure:
+                    if failure_count > 0:
                         ci_pass_status = False
                         summary["pass_status"] = "pending/failed"
-                        failures = failures + 1
+                        failures += failure_count
                         if self.print_warnings:
                             print(f"[INFO] Render input {line} is not passing the tests!")
                     else:
                         if self.print_warnings:
                             print(f"[INFO] Render input {line} PASSED")
-                    test_results.append(result)
+                    for result in result_list: 
+                        test_results.append(result)
                     self._save_json(f"summary_{self.alphanumeric_only_test_name}.json",summary)
+
                 except Exception as ex:
                     print(f"[ERROR] Critical exception occured during testing input {line}: {str(ex)}")
                     ci_pass_status = False
                     summary["critical_errors"] = f"{line}: {str(ex)}"
+                    # raise ex
                     break
+
         summary["failure_count"] = failures 
         summary["pass_status"] = 'passed' if ci_pass_status else 'failed'  
         self._impl_append_summary_post(summary)
