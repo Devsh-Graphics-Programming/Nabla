@@ -111,91 +111,155 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					REQUIRE_128=7
 				};
 
-				//! Structure specifying a specialization map entry
-				/*
-					Note that if specialization constant ID is used
-					in a shader, \bsize\b and \boffset'b must match 
-					to \isuch an ID\i accordingly.
-				*/
-				struct SMapEntry
-				{
-					uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
-					uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
-					size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
+			//! Structure specifying a specialization map entry
+			/*
+				Note that if specialization constant ID is used
+				in a shader, \bsize\b and \boffset'b must match 
+				to \isuch an ID\i accordingly.
+			*/
+			struct SMapEntry
+			{
+				uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
+				uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
+				size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
 				
-					auto operator<=>(const SMapEntry&) const = default;
-				};
+				auto operator<=>(const SMapEntry&) const = default;
+			};
 
-				bool operator<(const SSpecializationInfo& _rhs) const
+			bool operator<(const SSpecializationInfo& _rhs) const
+			{
+				if (entryPoint==_rhs.entryPoint)
 				{
-					if (entryPoint==_rhs.entryPoint)
+					size_t lhsSize = m_entries ? m_entries->size():0ull;
+					size_t rhsSize = _rhs.m_entries ? _rhs.m_entries->size():0ull;
+					if (lhsSize==rhsSize)
 					{
-						size_t lhsSize = m_entries ? m_entries->size():0ull;
-						size_t rhsSize = _rhs.m_entries ? _rhs.m_entries->size():0ull;
-						if (lhsSize==rhsSize)
+						for (size_t i=0ull; i<lhsSize; ++i)
 						{
-							for (size_t i=0ull; i<lhsSize; ++i)
+							const auto& l = (*m_entries)[i];
+							const auto& r = (*_rhs.m_entries)[i];
+
+							if (l.specConstID==r.specConstID)
 							{
-								const auto& l = (*m_entries)[i];
-								const auto& r = (*_rhs.m_entries)[i];
-
-								if (l.specConstID==r.specConstID)
+								if (l.size==r.size)
 								{
-									if (l.size==r.size)
-									{
-										int cmp = memcmp(reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer())+l.offset, reinterpret_cast<const uint8_t*>(_rhs.m_backingBuffer->getPointer())+r.offset, l.size);
-										if (cmp==0)
-											continue;
-										return cmp<0;
-									}
-									return l.size<r.size;
+									int cmp = memcmp(reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer())+l.offset, reinterpret_cast<const uint8_t*>(_rhs.m_backingBuffer->getPointer())+r.offset, l.size);
+									if (cmp==0)
+										continue;
+									return cmp<0;
 								}
-								return l.specConstID<r.specConstID;
+								return l.size<r.size;
 							}
-							// all entries equal if we got out the loop
-							// return m_filePathHint<_rhs.m_filePathHint; // don't do this cause OpenGL program cache might get more entries in it (I think it contains only already include-resolved shaders)
+							return l.specConstID<r.specConstID;
 						}
-						return lhsSize<rhsSize;
+						// all entries equal if we got out the loop
+						// return m_filePathHint<_rhs.m_filePathHint; // don't do this cause OpenGL program cache might get more entries in it (I think it contains only already include-resolved shaders)
 					}
-					return entryPoint<_rhs.entryPoint;
+					return lhsSize<rhsSize;
 				}
+				return entryPoint<_rhs.entryPoint;
+			}
 
-				inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
-				{
-					if (!m_entries || !m_backingBuffer)
-						return {nullptr, 0u};
+			inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
+			{
+				if (!m_entries || !m_backingBuffer)
+					return {nullptr, 0u};
 
-					auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{ _specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/},
-						[](const SMapEntry& lhs, const SMapEntry& rhs) -> bool
-						{
-							return lhs.specConstID<rhs.specConstID;
-						}
-					);
-					if (entry != m_entries->end() && entry->specConstID==_specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
-						return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
-					else
-						return {nullptr, 0u};
-				}
+				auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{ _specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/},
+					[](const SMapEntry& lhs, const SMapEntry& rhs) -> bool
+					{
+						return lhs.specConstID<rhs.specConstID;
+					}
+				);
+				if (entry != m_entries->end() && entry->specConstID==_specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
+					return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
+				else
+					return {nullptr, 0u};
+			}
 
-				//
-				core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
-				const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}
+			//
+			core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
+			const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}
 				
-				//
-				ICPUBuffer* getBackingBuffer() {return m_backingBuffer.get();}
-				const ICPUBuffer* getBackingBuffer() const {return m_backingBuffer.get();}
+			//
+			ICPUBuffer* getBackingBuffer() {return m_backingBuffer.get();}
+			const ICPUBuffer* getBackingBuffer() const {return m_backingBuffer.get();}
 
-				//
-				void setEntries(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff)
+			//
+			void setEntries(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff)
+			{
+				m_entries = std::move(_entries);
+				m_backingBuffer = std::move(_backingBuff);
+			}
+
+
+				inline bool valid() const
 				{
-					m_entries = std::move(_entries);
-					m_backingBuffer = std::move(_backingBuff);
+					// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
+					if (entryPoint.empty())
+						return false;
+					
+					if (!shader)
+						return false;
+					const auto stage = shader->getStage();
+
+					// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
+					if (m_requireFullSubgroups)
+					switch (stage)
+					{
+						case IGPUShader::ESS_COMPUTE: [[fallthrough]];
+						case IGPUShader::ESS_TASK: [[fallthrough]];
+						case IGPUShader::ESS_MESH:
+							break;
+						default:
+							return nullptr;
+							break;
+					}
+					// Impossible to efficiently check anything from:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
+					// to:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
+					// and from:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
+					// to:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
+					return true;
+				}
+
+				inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const
+				{
+					if (entryPoint != other.entryPoint)
+						return false;
+					if ((!shader) != (!other.shader))
+						return false;
+					if (requiredSubgroupSize != other.requiredSubgroupSize)
+						return false;
+					if (requireFullSubgroups != other.requireFullSubgroups)
+						return false;
+					return true;
+				}
+
+				inline operator SSpecInfo<const ShaderType>() const
+				{
+					return SSpecInfo<const ShaderType>{
+						.entryPoint = entryPoint,
+						.shader = shader,
+						.requiredSubgroupSize = requiredSubgroupSize,
+						.requireFullSubgroups = requireFullSubgroups,
+					};
 				}
 
 				std::string entryPoint = "main";									//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
-				const ShaderType* shader;
+				ShaderType* shader = nullptr;
 		core::smart_refctd_dynamic_array<SMapEntry> m_entries;				//!< A specialization map entry
 		core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;					//!< A buffer containing the actual constant values to specialize with
+
+				// By requiring Nabla Core Profile features we implicitly satisfy:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
+				// Also because our API is sane, it satisfies the following by construction:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
 				SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
 				// Valid only for Compute, Mesh and Task shaders
 				uint8_t requireFullSubgroups : 1 = false;
