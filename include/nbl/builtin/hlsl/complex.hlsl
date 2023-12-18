@@ -14,8 +14,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace complex
-{
+
 
 
 template<typename T>
@@ -94,7 +93,6 @@ complex_t<T> div(const complex_t<T> c, T scalar)
 }
 
 
-}
 }
 }
 

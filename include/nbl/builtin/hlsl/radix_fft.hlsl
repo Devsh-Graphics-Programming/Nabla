@@ -13,10 +13,11 @@ namespace nbl
 namespace hlsl
 {
 
+const float64_t PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679;
 
 // Fast Fourier Transform
-template<typename T, uint32_t N>
-void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
+template<typename T, uint32_t N, bool is_inverse>
+void fft_radix2(complex_t<T> data[N])
 {
     const uint32_t log2N = uint32_t(log2(N));
 
@@ -29,7 +30,7 @@ void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
 
         if (j > i)
         {
-            complex::complex_t<T> temp = data[i];
+            complex_t<T> temp = data[i];
             data[i] = data[j];
             data[j] = temp;
         }
@@ -38,26 +39,26 @@ void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
     // Cooley-Tukey
     for (uint32_t stride = 2; stride <= N; stride *= 2)
     {
-        complex::complex_t<T> twiddle_factor;
+        complex_t<T> twiddle_factor;
         if(is_inverse)
         {
-            twiddle_factor = { cos(2.0 * 3.14 / stride), sin(2.0 * 3.14 / stride) };
+            twiddle_factor = { cos(2.0 * PI / stride), sin(2.0 * PI / stride) };
         }
         else
         {
-            twiddle_factor = { cos(-2.0 * 3.14 / stride), sin(-2.0 * 3.14 / stride) };
+            twiddle_factor = { cos(-2.0 * PI / stride), sin(-2.0 * PI / stride) };
         }
         for (uint32_t start = 0; start < N; start += stride)
         {
-            complex::complex_t<T> w = { 1, 0 };
+            complex_t<T> w = { 1, 0 };
             for (uint32_t i = 0; i < stride / 2; ++i)
             {
-                complex::complex_t<T> u = data[start + i];
-                complex::complex_t<T> v = complex::mul<T>(w, data[start + i + stride / 2]);
-                data[start + i] = complex::plus<T>(u, v);
-                data[start + i + stride / 2] = complex::minus<T>(u, v);
+                complex_t<T> u = data[start + i];
+                complex_t<T> v = mul<T>(w, data[start + i + stride / 2]);
+                data[start + i] = plus<T>(u, v);
+                data[start + i + stride / 2] = minus<T>(u, v);
 
-                w = complex::mul<T>(w, twiddle_factor);
+                w = mul<T>(w, twiddle_factor);
             }
         }
     }
@@ -66,7 +67,7 @@ void fft_radix2(complex::complex_t<T> data[N], bool is_inverse)
     if (is_inverse)
     {
         for (uint32_t i = 0; i < N; ++i)
-            data[i] = complex::div<T>(data[i], N);
+            data[i] = div<T>(data[i], N);
     }
 }
 
