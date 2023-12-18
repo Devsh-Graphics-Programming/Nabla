@@ -1,4 +1,4 @@
-import os, subprocess, sys, argparse, glob, asyncio
+import os, subprocess, sys, argparse, glob, time, ptvsd 
 
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Framework cross platform build pipeline script")
@@ -8,10 +8,12 @@ def parseInputArguments():
     parser.add_argument("--config", help="Target CMake configuration", type=str, default="Release")
     parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
+    parser.add_argument("--debug", help="Wait for debugger to attach", type="bool", default="False")
 
     args = parser.parse_args()
-
+    
     return args
+
 
 def clone(targetRevision):
     subprocess.run(f"git init", check=True)
@@ -71,6 +73,12 @@ async def main():
         targetRevision = args.target_revision
         config = args.config
         libType = args.libType
+
+        
+        if args.DEBUG:
+            ptvsd.enable_attach(address=("127.0.0.1", 5678), redirect_output=True)
+            print("Waiting for debugger to attach...")
+            ptvsd.wait_for_attach()
 
         print(f"Target \"{targetRevision}\"")
 
