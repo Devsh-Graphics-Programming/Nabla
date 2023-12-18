@@ -9,8 +9,10 @@ namespace nbl::video
 class CVulkanRenderpassIndependentPipeline : public IGPURenderpassIndependentPipeline
 {
 	public:
-		CVulkanRenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params) :
-			IGPURenderpassIndependentPipeline(std::move(dev),params)
+		CVulkanRenderpassIndependentPipeline(
+			core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params,
+			const IGPURenderpassIndependentPipeline::SCreationParams::SSpecializationValidationResult& cachedValidation
+		) : IGPURenderpassIndependentPipeline(std::move(dev),params), m_cachedValidation(cachedValidation)
 		{
 			for (const auto& info : params.shaders)
 			if (info.shader)
@@ -20,9 +22,13 @@ class CVulkanRenderpassIndependentPipeline : public IGPURenderpassIndependentPip
 			}
 		}
 
+		inline const auto& getCachedValidation() const {return m_cachedValidation;}
+
 	private:
 		// gotta keep those VkShaderModules alive (for now)
 		core::smart_refctd_ptr<const IGPUShader> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
+		// until we get rid of Renderpass Independent
+		const IGPURenderpassIndependentPipeline::SCreationParams::SSpecializationValidationResult m_cachedValidation;
 };
 
 }

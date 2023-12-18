@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED_
 #define _NBL_ASSET_I_SHADER_COMPILER_H_INCLUDED_
 
@@ -11,7 +10,7 @@
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
 
-#include "nbl/asset/ICPUSpecializedShader.h"
+#include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 namespace nbl::asset

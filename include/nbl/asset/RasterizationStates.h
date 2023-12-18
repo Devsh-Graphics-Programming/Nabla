@@ -5,9 +5,9 @@
 #define _NBL_ASSET_RASTERIZATION_STATES_H_INCLUDED_
 
 
-#include "nbl/macros.h"
-
 #include "nbl/core/declarations.h"
+
+#include "nbl/asset/IRenderpass.h"
 
 
 namespace nbl::asset

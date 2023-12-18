@@ -159,12 +159,12 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 
 					// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
-					if (m_requireFullSubgroups)
+					if (requireFullSubgroups)
 					switch (stage)
 					{
-						case IGPUShader::ESS_COMPUTE: [[fallthrough]];
-						case IGPUShader::ESS_TASK: [[fallthrough]];
-						case IGPUShader::ESS_MESH:
+						case E_SHADER_STAGE::ESS_COMPUTE: [[fallthrough]];
+						case E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+						case E_SHADER_STAGE::ESS_MESH:
 							break;
 						default:
 							return nullptr;
