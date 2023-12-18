@@ -3,6 +3,7 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
@@ -21,7 +22,7 @@ inline auto HLSL_ID(Args&&... args) \
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 
 template<typename T>
-inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
+inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 
 // inverse not listed cause it needs friendship
 
