@@ -26,6 +26,7 @@ class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndepen
 	public:
 		struct SCreationParams final : pipeline_t::SCreationParams, base_t::SCreationParams
 		{
+            public:
             #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
             enum class FLAGS : uint64_t
             {
@@ -42,9 +43,25 @@ class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndepen
             };
             #undef base_flag
 
-            inline bool valid() const
+            inline SSpecializationValidationResult valid() const
             {
-                return layout && base_t::SCreationParams::valid();
+                if (!layout)
+                    return {};
+                SSpecializationValidationResult retval = {.count=0,.dataSize=0};
+                const bool valid = base_t::SCreationParams::impl_valid([&retval](const IGPUShader::SSpecInfo& info)->bool
+                {
+                    const auto dataSize = info.valid();
+                    if (dataSize<0)
+                        return false;
+                    const auto count = info.entries->size();
+                    if (count>0x7fffffff)
+                        return {};
+                    retval += {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
+                    return retval;
+                });
+                if (!valid)
+                    return {};
+                return retval;
             }
 		};
 

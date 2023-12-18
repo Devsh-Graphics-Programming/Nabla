@@ -127,7 +127,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 				{
 					const void* data = nullptr;
 					//!< The byte size of the specialization constant value within the supplied data buffer.
-					size_t size = 0;
+					uint32_t size = 0;
 
 					inline operator bool() const {return data&&size;}
 				
@@ -147,7 +147,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 				}
 
 				// Returns negative on failure, otherwise the size of the buffer required to reserve for the spec constant data 
-				inline int64_t valid() const
+				inline int32_t valid() const
 				{
 					// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
 					if (entryPoint.empty())
@@ -187,7 +187,9 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 							return -1;
 						specData += entry.second.size;
 					}
-					return specData;
+					if (specData>0x7fffffff)
+						return -1;
+					return static_cast<int32_t>(specData);
 				}
 
 				inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const

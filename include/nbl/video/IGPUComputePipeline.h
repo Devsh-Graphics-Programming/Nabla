@@ -45,10 +45,18 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
             };
             #undef base_flag
 
-            inline bool valid() const
+            inline SSpecializationValidationResult valid() const
             {
+                const int32_t dataSize = shader.valid();
+                if (dataSize<0)
+                    return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                return layout && shader.valid() && shader.shader->getStage()==IGPUShader::ESS_COMPUTE;
+                if (!layout || !shader.shader->getStage()==IGPUShader::ESS_COMPUTE)
+                    return {};
+                const auto count = shader.entries->size();
+                if (count>0x7fffffff)
+                    return {};
+                return {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
