@@ -24,7 +24,7 @@ namespace nbl::asset
 
 struct SVertexInputAttribParams
 {
-    inline bool operator<=>(const SVertexInputAttribParams& rhs) const = default;
+    inline auto operator<=>(const SVertexInputAttribParams& rhs) const = default;
 
     uint32_t binding : 4 = 0;
     uint32_t format : 8  = EF_UNKNOWN; // asset::E_FORMAT
@@ -40,7 +40,7 @@ struct SVertexInputBindingParams
         EVIR_PER_INSTANCE = 1
     };
 
-    inline bool operator<=>(const SVertexInputBindingParams& rhs) const = default;
+    inline auto operator<=>(const SVertexInputBindingParams& rhs) const = default;
 
     uint32_t stride : 31 = 0u;
     E_VERTEX_INPUT_RATE inputRate : 1 = EVIR_PER_VERTEX;
@@ -52,7 +52,7 @@ struct SVertexInputParams
     constexpr static inline size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     constexpr static inline size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
 
-    inline bool operator<=>(const SVertexInputParams& rhs) const = default;
+    inline auto operator<=>(const SVertexInputParams& rhs) const = default;
 
 
     uint16_t enabledAttribFlags = 0u;
@@ -92,6 +92,7 @@ class IRenderpassIndependentPipeline
         struct SCreationParams
         {
             protected:
+                using SpecInfo = ShaderType::SSpecInfo;
                 template<typename ExtraLambda>
                 inline bool impl_valid(ExtraLambda&& extra) const
                 {
@@ -114,10 +115,11 @@ class IRenderpassIndependentPipeline
                         return false;
                     return true;
                 }
+
             public:
                 inline bool valid() const
                 {
-                    return impl_valid([](const ShaderType::SSpecInfo& info)->bool
+                    return impl_valid([](const SpecInfo& info)->bool
                     {
                         if (!info.valid())
                             return false;
@@ -125,7 +127,7 @@ class IRenderpassIndependentPipeline
                     });
                 }
 
-                std::span<const ShaderType::SSpecInfo> shaders = {};
+                std::span<const SpecInfo> shaders = {};
                 SCachedCreationParams cached = {};
         };
 

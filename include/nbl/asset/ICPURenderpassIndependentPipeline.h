@@ -106,6 +106,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 
 		//
+		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
 		inline SCachedCreationParams& getCachedCreationParams()
 		{
 			assert(!isImmutable_debug());

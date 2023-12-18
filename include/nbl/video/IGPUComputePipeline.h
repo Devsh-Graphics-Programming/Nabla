@@ -51,7 +51,7 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
                 if (dataSize<0)
                     return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (!layout || !shader.shader->getStage()==IGPUShader::ESS_COMPUTE)
+                if (!layout || shader.shader->getStage()!=IGPUShader::ESS_COMPUTE)
                     return {};
                 const auto count = shader.entries->size();
                 if (count>0x7fffffff)

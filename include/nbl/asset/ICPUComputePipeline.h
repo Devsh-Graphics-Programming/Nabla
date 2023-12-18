@@ -95,7 +95,7 @@ class ICPUComputePipeline : public IAsset
             const int64_t specSize = info.valid();
             if (specSize<0)
                 return false;
-            if (!info.shader->getStage()!=ICPUShader::ESS_COMPUTE)
+            if (info.shader->getStage()!=ICPUShader::ESS_COMPUTE)
                 return false;
             m_info = info;
             m_shader = core::smart_refctd_ptr<ICPUShader>(info.shader);

@@ -40,7 +40,7 @@ class IPipeline : public IBackendObject
 					constexpr static inline uint32_t Invalid = ~0u;
 					inline operator bool() const
 					{
-						return specBufferSize!=Invalid;
+						return count!=Invalid && dataSize!=Invalid;
 					}
 
 					inline SSpecializationValidationResult& operator+=(const SSpecializationValidationResult& other)

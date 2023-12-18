@@ -405,7 +405,7 @@ struct SPhysicalDeviceLimits
     bool                                                variableSampleLocations = false;
     uint8_t                                             sampleLocationSubPixelBits = 0;
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>  sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
-    VkExtent2D                                          maxSampleLocationGridSize = { 0u, 0u };
+    hlsl::uint32_t2                                     maxSampleLocationGridSize = { 0u, 0u };
     float                                               sampleLocationCoordinateRange[2] = { 1.f, 0.f };
 
     /* VK_KHR_acceleration_structure */
@@ -462,9 +462,9 @@ struct SPhysicalDeviceLimits
 
     /* VK_EXT_fragment_density_map */
     /* FragmentDensityMapPropertiesEXT */
-    VkExtent2D          minFragmentDensityTexelSize = { ~0u, ~0u };
-    VkExtent2D          maxFragmentDensityTexelSize = { 0u, 0u };
-    bool                fragmentDensityInvocations = false;
+    hlsl::uint32_t2 minFragmentDensityTexelSize = { ~0u, ~0u };
+    hlsl::uint32_t2 maxFragmentDensityTexelSize = { 0u, 0u };
+    bool            fragmentDensityInvocations = false;
 
     /* VK_GOOGLE_decorate_string */
     bool decorateString = false;
@@ -915,8 +915,8 @@ struct SPhysicalDeviceLimits
         if (variableSampleLocations && !_rhs.variableSampleLocations) return false;
         if (sampleLocationSubPixelBits > _rhs.sampleLocationSubPixelBits) return false;
         if (!_rhs.sampleLocationSampleCounts.hasFlags(sampleLocationSampleCounts)) return false;
-        if (maxSampleLocationGridSize.width > _rhs.maxSampleLocationGridSize.width) return false;
-        if (maxSampleLocationGridSize.height > _rhs.maxSampleLocationGridSize.height) return false;
+        if (maxSampleLocationGridSize.x > _rhs.maxSampleLocationGridSize.x) return false;
+        if (maxSampleLocationGridSize.y > _rhs.maxSampleLocationGridSize.y) return false;
         if (sampleLocationCoordinateRange[0] < _rhs.sampleLocationCoordinateRange[0] || sampleLocationCoordinateRange[1] > _rhs.sampleLocationCoordinateRange[1]) return false;
 
         if (maxAccelerationStructureGeometryCount > _rhs.maxAccelerationStructureGeometryCount) return false;
@@ -954,8 +954,8 @@ struct SPhysicalDeviceLimits
         // uint32_t  pciDevice = ~0u;
         // uint32_t  pciFunction = ~0u;
 
-        if (minFragmentDensityTexelSize.width < _rhs.minFragmentDensityTexelSize.width) return false;
-        if (minFragmentDensityTexelSize.height < _rhs.minFragmentDensityTexelSize.height) return false;
+        if (minFragmentDensityTexelSize.x < _rhs.minFragmentDensityTexelSize.x) return false;
+        if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return false;
         if (fragmentDensityInvocations && !_rhs.fragmentDensityInvocations) return false;
 
         if (decorateString && !_rhs.decorateString) return false;

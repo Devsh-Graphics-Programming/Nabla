@@ -155,7 +155,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			if (!ppln)
 				return 0u;
 
-			const auto& vtxInputParams = ppln->getVertexInputParams();
+			const auto& vtxInputParams = ppln->getCachedCreationParams().vertexInput;
 			uint32_t size = 0u;
 			for (uint32_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
 			if (vtxInputParams.enabledAttribFlags & (1u<<i))

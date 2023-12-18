@@ -66,7 +66,7 @@ class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndepen
 		};
 
 	protected:
-		IGPURenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const base_t::SCreationParams& params) : pipeline_t(std::move(dev)), base_t(params) {}
+		IGPURenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const base_t::SCreationParams& params) : pipeline_t(std::move(dev)), base_t(params.cached) {}
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };
 
