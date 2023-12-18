@@ -111,96 +111,50 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					REQUIRE_128=7
 				};
 
-			//! Structure specifying a specialization map entry
-			/*
-				Note that if specialization constant ID is used
-				in a shader, \bsize\b and \boffset'b must match 
-				to \isuch an ID\i accordingly.
-			*/
-			struct SMapEntry
-			{
-				uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
-				uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
-				size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
-				
-				auto operator<=>(const SMapEntry&) const = default;
-			};
+				//! Structure specifying a specialization map entry
+				/*
+					Note that if specialization constant ID is used
+					in a shader, \bsize\b and \boffset'b must match 
+					to \isuch an ID\i accordingly.
 
-			bool operator<(const SSpecializationInfo& _rhs) const
-			{
-				if (entryPoint==_rhs.entryPoint)
+					By design the API satisfies:
+					https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-offset-00773
+					https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-pMapEntries-00774
+				*/
+				//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
+				using spec_constant_id_t = uint32_t;
+				struct SSpecConstantValue
 				{
-					size_t lhsSize = m_entries ? m_entries->size():0ull;
-					size_t rhsSize = _rhs.m_entries ? _rhs.m_entries->size():0ull;
-					if (lhsSize==rhsSize)
-					{
-						for (size_t i=0ull; i<lhsSize; ++i)
-						{
-							const auto& l = (*m_entries)[i];
-							const auto& r = (*_rhs.m_entries)[i];
+					const void* data = nullptr;
+					//!< The byte size of the specialization constant value within the supplied data buffer.
+					size_t size = 0;
 
-							if (l.specConstID==r.specConstID)
-							{
-								if (l.size==r.size)
-								{
-									int cmp = memcmp(reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer())+l.offset, reinterpret_cast<const uint8_t*>(_rhs.m_backingBuffer->getPointer())+r.offset, l.size);
-									if (cmp==0)
-										continue;
-									return cmp<0;
-								}
-								return l.size<r.size;
-							}
-							return l.specConstID<r.specConstID;
-						}
-						// all entries equal if we got out the loop
-						// return m_filePathHint<_rhs.m_filePathHint; // don't do this cause OpenGL program cache might get more entries in it (I think it contains only already include-resolved shaders)
-					}
-					return lhsSize<rhsSize;
-				}
-				return entryPoint<_rhs.entryPoint;
-			}
-
-			inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
-			{
-				if (!m_entries || !m_backingBuffer)
-					return {nullptr, 0u};
-
-				auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{ _specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/},
-					[](const SMapEntry& lhs, const SMapEntry& rhs) -> bool
-					{
-						return lhs.specConstID<rhs.specConstID;
-					}
-				);
-				if (entry != m_entries->end() && entry->specConstID==_specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
-					return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
-				else
-					return {nullptr, 0u};
-			}
-
-			//
-			core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
-			const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}
+					inline operator bool() const {return data&&size;}
 				
-			//
-			ICPUBuffer* getBackingBuffer() {return m_backingBuffer.get();}
-			const ICPUBuffer* getBackingBuffer() const {return m_backingBuffer.get();}
+					auto operator<=>(const SSpecConstantValue&) const = default;
+				};
 
-			//
-			void setEntries(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff)
-			{
-				m_entries = std::move(_entries);
-				m_backingBuffer = std::move(_backingBuff);
-			}
+				inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
+				{
+					if (!entries)
+						return {nullptr,0u};
 
+					const auto found = entries->find(_specConstID);
+					if (found!=entries->end() && bool(found->second))
+						return found->second;
+					else
+						return {nullptr,0u};
+				}
 
-				inline bool valid() const
+				// Returns negative on failure, otherwise the size of the buffer required to reserve for the spec constant data 
+				inline int64_t valid() const
 				{
 					// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
 					if (entryPoint.empty())
-						return false;
+						return -1;
 					
 					if (!shader)
-						return false;
+						return -1;
 					const auto stage = shader->getStage();
 
 					// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
@@ -224,7 +178,16 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
 					// to:
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
-					return true;
+					
+					int64_t specData = 0;
+					if (entries)
+					for (const auto& entry : *entries)
+					{
+						if (!entry.second)
+							return -1;
+						specData += entry.second.size;
+					}
+					return specData;
 				}
 
 				inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const
@@ -237,6 +200,20 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 						return false;
 					if (requireFullSubgroups != other.requireFullSubgroups)
 						return false;
+
+					if (!entries)
+						return !other.entries;
+					if (entries->size()!=other.entries->size())
+						return false;
+					for (const auto& entry : *other->entries)
+					{
+						const auto found = entries->find(entry.first);
+						if (found==entries->end())
+							return false;
+						if (found->second!=entry.second)
+							return false;
+					}
+
 					return true;
 				}
 
@@ -245,16 +222,20 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					return SSpecInfo<const ShaderType>{
 						.entryPoint = entryPoint,
 						.shader = shader,
+						.entries = entries,
 						.requiredSubgroupSize = requiredSubgroupSize,
 						.requireFullSubgroups = requireFullSubgroups,
 					};
 				}
+				
+				
+				using spec_constant_map_t = core::unordered_map<spec_constant_id_t,SSpecConstantValue>;
 
-				std::string entryPoint = "main";									//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
+				std::string entryPoint = "main";						//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
 				ShaderType* shader = nullptr;
-		core::smart_refctd_dynamic_array<SMapEntry> m_entries;				//!< A specialization map entry
-		core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;					//!< A buffer containing the actual constant values to specialize with
-
+				// Container choice implicitly satisfies:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
+				const spec_constant_map_t* entries;
 				// By requiring Nabla Core Profile features we implicitly satisfy:
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785

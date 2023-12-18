@@ -32,10 +32,17 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		constexpr static inline uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
 		constexpr static inline uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
-		using SCreationParams = base_t::SCreationParams;
+		struct SCreationParams final : base_t::SCreationParams
+		{
+			private:
+				friend class ICPURenderpassIndependentPipeline;
+				template<typename ExtraLambda>
+				inline bool impl_valid(ExtraLambda&& extra) const {return base_t::SCreationParams::impl_valid(std::move(extra));}
+		};
 		static core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> create(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params)
 		{
-            if (!_layout || !params.valid())
+			// we'll validate the specialization info later when attempting to set it
+            if (!_layout || !params.impl_valid([](const ICPUShader::SSpecInfo& info)->bool{return true;}))
                 return nullptr;
             auto retval = new ICPURenderpassIndependentPipeline(std::move(_layout),params.cached);
             for (const auto spec : params.shaders)
@@ -137,8 +144,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
 		{
 			assert(!isImmutable_debug());
-			if (!info.valid())
-				return false;
+            const int64_t specSize = info.valid();
+            if (specSize<0)
+                return false;
 			const auto stage = info.shader->getStage();
 			const auto stageIx = core::findLSB(stage);
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || core::bitCount(stage)!=1)
@@ -146,6 +154,15 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_infos[stageIx] = info;
 			m_shaders[stageIx] = core::smart_refctd_ptr<ICPUShader>(info.shader);
 			m_infos[stageIx].shader = m_shaders[stageIx].get();
+            if (specSize>0)
+            {
+                m_entries[stageIx] = std::make_unique<ICPUShader::SSpecInfo::spec_constant_map_t>();
+                m_entries[stageIx]->reserve(info.entries->size());
+                std::copy(info.entries->begin(),info.entries->end(),std::front_inserter(*m_entries[stageIx]));
+            }
+            else
+                m_entries[stageIx] = nullptr;
+			m_infos[stageIx].entries = m_entries[stageIx].get();
 			return true;
 		}
 
@@ -183,6 +200,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
 		std::array<core::smart_refctd_ptr<ICPUShader>,GRAPHICS_SHADER_STAGE_COUNT> m_shaders = {};
+		std::array<std::unique_ptr<ICPUShader::SSpecInfo::spec_constant_map_t>,GRAPHICS_SHADER_STAGE_COUNT> m_entries = {};
 		std::array<ICPUShader::SSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> m_infos = {};
 };
 

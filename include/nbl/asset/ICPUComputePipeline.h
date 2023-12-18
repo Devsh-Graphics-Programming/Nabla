@@ -59,7 +59,9 @@ class ICPUComputePipeline : public IAsset
         bool canBeRestoredFrom(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUComputePipeline*>(_other);
-            if (!m_shader->canBeRestoredFrom(m_shader.get()))
+            if (!m_shader->canBeRestoredFrom(other->m_shader.get()))
+                return false;
+            if (!m_info.equalAllButShader(other->m_info))
                 return false;
             if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
                 return false;
@@ -90,13 +92,23 @@ class ICPUComputePipeline : public IAsset
         inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
         {
             assert(!isImmutable_debug());
-            if (!info.valid())
+            const int64_t specSize = info.valid();
+            if (specSize<0)
                 return false;
             if (!info.shader->getStage()!=ICPUShader::ESS_COMPUTE)
                 return false;
             m_info = info;
             m_shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
             m_info.shader = m_shader.get();
+            if (specSize>0)
+            {
+                m_entries = std::make_unique<ICPUShader::SSpecInfo::spec_constant_map_t>();
+                m_entries->reserve(info.entries->size());
+                std::copy(info.entries->begin(),info.entries->end(),std::front_inserter(*m_entries));
+            }
+            else
+                m_entries = nullptr;
+            m_info.entries = m_entries.get();
             return true;
         }
 
@@ -124,6 +136,7 @@ class ICPUComputePipeline : public IAsset
 
         core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
         core::smart_refctd_ptr<ICPUShader> m_shader = {};
+        std::unique_ptr<ICPUShader::SSpecInfo::spec_constant_map_t> m_entries = {};
         ICPUShader::SSpecInfo m_info = {};
 };
 

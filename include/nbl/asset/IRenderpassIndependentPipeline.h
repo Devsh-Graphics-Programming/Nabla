@@ -82,7 +82,7 @@ template<typename ShaderType>
 class IRenderpassIndependentPipeline
 {
 	public:
-        struct SCachedCreationParams
+        struct SCachedCreationParams final
         {
             SVertexInputParams vertexInput = {};
             SPrimitiveAssemblyParams primitiveAssembly = {};
@@ -91,30 +91,42 @@ class IRenderpassIndependentPipeline
         };
         struct SCreationParams
         {
-            inline bool valid() const
-            {
-                const ShaderType* pVertexShader = nullptr;
-                std::bitset<GRAPHICS_SHADER_STAGE_COUNT> stagePresence = {};
-                for (const auto info : shaders)
-                if (info.shader)
+            protected:
+                template<typename ExtraLambda>
+                inline bool impl_valid(ExtraLambda&& extra) const
                 {
-                    if (!info.valid())
+                    const ShaderType* pVertexShader = nullptr;
+                    std::bitset<GRAPHICS_SHADER_STAGE_COUNT> stagePresence = {};
+                    for (const auto info : shaders)
+                    if (info.shader)
+                    {
+                        if (!extra(info))
+                            return false;
+                        const auto stage = info.shader->getStage();
+                        if (stage>=GRAPHICS_SHADER_STAGE_COUNT)
+                            return false;
+                        const auto stageIx = core::findLSB(stage);
+                        if (stagePresence.test(stageIx))
+                            return false;
+                        stagePresence.set(stageIx);
+                    }
+                    if (!pVertexShader)
                         return false;
-                    const auto stage = info.shader->getStage();
-                    if (stage>=GRAPHICS_SHADER_STAGE_COUNT)
-                        return false;
-                    const auto stageIx = core::findLSB(stage);
-                    if (stagePresence.test(stageIx))
-                        return false;
-                    stagePresence.set(stageIx);
+                    return true;
                 }
-                if (!pVertexShader)
-                    return false;
-                return true;
-            }
+            public:
+                inline bool valid() const
+                {
+                    return impl_valid([](const ShaderType::SSpecInfo& info)->bool
+                    {
+                        if (!info.valid())
+                            return false;
+                        return false;
+                    });
+                }
 
-            std::span<const ShaderType::SSpecInfo> shaders = {};
-            SCachedCreationParams cached = {};
+                std::span<const ShaderType::SSpecInfo> shaders = {};
+                SCachedCreationParams cached = {};
         };
 
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}
