@@ -213,7 +213,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
             if (!meshbuffer->getPipeline())
                 return false;
 
-            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
+            const auto& assemblyParams = meshbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly;
             const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
 			switch (primType)
 			{
@@ -517,7 +517,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				assert(!cpumb->isADummyObjectForCache());
 				assert(cpumb->isMutable());
 
-				const auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				const auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				switch (params.primitiveType)
 				{
 					case EPT_POINT_LIST:
@@ -569,7 +569,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				const auto indexType = cpumb->getIndexType();
 				auto indexCount = cpumb->getIndexCount();
 
-				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
 
 				void* correctlyOffsetIndexBufferPtr;

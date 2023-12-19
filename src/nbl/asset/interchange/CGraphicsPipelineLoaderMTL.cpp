@@ -27,6 +27,7 @@ using namespace asset;
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : 
     IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     //create vertex shaders and insert them into cache
     auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
     {
@@ -66,6 +67,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     registerShader.operator()<core::StringLiteral(VERT_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_VERTEX);
     registerShader.operator()<core::StringLiteral(FRAG_SHADER_NO_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
     registerShader.operator()<core::StringLiteral(FRAG_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
+#endif
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -185,6 +187,8 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
 
 core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
 {
+    return nullptr;
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     SBlendParams blendParams;
 
     std::string cacheKey("nbl/builtin/renderpass_independent_pipeline/loader/mtl/");
@@ -306,6 +310,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
         ppln = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), shaders, shaders+2u, vtxParams, blendParams, SPrimitiveAssemblyParams{}, SRasterizationParams{});
     }
     return ppln;
+#endif
 }
 
 namespace
