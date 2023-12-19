@@ -548,7 +548,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.variableSampleLocations = sampleLocationsProperties.variableSampleLocations;
             properties.limits.sampleLocationSubPixelBits = sampleLocationsProperties.sampleLocationSubPixelBits;
             properties.limits.sampleLocationSampleCounts = static_cast<asset::IImage::E_SAMPLE_COUNT_FLAGS>(sampleLocationsProperties.sampleLocationSampleCounts);
-            properties.limits.maxSampleLocationGridSize = sampleLocationsProperties.maxSampleLocationGridSize;
+            properties.limits.maxSampleLocationGridSize = {sampleLocationsProperties.maxSampleLocationGridSize.width,sampleLocationsProperties.maxSampleLocationGridSize.height};
             properties.limits.sampleLocationCoordinateRange[0] = sampleLocationsProperties.sampleLocationCoordinateRange[0];
             properties.limits.sampleLocationCoordinateRange[1] = sampleLocationsProperties.sampleLocationCoordinateRange[1];
         }
@@ -577,8 +577,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_EXT_FRAGMENT_DENSITY_MAP_EXTENSION_NAME))
         {
-            properties.limits.minFragmentDensityTexelSize = fragmentDensityMapProperties.minFragmentDensityTexelSize;
-            properties.limits.maxFragmentDensityTexelSize = fragmentDensityMapProperties.maxFragmentDensityTexelSize;
+            properties.limits.minFragmentDensityTexelSize = {fragmentDensityMapProperties.minFragmentDensityTexelSize.width,fragmentDensityMapProperties.minFragmentDensityTexelSize.height};
+            properties.limits.maxFragmentDensityTexelSize = {fragmentDensityMapProperties.maxFragmentDensityTexelSize.width,fragmentDensityMapProperties.maxFragmentDensityTexelSize.height};
             properties.limits.fragmentDensityInvocations = fragmentDensityMapProperties.fragmentDensityInvocations;
         }
 
