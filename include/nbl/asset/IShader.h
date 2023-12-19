@@ -68,6 +68,49 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			ECT_HLSL,
 			ECT_SPIRV,
 		};
+		
+		struct SSpecInfoBase
+		{
+			//! Structure specifying a specialization map entry
+			/*
+				Note that if specialization constant ID is used
+				in a shader, \bsize\b and \boffset'b must match 
+				to \isuch an ID\i accordingly.
+
+				By design the API satisfies:
+				https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-offset-00773
+				https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-pMapEntries-00774
+			*/
+			//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
+			using spec_constant_id_t = uint32_t;
+			struct SSpecConstantValue
+			{
+				const void* data = nullptr;
+				//!< The byte size of the specialization constant value within the supplied data buffer.
+				uint32_t size = 0;
+
+				inline operator bool() const {return data&&size;}
+				
+				auto operator<=>(const SSpecConstantValue&) const = default;
+			};
+			// Nabla requires device's reported subgroup size to be between 4 and 128
+			enum class SUBGROUP_SIZE : uint8_t
+			{
+				// No constraint but probably means `gl_SubgroupSize` is Dynamically Uniform
+				UNKNOWN = 0,
+				// Allows the Subgroup Uniform `gl_SubgroupSize` to be non-Dynamically Uniform and vary between Device's min and max
+				VARYING = 1,
+				// The rest we encode as log2(x) of the required value
+				REQUIRE_4 = 2,
+				REQUIRE_8 = 3,
+				REQUIRE_16 = 4,
+				REQUIRE_32 = 5,
+				REQUIRE_64 = 6,
+				REQUIRE_128 = 7
+			};
+				
+			using spec_constant_map_t = core::unordered_map<spec_constant_id_t,SSpecConstantValue>;
+		};
 		/*
 			Specialization info contains things such as entry point to a shader,
 			specialization map entry, required subgroup size, etc. for a blob of SPIR-V
@@ -92,160 +135,118 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			to a final value before the SPIR-V compilation
 		*/
 		template<class ShaderType>
-		class SSpecInfo
+		struct SSpecInfo final : SSpecInfoBase
 		{
-			public:
-				// Nabla requires device's reported subgroup size to be between 4 and 128
-				enum class SUBGROUP_SIZE : uint8_t
-				{
-					// No constraint but probably means `gl_SubgroupSize` is Dynamically Uniform
-					UNKNOWN=0,
-					// Allows the Subgroup Uniform `gl_SubgroupSize` to be non-Dynamically Uniform and vary between Device's min and max
-					VARYING=1,
-					// The rest we encode as log2(x) of the required value
-					REQUIRE_4=2,
-					REQUIRE_8=3,
-					REQUIRE_16=4,
-					REQUIRE_32=5,
-					REQUIRE_64=6,
-					REQUIRE_128=7
-				};
+			inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
+			{
+				if (!entries)
+					return {nullptr,0u};
 
-				//! Structure specifying a specialization map entry
-				/*
-					Note that if specialization constant ID is used
-					in a shader, \bsize\b and \boffset'b must match 
-					to \isuch an ID\i accordingly.
+				const auto found = entries->find(_specConstID);
+				if (found!=entries->end() && bool(found->second))
+					return found->second;
+				else
+					return {nullptr,0u};
+			}
 
-					By design the API satisfies:
-					https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-offset-00773
-					https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-pMapEntries-00774
-				*/
-				//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
-				using spec_constant_id_t = uint32_t;
-				struct SSpecConstantValue
-				{
-					const void* data = nullptr;
-					//!< The byte size of the specialization constant value within the supplied data buffer.
-					uint32_t size = 0;
-
-					inline operator bool() const {return data&&size;}
-				
-					auto operator<=>(const SSpecConstantValue&) const = default;
-				};
-
-				inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
-				{
-					if (!entries)
-						return {nullptr,0u};
-
-					const auto found = entries->find(_specConstID);
-					if (found!=entries->end() && bool(found->second))
-						return found->second;
-					else
-						return {nullptr,0u};
-				}
-
-				// Returns negative on failure, otherwise the size of the buffer required to reserve for the spec constant data 
-				inline int32_t valid() const
-				{
-					// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
-					if (entryPoint.empty())
-						return -1;
+			// Returns negative on failure, otherwise the size of the buffer required to reserve for the spec constant data 
+			inline int32_t valid() const
+			{
+				// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
+				if (entryPoint.empty())
+					return -1;
 					
-					if (!shader)
-						return -1;
-					const auto stage = shader->getStage();
+				if (!shader)
+					return -1;
+				const auto stage = shader->getStage();
 
-					// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
-					if (requireFullSubgroups)
-					switch (stage)
-					{
-						case E_SHADER_STAGE::ESS_COMPUTE: [[fallthrough]];
-						case E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-						case E_SHADER_STAGE::ESS_MESH:
-							break;
-						default:
-							return nullptr;
-							break;
-					}
-					// Impossible to efficiently check anything from:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
-					// to:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
-					// and from:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
-					// to:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
+				// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
+				if (requireFullSubgroups)
+				switch (stage)
+				{
+					case E_SHADER_STAGE::ESS_COMPUTE: [[fallthrough]];
+					case E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+					case E_SHADER_STAGE::ESS_MESH:
+						break;
+					default:
+						return -1;
+						break;
+				}
+				// Impossible to efficiently check anything from:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
+				// to:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
+				// and from:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
+				// to:
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
 					
-					int64_t specData = 0;
-					if (entries)
-					for (const auto& entry : *entries)
-					{
-						if (!entry.second)
-							return -1;
-						specData += entry.second.size;
-					}
-					if (specData>0x7fffffff)
+				int64_t specData = 0;
+				if (entries)
+				for (const auto& entry : *entries)
+				{
+					if (!entry.second)
 						return -1;
-					return static_cast<int32_t>(specData);
+					specData += entry.second.size;
 				}
+				if (specData>0x7fffffff)
+					return -1;
+				return static_cast<int32_t>(specData);
+			}
 
-				inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const
+			inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const
+			{
+				if (entryPoint != other.entryPoint)
+					return false;
+				if ((!shader) != (!other.shader))
+					return false;
+				if (requiredSubgroupSize != other.requiredSubgroupSize)
+					return false;
+				if (requireFullSubgroups != other.requireFullSubgroups)
+					return false;
+
+				if (!entries)
+					return !other.entries;
+				if (entries->size()!=other.entries->size())
+					return false;
+				for (const auto& entry : *other.entries)
 				{
-					if (entryPoint != other.entryPoint)
+					const auto found = entries->find(entry.first);
+					if (found==entries->end())
 						return false;
-					if ((!shader) != (!other.shader))
+					if (found->second!=entry.second)
 						return false;
-					if (requiredSubgroupSize != other.requiredSubgroupSize)
-						return false;
-					if (requireFullSubgroups != other.requireFullSubgroups)
-						return false;
-
-					if (!entries)
-						return !other.entries;
-					if (entries->size()!=other.entries->size())
-						return false;
-					for (const auto& entry : *other->entries)
-					{
-						const auto found = entries->find(entry.first);
-						if (found==entries->end())
-							return false;
-						if (found->second!=entry.second)
-							return false;
-					}
-
-					return true;
 				}
 
-				inline operator SSpecInfo<const ShaderType>() const
-				{
-					return SSpecInfo<const ShaderType>{
-						.entryPoint = entryPoint,
-						.shader = shader,
-						.entries = entries,
-						.requiredSubgroupSize = requiredSubgroupSize,
-						.requireFullSubgroups = requireFullSubgroups,
-					};
-				}
-				
-				
-				using spec_constant_map_t = core::unordered_map<spec_constant_id_t,SSpecConstantValue>;
+				return true;
+			}
 
-				std::string entryPoint = "main";						//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
-				ShaderType* shader = nullptr;
-				// Container choice implicitly satisfies:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-				const spec_constant_map_t* entries;
-				// By requiring Nabla Core Profile features we implicitly satisfy:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
-				// Also because our API is sane, it satisfies the following by construction:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
-				SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
-				// Valid only for Compute, Mesh and Task shaders
-				uint8_t requireFullSubgroups : 1 = false;
+			inline operator SSpecInfo<const ShaderType>() const
+			{
+				return SSpecInfo<const ShaderType>{
+					.entryPoint = entryPoint,
+					.shader = shader,
+					.entries = entries,
+					.requiredSubgroupSize = requiredSubgroupSize,
+					.requireFullSubgroups = requireFullSubgroups,
+				};
+			}
+				
+
+			std::string entryPoint = "main";						//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
+			ShaderType* shader = nullptr;
+			// Container choice implicitly satisfies:
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
+			const spec_constant_map_t* entries;
+			// By requiring Nabla Core Profile features we implicitly satisfy:
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
+			// Also because our API is sane, it satisfies the following by construction:
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
+			SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
+			// Valid only for Compute, Mesh and Task shaders
+			uint8_t requireFullSubgroups : 1 = false;
 		};
 
 	protected:

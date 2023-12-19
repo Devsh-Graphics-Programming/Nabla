@@ -253,7 +253,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
 			{
 				uint32_t offset;
-				switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
+				switch (mb->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType)
 				{
 					case EPT_TRIANGLE_LIST:
 						offset = triangleIx*3u;

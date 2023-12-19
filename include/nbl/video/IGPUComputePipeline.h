@@ -59,18 +59,21 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
                 return {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
+            inline std::span<const IGPUShader::SSpecInfo> getShaders() const {return {&shader,1}; }
+
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
             IGPUShader::SSpecInfo shader = {};
         };
 
-        inline SCreationParams::FLAGS getCreationFlags() const {return m_flags;}
+        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
     protected:
-        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams::FLAGS _flags) : pipeline_t(std::move(dev)), m_flags(_flags) {}
+        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<SCreationParams::FLAGS> _flags) :
+            pipeline_t(std::move(dev)), m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
-        const SCreationParams::FLAGS m_flags;
+        const core::bitflag<SCreationParams::FLAGS> m_flags;
 };
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUComputePipeline::SCreationParams::FLAGS)
 

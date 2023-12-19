@@ -1,16 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED__
-#define __NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED__
+#ifndef _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
+#define _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
 #include <cstdint>
 #include <memory>
 
-#include "nbl/asset/ICPUSpecializedShader.h"
+#include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
@@ -135,64 +134,59 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::debugInfoFlags enabling EDIF_SOURCE_BIT implicitly or explicitly, with no `spirvOptimizer` used in order to include names in introspection data
 		core::smart_refctd_ptr<const CIntrospectionData> introspect(const SIntrospectionParams& params, bool insertToCache = true);
 
-		//
-		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const core::SRange<const ICPUSpecializedShader* const>& _shaders);
+		// When the methods take a span of shaders, they are computing things for an imaginary pipeline that includes **all** of them
+		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const std::span<const ICPUShader::SSpecInfo>& _infos);
 		
-		inline core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(const core::SRange<const ICPUSpecializedShader* const>& _shaders)
+		inline core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos)
 		{
-			core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
-			if (!introspectAllShaders(introspections,_shaders))
+			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
+			if (!introspectAllShaders(introspections.data(),_infos))
 				return nullptr;
 
-			return createPushConstantRangesFromIntrospection_impl(introspections,_shaders);
+			return createPushConstantRangesFromIntrospection_impl(introspections.data(),_infos);
 		}
-		inline core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, const core::SRange<const ICPUSpecializedShader* const>& _shaders)
+		inline core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, const std::span<const ICPUShader::SSpecInfo>& _infos)
 		{
-			core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
-			if (!introspectAllShaders(introspections,_shaders))
+			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
+			if (!introspectAllShaders(introspections.data(),_infos))
 				return nullptr;
 
-			return createApproximateDescriptorSetLayoutFromIntrospection_impl(set,introspections,_shaders);
+			return createApproximateDescriptorSetLayoutFromIntrospection_impl(set,introspections.data(), _infos);
 		}
-		inline core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(const core::SRange<const ICPUSpecializedShader* const>& _shaders)
+		inline core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos)
 		{
-			core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
-			if (!introspectAllShaders(introspections,_shaders))
+			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
+			if (!introspectAllShaders(introspections.data(),_infos))
 				return nullptr;
 
-			return createApproximatePipelineLayoutFromIntrospection_impl(introspections,_shaders);
+			return createApproximatePipelineLayoutFromIntrospection_impl(introspections.data(),_infos);
 		}
 
 		//
-		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader)
+		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info)
 		{
-			if (shader->getStage() != IShader::ESS_COMPUTE)
+			if (info.shader->getStage()!=IShader::ESS_COMPUTE)
 				return nullptr;
 
-			const core::SRange<const ICPUSpecializedShader* const> shaders = {&shader,&shader+1};
 			core::smart_refctd_ptr<const CIntrospectionData> introspection = nullptr;
-			if (!introspectAllShaders(&introspection,shaders))
+			if (!introspectAllShaders(&introspection,{&info,1}))
 				return nullptr;
 
-			auto layout = createApproximatePipelineLayoutFromIntrospection_impl(&introspection,shaders);
-			return core::make_smart_refctd_ptr<ICPUComputePipeline>(
-				std::move(layout),
-				core::smart_refctd_ptr<ICPUSpecializedShader>(shader)
-			);
+			auto layout = createApproximatePipelineLayoutFromIntrospection_impl(&introspection,{&info,1});
+			return ICPUComputePipeline::create(std::move(layout),info);
 		}
 
 		//
-		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const core::SRange<ICPUSpecializedShader* const>& _shaders);
+		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos);
 	
 	private:
 		using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
 
-		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders);
-		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders);
-		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders);
+		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
+		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
 
-		_NBL_STATIC_INLINE_CONSTEXPR size_t MAX_STAGE_COUNT = 14ull;
-		bool introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* introspection, const core::SRange<const ICPUSpecializedShader* const>& _shaders);
+		bool introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* introspection, const std::span<const ICPUShader::SSpecInfo>& _infos);
 
 		core::smart_refctd_ptr<const CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const std::string& entryPoint, const IShader::E_SHADER_STAGE stage) const;
 		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const;

@@ -63,11 +63,21 @@ class IGPURenderpassIndependentPipeline : public IPipeline<IGPURenderpassIndepen
                     return {};
                 return retval;
             }
+
+            inline std::span<const IGPUShader::SSpecInfo> getShaders() const {return shaders;}
+
+            // TODO: Could guess the required flags from SPIR-V introspection of declared caps
+            core::bitflag<FLAGS> flags = FLAGS::NONE;
 		};
 
+        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
+
 	protected:
-		IGPURenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const base_t::SCreationParams& params) : pipeline_t(std::move(dev)), base_t(params.cached) {}
+		IGPURenderpassIndependentPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params) :
+            pipeline_t(std::move(dev)), base_t(params.cached), m_flags(params.flags) {}
 		virtual ~IGPURenderpassIndependentPipeline() = default;
+
+        const core::bitflag<SCreationParams::FLAGS> m_flags;
 };
 
 }

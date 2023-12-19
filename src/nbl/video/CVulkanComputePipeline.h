@@ -17,7 +17,7 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
         CVulkanComputePipeline(
             core::smart_refctd_ptr<const ILogicalDevice>&& dev,
             core::smart_refctd_ptr<const IGPUShader>&& shader,
-            const SCreationParams::FLAGS _flags,
+            const core::bitflag<SCreationParams::FLAGS> _flags,
             const VkPipeline pipeline
         ) : IGPUComputePipeline(std::move(dev),_flags), m_pipeline(pipeline), m_shader(std::move(shader)) {}
 

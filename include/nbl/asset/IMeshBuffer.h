@@ -77,8 +77,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             if (!m_pipeline)
                 return false;
 
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
                 return false;
             return true;
@@ -90,8 +89,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             if (!m_pipeline)
                 return false;
 
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
                 return false;
             return true;
@@ -99,27 +97,23 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         //! WARNING: does not check whether attribute and binding are enabled!
         inline uint32_t getBindingNumForAttribute(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return vtxInputParams.attributes[attrId].binding;
         }
         inline E_FORMAT getAttribFormat(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return static_cast<E_FORMAT>(vtxInputParams.attributes[attrId].format);
         }
         inline uint32_t getAttribStride(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             const uint32_t bnd = getBindingNumForAttribute(attrId);
             return vtxInputParams.bindings[bnd].stride;
         }
         inline uint32_t getAttribOffset(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return vtxInputParams.attributes[attrId].relativeOffset;
         }
 

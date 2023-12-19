@@ -885,7 +885,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (params.empty())
                 return {};
 
-            CreationParams::SSpecializationValidationResult retval = {.count=0,.dataSize=0};
+            typename CreationParams::SSpecializationValidationResult retval = {.count=0,.dataSize=0};
             for (auto i=0; i<params.size(); i++)
             {
                 const auto& ci = params[i];
@@ -897,16 +897,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 if (!ci.layout->wasCreatedBy(this))
                     return {};
 
-                constexpr auto AllowDerivativesFlag = SCreationParams::FLAGS::ALLOW_DERIVATIVES;
+                constexpr auto AllowDerivativesFlag = CreationParams::FLAGS::ALLOW_DERIVATIVES;
                 if (ci.basePipeline)
                 {
                     if (!ci.basePipeline->wasCreatedBy(this))
                         return {};
-                    if (!ci.basePipeline->getCreationFlags().hasFlag(AllowDerivativesFlag))
+                    if (!ci.basePipeline->getCreationFlags().hasFlags(AllowDerivativesFlag))
                         return {};
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07985
-                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || !params[ci.basePipelineIndex].flags.hasFlag(AllowDerivativesFlag))
+                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag))
                     return {};
 
                 for (auto info : ci.getShaders())

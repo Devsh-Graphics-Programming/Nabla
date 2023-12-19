@@ -159,7 +159,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
             {
                 m_entries[stageIx] = std::make_unique<ICPUShader::SSpecInfo::spec_constant_map_t>();
                 m_entries[stageIx]->reserve(info.entries->size());
-                std::copy(info.entries->begin(),info.entries->end(),std::front_inserter(*m_entries[stageIx]));
+                std::copy(info.entries->begin(),info.entries->end(),std::insert_iterator(*m_entries[stageIx],m_entries[stageIx]->begin()));
             }
             else
                 m_entries[stageIx] = nullptr;
