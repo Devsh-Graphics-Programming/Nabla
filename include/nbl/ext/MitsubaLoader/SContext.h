@@ -103,6 +103,18 @@ namespace MitsubaLoader
 			return key;
 		}
 
+		static std::string emissionProfileCacheKey(const CElementEmissionProfile& profile)
+		{
+			std::string key = profile.filename;
+			key += "?ies";
+			return key;
+		}
+
+		static auto emissionProfileSamplerParams(const CElementEmissionProfile& profile) {
+			asset::ISampler::SParams res = { asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETBC_INT_OPAQUE_BLACK, asset::ISampler::ETF_NEAREST, asset::ISampler::ETF_NEAREST, asset::ISampler::ESMM_NEAREST, 0u, false, asset::ECO_ALWAYS };
+			return res;
+		}
+
 		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
 		{
 			asset::ICPUSampler::SParams params;

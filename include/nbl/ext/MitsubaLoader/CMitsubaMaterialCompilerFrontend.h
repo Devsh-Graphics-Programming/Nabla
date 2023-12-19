@@ -10,6 +10,8 @@
 #include "nbl/asset/material_compiler/IR.h"
 
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+
 
 namespace nbl::ext::MitsubaLoader
 {
@@ -20,6 +22,7 @@ class CMitsubaMaterialCompilerFrontend
 {
     public:
         using IRNode = asset::material_compiler::IR::INode;
+        using EmitterNode = asset::material_compiler::IR::CEmitterNode;
         enum E_IMAGE_VIEW_SEMANTIC : uint8_t
         {
             EIVS_IDENTITIY,
@@ -38,6 +41,7 @@ class CMitsubaMaterialCompilerFrontend
         explicit CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
         front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+        EmitterNode* createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform);
 
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
@@ -47,6 +51,8 @@ class CMitsubaMaterialCompilerFrontend
         std::pair<const CElementTexture*,float> unwindTextureScale(const CElementTexture* _element) const;
 
         tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
+
+        tex_ass_type getEmissionProfile(const CElementEmissionProfile* _element) const;
 
         tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
 

@@ -74,6 +74,7 @@ class IR : public core::IReferenceCounted
             {
                 ES_GEOM_MODIFIER,
                 ES_EMISSION,
+                ES_EMITTER,
                 ES_OPACITY,
                 ES_BSDF,
                 ES_BSDF_COMBINER,
@@ -298,6 +299,13 @@ class IR : public core::IReferenceCounted
             *static_cast<CGeomModifierNode*>(node) = *rhs;
         }
             break;
+        case INode::ES_EMITTER:
+        {
+            auto* rhs = static_cast<const CEmitterNode*>(_rhs);
+            node = allocNode<CEmitterNode>();
+            *static_cast<CEmitterNode*>(node) = *rhs;
+        }
+            break;
         case INode::ES_EMISSION:
         {
             auto* rhs = static_cast<const CEmissionNode*>(_rhs);
@@ -424,11 +432,30 @@ class IR : public core::IReferenceCounted
         //};
     };
 
+    struct CEmitterNode : INode
+    {
+        CEmitterNode() : INode(ES_EMITTER) {}
+
+        struct EmissionProfile {
+            EmissionProfile() { }
+            operator bool() const {
+                return normalizeEnergy != 0.0f;
+            }
+            STextureSource texture;
+            color_t left;
+            color_t up;
+            float normalizeEnergy = 0.0f;
+        };
+
+        color_t intensity = color_t(1.f);
+        EmissionProfile emissionProfile;
+    };
+
     struct CEmissionNode : INode
     {
         CEmissionNode() : INode(ES_EMISSION) {}
-
-        color_t intensity = color_t(1.f);
+        
+        CEmitterNode* emitter = nullptr;
     };
 
     struct COpacityNode : INode

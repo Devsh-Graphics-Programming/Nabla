@@ -70,6 +70,7 @@ const core::unordered_map<std::string, std::pair<CElementFactory::element_creati
 	{"bsdf",		{CElementFactory::createElement<CElementBSDF>,true}},
 	{"texture",		{CElementFactory::createElement<CElementTexture>,true}},
 	{"emitter",		{CElementFactory::createElement<CElementEmitter>,true}},
+	{"emissionprofile", {CElementFactory::createElement<CElementEmissionProfile>,true}},
 	{"alias",		{CElementFactory::processAlias,true}},
 	{"ref",			{CElementFactory::processRef,true}}
 };
