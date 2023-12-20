@@ -2,7 +2,7 @@
 
 ## Run Nabla build pipelines locally in containers and produce artifacts
 
-Currently only Windows platform with target x86_64 architecture is supported.
+Currently only Windows platform with target *x86_64* architecture is supported.
 
 ### Requirements
 
@@ -132,8 +132,16 @@ and
 docker compose up
 ```
 
-It will run all services as containers from the previously created instance image executing independently CI pipeline axes and output artifacts from the services to `artifactory.nabla` volume (TODO) .
+It will run all services as containers from the previously created instance image executing independently CI pipeline axes and output artifacts from the services to `artifactory.nabla` volume.
 
-### Debugging build pipelines
+### Remote Debugging Container build pipelines
 
-TODO
+```
+set BUILD_SCRIPT_ARGS="--debug=True" 
+```
+
+and `docker compose up` in the *instances* directory. Install [Visual Studio Code](https://code.visualstudio.com/), navigate to `<NBL_ROOT_DIRECTORY>/docker/scripts` directory, open the 
+
+directory *with Code*, hit *Run and Debug* and pick the pipeline service configuration you would like to Debug.
+
+![dcp](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/docker/readme/dockerPipelineConfigurations.png?raw=true)
