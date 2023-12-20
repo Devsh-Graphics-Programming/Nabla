@@ -319,8 +319,8 @@ void IAssetManager::insertBuiltinAssets()
 	constexpr uint32_t pcCount = 1u;
 	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			pcRanges,pcRanges+pcCount,
-			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
+			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
+			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
 	);
 	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
 
@@ -445,7 +445,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(std::span<const asset::SPushConstantRange>(),nullptr,std::move(ds1Layout),nullptr,nullptr);
         auto paths =
         {               
             "nbl/builtin/material/lambertian/no_texture/pipeline_layout",

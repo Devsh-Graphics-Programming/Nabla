@@ -8,13 +8,11 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
-
 class CVulkanDeferredOperation : public IDeferredOperation
 {
     public:
-        CVulkanDeferredOperation(core::smart_refctd_ptr<ILogicalDevice>&& dev, VkDeferredOperationKHR vkDeferredOp)
-            : IDeferredOperation(std::move(dev)), m_deferredOp(vkDeferredOp) { }
+        CVulkanDeferredOperation(const ILogicalDevice* dev, VkDeferredOperationKHR vkDeferredOp)
+            : IDeferredOperation(core::smart_refctd_ptr<const ILogicalDevice>(dev)), m_deferredOp(vkDeferredOp) { }
 
         uint32_t getMaxConcurrency() const override;
         bool isPending() const override;

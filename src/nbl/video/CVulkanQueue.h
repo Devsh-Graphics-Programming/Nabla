@@ -15,7 +15,7 @@ class ILogicalDevice;
 class CVulkanQueue final : public IQueue
 {
     public:
-        inline CVulkanQueue(ILogicalDevice* logicalDevice, renderdoc_api_t* rdoc, VkInstance vkinst, VkQueue vkq, uint32_t _famIx, IQueue::CREATE_FLAGS _flags, float _priority)
+        inline CVulkanQueue(const ILogicalDevice* logicalDevice, renderdoc_api_t* rdoc, VkInstance vkinst, VkQueue vkq, const uint32_t _famIx, const core::bitflag<IQueue::CREATE_FLAGS> _flags, const float _priority)
             : IQueue(logicalDevice, _famIx, _flags, _priority), m_vkQueue(vkq), m_rdoc_api(rdoc), m_vkInstance(vkinst) {}
 
         static inline RESULT getResultFrom(const VkResult result)

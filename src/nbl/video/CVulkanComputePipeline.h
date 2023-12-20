@@ -15,11 +15,11 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
 {
     public:
         CVulkanComputePipeline(
-            core::smart_refctd_ptr<const ILogicalDevice>&& dev,
+            const ILogicalDevice* dev,
             core::smart_refctd_ptr<const IGPUShader>&& shader,
             const core::bitflag<SCreationParams::FLAGS> _flags,
             const VkPipeline pipeline
-        ) : IGPUComputePipeline(std::move(dev),_flags), m_pipeline(pipeline), m_shader(std::move(shader)) {}
+        ) : IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),_flags), m_pipeline(pipeline), m_shader(std::move(shader)) {}
 
         inline VkPipeline getInternalObject() const { return m_pipeline; }
     

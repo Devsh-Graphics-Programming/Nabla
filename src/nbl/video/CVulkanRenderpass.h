@@ -13,8 +13,8 @@ class ILogicalDevice;
 class CVulkanRenderpass final : public IGPURenderpass
 {
     public:
-        inline explicit CVulkanRenderpass(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, const SCreationParams& params, const SCreationParamValidationResult& counts, VkRenderPass vk_renderpass)
-            : IGPURenderpass(std::move(logicalDevice),params,counts), m_renderpass(vk_renderpass) {}
+        inline explicit CVulkanRenderpass(const ILogicalDevice* logicalDevice, const SCreationParams& params, const SCreationParamValidationResult& counts, VkRenderPass vk_renderpass)
+            : IGPURenderpass(core::smart_refctd_ptr<const ILogicalDevice>(logicalDevice),params,counts), m_renderpass(vk_renderpass) {}
 
         ~CVulkanRenderpass();
 

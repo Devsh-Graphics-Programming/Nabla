@@ -81,15 +81,14 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         inline bool allowsFreeing() const { return m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT); }
 
     protected:
-        IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo);
-
+        IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreateInfo& createInfo);
         virtual ~IDescriptorPool()
         {
             assert(m_descriptorSetAllocator.get_allocated_size() == 0);
-#ifdef _NBL_DEBUG
+        #ifdef _NBL_DEBUG
             for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
                 assert(m_allocatedDescriptorSets[i] == nullptr);
-#endif
+        #endif
         }
 
         virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;

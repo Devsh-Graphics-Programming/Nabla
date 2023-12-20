@@ -4,10 +4,11 @@
 namespace nbl::video
 {
 CVulkanMemoryAllocation::CVulkanMemoryAllocation(
-    core::smart_refctd_ptr<const CVulkanLogicalDevice>&& dev, const size_t size,
-    const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags, const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
+    const CVulkanLogicalDevice* dev, const size_t size,
+    const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags,
+    const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
     const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
-) : IDeviceMemoryAllocation(dev.get(),size,flags,memoryPropertyFlags,isDedicated), m_vulkanDevice(dev.get()), m_deviceMemoryHandle(deviceMemoryHandle) {}
+) : IDeviceMemoryAllocation(dev,size,flags,memoryPropertyFlags,isDedicated), m_vulkanDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle) {}
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {

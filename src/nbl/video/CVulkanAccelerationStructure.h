@@ -233,6 +233,7 @@ inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(cons
 		else
 			getVkASGeometryFrom(info.triangles[j],vk_geom,p_vertexMotion);
 	}
+	return vk_info;
 }
 
 inline void getVkASBuildRangeInfos(const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::BuildRangeInfo*const pBuildRanges, VkAccelerationStructureBuildRangeInfoKHR* &out_vk_infos)

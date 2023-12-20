@@ -36,7 +36,8 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
             m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
                         
             const uint32_t ix = offset + j;
-            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,famIx,flags,priority));
+            auto queue = std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,famIx,flags,priority);
+            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::move(queue));
         }
     }
 
@@ -66,7 +67,7 @@ auto CVulkanLogicalDevice::waitForSemaphores(const uint32_t count, const SSemaph
     core::vector<uint64_t> values(count);
     for (auto i=0u; i<count; i++)
     {
-        auto sema = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(infos[i].semaphore,this);
+        auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(infos[i].semaphore,this);
         if (!sema)
             WAIT_RESULT::_ERROR;
         semaphores[i] = sema->getInternalObject();
@@ -116,7 +117,7 @@ core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredO
     if (!memory)
         return nullptr;
 
-    new (memory) CVulkanDeferredOperation(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),vk_deferredOp);
+    new (memory) CVulkanDeferredOperation(this,vk_deferredOp);
     return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
 }
 
@@ -165,7 +166,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 
     // automatically allocation goes out of scope and frees itself if no success later on
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,info.dedication,vk_deviceMemory,allocateFlags,memoryPropertyFlags);
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,allocateFlags,memoryPropertyFlags,info.dedication,vk_deviceMemory);
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {
@@ -227,7 +228,7 @@ bool CVulkanLogicalDevice::invalidateMappedMemoryRanges_impl(const core::SRange<
 
     VkMappedMemoryRange vk_memoryRanges[MAX_MEMORY_RANGE_COUNT];
     getVkMappedMemoryRanges(vk_memoryRanges,ranges);
-    m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev,ranges.size(),vk_memoryRanges)==VK_SUCCESS;
+    return m_devf.vk.vkInvalidateMappedMemoryRanges(m_vkdev,ranges.size(),vk_memoryRanges)==VK_SUCCESS;
 }
 
 
@@ -298,7 +299,7 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     VkBuffer vk_buffer;
     if (m_devf.vk.vkCreateBuffer(m_vkdev,&vk_createInfo,nullptr,&vk_buffer)!=VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanBuffer>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(creationParams),vk_buffer);
+    return core::make_smart_refctd_ptr<CVulkanBuffer>(this,std::move(creationParams),vk_buffer);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
@@ -313,7 +314,7 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
 
     VkBufferView vk_bufferView;
     if (m_devf.vk.vkCreateBufferView(m_vkdev,&vk_createInfo,nullptr,&vk_bufferView)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanBufferView>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),std::move(underlying),_fmt,vk_bufferView);
+        return core::make_smart_refctd_ptr<CVulkanBufferView>(this,std::move(underlying),_fmt,vk_bufferView);
     return nullptr;
 }
 
@@ -350,7 +351,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     VkImage vk_image;
     if (m_devf.vk.vkCreateImage(m_vkdev,&vk_createInfo,nullptr,&vk_image)!=VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanImage>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(params),vk_image);
+    return core::make_smart_refctd_ptr<CVulkanImage>(this,std::move(params),vk_image);
 }
 
 core::smart_refctd_ptr<IGPUImageView> CVulkanLogicalDevice::createImageView_impl(IGPUImageView::SCreationParams&& params)
@@ -377,6 +378,7 @@ core::smart_refctd_ptr<IGPUImageView> CVulkanLogicalDevice::createImageView_impl
     VkImageView vk_imageView;
     if (m_devf.vk.vkCreateImageView(m_vkdev,&vk_createInfo,nullptr,&vk_imageView)==VK_SUCCESS)
         return core::make_smart_refctd_ptr<CVulkanImageView>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(params),vk_imageView);
+    return nullptr;
 }
 
 core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IGPUSampler::SParams& _params)
@@ -495,7 +497,7 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader_impl(const
 
     VkShaderModule vk_shaderModule;
     if (m_devf.vk.vkCreateShaderModule(m_vkdev,&vk_createInfo,nullptr,&vk_shaderModule)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<video::CVulkanShader>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),spirvShader->getStage(),std::string(spirvShader->getFilepathHint()),vk_shaderModule);
+        return core::make_smart_refctd_ptr<video::CVulkanShader>(this,spirvShader->getStage(),std::string(spirvShader->getFilepathHint()),vk_shaderModule);
     return nullptr;
 }
 
@@ -535,7 +537,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 
     VkDescriptorSetLayout vk_dsLayout;
     if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&vk_dsLayout)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),bindings,vk_dsLayout);
+        return core::make_smart_refctd_ptr<CVulkanDescriptorSetLayout>(this,bindings,vk_dsLayout);
     return nullptr;
 }
 
@@ -578,7 +580,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineL
                 
     VkPipelineLayout vk_pipelineLayout;
     if (m_devf.vk.vkCreatePipelineLayout(m_vkdev,&vk_createInfo,nullptr,&vk_pipelineLayout)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),pcRanges,std::move(layout0),std::move(layout1),std::move(layout2),std::move(layout3),vk_pipelineLayout);
+        return core::make_smart_refctd_ptr<CVulkanPipelineLayout>(this,pcRanges,std::move(layout0),std::move(layout1),std::move(layout2),std::move(layout3),vk_pipelineLayout);
     return nullptr;
 }
 
@@ -607,7 +609,7 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 
     VkDescriptorPool vk_descriptorPool;
     if (m_devf.vk.vkCreateDescriptorPool(m_vkdev,&vk_createInfo,nullptr,&vk_descriptorPool)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(createInfo),vk_descriptorPool);
+        return core::make_smart_refctd_ptr<CVulkanDescriptorPool>(this,std::move(createInfo),vk_descriptorPool);
     return nullptr;
 }
 
@@ -894,7 +896,7 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
 
     VkRenderPass vk_renderpass;
     if (m_devf.vk.vkCreateRenderPass2(m_vkdev,&createInfo,nullptr,&vk_renderpass)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanRenderpass>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),params,vk_renderpass);
+        return core::make_smart_refctd_ptr<CVulkanRenderpass>(this,params,validation,vk_renderpass);
     return nullptr;
 }
 
@@ -1033,10 +1035,11 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     {
         for (size_t i=0ull; i<createInfos.size(); ++i)
         {
+            const auto& info = createInfos[i];
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),core::smart_refctd_ptr<const IGPUShader>(createInfos[i].shader.shader),vk_pipeline);
+            output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(this,core::smart_refctd_ptr<const IGPUShader>(info.shader.shader),info.flags,vk_pipeline);
         }
     }
     else
@@ -1434,7 +1437,7 @@ core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(co
 
     VkQueryPool vk_queryPool = VK_NULL_HANDLE;
     if (m_devf.vk.vkCreateQueryPool(m_vkdev,&info,nullptr,&vk_queryPool)!=VK_SUCCESS)
-        return core::make_smart_refctd_ptr<const CVulkanQueryPool>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),std::move(params),vk_queryPool);
+        return core::make_smart_refctd_ptr<CVulkanQueryPool>(this,params,vk_queryPool);
     return nullptr;
 }
 

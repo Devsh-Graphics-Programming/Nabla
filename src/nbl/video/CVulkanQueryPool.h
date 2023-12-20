@@ -12,8 +12,8 @@ namespace nbl::video
 class CVulkanQueryPool : public IQueryPool
 {
 	public:
-		CVulkanQueryPool(core::smart_refctd_ptr<const CVulkanLogicalDevice>&& dev, const SCreationParams& params, const VkQueryPool vkQueryPool)
-			: IQueryPool(std::move(dev),params), m_queryPool(vkQueryPool) {}
+		CVulkanQueryPool(const ILogicalDevice* dev, const SCreationParams& params, const VkQueryPool vkQueryPool)
+			: IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>(dev),params), m_queryPool(vkQueryPool) {}
 	
 		inline VkQueryPool getInternalObject() const { return m_queryPool; }
 	

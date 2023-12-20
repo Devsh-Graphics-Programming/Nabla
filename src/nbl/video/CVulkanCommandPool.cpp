@@ -1,4 +1,5 @@
 #include "nbl/video/CVulkanCommandPool.h"
+#include "nbl/video/CVulkanCommandBuffer.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
 namespace nbl::video
