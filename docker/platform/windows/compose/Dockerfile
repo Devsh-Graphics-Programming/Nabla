@@ -73,6 +73,10 @@ RUN `
 	choco install -y python --version 3.11.7
 
 RUN `
+	# Donwload debugpy Python module
+	python -m pip install --upgrade debugpy
+
+RUN `
 	# Download & install git 2.43.0
 	`
 	choco install -y git --version 2.43.0

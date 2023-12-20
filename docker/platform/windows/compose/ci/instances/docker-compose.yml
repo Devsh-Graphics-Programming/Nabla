@@ -4,8 +4,10 @@ services:
   nabla.static.release.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.static.release.x86_64.windows
+    hostname: dev.nabla.static.release.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.3
     volumes:
       - type: volume
         source: ssh
@@ -17,11 +19,15 @@ services:
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "static"]
+    ports:
+      - "5678:5678"
   nabla.static.relwithdebinfo.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.static.relwithdebinfo.x86_64.windows
+    hostname: dev.nabla.static.relwithdebinfo.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.4
     volumes:
       - type: volume
         source: ssh
@@ -33,11 +39,15 @@ services:
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "static"]
+    ports:
+      - "5678:5678"
   nabla.static.debug.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.static.debug.x86_64.windows
+    hostname: dev.nabla.static.debug.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.5
     volumes:
       - type: volume
         source: ssh
@@ -49,11 +59,15 @@ services:
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "static"]
+    ports:
+      - "5678:5678"
   nabla.dynamic.release.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.release.x86_64.windows
+    hostname: dev.nabla.dynamic.release.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.6
     volumes:
       - type: volume
         source: ssh
@@ -65,11 +79,15 @@ services:
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "dynamic"]
+    ports:
+      - "5678:5678"
   nabla.dynamic.relwithdebinfo.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.relwithdebinfo.x86_64.windows
+    hostname: dev.nabla.dynamic.relwithdebinfo.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.7
     volumes:
       - type: volume
         source: ssh
@@ -81,11 +99,15 @@ services:
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "dynamic"]
+    ports:
+      - "5678:5678"
   nabla.dynamic.debug.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.debug.x86_64.windows
+    hostname: dev.nabla.dynamic.debug.x86_64.windows
     networks:
-      - docker_default
+      nablaNetwork:
+        ipv4_address: 172.28.5.8
     volumes:
       - type: volume
         source: ssh
@@ -96,9 +118,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "dynamic"]
+    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "dynamic", "--debug", "True"]
+    ports:
+      - "5678:5678"
 networks:
-  docker_default:
+  nablaNetwork:
     external: true
 volumes:
     ssh:

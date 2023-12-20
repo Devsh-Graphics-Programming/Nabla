@@ -1,4 +1,15 @@
-import os, subprocess, sys, argparse, glob, time, ptvsd 
+import os, subprocess, sys, argparse, glob, debugpy, asyncio, socket
+
+def getLocalIPV4():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        local_ipv4 = s.getsockname()[0] # Get the local IPv4 address
+        s.close()
+        
+        return local_ipv4
+    except socket.error:
+        return None
 
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Framework cross platform build pipeline script")
@@ -8,12 +19,11 @@ def parseInputArguments():
     parser.add_argument("--config", help="Target CMake configuration", type=str, default="Release")
     parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
-    parser.add_argument("--debug", help="Wait for debugger to attach", type="bool", default="False")
+    parser.add_argument("--debug", help="Wait for debugger to attach", type=bool, default=False)
 
     args = parser.parse_args()
     
     return args
-
 
 def clone(targetRevision):
     subprocess.run(f"git init", check=True)
@@ -32,9 +42,9 @@ async def configure(libType, updateSubmodulesOnly=False):
 
     print(f'[{cmd!r} exited with {proc.returncode}]')
     if stdout:
-        print(f'[stdout]\n{stdout.decode()}')
+        print(f'[stdout]:\n{stdout.decode()}')
     if stderr:
-        print(f'[stderr]\n{stderr.decode()}')
+        print(f'[stderr]:\n{stderr.decode()}')
 
 def updateSubmodules():
     return subprocess.run(f"cmake -S . -B ./build_submodules_update -DNBL_EXIT_ON_UPDATE_GIT_SUBMODULE=ON -DNBL_CI_GIT_SUBMODULES_SHALLOW=ON", check=True)
@@ -73,12 +83,20 @@ async def main():
         targetRevision = args.target_revision
         config = args.config
         libType = args.libType
-
         
-        if args.DEBUG:
-            ptvsd.enable_attach(address=("127.0.0.1", 5678), redirect_output=True)
-            print("Waiting for debugger to attach...")
-            ptvsd.wait_for_attach()
+        if args.debug:
+            localIPV4 = getLocalIPV4()
+
+            if localIPV4:
+                print(f"Running Debug Server on: {localIPV4}")
+            else:
+                print("Unable to retrieve local IPv4 address! Exiting..")
+                exit(-1)
+
+            debugpy.listen((f"{localIPV4}", 5678))
+            print("Waiting for debugger attach")
+            debugpy.wait_for_client()
+            debugpy.breakpoint()
 
         print(f"Target \"{targetRevision}\"")
 
