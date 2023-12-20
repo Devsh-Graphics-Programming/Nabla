@@ -14,7 +14,7 @@ class ILogicalDevice;
 class CVulkanSwapchain final : public ISwapchain
 {
     public:
-        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
 
         core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
@@ -44,8 +44,8 @@ class CVulkanSwapchain final : public ISwapchain
             return info;
         }
 
-        IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
-        VkSwapchainKHR m_vkSwapchainKHR;
+        const IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
+        const VkSwapchainKHR m_vkSwapchainKHR;
         VkImage m_images[ISwapchain::MaxImages];
         VkSemaphore m_adaptorSemaphores[2*ISwapchain::MaxImages];
         uint8_t m_internalCounter = 0u;

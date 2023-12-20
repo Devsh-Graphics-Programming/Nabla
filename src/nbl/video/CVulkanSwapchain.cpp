@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
 { 
     if (!logicalDevice || logicalDevice->getAPIType()!=EAT_VULKAN || logicalDevice->getEnabledFeatures().swapchainMode==ESM_NONE)
         return nullptr;
@@ -30,14 +30,16 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
 
     // get present mode
     VkPresentModeKHR vkPresentMode;
-    if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_IMMEDIATE) == ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
+    if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
         vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    else if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_MAILBOX) == ISurface::E_PRESENT_MODE::EPM_MAILBOX)
+    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_MAILBOX)
         vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    else if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO) == ISurface::E_PRESENT_MODE::EPM_FIFO)
+    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_FIFO)
         vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    else if ((params.presentMode & ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED) == ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
+    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
         vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    else
+        return nullptr;
     
     //! fill format list for mutable formats
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
@@ -95,7 +97,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
         return nullptr;
 
     uint32_t imageCount;
-    VkResult retval = vk.vkGetSwapchainImagesKHR(device->getInternalObject(), vk_swapchain, &imageCount, nullptr);
+    VkResult retval = vk.vkGetSwapchainImagesKHR(device->getInternalObject(),vk_swapchain,&imageCount,nullptr);
     if (retval!=VK_SUCCESS)
         return nullptr;
 
@@ -118,14 +120,8 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(const core::sm
 }
 
 CVulkanSwapchain::CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores)
-    : ISwapchain(std::move(logicalDevice), std::move(params), imageCount), m_vkSwapchainKHR(swapchain)
+    : ISwapchain(std::move(logicalDevice),std::move(params),imageCount), m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain)
 {
-    m_imgMemRequirements.size = 0ull;
-    m_imgMemRequirements.memoryTypeBits = 0x0u;
-    m_imgMemRequirements.alignmentLog2 = 63u;
-    m_imgMemRequirements.prefersDedicatedAllocation = true;
-    m_imgMemRequirements.requiresDedicatedAllocation = true;
-
     {
         const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
         uint32_t dummy = imageCount;
@@ -144,7 +140,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     for (auto i=0u; i<2*m_imageCount; i++)
         vk.vkDestroySemaphore(vulkanDevice->getInternalObject(),m_adaptorSemaphores[i],nullptr);
 
-    vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(), m_vkSwapchainKHR, nullptr);
+    vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(),m_vkSwapchainKHR,nullptr);
 }
 
 
@@ -310,17 +306,19 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     //     assert(vk_images[i]);
     // }
 
-    auto device = core::smart_refctd_ptr<const CVulkanLogicalDevice>(static_cast<const CVulkanLogicalDevice*>(getOriginDevice()));
+    auto device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 
     IGPUImage::SCreationParams creationParams = {};
-    static_cast<asset::IImage::SCreationParams&>(creationParams) = m_imgCreationParams;
+    static_cast<asset::IImage::SCreationParams&>(creationParams) = getImageCreationParams();
+    creationParams.preDestroyCleanup = std::make_unique<CCleanupSwapchainReference>(core::smart_refctd_ptr<ISwapchain>(this), imageIndex);
+    creationParams.postDestroyCleanup = nullptr;
+    creationParams.queueFamilyIndexCount = getCreationParameters().queueFamilyIndexCount;
+    creationParams.skipHandleDestroy = true;
+    creationParams.queueFamilyIndices = getCreationParameters().queueFamilyIndices;
+    creationParams.tiling = IGPUImage::TILING::OPTIMAL;
+    creationParams.preinitialized = false;
 
-    m_imgCreationParams.preDestroyCleanup = std::make_unique<CCleanupSwapchainReference>(core::smart_refctd_ptr<ISwapchain>(this),imageIndex);
-    m_imgCreationParams.skipHandleDestroy = true;
-    m_imgCreationParams.queueFamilyIndexCount = m_params.queueFamilyIndexCount;
-    m_imgCreationParams.queueFamilyIndices = m_params.queueFamilyIndices;
-
-    return core::make_smart_refctd_ptr<CVulkanImage>(device.get(),m_imgMemRequirements,std::move(creationParams),m_images[imageIndex]);
+    return core::make_smart_refctd_ptr<CVulkanImage>(device,std::move(creationParams),m_imgMemRequirements,m_images[imageIndex]);
 }
 
 void CVulkanSwapchain::setObjectDebugName(const char* label) const

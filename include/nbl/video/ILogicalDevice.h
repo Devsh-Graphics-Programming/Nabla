@@ -12,7 +12,6 @@
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
-#include "nbl/video/ISwapchain.h"
 #include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video

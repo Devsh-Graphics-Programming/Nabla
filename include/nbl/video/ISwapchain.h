@@ -3,9 +3,8 @@
 
 #include "nbl/core/util/bitflag.h"
 
-#include "nbl/video/IGPUImage.h"
-#include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/surface/ISurface.h"
+#include "nbl/video/ILogicalDevice.h"
 
 
 namespace nbl::video
@@ -139,21 +138,25 @@ class ISwapchain : public IBackendObject
             assert(m_imageExists.load()==0u);
         }
 
+        inline const auto& getImageCreationParams() const {return m_imgCreationParams;}
+
         virtual ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) = 0;
         virtual PRESENT_RESULT present_impl(const SPresentInfo& info) = 0;
 
         // Returns false if the image already existed
         bool setImageExists(uint32_t ix) { return (m_imageExists.fetch_or(1U << ix) & (1U << ix)) == 0; }
 
-        SCreationParams m_params;
-        uint8_t m_imageCount;
+        const uint8_t m_imageCount;
         std::atomic_uint32_t m_imageExists = 0;
-        IGPUImage::SCreationParams m_imgCreationParams;
 
     private:
         friend class CCleanupSwapchainReference;
         //
         void freeImageExists(uint32_t ix) { m_imageExists.fetch_and(~(1U << ix)); }
+
+        SCreationParams m_params;
+        asset::IImage::SCreationParams m_imgCreationParams;
+        std::array<uint32_t,ILogicalDevice::SCreationParams::MaxQueueFamilies> m_queueFamilies;
 
     public:
         static inline constexpr uint32_t MaxImages = sizeof(m_imageExists)*8u;
