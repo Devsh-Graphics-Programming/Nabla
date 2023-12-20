@@ -91,7 +91,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
-            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
+            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(std::span<const SPushConstantRange>(&pcRng,1),nullptr,core::smart_refctd_ptr(ds1layout),nullptr,nullptr);
             auto assetbundle = SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) });
             insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }

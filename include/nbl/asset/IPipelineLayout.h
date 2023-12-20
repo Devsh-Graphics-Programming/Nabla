@@ -86,8 +86,8 @@ struct SPushConstantRange
 template<typename DescLayoutType>
 class IPipelineLayout
 {
-public:
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESCRIPTOR_SET_COUNT = 4u;
+    public:
+        static inline constexpr uint32_t DESCRIPTOR_SET_COUNT = 4u;
 
     const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
     core::SRange<const SPushConstantRange> getPushConstantRanges() const 
@@ -135,24 +135,20 @@ public:
         return static_cast<int32_t>(i)-1;
     }
 
-protected:
-    virtual ~IPipelineLayout() = default;
+    protected:
+        IPipelineLayout(
+            const std::span<const asset::SPushConstantRange>& _pcRanges,
+            core::smart_refctd_ptr<DescLayoutType>&& _layout0, core::smart_refctd_ptr<DescLayoutType>&& _layout1,
+            core::smart_refctd_ptr<DescLayoutType>&& _layout2, core::smart_refctd_ptr<DescLayoutType>&& _layout3
+        ) : m_descSetLayouts{{std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3)}}
+        {
+            if (!_pcRanges.empty())
+                m_pushConstantRanges = core::make_refctd_dynamic_array<decltype(m_pushConstantRanges)>(_pcRanges);
+        }
+        virtual ~IPipelineLayout() = default;
 
-public:
-    IPipelineLayout(
-        const SPushConstantRange* const _pcRangesBegin = nullptr, const SPushConstantRange* const _pcRangesEnd = nullptr,
-        core::smart_refctd_ptr<DescLayoutType>&& _layout0 = nullptr, core::smart_refctd_ptr<DescLayoutType>&& _layout1 = nullptr,
-        core::smart_refctd_ptr<DescLayoutType>&& _layout2 = nullptr, core::smart_refctd_ptr<DescLayoutType>&& _layout3 = nullptr
-    ) : m_descSetLayouts{{std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3)}},
-        m_pushConstantRanges(_pcRangesBegin==_pcRangesEnd ? nullptr : core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(_pcRangesEnd-_pcRangesBegin))
-    {
-        if (m_pushConstantRanges)
-            std::copy(_pcRangesBegin, _pcRangesEnd, m_pushConstantRanges->begin());
-    }
-
-
-    std::array<core::smart_refctd_ptr<DescLayoutType>, DESCRIPTOR_SET_COUNT> m_descSetLayouts;
-    core::smart_refctd_dynamic_array<SPushConstantRange> m_pushConstantRanges;
+        std::array<core::smart_refctd_ptr<DescLayoutType>,DESCRIPTOR_SET_COUNT> m_descSetLayouts;
+        core::smart_refctd_dynamic_array<SPushConstantRange> m_pushConstantRanges;
 };
 
 }

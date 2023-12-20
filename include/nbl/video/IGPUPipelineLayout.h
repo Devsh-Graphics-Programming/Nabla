@@ -20,17 +20,16 @@ namespace nbl::video
     @see IPipelineLayout
 */
 
-class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<IGPUDescriptorSetLayout>
+class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<const IGPUDescriptorSetLayout>
 {
-        using base_t = asset::IPipelineLayout<IGPUDescriptorSetLayout>;
+        using base_t = asset::IPipelineLayout<const IGPUDescriptorSetLayout>;
 
     public:
         IGPUPipelineLayout(
-            core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
-        ) : IBackendObject(std::move(dev)), base_t(_pcRangesBegin,_pcRangesEnd,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
+            core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const asset::SPushConstantRange>& _pcRanges,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3
+        ) : IBackendObject(std::move(dev)), base_t(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
     protected:
         virtual ~IGPUPipelineLayout() = default;
