@@ -20,6 +20,7 @@ def parseInputArguments():
     parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
     parser.add_argument("--debug", help="Wait for debugger to attach", type=bool, default=False)
+    parser.add_argument("--dlp", help="Debug listen port", type=int, default=5678)
 
     args = parser.parse_args()
     
@@ -88,12 +89,12 @@ async def main():
             localIPV4 = getLocalIPV4()
 
             if localIPV4:
-                print(f"Running Debug Server on: {localIPV4}")
+                print(f"Running Debug Server on: {localIPV4}:{args.dlp}")
             else:
                 print("Unable to retrieve local IPv4 address! Exiting..")
                 exit(-1)
 
-            debugpy.listen((f"{localIPV4}", 5678))
+            debugpy.listen((f"{localIPV4}", args.dlp))
             print("Waiting for debugger attach")
             debugpy.wait_for_client()
             debugpy.breakpoint()

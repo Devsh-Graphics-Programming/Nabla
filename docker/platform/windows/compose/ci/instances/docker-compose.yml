@@ -18,9 +18,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "static"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "static", "--dlp", "5679", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5679:5679"
   nabla.static.relwithdebinfo.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.static.relwithdebinfo.x86_64.windows
@@ -38,9 +40,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "static"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "static", "--dlp", "5680", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5680:5680"
   nabla.static.debug.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.static.debug.x86_64.windows
@@ -58,9 +62,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "static"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "static", "--dlp", "5681", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5681:5681"
   nabla.dynamic.release.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.release.x86_64.windows
@@ -78,9 +84,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "dynamic"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "Release", "--arch", "x86_64", "--libType", "dynamic", "--dlp", "5682", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5682:5682"
   nabla.dynamic.relwithdebinfo.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.relwithdebinfo.x86_64.windows
@@ -98,9 +106,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "dynamic"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "RelWithDebInfo", "--arch", "x86_64", "--libType", "dynamic", "--dlp", "5683", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5683:5683"
   nabla.dynamic.debug.x86_64:
     image: artifactory.devsh.eu/nabla/windows/instance:latest
     container_name: dev.nabla.dynamic.debug.x86_64.windows
@@ -118,9 +128,11 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "dynamic", "--debug", "True"]
+    environment:
+      - BUILD_SCRIPT_ARGS=${BUILD_SCRIPT_ARGS}
+    entrypoint: ["build.bat", "--build", "True", "--config", "Debug", "--arch", "x86_64", "--libType", "dynamic", "--debug", "True", "--dlp", "5684", "%BUILD_SCRIPT_ARGS%"]
     ports:
-      - "5678:5678"
+      - "5684:5684"
 networks:
   nablaNetwork:
     external: true
