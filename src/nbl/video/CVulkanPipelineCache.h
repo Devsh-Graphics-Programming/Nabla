@@ -17,12 +17,16 @@ class CVulkanPipelineCache final : public IGPUPipelineCache
         CVulkanPipelineCache(core::smart_refctd_ptr<ILogicalDevice>&& dev, const VkPipelineCache pipelineCache)
             : IGPUPipelineCache(std::move(dev)), m_pipelineCache(pipelineCache) {}
 
-        inline VkPipelineCache getInternalObject() const {return m_pipelineCache;}
+        core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const override;
 
         void setObjectDebugName(const char* label) const override;
 
+        inline VkPipelineCache getInternalObject() const {return m_pipelineCache;}
+
     private:
         ~CVulkanPipelineCache();
+
+        bool merge_impl(const std::span<const IGPUPipelineCache*>& _srcCaches) override;
 
         const VkPipelineCache m_pipelineCache;
 };

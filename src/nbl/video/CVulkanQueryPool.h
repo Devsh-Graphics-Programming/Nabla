@@ -46,6 +46,11 @@ class CVulkanQueryPool : public IQueryPool
 			return static_cast<VkQueryResultFlags>(in);
 		}
 
+		static inline VkQueryControlFlags getVkQueryControlFlagsFrom(const IGPUCommandBuffer::QUERY_CONTROL_FLAGS in)
+		{
+			return static_cast<VkQueryControlFlags>(in);
+		}
+
 	private:
 		~CVulkanQueryPool();
 

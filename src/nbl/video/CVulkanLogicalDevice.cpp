@@ -946,7 +946,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         // provide tight control over the cache handles making sure you hit it (what the `FAIL_ON_PIPELINE_COMPILE_REQUIRED` flag is for),
         // in that case you have a `VkPipelineShaderStageModuleIdentifier` in `pNext` with non-zero length identifier.
         // TL;DR Basically you can skip needing the SPIR-V contents to hash the IGPUShader, we may implement this later on.
-        const void** ppNext = &retval.pNext;
+        void** ppNext = const_cast<void**>(&retval.pNext);
         // TODO: VkShaderModuleValidationCacheCreateInfoEXT from VK_EXT_validation_cache
         // TODO: VkPipelineRobustnessCreateInfoEXT from VK_EXT_pipeline_robustness (allows per-pipeline control of robustness)
 

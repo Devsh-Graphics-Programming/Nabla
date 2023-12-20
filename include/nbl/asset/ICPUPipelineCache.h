@@ -17,17 +17,17 @@ class ICPUPipelineCache final : public IAsset
 	public:
 		struct SCacheKey
 		{
-			std::string deviceAndDriverUUID;
-			core::smart_refctd_dynamic_array<uint8_t> meta;
+			std::string deviceAndDriverUUID = {};
+			core::smart_refctd_dynamic_array<uint8_t> meta = {};
 
 			bool operator<(const SCacheKey& _rhs) const
 			{
 				if (deviceAndDriverUUID==_rhs.deviceAndDriverUUID)
 				{
+					if (!meta || !_rhs.meta)
+						return bool(_rhs.meta);
 					if (meta->size()==_rhs.meta->size())
-					{
 						return memcmp(meta->data(), _rhs.meta->data(), meta->size()) < 0;
-					}
 					return meta->size()<_rhs.meta->size();
 				}
 				return deviceAndDriverUUID < _rhs.deviceAndDriverUUID;
@@ -35,11 +35,10 @@ class ICPUPipelineCache final : public IAsset
 		};
 		struct SCacheVal
 		{
-			uint32_t extra;
 			core::smart_refctd_dynamic_array<uint8_t> bin;
 		};
 
-		using entries_map_t = core::map<SCacheKey, SCacheVal>;
+		using entries_map_t = core::map<SCacheKey,SCacheVal>;
 
 		explicit ICPUPipelineCache(entries_map_t&& _entries) : m_cache(std::move(_entries)) {}
 
