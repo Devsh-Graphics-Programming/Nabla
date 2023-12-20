@@ -48,8 +48,11 @@ void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamily
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-04088
     if (concurrentSharing)
         selfQueueFamilyIndex = IQueue::FamilyIgnored;
-    out.srcQueueFamilyIndex = selfQueueFamilyIndex;
-    out.dstQueueFamilyIndex = selfQueueFamilyIndex;
+    if constexpr (!std::is_same_v<vk_barrier_t,VkMemoryBarrier2>)
+    {
+        out.srcQueueFamilyIndex = selfQueueFamilyIndex;
+        out.dstQueueFamilyIndex = selfQueueFamilyIndex;
+    }
     const asset::SMemoryBarrier* memoryBarrier;
     if constexpr (std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
     {
@@ -72,9 +75,29 @@ void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamily
     out.dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(memoryBarrier->dstStageMask);
     out.dstAccessMask = getVkAccessFlagsFromAccessFlags(memoryBarrier->dstAccessMask);
 }
+
+template<typename SubresourceRange> requires nbl::is_any_of_v<SubresourceRange,IGPUImage::SSubresourceRange,IGPUImage::SSubresourceLayers>
+static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> std::conditional_t<std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>,VkImageSubresourceRange,VkImageSubresourceLayers>
+{
+    constexpr bool rangeNotLayers =  std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>;
+
+    std::conditional_t<rangeNotLayers,VkImageSubresourceRange,VkImageSubresourceLayers> retval = {};
+    retval.aspectMask = static_cast<VkImageAspectFlags>(range.aspectMask.value);
+    if constexpr (rangeNotLayers)
+    {
+        retval.baseMipLevel = range.baseMipLevel;
+        retval.levelCount = range.layerCount;
+    }
+    else
+        retval.mipLevel = range.mipLevel;
+    retval.baseArrayLayer = range.baseArrayLayer;
+    retval.layerCount = range.layerCount;
+    return retval;
+}
+
 template<typename ResourceBarrier>
 VkDependencyInfoKHR fill(
-    VkMemoryBarrier2KHR* memoryBarriers, VkBufferMemoryBarrier2KHR* bufferBarriers, VkImageMemoryBarrier2KHR* imageBarriers,
+    VkMemoryBarrier2* memoryBarriers, VkBufferMemoryBarrier2* bufferBarriers, VkImageMemoryBarrier2* imageBarriers,
     const IGPUCommandBuffer::SDependencyInfo<ResourceBarrier>& depInfo, const uint32_t selfQueueFamilyIndex=IQueue::FamilyIgnored
 ) {
     VkDependencyInfoKHR info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,nullptr };
@@ -108,7 +131,7 @@ VkDependencyInfoKHR fill(
         out.newLayout = getVkImageLayoutFromImageLayout(in.newLayout);
         fill(out,in.barrier,selfQueueFamilyIndex,in.image->getCachedCreationParams().isConcurrentSharing());
         out.image = static_cast<const CVulkanImage*>(in.image)->getInternalObject();
-        out.subresourceRange = in.subresourceRange;
+        out.subresourceRange = getVkImageSubresourceFrom(in.subresourceRange);
     }
     info.dependencyFlags = 0u;
     info.memoryBarrierCount = depInfo.memBarrierCount;
@@ -221,21 +244,6 @@ bool CVulkanCommandBuffer::copyBuffer_impl(const IGPUBuffer* const srcBuffer, IG
     return true;
 }
 
-
-template<typename SubresourceRange>
-static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> std::conditional_t<std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>,VkImageSubresourceRange,VkImageSubresourceLayers>
-{
-    constexpr bool rangeNotLayers =  std::is_same_v<SubresourceRange,IGPUImage::SSubresourceRange>;
-
-    std::conditional_t<rangeNotLayers,VkImageSubresourceRange,VkImageSubresourceLayers> retval = {};
-    retval.aspectMask = static_cast<VkImageAspectFlags>(range.aspectMask.value);
-    if constexpr (!rangeNotLayers)
-        retval.baseMipLevel = range.baseMipLevel;
-    retval.levelCount = range.layerCount;
-    retval.baseArrayLayer = range.baseArrayLayer;
-    retval.layerCount = range.layerCount;
-    return retval;
-}
 
 bool CVulkanCommandBuffer::clearColorImage_impl(IGPUImage* const image, const IGPUImage::LAYOUT imageLayout, const SClearColorValue* const pColor, const uint32_t rangeCount, const IGPUImage::SSubresourceRange* const pRanges)
 {
@@ -489,7 +497,7 @@ bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, cons
 
 bool CVulkanCommandBuffer::beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags)
 {
-    const auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFromQueryControlFlags(flags.value);
+    const auto vk_flags = CVulkanQueryPool::getVkQueryControlFlagsFrom(flags.value);
     getFunctionTable().vkCmdBeginQuery(m_cmdbuf, static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query, vk_flags);
     return true;
 }
@@ -512,11 +520,11 @@ bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core:
     if (!vk_accelerationStructures)
         return false;
     for (size_t i=0; i<pAccelerationStructures.size(); ++i)
-        vk_accelerationStructures[i] = static_cast<const CVulkanAccelerationStructure*>(pAccelerationStructures[i])->getInternalObject();
+        vk_accelerationStructures[i] = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUAccelerationStructure*>(pAccelerationStructures[i])->getNativeHandle());
 
     getFunctionTable().vkCmdWriteAccelerationStructuresPropertiesKHR(
         m_cmdbuf, vk_accelerationStructures.size(), vk_accelerationStructures.data(),
-        CVulkanQueryPool::getVkQueryTypeFromQueryType(queryType), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery
+        CVulkanQueryPool::getVkQueryTypeFrom(queryType), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery
     );
     return true;
 }
@@ -526,7 +534,7 @@ bool CVulkanCommandBuffer::copyQueryPoolResults_impl(const IQueryPool* const que
     getFunctionTable().vkCmdCopyQueryPoolResults(
         m_cmdbuf, static_cast<const CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery, queryCount,
         static_cast<CVulkanBuffer*>(dstBuffer.buffer.get())->getInternalObject(), dstBuffer.offset, stride,
-        CVulkanQueryPool::getVkQueryResultsFlagsFromQueryResultsFlags(flags.value)
+        CVulkanQueryPool::getVkQueryResultsFlagsFrom(flags.value)
     );
     return true;
 }
