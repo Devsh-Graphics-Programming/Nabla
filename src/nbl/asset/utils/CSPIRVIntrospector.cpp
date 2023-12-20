@@ -300,7 +300,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::createApproximate
     auto pcRanges = createPushConstantRangesFromIntrospection_impl(introspections,infos);
 
     return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-        (pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
+        std::span<const SPushConstantRange>(pcRanges ? pcRanges->data():nullptr,pcRanges ? pcRanges->size():0),
         std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
     );
 }

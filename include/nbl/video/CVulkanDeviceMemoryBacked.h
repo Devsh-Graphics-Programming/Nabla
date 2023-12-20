@@ -33,14 +33,16 @@ class CVulkanDeviceMemoryBacked : public Interface
 		inline VkResource_t getInternalObject() const {return m_handle;}
 
 	protected:
-		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle);
-
+		// special constructor for when memory requirements are known up-front (so far only swapchains and internal forwarding here)
+		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& _memReqs, const VkResource_t vkHandle);
+		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle) :
+			CVulkanDeviceMemoryBacked(dev,std::move(_creationParams),obtainRequirements(dev,vkHandle),vkHandle) {}
 	private:
 		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, const void* vkHandle);
 
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
 		size_t m_offset = 0u;
-		VkResource_t m_handle;
+		const VkResource_t m_handle;
 };
 
 #ifndef _NBL_VIDEO_C_VULKAN_DEVICE_MEMORY_BACKED_CPP_

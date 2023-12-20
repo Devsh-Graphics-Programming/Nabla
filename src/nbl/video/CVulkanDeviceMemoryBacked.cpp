@@ -30,8 +30,12 @@ IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interfa
 }
 
 template<class Interface>
-CVulkanDeviceMemoryBacked<Interface>::CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle)
-    : Interface(core::smart_refctd_ptr<const CVulkanLogicalDevice>(dev),std::move(_creationParams),obtainRequirements(dev,&vkHandle)), m_handle(vkHandle)
+CVulkanDeviceMemoryBacked<Interface>::CVulkanDeviceMemoryBacked(
+    const CVulkanLogicalDevice* dev,
+    Interface::SCreationParams&& _creationParams,
+    const IDeviceMemoryBacked::SDeviceMemoryRequirements& _memReqs,
+    const VkResource_t vkHandle
+) : Interface(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(_creationParams),_memReqs), m_handle(vkHandle)
 {
     assert(vkHandle!=VK_NULL_HANDLE);
 }

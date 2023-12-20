@@ -14,7 +14,8 @@ namespace nbl::video
 class CVulkanImage : public CVulkanDeviceMemoryBacked<IGPUImage>
 {
 	public:
-		inline CVulkanImage(const CVulkanLogicalDevice* dev, IGPUImage::SCreationParams&& _params, const VkImage _vkimg) : CVulkanDeviceMemoryBacked<IGPUImage>(dev,std::move(_params),_vkimg) {}
+		template<typename... Args>
+		inline CVulkanImage(Args&&... args) : CVulkanDeviceMemoryBacked<IGPUImage>(std::forward<Args>(args)...) {}
 
 		void setObjectDebugName(const char* label) const override;
 
@@ -23,5 +24,4 @@ class CVulkanImage : public CVulkanDeviceMemoryBacked<IGPUImage>
 };
 
 } // end namespace nbl::video
-
 #endif
