@@ -259,7 +259,6 @@ class RendersTest(CITest):
                 for render_type, filepath in rtx_gen_output_dict.items():
                     render_type = render_type.strip().removeprefix("output_")
                     filename = filepath.split("/")[-1].split("\\")[-1]
-                    full_filepath = str(self.working_dir) + '/' + filepath
                     results_image = {
                         "identifier": render_type,
                         "filename": filename
@@ -299,18 +298,18 @@ class RendersTest(CITest):
                         result_color = "orange"
                         results_image["render"] = str(render_store_filepath_rel) 
                     
-                        shutil.copy(full_filepath, reference_store_filepath)
-                        shutil.move(full_filepath, render_storage_filepath)
+                        shutil.copy(filepath, reference_store_filepath)
+                        shutil.move(filepath, render_storage_filepath)
                     else: 
                         status = True
                         if render_type == "denoised":
-                            ssim_diff = self.__ssim_test(full_filepath, reference_filepath)
+                            ssim_diff = self.__ssim_test(filepath, reference_filepath)
                             results_image["details"] = "Difference (SSIM): " + f'{ssim_diff:.4f}'
                             status = ssim_error_threshold_value > ssim_diff
                         else:
-                            status, details = self.__histogram_test(full_filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
+                            status, details = self.__histogram_test(filepath, reference_filepath, epsilon, error_threshold_value, allowed_error_pixel_count, error_threshold_type)
                             results_image["details"] = details
-                        self.__create_diff_image(full_filepath, reference_filepath, difference_filepath)
+                        self.__create_diff_image(filepath, reference_filepath, difference_filepath)
                         results_image["render"] = render_store_filepath_rel
                         results_image["reference"] = reference_store_filepath_rel
                         results_image["difference"] = difference_store_filepath_rel
@@ -323,7 +322,7 @@ class RendersTest(CITest):
                             results_image["status"] = "passed"
                             results_image["status_color"] = "green"
                         shutil.copy(reference_filepath, reference_store_filepath)
-                        shutil.move(full_filepath, render_storage_filepath)
+                        shutil.move(filepath, render_storage_filepath)
                     results_images.append(results_image)
                 result.append({
                     'status': 'passed' if result_status else 'failed',
