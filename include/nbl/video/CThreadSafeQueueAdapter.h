@@ -20,7 +20,7 @@ class CThreadSafeQueueAdapter final : public IQueue
         inline RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) override
         {
             IQueue* msvcIsDumb = originalQueue.get();
-            return this->submit_impl(_count,_submits);
+            return msvcIsDumb->submit_impl(_count, _submits);
         }
 
     public:

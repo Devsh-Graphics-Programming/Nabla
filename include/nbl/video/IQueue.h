@@ -38,7 +38,7 @@ class IQueue : public core::Interface, public core::Unmovable
         };
 
         // getters
-        inline CREATE_FLAGS getFlags() const { return m_flags; }
+        inline core::bitflag<CREATE_FLAGS> getFlags() const { return m_flags; }
         inline uint32_t getFamilyIndex() const { return m_familyIndex; }
         inline float getPriority() const { return m_priority; }
 
@@ -118,17 +118,16 @@ class IQueue : public core::Interface, public core::Unmovable
 
     protected:
         //! `flags` takes bits from E_CREATE_FLAGS
-        inline IQueue(ILogicalDevice* originDevice, uint32_t _famIx, CREATE_FLAGS _flags, float _priority)
-            : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags)
-        {
-        }
+        inline IQueue(const ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority)
+            : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags) {}
 
+        friend class CThreadSafeQueueAdapter;
         virtual RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) = 0;
 
         const ILogicalDevice* m_originDevice;
         const uint32_t m_familyIndex;
         const float m_priority;
-        const CREATE_FLAGS m_flags;
+        const core::bitflag<CREATE_FLAGS> m_flags;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IQueue::FAMILY_FLAGS)
