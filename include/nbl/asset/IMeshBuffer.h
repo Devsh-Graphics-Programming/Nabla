@@ -28,6 +28,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         alignas(32) core::aabbox3df boundingBox;
 
+        // TODO: format, stride, input rate
         SBufferBinding<BufferType> m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
         SBufferBinding<BufferType> m_indexBufferBinding;
 
@@ -39,6 +40,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
 
+        // TODO: remove descriptor set, pipeline & instancing info
         //! Pipeline for drawing
         core::smart_refctd_ptr<PipelineType> m_pipeline;
 

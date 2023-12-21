@@ -14,7 +14,6 @@
 namespace nbl::video
 {
     
-#if 0 // rewrite with material compiler
 class CSubpassKiln
 {
     public:
@@ -38,7 +37,7 @@ class CSubpassKiln
             alignas(16) uint8_t pushConstantData[SPhysicalDeviceLimits::MaxMaxPushConstantsSize]; // could try to push alignment to 64, if we had containers capable of such allocations
             core::smart_refctd_ptr<const IGPUGraphicsPipeline> pipeline;
             core::smart_refctd_ptr<const IGPUDescriptorSet> descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-            asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+            asset::SBufferBinding<IGPUBuffer> vertexBufferBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
             core::smart_refctd_ptr<const IGPUBuffer> indexBufferBinding;
             uint32_t drawCommandStride : 31;
             uint32_t indexType : 2;
@@ -73,14 +72,14 @@ class CSubpassKiln
                     {
                         const auto renderpass = rhs.pipeline->getRenderpass();
                         if (lhs.renderpass==rhs.pipeline->getRenderpass())
-                            return lhs.subpassIndex<rhs.pipeline->getSubpassIndex();
+                            return lhs.subpassIndex<rhs.pipeline->getCachedCreationParams().subpassIx;
                         return lhs.renderpass<renderpass;
                     }
                     inline bool operator()(const DrawcallInfo& lhs, const SearchObject& rhs)
                     {
                         const auto renderpass = lhs.pipeline->getRenderpass();
                         if (lhs.pipeline->getRenderpass()==rhs.renderpass)
-                            return lhs.pipeline->getSubpassIndex()<rhs.subpassIndex;
+                            return lhs.pipeline->getCachedCreationParams().subpassIx<rhs.subpassIndex;
                         return renderpass<rhs.renderpass;
                     }
                 };
@@ -128,7 +127,7 @@ class CSubpassKiln
                                         return Cmp<const void*>()(lhs.descriptorSets[i].get(),rhs.descriptorSets[i].get());
                                     }
                                     // then vertex bindings
-                                    for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                                    for (auto i=0u; i<asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
                                     {
                                         if (lhs.vertexBufferBindings[i].buffer==rhs.vertexBufferBindings[i].buffer)
                                         {
@@ -224,11 +223,10 @@ class CSubpassKiln
                             pipeline = it->pipeline.get();
                             cmdbuf->bindGraphicsPipeline(pipeline);
                         }
-                        assert(it->pipeline->getRenderpassIndependentPipeline()==pipeline->getRenderpassIndependentPipeline());
                         assert(it->pipeline->getSubpassIndex()==pipeline->getSubpassIndex());
                         for (; it!=end&&it->pipeline.get()==pipeline; it++)
                         {
-                            const auto currentLayout = pipeline->getRenderpassIndependentPipeline()->getLayout();
+                            const auto currentLayout = pipeline->getLayout();
                             // repush constants iff dirty
                             bool incompatiblePushConstants = !layout || !layout->isCompatibleForPushConstants(currentLayout);
                             const auto currentPushConstantRange = currentLayout->getPushConstantRanges();
@@ -264,14 +262,14 @@ class CSubpassKiln
                             // change vertex bindings iff dirty
                             const auto unmodifiedBindingCount = [&]() -> uint32_t
                             {
-                                for (auto i=0u; i<IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+                                for (auto i=0u; i<asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
                                 if (it->vertexBufferBindings[i]!=vertexBindings[i])
                                     return i;
-                                return IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+                                return asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
                             }();
                             const auto nonNullBindingEnd = [&]() -> uint32_t
                             {
-                                for (auto i=IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i!=unmodifiedBindingCount;)
+                                for (auto i=asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i!=unmodifiedBindingCount;)
                                 if (it->vertexBufferBindings[--i].buffer)
                                     return i+1u;
                                 return unmodifiedBindingCount;
@@ -331,12 +329,11 @@ class CSubpassKiln
                 const uint8_t* pushConstants = nullptr;
                 const IGPUDescriptorSet* descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {nullptr};
                 const IGPUPipelineLayout* layout = nullptr;
-                asset::SBufferBinding<const IGPUBuffer> vertexBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+                asset::SBufferBinding<const IGPUBuffer> vertexBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
                 asset::E_INDEX_TYPE indexType = asset::EIT_UNKNOWN;
                 const IGPUBuffer* indexBuffer = nullptr;
         };
 };
-#endif
-}
 
+}
 #endif

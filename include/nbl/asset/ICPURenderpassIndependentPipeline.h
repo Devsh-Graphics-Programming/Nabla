@@ -32,17 +32,10 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		constexpr static inline uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
 		constexpr static inline uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
-		struct SCreationParams final : base_t::SCreationParams
-		{
-			private:
-				friend class ICPURenderpassIndependentPipeline;
-				template<typename ExtraLambda>
-				inline bool impl_valid(ExtraLambda&& extra) const {return base_t::SCreationParams::impl_valid(std::move(extra));}
-		};
 		static core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> create(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const SCreationParams& params)
 		{
 			// we'll validate the specialization info later when attempting to set it
-            if (!_layout || !params.impl_valid([](const ICPUShader::SSpecInfo& info)->bool{return true;}))
+            if (!_layout || params.shaders.empty())
                 return nullptr;
             auto retval = new ICPURenderpassIndependentPipeline(std::move(_layout),params.cached);
             for (const auto spec : params.shaders)

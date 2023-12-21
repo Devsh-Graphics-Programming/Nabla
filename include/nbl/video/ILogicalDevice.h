@@ -691,45 +691,21 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return retval;
         }
 
-        // SOON TO BE DEPRECATED
-        bool createRenderpassIndependentPipelines(
-            const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& params,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output
-        )
+        inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
             std::fill_n(output,params.size(),nullptr);
-            IGPURenderpassIndependentPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,[this](const IGPUShader::SSpecInfo& info)->bool
+            IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,[this](const IGPUShader::SSpecInfo& info)->bool
             {
                 return info.shader->wasCreatedBy(this);
             });
             if (!specConstantValidation)
                 return false;
-
-            createRenderpassIndependentPipelines_impl(params,output,specConstantValidation);
-
-            for (auto i=0u; i<params.size(); i++)
-            if (!output[i])
-                return false;
-            return true;
-        }
-
-        inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
-        {
-            std::fill_n(output,params.size(),nullptr);
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
-                return false;
             
             for (const auto& ci : params)
-            {
-                if (!ci.valid())
-                    return false;
-                if (!ci.renderpass->wasCreatedBy(this))
-                    return false;
-                if (!ci.renderpassIndependent->wasCreatedBy(this))
-                    return false;
-            }
+            if (!ci.renderpass->wasCreatedBy(this))
+                return false;
 
-            createGraphicsPipelines_impl(pipelineCache,params,output);
+            createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
             
             for (auto i=0u; i<params.size(); i++)
             if (!output[i])
@@ -922,15 +898,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
             const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;
-        virtual void createRenderpassIndependentPipelines_impl(
-            const std::span<const IGPURenderpassIndependentPipeline::SCreationParams>& createInfos,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>* const output,
-            const IGPURenderpassIndependentPipeline::SCreationParams::SSpecializationValidationResult& validation
-        ) = 0;
         virtual void createGraphicsPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
-            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
+            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+            const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;

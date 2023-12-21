@@ -10,7 +10,15 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 {
     public:
         CVulkanGraphicsPipeline(const ILogicalDevice* dev, SCreationParams&& params, const VkPipeline vk_pipeline) :
-            IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)), m_vkPipeline(vk_pipeline) {}
+            IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)), m_vkPipeline(vk_pipeline)
+        {
+			for (const auto& info : params.shaders)
+			if (info.shader)
+			{
+				const auto stageIx = core::findLSB(info.shader->getStage());
+				m_shaders[stageIx] = core::smart_refctd_ptr<const IGPUShader>(info.shader);
+			}
+        }
 
         inline VkPipeline getInternalObject() const { return m_vkPipeline; }
 
@@ -19,7 +27,7 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 
         const VkPipeline m_vkPipeline;
         // gotta keep those VkShaderModules alive (for now)
-        core::smart_refctd_ptr<const CVulkanShader> m_shaders[IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT];
+        core::smart_refctd_ptr<const CVulkanShader> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];
 };
 
 }
