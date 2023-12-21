@@ -57,7 +57,8 @@ void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamily
     if constexpr (std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
     {
         memoryBarrier = &in.dep;
-        if (in.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
+        // in.otherQueueFamilyIndex==selfQueueFamilyIndex not resulting in ownership transfer is implicit
+        if (!concurrentSharing && in.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
         switch (in.ownershipOp)
         {
             case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:

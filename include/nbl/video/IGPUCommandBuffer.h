@@ -125,12 +125,16 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         template<typename ResourceBarrier>
         struct SBufferMemoryBarrier
         {
+            inline auto operator<=>(const SBufferMemoryBarrier<ResourceBarrier>&) const = default;
+
             ResourceBarrier barrier = {};
             asset::SBufferRange<const IGPUBuffer> range = {};
         };
         template<typename ResourceBarrier>
         struct SImageMemoryBarrier
         {
+            inline auto operator<=>(const SImageMemoryBarrier<ResourceBarrier>&) const = default;
+
             ResourceBarrier barrier = {};
             const IGPUImage* image = nullptr;
             IGPUImage::SSubresourceRange subresourceRange = {};
@@ -160,8 +164,40 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         
         struct SOwnershipTransferBarrier
         {
+            inline auto operator<=>(const SOwnershipTransferBarrier&) const = default;
+
+            // TODO: should these not do transient mask swapping when doing ownership transfer?
+            #if 0 // need to decide a few issues before we solidify the API here
+            // In case of queue family xfers one should use these slightly differently.
+            inline SOwnershipTransferBarrier prevBarrier(
+                const core::bitflag<asset::PIPELINE_STAGE_FLAGS> prevStageMask,
+                const core::bitflag<asset::ACCESS_FLAGS> prevAccessMask,
+                const IGPUCommandBuffer* cmdbuf=nullptr 
+            ) const
+            {
+                return {
+                    .dep = dep.prevBarrier(prevStageMask,prevAccessMask),
+                    .ownershipOp = ownershipOp!=OWNERSHIP_OP::RELEASE ? OWNERSHIP_OP::RELEASE:OWNERSHIP_OP::ACQUIRE,
+                    .otherQueueFamilyIndex = cmdbuf ? cmdbuf->getPool()->getQueueFamilyIndex():IQueue::FamilyIgnored
+                };
+            }
+            inline SOwnershipTransferBarrier nextBarrier(
+                const core::bitflag<asset::PIPELINE_STAGE_FLAGS> nextStageMask,
+                const core::bitflag<asset::ACCESS_FLAGS> nextAccessMask,
+                const IGPUCommandBuffer* cmdbuf=nullptr
+            ) const
+            {
+                return {
+                    .dep = dep.nextBarrier(nextStageMask,nextAccessMask),
+                    .ownershipOp = ownershipOp!=OWNERSHIP_OP::RELEASE ? OWNERSHIP_OP::RELEASE:OWNERSHIP_OP::ACQUIRE,
+                    .otherQueueFamilyIndex = cmdbuf ? cmdbuf->getPool()->getQueueFamilyIndex():IQueue::FamilyIgnored
+                };
+            }
+            #endif
+
             asset::SMemoryBarrier dep = {};
-            // If otherQueueFamilyIndex==FamilyIgnored there will be no ownership transfer
+            // If otherQueueFamilyIndex==FamilyIgnored or equal to the pool queue family index of the command buffer
+            // the barrier is being recorded into there will be no ownership transfer
             enum class OWNERSHIP_OP : uint32_t 
             {
                 RELEASE = 0,
