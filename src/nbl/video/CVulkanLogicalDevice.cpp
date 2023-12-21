@@ -988,11 +988,30 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
             outSpecMapEntry->size = entry.second.size;
             memcpy(outSpecData,entry.second.data,outSpecMapEntry->size);
             outSpecData += outSpecMapEntry->size;
+            outSpecMapEntry++;
         }
         outSpecInfo->dataSize = std::distance<const uint8_t*>(specDataBegin,outSpecData);
         retval.pSpecializationInfo = outSpecInfo++;
     }
     return retval;
+}
+
+template<typename VkPipelineCreateInfo_t, typename SCreationParams>
+void initPipelineCreateInfo(VkPipelineCreateInfo_t* vk_info, const SCreationParams& info)
+{
+    // the new flags type (64bit) is only available with maintenance5
+    vk_info->flags = static_cast<VkPipelineCreateFlags>(info.flags.value);
+    vk_info->layout = static_cast<const CVulkanPipelineLayout*>(info.layout)->getInternalObject();
+    if (info.isDerivative())
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07984
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07986
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCreateGraphicsPipelines.html#VUID-vkCreateGraphicsPipelines-flags-00720
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCreateGraphicsPipelines.html#VUID-vkCreateGraphicsPipelines-flags-00721
+        vk_info->basePipelineHandle = info.basePipeline ? static_cast<const CVulkanComputePipeline*>(info.basePipeline)->getInternalObject():VK_NULL_HANDLE;
+        vk_info->basePipelineIndex = info.basePipeline ? (-1):info.basePipelineIndex;
+        vk_info->flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
+    }
 }
 
 void CVulkanLogicalDevice::createComputePipelines_impl(
@@ -1020,15 +1039,9 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     auto outSpecData = specializationData.data();
     for (const auto& info : createInfos)
     {
-        // the new flags type (64bit) is only available with maintenance5
-        outCreateInfo->flags = static_cast<VkPipelineCreateFlags>(info.flags.value);
-        outCreateInfo->stage = {VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr};
+        initPipelineCreateInfo(outCreateInfo,info);
         outCreateInfo->stage = getVkShaderStageCreateInfoFrom(info.shader,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
-        outCreateInfo->layout = static_cast<const CVulkanPipelineLayout*>(info.layout)->getInternalObject();
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07984
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07986
-        outCreateInfo->basePipelineHandle = info.basePipeline ? static_cast<const CVulkanComputePipeline*>(info.basePipeline)->getInternalObject():VK_NULL_HANDLE;
-        outCreateInfo->basePipelineIndex = info.basePipeline ? (-1):info.basePipelineIndex;
+        outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
     if (m_devf.vk.vkCreateComputePipelines(m_vkdev,vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
@@ -1045,24 +1058,42 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     else
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
-#if 0
+
 void CVulkanLogicalDevice::createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output)
 {
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(),{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr});
 
+#if 0 // TODO
+    const auto maxShaderStages = createInfos.size()*IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT;
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages,{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr});
+    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
+    });
+    core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages,{0,nullptr,0,nullptr});
+    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
+    core::vector<uint8_t> specializationData(validation.dataSize);
+
     auto outCreateInfo = vk_createInfos.data();
+    auto outShaderStage = vk_shaderStage.data();
+    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
+    auto outSpecInfo = vk_specializationInfos.data();
+    auto outSpecMapEntry = vk_specializationMapEntry.data();
+    auto outSpecData = specializationData.data();
     for (const auto& info : createInfos)
     {
-        outCreateInfo->flags = 69;
-        outCreateInfo->stageCount = ;
-        outCreateInfo->pStages = ;
+        initPipelineCreateInfo(outCreateInfo,info);
+        outCreateInfo->pStages = outShaderStage;
+        {
+            const auto rpi = static_cast<const CVulkanRenderpassIndependentPipeline*>(info.renderpassIndependent.get());
+            for (const auto& spec : rpi->getShaders())
+                *(outCreateInfo++) = getVkShaderStageCreateInfoFrom(spec,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
+        }
+        outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
         // lots of state
-        outCreateInfo->layout = ;
-        outCreateInfo->renderPass = ;
-        outCreateInfo->subpass = ;
-        outCreateInfo->basePipelineHandle = ;
-        outCreateInfo->basePipelineIndex = -69;
+        outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass.get())->getInternalObject();
+        outCreateInfo->subpass = info.subpassIx;
+        outCreateInfo++;
     }
     
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
@@ -1073,8 +1104,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(IGPUPipelineCache* const
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
+            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(this,
                 core::smart_refctd_ptr<const IGPUSpecializedShader>(createInfos[i].shader),
                 vk_pipeline
             );
@@ -1082,22 +1112,11 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(IGPUPipelineCache* const
     }
     else
         std::fill_n(output,vk_createInfos.size(),nullptr);
+#endif
 }
 
 
-
-
-
-bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
-    IGPUPipelineCache* pipelineCache,
-    core::SRange<const IGPUGraphicsPipeline::SCreationParams> params,
-    core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
-{
-    IGPUGraphicsPipeline::SCreationParams* creationParams = const_cast<IGPUGraphicsPipeline::SCreationParams*>(params.begin());
-
-    VkPipelineCache vk_pipelineCache = VK_NULL_HANDLE;
-    if (pipelineCache && pipelineCache->getAPIType() == EAT_VULKAN)
-        vk_pipelineCache = IBackendObject::device_compatibility_cast<const CVulkanPipelineCache*>(pipelineCache, this)->getInternalObject();
+#if 0
 
     // Shader stages
     uint32_t shaderStageCount_total = 0u;
