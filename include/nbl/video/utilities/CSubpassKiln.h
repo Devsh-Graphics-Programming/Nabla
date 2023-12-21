@@ -90,12 +90,10 @@ class CSubpassKiln
                 {
                     if (lhs.pipeline->getRenderpass()==rhs.pipeline->getRenderpass())
                     {
-                        if (lhs.pipeline->getSubpassIndex()==rhs.pipeline->getSubpassIndex())
+                        if (lhs.pipeline->getCachedCreationParams().subpassIx==rhs.pipeline->getCachedCreationParams().subpassIx)
                         {
-                            auto lhs_indep = lhs.pipeline->getRenderpassIndependentPipeline();
-                            auto rhs_indep = rhs.pipeline->getRenderpassIndependentPipeline();
-                            auto lhs_layout = lhs_indep->getLayout();
-                            auto rhs_layout = rhs_indep->getLayout();
+                            auto lhs_layout = lhs.pipeline->getLayout();
+                            auto rhs_layout = rhs.pipeline->getLayout();
                             auto lhs_pcranges = lhs_layout->getPushConstantRanges();
                             auto rhs_pcranges = rhs_layout->getPushConstantRanges();
                             if (lhs_pcranges.size()==rhs_pcranges.size())
@@ -167,7 +165,7 @@ class CSubpassKiln
                             }
                             return Cmp<size_t>()(lhs_pcranges.size(),rhs_pcranges.size());
                         }
-                        return Cmp<uint32_t>()(lhs.pipeline->getSubpassIndex(),rhs.pipeline->getSubpassIndex());
+                        return Cmp<uint32_t>()(lhs.pipeline->getCachedCreationParams().subpassIx,rhs.pipeline->getCachedCreationParams().subpassIx);
                     }
                     return Cmp<const void*>()(lhs.pipeline->getRenderpass(),rhs.pipeline->getRenderpass());
                 }
@@ -223,7 +221,7 @@ class CSubpassKiln
                             pipeline = it->pipeline.get();
                             cmdbuf->bindGraphicsPipeline(pipeline);
                         }
-                        assert(it->pipeline->getSubpassIndex()==pipeline->getSubpassIndex());
+                        assert(it->pipeline->getCachedCreationParams().subpassIx==pipeline->getCachedCreationParams().subpassIx);
                         for (; it!=end&&it->pipeline.get()==pipeline; it++)
                         {
                             const auto currentLayout = pipeline->getLayout();

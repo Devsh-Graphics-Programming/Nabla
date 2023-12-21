@@ -173,7 +173,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				return nullptr;
 
 			auto layout = createApproximatePipelineLayoutFromIntrospection_impl(&introspection,{&info,1});
-			return ICPUComputePipeline::create(std::move(layout),info);
+			ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
+			params.shader = info;
+			return ICPUComputePipeline::create(params);
 		}
 
 		//
