@@ -6,7 +6,6 @@
 
 
 #include "nbl/video/SPhysicalDeviceLimits.h"
-#include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
 
 #include <functional>

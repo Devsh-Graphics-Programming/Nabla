@@ -4,8 +4,6 @@
 #ifndef _NBL_VIDEO_ASSET_TRAITS_H_INCLUDED_
 #define _NBL_VIDEO_ASSET_TRAITS_H_INCLUDED_
 
-#include "nbl/asset/ICPUMesh.h"
-#include "nbl/video/IGPUMesh.h"
 #include "nbl/asset/ICPUSkeleton.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/video/IGPUShader.h"
@@ -17,8 +15,6 @@
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 #include "nbl/video/IGPUPipelineLayout.h"
-#include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-#include "nbl/video/IGPURenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/asset/ICPUSampler.h"
@@ -79,17 +75,11 @@ template<>
 struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
 template<>
 struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
-template<>
-struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 // TODO: figure this out
 //template<>
 //struct asset_traits<asset::ICPUSkeleton> { using GPUObjectType = video::IGPUSkeleton; };
 template<>
-struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
-template<>
 struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
-template<>
-struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUAnimationLibrary> { using GPUObjectType = video::IGPUAnimationLibrary; };
 template<>

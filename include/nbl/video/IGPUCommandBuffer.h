@@ -32,9 +32,6 @@ enum E_DEPENDENCY_FLAGS : uint8_t
 namespace nbl::video
 {
 
-// depr
-class IGPUMeshBuffer;
-
 // TODO: drop the `IGPU` prefix
 class NBL_API2 IGPUCommandBuffer : public IBackendObject
 {
@@ -392,7 +389,6 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride);
         bool drawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
         bool drawIndexedIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
-        /* soon: [[deprecated]] */ bool drawMeshBuffer(const IGPUMeshBuffer* const meshBuffer);
 
         struct SImageBlit
         {

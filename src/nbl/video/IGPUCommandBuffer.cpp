@@ -1125,7 +1125,7 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
     return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
 }
 
-
+/*
 bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer* const meshBuffer)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
@@ -1162,6 +1162,7 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer* const meshBuffer)
         return draw(vertexCount, instanceCount, firstVertex, firstInstance);
     }
 }
+*/
 
 static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
 {
