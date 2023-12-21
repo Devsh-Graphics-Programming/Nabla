@@ -4,6 +4,8 @@
 
 #include "nbl/video/IGPUComputePipeline.h"
 
+#include "nbl/video/CVulkanShader.h"
+
 #include <volk.h>
 
 
@@ -15,11 +17,12 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
 {
     public:
         CVulkanComputePipeline(
-            const ILogicalDevice* dev,
-            core::smart_refctd_ptr<const IGPUShader>&& shader,
+            core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<const CVulkanShader>&& _shader,
             const core::bitflag<SCreationParams::FLAGS> _flags,
             const VkPipeline pipeline
-        ) : IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),_flags), m_pipeline(pipeline), m_shader(std::move(shader)) {}
+        ) : IGPUComputePipeline(std::move(_layout),_flags),
+            m_pipeline(pipeline), m_shader(std::move(_shader)) {}
 
         inline VkPipeline getInternalObject() const { return m_pipeline; }
     
@@ -30,7 +33,7 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
 
         const VkPipeline m_pipeline;
         // gotta keep that VkShaderModule alive (for now, until maintenance5)
-        const core::smart_refctd_ptr<const IGPUShader> m_shader;
+        const core::smart_refctd_ptr<const CVulkanShader> m_shader;
 };
 }
 #endif

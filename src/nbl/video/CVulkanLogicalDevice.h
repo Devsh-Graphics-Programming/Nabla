@@ -295,7 +295,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
-            const IGPURenderpassIndependentPipeline::SCreationParams::SSpecializationValidationResult& validation
+            const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) override;
 
         // queries

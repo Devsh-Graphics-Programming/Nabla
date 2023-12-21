@@ -5,18 +5,21 @@
 #define _NBL_VIDEO_I_GPU_COMPUTE_PIPELINE_H_INCLUDED_
 
 
-#include "nbl/video/IPipeline.h"
+#include "nbl/asset/IPipeline.h"
+
+#include "nbl/video/SPipelineCreationParams.h"
+#include "nbl/video/SPipelineCreationParams.h"
 
 
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
+class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const IGPUPipelineLayout>
 {
-        using pipeline_t = IPipeline<IGPUComputePipeline>;
+        using pipeline_t = asset::IPipeline<const IGPUPipelineLayout>;
 
     public:
-        struct SCreationParams final : pipeline_t::SCreationParams
+        struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUComputePipeline>
         {
             // By construction we satisfy from:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-03365
@@ -69,8 +72,8 @@ class IGPUComputePipeline : public IPipeline<IGPUComputePipeline>
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
     protected:
-        inline IGPUComputePipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<SCreationParams::FLAGS> _flags) :
-            pipeline_t(std::move(dev)), m_flags(_flags) {}
+        inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
+            IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())), pipeline_t(std::move(_layout)), m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;

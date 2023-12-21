@@ -1,7 +1,11 @@
 #ifndef _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
 #define _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
 
+
 #include "nbl/video/IGPUGraphicsPipeline.h"
+
+#include "nbl/video/CVulkanShader.h"
+
 
 namespace nbl::video
 {
@@ -9,14 +13,14 @@ namespace nbl::video
 class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 {
     public:
-        CVulkanGraphicsPipeline(const ILogicalDevice* dev, SCreationParams&& params, const VkPipeline vk_pipeline) :
-            IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)), m_vkPipeline(vk_pipeline)
+        CVulkanGraphicsPipeline(const SCreationParams& params, const VkPipeline vk_pipeline) :
+            IGPUGraphicsPipeline(params), m_vkPipeline(vk_pipeline)
         {
 			for (const auto& info : params.shaders)
 			if (info.shader)
 			{
 				const auto stageIx = core::findLSB(info.shader->getStage());
-				m_shaders[stageIx] = core::smart_refctd_ptr<const IGPUShader>(info.shader);
+				m_shaders[stageIx] = core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(info.shader));
 			}
         }
 

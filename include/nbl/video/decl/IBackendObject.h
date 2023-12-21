@@ -20,8 +20,6 @@ class IBackendObject : public virtual core::IReferenceCounted
     public:
         constexpr static inline size_t MAX_DEBUG_NAME_LENGTH = 255ull;
 
-        IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device);
-
         E_API_TYPE getAPIType() const;
 
         bool isCompatibleDevicewise(const IBackendObject* other) const;
@@ -71,6 +69,7 @@ class IBackendObject : public virtual core::IReferenceCounted
         // TODO: consider setting tags for backend objects: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkSetDebugUtilsObjectTagEXT.html
 
     protected:
+        IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device);
         virtual ~IBackendObject() = default;
 
     private:

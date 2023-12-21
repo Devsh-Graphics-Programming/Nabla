@@ -1052,14 +1052,23 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(this,core::smart_refctd_ptr<const IGPUShader>(info.shader.shader),info.flags,vk_pipeline);
+            output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
+                core::smart_refctd_ptr<const IGPUPipelineLayout>(info.layout),
+                core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(info.shader.shader)),
+                info.flags,vk_pipeline
+            );
         }
     }
     else
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
 
-void CVulkanLogicalDevice::createGraphicsPipelines_impl(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& createInfos, core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output)
+void CVulkanLogicalDevice::createGraphicsPipelines_impl(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUGraphicsPipeline::SCreationParams>& createInfos,
+    core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
+    const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+)
 {
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(),{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr});
