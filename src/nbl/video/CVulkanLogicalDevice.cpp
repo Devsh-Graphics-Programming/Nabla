@@ -976,20 +976,25 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         retval.stage = static_cast<VkShaderStageFlagBits>(stage);
         retval.module = static_cast<const CVulkanShader*>(specInfo.shader)->getInternalObject();
         retval.pName = specInfo.entryPoint.c_str();
-        outSpecInfo->mapEntryCount = specInfo.entries->size();
         outSpecInfo->pMapEntries = outSpecMapEntry;
         outSpecInfo->dataSize = 0;
         const uint8_t* const specDataBegin = outSpecData;
         outSpecInfo->pData = specDataBegin;
-        for (const auto& entry : *specInfo.entries)
+        if (specInfo.entries)
         {
-            outSpecMapEntry->constantID = entry.first;
-            outSpecMapEntry->offset = std::distance<const uint8_t*>(specDataBegin,outSpecData);
-            outSpecMapEntry->size = entry.second.size;
-            memcpy(outSpecData,entry.second.data,outSpecMapEntry->size);
-            outSpecData += outSpecMapEntry->size;
-            outSpecMapEntry++;
+            outSpecInfo->mapEntryCount = specInfo.entries->size();
+            for (const auto& entry : *specInfo.entries)
+            {
+                outSpecMapEntry->constantID = entry.first;
+                outSpecMapEntry->offset = std::distance<const uint8_t*>(specDataBegin,outSpecData);
+                outSpecMapEntry->size = entry.second.size;
+                memcpy(outSpecData,entry.second.data,outSpecMapEntry->size);
+                outSpecData += outSpecMapEntry->size;
+                outSpecMapEntry++;
+            }
         }
+        else
+            outSpecInfo->mapEntryCount = 0;
         outSpecInfo->dataSize = std::distance<const uint8_t*>(specDataBegin,outSpecData);
         retval.pSpecializationInfo = outSpecInfo++;
     }
@@ -1073,8 +1078,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(),{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr});
 
-#if 0 // TODO
-    const auto maxShaderStages = createInfos.size()*IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT;
+    const auto maxShaderStages = createInfos.size()*IGPUGraphicsPipeline::GRAPHICS_SHADER_STAGE_COUNT;
     core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages,{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,nullptr});
     core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
@@ -1082,6 +1086,15 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages,{0,nullptr,0,nullptr});
     core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
     core::vector<uint8_t> specializationData(validation.dataSize);
+    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkVertexInputBindingDescription> vk_inputBinding(createInfos.size()*asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
+    core::vector<VkVertexInputAttributeDescription> vk_inputAttribute(createInfos.size()*asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
+    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssembly(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineTessellationStateCreateInfo> vk_tessellation(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0});
 
     auto outCreateInfo = vk_createInfos.data();
     auto outShaderStage = vk_shaderStage.data();
@@ -1089,19 +1102,57 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     auto outSpecInfo = vk_specializationInfos.data();
     auto outSpecMapEntry = vk_specializationMapEntry.data();
     auto outSpecData = specializationData.data();
+    auto outVertexInput = vk_vertexInput.data();
+    auto outInputBinding = vk_inputBinding.data();
+    auto outInputAttribute = vk_inputAttribute.data();
+    auto outInputAssembly = vk_inputAssembly.data();
+    auto outTessellation = vk_tessellation.data();
+    auto outViewport = vk_viewportStates.data();
+    auto outRaster = vk_rasterizationStates.data();
+    auto outMultisample = vk_multisampleStates.data();
     for (const auto& info : createInfos)
     {
         initPipelineCreateInfo(outCreateInfo,info);
         outCreateInfo->pStages = outShaderStage;
-        {
-            const auto rpi = static_cast<const CVulkanRenderpassIndependentPipeline*>(info.renderpassIndependent.get());
-            for (const auto& spec : rpi->getShaders())
-                *(outCreateInfo++) = getVkShaderStageCreateInfoFrom(spec,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
-        }
+        for (const auto& spec : info.shaders)
+        if (spec.shader)
+            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
         outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
-        // lots of state
-        outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass.get())->getInternalObject();
-        outCreateInfo->subpass = info.subpassIx;
+        // when dealing with mesh shaders, the vertex input and assembly state will be null
+        {
+            {
+                const auto& vertexInputParams = info.cached.vertexInput;
+                outVertexInput->vertexAttributeDescriptionCount = 0;
+                outVertexInput->pVertexBindingDescriptions = 0;
+                outVertexInput->vertexAttributeDescriptionCount = 0;
+                outVertexInput->pVertexAttributeDescriptions = 0;
+            }
+            outCreateInfo->pVertexInputState = outVertexInput++;
+            {
+                const auto& primAssParams = info.cached.primitiveAssembly;
+                outInputAssembly->topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
+                outInputAssembly->primitiveRestartEnable = primAssParams.primitiveRestartEnable;
+            }
+            outCreateInfo->pInputAssemblyState = outInputAssembly++;
+        }
+        for (const auto& spec : info.shaders)
+        if (spec.shader && (spec.shader->getStage()==IGPUShader::ESS_TESSELLATION_CONTROL || spec.shader->getStage()==IGPUShader::ESS_TESSELLATION_EVALUATION))
+        {
+            outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
+            outCreateInfo->pTessellationState = outTessellation++;
+            break;
+        }
+        {
+            outCreateInfo->pViewportState = outViewport++;
+        }
+        {
+            outCreateInfo->pRasterizationState = outRaster++;
+        }
+        {
+            outCreateInfo->pMultisampleState = outMultisample++;
+        }
+        outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
+        outCreateInfo->subpass = info.cached.subpassIx;
         outCreateInfo++;
     }
     
@@ -1121,37 +1172,10 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     }
     else
         std::fill_n(output,vk_createInfos.size(),nullptr);
-#endif
 }
 
 
 #if 0
-
-    // Shader stages
-    uint32_t shaderStageCount_total = 0u;
-    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT);
-    uint32_t specInfoCount_total = 0u;
-    core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
-    constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
-    uint32_t mapEntryCount_total = 0u;
-    core::vector<VkSpecializationMapEntry> vk_mapEntries(vk_specInfos.size()*MAX_MAP_ENTRIES_PER_SHADER);
-
-    // Vertex input
-    uint32_t vertexBindingDescriptionCount_total = 0u;
-    core::vector<VkVertexInputBindingDescription> vk_vertexBindingDescriptions(params.size() * asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
-    uint32_t vertexAttribDescriptionCount_total = 0u;
-    core::vector<VkVertexInputAttributeDescription> vk_vertexAttribDescriptions(params.size() * asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
-    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInputStates(params.size());
-
-    // Input Assembly
-    core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssemblyStates(params.size());
-
-    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(params.size());
-
-    core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(params.size());
-
-    core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(params.size());
-
     core::vector<VkStencilOpState> vk_stencilFrontStates(params.size());
     core::vector<VkStencilOpState> vk_stencilBackStates(params.size());
     core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(params.size());
@@ -1168,73 +1192,10 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     vk_dynamicStateCreateInfo.dynamicStateCount = DYNAMIC_STATE_COUNT;
     vk_dynamicStateCreateInfo.pDynamicStates = vk_dynamicStates;
 
-    core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(params.size());
-    for (size_t i = 0ull; i < params.size(); ++i)
-    {
-        const auto& rpIndie = creationParams[i].renderpassIndependent;
 
-        vk_createInfos[i].sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        vk_createInfos[i].pNext = nullptr;
-        vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(creationParams[i].createFlags.value);
-
-        uint32_t shaderStageCount = 0u;
-        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
-        {
-            const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
-            if (!shader || shader->getAPIType() != EAT_VULKAN)
-                continue;
-
-            const auto* vulkanSpecShader = IBackendObject::device_compatibility_cast<const CVulkanSpecializedShader*>(shader, this);
-
-            auto& vk_shaderStage = vk_shaderStages[shaderStageCount_total + shaderStageCount];
-
-            vk_shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            vk_shaderStage.pNext = nullptr;
-            vk_shaderStage.flags = 0u;
-            vk_shaderStage.stage = static_cast<VkShaderStageFlagBits>(shader->getStage());
-            vk_shaderStage.module = vulkanSpecShader->getInternalObject();
-            vk_shaderStage.pName = "main";
-
-            const auto& shaderSpecInfo = vulkanSpecShader->getSpecInfo();
-
-            if (shaderSpecInfo.m_backingBuffer && shaderSpecInfo.m_entries)
-            {
-                for (uint32_t me = 0u; me < shaderSpecInfo.m_entries->size(); ++me)
-                {
-                    const auto entry = shaderSpecInfo.m_entries->begin() + me;
-
-                    vk_mapEntries[mapEntryCount_total + me].constantID = entry->specConstID;
-                    vk_mapEntries[mapEntryCount_total + me].offset = entry->offset;
-                    vk_mapEntries[mapEntryCount_total + me].size = entry->size;
-                }
-
-                vk_specInfos[specInfoCount_total].mapEntryCount = static_cast<uint32_t>(shaderSpecInfo.m_entries->size());
-                vk_specInfos[specInfoCount_total].pMapEntries = vk_mapEntries.data() + mapEntryCount_total;
-                mapEntryCount_total += vk_specInfos[specInfoCount_total].mapEntryCount;
-                vk_specInfos[specInfoCount_total].dataSize = shaderSpecInfo.m_backingBuffer->getSize();
-                vk_specInfos[specInfoCount_total].pData = shaderSpecInfo.m_backingBuffer->getPointer();
-
-                vk_shaderStage.pSpecializationInfo = vk_specInfos.data() + specInfoCount_total++;
-            }
-            else
-            {
-                vk_shaderStage.pSpecializationInfo = nullptr;
-            }
-
-            ++shaderStageCount;
-        }
-        vk_createInfos[i].stageCount = shaderStageCount;
-        vk_createInfos[i].pStages = vk_shaderStages.data() + shaderStageCount_total;
-        shaderStageCount_total += shaderStageCount;
 
         // Vertex Input
         {
-            vk_vertexInputStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-            vk_vertexInputStates[i].pNext = nullptr;
-            vk_vertexInputStates[i].flags = 0u;
-
-            const auto& vertexInputParams = rpIndie->getVertexInputParams();
-
             // Fill up vertex binding descriptions
             uint32_t offset = vertexBindingDescriptionCount_total;
             uint32_t vertexBindingDescriptionCount = 0u;
@@ -1276,28 +1237,10 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         }
         vk_createInfos[i].pVertexInputState = &vk_vertexInputStates[i];
 
-        // Input Assembly
-        {
-            const auto& primAssParams = rpIndie->getPrimitiveAssemblyParams();
-
-            vk_inputAssemblyStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-            vk_inputAssemblyStates[i].pNext = nullptr;
-            vk_inputAssemblyStates[i].flags = 0u; // reserved for future use by Vulkan
-            vk_inputAssemblyStates[i].topology = static_cast<VkPrimitiveTopology>(primAssParams.primitiveType);
-            vk_inputAssemblyStates[i].primitiveRestartEnable = primAssParams.primitiveRestartEnable;
-        }
-        vk_createInfos[i].pInputAssemblyState = &vk_inputAssemblyStates[i];
-
-        // Tesselation
-        vk_createInfos[i].pTessellationState = nullptr;
-
         // Viewport State
         {
             const uint32_t viewportCount = rpIndie->getRasterizationParams().viewportCount;
 
-            vk_viewportStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-            vk_viewportStates[i].pNext = nullptr;
-            vk_viewportStates[i].flags = 0u;
             vk_viewportStates[i].viewportCount = viewportCount;
             vk_viewportStates[i].pViewports = nullptr; // ignored
             vk_viewportStates[i].scissorCount = viewportCount; // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
@@ -1309,9 +1252,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             const auto& rasterizationParams = rpIndie->getRasterizationParams();
 
-            vk_rasterizationStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-            vk_rasterizationStates[i].pNext = nullptr;
-            vk_rasterizationStates[i].flags = 0u;
             vk_rasterizationStates[i].depthClampEnable = rasterizationParams.depthClampEnable;
             vk_rasterizationStates[i].rasterizerDiscardEnable = rasterizationParams.rasterizerDiscard;
             vk_rasterizationStates[i].polygonMode = static_cast<VkPolygonMode>(rasterizationParams.polygonMode);
@@ -1329,9 +1269,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             const auto& rasterizationParams = rpIndie->getRasterizationParams();
 
-            vk_multisampleStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-            vk_multisampleStates[i].pNext = nullptr;
-            vk_multisampleStates[i].flags = 0u;
             vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(creationParams[i].rasterizationSamples);
             vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
             vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
@@ -1422,32 +1359,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
 
         // Dynamic state
         vk_createInfos[i].pDynamicState = &vk_dynamicStateCreateInfo;
-
-        vk_createInfos[i].layout = IBackendObject::device_compatibility_cast<const CVulkanPipelineLayout*>(rpIndie->getLayout(), this)->getInternalObject();
-        vk_createInfos[i].renderPass = IBackendObject::device_compatibility_cast<const CVulkanRenderpass*>(creationParams[i].renderpass.get(), this)->getInternalObject();
-        vk_createInfos[i].subpass = creationParams[i].subpassIx;
-        vk_createInfos[i].basePipelineHandle = VK_NULL_HANDLE;
-        vk_createInfos[i].basePipelineIndex = 0u;
-    }
-
-    core::vector<VkPipeline> vk_pipelines(params.size());
-    if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev, vk_pipelineCache,
-        static_cast<uint32_t>(params.size()), vk_createInfos.data(), nullptr, vk_pipelines.data()) == VK_SUCCESS)
-    {
-        for (size_t i = 0ull; i < params.size(); ++i)
-        {
-            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(
-                core::smart_refctd_ptr<CVulkanLogicalDevice>(this),
-                std::move(creationParams[i]),
-                vk_pipelines[i]);
-        }
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
 #endif
 
 

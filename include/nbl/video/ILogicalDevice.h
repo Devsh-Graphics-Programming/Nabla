@@ -705,6 +705,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             if (!ci.renderpass->wasCreatedBy(this))
                 return false;
 
+            // TODO: loads more validation on extra parameters here!
             createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
             
             for (auto i=0u; i<params.size(); i++)
