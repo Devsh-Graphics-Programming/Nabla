@@ -133,9 +133,9 @@ class IRenderpassIndependentPipeline
 
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}
 
-	protected:
         constexpr static inline size_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
+	protected:
         IRenderpassIndependentPipeline(const SCachedCreationParams& _cachedParams) : m_cachedParams(_cachedParams) {}
         virtual ~IRenderpassIndependentPipeline() = default;
 

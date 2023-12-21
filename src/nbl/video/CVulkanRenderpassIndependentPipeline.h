@@ -24,6 +24,8 @@ class CVulkanRenderpassIndependentPipeline : public IGPURenderpassIndependentPip
 
 		inline const auto& getCachedValidation() const {return m_cachedValidation;}
 
+		inline std::span<const IGPUShader* const> getShaders() const {return {&m_shaders->get(),GRAPHICS_SHADER_STAGE_COUNT};}
+
 	private:
 		// gotta keep those VkShaderModules alive (for now)
 		core::smart_refctd_ptr<const IGPUShader> m_shaders[GRAPHICS_SHADER_STAGE_COUNT];

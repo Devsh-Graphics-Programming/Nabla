@@ -15,11 +15,12 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
 {
         using base_t = asset::IGraphicsPipeline<const IGPURenderpassIndependentPipeline,const IGPURenderpass>;
 
+    public:
+        IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) :
+            IBackendObject(std::move(dev)), base_t(std::move(params)) {}
+
     protected:
         ~IGPUGraphicsPipeline() = default;
-
-    public:
-        IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params) : IBackendObject(std::move(dev)), base_t(std::move(params)) {}
 };
 
 }

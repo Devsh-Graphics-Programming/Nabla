@@ -1,27 +1,25 @@
-#ifndef __NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED__
-#define __NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED__
+#ifndef _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
+#define _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
 
 #include "nbl/video/IGPUGraphicsPipeline.h"
 
 namespace nbl::video
 {
 
-class CVulkanGraphicsPipeline : public IGPUGraphicsPipeline
+class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 {
-public:
-    CVulkanGraphicsPipeline(
-        core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-        SCreationParams&& params,
-        VkPipeline vk_pipline)
-        : IGPUGraphicsPipeline(std::move(dev), std::move(params)), m_vkPipeline(vk_pipline)
-    {}
+    public:
+        CVulkanGraphicsPipeline(const ILogicalDevice* dev, SCreationParams&& params, const VkPipeline vk_pipeline) :
+            IGPUGraphicsPipeline(core::smart_refctd_ptr<const ILogicalDevice>(dev),std::move(params)), m_vkPipeline(vk_pipeline) {}
 
-    ~CVulkanGraphicsPipeline();
+        inline VkPipeline getInternalObject() const { return m_vkPipeline; }
 
-    inline VkPipeline getInternalObject() const { return m_vkPipeline; }
+    private:
+        ~CVulkanGraphicsPipeline();
 
-private:
-    VkPipeline m_vkPipeline;
+        const VkPipeline m_vkPipeline;
+        // gotta keep those VkShaderModules alive (for now)
+        core::smart_refctd_ptr<const CVulkanShader> m_shaders[IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT];
 };
 
 }

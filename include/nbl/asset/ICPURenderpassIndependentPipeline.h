@@ -168,7 +168,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 
 	protected:
-		constexpr static inline uint32_t GRAPHICS_SHADER_STAGE_COUNT = 5;
 		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const base_t::SCachedCreationParams& params)
 			: base_t(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
