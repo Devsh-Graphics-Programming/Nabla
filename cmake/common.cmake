@@ -1390,8 +1390,10 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 			# NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
 			
 			# examples and their media
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
-			NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
+			if(NBL_BUILD_EXAMPLES)
+				NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
+				NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
+			endif()
 		endif()
 				
 		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
