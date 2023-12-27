@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  nabla.kazoo.server.windows:
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    restart: always
+    container_name: dev.nabla.kazoo.server.x86_64.windows
+    hostname: dev.nabla.kazoo.server.x86_64.windows
+    env_file:
+      - ../../.env/.env
+    depends_on:
+      nabla.init.windows:
+        condition: service_completed_successfully
+    entrypoint: ["zkServer.cmd", "start", "%KAZOO_HOME%\\conf\\zoo_sample.cfg"]
+    healthcheck:
+      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "nabla.kazoo.server.windows"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

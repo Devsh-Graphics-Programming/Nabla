@@ -8,6 +8,7 @@ ARG THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY="C:/Users/ContainerAdministrator/Na
 ARG THIS_PROJECT_DOCKER_BIND_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/docker"
 ARG VULKAN_SDK_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VulkanSDK"
 ARG VS_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VS\BuildTools"
+ARG APACHE_ZOOKEEPER_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\ApacheZooKeeper"
 ARG VS_DEV_CMD_DIRECTORY="${VS_INSTALL_DIRECTORY}\Common7\Tools"
 
 FROM ${BASE_IMAGE}
@@ -74,12 +75,46 @@ RUN `
 
 RUN `
 	# Donwload debugpy Python module
+	`
 	python -m pip install --upgrade debugpy
 
 RUN `
 	# Download & install git 2.43.0
 	`
 	choco install -y git --version 2.43.0
+
+ARG APACHE_ZOOKEEPER_INSTALL_DIRECTORY
+
+RUN `
+	# Download Apache ZooKeeper
+	`
+	curl -SL --output zookeeper.zip https://dlcdn.apache.org/zookeeper/zookeeper-3.8.3/apache-zookeeper-3.8.3-bin.tar.gz `
+	`
+	# Create install directory
+	`
+	&& mkdir "%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%" `
+	`
+	# Unpack
+	`
+    && tar -xf zookeeper.zip -C "%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%" `
+	`
+	# Cleanup
+	`
+    && del /q zookeeper.zip `
+	`
+	# Add KAZOO_HOME environment variable
+	`
+	&& setx KAZOO_HOME "%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%" /M
+
+RUN `
+	# Donwload kazoo Python module
+	`
+	python -m pip install --upgrade kazoo
+
+RUN `
+	# Download OpenJDK 11 LTS
+	`
+	choco install -y openjdk11
 
 RUN `
 	# Download & install nasm 2.16.1
@@ -111,7 +146,7 @@ ARG THIS_PROJECT_DOCKER_BIND_DIRECTORY
 	
 RUN `
 	setx THIS_PROJECT_DOCKER_BIND_DIRECTORY "%THIS_PROJECT_DOCKER_BIND_DIRECTORY%" /M `
-	&& setx PATH "%PATH%;%THIS_PROJECT_DOCKER_BIND_DIRECTORY%/platform/windows/scripts" /M
+	&& setx PATH "%PATH%;%THIS_PROJECT_DOCKER_BIND_DIRECTORY%/scripts" /M
 	
 RUN `
 	git config --system --add safe.directory *
@@ -121,4 +156,4 @@ ARG VS_DEV_CMD_DIRECTORY
 RUN `
 	setx PATH "%PATH%;%VS_DEV_CMD_DIRECTORY%" /M
 
-ENTRYPOINT ["VsDevCmd.bat", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+ENTRYPOINT ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]

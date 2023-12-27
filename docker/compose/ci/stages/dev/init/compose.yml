@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  nabla.init.windows:
+    build:
+      context: ../../../../
+      args:
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+      - THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY=${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
+      - THIS_PROJECT_SSH_DIRECTORY=${THIS_PROJECT_SSH_DIRECTORY}
+      - THIS_PROJECT_DOCKER_BIND_DIRECTORY=${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+    image: artifactory.devsh.eu/nabla/windows/base:latest
+    container_name: dev.nabla.init.x86_64.windows
+    hostname: dev.nabla.init.x86_64.windows
+    env_file:
+      - ../../.env/.env
+    volumes:
+      - type: volume
+        source: nabla.repository
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+      - type: volume
+        source: nabla.artifactory
+        target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.init"]
+volumes:
+    nabla.repository:
+        external: true
+    nabla.artifactory:
+        external: true
+    ssh:
+        external: true
+    
