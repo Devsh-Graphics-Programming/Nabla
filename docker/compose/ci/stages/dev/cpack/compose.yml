@@ -1,12 +1,17 @@
 version: '3'
 
 services:
-  nabla.cpack.static.release.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.static.release.x86_64.windows
-    hostname: dev.nabla.cpack.static.release.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.static.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.static.release:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -15,15 +20,20 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "static", "--config", "Release"]
-  nabla.cpack.static.relwithdebinfo.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.static.relwithdebinfo.x86_64.windows
-    hostname: dev.nabla.cpack.static.relwithdebinfo.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.static.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.static.relwithdebinfo:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -32,15 +42,20 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "static", "--config", "RelWithDebInfo"]
-  nabla.cpack.static.debug.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.static.debug.x86_64.windows
-    hostname: dev.nabla.cpack.static.debug.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.static.debug:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.static.debug:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -49,15 +64,20 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "static", "--config", "Debug"]
-  nabla.cpack.dynamic.release.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.dynamic.release.x86_64.windows
-    hostname: dev.nabla.cpack.dynamic.release.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.dynamic.release:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -66,15 +86,20 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "dynamic", "--config", "Release"]
-  nabla.cpack.dynamic.relwithdebinfo.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.dynamic.relwithdebinfo.x86_64.windows
-    hostname: dev.nabla.cpack.dynamic.relwithdebinfo.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.dynamic.relwithdebinfo:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -83,15 +108,20 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "dynamic", "--config", "RelWithDebInfo"]
-  nabla.cpack.dynamic.debug.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.cpack.dynamic.debug.x86_64.windows
-    hostname: dev.nabla.cpack.dynamic.debug.x86_64.windows
-    env_file:
-      - ../../.env/.env
+  nabla.cpack.dynamic.debug:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.dynamic.debug:
+        condition: service_completed_successfully
     volumes:
       - type: volume
         source: nabla.repository
@@ -100,11 +130,18 @@ services:
         source: nabla.artifactory
         target: ${THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "dynamic", "--config", "Debug"]
+    
+networks:
+  nabla.network:
+    external: true
+
 volumes:
     nabla.repository:
         external: true
     nabla.artifactory:
         external: true
+    ssh:
+      external: true

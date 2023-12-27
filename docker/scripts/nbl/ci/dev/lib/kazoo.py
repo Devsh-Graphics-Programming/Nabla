@@ -1,47 +1,83 @@
-import kazoo.exceptions, kazoo.client, socket, time, sys
+import os, subprocess, sys, argparse, kazoo.exceptions, kazoo.client, socket
 
-def connectToKazooServer(host):
-    zk = kazoo.client.KazooClient(hosts=host)
-    zk.start()
-    
-    return zk
-
-def createKazooAtomic(zNodePath):
-    if not zk.exists(zNodePath):
-        zk.create(zNodePath, b"")
-
-def getKazooAtomic(zNodePath):
-    if zk.exists(zNodePath):
-        data, _ = zk.get(zNodePath)
+def getLocalIPV4():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        local_ipv4 = s.getsockname()[0] # Get the local IPv4 address
+        s.close()
         
-        return data.decode()
-    else:
-        return ""
+        return local_ipv4
+    except socket.error:
+        return None
+    
 
-def kazooAtomicPrepend(zNodePath, data):
-    while True:
-        currentData, stat = zk.get(zNodePath)
-        newData = currentData.decode() + data
+def resolveServiceToIPv4(serviceName):
+    try:
+        ipv4Address = socket.gethostbyname(serviceName)
+        return ipv4Address
+    except socket.gaierror as e:
+        print(f"Error while resolving {serviceName} to an IPv4 address: {e}")
+        return None
 
-        try:
-            zk.set(zNodePath, newData.encode(), version=stat.version)
-            break
-        except kazoo.exceptions.BadVersionException:
-            continue
+
+class KazooConnector:
+    def __init__(self, dnsServiceName):
+        self.dnsServiceName = dnsServiceName
+        self.host = resolveServiceToIPv4(self.dnsServiceName)
+        self.zk = kazoo.client.KazooClient(hosts=self.dnsServiceName)
+
+    def connect(self):
+        self.zk.start()
+        print(f"Connected to {self.dnsServiceName} kazoo host")
+
+    def disconnect(self):
+        self.zk.stop()
+        self.zk.close()
+        print(f"Disconnected from {self.dnsServiceName} kazoo host")
+
+    def createKazooAtomic(self, zNodePath):
+        if not self.zk.exists(zNodePath):
+            self.zk.create(zNodePath, b"")
+
+    def getKazooAtomic(self, zNodePath):
+        if self.zk.exists(zNodePath):
+            data, _ = self.zk.get(zNodePath)
+            return data.decode()
+        else:
+            return ""
+
+    def appendKazooAtomic(self, zNodePath, data):
+        while True:
+            try:
+                currentData, stat = self.zk.get(zNodePath)
+                newData = currentData.decode() + data
+                self.zk.set(zNodePath, newData.encode(), version=stat.version)
+                break
+            except kazoo.exceptions.BadVersionException:
+                pass
+
 
 def healthyCheck(host):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            ipv4 = host
+            
+            if host == "localhost" or host == "127.0.0.1":
+                ipv4 = getLocalIPV4()
+        
             s.settimeout(5)
-            s.connect((host, 2181))
+            s.connect((ipv4, 2181))
+        print(f"Connected to {ipv4} kazoo host")
         return True
     except (socket.error, socket.timeout):
+        print(f"Excpetion caught while trying to connect to kazoo host: \"{socket.error}\"")
         return False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.kazoo Framework Module")
     
-    arser.add_argument("--host", help="Kazoo Server host", type=str, required=True)
+    parser.add_argument("--host", help="Kazoo Server host", type=str, default="localhost")
     
     args = parser.parse_args()
 

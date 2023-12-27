@@ -1,19 +1,35 @@
 version: '3'
 
 services:
-  nabla.kazoo.server.windows:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
+  nabla.kazoo.server:
+    image: ${THIS_PROJECT_BASE_IMAGE}
     restart: always
-    container_name: dev.nabla.kazoo.server.x86_64.windows
-    hostname: dev.nabla.kazoo.server.x86_64.windows
-    env_file:
-      - ../../.env/.env
+    container_name: dev.nabla.kazoo.server.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.kazoo.server.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
     depends_on:
-      nabla.init.windows:
+      nabla.init:
         condition: service_completed_successfully
-    entrypoint: ["zkServer.cmd", "start", "%KAZOO_HOME%\\conf\\zoo_sample.cfg"]
+    entrypoint: ["zkServer.cmd"]
+    volumes:
+      - type: bind
+        source: ../../../../
+        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     healthcheck:
-      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "nabla.kazoo.server.windows"]
+      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "--host", "localhost"]
       interval: 30s
       timeout: 10s
       retries: 3
+      
+networks:
+  nabla.network:
+    external: true
+
+volumes:
+    nabla.repository:
+        external: true
+    ssh:
+      external: true

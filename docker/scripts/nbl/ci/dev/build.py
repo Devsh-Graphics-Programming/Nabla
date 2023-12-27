@@ -1,4 +1,5 @@
-import os, subprocess, sys, argparse, .lib.kazoo
+import os, subprocess, sys, argparse
+from .lib.kazoo import *
 
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.build Framework Module")
@@ -38,7 +39,7 @@ def main():
         libType = args.libType
         
         topBuildDirectory = os.path.normpath(os.path.join(THIS_PROJECT_NABLA_DIRECTORY, f"build/{libType}"))
-        targetBuildDirectory = os.path.normpath(os.path.join(topBuildDirectory, args.target_project_directory)
+        targetBuildDirectory = os.path.normpath(os.path.join(topBuildDirectory, args.target_project_directory))
         
         if topBuildDirectory == targetBuildDirectory:
             buildNabla(libType, config)
@@ -46,10 +47,17 @@ def main():
         else:
             buildProject(libType, config, targetBuildDirectory)
             cpackBundleHash += getCPackBundleHash(targetBuildDirectory, "Executables") + getCPackBundleHash(targetBuildDirectory, "Media")
-            
-        zk = connectToKazooServer("nabla.kazoo.server.windows") # DNS as compose service name
-        createKazooAtomic(f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS", cpackBundleHash)
-        zk.stop()
+                
+        kazooConnector = KazooConnector("dev.nabla.kazoo.server.x86_64.windows") # DNS as compose service name, TODO platform
+        kazooConnector.connect()
+
+        zNodePath = f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS"
+        kazooConnector.createKazooAtomic(zNodePath)
+        kazooConnector.appendKazooAtomic(zNodePath, cpackBundleHash)
+        print(f"Atomic update performed on {zNodePath} zNode path")
+        print(f"cpackBundleHash = {cpackBundleHash}")
+        
+        kazooConnector.disconnect()
                 
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with exit code {e.returncode}")

@@ -3,7 +3,6 @@ import os, subprocess, sys, argparse, glob, debugpy, asyncio, socket
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.cmake Framework Module")
     
-    parser.add_argument("--arch", help="Target architecture", type=str, default="x86_64")
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
 
     args = parser.parse_args()
@@ -19,6 +18,11 @@ def main():
 
         if not THIS_PROJECT_NABLA_DIRECTORY:
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
+            
+        THIS_PROJECT_ARCH = os.environ.get('THIS_PROJECT_ARCH', '')
+
+        if not THIS_PROJECT_ARCH:
+            raise ValueError("THIS_PROJECT_ARCH environment variables doesn't exist!")
 
         os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
 

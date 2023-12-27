@@ -6,6 +6,7 @@ def parseInputArguments():
     
     parser.add_argument("--ssh", help="SSH key file used for github authentication, required to clone Nabla", type=str, required=True)
     parser.add_argument("--platform", help="Target platform", type=str, default="windows")
+    parser.add_argument("--arch", help="Target arch", type=str, default="x86_64")
    
     args = parser.parse_args()
     
@@ -21,8 +22,10 @@ def main():
 
         key = args.ssh
         platform = args.platform
+        arch = args.arch
         
-        subprocess.run(f"docker compose -f ./compose/ci/stages/dev/init/compose.yml build nabla.init.{platform}", check=True) # build base image
+        if subprocess.call(["docker", "network", "inspect", "nabla.network"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
+           subprocess.run(["docker", "network", "create", "--driver", "nat", "--subnet", "172.28.0.0/16", "--gateway", "172.28.5.1", "nabla.network"], check=True) # create nabla.network network if not present
         
         if subprocess.call(["docker", "volume", "inspect", "nabla.repository"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
            subprocess.run(["docker", "volume", "create", "nabla.repository"], check=True) # create nabla.repository volume if not present
@@ -39,29 +42,17 @@ def main():
         #subprocess.run(f"docker start dev.ssh.intermediate", check=True) # start intermediate container
         #subprocess.run(f"docker cp {key} dev.ssh.intermediate:C:\\volume-mount-point", check=True) # copy ssh key to ssh volume
         #subprocess.call(f"docker rm -f dev.ssh.intermediate", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        mainCompose = [
+       
+        os.chdir("./compose/ci/stages/dev")
+       
+        compose = [
             "docker", "compose",
-            "-f", "./compose/ci/stages/dev/init/compose.yml",
-            "-f", "./compose/ci/stages/dev/kazoo/compose.yml",
-            "-f", "./compose/ci/stages/dev/checkout/compose.yml",
-            "-f", "./compose/ci/stages/dev/submodules/compose.yml",
-            "-f", "./compose/ci/stages/dev/cmake/compose.yml",
-            "-f", "./compose/ci/stages/dev/build/compose.yml",
-            "--env-file", "./compose/ci/stages/.env/.env"
+            "-f", f"./compose.{platform}.{arch}.yml",
+            "--env-file", "../.env/platform/windows/.env"
         ]
         
-        postCompose = [
-            "docker", "compose",
-            "-f", "./compose/ci/stages/dev/cpack/compose.yml",
-            "--env-file", "./compose/ci/stages/.env/.env"
-        ]
-        
-        subprocess.run(mainCompose + ["up", "--build"], check=True) # compose up main pipeline
-        subprocess.run(postCompose + ["up", "--build"], check=True) # compose up post pipeline
-        
-        subprocess.run(postCompose + ["down"], check=True) # compose down main pipeline
-        subprocess.run(postCompose + ["down"], check=True) # compose down post pipeline
+        subprocess.run(compose + ["up", "--build"], check=True) # compose up pipeline
+        subprocess.run(compose + ["down"], check=True) # compose down pipeline
         
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with exit code {e.returncode}")

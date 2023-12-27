@@ -22,8 +22,12 @@ def init():
     subprocess.run(f"icacls.exe {key} /GRANT:R ContainerAdministrator:(R)", check=True)
     subprocess.run(f"icacls.exe {key} /inheritance:r", check=True)
    
-    subprocess.run("ssh -T git@github.com", check=True)
-    
+    try:
+        subprocess.run("ssh -o StrictHostKeyChecking=no -T git@github.com", check=True)
+    except subprocess.CalledProcessError as e:
+        if not (e.returncode == 0 or e.returncode == 1):
+            raise ValueError("Could not authenticate with provided rsa key, exiting...")
+            
 
 def main():
     try:

@@ -3,12 +3,11 @@
 ARG BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022
 
 ARG THIS_PROJECT_WORKING_DIRECTORY="C:\docker"
-ARG THIS_PROJECT_NABLA_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/repository"
-ARG THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/artifactory"
 ARG THIS_PROJECT_DOCKER_BIND_DIRECTORY="C:/Users/ContainerAdministrator/Nabla/docker"
 ARG VULKAN_SDK_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VulkanSDK"
 ARG VS_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\VS\BuildTools"
 ARG APACHE_ZOOKEEPER_INSTALL_DIRECTORY="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\ApacheZooKeeper"
+ARG JAVA_HOME_SCRIPT="${THIS_PROJECT_WORKING_DIRECTORY}\dependencies\scripts\java"
 ARG VS_DEV_CMD_DIRECTORY="${VS_INSTALL_DIRECTORY}\Common7\Tools"
 
 FROM ${BASE_IMAGE}
@@ -102,14 +101,12 @@ RUN `
 	`
     && del /q zookeeper.zip `
 	`
-	# Add KAZOO_HOME environment variable
-	`
-	&& setx KAZOO_HOME "%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%" /M
+	&& setx PATH "%PATH%;%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%\apache-zookeeper-3.8.3-bin\bin" /M
 
 RUN `
-	# Donwload kazoo Python module
+	# Download kazoo Python 2.8.0 (more recent versions doesn't work well with Windows) module
 	`
-	python -m pip install --upgrade kazoo
+	python -m pip install kazoo==2.8.0
 
 RUN `
 	# Download OpenJDK 11 LTS
@@ -131,17 +128,6 @@ ARG THIS_PROJECT_WORKING_DIRECTORY
 RUN `
 	setx THIS_PROJECT_WORKING_DIRECTORY "%THIS_PROJECT_WORKING_DIRECTORY%" /M
 
-ARG THIS_PROJECT_NABLA_DIRECTORY
-
-RUN `
-	setx THIS_PROJECT_NABLA_DIRECTORY "%THIS_PROJECT_NABLA_DIRECTORY%" /M `
-	&& mkdir "%THIS_PROJECT_NABLA_DIRECTORY%"
-
-ARG THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY
-
-RUN `
-	setx THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY "%THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY%" /M
-
 ARG THIS_PROJECT_DOCKER_BIND_DIRECTORY	
 	
 RUN `
@@ -150,6 +136,15 @@ RUN `
 	
 RUN `
 	git config --system --add safe.directory *
+	
+ARG JAVA_HOME_SCRIPT	
+	
+COPY scripts\os\javaHome.py ${JAVA_HOME_SCRIPT}\javaHome.py
+
+RUN `
+	py "%JAVA_HOME_SCRIPT%\javaHome.py"
+	
+COPY scripts\os\resources\zoo.cfg ${APACHE_ZOOKEEPER_INSTALL_DIRECTORY}\apache-zookeeper-3.8.3-bin\conf\zoo.cfg
 
 ARG VS_DEV_CMD_DIRECTORY
 

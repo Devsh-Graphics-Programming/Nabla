@@ -9,7 +9,7 @@ def parseInputArguments():
 
 
 def updateSubmodules():
-    return subprocess.run(f"cmake -S . -B ./build/.submodules -DNBL_EXIT_ON_UPDATE_GIT_SUBMODULE=ON -DNBL_CI_GIT_SUBMODULES_SHALLOW=ON", check=True)
+    return subprocess.run(f"cmake -S . -B ./build/.submodules -DNBL_EXIT_ON_UPDATE_GIT_SUBMODULE=ON -DNBL_CI_GIT_SUBMODULES_SHALLOW=ON -D_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_=ON", check=True)
 
 
 def main():
@@ -20,6 +20,8 @@ def main():
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
 
         THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY = os.environ.get('THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY', '')
+    
+        os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
     
         updateSubmodules()
         

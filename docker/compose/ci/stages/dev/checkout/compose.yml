@@ -1,15 +1,17 @@
 version: '3'
 
 services:
-  nabla.checkout.x86_64:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.checkout.x86_64.windows
-    hostname: dev.nabla.checkout.windows
+  nabla.checkout:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.checkout.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.checkout
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
     depends_on:
-      nabla.kazoo.server.windows:
+      nabla.kazoo.server:
         condition: service_healthy
-    env_file:
-      - ../../.env/.env
     volumes:
       - type: volume
         source: nabla.repository
@@ -18,11 +20,16 @@ services:
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.checkout"]
+    
+networks:
+  nabla.network:
+    external: true
+
 volumes:
     nabla.repository:
         external: true
     ssh:
-        external: true
+      external: true

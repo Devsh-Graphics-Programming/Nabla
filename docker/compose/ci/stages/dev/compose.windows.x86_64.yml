@@ -1,0 +1,11 @@
+include:
+   - path:
+        - init/compose.yml
+        - kazoo/compose.yml
+        - checkout/compose.yml
+        - submodules/compose.yml
+        - cmake/compose.yml
+        - build/compose.yml
+        - cpack/compose.yml
+     project_directory: .
+     env_file: ../.env/platform/windows/.env

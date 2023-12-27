@@ -1,15 +1,17 @@
 version: '3'
 
 services:
-  nabla.submodules.x86_64.windows:
-    image: artifactory.devsh.eu/nabla/windows/base:latest
-    container_name: dev.nabla.submodules.x86_64.windows
-    hostname: dev.nabla.submodules.x86_64.windows
+  nabla.submodules:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.submodules.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.submodules.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
     depends_on:
-      nabla.checkout.x86_64:
+      nabla.checkout:
         condition: service_completed_successfully
-    env_file:
-      - ../../.env/.env
     volumes:
       - type: volume
         source: nabla.repository
@@ -18,9 +20,14 @@ services:
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../../
+        source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.submodules"]
+    
+networks:
+  nabla.network:
+    external: true
+
 volumes:
     nabla.repository:
         external: true
