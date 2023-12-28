@@ -55,6 +55,16 @@ struct SVertexInputParams
 };
 static_assert(sizeof(SVertexInputParams)==(sizeof(uint16_t)*2u+SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT*sizeof(SVertexInputAttribParams)+SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT*sizeof(SVertexInputBindingParams)),"Unexpected size!");
 
+struct SPrimitiveAssemblyParams
+{
+    inline auto operator<=>(const SPrimitiveAssemblyParams& other) const = default;
+
+    E_PRIMITIVE_TOPOLOGY primitiveType : 5 = EPT_TRIANGLE_LIST;
+    uint16_t primitiveRestartEnable : 1 = false;
+    uint16_t tessPatchVertCount : 10 = 3u;
+};
+static_assert(sizeof(SPrimitiveAssemblyParams)==2u, "Unexpected size!");
+
 
 template<typename PipelineLayoutType, typename ShaderType, typename RenderpassType>
 class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
@@ -71,7 +81,6 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
             SPrimitiveAssemblyParams primitiveAssembly = {};
             SRasterizationParams rasterization = {};
             SBlendParams blend = {};
-            IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamples = IImage::ESCF_1_BIT;
             uint32_t subpassIx = 0u;
         };
         struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
@@ -90,7 +99,6 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                     // TODO: check rasterization samples, etc.
                     //rp->getCreationParameters().subpasses[i]
 
-                    const ShaderType* pVertexShader = nullptr;
                     std::bitset<GRAPHICS_SHADER_STAGE_COUNT> stagePresence = {};
                     for (const auto info : shaders)
                     if (info.shader)
@@ -105,7 +113,12 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                             return false;
                         stagePresence.set(stageIx);
                     }
-                    if (!pVertexShader)
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
+                    if (!stagePresence.test(ICPUShader::ESS_VERTEX))
+                        return false;
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
+                    if (stagePresence.test(ICPUShader::ESS_TESSELLATION_CONTROL)!=stagePresence.test(ICPUShader::ESS_TESSELLATION_EVALUATION))
                         return false;
                     
                     return true;

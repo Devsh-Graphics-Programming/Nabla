@@ -694,18 +694,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
         {
             std::fill_n(output,params.size(),nullptr);
-            IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,[this](const IGPUShader::SSpecInfo& info)->bool
-            {
-                return info.shader->wasCreatedBy(this);
-            });
+            IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
+                [this](const IGPUShader::SSpecInfo& info)->bool
+                {
+                    return info.shader->wasCreatedBy(this);
+                }
+            );
             if (!specConstantValidation)
                 return false;
             
+            const auto& features = getEnabledFeatures();
             for (const auto& ci : params)
-            if (!ci.renderpass->wasCreatedBy(this))
-                return false;
+            {
+                if (!ci.renderpass->wasCreatedBy(this))
+                    return false;
 
-            // TODO: loads more validation on extra parameters here!
+                if (ci.cached.rasterization.depthBoundsTestEnable && !features.depthBounds)
+                    return false;
+                // TODO: loads more validation on extra parameters here!
+            }
             createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
             
             for (auto i=0u; i<params.size(); i++)

@@ -860,7 +860,58 @@ inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFla
 
 inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR in)
 {
-    return static_cast<VkBlendFactor>(in);
+    switch (in)
+    {
+        case asset::EBF_ZERO:
+            return VK_BLEND_FACTOR_ZERO;
+            break;
+        case asset::EBF_ONE:
+            return VK_BLEND_FACTOR_ONE;
+            break;
+        case asset::EBF_SRC_COLOR:
+            return VK_BLEND_FACTOR_SRC_COLOR;
+            break;
+        case asset::EBF_ONE_MINUS_SRC_COLOR:
+            return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+            break;
+        case asset::EBF_DST_COLOR:
+            return VK_BLEND_FACTOR_DST_COLOR;
+            break;
+        case asset::EBF_ONE_MINUS_DST_COLOR:
+            return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+            break;
+        case asset::EBF_SRC_ALPHA:
+            return VK_BLEND_FACTOR_SRC_ALPHA;
+            break;
+        case asset::EBF_ONE_MINUS_SRC_ALPHA:
+            return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+            break;
+        case asset::EBF_DST_ALPHA:
+            return VK_BLEND_FACTOR_DST_ALPHA;
+            break;
+        case asset::EBF_ONE_MINUS_DST_ALPHA:
+            return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+            break;
+        case asset::EBF_SRC_ALPHA_SATURATE:
+            return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+            break;
+        case asset::EBF_SRC1_COLOR:
+            return VK_BLEND_FACTOR_SRC1_COLOR;
+            break;
+        case asset::EBF_ONE_MINUS_SRC1_COLOR:
+            return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
+            break;
+        case asset::EBF_SRC1_ALPHA:
+            return VK_BLEND_FACTOR_SRC1_ALPHA;
+            break;
+        case asset::EBF_ONE_MINUS_SRC1_ALPHA:
+            return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
+            break;
+        default:
+            assert(false);
+            break;
+    }
+    return VK_BLEND_FACTOR_MAX_ENUM;
 }
 
 inline VkBlendOp getVkBlendOpFromBlendOp(const asset::E_BLEND_OP in)
