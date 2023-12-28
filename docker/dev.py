@@ -16,10 +16,9 @@ def parseInputArguments():
 def main():
     try:
         args = parseInputArguments()
-        os.path.dirname(os.path.abspath(__file__))
-
-        os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
+        
+        os.chdir(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "compose/ci/stages/dev")))
+        
         key = args.ssh
         platform = args.platform
         arch = args.arch
@@ -35,24 +34,18 @@ def main():
         
         if subprocess.call(["docker", "volume", "inspect", "ssh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
            subprocess.run(["docker", "volume", "create", "ssh"], check=True) # create ssh volume if not present
-        
-        # TODO: Unix/Macos when needed
-        #subprocess.call(f"docker rm -f dev.ssh.intermediate", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        #subprocess.run(f"docker run -d -v ssh:C:\\volume-mount-point --name dev.ssh.intermediate artifactory.devsh.eu/nabla/windows/base:latest", check=True) # create intermediate container
-        #subprocess.run(f"docker start dev.ssh.intermediate", check=True) # start intermediate container
-        #subprocess.run(f"docker cp {key} dev.ssh.intermediate:C:\\volume-mount-point", check=True) # copy ssh key to ssh volume
-        #subprocess.call(f"docker rm -f dev.ssh.intermediate", stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-       
-        os.chdir("./compose/ci/stages/dev")
-       
+
         compose = [
             "docker", "compose",
             "-f", f"./compose.{platform}.{arch}.yml",
             "--env-file", "../.env/platform/windows/.env"
         ]
         
-        subprocess.run(compose + ["up", "--build"], check=True) # compose up pipeline
-        subprocess.run(compose + ["down"], check=True) # compose down pipeline
+        subprocess.run(compose + ["build"], check=True)
+        subprocess.run(compose + ["create", "--force-recreate"], check=True)
+        subprocess.run(compose + ["cp", key, "nabla.init:key"], check=True)
+        subprocess.run(compose + ["up"], check=True)
+        subprocess.run(compose + ["down"], check=True)
         
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with exit code {e.returncode}")

@@ -1,9 +1,11 @@
-import os, subprocess, sys, argparse
+import os, subprocess, sys, argparse, shutil
 
 
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.init Framework Module")
  
+    parser.add_argument("--key", help="RSA input key file", type=str, required=True)
+
     args = parser.parse_args()
     
     return args
@@ -15,20 +17,28 @@ def init():
     if not THIS_PROJECT_SSH_DIRECTORY:
         raise ValueError("THIS_PROJECT_SSH_DIRECTORY environment variables doesn't exist!")
 
-    key = os.path.normpath(os.path.join(THIS_PROJECT_SSH_DIRECTORY, "id_rsa"))
-
-    # TODO: Unix/MacOS when needed
-    subprocess.run(f"icacls.exe {key} /reset", check=True)
-    subprocess.run(f"icacls.exe {key} /GRANT:R ContainerAdministrator:(R)", check=True)
-    subprocess.run(f"icacls.exe {key} /inheritance:r", check=True)
+    args = parseInputArguments()
    
     try:
+        inputKey = args.key
+        targetKey = os.path.normpath(os.path.join(THIS_PROJECT_SSH_DIRECTORY, "id_rsa"))
+
+        # TODO: Unix/MacOS when needed
+        subprocess.run(f"icacls.exe {targetKey} /reset", check=False)
+
+        shutil.copy(inputKey, targetKey)
+        print(f"Copied \"{inputKey}\" to \"{targetKey}\"")
+
+        subprocess.run(f"icacls.exe {targetKey} /GRANT:R ContainerAdministrator:(R)", check=True)
+        subprocess.run(f"icacls.exe {targetKey} /inheritance:r", check=True)
+
         subprocess.run("ssh -o StrictHostKeyChecking=no -T git@github.com", check=True)
     except subprocess.CalledProcessError as e:
         if not (e.returncode == 0 or e.returncode == 1):
             raise ValueError("Could not authenticate with provided rsa key, exiting...")
+    except FileNotFoundError:
+        raise ValueError(f"Input key file \"{inputKey}\" not found")
             
-
 def main():
     try:
         init()

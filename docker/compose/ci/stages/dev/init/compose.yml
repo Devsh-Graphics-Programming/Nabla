@@ -26,7 +26,7 @@ services:
       - type: bind
         source: ../../../../
         target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
-    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.init"]
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.init", "--key", "/key"]
     
 networks:
   nabla.network:
