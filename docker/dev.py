@@ -35,10 +35,12 @@ def main():
         if subprocess.call(["docker", "volume", "inspect", "ssh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
            subprocess.run(["docker", "volume", "create", "ssh"], check=True) # create ssh volume if not present
 
+        envFile = os.path.abspath("../.env/platform/{platform}/.env")
+
         compose = [
             "docker", "compose",
-            "-f", f"./compose.{platform}.{arch}.yml",
-            "--env-file", "../.env/platform/windows/.env"
+            "-f", f"./compose.yml",
+            "--env-file", envFile
         ]
         
         subprocess.run(compose + ["build"], check=True)

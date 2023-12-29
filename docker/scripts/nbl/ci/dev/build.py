@@ -4,7 +4,6 @@ from .lib.kazoo import *
 def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.build Framework Module")
     
-    parser.add_argument("--target-project-directory", help="Build Target project's directory path, relative to top build directory", type=str, default="")
     parser.add_argument("--config", help="Target CMake configuration", type=str, default="Release")
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
    
@@ -30,7 +29,9 @@ def main():
 
         if not THIS_PROJECT_NABLA_DIRECTORY:
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
-            
+        
+        THIS_SERVICE_BINARY_PROJECT_PATH = os.environ.get('THIS_SERVICE_BINARY_PROJECT_PATH', '')
+    
         os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
 
         args = parseInputArguments()
@@ -39,7 +40,7 @@ def main():
         libType = args.libType
         
         topBuildDirectory = os.path.normpath(os.path.join(THIS_PROJECT_NABLA_DIRECTORY, f"build/{libType}"))
-        targetBuildDirectory = os.path.normpath(os.path.join(topBuildDirectory, args.target_project_directory))
+        targetBuildDirectory = os.path.normpath(os.path.join(topBuildDirectory, THIS_SERVICE_BINARY_PROJECT_PATH))
         
         if topBuildDirectory == targetBuildDirectory:
             buildNabla(libType, config)

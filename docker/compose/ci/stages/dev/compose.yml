@@ -8,4 +8,4 @@ include:
         - build/compose.yml
         - cpack/compose.yml
      project_directory: .
-     env_file: ../.env/platform/windows/.env
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
