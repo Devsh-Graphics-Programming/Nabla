@@ -21,21 +21,13 @@ T subgroupShuffle(T value, uint32_t invocationId)
 template<typename T>
 T subgroupShuffleUp(T value, uint32_t delta)
 {
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
     return spirv::groupShuffleUp<T>(spv::ScopeSubgroup, value, delta);
-#else
-    return spirv::groupShuffle<T>(spv::ScopeSubgroup, value, gl_SubgroupInvocationID() - delta);
-#endif
 }
 
 template<typename T>
 T subgroupShuffleDown(T value, uint32_t delta)
 {
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
     return spirv::groupShuffleDown<T>(spv::ScopeSubgroup, value, delta);
-#else
-    return spirv::groupShuffle<T>(spv::ScopeSubgroup, value, gl_SubgroupInvocationID() + delta);
-#endif
 }
 
 }
