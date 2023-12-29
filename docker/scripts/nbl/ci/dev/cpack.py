@@ -24,11 +24,6 @@ def main():
 
         if not THIS_PROJECT_NABLA_DIRECTORY:
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
-
-        THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY = os.environ.get('THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY', '')
-
-        if not THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY:
-            print("THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY not defined, using default <topBuildDirectory>/package/<configuration> path for artifacts")
             
         os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
 
@@ -48,7 +43,7 @@ def main():
          
         if cpackBundleHash:
             print(f"CPACK_INSTALL_CMAKE_PROJECTS = {cpackBundleHash}")
-            cpack(libType, config, cpackBundleHash, f"{THIS_PROJECT_ARTIFACTORY_NABLA_DIRECTORY}/Nabla/artifacts/{config}/{libType}")
+            cpack(libType, config, cpackBundleHash, f"{THIS_PROJECT_NABLA_DIRECTORY}/build/artifacts/{config}/{libType}")
         else:
             print("CPACK_INSTALL_CMAKE_PROJECTS is empty, skipping cpack...")
 

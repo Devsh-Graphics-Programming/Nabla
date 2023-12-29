@@ -10,14 +10,11 @@ services:
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
       nabla.network:
-    depends_on:
-      nabla.init:
-        condition: service_completed_successfully
     entrypoint: ["zkServer.cmd"]
     volumes:
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     healthcheck:
       test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "--host", "localhost"]
       interval: 30s
@@ -29,7 +26,5 @@ networks:
     external: true
 
 volumes:
-    nabla.repository:
-        external: true
     ssh:
       external: true

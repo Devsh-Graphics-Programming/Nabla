@@ -12,16 +12,15 @@ services:
     depends_on:
       nabla.cmake.static:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Release", "--libType", "static"]
   nabla.build.static.relwithdebinfo:
     image: ${THIS_PROJECT_BASE_IMAGE}
@@ -34,16 +33,15 @@ services:
     depends_on:
       nabla.cmake.static:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "RelWithDebInfo", "--libType", "static"]
   nabla.build.static.debug:
     image: ${THIS_PROJECT_BASE_IMAGE}
@@ -56,16 +54,15 @@ services:
     depends_on:
       nabla.cmake.static:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Debug", "--libType", "static"]
   nabla.build.dynamic.release:
     image: ${THIS_PROJECT_BASE_IMAGE}
@@ -78,16 +75,15 @@ services:
     depends_on:
       nabla.cmake.dynamic:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Release", "--libType", "dynamic"]
   nabla.build.dynamic.relwithdebinfo:
     image: ${THIS_PROJECT_BASE_IMAGE}
@@ -100,16 +96,15 @@ services:
     depends_on:
       nabla.cmake.dynamic:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "RelWithDebInfo", "--libType", "dynamic"]
   nabla.build.dynamic.debug:
     image: ${THIS_PROJECT_BASE_IMAGE}
@@ -122,16 +117,15 @@ services:
     depends_on:
       nabla.cmake.dynamic:
         condition: service_completed_successfully
+      nabla.kazoo.server:
+        condition: service_healthy
     volumes:
-      - type: volume
-        source: nabla.repository
-        target: ${THIS_PROJECT_NABLA_DIRECTORY}
       - type: volume
         source: ssh
         target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
-        source: ../../../../
-        target: ${THIS_PROJECT_DOCKER_BIND_DIRECTORY}
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
     entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Debug", "--libType", "dynamic"]
     
 networks:
@@ -139,7 +133,5 @@ networks:
     external: true
 
 volumes:
-    nabla.repository:
-        external: true
     ssh:
       external: true

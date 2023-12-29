@@ -11,12 +11,21 @@ def parseInputArguments():
     args = parser.parse_args()
     
     return args
+
+
+def updateSubmodules(root):
+    updateSubmoduleScript = os.path.normpath(os.path.join(root, "cmake/submodules/update.cmake"))
+    return subprocess.run(f"cmake -P \"{updateSubmoduleScript}\"", check=True)
  
   
 def main():
     try:
         args = parseInputArguments()
         
+        root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../"))
+               
+        #updateSubmodules(root)
+         
         os.chdir(os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "compose/ci/stages/dev")))
         
         key = args.ssh
@@ -26,16 +35,10 @@ def main():
         if subprocess.call(["docker", "network", "inspect", "nabla.network"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
            subprocess.run(["docker", "network", "create", "--driver", "nat", "--subnet", "172.28.0.0/16", "--gateway", "172.28.5.1", "nabla.network"], check=True) # create nabla.network network if not present
         
-        if subprocess.call(["docker", "volume", "inspect", "nabla.repository"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
-           subprocess.run(["docker", "volume", "create", "nabla.repository"], check=True) # create nabla.repository volume if not present
-           
-        if subprocess.call(["docker", "volume", "inspect", "nabla.artifactory"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
-           subprocess.run(["docker", "volume", "create", "nabla.artifactory"], check=True) # create nabla.artifactory volume if not present
-        
         if subprocess.call(["docker", "volume", "inspect", "ssh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) != 0:
            subprocess.run(["docker", "volume", "create", "ssh"], check=True) # create ssh volume if not present
 
-        envFile = os.path.abspath("../.env/platform/{platform}/.env")
+        envFile = os.path.abspath(f"../.env/platform/{platform}/.env")
 
         compose = [
             "docker", "compose",
