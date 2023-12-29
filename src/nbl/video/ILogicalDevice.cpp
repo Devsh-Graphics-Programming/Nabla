@@ -557,3 +557,52 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
 
     return createRenderpass_impl(params,std::move(validation));
 }
+
+bool ILogicalDevice::createGraphicsPipelines(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+    core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
+)
+{
+    std::fill_n(output,params.size(),nullptr);
+    IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
+        [this](const IGPUShader::SSpecInfo& info)->bool
+        {
+            return info.shader->wasCreatedBy(this);
+        }
+    );
+    if (!specConstantValidation)
+        return false;
+            
+    const auto& features = getEnabledFeatures();
+    for (const auto& ci : params)
+    {
+        auto renderpass = ci.renderpass;
+        if (!renderpass->wasCreatedBy(this))
+            return false;
+
+        if (ci.cached.rasterization.depthBoundsTestEnable && !features.depthBounds)
+            return false;
+
+        // TODO: loads more validation on extra parameters here!
+
+        const auto& passParams = renderpass->getCreationParameters();
+        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
+        for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+        {
+            const auto& render = subpass.colorAttachments[i].render;
+            if (render.used())
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
+                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[passParams.colorAttachments[render.attachmentIndex].format].attachmentBlend)
+                    return false;
+            }
+        }
+    }
+    createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
+            
+    for (auto i=0u; i<params.size(); i++)
+    if (!output[i])
+        return false;
+    return true;
+}

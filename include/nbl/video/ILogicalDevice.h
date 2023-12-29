@@ -691,35 +691,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return retval;
         }
 
-        inline bool createGraphicsPipelines(IGPUPipelineCache* pipelineCache, const std::span<const IGPUGraphicsPipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output)
-        {
-            std::fill_n(output,params.size(),nullptr);
-            IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
-                [this](const IGPUShader::SSpecInfo& info)->bool
-                {
-                    return info.shader->wasCreatedBy(this);
-                }
-            );
-            if (!specConstantValidation)
-                return false;
-            
-            const auto& features = getEnabledFeatures();
-            for (const auto& ci : params)
-            {
-                if (!ci.renderpass->wasCreatedBy(this))
-                    return false;
-
-                if (ci.cached.rasterization.depthBoundsTestEnable && !features.depthBounds)
-                    return false;
-                // TODO: loads more validation on extra parameters here!
-            }
-            createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
-            
-            for (auto i=0u; i<params.size(); i++)
-            if (!output[i])
-                return false;
-            return true;
-        }
+        bool createGraphicsPipelines(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+            core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
+        );
 
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)

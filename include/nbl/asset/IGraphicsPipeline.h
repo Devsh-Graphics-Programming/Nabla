@@ -120,6 +120,10 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
                     if (stagePresence.test(ICPUShader::ESS_TESSELLATION_CONTROL)!=stagePresence.test(ICPUShader::ESS_TESSELLATION_EVALUATION))
                         return false;
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
+                    if (stagePresence.test(ICPUShader::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==EPT_PATCH_LIST))
+                        return false;
                     
                     return true;
                 }
