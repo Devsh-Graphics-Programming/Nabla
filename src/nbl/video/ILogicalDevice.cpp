@@ -575,26 +575,68 @@ bool ILogicalDevice::createGraphicsPipelines(
         return false;
             
     const auto& features = getEnabledFeatures();
+    const auto& limits = getPhysicalDeviceLimits();
     for (const auto& ci : params)
     {
         auto renderpass = ci.renderpass;
         if (!renderpass->wasCreatedBy(this))
             return false;
 
-        if (ci.cached.rasterization.depthBoundsTestEnable && !features.depthBounds)
+        const auto& rasterParams = ci.cached.rasterization;
+        if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
             return false;
 
+        const auto samples = 0x1u<<rasterParams.samplesLog2;
+
         // TODO: loads more validation on extra parameters here!
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-lineRasterizationMode-02766
+
+        // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01505
+        // baiscally the AMD version must have the rasterization samples equal to the maximum of all attachment samples counts
 
         const auto& passParams = renderpass->getCreationParameters();
         const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
+        if (subpass.viewMask)
+        {
+            /*
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
+            if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
+            if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
+                return false;
+            */
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
+            if (core::findMSB(subpass.viewMask)>limits.maxMultiviewViewCount)
+                return false;
+        }
+        if (subpass.depthStencilAttachment.render.used())
+        {
+            const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+            bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
+            if (/*detect NV version && */(rasterParams.depthTestEnable()||rasterParams.stencilTestEnable()||rasterParams.depthBoundsTestEnable))
+                sampleCountNeedsToMatch = true;
+            if (sampleCountNeedsToMatch && attachment.samples!=samples)
+                return false;
+        }
         for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
         {
             const auto& render = subpass.colorAttachments[i].render;
             if (render.used())
             {
+                const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[passParams.colorAttachments[render.attachmentIndex].format].attachmentBlend)
+                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                    return false;
+                
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples!=samples)
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
+                if (/*detect NV version && */(attachment.samples>samples))
                     return false;
             }
         }

@@ -93,6 +93,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                     if (!IPipeline<PipelineLayoutType>::SCreationParams::layout)
                         return false;
 
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
                     if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
                         return false;
 
