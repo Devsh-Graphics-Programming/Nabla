@@ -892,6 +892,18 @@ inline VkBlendFactor getVkBlendFactorFromBlendFactor(const asset::E_BLEND_FACTOR
         case asset::EBF_ONE_MINUS_DST_ALPHA:
             return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
             break;
+        case asset::EBF_CONSTANT_COLOR:
+            return VK_BLEND_FACTOR_CONSTANT_COLOR;
+            break;
+        case asset::EBF_ONE_MINUS_CONSTANT_COLOR:
+            return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+            break;
+        case asset::EBF_CONSTANT_ALPHA:
+            return VK_BLEND_FACTOR_CONSTANT_ALPHA;
+            break;
+        case asset::EBF_ONE_MINUS_CONSTANT_ALPHA:
+            return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+            break;
         case asset::EBF_SRC_ALPHA_SATURATE:
             return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
             break;

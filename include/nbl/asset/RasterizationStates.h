@@ -36,16 +36,6 @@ enum E_PRIMITIVE_TOPOLOGY : uint16_t
     EPT_PATCH_LIST = 10
 };
 
-struct SPrimitiveAssemblyParams
-{
-    inline auto operator<=>(const SPrimitiveAssemblyParams& other) const = default;
-
-    E_PRIMITIVE_TOPOLOGY primitiveType : 5 = EPT_TRIANGLE_LIST;
-    uint16_t primitiveRestartEnable : 1 = false;
-    uint16_t tessPatchVertCount : 10 = 3u;
-};
-static_assert(sizeof(SPrimitiveAssemblyParams)==2u, "Unexpected size!");
-
 
 enum E_STENCIL_OP : uint8_t
 {
@@ -75,14 +65,32 @@ struct SStencilOpParams
 {
     inline auto operator<=>(const SStencilOpParams& other) const = default;
 
+    inline bool needsStencilTestEnable(const bool depthWillAlwaysPass) const
+    {
+        switch (compareOp)
+        {
+            case ECO_NEVER:
+                if (failOp==ESO_KEEP)
+                    return false;
+                break;
+            case ECO_ALWAYS:
+                if (passOp==ESO_KEEP && (depthWillAlwaysPass || depthFailOp==ESO_KEEP))
+                    return false;
+                break;
+            default:
+                if (failOp==ESO_KEEP && passOp==ESO_KEEP && depthFailOp==ESO_KEEP)
+                    return false;
+                break;
+        }
+        return true;
+    }
+
     E_STENCIL_OP failOp : 3 = ESO_KEEP;
     E_STENCIL_OP passOp : 3 = ESO_KEEP;
     E_STENCIL_OP depthFailOp : 3 = ESO_KEEP;
     E_COMPARE_OP compareOp : 3 = ECO_ALWAYS;
-    uint8_t writeMask = ~0u;
-    uint8_t reference = 0u;
 };
-static_assert(sizeof(SStencilOpParams)==4, "Unexpected size!");
+static_assert(sizeof(SStencilOpParams)==2, "Unexpected size!");
 
 
 enum E_POLYGON_MODE : uint8_t
@@ -104,32 +112,43 @@ struct SRasterizationParams
 {
     inline auto operator<=>(const SRasterizationParams& other) const = default;
 
-    uint8_t viewportCount : 5 = 1u;
-    E_POLYGON_MODE polygonMode : 2 = EPM_FILL;
-    E_FACE_CULL_MODE faceCullingMode : 2 = EFCM_BACK_BIT;
-	E_COMPARE_OP depthCompareOp : 3 = ECO_GREATER;
+    inline bool depthTestEnable() const
+    {
+        return depthCompareOp!=asset::ECO_ALWAYS || depthWriteEnable;
+    }
+
+    inline bool stencilTestEnable() const
+    {
+        const bool depthWillAlwaysPass = depthCompareOp==asset::ECO_ALWAYS;
+        return frontStencilOps.needsStencilTestEnable(depthWillAlwaysPass) || backStencilOps.needsStencilTestEnable(depthWillAlwaysPass);
+    }
+
+
+    struct {
+        uint8_t viewportCount : 5 = 1;
+        uint8_t samplesLog2 : 3 = 0;
+    };
+    struct {
+        uint8_t depthClampEnable : 1 = false;
+        uint8_t rasterizerDiscard : 1 = false;
+        E_POLYGON_MODE polygonMode : 2 = EPM_FILL;
+        E_FACE_CULL_MODE faceCullingMode : 2 = EFCM_BACK_BIT;
+        uint8_t frontFaceIsCCW : 1 = true;
+        uint8_t depthBiasEnable : 1 = false;
+    };
+    struct {
+        uint8_t alphaToCoverageEnable : 1 = false;
+        uint8_t alphaToOneEnable : 1 = false;
+        uint8_t depthWriteEnable : 1 = true;
+        E_COMPARE_OP depthCompareOp : 3 = ECO_GREATER;
+        uint8_t depthBoundsTestEnable : 1 = false;
+    };
     SStencilOpParams frontStencilOps;
     SStencilOpParams backStencilOps;
-    struct {
-        uint16_t depthClampEnable : 1 = false;
-        uint16_t rasterizerDiscard : 1 = false;
-        uint16_t frontFaceIsCCW : 1 = true;
-        uint16_t depthBiasEnable : 1 = false;
-        uint16_t sampleShadingEnable : 1 = false;
-        uint16_t alphaToCoverageEnable : 1 = false;
-        uint16_t alphaToOneEnable : 1 = false;
-        uint16_t depthTestEnable : 1 = true;
-        uint16_t depthWriteEnable : 1 = true;
-        // this needs a min and max depth bound to be defined too
-        //uint16_t depthBoundsTestEnable : 1;
-        uint16_t stencilTestEnable : 1 = false;
-    };
+    uint8_t minSampleShadingUnorm = 0;
     uint32_t sampleMask[2] = { ~0u,~0u };
-    float minSampleShading = 0.f;
-    float depthBiasSlopeFactor = 0.f;
-    float depthBiasConstantFactor = 0.f;
 };
-static_assert(sizeof(SRasterizationParams)==32, "Unexpected size!");
+static_assert(sizeof(SRasterizationParams)==16, "Unexpected size!");
 
 enum E_BLEND_FACTOR : uint8_t
 {
@@ -227,7 +246,6 @@ struct SColorAttachmentBlendParams
     uint32_t dstColorFactor : 5 = EBF_ZERO;
     uint32_t colorBlendOp : 3 = EBO_ADD;
     
-    // TODO: some cut down enum for alpha factors?
     uint32_t srcAlphaFactor : 5 = EBF_ONE;
     uint32_t dstAlphaFactor : 5 = EBF_ZERO;
     uint32_t alphaBlendOp : 3 = EBO_ADD;
@@ -261,6 +279,8 @@ struct SBlendParams
 {
     inline auto operator<=>(const SBlendParams& other) const = default;
 
+    // Implicitly satisfies:
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-07609
     SColorAttachmentBlendParams blendParams[IRenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments] = {};
     // If logicOpEnable is not ELO_NO_OP, then a logical operation selected by logicOp is applied between each color attachment
     // and the fragment’s corresponding output value, and blending of all attachments is treated as if it were disabled.

@@ -1013,7 +1013,7 @@ void initPipelineCreateInfo(VkPipelineCreateInfo_t* vk_info, const SCreationPara
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07986
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCreateGraphicsPipelines.html#VUID-vkCreateGraphicsPipelines-flags-00720
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCreateGraphicsPipelines.html#VUID-vkCreateGraphicsPipelines-flags-00721
-        vk_info->basePipelineHandle = info.basePipeline ? static_cast<const CVulkanComputePipeline*>(info.basePipeline)->getInternalObject():VK_NULL_HANDLE;
+        vk_info->basePipelineHandle = info.basePipeline ? *reinterpret_cast<const VkPipeline*>(info.basePipeline->getNativeHandle()):VK_NULL_HANDLE;
         vk_info->basePipelineIndex = info.basePipeline ? (-1):info.basePipelineIndex;
         vk_info->flags |= VK_PIPELINE_CREATE_DERIVATIVE_BIT;
     }
@@ -1075,7 +1075,49 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
 )
 {
+    auto getVkStencilOpStateFrom = [](const asset::SStencilOpParams& params)->VkStencilOpState
+    {
+        return {
+            .failOp = static_cast<VkStencilOp>(params.failOp),
+            .passOp = static_cast<VkStencilOp>(params.passOp),
+            .depthFailOp = static_cast<VkStencilOp>(params.depthFailOp),
+            .compareOp = static_cast<VkCompareOp>(params.compareOp)
+        };
+    };
+
+    const auto& features = getEnabledFeatures();
+
+    core::vector<VkDynamicState> vk_dynamicStates = {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_LINE_WIDTH,
+        VK_DYNAMIC_STATE_DEPTH_BIAS,
+        VK_DYNAMIC_STATE_BLEND_CONSTANTS,
+        VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
+        VK_DYNAMIC_STATE_STENCIL_REFERENCE
+    };
+    if (features.depthBounds)
+        vk_dynamicStates.push_back(VK_DYNAMIC_STATE_DEPTH_BOUNDS);
+    // TODO: VK_DYNAMIC_STATE_DISCARD_RECTANGLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_ENABLE_EXT, VK_DYNAMIC_STATE_DISCARD_RECTANGLE_MODE_EXT
+    
+    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { 
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0u,
+        .dynamicStateCount = static_cast<uint32_t>(vk_dynamicStates.size()),
+        .pDynamicStates = vk_dynamicStates.data()
+    };
+
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
+    // Interesting things to put in pNext:
+    // - AttachmentSampleCountInfoAMD
+    // - Graphics Pipeline Library styff
+    // - CreateFlags 2
+    // - Pipeline Creation Feedback
+    // - Discard Rectangle State
+    // - Fragment Shading Rate State Creation Info
+    // - Piepline Robustness 
     core::vector<VkGraphicsPipelineCreateInfo> vk_createInfos(createInfos.size(),{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,nullptr});
 
     const auto maxShaderStages = createInfos.size()*IGPUGraphicsPipeline::GRAPHICS_SHADER_STAGE_COUNT;
@@ -1089,12 +1131,22 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkVertexInputBindingDescription> vk_inputBinding(createInfos.size()*asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
     core::vector<VkVertexInputAttributeDescription> vk_inputAttribute(createInfos.size()*asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT);
-    core::vector<VkPipelineVertexInputStateCreateInfo> vk_vertexInput(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkPipelineInputAssemblyStateCreateInfo> vk_inputAssembly(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkPipelineTessellationStateCreateInfo> vk_tessellation(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,nullptr,0});
-    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineViewportStateCreateInfo> vk_viewportStates(createInfos.size(),{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr, // the extensions that interest us have a dynamic state variant anyway
+        .flags = 0, // must be 0
+        .viewportCount = 0,
+        .pViewports = nullptr,
+        .scissorCount = 0,
+        .pScissors = nullptr,
+    });
     core::vector<VkPipelineRasterizationStateCreateInfo> vk_rasterizationStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkPipelineMultisampleStateCreateInfo> vk_multisampleStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0});
+    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size()*IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
 
     auto outCreateInfo = vk_createInfos.data();
     auto outShaderStage = vk_shaderStage.data();
@@ -1110,6 +1162,9 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     auto outViewport = vk_viewportStates.data();
     auto outRaster = vk_rasterizationStates.data();
     auto outMultisample = vk_multisampleStates.data();
+    auto outDepthStencil = vk_depthStencilStates.data();
+    auto outColorBlend = vk_colorBlendStates.data();
+    auto outColorBlendAttachmentState = vk_colorBlendAttachmentStates.data();
     for (const auto& info : createInfos)
     {
         initPipelineCreateInfo(outCreateInfo,info);
@@ -1122,10 +1177,27 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             {
                 const auto& vertexInputParams = info.cached.vertexInput;
-                outVertexInput->vertexAttributeDescriptionCount = 0;
-                outVertexInput->pVertexBindingDescriptions = 0;
-                outVertexInput->vertexAttributeDescriptionCount = 0;
-                outVertexInput->pVertexAttributeDescriptions = 0;
+                outVertexInput->pVertexBindingDescriptions = outInputBinding;
+                for (auto b=0u; b<asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; b++)
+                if (vertexInputParams.enabledBindingFlags&(1<<b))
+                {
+                    outInputBinding->binding = b;
+                    outInputBinding->stride = vertexInputParams.bindings[b].stride;
+                    outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
+                    outInputBinding++;
+                }
+                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
+                outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
+                for (auto l=0u; l<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
+                if (vertexInputParams.enabledAttribFlags&(1<<l))
+                {
+                    outInputAttribute->location = l;
+                    outInputAttribute->binding = vertexInputParams.attributes[l].binding;
+                    outInputAttribute->format = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(vertexInputParams.attributes[l].format));
+                    outInputAttribute->offset = vertexInputParams.attributes[l].relativeOffset;
+                    outInputAttribute++;
+                }
+                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputAttributeDescription*>(outVertexInput->pVertexAttributeDescriptions,outInputAttribute);
             }
             outCreateInfo->pVertexInputState = outVertexInput++;
             {
@@ -1136,21 +1208,85 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             outCreateInfo->pInputAssemblyState = outInputAssembly++;
         }
         for (const auto& spec : info.shaders)
-        if (spec.shader && (spec.shader->getStage()==IGPUShader::ESS_TESSELLATION_CONTROL || spec.shader->getStage()==IGPUShader::ESS_TESSELLATION_EVALUATION))
+        if (spec.shader)
         {
-            outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
-            outCreateInfo->pTessellationState = outTessellation++;
-            break;
+            const auto stage = spec.shader->getStage();
+            if (stage==IGPUShader::ESS_TESSELLATION_CONTROL || stage==IGPUShader::ESS_TESSELLATION_EVALUATION)
+            {
+                outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
+                outCreateInfo->pTessellationState = outTessellation++;
+                break;
+            }
         }
+        const auto& raster = info.cached.rasterization;
         {
+            outViewport->viewportCount = raster.viewportCount;
+            // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
+            outViewport->scissorCount = raster.viewportCount;
             outCreateInfo->pViewportState = outViewport++;
         }
         {
+            outRaster->depthClampEnable = raster.depthClampEnable;
+            outRaster->rasterizerDiscardEnable = raster.rasterizerDiscard;
+            outRaster->polygonMode = static_cast<VkPolygonMode>(raster.polygonMode);
+            outRaster->cullMode = static_cast<VkCullModeFlags>(raster.faceCullingMode);
+            outRaster->frontFace = raster.frontFaceIsCCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE:VK_FRONT_FACE_CLOCKWISE;
+            outRaster->depthBiasEnable = raster.depthBiasEnable;
             outCreateInfo->pRasterizationState = outRaster++;
         }
         {
+            outMultisample->rasterizationSamples = static_cast<VkSampleCountFlagBits>(0x1<<raster.samplesLog2);
+            if (raster.minSampleShadingUnorm>0)
+            {
+                outMultisample->sampleShadingEnable = true;
+                outMultisample->minSampleShading = float(raster.minSampleShadingUnorm)/255.f;
+            }
+            else
+            {
+                outMultisample->sampleShadingEnable = false;
+                outMultisample->minSampleShading = 0.f;
+            }
+            outMultisample->pSampleMask = raster.sampleMask;
+            outMultisample->alphaToCoverageEnable = raster.alphaToCoverageEnable;
+            outMultisample->alphaToOneEnable = raster.alphaToOneEnable;
             outCreateInfo->pMultisampleState = outMultisample++;
         }
+        {
+            //outDepthStencil->flags no attachment order access yet
+            outDepthStencil->depthTestEnable = raster.depthTestEnable();
+            outDepthStencil->depthWriteEnable = raster.depthWriteEnable;
+            outDepthStencil->depthCompareOp = static_cast<VkCompareOp>(raster.depthCompareOp);
+            outDepthStencil->depthBoundsTestEnable = raster.depthBoundsTestEnable;
+            outDepthStencil->stencilTestEnable = raster.stencilTestEnable();
+            outDepthStencil->front = getVkStencilOpStateFrom(raster.frontStencilOps);
+            outDepthStencil->back = getVkStencilOpStateFrom(raster.backStencilOps);
+            outCreateInfo->pDepthStencilState = outDepthStencil++;
+        }
+        {
+            const auto& blend = info.cached.blend;
+            const auto& subpass = info.renderpass->getCreationParameters().subpasses[info.cached.subpassIx];
+            //outColorBlend->flags no attachment order access yet
+            outColorBlend->logicOpEnable = blend.logicOp!=asset::ELO_NO_OP;
+            outColorBlend->logicOp = getVkLogicOpFromLogicOp(blend.logicOp);
+            outColorBlend->pAttachments = outColorBlendAttachmentState;
+            for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+            if (subpass.colorAttachments[i].render.used())
+            {
+                const auto& params = blend.blendParams[i];
+                outColorBlendAttachmentState->blendEnable = params.blendEnabled();
+                outColorBlendAttachmentState->srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcColorFactor));
+                outColorBlendAttachmentState->dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstColorFactor));
+                outColorBlendAttachmentState->colorBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.colorBlendOp));
+                outColorBlendAttachmentState->srcAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcAlphaFactor));
+                outColorBlendAttachmentState->dstAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstAlphaFactor));
+                outColorBlendAttachmentState->alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.alphaBlendOp));
+                outColorBlendAttachmentState->colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(params.colorWriteMask);
+                outColorBlendAttachmentState++;
+            }
+            outColorBlend->attachmentCount = std::distance<const VkPipelineColorBlendAttachmentState*>(outColorBlend->pAttachments,outColorBlendAttachmentState);
+            outCreateInfo->pColorBlendState = outColorBlend++;
+        }
+        outCreateInfo->pDynamicState = &vk_dynamicStateCreateInfo;
         outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
         outCreateInfo->subpass = info.cached.subpassIx;
         outCreateInfo++;
@@ -1164,207 +1300,12 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
-            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(this,
-                core::smart_refctd_ptr<const IGPUSpecializedShader>(createInfos[i].shader),
-                vk_pipeline
-            );
+            output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
         }
     }
     else
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
-
-
-#if 0
-    core::vector<VkStencilOpState> vk_stencilFrontStates(params.size());
-    core::vector<VkStencilOpState> vk_stencilBackStates(params.size());
-    core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(params.size());
-
-    uint32_t colorBlendAttachmentCount_total = 0u;
-    core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(params.size() * asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT);
-    core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(params.size());
-
-    constexpr uint32_t DYNAMIC_STATE_COUNT = 2u;
-    VkDynamicState vk_dynamicStates[DYNAMIC_STATE_COUNT] = { VK_DYNAMIC_STATE_VIEWPORT , VK_DYNAMIC_STATE_SCISSOR };
-    VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
-    vk_dynamicStateCreateInfo.pNext = nullptr;
-    vk_dynamicStateCreateInfo.flags = 0u;
-    vk_dynamicStateCreateInfo.dynamicStateCount = DYNAMIC_STATE_COUNT;
-    vk_dynamicStateCreateInfo.pDynamicStates = vk_dynamicStates;
-
-
-
-        // Vertex Input
-        {
-            // Fill up vertex binding descriptions
-            uint32_t offset = vertexBindingDescriptionCount_total;
-            uint32_t vertexBindingDescriptionCount = 0u;
-
-            for (uint32_t b = 0u; b < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++b)
-            {
-                if (vertexInputParams.enabledBindingFlags & (1 << b))
-                {
-                    auto& bndDesc = vk_vertexBindingDescriptions[offset + vertexBindingDescriptionCount++];
-
-                    bndDesc.binding = b;
-                    bndDesc.stride = vertexInputParams.bindings[b].stride;
-                    bndDesc.inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
-                }
-            }
-            vk_vertexInputStates[i].vertexBindingDescriptionCount = vertexBindingDescriptionCount;
-            vk_vertexInputStates[i].pVertexBindingDescriptions = vk_vertexBindingDescriptions.data() + offset;
-            vertexBindingDescriptionCount_total += vertexBindingDescriptionCount;
-
-            // Fill up vertex attribute descriptions
-            offset = vertexAttribDescriptionCount_total;
-            uint32_t vertexAttribDescriptionCount = 0u;
-
-            for (uint32_t l = 0u; l < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++l)
-            {
-                if (vertexInputParams.enabledAttribFlags & (1 << l))
-                {
-                    auto& attribDesc = vk_vertexAttribDescriptions[offset + vertexAttribDescriptionCount++];
-
-                    attribDesc.location = l;
-                    attribDesc.binding = vertexInputParams.attributes[l].binding;
-                    attribDesc.format = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(vertexInputParams.attributes[l].format));
-                    attribDesc.offset = vertexInputParams.attributes[l].relativeOffset;
-                }
-            }
-            vk_vertexInputStates[i].vertexAttributeDescriptionCount = vertexAttribDescriptionCount;
-            vk_vertexInputStates[i].pVertexAttributeDescriptions = vk_vertexAttribDescriptions.data() + offset;
-            vertexAttribDescriptionCount_total += vertexAttribDescriptionCount;
-        }
-        vk_createInfos[i].pVertexInputState = &vk_vertexInputStates[i];
-
-        // Viewport State
-        {
-            const uint32_t viewportCount = rpIndie->getRasterizationParams().viewportCount;
-
-            vk_viewportStates[i].viewportCount = viewportCount;
-            vk_viewportStates[i].pViewports = nullptr; // ignored
-            vk_viewportStates[i].scissorCount = viewportCount; // must be identical to viewport count unless VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT or VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT are used
-            vk_viewportStates[i].pScissors = nullptr; // ignored
-        }
-        vk_createInfos[i].pViewportState = &vk_viewportStates[i];
-
-        // Rasterization
-        {
-            const auto& rasterizationParams = rpIndie->getRasterizationParams();
-
-            vk_rasterizationStates[i].depthClampEnable = rasterizationParams.depthClampEnable;
-            vk_rasterizationStates[i].rasterizerDiscardEnable = rasterizationParams.rasterizerDiscard;
-            vk_rasterizationStates[i].polygonMode = static_cast<VkPolygonMode>(rasterizationParams.polygonMode);
-            vk_rasterizationStates[i].cullMode = static_cast<VkCullModeFlags>(rasterizationParams.faceCullingMode);
-            vk_rasterizationStates[i].frontFace = rasterizationParams.frontFaceIsCCW ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
-            vk_rasterizationStates[i].depthBiasEnable = rasterizationParams.depthBiasEnable;
-            vk_rasterizationStates[i].depthBiasConstantFactor = rasterizationParams.depthBiasConstantFactor;
-            vk_rasterizationStates[i].depthBiasClamp = 0.f;
-            vk_rasterizationStates[i].depthBiasSlopeFactor = rasterizationParams.depthBiasSlopeFactor;
-            vk_rasterizationStates[i].lineWidth = 1.f;
-        }
-        vk_createInfos[i].pRasterizationState = &vk_rasterizationStates[i];
-
-        // Multisampling
-        {
-            const auto& rasterizationParams = rpIndie->getRasterizationParams();
-
-            vk_multisampleStates[i].rasterizationSamples = static_cast<VkSampleCountFlagBits>(creationParams[i].rasterizationSamples);
-            vk_multisampleStates[i].sampleShadingEnable = rasterizationParams.sampleShadingEnable;
-            vk_multisampleStates[i].minSampleShading = rasterizationParams.minSampleShading;
-            vk_multisampleStates[i].pSampleMask = rasterizationParams.sampleMask;
-            vk_multisampleStates[i].alphaToCoverageEnable = rasterizationParams.alphaToCoverageEnable;
-            vk_multisampleStates[i].alphaToOneEnable = rasterizationParams.alphaToOneEnable;
-        }
-        vk_createInfos[i].pMultisampleState = &vk_multisampleStates[i];
-
-        // Depth-stencil
-        {
-            const auto& rasterParams = rpIndie->getRasterizationParams();
-
-            // Front stencil state
-            vk_stencilFrontStates[i].failOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.failOp);
-            vk_stencilFrontStates[i].passOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.passOp);
-            vk_stencilFrontStates[i].depthFailOp = static_cast<VkStencilOp>(rasterParams.frontStencilOps.depthFailOp);
-            vk_stencilFrontStates[i].compareOp = static_cast<VkCompareOp>(rasterParams.frontStencilOps.compareOp);
-            vk_stencilFrontStates[i].compareMask = 0xFFFFFFFF;
-            vk_stencilFrontStates[i].writeMask = rasterParams.frontStencilOps.writeMask;
-            vk_stencilFrontStates[i].reference = rasterParams.frontStencilOps.reference;
-
-            // Back stencil state
-            vk_stencilBackStates[i].failOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.failOp);
-            vk_stencilBackStates[i].passOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.passOp);
-            vk_stencilBackStates[i].depthFailOp = static_cast<VkStencilOp>(rasterParams.backStencilOps.depthFailOp);
-            vk_stencilBackStates[i].compareOp = static_cast<VkCompareOp>(rasterParams.backStencilOps.compareOp);
-            vk_stencilBackStates[i].compareMask = 0xFFFFFFFF;
-            vk_stencilBackStates[i].writeMask = rasterParams.backStencilOps.writeMask;
-            vk_stencilBackStates[i].reference = rasterParams.backStencilOps.reference;
-            
-            vk_depthStencilStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-            vk_depthStencilStates[i].pNext = nullptr;
-            vk_depthStencilStates[i].flags = static_cast<VkPipelineDepthStencilStateCreateFlags>(0u);
-            vk_depthStencilStates[i].depthTestEnable = rasterParams.depthTestEnable;
-            vk_depthStencilStates[i].depthWriteEnable = rasterParams.depthWriteEnable;
-            vk_depthStencilStates[i].depthCompareOp = static_cast<VkCompareOp>(rasterParams.depthCompareOp);
-            vk_depthStencilStates[i].depthBoundsTestEnable = rasterParams.depthBoundsTestEnable;
-            vk_depthStencilStates[i].stencilTestEnable = rasterParams.stencilTestEnable;
-            vk_depthStencilStates[i].front = vk_stencilFrontStates[i];
-            vk_depthStencilStates[i].back = vk_stencilBackStates[i];
-            vk_depthStencilStates[i].minDepthBounds = 0.f;
-            vk_depthStencilStates[i].maxDepthBounds = 1.f;
-        }
-        vk_createInfos[i].pDepthStencilState = &vk_depthStencilStates[i];
-
-        // Color blend
-        {
-            const auto& blendParams = rpIndie->getBlendParams();
-            
-            uint32_t offset = colorBlendAttachmentCount_total;
-
-            assert(creationParams[i].subpassIx < creationParams[i].renderpass->getCreationParameters().subpassCount);
-            auto subpassDescription = creationParams[i].renderpass->getCreationParameters().subpasses[creationParams[i].subpassIx];
-            uint32_t colorBlendAttachmentCount = subpassDescription.colorAttachmentCount;
-
-            for (uint32_t as = 0u; as < colorBlendAttachmentCount; ++as)
-            {
-                const auto& inBlendParams = blendParams.blendParams[as];
-                auto& outBlendState = vk_colorBlendAttachmentStates[offset + as];
-
-                outBlendState.blendEnable = inBlendParams.blendEnable;
-                outBlendState.srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.srcColorFactor));
-                outBlendState.dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.dstColorFactor));
-                assert(inBlendParams.colorBlendOp <= asset::EBO_MAX);
-                outBlendState.colorBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(inBlendParams.colorBlendOp));
-                outBlendState.srcAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.srcAlphaFactor));
-                outBlendState.dstAlphaBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(inBlendParams.dstAlphaFactor));
-                assert(inBlendParams.alphaBlendOp <= asset::EBO_MAX);
-                outBlendState.alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(inBlendParams.alphaBlendOp));
-                outBlendState.colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(inBlendParams.colorWriteMask);
-            }
-            colorBlendAttachmentCount_total += colorBlendAttachmentCount;
-
-            vk_colorBlendStates[i].sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-            vk_colorBlendStates[i].pNext = nullptr;
-            vk_colorBlendStates[i].flags = 0u;
-            vk_colorBlendStates[i].logicOpEnable = blendParams.logicOpEnable;
-            vk_colorBlendStates[i].logicOp = getVkLogicOpFromLogicOp(static_cast<asset::E_LOGIC_OP>(blendParams.logicOp));
-            vk_colorBlendStates[i].attachmentCount = colorBlendAttachmentCount;
-            vk_colorBlendStates[i].pAttachments = vk_colorBlendAttachmentStates.data() + offset;
-            vk_colorBlendStates[i].blendConstants[0] = 0.0f;
-            vk_colorBlendStates[i].blendConstants[1] = 0.0f;
-            vk_colorBlendStates[i].blendConstants[2] = 0.0f;
-            vk_colorBlendStates[i].blendConstants[3] = 0.0f;
-        }
-        vk_createInfos[i].pColorBlendState = &vk_colorBlendStates[i];
-
-        // Dynamic state
-        vk_createInfos[i].pDynamicState = &vk_dynamicStateCreateInfo;
-#endif
-
-
-
-
-
 
 core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(const IQueryPool::SCreationParams& params)
 {
