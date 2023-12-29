@@ -24,6 +24,8 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
         ) : IGPUComputePipeline(std::move(_layout),_flags),
             m_pipeline(pipeline), m_shader(std::move(_shader)) {}
 
+        inline const void* getNativeHandle() const override { return &m_pipeline; }
+
         inline VkPipeline getInternalObject() const { return m_pipeline; }
     
         void setObjectDebugName(const char* label) const override;

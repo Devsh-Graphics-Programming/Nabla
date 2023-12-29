@@ -65,6 +65,9 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
+        // Vulkan: const VkPipeline*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         IGPUGraphicsPipeline(const SCreationParams& params) : IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice())),
             pipeline_t(params), m_flags(params.flags) {}

@@ -71,6 +71,9 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
+        // Vulkan: const VkPipeline*
+        virtual const void* getNativeHandle() const = 0;
+
     protected:
         inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
             IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())), pipeline_t(std::move(_layout)), m_flags(_flags) {}

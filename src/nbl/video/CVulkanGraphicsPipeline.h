@@ -24,7 +24,9 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 			}
         }
 
-        inline VkPipeline getInternalObject() const { return m_vkPipeline; }
+        inline const void* getNativeHandle() const override {return &m_vkPipeline;}
+
+        inline VkPipeline getInternalObject() const {return m_vkPipeline;}
 
     private:
         ~CVulkanGraphicsPipeline();
