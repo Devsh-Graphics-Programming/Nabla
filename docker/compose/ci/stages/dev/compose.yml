@@ -6,3 +6,17 @@ include:
         - cpack/compose.yml
      project_directory: .
      env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+     
+services:
+  nabla.init:
+    build:
+      context: ../../../
+      args:
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.init.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.init.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    networks:
+      nabla.network:
