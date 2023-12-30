@@ -43,10 +43,10 @@ def main():
         lowerCaseConfig = config.lower()
         libType = args.libType
 
-        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
+        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.{libType}.{lowerCaseConfig}.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
         kazooConnector.connect()
 
-        zNodePath = f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS"
+        zNodePath = f"/CPACK_INSTALL_CMAKE_PROJECTS"
         cpackBundleHash = kazooConnector.getKazooAtomic(zNodePath)
         print(f"Atomic read performed on {zNodePath} zNode path")
 

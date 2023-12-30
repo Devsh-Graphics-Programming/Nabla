@@ -29,3 +29,5 @@ android-sample/bin/*
 preprocessed.hlsl
 compiled.spv
 .vs/*
+*/__pycache__/*
+__pycache__/*

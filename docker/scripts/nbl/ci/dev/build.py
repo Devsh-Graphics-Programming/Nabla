@@ -60,10 +60,10 @@ def main():
             buildProject(libType, config, targetBuildDirectory)
             cpackBundleHash += getCPackBundleHash(targetBuildDirectory, "Executables") + getCPackBundleHash(targetBuildDirectory, "Media")
                 
-        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
+        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.{libType}.{lowerCaseConfig}.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
         kazooConnector.connect()
 
-        zNodePath = f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS"
+        zNodePath = f"/CPACK_INSTALL_CMAKE_PROJECTS"
         kazooConnector.createKazooAtomic(zNodePath)
         kazooConnector.appendKazooAtomic(zNodePath, cpackBundleHash)
         print(f"Atomic update performed on {zNodePath} zNode path")
