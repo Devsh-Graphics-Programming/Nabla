@@ -98,8 +98,8 @@ class IGPUCommandPool : public IBackendObject
 
                 inline auto size() const {return m_size;}
 
-                inline T* data() {return reinterpret_cast<T*>(m_pool->m_scratch);}
-                inline const T* data() const {return reinterpret_cast<const T*>(m_pool->m_scratch);}
+                inline T* data() {return reinterpret_cast<T*>(m_pool->m_scratch+m_addr);}
+                inline const T* data() const {return reinterpret_cast<const T*>(m_pool->m_scratch+m_addr);}
 
                 inline T& operator[](const uint32_t ix) {return data()[ix];}
                 inline const T& operator[](const uint32_t ix) const {return data()[ix];}
