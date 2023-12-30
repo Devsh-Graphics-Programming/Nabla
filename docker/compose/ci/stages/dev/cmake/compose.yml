@@ -1,10 +1,10 @@
 version: '3'
 
 services:
-  nabla.cmake.static:
+  nabla.cmake.static.release:
     image: ${THIS_PROJECT_BASE_IMAGE}
-    container_name: dev.nabla.cmake.static.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
-    hostname: dev.nabla.cmake.static.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    container_name: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -16,13 +16,15 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
-    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "static"]
-  nabla.cmake.dynamic:
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "static", "--config", "release"]
+  nabla.cmake.static.relwithdebinfo:
     image: ${THIS_PROJECT_BASE_IMAGE}
-    container_name: dev.nabla.cmake.dynamic.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
-    hostname: dev.nabla.cmake.dynamic.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    container_name: dev.nabla.cmake.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/static/relwithdebinfo
     networks:
       nabla.network:
     volumes:
@@ -32,7 +34,79 @@ services:
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
-    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic"]
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "static", "--config", "relwithdebinfo"]
+  nabla.cmake.static.debug:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/static/debug
+    networks:
+      nabla.network:
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "static", "--config", "debug"]
+  nabla.cmake.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/dynamic/release
+    networks:
+      nabla.network:
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic", "--config", "release"]
+  nabla.cmake.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/dynamic/relwithdebinfo
+    networks:
+      nabla.network:
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic", "--config", "relwithdebinfo"]
+  nabla.cmake.dynamic.debug:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/dynamic/debug
+    networks:
+      nabla.network:
+    volumes:
+      - type: volume
+        source: ssh
+        target: ${THIS_PROJECT_SSH_DIRECTORY}
+      - type: bind
+        source: ../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic", "--config", "debug"]
     
 networks:
   nabla.network:

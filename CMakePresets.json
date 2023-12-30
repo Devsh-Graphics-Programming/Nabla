@@ -29,14 +29,14 @@
 			"hidden": true,
 			"description": "CI preset for static-configure inheritance",
 			"inherits": "ci-configure-dev",
-			"binaryDir": "${sourceDir}/build/static"
+			"binaryDir": "build/static"  
 		},
 		{
 			"name": "ci-configure-dynamic-dev",
 			"hidden": true,
 			"description": "CI preset for dynamic-configure inheritance",
 			"inherits": "ci-configure-dev",
-			"binaryDir": "${sourceDir}/build/dynamic",
+			"binaryDir": "build/dynamic",
 			"cacheVariables": {
 				"NBL_STATIC_BUILD": "OFF",
 				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
@@ -70,11 +70,95 @@
 			}
 		},
 		{
+			"name": "ci-configure-static-msvc-release",
+			"inherits": "ci-configure-static-dev",
+			"displayName": "CI configure-static Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI static configure using Visual Studio generator, Release configuration and MSVC toolset, windows as host only",
+			"generator": "Visual Studio 17 2022",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/static/release",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "ci-configure-static-msvc-relwithdebinfo",
+			"inherits": "ci-configure-static-dev",
+			"displayName": "CI configure-static Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
+			"generator": "Visual Studio 17 2022",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/static/relwithdebinfo",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "ci-configure-static-msvc-debug",
+			"inherits": "ci-configure-static-dev",
+			"displayName": "CI configure-static Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
+			"generator": "Visual Studio 17 2022",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/static/debug",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
 			"name": "ci-configure-dynamic-msvc",
 			"inherits": "ci-configure-dynamic-dev",
 			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only",
 			"description": "CI dynamic configure using Visual Studio generator and MSVC toolset, windows as host only",
 			"toolset": "v143",
+			"generator": "Visual Studio 17 2022",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-msvc-release",
+			"inherits": "ci-configure-dynamic-dev",
+			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI dynamic configure using Visual Studio generator, Release configuration and MSVC toolset, windows as host only",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/dynamic/release",
+			"generator": "Visual Studio 17 2022",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-msvc-relwithdebinfo",
+			"inherits": "ci-configure-dynamic-dev",
+			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI dynamic configure using Visual Studio generator, RelWithDebInfo configuration and MSVC toolset, windows as host only",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/dynamic/relwithdebinfo",
+			"generator": "Visual Studio 17 2022",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-msvc-debug",
+			"inherits": "ci-configure-dynamic-dev",
+			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI dynamic configure using Visual Studio generator,Debug configuration and MSVC toolset, windows as host only",
+			"toolset": "v143",
+			"binaryDir": "build/.docker/windows/x86_64/dynamic/debug",
 			"generator": "Visual Studio 17 2022",
 			"condition": {
 				"type": "equals",
@@ -91,7 +175,8 @@
 			"description": "main CI build preset for inheritance",
 			"targets": [
 				"Nabla"
-			]
+			],
+			"inheritConfigureEnvironment": true
 		},
 		{
 			"name": "ci-build-static-dev",
@@ -129,11 +214,59 @@
 			"inherits": "ci-build-static-dev"
 		},
 		{
+			"name": "ci-build-static-msvc-release",
+			"configurePreset": "ci-configure-static-msvc-release",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
+			"inherits": "ci-build-static-dev",
+			"configuration": "Release"
+		},
+		{
+			"name": "ci-build-static-msvc-relwithdebinfo",
+			"configurePreset": "ci-configure-static-msvc-relwithdebinfo",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
+			"inherits": "ci-build-static-dev",
+			"configuration": "RelWithDebInfo"
+		},
+		{
+			"name": "ci-build-static-msvc-debug",
+			"configurePreset": "ci-configure-static-msvc-debug",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
+			"inherits": "ci-build-static-dev",
+			"configuration": "Debug"
+		},
+		{
 			"name": "ci-build-dynamic-msvc",
 			"configurePreset": "ci-configure-dynamic-msvc",
 			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only",
 			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, windows as host only",
 			"inherits": "ci-build-dynamic-dev"
+		},
+		{
+			"name": "ci-build-dynamic-msvc-release",
+			"configurePreset": "ci-configure-dynamic-msvc-release",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
+			"inherits": "ci-build-dynamic-dev",
+			"configuration": "Release"
+		},
+		{
+			"name": "ci-build-dynamic-msvc-relwithdebinfo",
+			"configurePreset": "ci-configure-dynamic-msvc-relwithdebinfo",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
+			"inherits": "ci-build-dynamic-dev",
+			"configuration": "RelWithDebInfo"
+		},
+		{
+			"name": "ci-build-dynamic-msvc-debug",
+			"configurePreset": "ci-configure-dynamic-msvc-debug",
+			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
+			"inherits": "ci-build-dynamic-dev",
+			"configuration": "Debug"
 		}
 	],
 	"packagePresets": [
@@ -173,11 +306,71 @@
 			"description": "CI static package using Visual Studio generator and MSVC toolset, windows as host only"
 		},
 		{
+			"name": "ci-package-static-msvc-release",
+			"inherits": "ci-package-static-dev",
+			"configurePreset": "ci-configure-static-msvc-release",
+			"displayName": "CI package-static Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI static package using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
+			"configurations": [
+				"Release"
+			]
+		},
+		{
+			"name": "ci-package-static-msvc-relwithdebinfo",
+			"inherits": "ci-package-static-dev",
+			"configurePreset": "ci-configure-static-msvc-relwithdebinfo",
+			"displayName": "CI package-static Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI static package using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
+			"configurations": [
+				"RelWithDebInfo"
+			]
+		},
+		{
+			"name": "ci-package-static-msvc-debug",
+			"inherits": "ci-package-static-dev",
+			"configurePreset": "ci-configure-static-msvc-debug",
+			"displayName": "CI package-static Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI static package using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
+			"configurations": [
+				"Debug"
+			]
+		},
+		{
 			"name": "ci-package-dynamic-msvc",
 			"inherits": "ci-package-dynamic-dev",
 			"configurePreset": "ci-configure-dynamic-msvc",
 			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only",
 			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, windows as host only"
+		},
+		{
+			"name": "ci-package-dynamic-msvc-release",
+			"inherits": "ci-package-dynamic-dev",
+			"configurePreset": "ci-configure-dynamic-msvc-release",
+			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only Release configuration",
+			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
+			"configurations": [
+				"Release"
+			]
+		},
+		{
+			"name": "ci-package-dynamic-msvc-relwithdebinfo",
+			"inherits": "ci-package-dynamic-dev",
+			"configurePreset": "ci-configure-dynamic-msvc-relwithdebinfo",
+			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
+			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
+			"configurations": [
+				"RelWithDebInfo"
+			]
+		},
+		{
+			"name": "ci-package-dynamic-msvc-debug",
+			"inherits": "ci-package-dynamic-dev",
+			"configurePreset": "ci-configure-dynamic-msvc-debug",
+			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only Debug configuration",
+			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
+			"configurations": [
+				"Debug"
+			]
 		}
 	]
 }

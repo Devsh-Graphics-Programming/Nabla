@@ -10,7 +10,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.static:
+      nabla.cmake.static.release:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy
@@ -31,7 +31,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.static:
+      nabla.cmake.static.relwithdebinfo:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy
@@ -52,7 +52,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.static:
+      nabla.cmake.static.debug:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy
@@ -73,7 +73,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.dynamic:
+      nabla.cmake.dynamic.release:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy
@@ -94,7 +94,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.dynamic:
+      nabla.cmake.dynamic.relwithdebinfo:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy
@@ -115,7 +115,7 @@ services:
     networks:
       nabla.network:
     depends_on:
-      nabla.cmake.dynamic:
+      nabla.cmake.dynamic.debug:
         condition: service_completed_successfully
       nabla.kazoo.server:
         condition: service_healthy

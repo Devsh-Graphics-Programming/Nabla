@@ -12,7 +12,7 @@ def parseInputArguments():
     return args
 
 def buildNabla(libType, config):
-    return subprocess.run(f"cmake --build --preset ci-build-{libType}-msvc --config {config}", check=False)
+    return subprocess.run(f"cmake --build --preset ci-build-{libType}-msvc-{config}", check=False)
 
 
 def buildProject(libType, config, buildDirectory):
@@ -29,6 +29,16 @@ def main():
 
         if not THIS_PROJECT_NABLA_DIRECTORY:
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
+            
+        THIS_PROJECT_PLATFORM = os.environ.get('THIS_PROJECT_PLATFORM', '')
+
+        if not THIS_PROJECT_PLATFORM:
+            raise ValueError("THIS_PROJECT_PLATFORM environment variables doesn't exist!")
+        
+        THIS_PROJECT_ARCH = os.environ.get('THIS_PROJECT_ARCH', '')
+
+        if not THIS_PROJECT_ARCH:
+            raise ValueError("THIS_PROJECT_ARCH environment variables doesn't exist!")
         
         THIS_SERVICE_BINARY_PROJECT_PATH = os.environ.get('THIS_SERVICE_BINARY_PROJECT_PATH', '')
     
@@ -37,19 +47,20 @@ def main():
         args = parseInputArguments()
 
         config = args.config
+        lowerCaseConfig = config.lower()
         libType = args.libType
         
-        topBuildDirectory = os.path.normpath(os.path.join(THIS_PROJECT_NABLA_DIRECTORY, f"build/{libType}"))
+        topBuildDirectory = os.path.normpath(os.path.join(THIS_PROJECT_NABLA_DIRECTORY, f"build/.docker/{THIS_PROJECT_PLATFORM}/{THIS_PROJECT_ARCH}/{libType}/{lowerCaseConfig}"))
         targetBuildDirectory = os.path.normpath(os.path.join(topBuildDirectory, THIS_SERVICE_BINARY_PROJECT_PATH))
         
         if topBuildDirectory == targetBuildDirectory:
-            buildNabla(libType, config)
+            buildNabla(libType, lowerCaseConfig)
             cpackBundleHash = getCPackBundleHash(topBuildDirectory, "Libraries") + getCPackBundleHash(topBuildDirectory, "Runtime")
         else:
             buildProject(libType, config, targetBuildDirectory)
             cpackBundleHash += getCPackBundleHash(targetBuildDirectory, "Executables") + getCPackBundleHash(targetBuildDirectory, "Media")
                 
-        kazooConnector = KazooConnector("dev.nabla.kazoo.server.x86_64.windows") # DNS as compose service name, TODO platform
+        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
         kazooConnector.connect()
 
         zNodePath = f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS"

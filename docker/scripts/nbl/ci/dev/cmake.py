@@ -4,13 +4,14 @@ def parseInputArguments():
     parser = argparse.ArgumentParser(description="Nabla CI Pipeline nbl.ci.dev.cmake Framework Module")
     
     parser.add_argument("--libType", help="Target library type", type=str, default="dynamic")
+    parser.add_argument("--config", help="Target library type", type=str, default="release")
 
     args = parser.parse_args()
     
     return args
 
-def configure(libType):
-    subprocess.run(f"cmake . --preset ci-configure-{libType}-msvc", check=True)
+def configure(libType, config):
+    subprocess.run(f"cmake . --preset ci-configure-{libType}-msvc-{config}", check=True)
 
 def main():
     try:
@@ -29,8 +30,9 @@ def main():
         args = parseInputArguments()
 
         libType = args.libType
+        config = args.config
         
-        configure(libType)
+        configure(libType, config)
 
     except subprocess.CalledProcessError as e:
         print(f"Subprocess failed with exit code {e.returncode}")

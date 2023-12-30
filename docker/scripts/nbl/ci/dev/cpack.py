@@ -15,7 +15,7 @@ def cpack(libType, config, CPACK_INSTALL_CMAKE_PROJECTS, packageDirectory):
     if not packageDirectory:
         packageDirectory = f"./package/{config}/{libType}"
         
-    return subprocess.run(f"cpack --preset ci-package-{libType}-msvc -C {config} -B \"{packageDirectory}\" -D CPACK_INSTALL_CMAKE_PROJECTS=\"{CPACK_INSTALL_CMAKE_PROJECTS}\"", check=True)
+    return subprocess.run(f"cpack --preset ci-package-{libType}-msvc-{config} -B \"{packageDirectory}\" -D CPACK_INSTALL_CMAKE_PROJECTS=\"{CPACK_INSTALL_CMAKE_PROJECTS}\"", check=True)
 
 
 def main():
@@ -24,15 +24,26 @@ def main():
 
         if not THIS_PROJECT_NABLA_DIRECTORY:
             raise ValueError("THIS_PROJECT_NABLA_DIRECTORY environment variables doesn't exist!")
+        
+        THIS_PROJECT_PLATFORM = os.environ.get('THIS_PROJECT_PLATFORM', '')
+
+        if not THIS_PROJECT_PLATFORM:
+            raise ValueError("THIS_PROJECT_PLATFORM environment variables doesn't exist!")
+        
+        THIS_PROJECT_ARCH = os.environ.get('THIS_PROJECT_ARCH', '')
+
+        if not THIS_PROJECT_ARCH:
+            raise ValueError("THIS_PROJECT_ARCH environment variables doesn't exist!")
             
         os.chdir(THIS_PROJECT_NABLA_DIRECTORY)
 
         args = parseInputArguments()
 
         config = args.config
+        lowerCaseConfig = config.lower()
         libType = args.libType
 
-        kazooConnector = KazooConnector("dev.nabla.kazoo.server.x86_64.windows") # DNS as compose service name, TODO platform
+        kazooConnector = KazooConnector(f"dev.nabla.kazoo.server.x86_64.{THIS_PROJECT_PLATFORM}") # DNS record as compose service name
         kazooConnector.connect()
 
         zNodePath = f"/{config}_{libType}_CPACK_INSTALL_CMAKE_PROJECTS"
@@ -43,7 +54,7 @@ def main():
          
         if cpackBundleHash:
             print(f"CPACK_INSTALL_CMAKE_PROJECTS = {cpackBundleHash}")
-            cpack(libType, config, cpackBundleHash, f"{THIS_PROJECT_NABLA_DIRECTORY}/build/artifacts/{config}/{libType}")
+            cpack(libType, lowerCaseConfig, cpackBundleHash, f"{THIS_PROJECT_NABLA_DIRECTORY}/build/artifacts/{THIS_PROJECT_PLATFORM}/{THIS_PROJECT_ARCH}/{config}/{libType}")
         else:
             print("CPACK_INSTALL_CMAKE_PROJECTS is empty, skipping cpack...")
 

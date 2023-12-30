@@ -150,5 +150,8 @@ ARG VS_DEV_CMD_DIRECTORY
 
 RUN `
 	setx PATH "%PATH%;%VS_DEV_CMD_DIRECTORY%" /M
+	
+RUN `
+	reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v "LongPathsEnabled" /t REG_DWORD /d 1 /f
 
 ENTRYPOINT ["powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
