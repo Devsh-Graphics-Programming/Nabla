@@ -43,6 +43,41 @@ class IFramebuffer
             if (rp->hasViewMasks() && params.layers!=1)
                 return false;
 
+            auto invalidUsageForLayout = [](const IImage::LAYOUT layout, const core::bitflag<IImage::E_USAGE_FLAGS> usages) -> bool
+            {
+                switch (layout)
+                {
+                    case IImage::LAYOUT::READ_ONLY_OPTIMAL:
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03097
+                        if (!(usages&(IImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT)))
+                            return true;
+                        break;
+                    case IImage::LAYOUT::ATTACHMENT_OPTIMAL:
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03094
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03096
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-02844
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-stencilInitialLayout-02845
+                        if (!usages.hasFlags(IImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT))
+                            return true;
+                        break;
+                    case IImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03098
+                        if (!usages.hasFlags(IImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+                            return true;
+                        break;
+                    case IImage::LAYOUT::TRANSFER_DST_OPTIMAL:
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03099
+                        if (!usages.hasFlags(IImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+                            return true;
+                        break;
+                    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-07002
+                    // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-07003
+                    default:
+                        break;
+                }
+                return false;
+            };
+
             // provoke wraparound of -1 on purpose
             const uint32_t viewMaskMSB = static_cast<uint32_t>(rp->getViewMaskMSB());
             /*
@@ -101,11 +136,24 @@ class IFramebuffer
                     if (!viewParams.actualUsages().hasFlags(IImage::EUF_RENDER_ATTACHMENT_BIT))
                         return true;
 
-                    const auto viewType = viewParams.viewType;
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00891
-                    if constexpr (std::is_same_v<std::remove_pointer_t<decltype(attachmentDesc)>,const IRenderpass::SCreationParams::SDepthStencilAttachmentDescription>)
-                    if (imgParams.type==IImage::ET_3D && (viewType==attachment_t::ET_2D||viewType==attachment_t::ET_2D_ARRAY))
-                        return true;
+                    if constexpr (std::is_same_v<decltype(desc),const IRenderpass::SCreationParams::SDepthStencilAttachmentDescription&>)
+                    {
+                        if (invalidUsageForLayout(desc.initialLayout.actualStencilLayout()) || invalidUsageForLayout(desc.initialLayout.depth))
+                            return true;
+                        if (invalidUsageForLayout(desc.finalLayout.actualStencilLayout()) || invalidUsageForLayout(desc.finalLayout.depth))
+                            return true;
+
+                        const auto viewType = viewParams.viewType;
+                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00891
+                        if (imgParams.type==IImage::ET_3D && (viewType==attachment_t::ET_2D||viewType==attachment_t::ET_2D_ARRAY))
+                            return true;
+                    }
+                    else
+                    {
+                        static_assert(std::is_same_v<decltype(desc),const IRenderpass::SCreationParams::SColorAttachmentDescription&>);
+                        if (invalidUsageForLayout(desc.initialLayout) || invalidUsageForLayout(desc.finalLayout))
+                            return true;
+                    }
                 }
                 return false;
             };
