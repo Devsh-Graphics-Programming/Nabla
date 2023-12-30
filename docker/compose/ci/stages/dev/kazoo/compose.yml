@@ -3,7 +3,6 @@ version: '3'
 services:
   nabla.kazoo.server:
     image: ${THIS_PROJECT_BASE_IMAGE}
-    restart: always
     container_name: dev.nabla.kazoo.server.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.kazoo.server.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     env_file: 

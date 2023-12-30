@@ -5,6 +5,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -18,6 +19,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.relwithdebinfo"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     environment:
@@ -33,6 +35,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.debug"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     environment:
@@ -48,6 +51,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     environment:
@@ -63,6 +67,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     environment:
@@ -78,6 +83,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.cmake.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.cmake.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.debug"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     environment:

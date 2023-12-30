@@ -6,6 +6,7 @@ def parseInputArguments():
     
     parser.add_argument("--platform", help="Target platform", type=str, default="windows")
     parser.add_argument("--arch", help="Target arch", type=str, default="x86_64")
+    parser.add_argument('--profiles', nargs='*', default=["dev.dynamic.debug"], help='Target list of profiles to apply')
    
     args = parser.parse_args()
     
@@ -34,14 +35,16 @@ def main():
            subprocess.run(["docker", "network", "create", "--driver", "nat", "--subnet", "172.28.0.0/16", "--gateway", "172.28.5.1", "nabla.network"], check=True) # create nabla.network network if not present
         
         envFile = os.path.abspath(f"../.env/platform/{platform}/.env")
+        profiles = (lambda profiles: [item for profile in profiles for item in ["--profile", profile]])(args.profiles)
 
         compose = [
             "docker", "compose",
             "-f", f"./compose.yml",
             "--env-file", envFile
-        ]
+        ] + profiles
         
         subprocess.run(compose + ["build"], check=True)
+        subprocess.run(compose + ["config"], check=True)
         subprocess.run(compose + ["create", "--force-recreate"], check=True)
         subprocess.run(compose + ["up"], check=True)
         subprocess.run(compose + ["down"], check=True)

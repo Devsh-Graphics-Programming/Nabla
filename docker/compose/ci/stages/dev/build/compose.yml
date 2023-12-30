@@ -5,6 +5,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -23,6 +24,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.static.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.relwithdebinfo"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -41,6 +43,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.static.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.debug"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -59,6 +62,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -77,6 +81,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
@@ -95,6 +100,7 @@ services:
     image: ${THIS_PROJECT_BASE_IMAGE}
     container_name: dev.nabla.build.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
     hostname: dev.nabla.build.dynamic.debug.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.debug"]
     env_file: 
       - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
     networks:
