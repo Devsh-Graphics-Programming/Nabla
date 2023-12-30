@@ -10,9 +10,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -28,9 +25,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -46,9 +40,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -64,9 +55,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -82,9 +70,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -100,9 +85,6 @@ services:
     networks:
       nabla.network:
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -111,7 +93,3 @@ services:
 networks:
   nabla.network:
     external: true
-
-volumes:
-    ssh:
-      external: true

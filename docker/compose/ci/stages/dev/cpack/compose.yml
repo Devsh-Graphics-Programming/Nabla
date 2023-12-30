@@ -101,7 +101,3 @@ services:
 networks:
   nabla.network:
     external: true
-
-volumes:
-    ssh:
-      external: true

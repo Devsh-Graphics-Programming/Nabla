@@ -15,9 +15,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -36,9 +33,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -57,9 +51,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -78,9 +69,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -99,9 +87,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -120,9 +105,6 @@ services:
       nabla.kazoo.server:
         condition: service_healthy
     volumes:
-      - type: volume
-        source: ssh
-        target: ${THIS_PROJECT_SSH_DIRECTORY}
       - type: bind
         source: ../../../../../
         target: ${THIS_PROJECT_NABLA_DIRECTORY}
@@ -131,7 +113,3 @@ services:
 networks:
   nabla.network:
     external: true
-
-volumes:
-    ssh:
-      external: true
