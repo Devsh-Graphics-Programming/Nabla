@@ -329,6 +329,52 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
             return setViewport_impl(first,count,pViewports);
         }
+        bool setLineWidth(const float width);
+        inline bool setDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
+        {
+            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+                return false;
+
+            return setDepthBias_impl(depthBiasConstantFactor,depthBiasClamp,depthBiasSlopeFactor);
+        }
+        inline bool setBlendConstants(const hlsl::float32_t& constants)
+        {
+            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+                return false;
+
+            return setBlendConstants_impl(constants);
+        }
+        bool setDepthBounds(const float minDepthBounds, const float maxDepthBounds);
+        inline bool setStencilCompareMask(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask)
+        {
+            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+                return false;
+
+            if (faces==asset::EFCM_NONE)
+                return false;
+
+            return setStencilCompareMask_impl(faces,compareMask);
+        }
+        inline bool setStencilWriteMask(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask)
+        {
+            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+                return false;
+
+            if (faces==asset::EFCM_NONE)
+                return false;
+
+            return setStencilWriteMask_impl(faces,writeMask);
+        }
+        inline bool setStencilReference(const asset::E_FACE_CULL_MODE faces, const uint8_t reference)
+        {
+            if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+                return false;
+
+            if (faces==asset::EFCM_NONE)
+                return false;
+
+            return setStencilReference_impl(faces,reference);
+        }
 
         //! queries
         bool resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount);
@@ -348,15 +394,16 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
-            IGPUFramebuffer* framebuffer;
-            const SClearColorValue* colorClearValues;
-            const SClearDepthStencilValue* depthStencilClearValues;
-            VkRect2D renderArea;
+            IGPUFramebuffer* framebuffer = nullptr;
+            const SClearColorValue* colorClearValues = nullptr;
+            const SClearDepthStencilValue* depthStencilClearValues = nullptr;
+            VkRect2D renderArea = {};
         };
         enum SUBPASS_CONTENTS : uint8_t
         {
             INLINE = 0,
             SECONDARY_COMMAND_BUFFERS = 1
+            // TODO: VK_EXT_nested_command_buffer
         };
         bool beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents);
         bool nextSubpass(const SUBPASS_CONTENTS contents);
@@ -366,19 +413,43 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             struct SRegion
             {
+                inline bool valid() const
+                {
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-rect-02682
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-rect-02683
+                    return rect.extent.width>0u && rect.extent.height>0u && layerCount>0u;
+                }
+
                 VkRect2D rect = { {0u,0u},{0u,0u} };
                 uint32_t baseArrayLayer = 0u;
                 uint32_t layerCount = 0u;
-
-                inline bool used() const {return rect.extent.width!=0u || rect.extent.height!=0u || layerCount!=0u;}
             };
 
-            SRegion depthStencilRegion = {};
+            inline bool valid() const
+            {
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-attachmentCount-arraylength
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-rectCount-arraylength
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-layerCount-01934
+                if (regions.empty() || !clearDepth && !clearStencil && clearColorMask==0)
+                    return false;
+
+                for (const auto& region : regions)
+                if (!region.valid())
+                    return false;
+
+                return true;
+            }
+
+            inline bool clearColor(const uint8_t binding) const {return clearColorMask&(0x1u<<binding);}
+
+
+            std::span<const SRegion> regions = {};
             SClearDepthStencilValue depthStencilValue = {};
-            SRegion colorRegions[IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments] = {};
             SClearColorValue colorValues[IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments] = {};
-            // default is don't clear depth stencil
-            IGPUImage::E_ASPECT_FLAGS depthStencilAspectMask = IGPUImage::EAF_NONE;
+            uint8_t clearDepth : 1 = false;
+            uint8_t clearStencil : 1 = false;
+            uint8_t clearColorMask = 0;
+            static_assert(sizeof(clearColorMask)*8==IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
         };
         bool clearAttachments(const SClearAttachments& info);
 
@@ -514,6 +585,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool setScissor_impl(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors) = 0;
         virtual bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) = 0;
+        virtual bool setLineWidth_impl(const float width) = 0;
+        virtual bool setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor) = 0;
+        virtual bool setBlendConstants_impl(const hlsl::float32_t& constants) = 0;
+        virtual bool setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds) = 0;
+        virtual bool setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask) = 0;
+        virtual bool setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask) = 0;
+        virtual bool setStencilReference_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t reference) = 0;
 
         virtual bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) = 0;
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;

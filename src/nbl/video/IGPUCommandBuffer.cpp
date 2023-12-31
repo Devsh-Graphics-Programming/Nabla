@@ -800,6 +800,38 @@ bool IGPUCommandBuffer::invalidDynamic(const uint32_t first, const uint32_t coun
     return false;
 }
 
+bool IGPUCommandBuffer::setLineWidth(const float width)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    const auto device = getOriginDevice();
+    if (device->getEnabledFeatures().wideLines)
+    {
+        const auto& limits = device->getPhysicalDevice()->getLimits();
+        if (width<limits.lineWidthRange[0] || width>limits.lineWidthRange[1])
+            return false;
+    }
+    else if (width!=1.f)
+        return false;
+
+    return setLineWidth_impl(width);
+}
+
+bool IGPUCommandBuffer::setDepthBounds(const float minDepthBounds, const float maxDepthBounds)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
+        return false;
+
+    if (!getOriginDevice()->getEnabledFeatures().depthBounds)
+        return false;
+    // TODO: implement and handle VK_EXT_depth_range_unrestrices
+    if (minDepthBounds<0.f || maxDepthBounds>1.f)
+        return false;
+
+    return setDepthBounds_impl(minDepthBounds,maxDepthBounds);
+}
+
 
 bool IGPUCommandBuffer::resetQueryPool(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
@@ -947,6 +979,7 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-framebuffer-02779
     if (!info.framebuffer || !this->isCompatibleDevicewise(info.framebuffer))
         return false;
 
@@ -967,17 +1000,20 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
         return false;
 
+    if (!beginRenderPass_impl(info, contents))
+        return false;
     m_cachedInheritanceInfo.renderpass = params.renderpass;
     m_cachedInheritanceInfo.subpass = 0;
     m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
-    return beginRenderPass_impl(info,contents);
+    return true;
 }
 
 bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
         return false;
-    if (m_cachedInheritanceInfo.subpass>=m_cachedInheritanceInfo.renderpass->getSubpassCount())
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdNextSubpass2KHR.html#VUID-vkCmdNextSubpass2-None-03102
+    if (m_cachedInheritanceInfo.subpass+1>=m_cachedInheritanceInfo.renderpass->getSubpassCount())
         return false;
 
     m_cachedInheritanceInfo.subpass++;
@@ -987,6 +1023,9 @@ bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
 bool IGPUCommandBuffer::endRenderPass()
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return false;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdEndRenderPass2KHR.html#VUID-vkCmdEndRenderPass2-None-03103
+    if (m_cachedInheritanceInfo.subpass+1!=m_cachedInheritanceInfo.renderpass->getSubpassCount())
         return false;
 
     m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
@@ -999,27 +1038,39 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
 
-    auto invalidRegion = [this](const SClearAttachments::SRegion& region)->bool
-    {
-        if (region.used())
-        {
-            if (region.rect.extent.width==0u || region.rect.extent.height==0u || region.layerCount==0u)
-                return true;
-        
-            // cannot validate without tracking more stuff
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-00016
-            // TODO: if (m_cachedInheritanceInfo.renderpass->getUsesMultiview()) then, instead check https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
-            if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
-                return true;
-        }
-        return true;
-    };
+    if (!info.valid())
+        return false;
 
-    if (bool(info.depthStencilAspectMask)!=info.depthStencilRegion.used() || invalidRegion(info.depthStencilRegion))
-        return false;
-    for (auto i=0u; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-    if (invalidRegion(info.colorRegions[i]))
-        return false;
+    const auto& rpassParams = m_cachedInheritanceInfo.renderpass->getCreationParameters();
+    const auto& subpass = rpassParams.subpasses[m_cachedInheritanceInfo.subpass];
+    if (info.clearDepth||info.clearStencil)
+    {
+        if (!subpass.depthStencilAttachment.render.used())
+            return false;
+        const auto& depthStencilAttachment = rpassParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07884
+        if (info.clearDepth && asset::isStencilOnlyFormat(depthStencilAttachment.format))
+            return false;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07885
+        if (info.clearStencil && asset::isDepthOnlyFormat(depthStencilAttachment.format))
+            return false;
+    }
+    for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
+        if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())
+            return false;
+    }
+    
+    // cannot validate without tracking more stuff
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-00016
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-06937
+    // TODO: if (m_cachedInheritanceInfo.renderpass->getUsesMultiview()) then, instead check https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
+    for (const SClearAttachments::SRegion& region : info.regions)
+    {
+        if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
+            return false;
+    }
 
     return clearAttachments_impl(info);
 }

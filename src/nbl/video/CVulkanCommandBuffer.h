@@ -190,6 +190,13 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool setScissor_impl(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors) override;
         bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) override;
+        bool setLineWidth_impl(const float width) override;
+        bool setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor) override;
+        bool setBlendConstants_impl(const hlsl::float32_t& constants) override;
+        bool setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds) override;
+        bool setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask) override;
+        bool setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask) override;
+        bool setStencilReference_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t reference) override;
 
         bool resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount) override;
         bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) override;

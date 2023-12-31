@@ -489,6 +489,48 @@ bool CVulkanCommandBuffer::setViewport_impl(const uint32_t first, const uint32_t
     return true;
 }
 
+bool CVulkanCommandBuffer::setLineWidth_impl(const float width)
+{
+    getFunctionTable().vkCmdSetLineWidth(m_cmdbuf,width);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
+{
+    getFunctionTable().vkCmdSetDepthBias(m_cmdbuf,depthBiasConstantFactor,depthBiasClamp,depthBiasSlopeFactor);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setBlendConstants_impl(const hlsl::float32_t& constants)
+{
+    getFunctionTable().vkCmdSetBlendConstants(m_cmdbuf,reinterpret_cast<const float*>(&constants));
+    return true;
+}
+
+bool CVulkanCommandBuffer::setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds)
+{
+    getFunctionTable().vkCmdSetDepthBounds(m_cmdbuf,minDepthBounds,maxDepthBounds);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask)
+{
+    getFunctionTable().vkCmdSetStencilCompareMask(m_cmdbuf,static_cast<VkStencilFaceFlags>(faces),compareMask);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask)
+{
+    getFunctionTable().vkCmdSetStencilWriteMask(m_cmdbuf,static_cast<VkStencilFaceFlags>(faces),writeMask);
+    return true;
+}
+
+bool CVulkanCommandBuffer::setStencilReference_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t reference)
+{
+    getFunctionTable().vkCmdSetStencilReference(m_cmdbuf,static_cast<VkStencilFaceFlags>(faces),reference);
+    return true;
+}
+
 
 bool CVulkanCommandBuffer::resetQueryPool_impl(IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount)
 {
@@ -553,94 +595,96 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
     return true;
 }
 
-#if 0
-bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, SUBPASS_CONTENTS contents)
+
+bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
-    constexpr uint32_t MAX_CLEAR_VALUE_COUNT = (1 << 12ull) / sizeof(VkClearValue);
-    VkClearValue vk_clearValues[MAX_CLEAR_VALUE_COUNT];
+    const auto* renderpass = info.framebuffer->getCreationParameters().renderpass.get();
+    const auto depthStencilAttachmentCount = renderpass->getDepthStencilAttachmentCount();
+    const auto colorAttachmentCount = renderpass->getColorAttachmentCount();
+    IGPUCommandPool::StackAllocation<VkClearValue> vk_clearValues(m_cmdpool,depthStencilAttachmentCount+colorAttachmentCount);
+    if (!vk_clearValues)
+        return false;
 
-    assert(pRenderPassBegin.clearValueCount <= MAX_CLEAR_VALUE_COUNT);
-
-    for (uint32_t i = 0u; i < pRenderPassBegin->clearValueCount; ++i)
+    // We can just speculatively copy, its probably more performant in most circumstances.
+    // We just check the pointers so you can use nullptr if yoru renderpass wont clear any attachment
+    if (info.depthStencilClearValues)
+    for (auto i=0u; i<depthStencilAttachmentCount; i++)
+    //if (renderpass->getCreationParameters().depthStencilAttachments[i].loadOp.stencil==IGPURenderpass::LOAD_OP::CLEAR) or depth
     {
-        for (uint32_t k = 0u; k < 4u; ++k)
-            vk_clearValues[i].color.uint32[k] = pRenderPassBegin->clearValues[i].color.uint32[k];
-
-        vk_clearValues[i].depthStencil.depth = pRenderPassBegin->clearValues[i].depthStencil.depth;
-        vk_clearValues[i].depthStencil.stencil = pRenderPassBegin->clearValues[i].depthStencil.stencil;
+        vk_clearValues[i].depthStencil.depth = info.depthStencilClearValues[i].depth;
+        vk_clearValues[i].depthStencil.stencil = info.depthStencilClearValues[i].stencil;
     }
+    if (info.colorClearValues)
+    for (auto i=0u; i<colorAttachmentCount; i++)
+    //if (renderpass->getCreationParameters().colorAttachments[i].loadOp==IGPURenderpass::LOAD_OP::CLEAR)
+        std::copy_n(info.colorClearValues[i].uint32,4,vk_clearValues[i+depthStencilAttachmentCount].color.uint32);
 
-    VkRenderPassBeginInfo vk_beginInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-    vk_beginInfo.pNext = nullptr;
-    vk_beginInfo.renderPass = static_cast<const CVulkanRenderpass*>(pRenderPassBegin->renderpass.get())->getInternalObject();
-    vk_beginInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(pRenderPassBegin->framebuffer.get())->getInternalObject();
-    vk_beginInfo.renderArea = pRenderPassBegin->renderArea;
-    vk_beginInfo.clearValueCount = pRenderPassBegin->clearValueCount;
-    vk_beginInfo.pClearValues = vk_clearValues;
+    const VkRenderPassBeginInfo vk_beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+        .pNext = nullptr, // DeviceGroupRpassBeginInfo, SampleLocations?
+        .renderPass = static_cast<const CVulkanRenderpass*>(renderpass)->getInternalObject(),
+        .framebuffer = static_cast<const CVulkanFramebuffer*>(info.framebuffer)->getInternalObject(),
+        .renderArea = info.renderArea,
+        // Implicitly but could be optimizedif needed
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-00902
+        .clearValueCount = vk_clearValues.size(),
+        // Implicit
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-04962
+        .pClearValues = vk_clearValues.data()
+    };
 
-    VkSubpassBeginInfo vk_subpassBeginInfo = { VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO, nullptr };
+    VkSubpassBeginInfo vk_subpassBeginInfo = {VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,nullptr};
     vk_subpassBeginInfo.contents = static_cast<VkSubpassContents>(contents);
 
-    getFunctionTable().vkCmdBeginRenderPass2(m_cmdbuf, &vk_beginInfo, &vk_subpassBeginInfo);
-
+    // Implicitly satisfied by our sane API:
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-renderPass-00904
+    getFunctionTable().vkCmdBeginRenderPass2(m_cmdbuf,&vk_beginInfo,&vk_subpassBeginInfo);
     return true;
 }
 
 bool CVulkanCommandBuffer::nextSubpass_impl(const SUBPASS_CONTENTS contents)
 {
-
+    VkSubpassBeginInfo vk_beginInfo = {VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,nullptr};
+    vk_beginInfo.contents = static_cast<VkSubpassContents>(contents);
+    const VkSubpassEndInfo vk_endInfo = {VK_STRUCTURE_TYPE_SUBPASS_END_INFO,nullptr};
+    getFunctionTable().vkCmdNextSubpass2(m_cmdbuf,&vk_beginInfo,&vk_endInfo);
+    return true;
 }
 
 bool CVulkanCommandBuffer::endRenderPass_impl()
 {
-
+    const VkSubpassEndInfo vk_subpassEndInfo = {VK_STRUCTURE_TYPE_SUBPASS_END_INFO,nullptr};
+    getFunctionTable().vkCmdEndRenderPass2(m_cmdbuf,&vk_subpassEndInfo);
+    return true;
 }
 
 bool CVulkanCommandBuffer::clearAttachments_impl(const SClearAttachments& info)
 {
-    /*
-    constexpr uint32_t MAX_ATTACHMENT_COUNT = 8u;
-    assert(attachmentCount <= MAX_ATTACHMENT_COUNT);
-    VkClearAttachment vk_clearAttachments[MAX_ATTACHMENT_COUNT];
+    constexpr auto MaxClears = 1u+IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments;
+    VkClearAttachment vk_clearAttachments[MaxClears];
 
-    constexpr uint32_t MAX_REGION_PER_ATTACHMENT_COUNT = ((1u << 12) - sizeof(vk_clearAttachments)) / sizeof(VkClearRect);
-    assert(rectCount <= MAX_REGION_PER_ATTACHMENT_COUNT);
-    VkClearRect vk_clearRects[MAX_REGION_PER_ATTACHMENT_COUNT];
-
-    for (uint32_t i = 0u; i < attachmentCount; ++i)
+    auto outAttachment = vk_clearAttachments;
+    if (info.clearDepth || info.clearStencil)
     {
-        vk_clearAttachments[i].aspectMask = static_cast<VkImageAspectFlags>(pAttachments[i].aspectMask);
-        vk_clearAttachments[i].colorAttachment = pAttachments[i].colorAttachment;
-
-        auto& vk_clearValue = vk_clearAttachments[i].clearValue;
-        const auto& clearValue = pAttachments[i].clearValue;
-
-        for (uint32_t k = 0u; k < 4u; ++k)
-            vk_clearValue.color.uint32[k] = clearValue.color.uint32[k];
-
-        vk_clearValue.depthStencil.depth = clearValue.depthStencil.depth;
-        vk_clearValue.depthStencil.stencil = clearValue.depthStencil.stencil;
+        outAttachment->aspectMask = (info.clearDepth ? VK_IMAGE_ASPECT_DEPTH_BIT:0)|(info.clearStencil ? VK_IMAGE_ASPECT_STENCIL_BIT:0);
+        outAttachment->colorAttachment = 0;
+        outAttachment->clearValue.depthStencil.depth = info.depthStencilValue.depth;
+        outAttachment->clearValue.depthStencil.stencil = info.depthStencilValue.stencil;
+        outAttachment++;
     }
-
-    for (uint32_t i = 0u; i < rectCount; ++i)
+    for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+    if (info.clearColor(i))
     {
-        vk_clearRects[i].rect = pRects[i].rect;
-        vk_clearRects[i].baseArrayLayer = pRects[i].baseArrayLayer;
-        vk_clearRects[i].layerCount = pRects[i].layerCount;
+        outAttachment->aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        outAttachment->colorAttachment = i;
+        std::copy_n(info.colorValues[i].uint32,4,outAttachment->clearValue.color.uint32);
+        outAttachment++;
     }
+    const auto attachmentCount = std::distance(vk_clearAttachments,outAttachment);
 
-    const auto* vk = static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable();
-    getFunctionTable().vkCmdClearAttachments(
-        m_cmdbuf,
-        attachmentCount,
-        vk_clearAttachments,
-        rectCount,
-        vk_clearRects);
-
+    getFunctionTable().vkCmdClearAttachments(m_cmdbuf,attachmentCount,vk_clearAttachments,info.regions.size(),reinterpret_cast<const VkClearRect*>(info.regions.data()));
     return true;
-    */
 }
-#endif
 
 bool CVulkanCommandBuffer::draw_impl(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance)
 {
