@@ -88,7 +88,7 @@ class IFramebuffer
             * If flags does not include VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT, each element of pAttachments that is used as an input attachment
             by renderPass must have been created with a usage value including VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
             */
-            auto invalidAttachments = [rp,params,viewMaskMSB](const uint32_t presentAttachments, const auto* const attachmentDesc, const core::smart_refctd_ptr<attachment_t>* const attachments) -> bool
+            auto invalidAttachments = [rp,params,viewMaskMSB,invalidUsageForLayout](const uint32_t presentAttachments, const auto* const attachmentDesc, const core::smart_refctd_ptr<attachment_t>* const attachments) -> bool
             {
                 for (uint32_t i=0u; i<presentAttachments; ++i)
                 {
@@ -130,17 +130,18 @@ class IFramebuffer
                     if (viewParams.format!=desc.format || imgParams.samples!=desc.samples)
                         return true;
 
+                    const auto usages = viewParams.actualUsages();
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00877
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-02633
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-02634
-                    if (!viewParams.actualUsages().hasFlags(IImage::EUF_RENDER_ATTACHMENT_BIT))
+                    if (!usages.hasFlags(IImage::EUF_RENDER_ATTACHMENT_BIT))
                         return true;
 
                     if constexpr (std::is_same_v<decltype(desc),const IRenderpass::SCreationParams::SDepthStencilAttachmentDescription&>)
                     {
-                        if (invalidUsageForLayout(desc.initialLayout.actualStencilLayout()) || invalidUsageForLayout(desc.initialLayout.depth))
+                        if (invalidUsageForLayout(desc.initialLayout.actualStencilLayout(),usages) || invalidUsageForLayout(desc.initialLayout.depth,usages))
                             return true;
-                        if (invalidUsageForLayout(desc.finalLayout.actualStencilLayout()) || invalidUsageForLayout(desc.finalLayout.depth))
+                        if (invalidUsageForLayout(desc.finalLayout.actualStencilLayout(),usages) || invalidUsageForLayout(desc.finalLayout.depth,usages))
                             return true;
 
                         const auto viewType = viewParams.viewType;
@@ -151,7 +152,7 @@ class IFramebuffer
                     else
                     {
                         static_assert(std::is_same_v<decltype(desc),const IRenderpass::SCreationParams::SColorAttachmentDescription&>);
-                        if (invalidUsageForLayout(desc.initialLayout) || invalidUsageForLayout(desc.finalLayout))
+                        if (invalidUsageForLayout(desc.initialLayout,usages) || invalidUsageForLayout(desc.finalLayout,usages))
                             return true;
                     }
                 }
