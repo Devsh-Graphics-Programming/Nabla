@@ -50,6 +50,7 @@ def main():
         cpackBundleHash = kazooConnector.getKazooAtomic(zNodePath)
         print(f"Atomic read performed on {zNodePath} zNode path")
 
+        kazooConnector.requestServerShutdown()
         kazooConnector.disconnect()
          
         if cpackBundleHash:

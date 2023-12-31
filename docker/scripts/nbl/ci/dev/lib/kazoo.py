@@ -36,6 +36,10 @@ class KazooConnector:
         self.zk.close()
         print(f"Disconnected from {self.dnsServiceName} kazoo host")
 
+    def requestServerShutdown(self):
+        self.createKazooAtomic("/sdRequest")
+        print(f"Requested shutdown of {self.dnsServiceName} kazoo host")
+
     def createKazooAtomic(self, zNodePath):
         if not self.zk.exists(zNodePath):
             self.zk.create(zNodePath, b"")
@@ -68,7 +72,21 @@ def healthyCheck(host):
         
             s.settimeout(5)
             s.connect((ipv4, 2181))
+        
         print(f"Connected to {ipv4} kazoo host")
+
+        # TODO: find lib which does nice shutdown cross platform
+        sdProcess = subprocess.run("zkCli.cmd get /sdRequest", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        shutdown = not sdProcess.stderr.strip()
+
+        if shutdown:
+            print("Requested shutdown...")
+
+            try:
+                subprocess.run(f"shutdown /s /f", check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Could not shutdown container because of: {e.stderr}")
+
         return True
     except (socket.error, socket.timeout):
         print(f"Excpetion caught while trying to connect to kazoo host: \"{socket.error}\"")

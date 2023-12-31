@@ -104,9 +104,14 @@ RUN `
 	&& setx PATH "%PATH%;%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%\apache-zookeeper-3.8.3-bin\bin" /M
 
 RUN `
-	# Download kazoo Python 2.8.0 (more recent versions doesn't work well with Windows) module
+	# Download kazoo 2.8.0 Python (more recent versions doesn't work well with Windows) module
 	`
 	python -m pip install kazoo==2.8.0
+	
+RUN `
+	# Download psutil Python module
+	`
+	python -m pip install psutil
 
 RUN `
 	# Download OpenJDK 11 LTS
