@@ -438,11 +438,11 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
     // no "geometry flags" are valid for all instances!
     geometry.flags = static_cast<VkGeometryFlagBitsKHR>(0);
     
-    return getAccelerationStructureBuildSizes_impl_impl(hostBuild,true,getVkASBuildFlagsFrom<IGPUTopLevelAccelerationStructure>(flags,motionBlur),1u,&geometry,&maxInstanceCount);
+    return getAccelerationStructureBuildSizes_impl_impl(hostBuild,true,getVkASBuildFlagsFrom<IGPUTopLevelAccelerationStructure>(flags,motionBlur),{&geometry,1},&maxInstanceCount);
 }
 auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     const bool hostBuild, const bool isTLAS, const VkBuildAccelerationStructureFlagsKHR flags,
-    const uint32_t geometryCount, const VkAccelerationStructureGeometryKHR* geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
+    const std::span<const VkAccelerationStructureGeometryKHR>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
 ) const -> AccelerationStructureBuildSizes
 {
     VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
@@ -451,8 +451,8 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     vk_buildGeomsInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_MAX_ENUM_KHR; // ignored by this command
     vk_buildGeomsInfo.srcAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
     vk_buildGeomsInfo.dstAccelerationStructure = VK_NULL_HANDLE; // ignored by this command
-    vk_buildGeomsInfo.geometryCount = geometryCount;
-    vk_buildGeomsInfo.pGeometries = geometries;
+    vk_buildGeomsInfo.geometryCount = geometries.size();
+    vk_buildGeomsInfo.pGeometries = geometries.data();
     vk_buildGeomsInfo.ppGeometries = nullptr;
     vk_buildGeomsInfo.scratchData.deviceAddress = 0x0ull; // ignored by this command
 

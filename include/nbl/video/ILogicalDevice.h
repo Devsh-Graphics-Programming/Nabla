@@ -359,14 +359,17 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
         // fun fact: you can use garbage/invalid pointers/offset for the Device/Host addresses of the per-geometry data, just make sure what was supposed to be null is null
         template<class Geometry> requires nbl::is_any_of_v<Geometry,
-            IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>
+            IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>,
+            IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>
         >
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const uint32_t geometryCount, const Geometry* const geometries, const uint32_t* const pMaxPrimitiveCounts) const
+            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+            const bool motionBlur,
+            const std::span<Geometry>& geometries,
+            const uint32_t* const pMaxPrimitiveCounts
+        ) const
         {
             if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur))
                 return {};
@@ -375,26 +378,31 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-            if (geometryCount && !pMaxPrimitiveCounts)
+            if (geometries.empty() && !pMaxPrimitiveCounts)
                 return {};
 
             const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-            if (geometryCount>limits.maxAccelerationStructureGeometryCount)
+            if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
                 return {};
 
             // not sure of VUID
             uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
-			for (auto i=0u; i<geometryCount; i++)
+			for (auto i=0u; i<geometries.size(); i++)
             {
 			    if (pMaxPrimitiveCounts[i]>primsFree)
 				    return {};
                 primsFree -= pMaxPrimitiveCounts[i];
             }
 
-            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometryCount,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
-        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
+            const bool hostBuild,
+            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
+            const bool motionBlur,
+            const uint32_t maxInstanceCount
+        ) const
         {
             if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur))
                 return {};
@@ -413,7 +421,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         template<typename BufferType=IGPUBuffer>
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
         {
-            return getAccelerationStructureBuildSizes(std::is_same_v<BufferType,asset::ICPUBuffer>,flags,motionBlur,maxInstanceCount);
+            return getAccelerationStructureBuildSizes(std::is_same_v<std::remove_cv_t<BufferType>,asset::ICPUBuffer>,flags,motionBlur,maxInstanceCount);
         }
 
         //
@@ -779,19 +787,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const uint32_t geometryCount, const IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>* const geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
