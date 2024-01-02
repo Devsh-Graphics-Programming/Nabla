@@ -135,6 +135,7 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 	protected:
 		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
 			m_defaultAbsolutePath(std::move(_defaultAbsolutePath.make_preferred())), m_logger(std::move(logger)) {}
+		virtual ~IFileArchive() = default;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile_impl(const SFileList::found_t& found, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, const std::string_view& password) = 0;
