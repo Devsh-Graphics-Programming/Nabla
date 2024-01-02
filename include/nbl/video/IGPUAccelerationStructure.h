@@ -54,7 +54,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 				bool								isUpdate = false;
 
 			protected:
-				BuildInfo() = default;
+				inline BuildInfo() = default;
 				// List of things too expensive or impossible (without GPU Assist) to validate:
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03403
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-dstAccelerationStructure-03698
@@ -76,7 +76,7 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03651
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03652
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03653
-				bool invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const;
+				NBL_API2 bool invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const;
 
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-geometry-03673
 				static inline bool invalidInputBuffer(const asset::SBufferBinding<const BufferType>& binding, const size_t byteOffset, const size_t count, const size_t elementSize, const size_t alignment)
@@ -145,8 +145,10 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 
 		const SCreationParams m_params;
 };
-template class IGPUAccelerationStructure::BuildInfo<IGPUBuffer>;
-template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
+#ifndef _NBL_VIDEO_I_GPU_ACCELERATION_STRUCTURE_CPP_
+extern template class IGPUAccelerationStructure::BuildInfo<IGPUBuffer>;
+extern template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
+#endif
 
 // strong typing of acceleration structures implicitly satifies:
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-None-03407
@@ -200,10 +202,10 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03768
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03770
 				template<typename T>// requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
-				uint32_t valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const;
+				NBL_API2 uint32_t valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const;
 
 				// really expensive to call, `valid` only calls it when `_NBL_DEBUG` is defined
-				inline bool validGeometry(size_t& totalPrims, const AABBs<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
+				inline bool validGeometry(size_t& totalPrims, const AABBs<const BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
 					constexpr size_t AABBalignment = 8ull;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03659
@@ -222,7 +224,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
-				inline bool validGeometry(size_t& totalPrims, const Triangles<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
+				inline bool validGeometry(size_t& totalPrims, const Triangles<const BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
 					//
 					if (!dstAS->validVertexFormat(geometry.vertexFormat))
@@ -333,8 +335,8 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_IS_AABB_BIT)`
 				union
 				{
-					const Triangles<BufferType>* triangles = nullptr;
-					const AABBs<BufferType>* aabbs;
+					const Triangles<const BufferType>* triangles = nullptr;
+					const AABBs<const BufferType>* aabbs;
 				};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
@@ -360,8 +362,10 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 	private:
 		bool validVertexFormat(const asset::E_FORMAT format) const;
 };
+#ifndef _NBL_VIDEO_I_GPU_ACCELERATION_STRUCTURE_CPP_
 template class IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
 template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
+#endif
 
 class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>
 {
@@ -498,9 +502,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				static_assert(!std::is_same_v<core::smart_refctd_ptr<const asset::ICPUBottomLevelAccelerationStructure>,blas_ref_t>);
 
 			public:
-				PolymorphicInstance() = default;
-				PolymorphicInstance(const PolymorphicInstance<blas_ref_t>&) = default;
-				PolymorphicInstance(PolymorphicInstance<blas_ref_t>&&) = default;
+				inline PolymorphicInstance() = default;
+				inline PolymorphicInstance(const PolymorphicInstance<blas_ref_t>&) = default;
+				inline PolymorphicInstance(PolymorphicInstance<blas_ref_t>&&) = default;
 
 				// I made all these assignment operators because of the `core::matrix3x4SIMD` alignment and keeping `type` correct at all times
 				inline PolymorphicInstance<blas_ref_t>& operator=(const StaticInstance<blas_ref_t>& _static)
@@ -551,8 +555,6 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 		const uint32_t m_maxInstanceCount;
 };
-template class IGPUTopLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
-template class IGPUTopLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 
 }
 

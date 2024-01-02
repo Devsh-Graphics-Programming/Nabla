@@ -57,6 +57,8 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 
     return false;
 }
+//extern template class IGPUAccelerationStructure::BuildInfo<IGPUBuffer>;
+//extern template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 
 
 template<class BufferType>
@@ -138,7 +140,12 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
 }
-
+/*
+template class IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
+template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
+template IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid();
+template IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
+*/
 bool IGPUBottomLevelAccelerationStructure::validVertexFormat(const asset::E_FORMAT format) const
 {
 	return getOriginDevice()->getPhysicalDevice()->getBufferFormatUsages()[format].accelerationStructureVertex;

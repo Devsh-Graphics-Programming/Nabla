@@ -477,9 +477,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
-        inline bool writeAccelerationStructuresProperties(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
+        inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
         {
-            if (!core::is_aligned_to(stride,alignof(size_t)))
+            if (stride<sizeof(size_t) || !core::is_aligned_to(stride, alignof(size_t)))
                 return false;
             switch (type)
             {
@@ -494,11 +494,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             if (!getEnabledFeatures().accelerationStructureHostCommands)
                 return false;
-            for (auto i=0u; i<count; i++)
-            if (invalidAccelerationStructureForHostOperations(accelerationStructures[i]))
+            for (const auto& as : accelerationStructures)
+            if (invalidAccelerationStructureForHostOperations(as))
                 return false;
             // unfortunately cannot validate if they're built and if they're built with the right flags
-            return writeAccelerationStructuresProperties_impl(count,accelerationStructures,type,data,stride);
+            return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
         // Host-side copy, DEFERRAL IS NOT OPTIONAL
         inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
@@ -820,7 +820,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeferredOperation* const deferredOperation, const core::SRange<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
-        virtual bool writeAccelerationStructuresProperties_impl(const uint32_t count, const IGPUAccelerationStructure* const* const accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
+        virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;

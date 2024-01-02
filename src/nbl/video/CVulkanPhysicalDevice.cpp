@@ -1239,8 +1239,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             qfamprops.resize(qfamCount, { VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr });
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, qfamprops.data());
         }
-        auto qfamPropertiesMutable = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SQueueFamilyProperties>>(qfamprops.size());
-        auto outIt = qfamPropertiesMutable->begin();
+        core::vector<SQueueFamilyProperties> qfamPropertiesMutable(qfamprops.size());
+        auto outIt = qfamPropertiesMutable.begin();
         for (auto in : qfamprops)
         {
             const auto& vkqf = in.queueFamilyProperties;
@@ -1250,8 +1250,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             outIt->minImageTransferGranularity = { vkqf.minImageTransferGranularity.width, vkqf.minImageTransferGranularity.height, vkqf.minImageTransferGranularity.depth };
             outIt++;
         }
+        initData.qfamProperties = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const SQueueFamilyProperties>>(qfamPropertiesMutable);
         // added lots of utils to smart_refctd_ptr and `refctd_dynamic_array` but to no avail, have to do manually
-        initData.qfamProperties = core::move_and_static_cast<core::refctd_dynamic_array<const SQueueFamilyProperties>>(qfamPropertiesMutable);
+        //initData.qfamProperties = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>(reinterpret_cast<core::refctd_dynamic_array<SQueueFamilyProperties>*>(qfamPropertiesMutable.get()));
+        //initData.qfamProperties = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>(qfamPropertiesMutable.get());
     }
 
     // Set Format Usages

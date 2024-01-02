@@ -465,6 +465,14 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     };
 }
 
+bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride)
+{
+    core::vector<VkAccelerationStructureKHR> vk_accelerationStructures;
+    vk_accelerationStructures.reserve(accelerationStructures.size());
+    for (const auto& as : accelerationStructures)
+        vk_accelerationStructures.push_back(*reinterpret_cast<const VkAccelerationStructureKHR*>(as->getNativeHandle()));
+    return m_devf.vk.vkWriteAccelerationStructuresPropertiesKHR(m_vkdev,vk_accelerationStructures.size(),vk_accelerationStructures.data(),static_cast<VkQueryType>(type),stride*accelerationStructures.size(),data,stride);
+}
 
 auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) -> DEFERRABLE_RESULT
 {
