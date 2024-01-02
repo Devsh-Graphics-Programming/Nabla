@@ -84,16 +84,17 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		};
 
 		// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
-		template<typename BufferType>
+		template<typename BufferType> requires std::is_base_of_v<IBuffer,BufferType>
 		struct Triangles
 		{
-			using buffer_t = BufferType;
+			using buffer_t = std::remove_const_t<BufferType>;
+			constexpr static inline bool Host = std::is_same_v<buffer_t,ICPUBuffer>;
 			// we make our life easier by not taking pointers to single matrix values
-			using transform_t = std::conditional_t<std::is_same_v<BufferType,ICPUBuffer>,core::matrix3x4SIMD,asset::SBufferBinding<const BufferType>>;
+			using transform_t = std::conditional_t<Host,core::matrix3x4SIMD,asset::SBufferBinding<const buffer_t>>;
 
 			inline bool hasTransform() const
 			{
-				if constexpr (std::is_same_v<BufferType,ICPUBuffer>)
+				if constexpr (Host)
 					return !core::isnan(transform[0][0]);
 				else
 					return bool(transform.buffer);
@@ -102,8 +103,8 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			// optional, only useful for baking model transforms of multiple meshes into one BLAS
 			transform_t	transform = {};
 			// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
-			asset::SBufferBinding<const BufferType>	vertexData[2] = {{},{}};
-			asset::SBufferBinding<const BufferType>	indexData = {};
+			asset::SBufferBinding<const buffer_t>	vertexData[2] = {{},{}};
+			asset::SBufferBinding<const buffer_t>	indexData = {};
 			uint32_t								maxVertex = 0u;
 			// type implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03819
 			uint32_t								vertexStride = sizeof(float);
@@ -114,10 +115,10 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		};
 
 		//
-		template<typename BufferType>
+		template<typename BufferType> requires std::is_base_of_v<IBuffer,BufferType>
 		struct AABBs
 		{
-			using buffer_t = BufferType;
+			using buffer_t = std::remove_const_t<BufferType>;
 
 			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};
