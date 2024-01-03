@@ -24,7 +24,7 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
     public:
-        IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const SBinding>& _bindings) : base_t(_bindings), IBackendObject(std::move(dev))
+        inline IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const SBinding> _bindings) : base_t(_bindings), IBackendObject(std::move(dev))
         {
             for (const auto& binding : _bindings)
             {

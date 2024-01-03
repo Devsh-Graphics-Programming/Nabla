@@ -344,7 +344,7 @@ public:
 	}
 
 protected:
-	IDescriptorSetLayout(const std::span<const SBinding>& _bindings)
+	IDescriptorSetLayout(const std::span<const SBinding> _bindings)
 	{
 		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;

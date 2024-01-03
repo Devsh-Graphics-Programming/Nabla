@@ -332,7 +332,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     return retval;
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings)
 {
     // TODO: MORE VALIDATION, but after descriptor indexing.
     uint32_t maxSamplersCount = 0u;
@@ -361,7 +361,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 }
 
 
-bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies)
+bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
     SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
@@ -560,7 +560,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
 
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
-    const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+    const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
 )
 {

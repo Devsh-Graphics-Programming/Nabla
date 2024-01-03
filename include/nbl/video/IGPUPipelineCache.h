@@ -17,7 +17,7 @@ namespace nbl::video
 class IGPUPipelineCache : public IBackendObject
 {
 	public:
-		inline bool merge(const std::span<const IGPUPipelineCache* const>& _srcCaches)
+		inline bool merge(const std::span<const IGPUPipelineCache* const> _srcCaches)
 		{
 			if (_srcCaches.empty())
 				return false;
@@ -33,7 +33,7 @@ class IGPUPipelineCache : public IBackendObject
 		explicit IGPUPipelineCache(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
 		virtual ~IGPUPipelineCache() = default;
 
-		virtual bool merge_impl(const std::span<const IGPUPipelineCache* const>& _srcCaches) = 0;
+		virtual bool merge_impl(const std::span<const IGPUPipelineCache* const> _srcCaches) = 0;
 };
 
 }

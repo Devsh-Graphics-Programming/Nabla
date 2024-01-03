@@ -25,7 +25,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         static inline constexpr uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUDescriptorSetLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
 
         inline ICPUPipelineLayout(
-            const std::span<const asset::SPushConstantRange>& _pcRanges,
+            const std::span<const asset::SPushConstantRange> _pcRanges,
             core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout1,
             core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout3
         ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}

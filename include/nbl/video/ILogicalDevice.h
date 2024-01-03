@@ -367,7 +367,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
-            const std::span<Geometry>& geometries,
+            const std::span<Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
@@ -438,7 +438,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructures(
-            IDeferredOperation* const deferredOperation, const std::span<const typename AccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const typename AccelerationStructure::HostBuildInfo> infos,
             const typename AccelerationStructure::DirectBuildRangeRangeInfos pDirectBuildRangeRangeInfos
         )
         {
@@ -477,7 +477,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
-        inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
+        inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
         {
             if (stride<sizeof(size_t) || !core::is_aligned_to(stride, alignof(size_t)))
                 return false;
@@ -553,10 +553,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Layouts
         // Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings);
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings);
         // Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
-            const core::SRange<const asset::SPushConstantRange>& pcRanges={nullptr,nullptr},
+            const core::SRange<const asset::SPushConstantRange> pcRanges={nullptr,nullptr},
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1=nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
@@ -600,7 +600,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createDescriptorPool_impl(createInfo);
         }
         // utility func
-        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const std::span<const IGPUDescriptorSetLayout* const>& layouts, const uint32_t* setCounts=nullptr)
+        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const std::span<const IGPUDescriptorSetLayout* const> layouts, const uint32_t* setCounts=nullptr)
         {
             IDescriptorPool::SCreateInfo createInfo = {};
             createInfo.flags = flags;
@@ -624,7 +624,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createDescriptorPool(createInfo);
         }
         // Fill out the descriptor sets with descriptors
-        bool updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet>& descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet>& descriptorCopies);
+        bool updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies);
         [[deprecated]] inline bool updateDescriptorSets(
             const uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* const pDescriptorWrites,
             const uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* const pDescriptorCopies
@@ -677,7 +677,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a pipeline cache object
         virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) { return nullptr; }
 
-        inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams>& params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
+        inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
         {
             std::fill_n(output,params.size(),nullptr);
             IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
@@ -709,7 +709,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         bool createGraphicsPipelines(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
         );
 
@@ -787,19 +787,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
@@ -813,14 +813,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             SOME_ERROR
         };
         virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
-            IDeferredOperation* const deferredOperation, const std::span<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const IGPUBottomLevelAccelerationStructure::HostBuildInfo> infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
         virtual DEFERRABLE_RESULT buildAccelerationStructures_impl(
-            IDeferredOperation* const deferredOperation, const std::span<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const IGPUTopLevelAccelerationStructure::HostBuildInfo> infos,
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
-        virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
+        virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
@@ -828,9 +828,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) = 0;
+        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
-            const std::span<const asset::SPushConstantRange>& pcRanges,
+            const std::span<const asset::SPushConstantRange> pcRanges,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
         ) = 0;
@@ -853,7 +853,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
         
         template<typename CreationParams, typename ExtraLambda>
-        inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams>& params, ExtraLambda&& extra)
+        inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
                 return {};
@@ -894,13 +894,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         virtual void createComputePipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUComputePipeline::SCreationParams>& createInfos,
+            const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
             const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;
         virtual void createGraphicsPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;

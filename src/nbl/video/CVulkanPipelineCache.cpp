@@ -12,7 +12,7 @@ CVulkanPipelineCache::~CVulkanPipelineCache()
     vk->vk.vkDestroyPipelineCache(vulkanDevice->getInternalObject(), m_pipelineCache, nullptr);
 }
 
-bool CVulkanPipelineCache::merge_impl(const std::span<const IGPUPipelineCache* const>& _srcCaches)
+bool CVulkanPipelineCache::merge_impl(const std::span<const IGPUPipelineCache* const> _srcCaches)
 {
     core::vector<VkPipelineCache> vk_srcCaches(_srcCaches.size());
     for (size_t i=0; i<_srcCaches.size(); i++)

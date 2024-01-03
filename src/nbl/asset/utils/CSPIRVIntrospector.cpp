@@ -85,7 +85,7 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
     return introspection;
 }
 
-bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* outIntrospections, const std::span<const ICPUShader::SSpecInfo>& infos)
+bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* outIntrospections, const std::span<const ICPUShader::SSpecInfo> infos)
 {
     auto it = outIntrospections;
     for (auto info : infos)
@@ -105,7 +105,7 @@ static std::pair<bool, IImageView<ICPUImage>::E_TYPE> imageInfoFromResource(cons
     return {_res.shadow, _res.viewType};
 }
 
-std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoFromIntrospection(uint32_t _set, uint32_t _binding, const std::span<const ICPUShader::SSpecInfo>& infos)
+std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoFromIntrospection(uint32_t _set, uint32_t _binding, const std::span<const ICPUShader::SSpecInfo> infos)
 {
     std::pair<bool, IImageView<ICPUImage>::E_TYPE> fail = { false, IImageView<ICPUImage>::ET_COUNT };
 #if 0 // rewrite for sanity
@@ -132,7 +132,7 @@ std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoF
 
 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createPushConstantRangesFromIntrospection_impl(
     core::smart_refctd_ptr<const CIntrospectionData>* const introspections,
-    const std::span<const ICPUShader::SSpecInfo>& infos)
+    const std::span<const ICPUShader::SSpecInfo> infos)
 {
 #if 0 // rewrite for sanity
     core::vector<core::vector<SPushConstantRange>> ranges(infos.size());
@@ -213,7 +213,7 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createP
 }
 
 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApproximateDescriptorSetLayoutFromIntrospection_impl(
-    const uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& infos
+    const uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo> infos
 )
 {
 #if 0 // rewrite for sanity
@@ -290,7 +290,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApprox
 }
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::createApproximatePipelineLayoutFromIntrospection_impl(
-    core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& infos
+    core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo> infos
 )
 {
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
@@ -320,7 +320,7 @@ static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
     return retval[_t][_e];
 }
 
-core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CSPIRVIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& infos)
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CSPIRVIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo> infos)
 {
     core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(infos.size());
     if (!introspectAllShaders(introspections.data(),infos))

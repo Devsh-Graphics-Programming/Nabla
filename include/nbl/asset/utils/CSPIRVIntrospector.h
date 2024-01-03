@@ -135,9 +135,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		core::smart_refctd_ptr<const CIntrospectionData> introspect(const SIntrospectionParams& params, bool insertToCache = true);
 
 		// When the methods take a span of shaders, they are computing things for an imaginary pipeline that includes **all** of them
-		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const std::span<const ICPUShader::SSpecInfo>& _infos);
+		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const std::span<const ICPUShader::SSpecInfo> _infos);
 		
-		inline core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos)
+		inline core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos)
 		{
 			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
 			if (!introspectAllShaders(introspections.data(),_infos))
@@ -145,7 +145,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			return createPushConstantRangesFromIntrospection_impl(introspections.data(),_infos);
 		}
-		inline core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, const std::span<const ICPUShader::SSpecInfo>& _infos)
+		inline core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, const std::span<const ICPUShader::SSpecInfo> _infos)
 		{
 			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
 			if (!introspectAllShaders(introspections.data(),_infos))
@@ -153,7 +153,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			return createApproximateDescriptorSetLayoutFromIntrospection_impl(set,introspections.data(), _infos);
 		}
-		inline core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos)
+		inline core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos)
 		{
 			core::vector<core::smart_refctd_ptr<const CIntrospectionData>> introspections(_infos.size());
 			if (!introspectAllShaders(introspections.data(),_infos))
@@ -179,16 +179,16 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		}
 
 		//
-		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo>& _infos);
+		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos);
 	
 	private:
 		using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
 
-		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
-		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
-		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo>& shaders);
+		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo> shaders);
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo> shaders);
+		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const std::span<const ICPUShader::SSpecInfo> shaders);
 
-		bool introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* introspection, const std::span<const ICPUShader::SSpecInfo>& _infos);
+		bool introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* introspection, const std::span<const ICPUShader::SSpecInfo> _infos);
 
 		core::smart_refctd_ptr<const CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const std::string& entryPoint, const IShader::E_SHADER_STAGE stage) const;
 		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const;

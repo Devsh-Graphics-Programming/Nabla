@@ -134,28 +134,28 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // acceleration structure modifiers
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
             return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
             return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
             return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
             return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
@@ -163,7 +163,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         template<class Geometry>
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl_impl(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const Geometry>& geometries, const uint32_t* const pMaxPrimitiveCounts
+            const std::span<const Geometry> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
             constexpr bool IsAABB = std::is_same_v<Geometry,IGPUBottomLevelAccelerationStructure::AABBs<const typename Geometry::buffer_t>>;
@@ -192,7 +192,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         ) const override;
         AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl(
             const bool hostBuild, const bool isTLAS, const VkBuildAccelerationStructureFlagsKHR flags,
-            const std::span<const VkAccelerationStructureGeometryKHR>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
+            const std::span<const VkAccelerationStructureGeometryKHR> geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
         ) const;
 
         static inline DEFERRABLE_RESULT getDeferrableResultFrom(const VkResult res)
@@ -212,7 +212,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return DEFERRABLE_RESULT::SOME_ERROR;
         }
         inline DEFERRABLE_RESULT buildAccelerationStructures_impl(
-            IDeferredOperation* const deferredOperation, const std::span<const IGPUBottomLevelAccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const IGPUBottomLevelAccelerationStructure::HostBuildInfo> infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos, const uint32_t totalGeometryCount
         ) override
         {
@@ -230,7 +230,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             return buildAccelerationStructures_impl_impl<IGPUBottomLevelAccelerationStructure>(deferredOperation,infos,vk_pBuildRangeInfos.data(),vk_vertexMotions.data());
         }
         inline DEFERRABLE_RESULT buildAccelerationStructures_impl(
-            IDeferredOperation* const deferredOperation, const std::span<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const IGPUTopLevelAccelerationStructure::HostBuildInfo> infos,
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) override
         {
@@ -247,7 +247,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline DEFERRABLE_RESULT buildAccelerationStructures_impl_impl(
-            IDeferredOperation* const deferredOperation, const std::span<const typename AccelerationStructure::HostBuildInfo>& infos,
+            IDeferredOperation* const deferredOperation, const std::span<const typename AccelerationStructure::HostBuildInfo> infos,
             const VkAccelerationStructureBuildRangeInfoKHR* const* const vk_ppBuildRangeInfos, VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
         )
         {
@@ -262,7 +262,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
                 getVkASBuildGeometryInfo<typename AccelerationStructure::HostBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
             return getDeferrableResultFrom(m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),infoCount,vk_buildGeomsInfos.data(),vk_ppBuildRangeInfos));
         }
-        bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) override;
+        bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) override;
         DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
@@ -271,9 +271,9 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) override;
 
         // layouts
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount) override;
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
-            const std::span<const asset::SPushConstantRange>& pcRanges,
+            const std::span<const asset::SPushConstantRange> pcRanges,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
         ) override;
@@ -289,13 +289,13 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // pipelines
         void createComputePipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUComputePipeline::SCreationParams>& createInfos,
+            const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
             const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
         ) override;
         void createGraphicsPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
-            const std::span<const IGPUGraphicsPipeline::SCreationParams>& params,
+            const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) override;

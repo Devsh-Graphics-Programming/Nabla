@@ -546,7 +546,7 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
 
 
 template<class DeviceBuildInfo, typename BuildRangeInfos>
-uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
+uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<const DeviceBuildInfo> infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -592,16 +592,16 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     return totalGeometries;
 }
 template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
-    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
 template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
-    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
-    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
 template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
-    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
 
@@ -914,7 +914,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
-bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure* const>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
+bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure* const> pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;

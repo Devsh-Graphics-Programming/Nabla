@@ -442,7 +442,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
 }
 auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     const bool hostBuild, const bool isTLAS, const VkBuildAccelerationStructureFlagsKHR flags,
-    const std::span<const VkAccelerationStructureGeometryKHR>& geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
+    const std::span<const VkAccelerationStructureGeometryKHR> geometries, const uint32_t* const pMaxPrimitiveOrInstanceCounts
 ) const -> AccelerationStructureBuildSizes
 {
     VkAccelerationStructureBuildGeometryInfoKHR vk_buildGeomsInfo = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,nullptr};
@@ -465,7 +465,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     };
 }
 
-bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride)
+bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride)
 {
     core::vector<VkAccelerationStructureKHR> vk_accelerationStructures;
     vk_accelerationStructures.reserve(accelerationStructures.size());
@@ -510,7 +510,7 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader_impl(const
 }
 
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount)
 {
     std::vector<VkSampler> vk_samplers;
     std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
@@ -550,7 +550,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 }
 
 core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineLayout_impl(
-    const std::span<const asset::SPushConstantRange>& pcRanges,
+    const std::span<const asset::SPushConstantRange> pcRanges,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2,
@@ -1029,7 +1029,7 @@ void initPipelineCreateInfo(VkPipelineCreateInfo_t* vk_info, const SCreationPara
 
 void CVulkanLogicalDevice::createComputePipelines_impl(
     IGPUPipelineCache* const pipelineCache,
-    const std::span<const IGPUComputePipeline::SCreationParams>& createInfos,
+    const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
     core::smart_refctd_ptr<IGPUComputePipeline>* const output,
     const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
 )
@@ -1078,7 +1078,7 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
 
 void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     IGPUPipelineCache* const pipelineCache,
-    const std::span<const IGPUGraphicsPipeline::SCreationParams>& createInfos,
+    const std::span<const IGPUGraphicsPipeline::SCreationParams> createInfos,
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
     const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
 )

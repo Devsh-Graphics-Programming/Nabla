@@ -11,7 +11,7 @@ namespace nbl::video
 class CVulkanDescriptorSetLayout : public IGPUDescriptorSetLayout
 {
     public:
-        CVulkanDescriptorSetLayout(const ILogicalDevice* dev, const std::span<const SBinding>& _bindings, VkDescriptorSetLayout vk_dsLayout)
+        CVulkanDescriptorSetLayout(const ILogicalDevice* dev, const std::span<const SBinding> _bindings, VkDescriptorSetLayout vk_dsLayout)
             : IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>(dev),_bindings), m_dsLayout(vk_dsLayout) {}
 
         ~CVulkanDescriptorSetLayout();

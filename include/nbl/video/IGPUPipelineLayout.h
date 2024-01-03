@@ -26,7 +26,7 @@ class IGPUPipelineLayout : public IBackendObject, public asset::IPipelineLayout<
 
     public:
         IGPUPipelineLayout(
-            core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const asset::SPushConstantRange>& _pcRanges,
+            core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const asset::SPushConstantRange> _pcRanges,
             core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
             core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3
         ) : IBackendObject(std::move(dev)), base_t(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}

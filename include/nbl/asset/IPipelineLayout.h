@@ -137,7 +137,7 @@ class IPipelineLayout
 
     protected:
         IPipelineLayout(
-            const std::span<const asset::SPushConstantRange>& _pcRanges,
+            const std::span<const asset::SPushConstantRange> _pcRanges,
             core::smart_refctd_ptr<DescLayoutType>&& _layout0, core::smart_refctd_ptr<DescLayoutType>&& _layout1,
             core::smart_refctd_ptr<DescLayoutType>&& _layout2, core::smart_refctd_ptr<DescLayoutType>&& _layout3
         ) : m_descSetLayouts{{std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3)}}
