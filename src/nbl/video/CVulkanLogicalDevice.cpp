@@ -510,7 +510,7 @@ core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader_impl(const
 }
 
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings, const uint32_t maxSamplersCount)
 {
     std::vector<VkSampler> vk_samplers;
     std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
@@ -550,7 +550,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 }
 
 core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineLayout_impl(
-    const core::SRange<const asset::SPushConstantRange>& pcRanges,
+    const std::span<const asset::SPushConstantRange>& pcRanges,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1,
     core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2,

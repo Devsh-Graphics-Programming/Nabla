@@ -659,7 +659,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
         auto getQueueFamilyProperties() const 
         {
-            return core::SRange<const SQueueFamilyProperties>(m_initData.qfamProperties->data(),m_initData.qfamProperties->data()+m_initData.qfamProperties->size());
+            return std::span<const SQueueFamilyProperties>(m_initData.qfamProperties->data(),m_initData.qfamProperties->data()+m_initData.qfamProperties->size());
         }
 
         struct SBufferFormatPromotionRequest {

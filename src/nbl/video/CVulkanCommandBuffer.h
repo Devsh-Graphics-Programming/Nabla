@@ -62,7 +62,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) override;
 
         inline bool buildAccelerationStructures_impl(
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos,
             const uint32_t totalGeometryCount
         ) override
@@ -86,7 +86,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             }
             return buildAccelerationStructures_impl_impl<IGPUBottomLevelAccelerationStructure>(infos,vk_pBuildRangeInfos.data(),vk_vertexMotions.data());
         }
-        inline bool buildAccelerationStructures_impl(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) override
+        inline bool buildAccelerationStructures_impl(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) override
         {
             const auto infoCount = infos.size();
             IGPUCommandPool::StackAllocation<VkAccelerationStructureBuildRangeInfoKHR> vk_buildRangeInfos(m_cmdpool,infoCount);
@@ -103,7 +103,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         }
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructures_impl_impl(
-            const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const std::span<const typename AccelerationStructure::DeviceBuildInfo>& infos,
             const VkAccelerationStructureBuildRangeInfoKHR* const* const vk_ppBuildRangeInfos,
             VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
         )
@@ -125,7 +125,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         }
 
         bool buildAccelerationStructuresIndirect_impl(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
             const uint32_t* const* const ppMaxPrimitiveCounts, const uint32_t totalGeometryCount
         ) override
@@ -138,7 +138,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             return buildAccelerationStructuresIndirect_impl_impl<IGPUBottomLevelAccelerationStructure>(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,ppMaxPrimitiveCounts,totalGeometryCount,vk_vertexMotions.data());
         }
         bool buildAccelerationStructuresIndirect_impl(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
         ) override
         {
@@ -153,7 +153,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         }
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructuresIndirect_impl_impl(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const typename AccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
             const uint32_t* const* const ppMaxPrimitiveOrInstanceCounts, const uint32_t totalGeometryCount,
             VkAccelerationStructureGeometryMotionTrianglesDataNV* out_vk_vertexMotions=nullptr
@@ -202,7 +202,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) override;
         bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) override;
         bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) override;
-        bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) override;
+        bool writeAccelerationStructureProperties_impl(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) override;
         bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) override;
 
         bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) override;

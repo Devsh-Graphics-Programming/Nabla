@@ -236,13 +236,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions);
         
         //! acceleration structure builds
-        inline bool buildAccelerationStructures(const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
+        inline bool buildAccelerationStructures(const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,buildRangeInfos); totalGeometryCount)
                 return buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount);
             return false;
         }
-        inline bool buildAccelerationStructures(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
+        inline bool buildAccelerationStructures(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (buildAccelerationStructures_common(infos,buildRangeInfos))
                 return buildAccelerationStructures_impl(infos,buildRangeInfos);
@@ -251,7 +251,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
         template<class AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
         inline bool buildAccelerationStructuresIndirect(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const typename AccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const typename AccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, typename AccelerationStructure::MaxInputCounts* const maxPrimitiveOrInstanceCounts
         )
         {
@@ -381,7 +381,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags=QUERY_CONTROL_FLAGS::NONE);
         bool endQuery(IQueryPool* const queryPool, const uint32_t query);
         bool writeTimestamp(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query);
-        bool writeAccelerationStructureProperties(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
+        bool writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
         bool copyQueryPoolResults(
             const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
             const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags
@@ -553,18 +553,18 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool copyImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions) = 0;
         
         virtual bool buildAccelerationStructures_impl(
-            const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const* const ppBuildRangeInfos,
             const uint32_t totalGeometryCount
         ) = 0;
-        virtual bool buildAccelerationStructures_impl(const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
+        virtual bool buildAccelerationStructures_impl(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos, const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos) = 0;
         virtual bool buildAccelerationStructuresIndirect_impl(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides,
             const uint32_t* const* const ppMaxPrimitiveCounts, const uint32_t totalGeometryCount
         ) = 0;
         virtual bool buildAccelerationStructuresIndirect_impl(
-            const IGPUBuffer* indirectRangeBuffer, const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
+            const IGPUBuffer* indirectRangeBuffer, const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>& infos,
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
         ) = 0;
 
@@ -597,7 +597,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
         virtual bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
-        virtual bool writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
+        virtual bool writeAccelerationStructureProperties_impl(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
         virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;
@@ -754,7 +754,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
-        uint32_t buildAccelerationStructures_common(const core::SRange<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
+        uint32_t buildAccelerationStructures_common(const std::span<const DeviceBuildInfo>& infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer=nullptr);
 
         bool invalidDynamic(const uint32_t first, const uint32_t count);
 
@@ -783,16 +783,16 @@ NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
-    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
-    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+    const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
-    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
-    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+    const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
 extern template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);

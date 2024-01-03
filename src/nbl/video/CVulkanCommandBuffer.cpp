@@ -557,7 +557,7 @@ bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS
     return true;
 }
 
-bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const core::SRange<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
+bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
 {
     IGPUCommandPool::StackAllocation<VkAccelerationStructureKHR> vk_accelerationStructures(m_cmdpool,pAccelerationStructures.size());
     if (!vk_accelerationStructures)
