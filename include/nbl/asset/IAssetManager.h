@@ -657,7 +657,7 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::Quit
         }
         bool writeAsset(system::IFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
-			if (!_file)
+			if (!_file || !_params.rootAsset)
 				return false;
 
             IAssetWriter::IAssetWriterOverride defOverride;

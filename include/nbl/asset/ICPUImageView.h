@@ -16,6 +16,19 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 	public:
 		static core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)
 		{
+			// default aspect masks if none supplied
+			if (!params.subresourceRange.aspectMask)
+			{
+				if (isDepthOrStencilFormat(params.format))
+				{
+					if (!isDepthOnlyFormat(params.format))
+						params.subresourceRange.aspectMask |= ICPUImage::EAF_STENCIL_BIT;
+					if (!isStencilOnlyFormat(params.format))
+						params.subresourceRange.aspectMask |= ICPUImage::EAF_DEPTH_BIT;
+				}
+				else
+					params.subresourceRange.aspectMask |= ICPUImage::EAF_COLOR_BIT;
+			}
 			if (!validateCreationParameters(params))
 				return nullptr;
 
