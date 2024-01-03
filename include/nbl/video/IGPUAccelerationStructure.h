@@ -145,10 +145,6 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 
 		const SCreationParams m_params;
 };
-#ifndef _NBL_VIDEO_I_GPU_ACCELERATION_STRUCTURE_CPP_
-extern template class IGPUAccelerationStructure::BuildInfo<IGPUBuffer>;
-extern template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
-#endif
 
 // strong typing of acceleration structures implicitly satifies:
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-None-03407
@@ -366,10 +362,6 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 	private:
 		bool validVertexFormat(const asset::E_FORMAT format) const;
 };
-#ifndef _NBL_VIDEO_I_GPU_ACCELERATION_STRUCTURE_CPP_
-template class IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
-template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
-#endif
 
 class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>
 {

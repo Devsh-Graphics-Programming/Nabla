@@ -140,12 +140,12 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
 }
-/*
-template class IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>;
-template class IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
-template IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid();
-template IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
-*/
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
+using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+
 bool IGPUBottomLevelAccelerationStructure::validVertexFormat(const asset::E_FORMAT format) const
 {
 	return getOriginDevice()->getPhysicalDevice()->getBufferFormatUsages()[format].accelerationStructureVertex;
