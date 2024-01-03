@@ -21,11 +21,21 @@ NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 template<typename T>
 inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 
-// inverse not listed cause it needs friendship
+// determinant not defined cause its implemented via hidden friend
+// https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
+template<typename T, uint16_t N, uint16_t M>
+T determinant(const matrix<T,N,M>& m);
+
+// inverse not defined cause its implemented via hidden friend
+template<typename T, uint16_t N, uint16_t M>
+matrix<T,N,M> inverse(const matrix<T,N,M>& m);
 
 NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 
-// transpose not listed cause it needs friendship
+// transpose not defined cause its implemented via hidden friend
+template<typename T, uint16_t N, uint16_t M>
+matrix<T,M,N> transpose(const matrix<T,N,M>& m);
+
 
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
 }

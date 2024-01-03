@@ -15,10 +15,8 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::Base;
     using Base::operator[];
 
-    template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M) && X <= N && Y <= M>>
-    explicit matrix(matrix<T, X, Y> const& m) : Base(m)
-    {
-    }
+    template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M)/* && X <= N && Y <= M*/>>
+    explicit matrix(matrix<T,X,Y> const& m) : Base(reinterpret_cast<matrix<T,X,Y> const&>(m)) {}
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}
@@ -31,6 +29,11 @@ struct matrix final : private glm::mat<N,M,T>
 
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
+
+    inline friend T determinant(matrix const& m)
+    {
+        return glm::determinant(reinterpret_cast<Base const&>(m));
+    }
 
     inline friend matrix inverse(matrix const& m) 
     {
@@ -51,7 +54,7 @@ struct matrix final : private glm::mat<N,M,T>
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
     }
 
-    inline friend matrix transpose(matrix const& m)
+    inline friend matrix<T,M,N> transpose(matrix<T,N,M> const& m)
     {
         return glm::transpose(reinterpret_cast<Base const&>(m));
     }
