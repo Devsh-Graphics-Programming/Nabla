@@ -243,7 +243,8 @@ class IImage : public IDescriptor
 			core::bitflag<E_CREATE_FLAGS>	flags = ECF_NONE;
 			union
 			{
-				core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
+				// need to give it a nice default so validation doesn't fail when we don't touch it
+				core::bitflag<E_USAGE_FLAGS>	usage = EUF_SAMPLED_BIT;
 				core::bitflag<E_USAGE_FLAGS>	depthUsage;
 			};
 			// Do not touch AT ALL for an image without stencil format & aspect
