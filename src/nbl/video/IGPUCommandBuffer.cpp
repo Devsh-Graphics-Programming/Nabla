@@ -197,7 +197,8 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
         return true;
     for (auto j=0u; j<depInfo.bufBarrierCount; j++)
     {
-        if (invalidBufferRange(depInfo.bufBarriers[j].range))
+        // AFAIK, no special constraints on alignment or usage here
+        if (invalidBufferRange(depInfo.bufBarriers[j].range,1u,IGPUBuffer::EUF_NONE))
         if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.bufBarriers[j]))
             return true;
     }
@@ -207,6 +208,8 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     #endif // _NBL_DEBUG
     return false;
 }
+template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
+template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
 
 bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& depInfo)
 {
@@ -581,13 +584,26 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const core::SRang
         return false;
 
     auto oit = cmd->getVariableCountResources();
-    if constexpr (indirectBuffer)
-        *(oit++) = indirectBuffer;
+    if (indirectBuffer)
+        *(oit++) = core::smart_refctd_ptr<const IGPUBuffer>(indirectBuffer);
     for (const auto& info : infos)
         oit = info.fillTracking(oit);
 
     return totalGeometries;
 }
+template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+);
+template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
+    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+);
+template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
+);
+template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
+    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
+);
+
 
 bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {

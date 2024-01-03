@@ -785,14 +785,14 @@ NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts>(
-    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
+    const core::SRange<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>&, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts>(
-    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts, const IGPUBuffer* const
+extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo,IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
+    const core::SRange<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>&, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
 extern template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);

@@ -130,7 +130,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return false;
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01187
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01189
-            const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier{}.range.size ? range.size:1ull;
+            const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier<ResourceBarrier>{}.range.size ? range.size:1ull;
             if (range.offset+remain>range.buffer->getSize())
                 return false;
 
@@ -1047,14 +1047,22 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
     //https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-01671
     else if (aspectMask!=IGPUImage::EAF_COLOR_BIT)
         return false;
-
-    // TODO: better check for queue family ownership transfer
-    const bool ownershipTransfer = barrier.barrier.srcQueueFamilyIndex!=barrier.barrier.dstQueueFamilyIndex;
+    
     const bool layoutTransform = barrier.oldLayout!=barrier.newLayout;
-    // TODO: WTF ? https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03855
-    if (ownershipTransfer || layoutTransform)
+    bool ownershipTransfer = false;
+    const asset::SMemoryBarrier* inner;
+    if constexpr (std::is_same_v<ResourceBarrier,IGPUCommandBuffer::SOwnershipTransferBarrier>)
     {
-        const bool srcStageIsHost = barrier.barrier.barrier.srcStageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::HOST_BIT);
+        // TODO: better check for queue family ownership transfer
+        const bool ownershipTransfer = barrier.barrier.otherQueueFamilyIndex!=IQueue::FamilyIgnored;
+        inner = &barrier.barrier.dep;
+    }
+    else
+        inner = &barrier.barrier;
+    // TODO: WTF ? https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03855
+    if (layoutTransform || ownershipTransfer)
+    {
+        const bool srcStageIsHost = inner->srcStageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::HOST_BIT);
         auto mismatchedLayout = [&params,aspectMask,srcStageIsHost]<bool dst>(const IGPUImage::LAYOUT layout) -> bool
         {
             switch (layout)
@@ -1076,11 +1084,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
                     if (srcStageIsHost)
                         return true;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-03938
-                    if (aspectMask==IGPUImage::EAF_COLOR_BIT && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_COLOR_ATTACHMENT_BIT))
-                        return true;
-                    if (aspectMask.hasFlags(IGPUImage::EAF_DEPTH_BIT) && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT))
-                        return true;
-                    if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT) && !params.actualStencilUsage().hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_DEPTH_STENCIL_ATTACHMENT_BIT))
+                    if (aspectMask && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT))
                         return true;
                     break;
                 case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
@@ -1109,7 +1113,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
                         return true;
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01198
-                case IGPUImage::LAYOUT::UNDEFINED: [[fallthrough]]
+                case IGPUImage::LAYOUT::UNDEFINED: [[fallthrough]];
                 case IGPUImage::LAYOUT::PREINITIALIZED:
                     if constexpr (dst)
                         return true;
@@ -1127,7 +1131,11 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
         if (mismatchedLayout.operator()<false>(barrier.oldLayout) || mismatchedLayout.operator()<true>(barrier.newLayout))
             return false;
     }
-    return validateMemoryBarrier(queueFamilyIndex,barrier.barrier,barrier.image->getCachedCreationParams().isConcurrentSharing());
+
+    if constexpr (std::is_same_v<ResourceBarrier,IGPUCommandBuffer::SOwnershipTransferBarrier>)
+        return validateMemoryBarrier(queueFamilyIndex,barrier.barrier,barrier.image->getCachedCreationParams().isConcurrentSharing());
+    else
+        return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
 }
 
 }
