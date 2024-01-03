@@ -381,7 +381,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool beginQuery(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags=QUERY_CONTROL_FLAGS::NONE);
         bool endQuery(IQueryPool* const queryPool, const uint32_t query);
         bool writeTimestamp(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query);
-        bool writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
+        bool writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure* const>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery);
         bool copyQueryPoolResults(
             const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount,
             const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags
@@ -597,7 +597,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool beginQuery_impl(IQueryPool* const queryPool, const uint32_t query, const core::bitflag<QUERY_CONTROL_FLAGS> flags = QUERY_CONTROL_FLAGS::NONE) = 0;
         virtual bool endQuery_impl(IQueryPool* const queryPool, const uint32_t query) = 0;
         virtual bool writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query) = 0;
-        virtual bool writeAccelerationStructureProperties_impl(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
+        virtual bool writeAccelerationStructureProperties_impl(const std::span<const IGPUAccelerationStructure* const>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery) = 0;
         virtual bool copyQueryPoolResults_impl(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, const asset::SBufferBinding<IGPUBuffer>& dstBuffer, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags) = 0;
         
         virtual bool dispatch_impl(const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) = 0;

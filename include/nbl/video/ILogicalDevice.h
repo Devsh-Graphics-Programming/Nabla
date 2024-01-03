@@ -477,7 +477,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
-        inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
+        inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
         {
             if (stride<sizeof(size_t) || !core::is_aligned_to(stride, alignof(size_t)))
                 return false;
@@ -553,7 +553,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Layouts
         // Create a descriptor set layout (@see ICPUDescriptorSetLayout)
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings);
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings);
         // Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
             const core::SRange<const asset::SPushConstantRange>& pcRanges={nullptr,nullptr},
@@ -600,7 +600,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createDescriptorPool_impl(createInfo);
         }
         // utility func
-        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const std::span<const IGPUDescriptorSetLayout*>& layouts, const uint32_t* setCounts=nullptr)
+        inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const std::span<const IGPUDescriptorSetLayout* const>& layouts, const uint32_t* setCounts=nullptr)
         {
             IDescriptorPool::SCreateInfo createInfo = {};
             createInfo.flags = flags;
@@ -820,7 +820,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeferredOperation* const deferredOperation, const std::span<const IGPUTopLevelAccelerationStructure::HostBuildInfo>& infos,
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
-        virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
+        virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;

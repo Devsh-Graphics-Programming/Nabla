@@ -262,7 +262,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
                 getVkASBuildGeometryInfo<typename AccelerationStructure::HostBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
             return getDeferrableResultFrom(m_devf.vk.vkBuildAccelerationStructuresKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),infoCount,vk_buildGeomsInfos.data(),vk_ppBuildRangeInfos));
         }
-        bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) override;
+        bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) override;
         DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;

@@ -26,7 +26,7 @@ class CVulkanPipelineCache final : public IGPUPipelineCache
     private:
         ~CVulkanPipelineCache();
 
-        bool merge_impl(const std::span<const IGPUPipelineCache*>& _srcCaches) override;
+        bool merge_impl(const std::span<const IGPUPipelineCache* const>& _srcCaches) override;
 
         const VkPipelineCache m_pipelineCache;
 };

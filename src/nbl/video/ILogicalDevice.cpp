@@ -332,7 +332,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     return retval;
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const core::SRange<const IGPUDescriptorSetLayout::SBinding>& bindings)
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding>& bindings)
 {
     // TODO: MORE VALIDATION, but after descriptor indexing.
     uint32_t maxSamplersCount = 0u;

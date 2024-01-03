@@ -15,7 +15,8 @@
 namespace nbl::scene
 {
 
-//
+// TODO: rewrite
+#if 0
 #define uint uint32_t
 #define int int32_t
 #define uvec4 core::vectorSIMDu32
@@ -953,7 +954,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 
 };
-
+#endif
 } // end namespace nbl::scene
 
 #endif

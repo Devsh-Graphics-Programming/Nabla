@@ -41,7 +41,7 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
         }
     }
 
-    m_dummyDSLayout = createDescriptorSetLayout({nullptr,nullptr});
+    m_dummyDSLayout = createDescriptorSetLayout({});
 }
 
 
@@ -465,7 +465,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl_impl(
     };
 }
 
-bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure*>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride)
+bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const>& accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride)
 {
     core::vector<VkAccelerationStructureKHR> vk_accelerationStructures;
     vk_accelerationStructures.reserve(accelerationStructures.size());

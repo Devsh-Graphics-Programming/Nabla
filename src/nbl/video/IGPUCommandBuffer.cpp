@@ -914,7 +914,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
-bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure*>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
+bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<const IGPUAccelerationStructure* const>& pAccelerationStructures, const IQueryPool::TYPE queryType, IQueryPool* const queryPool, const uint32_t firstQuery)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
