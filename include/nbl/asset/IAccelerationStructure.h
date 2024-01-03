@@ -9,6 +9,8 @@
 
 #include <compare>
 
+#include "nbl/builtin/hlsl/cpp_compat/matrix.hlsl"
+
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/IBuffer.h"
@@ -90,7 +92,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			using buffer_t = std::remove_const_t<BufferType>;
 			constexpr static inline bool Host = std::is_same_v<buffer_t,ICPUBuffer>;
 			// we make our life easier by not taking pointers to single matrix values
-			using transform_t = std::conditional_t<Host,core::matrix3x4SIMD,asset::SBufferBinding<const buffer_t>>;
+			using transform_t = std::conditional_t<Host,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
 
 			inline bool hasTransform() const
 			{

@@ -288,7 +288,11 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 						}
 						else
 						{
-							if (!(core::abs(core::determinant(geometry.transform))>std::numeric_limits<float>::min()))
+							const hlsl::float32_t3x4& transform = geometry.transform;
+							const auto upper3x3 = hlsl::float32_t3x3(transform);
+							const float det = hlsl::determinant(upper3x3);
+							// weird use of ! because we want to handle NaN as well
+							if (!(std::abs(det)>std::numeric_limits<float>::min()))
 								return false;
 						}
 					}
@@ -405,7 +409,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				inline uint32_t valid(const T& buildRangeInfo) const
 				{
 					if constexpr (std::is_same_v<T,uint32_t>)
-						return valid({.instanceCount=buildRangeInfo,.instanceByteOffset=0});
+						return valid<BuildRangeInfo>({.instanceCount=buildRangeInfo,.instanceByteOffset=0});
 					else
 					{
 						if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
