@@ -256,7 +256,7 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
     return retval;
 }
 
-core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_FLAGS> accesses)
+inline core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_FLAGS> accesses)
 {
     struct PerAccessStages
     {

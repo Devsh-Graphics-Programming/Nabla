@@ -12,7 +12,7 @@ namespace nbl::video
 class CVulkanPhysicalDevice final : public IPhysicalDevice
 {
     public:
-        static inline std::unique_ptr<CVulkanPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice);
+        static std::unique_ptr<CVulkanPhysicalDevice> create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice);
             
         inline VkPhysicalDevice getInternalObject() const { return m_vkPhysicalDevice; }
             

@@ -35,4 +35,7 @@ bool CVulkanAccelerationStructure<GPUAccelerationStructure>::wasBuildSuccessful(
 	return vulkanDevice->getFunctionTable()->vk.vkGetDeferredOperationResultKHR(vulkanDevice->getInternalObject(),static_cast<const CVulkanDeferredOperation*>(deferredOp)->getInternalObject())==VK_SUCCESS;
 }
 
+template class CVulkanAccelerationStructure<IGPUBottomLevelAccelerationStructure>;
+template class CVulkanAccelerationStructure<IGPUTopLevelAccelerationStructure>;
+
 }

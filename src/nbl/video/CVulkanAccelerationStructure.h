@@ -138,7 +138,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 	else
 	{
 		if constexpr (triangles.Host)
-			outBase.geometry.triangles.transformData.hostAddress = triangles.transform.pointer();
+			outBase.geometry.triangles.transformData.hostAddress = &triangles.transform;
 		else
 			outBase.geometry.triangles.transformData = getVkDeviceOrHostAddress<const IGPUBuffer>(triangles.transform);
 	}
