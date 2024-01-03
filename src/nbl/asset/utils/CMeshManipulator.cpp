@@ -410,7 +410,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
             notUniqueBinding = true;
         if (notUniqueBinding)
         {
-            int32_t firstBindingNotUsed = core::findLSB(vertexParams.enabledBindingFlags^0xffffu);
+            int32_t firstBindingNotUsed = hlsl::findLSB(vertexParams.enabledBindingFlags^0xffffu);
             assert(firstBindingNotUsed>0 && firstBindingNotUsed<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
             normalBinding = static_cast<uint32_t>(firstBindingNotUsed);
 

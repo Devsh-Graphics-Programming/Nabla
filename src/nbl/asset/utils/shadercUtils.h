@@ -19,14 +19,14 @@ inline shaderc_shader_kind ESStoShadercEnum(IShader::E_SHADER_STAGE _ss)
     using T = core::bitflag<IShader::E_SHADER_STAGE>;
 
     shaderc_shader_kind convert[6];
-    convert[core::findLSB<uint32_t>(IShader::ESS_VERTEX)] = shaderc_vertex_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELLATION_CONTROL)] = shaderc_tess_control_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_TESSELLATION_EVALUATION)] = shaderc_tess_evaluation_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_GEOMETRY)] = shaderc_geometry_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_FRAGMENT)] = shaderc_fragment_shader;
-    convert[core::findLSB<uint32_t>(IShader::ESS_COMPUTE)] = shaderc_compute_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_VERTEX)] = shaderc_vertex_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_TESSELLATION_CONTROL)] = shaderc_tess_control_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_TESSELLATION_EVALUATION)] = shaderc_tess_evaluation_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_GEOMETRY)] = shaderc_geometry_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_FRAGMENT)] = shaderc_fragment_shader;
+    convert[hlsl::findLSB<uint32_t>(IShader::ESS_COMPUTE)] = shaderc_compute_shader;
 
-    return convert[core::findLSB<uint32_t>(_ss)];
+    return convert[hlsl::findLSB<uint32_t>(_ss)];
 }
 
 }}

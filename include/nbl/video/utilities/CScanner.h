@@ -191,7 +191,7 @@ class CScanner final : public core::IReferenceCounted
 			Parameters(const uint32_t _elementCount, const uint32_t workgroupSize) : Parameters()
 			{
 				assert(_elementCount!=0u && "Input element count can't be 0!");
-				const auto maxReductionLog2 = core::findMSB(workgroupSize)*(MaxScanLevels/2u+1u);
+				const auto maxReductionLog2 = hlsl::findMSB(workgroupSize)*(MaxScanLevels/2u+1u);
 				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
 
 				lastElement[0u] = _elementCount-1u;

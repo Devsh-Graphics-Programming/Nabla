@@ -65,7 +65,7 @@ class IDeviceMemoryAllocator
 			public:
 				DefaultMemoryTypeIterator(const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags) : IMemoryTypeIterator(reqs, allocateFlags)
 				{
-					currentIndex = core::findLSB(m_reqs.memoryTypeBits);
+					currentIndex = hlsl::findLSB(m_reqs.memoryTypeBits);
 				}
 
 			protected:
@@ -78,7 +78,7 @@ class IDeviceMemoryAllocator
 				{
 					uint32_t leftBits = m_reqs.memoryTypeBits & ~((1u << (currentIndex + 1u)) - 1u); // set lower bits to 0
 					if(leftBits > 0u)
-						currentIndex = core::findLSB(leftBits);
+						currentIndex = hlsl::findLSB(leftBits);
 					else
 						currentIndex = IMemoryTypeIterator::end();
 				}

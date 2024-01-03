@@ -545,7 +545,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-viewMask-06706
-        if (core::findMSB(subpass.viewMask)>=maxMultiviewViewCount)
+        if (hlsl::findMSB(subpass.viewMask)>=maxMultiviewViewCount)
             return nullptr;
     }
 
@@ -607,7 +607,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                 return false;
             */
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
-            if (core::findMSB(subpass.viewMask)>limits.maxMultiviewViewCount)
+            if (hlsl::findMSB(subpass.viewMask)>limits.maxMultiviewViewCount)
                 return false;
         }
         if (subpass.depthStencilAttachment.render.used())

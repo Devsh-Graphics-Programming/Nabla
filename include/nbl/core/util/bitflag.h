@@ -1,7 +1,6 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_CORE_C_BITFLAG_H_INCLUDED_
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
@@ -13,7 +12,8 @@ namespace nbl::core
 template <typename ENUM_TYPE>
 struct bitflag final
 {
-	using UNDERLYING_TYPE = std::underlying_type_t<ENUM_TYPE>;
+	using enum_t = ENUM_TYPE;
+	using UNDERLYING_TYPE = std::underlying_type_t<enum_t>;
 
 	static_assert(std::is_enum<ENUM_TYPE>::value);
 
@@ -39,5 +39,4 @@ struct bitflag final
 };
 
 }
-
 #endif

@@ -81,7 +81,7 @@ class IAnimationBlendSystem : public virtual core::IReferenceCounted
 			inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const {return core::bitfieldExtract(keyframeOffset_type,0,32-TypeBits());}
 			inline E_TYPE getType() const {return static_cast<E_TYPE>(core::bitfieldExtract(keyframeOffset_type,32-TypeBits(),TypeBits()));}
 		private:
-			static inline int32_t TypeBits() {return core::findMSB(ET_COUNT);}
+			static inline int32_t TypeBits() {return hlsl::findMSB(ET_COUNT);}
 		};
 
 		// creation

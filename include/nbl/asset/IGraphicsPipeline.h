@@ -109,7 +109,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                         const auto stage = info.shader->getStage();
                         if (stage>=GRAPHICS_SHADER_STAGE_COUNT)
                             return false;
-                        const auto stageIx = core::findLSB(stage);
+                        const auto stageIx = hlsl::findLSB(stage);
                         if (stagePresence.test(stageIx))
                             return false;
                         stagePresence.set(stageIx);

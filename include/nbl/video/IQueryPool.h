@@ -79,7 +79,7 @@ class IQueryPool : public IBackendObject
                         singleQuerySize = basicUnitSize;
                         break;
                     case IQueryPool::TYPE::PIPELINE_STATISTICS:
-                        singleQuerySize = basicUnitSize*core::bitCount(params.pipelineStatisticsFlags.value);
+                        singleQuerySize = basicUnitSize*hlsl::bitCount(static_cast<uint16_t>(params.pipelineStatisticsFlags.value));
                         break;
                     default:
                         return 0ull;

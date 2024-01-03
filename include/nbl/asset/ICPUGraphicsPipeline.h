@@ -76,8 +76,8 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
 		{
-			const auto stageIx = core::findLSB(stage);
-			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || core::bitCount(stage)!=1)
+			const auto stageIx = hlsl::findLSB(stage);
+			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
 				return -1;
 			return stageIx;
 		}

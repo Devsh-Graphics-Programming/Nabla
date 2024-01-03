@@ -359,7 +359,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         return retval;
 
     // If one subpass has view masks, all must do, see VUID 03058
-    retval.viewMaskMSB = core::findMSB(params.subpasses[0].viewMask);
+    retval.viewMaskMSB = hlsl::findMSB(params.subpasses[0].viewMask);
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-viewMask-03057
     if (!retval.hasViewMasks())
     for (auto i=0; i<SCreationParams::MaxMultiviewViewCount; i++)
@@ -407,7 +407,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         if (bool(subpass.viewMask)!=retval.hasViewMasks())
             return setRetvalFalse();
         else
-            retval.viewMaskMSB = core::max<int8_t>(core::findMSB(subpass.viewMask),retval.viewMaskMSB);
+            retval.viewMaskMSB = core::max<int8_t>(hlsl::findMSB(subpass.viewMask),retval.viewMaskMSB);
 
         retval.subpassCount++;
         core::visit_token_terminated_array(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool

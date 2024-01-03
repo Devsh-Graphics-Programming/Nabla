@@ -248,7 +248,7 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
     core::bitflag<ACCESS_FLAGS> retval = ACCESS_FLAGS::NONE;
     while (bool(stages.value))
     {
-        const auto bitIx = core::findLSB(stages);
+        const auto bitIx = hlsl::findLSB(stages);
         retval |= bitToAccess[bitIx];
         stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
     }
@@ -332,7 +332,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<A
     core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
     while (bool(accesses.value))
     {
-        const auto bitIx = core::findLSB(accesses);
+        const auto bitIx = hlsl::findLSB(accesses);
         retval |= bitToStage[bitIx];
         accesses ^= static_cast<ACCESS_FLAGS>(0x1u<<bitIx);
     }

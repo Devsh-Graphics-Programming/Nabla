@@ -296,7 +296,7 @@ class IImage : public IDescriptor
 					break;
 			}
 			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
-			return core::findLSB(round);
+			return hlsl::findLSB(round);
 		}
 		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
 		{
@@ -339,7 +339,7 @@ class IImage : public IDescriptor
 			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
-			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
+			if (hlsl::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
 			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
@@ -699,7 +699,7 @@ class IImage : public IDescriptor
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
 				// The aspectMask member of imageSubresource must only have a single bit set
-				if (!core::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
+				if (!hlsl::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
 					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;

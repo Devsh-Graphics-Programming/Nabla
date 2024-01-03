@@ -118,7 +118,7 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		static uint32_t typeFlagToIndex(E_TYPE _type)
 		{
-			return core::findLSB(static_cast<uint64_t>(_type));
+			return hlsl::findLSB(static_cast<uint64_t>(_type));
 		}
 
 		//! Returns reinterpreted Asset for an Asset expecting full pointer type Asset

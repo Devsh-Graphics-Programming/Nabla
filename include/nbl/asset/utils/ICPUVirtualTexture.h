@@ -181,7 +181,7 @@ public:
         ICPUImage::SCreationParams paddedParams = params;
         paddedParams.extent = {paddedExtent,paddedExtent,1u};
         //in case of original extent being non-PoT, padding it to PoT gives us one extra mip level
-        paddedParams.mipLevels = core::findLSB(paddedExtent) + 1u;
+        paddedParams.mipLevels = hlsl::findLSB(paddedExtent) + 1u;
         auto paddedImg = ICPUImage::create(std::move(paddedParams));
         {
             const uint32_t texelBytesize = getTexelOrBlockBytesize(params.format);
