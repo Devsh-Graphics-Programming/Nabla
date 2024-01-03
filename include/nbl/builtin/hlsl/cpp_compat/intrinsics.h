@@ -46,7 +46,10 @@ inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
 template<typename T, uint16_t N, uint16_t M>
-T determinant(const matrix<T,N,M>& m);
+inline T determinant(const matrix<T,N,M>& m)
+{
+    return glm::determinant(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+}
 
 NBL_BIT_OP_GLM_PASSTHROUGH(findLSB,findLSB)
 
@@ -54,13 +57,19 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findLSB)
 
 // inverse not defined cause its implemented via hidden friend
 template<typename T, uint16_t N, uint16_t M>
-matrix<T,N,M> inverse(const matrix<T,N,M>& m);
+inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
+{
+    return glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+}
 
 NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 
 // transpose not defined cause its implemented via hidden friend
 template<typename T, uint16_t N, uint16_t M>
-matrix<T,M,N> transpose(const matrix<T,N,M>& m);
+inline matrix<T,M,N> transpose(const matrix<T,N,M>& m)
+{
+    return glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+}
 
 
 #undef NBL_BIT_OP_GLM_PASSTHROUGH
