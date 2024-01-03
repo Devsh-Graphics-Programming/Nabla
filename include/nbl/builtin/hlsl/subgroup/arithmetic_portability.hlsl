@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
+#include "nbl/builtin/hlsl/jit/device_capabilities.hlsl"
 
 
 namespace nbl
@@ -17,20 +18,16 @@ namespace hlsl
 namespace subgroup
 {
 
-#ifdef NBL_GLSL_LIMIT_SHADER_SUBGROUP_ARITHMETIC
-#define IMPL native
-#else
-#define IMPL portability
-#endif
+// TODO: change to alias using template when DXC finally fixes SPIR-V codegen impartity
+//template<class Binop, class device_capability_traits/*=TODO: Atil give us the traits so we can default with `void`!*/>
+//struct reduction : impl::reduction<Binop,device_capability_traits::subgroupArithmetic> {};
 
 template<class Binop>
-struct reduction : IMPL::reduction<Binop> {};
+struct reduction : impl::reduction<Binop,nbl::hlsl::jit::device_capabilities::subgroupArithmetic> {};
 template<class Binop>
-struct inclusive_scan : IMPL::inclusive_scan<Binop> {};
+struct inclusive_scan : impl::inclusive_scan<Binop,nbl::hlsl::jit::device_capabilities::subgroupArithmetic> {};
 template<class Binop>
-struct exclusive_scan : IMPL::exclusive_scan<Binop> {};
-
-#undef IMPL
+struct exclusive_scan : impl::exclusive_scan<Binop,nbl::hlsl::jit::device_capabilities::subgroupArithmetic> {};
 
 }
 }

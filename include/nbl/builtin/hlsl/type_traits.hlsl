@@ -212,7 +212,7 @@ template<bool val>
 struct bool_constant : integral_constant<bool, val> {};
 
 struct true_type : bool_constant<true> {};
-struct false_type : bool_constant<true> {};
+struct false_type : bool_constant<false> {};
 
 template<bool C, class T, class F>
 struct conditional : type_identity<T> {};
