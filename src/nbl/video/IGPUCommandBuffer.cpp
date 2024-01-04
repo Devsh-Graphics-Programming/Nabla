@@ -164,7 +164,10 @@ bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 bool IGPUCommandBuffer::end()
 {
     const bool whollyInsideRenderpass = m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT);
-    if (!checkStateBeforeRecording(whollyInsideRenderpass ? queue_flags_t::GRAPHICS_BIT:queue_flags_t::NONE,whollyInsideRenderpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
+    auto allowedQueueCaps = queue_flags_t::GRAPHICS_BIT;
+    if (!whollyInsideRenderpass)
+        allowedQueueCaps |= queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT;
+    if (!checkStateBeforeRecording(allowedQueueCaps,whollyInsideRenderpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
     m_state = STATE::EXECUTABLE;

@@ -60,7 +60,7 @@ auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submi
     core::vector<VkSubmitInfo2> submits(_submits.size(),{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
     core::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(waitSemCnt);
     core::vector<VkCommandBufferSubmitInfoKHR> commandBuffers(cmdBufCnt,{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,nullptr});
-    core::vector<VkSemaphoreSubmitInfoKHR> signalSemaphores(waitSemCnt);
+    core::vector<VkSemaphoreSubmitInfoKHR> signalSemaphores(signalSemCnt);
 
     auto outSubmitInfo = submits.data();
     auto outWaitSemaphoreInfo = waitSemaphores.data();
@@ -84,7 +84,7 @@ auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submi
         outSubmitInfo->signalSemaphoreInfoCount = fillSemaphoreInfo(submit.signalSemaphores,outSignalSemaphoreInfo);
         outSubmitInfo++;
     }
-    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
+    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
     return getResultFrom(vk_result);
 }
 

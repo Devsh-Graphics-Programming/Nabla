@@ -81,7 +81,7 @@ auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWai
     waitInfo.semaphoreCount = semaphores.size();
     waitInfo.pSemaphores = semaphores.data();
     waitInfo.pValues = values.data();
-    switch (m_devf.vk.vkWaitSemaphoresKHR(m_vkdev,&waitInfo,timeout))
+    switch (m_devf.vk.vkWaitSemaphores(m_vkdev,&waitInfo,timeout))
     {
         case VK_SUCCESS:
             return WAIT_RESULT::SUCCESS;
