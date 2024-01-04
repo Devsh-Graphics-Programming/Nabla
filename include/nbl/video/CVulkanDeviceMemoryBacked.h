@@ -37,8 +37,9 @@ class CVulkanDeviceMemoryBacked : public Interface
 		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& _memReqs, const VkResource_t vkHandle);
 		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle) :
 			CVulkanDeviceMemoryBacked(dev,std::move(_creationParams),obtainRequirements(dev,vkHandle),vkHandle) {}
+
 	private:
-		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, const void* vkHandle);
+		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, const VkResource_t vkHandle);
 
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
 		size_t m_offset = 0u;

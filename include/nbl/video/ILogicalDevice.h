@@ -880,7 +880,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         return {};
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07985
-                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag))
+                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || ci.basePipelineIndex>=0 && !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag))
                     return {};
 
                 for (auto info : ci.getShaders())
@@ -942,7 +942,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Buffer or Image %p not compatible with Device %p !",system::ILogger::ELL_ERROR,resource,this);
                 return true;
             }
-            if (!resource->getBoundMemory().isValid())
+            if (resource->getBoundMemory().isValid())
             {
                 m_logger.log("Buffer or Image %p already has memory bound!",system::ILogger::ELL_ERROR,resource);
                 return true;

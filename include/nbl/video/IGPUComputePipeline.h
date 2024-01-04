@@ -56,10 +56,15 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
                 if (!layout || shader.shader->getStage()!=IGPUShader::ESS_COMPUTE)
                     return {};
-                const auto count = shader.entries->size();
-                if (count>0x7fffffff)
-                    return {};
-                return {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
+
+                uint32_t count = 0;
+                if (shader.entries)
+                {
+                    if (shader.entries->size()>0x7fffffff)
+                        return {};
+                    count = static_cast<uint32_t>(shader.entries->size());
+                }
+                return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
             inline std::span<const IGPUShader::SSpecInfo> getShaders() const {return {&shader,1}; }

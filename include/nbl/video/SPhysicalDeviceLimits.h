@@ -22,7 +22,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxImageDimension2D = MinMaxImageDimension2D;
     uint32_t maxImageDimension3D = 1u<<12u;
     uint32_t maxImageDimensionCube = MinMaxImageDimension2D;
-    uint32_t maxImageArrayLayers = 1u<<12u;
+    uint32_t maxImageArrayLayers = 1u<<11u;
     uint32_t maxBufferViewTexels = 1u<<25u;
     uint32_t maxUBOSize = 1u<<16u;
     constexpr static inline uint32_t MinMaxSSBOSize = 1u<<30u;
@@ -97,7 +97,7 @@ struct SPhysicalDeviceLimits
     uint32_t    maxDrawIndirectCount = 1u<<30u;
 
     float       maxSamplerLodBias = 4.f;
-    uint8_t     maxSamplerAnisotropyLog2 = 16u;
+    uint8_t     maxSamplerAnisotropyLog2 = 4u;
 
     uint8_t     maxViewports = 16u;
     uint16_t    maxViewportDims[2] = {MinMaxImageDimension2D,MinMaxImageDimension2D};
@@ -768,7 +768,7 @@ struct SPhysicalDeviceLimits
 
         if (optimalBufferCopyOffsetAlignment < _rhs.optimalBufferCopyOffsetAlignment) return false;
         if (optimalBufferCopyRowPitchAlignment < _rhs.optimalBufferCopyRowPitchAlignment) return false;
-        if (nonCoherentAtomSize > _rhs.nonCoherentAtomSize) return false;
+        if (nonCoherentAtomSize < _rhs.nonCoherentAtomSize) return false;
 
         // don't compare certain things, they don't make your device better or worse
         //if (subgroupSize > _rhs.subgroupSize) return false;
@@ -882,8 +882,8 @@ struct SPhysicalDeviceLimits
         if (sparseImageFloat32Atomics && !_rhs.sparseImageFloat32Atomics) return false;
         if (sparseImageFloat32AtomicAdd && !_rhs.sparseImageFloat32AtomicAdd) return false;
 
-        if (robustStorageBufferAccessSizeAlignment > _rhs.robustStorageBufferAccessSizeAlignment) return false;
-        if (robustUniformBufferAccessSizeAlignment > _rhs.robustUniformBufferAccessSizeAlignment) return false;
+        if (robustStorageBufferAccessSizeAlignment < _rhs.robustStorageBufferAccessSizeAlignment) return false;
+        if (robustUniformBufferAccessSizeAlignment < _rhs.robustUniformBufferAccessSizeAlignment) return false;
 
         if (shaderTrinaryMinmax && !_rhs.shaderTrinaryMinmax) return false;
 

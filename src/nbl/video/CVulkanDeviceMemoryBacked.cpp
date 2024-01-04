@@ -6,10 +6,10 @@ namespace nbl::video
 {
 
 template<class Interface>
-IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const CVulkanLogicalDevice* device, const void* vkHandle)
+IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const CVulkanLogicalDevice* device, const VkResource_t vkHandle)
 {    
     const std::conditional_t<IsImage,VkImageMemoryRequirementsInfo2,VkBufferMemoryRequirementsInfo2> vk_memoryRequirementsInfo = {
-        IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2:VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,*reinterpret_cast<const VkResource_t*>(vkHandle)
+        IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2:VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,vkHandle
     };
 
     VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,nullptr };

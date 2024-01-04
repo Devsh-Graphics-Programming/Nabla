@@ -450,7 +450,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
 
         constexpr uint64_t ROADMAP2022TimelineSemahoreValueDifference = (0x1ull<<31u)-1ull;
-        if (vulkan12Properties.maxTimelineSemaphoreValueDifference<=ROADMAP2022TimelineSemahoreValueDifference)
+        if (vulkan12Properties.maxTimelineSemaphoreValueDifference<ROADMAP2022TimelineSemahoreValueDifference)
             return nullptr;
 
         // don't deal with vulkan12PRoperties.framebufferIntegerColorSampleCounts, TODO report in usage
