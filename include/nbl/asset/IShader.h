@@ -238,7 +238,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			ShaderType* shader = nullptr;
 			// Container choice implicitly satisfies:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-			const spec_constant_map_t* entries;
+			const spec_constant_map_t* entries = nullptr;
 			// By requiring Nabla Core Profile features we implicitly satisfy:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785

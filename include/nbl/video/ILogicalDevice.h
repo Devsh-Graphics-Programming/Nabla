@@ -161,15 +161,15 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             DEVICE_LOST,
             _ERROR
         };
-        virtual WAIT_RESULT waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) = 0;
+        virtual WAIT_RESULT waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
-        inline WAIT_RESULT blockForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll=true)
+        inline WAIT_RESULT blockForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll=true)
         {
-            if (count)
+            if (!infos.empty())
             {
                 auto waitStatus = WAIT_RESULT::TIMEOUT;
                 while (waitStatus==WAIT_RESULT::TIMEOUT)
-                    waitStatus = waitForSemaphores(count,infos,waitAll,999999999ull);
+                    waitStatus = waitForSemaphores(infos,waitAll,999999999ull);
                 return waitStatus;
             }
             return WAIT_RESULT::SUCCESS;

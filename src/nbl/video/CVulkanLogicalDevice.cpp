@@ -61,22 +61,24 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     else
         return nullptr;
 }
-auto CVulkanLogicalDevice::waitForSemaphores(const uint32_t count, const SSemaphoreWaitInfo* const infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
+auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
 {
-    core::vector<VkSemaphore> semaphores(count);
-    core::vector<uint64_t> values(count);
-    for (auto i=0u; i<count; i++)
+    core::vector<VkSemaphore> semaphores(infos.size());
+    core::vector<uint64_t> values(infos.size());
+    auto outSemaphores = semaphores.data();
+    auto outValues = values.data();
+    for (const auto& info : infos)
     {
-        auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(infos[i].semaphore,this);
+        auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.semaphore,this);
         if (!sema)
             WAIT_RESULT::_ERROR;
-        semaphores[i] = sema->getInternalObject();
-        values[i] = infos[i].value;
+        *(outSemaphores++) = sema->getInternalObject();
+        *(outValues++) = info.value;
     }
 
     VkSemaphoreWaitInfoKHR waitInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO_KHR,nullptr };
     waitInfo.flags = waitAll ? 0:VK_SEMAPHORE_WAIT_ANY_BIT_KHR;
-    waitInfo.semaphoreCount = count;
+    waitInfo.semaphoreCount = semaphores.size();
     waitInfo.pSemaphores = semaphores.data();
     waitInfo.pValues = values.data();
     switch (m_devf.vk.vkWaitSemaphoresKHR(m_vkdev,&waitInfo,timeout))
