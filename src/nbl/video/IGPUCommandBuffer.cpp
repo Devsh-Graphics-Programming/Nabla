@@ -111,7 +111,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
             return false;
     }
     // extras from me (devsh)
-    else if (inheritanceInfo->renderpass || inheritanceInfo->framebuffer)
+    else if (inheritanceInfo && (inheritanceInfo->renderpass||inheritanceInfo->framebuffer))
     {
         m_logger.log("Failed to begin command buffer: Do not provide renderpass or framebuffer to a Command Buffer begin without also the USAGE::RENDER_PASS_CONTINUE_BIT bitflag.", system::ILogger::ELL_ERROR);
         return false;

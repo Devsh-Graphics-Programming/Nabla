@@ -53,11 +53,15 @@ class IGPUCommandPool : public IBackendObject
             PRIMARY = 0u,
             SECONDARY
         };
-        inline bool createCommandBuffers(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger=nullptr)
+        inline bool createCommandBuffers(const BUFFER_LEVEL level, const std::span<core::smart_refctd_ptr<IGPUCommandBuffer>> outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger=nullptr)
         {
-            if (count==0u)
+            if (outCmdBufs.empty())
                 return false;
-            return createCommandBuffers_impl(level,count,outCmdBufs,std::move(logger));
+            return createCommandBuffers_impl(level,outCmdBufs,std::move(logger));
+        }
+        [[deprecated]] inline bool createCommandBuffers(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger=nullptr)
+        {
+            return createCommandBuffers(level,{outCmdBufs,count},std::move(logger));
         }
 
         inline bool reset()
@@ -153,7 +157,7 @@ class IGPUCommandPool : public IBackendObject
             : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
         virtual ~IGPUCommandPool() = default;
 
-        virtual bool createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) = 0;
+        virtual bool createCommandBuffers_impl(const BUFFER_LEVEL level, const std::span<core::smart_refctd_ptr<IGPUCommandBuffer>> outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) = 0;
 
         virtual bool reset_impl() = 0;
 

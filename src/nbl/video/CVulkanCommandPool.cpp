@@ -17,16 +17,19 @@ void CVulkanCommandPool::trim()
     vulkanDevice->getFunctionTable()->vk.vkTrimCommandPool(vulkanDevice->getInternalObject(),m_vkCommandPool,0u);
 }
 
-bool CVulkanCommandPool::createCommandBuffers_impl(const BUFFER_LEVEL level, const uint32_t count, core::smart_refctd_ptr<IGPUCommandBuffer>* const outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger)
+bool CVulkanCommandPool::createCommandBuffers_impl(const BUFFER_LEVEL level, const std::span<core::smart_refctd_ptr<IGPUCommandBuffer>> outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger)
 {
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 
-	StackAllocation<VkCommandBuffer> vk_commandBuffers(this,count);
+	StackAllocation<VkCommandBuffer> vk_commandBuffers(this,outCmdBufs.size());
+    if (!vk_commandBuffers)
+        return false;
+
     VkCommandBufferAllocateInfo info = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,nullptr };
     info.commandPool = m_vkCommandPool;
     info.level = static_cast<VkCommandBufferLevel>(level);
-    info.commandBufferCount = count;
-	if (!vk_commandBuffers || vulkanDevice->getFunctionTable()->vk.vkAllocateCommandBuffers(vulkanDevice->getInternalObject(),&info,vk_commandBuffers.data())==VK_SUCCESS)
+    info.commandBufferCount = vk_commandBuffers.size();
+	if (vulkanDevice->getFunctionTable()->vk.vkAllocateCommandBuffers(vulkanDevice->getInternalObject(),&info,vk_commandBuffers.data())!=VK_SUCCESS)
 		return false;
 	
     if (!logger)
@@ -35,7 +38,7 @@ bool CVulkanCommandPool::createCommandBuffers_impl(const BUFFER_LEVEL level, con
         if (debugCB)
             logger = core::smart_refctd_ptr<system::ILogger>(debugCB->getLogger());
     }
-    for (auto i=0u; i<count; ++i)
+    for (auto i=0u; i<outCmdBufs.size(); ++i)
         outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(core::smart_refctd_ptr<const ILogicalDevice>(vulkanDevice),level,vk_commandBuffers[i],core::smart_refctd_ptr<IGPUCommandPool>(this),std::move(logger));
 	return true;
 }
