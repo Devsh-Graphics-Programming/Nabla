@@ -102,14 +102,14 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             size_t offset = 0ull;
             size_t length = 0ull;
         };
-        inline bool map(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint=IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE)
+        inline void* map(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint=IDeviceMemoryAllocation::EMCAF_READ_AND_WRITE)
         {
             if (isCurrentlyMapped())
-                return false;
+                return nullptr;
             if(accessHint.hasFlags(EMCAF_READ) && !m_memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT))
-                return false;
+                return nullptr;
             if(accessHint.hasFlags(EMCAF_WRITE) && !m_memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT))
-                return false;
+                return nullptr;
             m_mappedPtr = reinterpret_cast<uint8_t*>(map_impl(range,accessHint));
             if (m_mappedPtr)
                 m_mappedPtr -= range.offset;
