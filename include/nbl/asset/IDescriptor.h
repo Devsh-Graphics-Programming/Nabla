@@ -61,7 +61,7 @@ class IDescriptor : public virtual core::IReferenceCounted
 				case E_TYPE::ET_STORAGE_BUFFER:
 				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
 				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-					return EC_BUFFER_VIEW;
+					return EC_BUFFER;
 					break;
 				case E_TYPE::ET_ACCELERATION_STRUCTURE:
 					return EC_ACCELERATION_STRUCTURE;

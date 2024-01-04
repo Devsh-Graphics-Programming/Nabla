@@ -629,7 +629,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* const pDescriptorCopies
         )
         {
-            return updateDescriptorSets({pDescriptorWrites,pDescriptorWrites+descriptorWriteCount},{pDescriptorCopies,pDescriptorCopies+descriptorCopyCount});
+            return updateDescriptorSets({pDescriptorWrites,descriptorWriteCount},{pDescriptorCopies,descriptorCopyCount});
         }
 
         //! Renderpasses and Framebuffers
