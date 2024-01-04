@@ -45,7 +45,7 @@ class CVulkanQueue final : public IQueue
         inline VkQueue getInternalObject() const {return m_vkQueue;}
 
     private:
-        RESULT submit_impl(const uint32_t _count, const SSubmitInfo* _submits) override;
+        RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override;
 
         renderdoc_api_t* m_rdoc_api;
 	    VkInstance m_vkInstance;

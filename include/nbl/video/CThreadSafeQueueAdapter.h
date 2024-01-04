@@ -17,10 +17,10 @@ class CThreadSafeQueueAdapter final : public IQueue
         std::unique_ptr<IQueue> originalQueue = nullptr;
         mutable std::mutex m;
 
-        inline RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) override
+        inline RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override
         {
             IQueue* msvcIsDumb = originalQueue.get();
-            return msvcIsDumb->submit_impl(_count, _submits);
+            return msvcIsDumb->submit_impl(_submits);
         }
 
     public:
@@ -34,10 +34,10 @@ class CThreadSafeQueueAdapter final : public IQueue
             return originalQueue->waitIdle();
         }
 
-        inline RESULT submit(const uint32_t _count, const SSubmitInfo* const _submits) override
+        inline RESULT submit(const std::span<const SSubmitInfo> _submits) override
         {
             std::lock_guard g(m);
-            return originalQueue->submit(_count, _submits);
+            return originalQueue->submit(_submits);
         }
 
         inline bool startCapture() override

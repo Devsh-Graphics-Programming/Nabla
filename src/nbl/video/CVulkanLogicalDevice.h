@@ -95,8 +95,8 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
         
         // memory  stuff
-        bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
-        bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) override;
+        bool flushMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) override;
+        bool invalidateMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) override;
 
         // memory binding
         bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) override;

@@ -217,20 +217,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return flushMappedMemoryRanges(ranges);
         }
         // Utility wrapper for the pointer based func
-        inline bool flushMappedMemoryRanges(const core::SRange<const MappedMemoryRange>& ranges)
+        inline bool flushMappedMemoryRanges(const std::span<const MappedMemoryRange>& ranges)
         {
             if (invalidMappedRanges(ranges))
                 return false;
             return flushMappedMemoryRanges_impl(ranges);
         }
         // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible
-        inline bool invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const MappedMemoryRange* pMemoryRanges)
+        inline bool invalidateMappedMemoryRanges(const uint32_t rangeCount, const MappedMemoryRange* pMemoryRanges)
         {
-            core::SRange<const MappedMemoryRange> ranges{ pMemoryRanges, pMemoryRanges + memoryRangeCount };
-            return invalidateMappedMemoryRanges(ranges);
+            return invalidateMappedMemoryRanges({pMemoryRanges,rangeCount});
         }
         //! Utility wrapper for the pointer based func
-        inline bool invalidateMappedMemoryRanges(const core::SRange<const MappedMemoryRange>& ranges)
+        inline bool invalidateMappedMemoryRanges(const std::span<const MappedMemoryRange> ranges)
         {
             if (invalidMappedRanges(ranges))
                 return false;
@@ -556,7 +555,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings);
         // Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
-            const core::SRange<const asset::SPushConstantRange> pcRanges={nullptr,nullptr},
+            const std::span<const asset::SPushConstantRange> pcRanges={},
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1=nullptr,
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
@@ -772,8 +771,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (uint32_t i=0u; i<m_queues->size(); ++i)
                 delete (*m_queues)[i];
         }
-        virtual bool flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) = 0;
-        virtual bool invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges) = 0;
+        virtual bool flushMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
+        virtual bool invalidateMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
 
         virtual bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) = 0;
         virtual bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) = 0;
@@ -961,7 +960,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return false;
         }
 
-        inline bool invalidMappedRanges(const core::SRange<const MappedMemoryRange>& ranges)
+        inline bool invalidMappedRanges(const std::span<const MappedMemoryRange> ranges)
         {
             for (auto& range : ranges)
             {

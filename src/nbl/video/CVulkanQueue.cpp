@@ -28,69 +28,63 @@ bool CVulkanQueue::endCapture()
 	return true;
 }
 
-auto CVulkanQueue::submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) -> RESULT
+auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submits) -> RESULT
 {
-    auto fillSemaphoreInfo = [this](const SSubmitInfo::SSemaphoreInfo* in, const uint32_t count, VkSemaphoreSubmitInfoKHR* out) -> void
+    auto fillSemaphoreInfo = [this](const std::span<const SSubmitInfo::SSemaphoreInfo> semaphores, VkSemaphoreSubmitInfoKHR* &out) -> uint32_t
     {
-        for (uint32_t i=0u; i<count; i++)
+        auto old = out;
+        for (const auto& in : semaphores)
         {
-            out[i].sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
-            out[i].pNext = nullptr;
-            out[i].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(in[i].semaphore,m_originDevice)->getInternalObject();
-            out[i].value = in[i].value;
-            out[i].stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(in[i].stageMask);
-            out[i].deviceIndex = 0u; // device groups are a TODO
+            out->sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
+            out->pNext = nullptr;
+            out->semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(in.semaphore,m_originDevice)->getInternalObject();
+            out->value = in.value;
+            out->stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(in.stageMask);
+            out->deviceIndex = 0u; // device groups are a TODO
+            out++;
         }
+        return static_cast<uint32_t>(std::distance(old,out));
     };
 
     uint32_t waitSemCnt = 0u;
     uint32_t cmdBufCnt = 0u;
     uint32_t signalSemCnt = 0u;
-    for (uint32_t i=0u; i<_count; ++i)
+    for (const auto& submit : _submits)
     {
-        const auto& sb = _submits[i];
-        waitSemCnt += sb.waitSemaphoreCount;
-        cmdBufCnt += sb.commandBufferCount;
-        signalSemCnt += sb.signalSemaphoreCount;
+        waitSemCnt += submit.waitSemaphores.size();
+        cmdBufCnt += submit.commandBuffers.size();
+        signalSemCnt += submit.signalSemaphores.size();
     }
 
     // TODO: we need a SVO optimized vector with SoA
-    core::vector<VkSubmitInfo2> submits(_count,{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
+    core::vector<VkSubmitInfo2> submits(_submits.size(),{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
     core::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(waitSemCnt);
     core::vector<VkCommandBufferSubmitInfoKHR> commandBuffers(cmdBufCnt,{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,nullptr});
     core::vector<VkSemaphoreSubmitInfoKHR> signalSemaphores(waitSemCnt);
 
-    uint32_t waitSemOffset = 0u;
-    uint32_t cmdBufOffset = 0u;
-    uint32_t signalSemOffset = 0u;
-    for (uint32_t i=0u; i<_count; ++i)
+    auto outSubmitInfo = submits.data();
+    auto outWaitSemaphoreInfo = waitSemaphores.data();
+    auto outCommandBufferInfo = commandBuffers.data();
+    auto outSignalSemaphoreInfo = signalSemaphores.data();
+    for (const auto& submit : _submits)
     {
-        const SSubmitInfo& _sb = _submits[i];
+        outSubmitInfo->pWaitSemaphoreInfos = outWaitSemaphoreInfo;
+        outSubmitInfo->pCommandBufferInfos = outCommandBufferInfo;
+        outSubmitInfo->pSignalSemaphoreInfos = outSignalSemaphoreInfo;
 
-        auto* waits = waitSemaphores.data()+waitSemOffset;
-        waitSemOffset += _sb.waitSemaphoreCount;
-        auto* cmdbufs = commandBuffers.data()+cmdBufOffset;
-        cmdBufOffset += _sb.commandBufferCount;
-        auto* signals = signalSemaphores.data()+signalSemOffset;
-        signalSemOffset += _sb.signalSemaphoreCount;
-
-        auto& sb = submits[i];
-        sb.pWaitSemaphoreInfos = waits;
-        sb.waitSemaphoreInfoCount = _sb.waitSemaphoreCount;
-        sb.pCommandBufferInfos = cmdbufs;
-        sb.commandBufferInfoCount = _sb.commandBufferCount;
-        sb.pSignalSemaphoreInfos = signals;
-        sb.signalSemaphoreInfoCount = _sb.signalSemaphoreCount;
-
-        fillSemaphoreInfo(_sb.pWaitSemaphores,_sb.waitSemaphoreCount,waits);
-        for (uint32_t j=0u; j<_sb.commandBufferCount; ++j)
+        for (const auto& commandBuffer : submit.commandBuffers)
         {
-            cmdbufs[j].commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[i].cmdbuf,m_originDevice)->getInternalObject();
-            cmdbufs[j].deviceMask = 0x1u;
+            outCommandBufferInfo->commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(commandBuffer.cmdbuf,m_originDevice)->getInternalObject();
+            outCommandBufferInfo->deviceMask = 0x1u;
+            outCommandBufferInfo++;
         }
-        fillSemaphoreInfo(_sb.pSignalSemaphores,_sb.signalSemaphoreCount,signals);
+
+        outSubmitInfo->waitSemaphoreInfoCount = fillSemaphoreInfo(submit.waitSemaphores,outWaitSemaphoreInfo);
+        outSubmitInfo->commandBufferInfoCount = submit.commandBuffers.size();
+        outSubmitInfo->signalSemaphoreInfoCount = fillSemaphoreInfo(submit.signalSemaphores,outSignalSemaphoreInfo);
+        outSubmitInfo++;
     }
-    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,_count,submits.data(),VK_NULL_HANDLE);
+    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2KHR(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
     return getResultFrom(vk_result);
 }
 

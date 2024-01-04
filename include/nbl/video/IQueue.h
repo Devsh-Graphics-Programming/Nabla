@@ -88,26 +88,23 @@ class IQueue : public core::Interface, public core::Unmovable
             };
 
             // TODO: flags/bitfields
-            uint32_t waitSemaphoreCount = 0u;
-            uint32_t commandBufferCount = 0u;
-            uint32_t signalSemaphoreCount = 0u;
-            const SSemaphoreInfo* pWaitSemaphores = nullptr;
-            const SCommandBufferInfo* commandBuffers = nullptr;
-            const SSemaphoreInfo* pSignalSemaphores = nullptr;
+            std::span<const SSemaphoreInfo> waitSemaphores = {};
+            std::span<const SCommandBufferInfo> commandBuffers = {};
+            std::span<const SSemaphoreInfo> signalSemaphores = {};
 
             inline bool valid() const
             {
-                if (waitSemaphoreCount>0u && !pWaitSemaphores)
+                // any two being empty is wrong
+                if (commandBuffers.empty() && signalSemaphores.empty()) // wait and do nothing
                     return false;
-                if (commandBufferCount>0u && !commandBuffers)
+                if (waitSemaphores.empty() && signalSemaphores.empty()) // work without sync
                     return false;
-                if (signalSemaphoreCount>0u && !pSignalSemaphores)
+                if (waitSemaphores.empty() && commandBuffers.empty()) // signal without doing work first
                     return false;
-                // wait & work | work & signal | wait & signal
-                return waitSemaphoreCount&&commandBufferCount || commandBufferCount&&signalSemaphoreCount || waitSemaphoreCount&&signalSemaphoreCount;
+                return true;
             }
         };
-        virtual RESULT submit(const uint32_t _count, const SSubmitInfo* const _submits);
+        virtual RESULT submit(const std::span<const SSubmitInfo> _submits);
         //
         virtual RESULT waitIdle() const = 0;
 
@@ -122,7 +119,7 @@ class IQueue : public core::Interface, public core::Unmovable
             : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags) {}
 
         friend class CThreadSafeQueueAdapter;
-        virtual RESULT submit_impl(const uint32_t _count, const SSubmitInfo* const _submits) = 0;
+        virtual RESULT submit_impl(const std::span<const SSubmitInfo> _submits) = 0;
 
         const ILogicalDevice* m_originDevice;
         const uint32_t m_familyIndex;

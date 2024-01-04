@@ -198,7 +198,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     return ret;
 }
 
-static inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const core::SRange<const ILogicalDevice::MappedMemoryRange>& ranges)
+static inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const std::span<const ILogicalDevice::MappedMemoryRange>& ranges)
 {
     for (auto& range : ranges)
     {
@@ -210,7 +210,7 @@ static inline void getVkMappedMemoryRanges(VkMappedMemoryRange* outRanges, const
         vk_memoryRange.size = range.length;
     }
 }
-bool CVulkanLogicalDevice::flushMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges)
+bool CVulkanLogicalDevice::flushMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges)
 {
     constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
     if (ranges.size()>MAX_MEMORY_RANGE_COUNT)
@@ -220,7 +220,7 @@ bool CVulkanLogicalDevice::flushMappedMemoryRanges_impl(const core::SRange<const
     getVkMappedMemoryRanges(vk_memoryRanges,ranges);
     return m_devf.vk.vkFlushMappedMemoryRanges(m_vkdev,ranges.size(),vk_memoryRanges)==VK_SUCCESS;
 }
-bool CVulkanLogicalDevice::invalidateMappedMemoryRanges_impl(const core::SRange<const MappedMemoryRange>& ranges)
+bool CVulkanLogicalDevice::invalidateMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges)
 {
     constexpr uint32_t MAX_MEMORY_RANGE_COUNT = 408u;
     if (ranges.size()>MAX_MEMORY_RANGE_COUNT)

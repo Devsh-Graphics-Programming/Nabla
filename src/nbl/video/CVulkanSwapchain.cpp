@@ -148,19 +148,19 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
 {
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     CVulkanQueue* vulkanQueue;
-    if (info.signalSemaphoreCount)
+    if (!info.signalSemaphores.empty())
     {
         vulkanQueue = IBackendObject::device_compatibility_cast<CVulkanQueue*>(info.queue,vulkanDevice);
         if (!vulkanQueue)
             return ACQUIRE_IMAGE_RESULT::_ERROR;
-        for (auto i=0u; i<info.signalSemaphoreCount; i++)
+        for (auto i=0u; i<info.signalSemaphores.size(); i++)
         if (!IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.signalSemaphores[i].semaphore,vulkanDevice))
             return ACQUIRE_IMAGE_RESULT::_ERROR;
     }
 
     auto& vk = vulkanDevice->getFunctionTable()->vk;
     const VkDevice vk_device = vulkanDevice->getInternalObject();
-    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.signalSemaphoreCount);
+    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.signalSemaphores.size());
     {
         VkAcquireNextImageInfoKHR acquire = { VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,nullptr };
         acquire.swapchain = m_vkSwapchainKHR;
@@ -183,10 +183,10 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
         }
     }
 
-    if (info.signalSemaphoreCount)
+    if (!info.signalSemaphores.empty())
     {
-        core::vector<VkSemaphoreSubmitInfoKHR> signalInfos(info.signalSemaphoreCount,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
-        for (auto i=0u; i<info.signalSemaphoreCount; i++)
+        core::vector<VkSemaphoreSubmitInfoKHR> signalInfos(info.signalSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+        for (auto i=0u; i<info.signalSemaphores.size(); i++)
         {
             signalInfos[i].semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.signalSemaphores[i].semaphore,vulkanDevice)->getInternalObject();
             signalInfos[i].stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(info.signalSemaphores[i].stageMask);
@@ -198,7 +198,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
         submit.waitSemaphoreInfoCount = 1u;
         submit.pWaitSemaphoreInfos = &adaptorInfo;
         submit.commandBufferInfoCount = 0u;
-        submit.signalSemaphoreInfoCount = info.signalSemaphoreCount;
+        submit.signalSemaphoreInfoCount = info.signalSemaphores.size();
         submit.pSignalSemaphoreInfos = signalInfos.data();
         const bool result = vk.vkQueueSubmit2KHR(vulkanQueue->getInternalObject(),1u,&submit,VK_NULL_HANDLE)==VK_SUCCESS;
         // if this goes wrong, we are fucked without KHR_swapchain_maintenance1 because there's no way to release acquired images without presenting them!
@@ -215,11 +215,11 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
         return PRESENT_RESULT::_ERROR;
 
     auto& vk = vulkanDevice->getFunctionTable()->vk;
-    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.waitSemaphoreCount);
-    if (info.waitSemaphoreCount)
+    const VkSemaphoreSubmitInfoKHR adaptorInfo = getAdaptorSemaphore(info.waitSemaphores.size());
+    if (!info.waitSemaphores.empty())
     {
-        core::vector<VkSemaphoreSubmitInfoKHR> waitInfos(info.waitSemaphoreCount,{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
-        for (auto i=0u; i<info.waitSemaphoreCount; i++)
+        core::vector<VkSemaphoreSubmitInfoKHR> waitInfos(info.waitSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+        for (auto i=0u; i<info.waitSemaphores.size(); i++)
         {
             auto sema = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.waitSemaphores[i].semaphore,vulkanDevice);
             if (!sema)
@@ -231,7 +231,7 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
         }
 
         VkSubmitInfo2KHR submit = { VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,nullptr };
-        submit.waitSemaphoreInfoCount = info.waitSemaphoreCount;
+        submit.waitSemaphoreInfoCount = info.waitSemaphores.size();
         submit.pWaitSemaphoreInfos = waitInfos.data();
         submit.commandBufferInfoCount = 0u;
         submit.signalSemaphoreInfoCount = 1u;
@@ -241,7 +241,7 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
     }
 
     VkPresentInfoKHR presentInfo = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,nullptr };
-    presentInfo.waitSemaphoreCount = info.waitSemaphoreCount ? 1u:0u;
+    presentInfo.waitSemaphoreCount = info.waitSemaphores.empty() ? 0u:1u;
     presentInfo.pWaitSemaphores = &adaptorInfo.semaphore;
     presentInfo.swapchainCount = 1u;
     presentInfo.pSwapchains = &m_vkSwapchainKHR;

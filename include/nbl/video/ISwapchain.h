@@ -52,8 +52,7 @@ class ISwapchain : public IBackendObject
             IQueue* queue;
             // If you don't change the default it will 100% block and acquire will not return TIMEOUT or NOT_READY
             uint64_t timeout = std::numeric_limits<uint64_t>::max();
-            uint32_t signalSemaphoreCount = 0u;
-            const IQueue::SSubmitInfo::SSemaphoreInfo* signalSemaphores = nullptr;
+            std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores = {};
         };
         enum class ACQUIRE_IMAGE_RESULT : uint8_t
         {
@@ -86,8 +85,7 @@ class ISwapchain : public IBackendObject
         {
             IQueue* queue;
             uint32_t imgIndex;
-            uint32_t waitSemaphoreCount = 0u;
-            const IQueue::SSubmitInfo::SSemaphoreInfo* waitSemaphores = nullptr;
+            std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores = {};
         };
         enum class PRESENT_RESULT : uint8_t
         {

@@ -5,23 +5,22 @@
 namespace nbl::video
 {
 
-auto IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits) -> RESULT
+auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 {
-    if (!_submits || _count==0u)
+    if (_submits.empty())
         return RESULT::OTHER_ERROR;
 
     auto* logger = m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger();
-    for (uint32_t i=0u; i<_count; ++i)
+    for (const auto& submit : _submits)
     {
-        auto& submit = _submits[i];
         if (!submit.valid())
             return RESULT::OTHER_ERROR;
 
-        auto invalidSemaphores = [this,logger](const uint32_t count, const SSubmitInfo::SSemaphoreInfo* semaphoreInfo) -> bool
+        auto invalidSemaphores = [this,logger](const std::span<const SSubmitInfo::SSemaphoreInfo> semaphoreInfos) -> bool
         {
-            for (uint32_t j=0u; j<count; ++j)
+            for (const auto& semaphoreInfo : semaphoreInfos)
             {
-                auto* sema = semaphoreInfo[j].semaphore;
+                auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
                     logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
@@ -30,12 +29,12 @@ auto IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits) ->
             }
             return false;
         };
-        if (invalidSemaphores(submit.waitSemaphoreCount,submit.pWaitSemaphores) || invalidSemaphores(submit.signalSemaphoreCount,submit.pSignalSemaphores))
+        if (invalidSemaphores(submit.waitSemaphores) || invalidSemaphores(submit.signalSemaphores))
             return RESULT::OTHER_ERROR;
 
-        for (uint32_t j=0u; j<submit.commandBufferCount; ++j)
+        for (const auto& commandBuffer : submit.commandBuffers)
         {
-            auto* cmdbuf = submit.commandBuffers[j].cmdbuf;
+            auto* cmdbuf = commandBuffer.cmdbuf;
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
                 logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
@@ -72,20 +71,17 @@ auto IQueue::submit(const uint32_t _count, const SSubmitInfo* const _submits) ->
     }
 
     // mark cmdbufs as pending
-    for (uint32_t i=0u; i<_count; ++i)
-    for (uint32_t j=0u; j<_submits[i].commandBufferCount; ++j)
-        _submits[i].commandBuffers[j].cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
+    for (const auto& submit : _submits)
+    for (const auto& commandBuffer : submit.commandBuffers)
+        commandBuffer.cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
     // do the submit
-    auto result = submit_impl(_count,_submits);
+    auto result = submit_impl(_submits);
     if (result!=RESULT::SUCCESS)
         return result;
-    // mark cmdbufs as done
-    for (uint32_t i=0u; i<_count; ++i)
-    for (uint32_t j=0u; j<_submits[i].commandBufferCount; ++j)
-    {
-        auto* cmdbuf = _submits[i].commandBuffers[j].cmdbuf;
-        cmdbuf->m_state = cmdbuf->isResettable() ? IGPUCommandBuffer::STATE::EXECUTABLE:IGPUCommandBuffer::STATE::INVALID;
-    }
+    // mark cmdbufs as done (wrongly but conservatively wrong)
+    for (const auto& submit : _submits)
+    for (const auto& commandBuffer : submit.commandBuffers)
+        commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->isResettable() ? IGPUCommandBuffer::STATE::EXECUTABLE:IGPUCommandBuffer::STATE::INVALID;
     return result;
 }
 
