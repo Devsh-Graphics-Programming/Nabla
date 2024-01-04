@@ -4,6 +4,7 @@
 #include "nbl/video/CVulkanCommon.h"
 #include "nbl/video/debug/CVulkanDebugCallback.h"
 
+// TODO: move inside `create` and call it LOG_FAIL and return nullptr
 #define LOG(logger, ...) if (logger) {logger->log(__VA_ARGS__);}
 
 namespace nbl::video
@@ -215,8 +216,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     // TODO: Do the same for other validation features as well(?)
     if (enabledFeatures.synchronizationValidation)
     {
-        validationsEnable[validationFeaturesEXT.enabledValidationFeatureCount] = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT;
-        validationFeaturesEXT.enabledValidationFeatureCount += 1u;
+        validationsEnable[validationFeaturesEXT.enabledValidationFeatureCount++] = VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT;
         addStructToChain(&validationFeaturesEXT);
     }
         
@@ -227,14 +227,15 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
         LOG(logger,"Vulkan Instance version too low %d vs the required %d",system::ILogger::ELL_ERROR,instanceApiVersion,MinimumVulkanApiVersion);
         return nullptr;
     }
+    // TODO: should probably clamp the `instanceApiVersion` to not require Vulkan 2.0 or something XD
 
-    std::unique_ptr<CVulkanDebugCallback> debugCallback = nullptr;
+    // speculatively create a debug callback so we don't need to pick between loggers later on
+    const auto logLevelMask = logger->getLogLevelMask();
+    std::unique_ptr<CVulkanDebugCallback> debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
+
     VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
     if (logger && enabledFeatures.debugUtils)
     {
-        auto logLevelMask = logger->getLogLevelMask();
-        debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
-
         debugMessengerCreateInfo.flags = 0;
         auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
         debugMessengerCreateInfo.messageSeverity = debugCallbackFlags.first;
@@ -264,7 +265,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStringsToEnable.size());
         createInfo.ppEnabledExtensionNames = extensionStringsToEnable.data();
 
-        if (vkCreateInstance(&createInfo, nullptr, &vk_instance) != VK_SUCCESS)
+        if (vkCreateInstance(&createInfo,nullptr,&vk_instance)!=VK_SUCCESS)
             return nullptr;
     }
 
@@ -288,7 +289,10 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     if (debugCallback)
     {
         if (vkCreateDebugUtilsMessengerEXT(vk_instance,&debugMessengerCreateInfo,nullptr,&vk_debugMessenger) != VK_SUCCESS)
+        {
+            LOG(debugCallback->getLogger(),"Failed to create debug utils messenger!\n");
             return nullptr;
+        }
     }
 
     core::smart_refctd_ptr<CVulkanConnection> api(new CVulkanConnection(vk_instance,enabledFeatures,std::move(debugCallback),vk_debugMessenger),core::dont_grab);
@@ -297,9 +301,14 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     {
         auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
         if (!device)
-            LOG(debugCallback->getLogger(),"Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!",system::ILogger::ELL_WARNING,vk_physicalDevice);
+        {
+            LOG(api->getDebugCallback()->getLogger(), "Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!", system::ILogger::ELL_WARNING, vk_physicalDevice);
+            continue;
+        }
         api->m_physicalDevices.emplace_back(std::move(device));
     }
+#undef LOF
+
     // TODO: should we return created non-null API connections that have 0 physical devices?
     return api;
 }
