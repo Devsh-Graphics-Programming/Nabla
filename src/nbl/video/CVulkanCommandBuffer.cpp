@@ -431,7 +431,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
         }
     }
     // with K slots you need at most (K+1)/2 calls
-    assert(bindCallsCount < (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1)/2);
+    assert(bindCallsCount <= (IGPUPipelineLayout::DESCRIPTOR_SET_COUNT+1)/2);
     return true;
 }
 
