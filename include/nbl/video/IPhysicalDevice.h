@@ -559,11 +559,11 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     if (videoDecodeDPB && !other.videoDecodeDPB) return false;
                     if (videoEncodeInput && !other.videoEncodeInput) return false;
                     if (videoEncodeDPB && !other.videoEncodeDPB) return false;
-                    if (other.storageImageLoadWithoutFormat && !storageImageLoadWithoutFormat) return false;
-                    if (other.storageImageStoreWithoutFormat && !storageImageStoreWithoutFormat) return false;
-                    if (other.depthCompareSampledImage && !depthCompareSampledImage) return false;
-                    if (other.hostImageTransfer && !hostImageTransfer) return false;
-                    if (other.log2MaxSamples < log2MaxSamples) return false;
+                    if (storageImageLoadWithoutFormat && !other.storageImageLoadWithoutFormat) return false;
+                    if (storageImageStoreWithoutFormat && !other.storageImageStoreWithoutFormat) return false;
+                    if (depthCompareSampledImage && !other.depthCompareSampledImage) return false;
+                    if (hostImageTransfer && !other.hostImageTransfer) return false;
+                    if (log2MaxSamples > other.log2MaxSamples) return false;
                     return true;
                 }
 
