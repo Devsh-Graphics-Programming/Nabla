@@ -1,6 +1,7 @@
 // Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#if 0
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/asset/utils/spvUtils.h"
 
@@ -798,3 +799,5 @@ CSPIRVIntrospector::CIntrospectionData::~CIntrospectionData()
 
 
 } // nbl:asset
+
+#endif
