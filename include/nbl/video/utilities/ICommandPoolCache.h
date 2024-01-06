@@ -13,13 +13,12 @@
 namespace nbl::video
 {
 
-#if 0 // TODO: port
 class ICommandPoolCache : public core::IReferenceCounted
 {
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		NBL_API2 ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::CREATE_FLAGS _flags, const uint32_t capacity);
+		NBL_API2 ICommandPoolCache(ILogicalDevice* const device, const uint32_t queueFamilyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> _flags, const uint32_t capacity);
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
@@ -33,6 +32,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 			return nullptr;
 		}
 
+#if 0 // TODO: port
 		//
 		inline uint32_t acquirePool()
 		{
@@ -106,12 +106,13 @@ class ICommandPoolCache : public core::IReferenceCounted
 
 				NBL_API2 void operator()();
 		};
+#endif
 
 	protected:
 		friend class DeferredCommandPoolResetter;
 		inline virtual ~ICommandPoolCache()
 		{
-			m_deferredResets.cullEvents(0u);
+//			m_deferredResets.cullEvents(0u);
 			free(m_reserved);
 			delete[] m_cache;
 		}
@@ -121,9 +122,8 @@ class ICommandPoolCache : public core::IReferenceCounted
 		core::smart_refctd_ptr<IGPUCommandPool>* m_cache;
 		void* m_reserved;
 		CommandPoolAllocator m_cmdPoolAllocator;
-		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
+//		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 };
-#endif
 
 }
 

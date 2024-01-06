@@ -45,7 +45,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
+class NBL_API2 IAssetManager : public core::IReferenceCounted
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -150,8 +150,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted, public core::Quit
     protected:
 		virtual ~IAssetManager()
 		{
-            quitEventHandler.execute();
-
 			for (size_t i = 0u; i < m_assetCache.size(); ++i)
 				if (m_assetCache[i])
 					delete m_assetCache[i];
