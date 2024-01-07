@@ -66,7 +66,7 @@ def shutdownOs():
     if os.name == 'nt' or os.name == 'java': # For windows and java (in the rare case of running jython)
         return os.system('shutdown /s /f 0')
     elif os.name == 'posix': # For Unix, Linux, Mac
-        return os.system('sudo shutdown -h now')
+        return os.system('shutdown -h now')
     else:
         print('Unknown operating system') # Docs for os.name listed only the above three cases
         return 1
