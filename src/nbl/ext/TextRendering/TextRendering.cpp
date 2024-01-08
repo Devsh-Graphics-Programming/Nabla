@@ -20,7 +20,7 @@ namespace TextRendering
 
 uint32_t getCharacterAtlasPositionIx(char character)
 {
-	return int(character) - int(' ');
+	return int(character) - int(FirstGeneratedCharacter);
 }
 
 uint32_t intlog2(uint32_t i)
@@ -29,12 +29,7 @@ uint32_t intlog2(uint32_t i)
 	return 31u - __lzcnt(i);
 }
 
-struct FtFallbackContext {
-	msdfgen::Point2 position;
-	msdfgen::Shape* shape;
-	msdfgen::Contour* contour;
-};
-
+// TODO: Figure out what this is supposed to do
 static double f26dot6ToDouble(float x)
 {
 	return (1 / 64. * double(x));
@@ -44,41 +39,88 @@ msdfgen::Point2 ftPoint2(const FT_Vector& vector) {
 	return msdfgen::Point2(f26dot6ToDouble(vector.x), f26dot6ToDouble(vector.y));
 }
 
+// Helper class for building an msdfgen shape from a glyph
+// The shape can be built like a canvas drawing API (move to, line to, 
+// and by adding quadratic & cubic segments)
+class GlyphShapeBuilder {
+public:
+	// Shape that is currently being created
+	msdfgen::Shape* shape;
+
+	// Start a new line from here
+	void moveTo(const FT_Vector* to)
+	{
+		if (!(currentContour && currentContour->edges.empty()))
+			currentContour = &shape->addContour();
+		lastPosition = ftPoint2(*to);
+	}
+
+	// Continue the last line started with moveTo (could also use the last 
+	// position from a lineTo)
+	void lineTo(const FT_Vector* to)
+	{
+		msdfgen::Point2 endpoint = ftPoint2(*to);
+		if (endpoint != lastPosition) {
+			currentContour->addEdge(new msdfgen::LinearSegment(lastPosition, endpoint));
+			lastPosition = endpoint;
+		}
+	}
+
+	// Continue the last moveTo or lineTo with a quadratic bezier:
+	// [last position, control, end]
+	void quadratic(const FT_Vector* control, const FT_Vector* end)
+	{
+		currentContour->addEdge(new msdfgen::QuadraticSegment(lastPosition, ftPoint2(*control), ftPoint2(*end)));
+		lastPosition = ftPoint2(*end);
+	}
+
+	// Continue the last moveTo or lineTo with a cubic bezier:
+	// [last position, control1, control2, end]
+	void cubic(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* end)
+	{
+		currentContour->addEdge(new msdfgen::CubicSegment(lastPosition, ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*end)));
+		lastPosition = ftPoint2(*end);
+	}
+private:
+	// Set with move to and line to
+	msdfgen::Point2 lastPosition;
+	// Current contour, used for adding edges
+	msdfgen::Contour* currentContour = nullptr;
+};
+
+struct FtFallbackContext {
+	msdfgen::Point2 position;
+	msdfgen::Shape* shape;
+	msdfgen::Contour* contour;
+};
+
 int ftMoveTo(const FT_Vector* to, void* user) {
-	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
-	if (!(context->contour && context->contour->edges.empty()))
-		context->contour = &context->shape->addContour();
-	context->position = ftPoint2(*to);
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->moveTo(to);
 	return 0;
 }
 int ftLineTo(const FT_Vector* to, void* user) {
-	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
-	msdfgen::Point2 endpoint = ftPoint2(*to);
-	if (endpoint != context->position) {
-		context->contour->addEdge(new msdfgen::LinearSegment(context->position, endpoint));
-		context->position = endpoint;
-	}
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->lineTo(to);
 	return 0;
 }
 
 int ftConicTo(const FT_Vector* control, const FT_Vector* to, void* user) {
-	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
-	context->contour->addEdge(new msdfgen::QuadraticSegment(context->position, ftPoint2(*control), ftPoint2(*to)));
-	context->position = ftPoint2(*to);
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->quadratic(control, to);
 	return 0;
 }
 
 int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
-	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
-	context->contour->addEdge(new msdfgen::CubicSegment(context->position, ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*to)));
-	context->position = ftPoint2(*to);
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->cubic(control1, control2, to);
 	return 0;
 }
 
-bool getGlyphShape(msdfgen::Shape& shape, FT_Library library, FT_Face face)
+bool drawFreetypeGlyph(msdfgen::Shape& shape, FT_Library library, FT_Face face)
 {
-	FtFallbackContext context = { };
-	context.shape = &shape;
+	GlyphShapeBuilder builder = {};
+	builder.shape = &shape;
 	FT_Outline_Funcs ftFunctions;
 	ftFunctions.move_to = &ftMoveTo;
 	ftFunctions.line_to = &ftLineTo;
@@ -86,12 +128,52 @@ bool getGlyphShape(msdfgen::Shape& shape, FT_Library library, FT_Face face)
 	ftFunctions.cubic_to = &ftCubicTo;
 	ftFunctions.shift = 0;
 	ftFunctions.delta = 0;
-	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &context);
+	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &builder);
 	if (error)
 		return false;
 	if (!shape.contours.empty() && shape.contours.back().edges.empty())
 		shape.contours.pop_back();
 	return true;
+}
+
+asset::IImage::SBufferCopy copyGlyphShapeToImage(
+	IGPUBuffer* scratchBuffer, uint32_t scratchBufferOffset,
+	uint32_t shapeBoundsWidth, uint32_t shapeBoundsHeight,
+	uint32_t glyphWidth, uint32_t glyphHeight,
+	msdfgen::Shape shape
+)
+{
+	msdfgen::edgeColoringSimple(shape, 3.0); // TODO figure out what this is
+	msdfgen::Bitmap<float, 3> msdfMap(glyphWidth, glyphHeight);
+
+	float scaleX = (1.0 / float(shapeBoundsWidth)) * glyphWidth;
+	float scaleY = (1.0 / float(shapeBoundsHeight)) * glyphHeight;
+	msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, 0.0);
+
+	auto texelBufferPtr = reinterpret_cast<char*>(scratchBuffer->getBoundMemory()->getMappedPointer()) + scratchBufferOffset;
+	for (int y = 0; y < msdfMap.height(); ++y)
+	{
+		for (int x = 0; x < msdfMap.width(); ++x)
+		{
+			auto pixel = msdfMap(x, glyphHeight - 1 - y);
+			texelBufferPtr[(x + y * glyphWidth) * 4 + 0] = msdfgen::pixelFloatToByte(pixel[0]);
+			texelBufferPtr[(x + y * glyphWidth) * 4 + 1] = msdfgen::pixelFloatToByte(pixel[1]);
+			texelBufferPtr[(x + y * glyphWidth) * 4 + 2] = msdfgen::pixelFloatToByte(pixel[2]);
+			texelBufferPtr[(x + y * glyphWidth) * 4 + 3] = 255;
+		}
+	}
+
+	asset::IImage::SBufferCopy region;
+	region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0u;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.bufferOffset = scratchBufferOffset;
+	region.bufferRowLength = glyphWidth;
+	region.bufferImageHeight = 0u;
+	region.imageExtent = { glyphWidth, glyphHeight, 1 };
+
+	return region;
 }
 
 // Generates atlas of MSDF textures for each ASCII character
@@ -115,7 +197,7 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 
 	{
 		// For each represented character
-		for (char k = ' '; k <= '~'; k++)
+		for (char k = FirstGeneratedCharacter; k <= LastGeneratedCharacter; k++)
 		{
 			wchar_t unicode = wchar_t(k);
 			uint32_t glyphIndex = FT_Get_Char_Index(face, unicode);
@@ -128,17 +210,23 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 			assert(!error);
 
 			msdfgen::Shape shape;
-			bool loadedGlyph = getGlyphShape(shape, library, face);
+			bool loadedGlyph = drawFreetypeGlyph(shape, library, face);
 			assert(loadedGlyph);
 
 			//shape.normalize();
 			auto shapeBounds = shape.getBounds();
 
-			uint32_t glyphW = (shapeBounds.r - shapeBounds.l) * pixelSizes;
-			uint32_t glyphH = (shapeBounds.t - shapeBounds.b) * pixelSizes;
+			uint32_t shapeBoundsW = shapeBounds.r - shapeBounds.l;
+			uint32_t shapeBoundsH = shapeBounds.t - shapeBounds.b;
+			uint32_t glyphW = shapeBoundsW * pixelSizes;
+			uint32_t glyphH = shapeBoundsH * pixelSizes;
 			uint32_t mips = std::min(intlog2(glyphW), intlog2(glyphH));
 
-			characterAtlasPosition[getCharacterAtlasPositionIx(k)].resize(mips);
+			FontAtlasGlyph glyph;
+			glyph.width = glyphW;
+			glyph.height = glyphH;
+			glyph.mips.resize(mips);
+			characterAtlasPosition[getCharacterAtlasPositionIx(k)] = glyph;
 
 			for (uint32_t i = 0; i < mips; i++)
 			{
@@ -155,14 +243,6 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				rect.was_packed = 0;
 				glyphRects.push_back(rect);
 
-				// Generate MSDF for the current mip
-				msdfgen::edgeColoringSimple(shape, 3.0); // TODO figure out what this is
-				msdfgen::Bitmap<float, 3> msdfMap(mipW, mipH);
-
-				float scaleX = (1.0 / float(shapeBounds.r - shapeBounds.l)) * mipW;
-				float scaleY = (1.0 / float(shapeBounds.t - shapeBounds.b)) * mipH;
-				msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, 0.0);
-
 				uint32_t rowLength = mipW * 4;
 
 				video::IGPUBuffer::SCreationParams bufParams;
@@ -178,31 +258,9 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, rowLength * mipH);
 				device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
 
-				auto texelBufferPtr = reinterpret_cast<char*>(data->getBoundMemory()->getMappedPointer());
-				for (int y = 0; y < msdfMap.height(); ++y)
-				{
-					for (int x = 0; x < msdfMap.width(); ++x)
-					{
-						auto pixel = msdfMap(x, mipH - 1 - y);
-						texelBufferPtr[(x + y * mipW) * 4 + 0] = msdfgen::pixelFloatToByte(pixel[0]);
-						texelBufferPtr[(x + y * mipW) * 4 + 1] = msdfgen::pixelFloatToByte(pixel[1]);
-						texelBufferPtr[(x + y * mipW) * 4 + 2] = msdfgen::pixelFloatToByte(pixel[2]);
-						texelBufferPtr[(x + y * mipW) * 4 + 3] = 255;
-					}
-				}
-
-				asset::IImage::SBufferCopy region;
-				region.imageSubresource.aspectMask = asset::IImage::EAF_COLOR_BIT;
-				region.imageSubresource.mipLevel = 0u;
-				region.imageSubresource.baseArrayLayer = 0u;
-				region.imageSubresource.layerCount = 1u;
-				region.bufferOffset = 0u;
-				region.bufferRowLength = mipW;
-				region.bufferImageHeight = 0u;
-				region.imageExtent = { mipW, mipH, 1 };
-
+				// Generate MSDF for the current mip and copy it
+				dataBufferCopyRegions.push_back(copyGlyphShapeToImage(data.get(), 0, shapeBoundsW, shapeBoundsH, mipW, mipH, shape));
 				dataBuffers.push_back(data);
-				dataBufferCopyRegions.push_back(region);
 			}
 
 		}
@@ -272,7 +330,7 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		// rect.id = (int(k) << 8) | i;
 		char k = char(rect.id >> 8);
 		uint32_t mip = rect.id & 255;
-		characterAtlasPosition[getCharacterAtlasPositionIx(k)][mip] = { uint16_t(rect.x), uint16_t(rect.y) };
+		characterAtlasPosition[getCharacterAtlasPositionIx(k)].mips[mip].position = { uint16_t(rect.x), uint16_t(rect.y) };
 
 		region.imageOffset = { rect.x + padding, rect.y + padding, 0u };
 		commandBuffer->copyBufferToImage(buf.get(), atlasImage.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1, &region);

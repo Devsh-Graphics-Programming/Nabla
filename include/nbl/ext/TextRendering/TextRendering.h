@@ -27,11 +27,22 @@ namespace ext
 namespace TextRendering
 {
 
-constexpr uint32_t asciiAtlasCharacterCount = (int('~') - int(' ')) + 1;
+constexpr char FirstGeneratedCharacter = ' ';
+constexpr char LastGeneratedCharacter = '~';
+constexpr uint32_t AsciiAtlasCharacterCount = (int(LastGeneratedCharacter) - int(FirstGeneratedCharacter)) + 1;
 
 struct SPixelCoord
 {
 	uint16_t x, y;
+};
+
+struct FontAtlasGlyphMip {
+	SPixelCoord position;
+};
+
+struct FontAtlasGlyph {
+	std::vector<FontAtlasGlyphMip> mips;
+	uint16_t width, height; // Size of the glyph in the atlas at the lowest mip 
 };
 
 class FontAtlas
@@ -42,7 +53,7 @@ public:
 	FT_Library library;
 	FT_Face face;
 
-	std::array<std::vector<SPixelCoord>, asciiAtlasCharacterCount> characterAtlasPosition;
+	std::array<FontAtlasGlyph, AsciiAtlasCharacterCount> characterAtlasPosition;
 	core::smart_refctd_ptr<video::IGPUImage> atlasImage;
 };
 
@@ -127,10 +138,10 @@ public:
 
 				if (glyphIndex == 0 || k < ' ' || k > '~') continue;
 								
-				auto& characterAtlasMips = m_fontAtlas->characterAtlasPosition[int(k) - int(' ')];
-				if (characterAtlasMips.size() == 0) continue;
+				auto& atlasGlyph = m_fontAtlas->characterAtlasPosition[int(k) - int(' ')];
+				if (atlasGlyph.mips.size() == 0) continue;
 				// TODO mip selection
-				SPixelCoord glyphTableOffset = characterAtlasMips[0];
+				SPixelCoord glyphTableOffset = atlasGlyph.mips[0].position;
 
 				error = FT_Load_Glyph(m_fontAtlas->face, glyphIndex, FT_LOAD_NO_BITMAP);
 				assert(!error);
