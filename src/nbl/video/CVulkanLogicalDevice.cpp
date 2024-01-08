@@ -61,8 +61,10 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const u
     else
         return nullptr;
 }
-auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) -> WAIT_RESULT
+ISemaphore::WAIT_RESULT CVulkanLogicalDevice::waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout)
 {
+    using retval_t = ISemaphore::WAIT_RESULT;
+
     core::vector<VkSemaphore> semaphores(infos.size());
     core::vector<uint64_t> values(infos.size());
     auto outSemaphores = semaphores.data();
@@ -71,7 +73,7 @@ auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWai
     {
         auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.semaphore,this);
         if (!sema)
-            WAIT_RESULT::_ERROR;
+            retval_t::_ERROR;
         *(outSemaphores++) = sema->getInternalObject();
         *(outValues++) = info.value;
     }
@@ -84,15 +86,15 @@ auto CVulkanLogicalDevice::waitForSemaphores(const std::span<const SSemaphoreWai
     switch (m_devf.vk.vkWaitSemaphores(m_vkdev,&waitInfo,timeout))
     {
         case VK_SUCCESS:
-            return WAIT_RESULT::SUCCESS;
+            return retval_t::SUCCESS;
         case VK_TIMEOUT:
-            return WAIT_RESULT::TIMEOUT;
+            return retval_t::TIMEOUT;
         case VK_ERROR_DEVICE_LOST:
-            return WAIT_RESULT::DEVICE_LOST;
+            return retval_t::DEVICE_LOST;
         default:
             break;
     }
-    return WAIT_RESULT::_ERROR;
+    return retval_t::_ERROR;
 }
 
 core::smart_refctd_ptr<IEvent> CVulkanLogicalDevice::createEvent(const IEvent::CREATE_FLAGS flags)

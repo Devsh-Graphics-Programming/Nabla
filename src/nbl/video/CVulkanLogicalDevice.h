@@ -53,7 +53,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         }
             
         core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
-        WAIT_RESULT waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
+        ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             
         core::smart_refctd_ptr<IEvent> createEvent(const IEvent::CREATE_FLAGS flags) override;
               
