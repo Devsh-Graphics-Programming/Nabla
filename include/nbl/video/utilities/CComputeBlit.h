@@ -63,12 +63,12 @@ namespace nbl::video
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
 			{
-				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
+				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
 				if (!result->m_blitPipelineLayout[i])
 					return nullptr;
 			}
 
-			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
+			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
 			if (!result->m_coverageAdjustmentPipelineLayout)
 				return nullptr;
 
@@ -110,7 +110,7 @@ namespace nbl::video
 		}
 
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
-		core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
+		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
 		{
@@ -124,13 +124,17 @@ namespace nbl::video
 				return m_alphaTestPipelines[pipelineIndex][imageType];
 
 			auto specShader = createAlphaTestSpecializedShader(imageType, paddedAlphaBinCount);
-			m_alphaTestPipelines[pipelineIndex][imageType] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT]), std::move(specShader));
+			IGPUComputePipeline::SCreationParams creationParams;
+			creationParams.shader.shader = specShader.get();
+			creationParams.shader.entryPoint = "main";
+			creationParams.layout = m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT].get();
+			assert(m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_alphaTestPipelines[pipelineIndex][imageType]));
 
 			return m_alphaTestPipelines[pipelineIndex][imageType];
 		}
 
 		// @param `outFormat` dictates encoding.
-		core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
+		core::smart_refctd_ptr<video::IGPUShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
 			const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
@@ -143,14 +147,18 @@ namespace nbl::video
 			if (m_normalizationPipelines.find(key) == m_normalizationPipelines.end())
 			{
 				auto specShader = createNormalizationSpecializedShader(imageType, outFormat, paddedAlphaBinCount);
-				m_normalizationPipelines[key] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT]), std::move(specShader));
+				IGPUComputePipeline::SCreationParams creationParams;
+				creationParams.shader.shader = specShader.get();
+				creationParams.shader.entryPoint = "main";
+				creationParams.layout = m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT].get();
+				assert(m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_normalizationPipelines[key]));
 			}
 
 			return m_normalizationPipelines[key];
 		}
 
 		template <typename BlitUtilities>
-		core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
+		core::smart_refctd_ptr<video::IGPUShader> createBlitSpecializedShader(
 			const asset::E_FORMAT									outFormat,
 			const asset::IImage::E_TYPE								imageType,
 			const core::vectorSIMDu32& inExtent,
@@ -221,10 +229,9 @@ namespace nbl::video
 				   "}\n";
 
 			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
-			auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
-			auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+			auto gpuShader = m_device->createShader(std::move(cpuShader));
 
-			return specShader;
+			return gpuShader;
 		}
 
 		template <typename BlitUtilities>
@@ -264,7 +271,11 @@ namespace nbl::video
 					workgroupSize,
 					paddedAlphaBinCount);
 
-				m_blitPipelines[key] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[blitType]), std::move(specShader));
+				IGPUComputePipeline::SCreationParams creationParams;
+				creationParams.shader.shader = specShader.get();
+				creationParams.shader.entryPoint = "main";
+				creationParams.layout = m_blitPipelineLayout[blitType].get();
+				m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_blitPipelines[key]);
 			}
 
 			return m_blitPipelines[key];
@@ -507,7 +518,6 @@ namespace nbl::video
 						write.arrayElement = 0u;
 						write.count = redirect.getCount(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i });
 						write.info = &infos[infoIdx];
-						write.descriptorType = type;
 
 						infoIdx += write.count;
 					}
@@ -545,11 +555,11 @@ namespace nbl::video
 				}
 
 				infos[0].desc = inImageView;
-				infos[0].info.image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+				infos[0].info.image.imageLayout = asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
 				infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 				infos[1].desc = outImageView;
-				infos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+				infos[1].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 				infos[1].info.image.sampler = nullptr;
 
 				if (coverageAdjustmentScratchBuffer)
@@ -633,31 +643,37 @@ namespace nbl::video
 				buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, layersToBlit);
 
 				assert(coverageAdjustmentScratchBuffer);
-
+				IGPUCommandBuffer::SPipelineBarrierDependencyInfo depInfo;
 				// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-				video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
-				alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-				alphaTestBarrier.srcQueueFamilyIndex = ~0u;
-				alphaTestBarrier.dstQueueFamilyIndex = ~0u;
-				alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
-				alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getSize();
-				alphaTestBarrier.offset = 0;
+				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::buffer_barrier_t alphaTestBarrier = {};
+				alphaTestBarrier.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				alphaTestBarrier.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+				alphaTestBarrier.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				alphaTestBarrier.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
+				alphaTestBarrier.range.buffer = coverageAdjustmentScratchBuffer;
+				alphaTestBarrier.range.size = coverageAdjustmentScratchBuffer->getSize();
+				alphaTestBarrier.range.offset = 0;
 
 				// Memory dependency to ensure that the previous compute pass has finished writing to the output image,
 				// also transitions the layout of said image: GENERAL -> SHADER_READ_ONLY_OPTIMAL
-				video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
-				readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-				readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
-				readyForNorm.oldLayout = asset::IImage::EL_GENERAL;
-				readyForNorm.newLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-				readyForNorm.srcQueueFamilyIndex = ~0u;
-				readyForNorm.dstQueueFamilyIndex = ~0u;
+				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t readyForNorm = {};
+				readyForNorm.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				readyForNorm.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+				readyForNorm.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				readyForNorm.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
+				readyForNorm.oldLayout = video::IGPUImage::LAYOUT::GENERAL;
+				readyForNorm.newLayout = video::IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
 				readyForNorm.image = normalizationInImage;
 				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 				readyForNorm.subresourceRange.levelCount = 1u;
 				readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
+
+				depInfo.bufBarrierCount = 1;
+				depInfo.bufBarriers = &alphaTestBarrier;
+				depInfo.imgBarrierCount = 1;
+				depInfo.imgBarriers = &readyForNorm;
+
+				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, &depInfo);
 
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 				cmdbuf->bindComputePipeline(normalizationPipeline);
@@ -667,24 +683,29 @@ namespace nbl::video
 
 		//! WARNING: This function blocks and stalls the GPU!
 		template <typename BlitUtilities, typename... Args>
-		inline void blit(video::IGPUQueue* computeQueue, Args&&... args)
+		inline void blit(video::IQueue* computeQueue, Args&&... args)
 		{
-			auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
+			auto cmdPool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
 			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
-			m_device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+			cmdPool->createCommandBuffers(video::IGPUCommandBuffer::EL_PRIMARY, { &cmdbuf, &cmdbuf + 1 });
 
-			auto fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
+			auto semaphore = m_device->createSemaphore(0);
 
 			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
 			blit<BlitUtilities>(cmdbuf.get(), std::forward<Args>(args)...);
 			cmdbuf->end();
 
-			video::IGPUQueue::SSubmitInfo submitInfo = {};
-			submitInfo.commandBufferCount = 1u;
-			submitInfo.commandBuffers = &cmdbuf.get();
-			computeQueue->submit(1u, &submitInfo, fence.get());
+			video::IQueue::SSubmitInfo submitInfo;
+			video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo;
+			submitInfo.commandBuffers = { &cmdbuf, &cmdbuf + 1 };
+			submitInfo.signalSemaphores = { &signalInfo, &signalInfo + 1 };
+			signalInfo.semaphore = semaphore.get();
+			signalInfo.value = 1;
+			signalInfo.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BIT;
+			computeQueue->submit({ &submitInfo, &submitInfo + 1 });
 
-			m_device->blockForFences(1u, &fence.get());
+			video::ILogicalDevice::SSemaphoreWaitInfo waitInfos{ semaphore.get(), 1 };
+			m_device->blockForSemaphores({ &waitInfos, &waitInfos + 1});
 		}
 
 		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
@@ -853,7 +874,7 @@ namespace nbl::video
 				bindings[i].type = descriptorTypes[i];
 			}
 
-			auto dsLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + descriptorCount);
+			auto dsLayout = logicalDevice->createDescriptorSetLayout({ bindings, bindings + descriptorCount });
 			return dsLayout;
 		}
 
