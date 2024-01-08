@@ -18,6 +18,7 @@ namespace nbl
 namespace video
 {
 
+#if 0 // REWRITE
 template <typename MDIStructType = asset::DrawElementsIndirectCommand_t>
 class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescriptorSet,IGPUMeshBuffer,MDIStructType>
 {
@@ -39,7 +40,7 @@ class CGPUMeshPackerV2 final : public asset::IMeshPackerV2<IGPUBuffer,IGPUDescri
         }
 
         // TODO: protect against empty cpuMP (no allocations and then shrinked)
-        CGPUMeshPackerV2(ILogicalDevice* driver, IGPUQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
+        CGPUMeshPackerV2(ILogicalDevice* driver, IQueue* queue, const asset::CCPUMeshPackerV2<MDIStructType>* cpuMP)
             : base_t(cpuMP), m_driver(driver)
         {
             // TODO: protect against unitiliazed storage of cpuMP
@@ -109,7 +110,7 @@ bool CGPUMeshPackerV2<MDIStructType>::commit(typename base_t::PackedMeshBufferDa
     assert(0);
     return false;
 }
-
+#endif
 }
 }
 

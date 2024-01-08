@@ -7,72 +7,96 @@
 namespace nbl::video
 {
 
-class IQueryPool : public core::IReferenceCounted, public IBackendObject
+class IQueryPool : public IBackendObject
 {
-    
-public:
-        enum E_QUERY_TYPE : uint32_t
-        {
-            EQT_OCCLUSION = 0x00000001,
-            EQT_PIPELINE_STATISTICS = 0x00000002,
-            EQT_TIMESTAMP = 0x00000004,
-            EQT_PERFORMANCE_QUERY = 0x00000008, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
-            EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE = 0x00000010, // VK_KHR_acceleration_structure
-            EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 0x00000020, // VK_KHR_acceleration_structure
-            EQT_COUNT = 6u,
-        };
+    public:
+            enum TYPE : uint16_t
+            {
+                OCCLUSION = 0x00000001,
+                PIPELINE_STATISTICS = 0x00000002,
+                TIMESTAMP = 0x00000004,
+//                PERFORMANCE_QUERY = 0x00000008, // VK_KHR_performance_query // TODO: We don't support this fully yet -> needs Acquire/ReleaseProfilingLock + Counters Information report from physical device
+                ACCELERATION_STRUCTURE_COMPACTED_SIZE = 0x00000010, // VK_KHR_acceleration_structure
+                ACCELERATION_STRUCTURE_SERIALIZATION_SIZE = 0x00000020, // VK_KHR_acceleration_structure
+                ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS = 0x00000040, // VK_KHR_ray_tracing_maintenance1
+                ACCELERATION_STRUCTURE_SIZE = 0x00000080, // VK_KHR_ray_tracing_maintenance1
+                COUNT = 8u,
+            };
+            enum class PIPELINE_STATISTICS_FLAGS : uint16_t
+            {
+                NONE = 0,
+                INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
+                INPUT_ASSEMBLY_PRIMITIVES_BIT = 0x00000002,
+                VERTEX_SHADER_INVOCATIONS_BIT = 0x00000004,
+                GEOMETRY_SHADER_INVOCATIONS_BIT = 0x00000008,
+                GEOMETRY_SHADER_PRIMITIVES_BIT = 0x00000010,
+                CLIPPING_INVOCATIONS_BIT = 0x00000020,
+                CLIPPING_PRIMITIVES_BIT = 0x00000040,
+                FRAGMENT_SHADER_INVOCATIONS_BIT = 0x00000080,
+                TESSELLATION_CONTROL_SHADER_PATCHES_BIT = 0x00000100,
+                TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT = 0x00000200,
+                COMPUTE_SHADER_INVOCATIONS_BIT = 0x00000400,
+            };
 
-        enum E_PIPELINE_STATISTICS_FLAGS : uint32_t
-        {
-            EPSF_NONE = 0,
-            EPSF_INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
-            EPSF_INPUT_ASSEMBLY_PRIMITIVES_BIT = 0x00000002,
-            EPSF_VERTEX_SHADER_INVOCATIONS_BIT = 0x00000004,
-            EPSF_GEOMETRY_SHADER_INVOCATIONS_BIT = 0x00000008,
-            EPSF_GEOMETRY_SHADER_PRIMITIVES_BIT = 0x00000010,
-            EPSF_CLIPPING_INVOCATIONS_BIT = 0x00000020,
-            EPSF_CLIPPING_PRIMITIVES_BIT = 0x00000040,
-            EPSF_FRAGMENT_SHADER_INVOCATIONS_BIT = 0x00000080,
-            EPSF_TESSELLATION_CONTROL_SHADER_PATCHES_BIT = 0x00000100,
-            EPSF_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT = 0x00000200,
-            EPSF_COMPUTE_SHADER_INVOCATIONS_BIT = 0x00000400,
-        };
+            struct SCreationParams
+            {
+                uint32_t                                    queryCount;
+                TYPE                                        queryType;
+                // certain query types need some extra info
+                union
+                {
+                    core::bitflag<PIPELINE_STATISTICS_FLAGS> pipelineStatisticsFlags;
+                };
+            };        
+            inline const auto& getCreationParameters() const
+            {
+                return m_params;
+            }
 
-        enum E_QUERY_RESULTS_FLAGS : uint32_t
-        {
-            EQRF_NONE = 0,
-            EQRF_64_BIT = 0x00000001,
-            EQRF_WAIT_BIT = 0x00000002,
-            EQRF_WITH_AVAILABILITY_BIT = 0x00000004,
-            EQRF_PARTIAL_BIT = 0x00000008,
-        };
+            enum RESULTS_FLAGS : uint8_t
+            {
+                NONE = 0,
+                _64_BIT = 0x00000001,
+                WAIT_BIT = 0x00000002,
+                WITH_AVAILABILITY_BIT = 0x00000004,
+                PARTIAL_BIT = 0x00000008,
+            };
+            static inline size_t calcQueryResultsSize(const SCreationParams& params, const size_t stride, const core::bitflag<RESULTS_FLAGS> flags)
+            {
+                if (params.queryCount==0u)
+                    return 0ull;
 
-        enum E_QUERY_CONTROL_FLAGS : uint32_t
-        {
-            EQCF_NONE = 0,
-            EQCF_PRECISE_BIT = 0x01,
-        };
+                const size_t basicUnitSize = flags.hasFlags(RESULTS_FLAGS::_64_BIT) ? sizeof(uint64_t):sizeof(uint32_t);
+                size_t singleQuerySize;
+                switch (params.queryType)
+                {
+                    case IQueryPool::TYPE::OCCLUSION: [[fallthrough]];
+                    case IQueryPool::TYPE::TIMESTAMP:[[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
+                    case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
+                        singleQuerySize = basicUnitSize;
+                        break;
+                    case IQueryPool::TYPE::PIPELINE_STATISTICS:
+                        singleQuerySize = basicUnitSize*hlsl::bitCount(static_cast<uint16_t>(params.pipelineStatisticsFlags.value));
+                        break;
+                    default:
+                        return 0ull;
+                }
+                if (flags.hasFlags(IQueryPool::RESULTS_FLAGS::WITH_AVAILABILITY_BIT))
+                    singleQuerySize += basicUnitSize;
+                if (stride<singleQuerySize)
+                    return 0ull;
 
-        struct SCreationParams
-        {
-            E_QUERY_TYPE                                   queryType;
-            uint32_t                                       queryCount;
-            core::bitflag<E_PIPELINE_STATISTICS_FLAGS>     pipelineStatisticsFlags; // only when the queryType is EQT_PIPELINE_STATISTICS
-        };
+                return stride*(params.queryCount-1u)+singleQuerySize;
+            }
 
-public:
-        explicit IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _params) 
-            : IBackendObject(std::move(dev)) 
-            , params(std::move(_params))
-        {}
-        
-        inline const auto& getCreationParameters() const
-        {
-            return params;
-        }
+    protected:
+            explicit inline IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& _params) 
+                : IBackendObject(std::move(dev)), m_params(_params) {}
 
-protected:
-        SCreationParams params;
+            SCreationParams m_params;
 };
 
 }

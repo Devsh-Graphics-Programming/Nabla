@@ -1,16 +1,17 @@
-#ifndef __NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
-#define __NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED__
+#ifndef _NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED_
+#define _NBL_VIDEO_S_PHYSICAL_DEVICE_FILTER_H_INCLUDED_
 
 #include "nbl/video/IPhysicalDevice.h"
+#include "nbl/video/IGPUCommandBuffer.h"
 
 namespace nbl::video
 {
     struct SPhysicalDeviceFilter
     {
-        IPhysicalDevice::APIVersion                     minApiVersion = {0u, 0u, 0u};
+        IPhysicalDevice::APIVersion                     minApiVersion = {1u, 3u, 0u, 0u};
         core::bitflag<IPhysicalDevice::E_TYPE>          deviceTypeMask = core::bitflag<IPhysicalDevice::E_TYPE>(0xffu);
         core::bitflag<IPhysicalDevice::E_DRIVER_ID>     driverIDMask = core::bitflag<IPhysicalDevice::E_DRIVER_ID>(0xffff'ffffu);
-        VkConformanceVersion                            minConformanceVersion = {0u, 0u, 0u, 0u};
+        IPhysicalDevice::APIVersion                     minConformanceVersion = {0u, 0u, 0u, 0u};
         IPhysicalDevice::SLimits                        minimumLimits = {}; // minimum required limits to be satisfied
         IPhysicalDevice::SFeatures                      requiredFeatures = {}; // required features, will be also used to enable logical device features
         IPhysicalDevice::SFormatBufferUsages            requiredBufferFormatUsages = {};
@@ -27,8 +28,23 @@ namespace nbl::video
         
         struct QueueRequirement
         {
-            core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> requiredFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
-            core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> disallowedFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
+            inline bool familyMatches(const IPhysicalDevice::SQueueFamilyProperties& props) const
+            {
+                const auto& queueFlags = props.queueFlags;
+                if (!queueFlags.hasFlags(requiredFlags))
+                    return false;
+
+                // doesn't have disallowed flags
+                if (queueFlags&disallowedFlags)
+                    return false;
+
+                return maxImageTransferGranularity.width >= props.minImageTransferGranularity.width &&
+                        maxImageTransferGranularity.height >= props.minImageTransferGranularity.height &&
+                        maxImageTransferGranularity.depth >= props.minImageTransferGranularity.depth;
+            }
+
+            core::bitflag<IQueue::FAMILY_FLAGS> requiredFlags = IQueue::FAMILY_FLAGS::NONE;
+            core::bitflag<IQueue::FAMILY_FLAGS> disallowedFlags = IQueue::FAMILY_FLAGS::NONE;
             uint32_t queueCount = 0u;
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
@@ -42,7 +58,7 @@ namespace nbl::video
         {
             ISurface* surface = nullptr;
             // Setting this to `EQF_NONE` means it sufffices to find any queue family that can present to this surface, regardless of flags it might have
-            core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> presentationQueueFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
+            core::bitflag<IQueue::FAMILY_FLAGS> presentationQueueFlags = IQueue::FAMILY_FLAGS::NONE;
         };
         SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
         uint32_t requiredSurfaceCompatibilitiesCount = 0u;
@@ -160,25 +176,11 @@ namespace nbl::video
                 for (uint32_t qfam = 0; qfam < queueProps.size(); ++qfam)
                 {
                     const auto& queueFamilyProps = queueProps[qfam];
-
-                    // has requiredFlags
-                    if (queueFamilyProps.queueFlags.hasFlags(queueReqs.requiredFlags))
-                    {
-                        // doesn't have disallowed flags
-                        if ((queueFamilyProps.queueFlags & queueReqs.disallowedFlags).value == 0)
-                        {
-                            // imageTransferGranularity
-                            if (queueReqs.maxImageTransferGranularity.width >= queueFamilyProps.minImageTransferGranularity.width &&
-                                queueReqs.maxImageTransferGranularity.height >= queueFamilyProps.minImageTransferGranularity.height &&
-                                queueReqs.maxImageTransferGranularity.depth >= queueFamilyProps.minImageTransferGranularity.depth)
-                            {
-                                queueCount = (queueFamilyProps.queueCount > queueCount) ? 0ull : queueCount - queueFamilyProps.queueCount;
-                            }
-                        }
-                    }
+                    if (queueReqs.familyMatches(queueFamilyProps))
+                        queueCount -= core::min(queueFamilyProps.queueCount,queueCount);
                 }
 
-                if (queueCount > 0)
+                if (queueCount>0)
                     return false;
             }
 

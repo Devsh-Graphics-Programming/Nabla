@@ -146,7 +146,7 @@ namespace MitsubaLoader
 					params.MipmapMode = asset::ISampler::ESMM_NEAREST;
 					break;
 			}
-			params.AnisotropicFilter = core::max(core::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
+			params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
 			params.CompareEnable = false;
 			params.CompareFunc = asset::ISampler::ECO_NEVER;
 			params.LodBias = 0.f;

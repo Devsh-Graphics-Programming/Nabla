@@ -90,7 +90,8 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
     {
         auto inputMeshBuffer = *meshbuffers.begin();
-        bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get(), isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != asset::EPT_TRIANGLE_LIST;
+        const bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get();
+        const bool isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType != asset::EPT_TRIANGLE_LIST;
         
         if (doesItHaveIndexBuffer && isItNotTriangleListsPrimitive)
         {
@@ -184,7 +185,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
     asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
     bool forceFaces = false;
 
-    const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+    const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType;
     const auto indexType = rawCopyMeshBuffer->getIndexType();
   
     if (primitiveType == asset::EPT_POINT_LIST)
@@ -515,7 +516,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNor
         asset::E_FORMAT t = _mbuf->getAttribFormat(vaid);
     
         if (_mbuf->getAttribBoundBuffer(vaid).buffer)
-            mbCopy->getPipeline()->getVertexInputParams().attributes[vaid].format = asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t;
+            mbCopy->getPipeline()->getCachedCreationParams().vertexInput.attributes[vaid].format = asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t;
     }
 
     return mbCopy;

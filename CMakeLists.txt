@@ -22,7 +22,7 @@ if(MSVC)
 	if(NBL_SANITIZE_ADDRESS)
 		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
 	else()
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>")
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
 	endif()
 endif()
 
@@ -65,7 +65,7 @@ endif()
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 get_filename_component(NBL_PYTHON_MODULE_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests" ABSOLUTE)
-set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include")
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 
 # Configure CCache if available
@@ -338,6 +338,8 @@ set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
 get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
 				
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
+option(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE "Submodules will be updated with --force flag if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, use with caution - if there are any uncommited files in submodules' working tree they will be removed!" OFF)
+option(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE "Sync initialized submodule paths if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, this is useful when any submodule remote path got modified and you want to apply this modification to your local repository. Turning NBL_FORCE_ON_UPDATE_GIT_SUBMODULE implies this option" OFF)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 option(NBL_CI_GIT_SUBMODULES_SHALLOW "" OFF)
 

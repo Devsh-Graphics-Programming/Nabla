@@ -13,7 +13,6 @@
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-#include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/IImageView.h"
 #include "nbl/asset/IDescriptorSetLayout.h"
@@ -251,7 +250,7 @@ protected:
     ISampler::SParams getPhysicalStorageFloatSamplerParams() const
     {
         ISampler::SParams params;
-        params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
+        params.AnisotropicFilter = m_tilePadding ? hlsl::findMSB(m_tilePadding<<1) : 0u;
         params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
         params.CompareEnable = false;
         params.CompareFunc = ISampler::ECO_NEVER;
@@ -334,7 +333,7 @@ protected:
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u) const
     {
         const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height))>>_baseLevel;
-        const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
+        const int32_t lastFullMip = hlsl::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
 
         //assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
@@ -485,7 +484,7 @@ protected:
             image(nullptr),//initialized in derived class's constructor
             m_alctrReservedSpace(allocReservedSpaceForAllocator(_tilesPerDim, _layers)),
             tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
+            m_decodeAddr_layerShift(hlsl::findLSB(_tilesPerDim)<<1),
             m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
         {
             assert(_tilesPerDim<=MAX_TILES_PER_DIM);
@@ -497,7 +496,7 @@ protected:
             image(nullptr),//deferred initialization, when layer count is known
             m_alctrReservedSpace(nullptr),
             tileAlctr(), // default constructor, deferred initialization, when layer count is known
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
+            m_decodeAddr_layerShift(hlsl::findLSB(_tilesPerDim)<<1),
             m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
         {
             assert(_tilesPerDim<=MAX_TILES_PER_DIM);
@@ -999,7 +998,7 @@ public:
     image_t* getPageTable() const { return m_pageTable.get(); }
     uint32_t getPageTableExtent_log2() const { return m_pgSzxy_log2; }
     uint32_t getPageExtent() const { return m_pgSzxy; }
-    uint32_t getPageExtent_log2() const { return core::findLSB(m_pgSzxy); }
+    uint32_t getPageExtent_log2() const { return hlsl::findLSB(m_pgSzxy); }
     uint32_t getTilePadding() const { return m_tilePadding; }
     const auto& getResidentStorages() const { return m_storage; }
     typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }

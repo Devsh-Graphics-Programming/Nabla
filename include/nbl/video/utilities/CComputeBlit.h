@@ -1,4 +1,5 @@
 #ifndef _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+#define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
@@ -7,11 +8,13 @@
 
 namespace nbl::video
 {
+
 	class NBL_API2 CComputeBlit : public core::IReferenceCounted
 	{
 	private:
 		struct vec3 { float x, y, z; };
 		struct uvec3 { uint32_t x, y, z; };
+
 
 	public:
 		// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
@@ -425,6 +428,7 @@ namespace nbl::video
 			else
 				dispatchInfo.wgCount[2] = wgCount[2];
 		}
+
 
 		static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t layersToBlit = 1)
 		{

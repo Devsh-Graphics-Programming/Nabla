@@ -1,5 +1,5 @@
 #version 440 core
-layout(local_size_x=NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 // disable descriptors we dont need
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_PARENT_DESCRIPTOR_DECLARED
@@ -12,7 +12,7 @@ layout(local_size_x=NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS)
 
 void main()
 {
-    const uint dispatchSize = NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
+    const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
     for (uint nodeID=gl_GlobalInvocationID.x; nodeID<relativeTransformModificationRequestRanges.rangeCount; nodeID+=dispatchSize)
     {
         const nbl_glsl_transform_tree_modification_request_range_t requestRange = relativeTransformModificationRequestRanges.data[nodeID];

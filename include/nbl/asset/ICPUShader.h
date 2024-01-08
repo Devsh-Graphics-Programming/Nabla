@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_CPU_SHADER_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_SHADER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_SHADER_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_SHADER_H_INCLUDED_
 
 #include <algorithm>
 #include <string>
@@ -13,9 +12,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/IShader.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! CPU Version of Unspecialized Shader
@@ -30,17 +27,12 @@ class ICPUShader : public IAsset, public IShader
 		virtual ~ICPUShader() = default;
 
 	public:
+		using SSpecInfo = IShader::SSpecInfo<ICPUShader>;
 
 		ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& code, const E_SHADER_STAGE stage, E_CONTENT_TYPE contentType, std::string&& filepathHint)
-			: IShader(stage, std::move(filepathHint)), m_code(std::move(code))
-			, m_contentType(contentType)
-		{}
+			: IShader(stage, std::move(filepathHint)), m_code(std::move(code)), m_contentType(contentType) {}
 
-		ICPUShader(
-			const char* code,
-			const E_SHADER_STAGE stage,
-			E_CONTENT_TYPE contentType,
-			std::string&& filepathHint) 
+		ICPUShader(const char* code, const E_SHADER_STAGE stage, const E_CONTENT_TYPE contentType, std::string&& filepathHint)
 			: ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(code) + 1u), stage, contentType, std::move(filepathHint))
 		{
 			assert(contentType != E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
@@ -133,11 +125,9 @@ class ICPUShader : public IAsset, public IShader
 			return m_code->isAnyDependencyDummy(_levelsBelow);
 		}
 
-		core::smart_refctd_ptr<ICPUBuffer> m_code;
-		E_CONTENT_TYPE m_contentType;
+		const core::smart_refctd_ptr<ICPUBuffer> m_code;
+		const E_CONTENT_TYPE m_contentType;
 };
 
 }
-}
-
 #endif

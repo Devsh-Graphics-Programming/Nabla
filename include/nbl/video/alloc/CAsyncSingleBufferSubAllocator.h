@@ -9,11 +9,11 @@
 #include <mutex>
 
 #include "nbl/video/alloc/CSingleBufferSubAllocator.h"
-#include "nbl/video/IGPUFence.h"
 
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 namespace impl
 {
 // HostAllocator allocates both reserved space and the space needed for variable length records on the DeferredFreeFunctor
@@ -246,7 +246,7 @@ class CAsyncSingleBufferSubAllocatorST final : public core::IReferenceCounted, p
         template<typename... Args>
         CAsyncSingleBufferSubAllocatorST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
-
+#endif
 
 //MT version?
 

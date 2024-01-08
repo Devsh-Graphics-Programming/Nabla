@@ -1,27 +1,25 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
-#define __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
+#define _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
 
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUCommandPool.h"
 
 
 namespace nbl::video
 {
 
-	
+#if 0 // TODO: port
 class ICommandPoolCache : public core::IReferenceCounted
 {
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		NBL_API2 ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity);
+		NBL_API2 ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::CREATE_FLAGS _flags, const uint32_t capacity);
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
@@ -125,6 +123,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 		CommandPoolAllocator m_cmdPoolAllocator;
 		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 };
+#endif
 
 }
 

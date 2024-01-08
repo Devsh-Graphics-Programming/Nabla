@@ -155,7 +155,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			if (!ppln)
 				return 0u;
 
-			const auto& vtxInputParams = ppln->getVertexInputParams();
+			const auto& vtxInputParams = ppln->getCachedCreationParams().vertexInput;
 			uint32_t size = 0u;
 			for (uint32_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
 			if (vtxInputParams.enabledAttribFlags & (1u<<i))
@@ -213,7 +213,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
             if (!meshbuffer->getPipeline())
                 return false;
 
-            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
+            const auto& assemblyParams = meshbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly;
             const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
 			switch (primType)
 			{
@@ -253,7 +253,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
 			{
 				uint32_t offset;
-				switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
+				switch (mb->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType)
 				{
 					case EPT_TRIANGLE_LIST:
 						offset = triangleIx*3u;
@@ -517,7 +517,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				assert(!cpumb->isADummyObjectForCache());
 				assert(cpumb->isMutable());
 
-				const auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				const auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				switch (params.primitiveType)
 				{
 					case EPT_POINT_LIST:
@@ -569,7 +569,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				const auto indexType = cpumb->getIndexType();
 				auto indexCount = cpumb->getIndexCount();
 
-				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
 
 				void* correctlyOffsetIndexBufferPtr;

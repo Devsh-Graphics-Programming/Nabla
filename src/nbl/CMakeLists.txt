@@ -83,15 +83,13 @@ include(common)
 
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
-option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off until Material Compiler 2
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -182,6 +180,7 @@ set(NBL_UI_SOURCES
 set(NBL_ASSET_SOURCES	
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
@@ -198,7 +197,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CHLSLLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
-	
+
 # Pipeline loaders
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGraphicsPipelineLoaderMTL.cpp
 
@@ -271,20 +270,23 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlitGLSL.cpp
 
+# Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
 # Vulkan
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeviceMemoryBacked.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
@@ -309,6 +311,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
@@ -497,28 +500,35 @@ endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	add_dependencies(Nabla OpenEXR)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXR)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXR)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>				   
-	)
-else()
-	add_dependencies(Nabla OpenEXRCore)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(Nabla INTERFACE OpenEXRCore)
-	else()
-		target_link_libraries(Nabla PRIVATE OpenEXRCore)
-	endif()
-	
-	target_include_directories(
-		Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's Half-only dependency					   
-	)
+    add_dependencies(Nabla OpenEXR)
+    if(NBL_STATIC_BUILD)
+        target_link_libraries(Nabla INTERFACE OpenEXR)
+    else()
+        target_link_libraries(Nabla PRIVATE OpenEXR)
+    endif()
+    
+    target_include_directories(
+        Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
+    )
 endif()
+
+add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
+if(NBL_STATIC_BUILD)
+    target_link_libraries(Nabla INTERFACE 
+      OpenEXRCore
+      OpenEXRUtil
+)
+else()
+    target_link_libraries(Nabla PRIVATE 
+      OpenEXRCore
+      OpenEXRUtil  
+  )
+endif()
+
+target_include_directories(
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's core headers
+    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES> # for OpenEXR's util headers                
+)
 
 # GLI
 if(_NBL_COMPILE_WITH_GLI_)
@@ -531,7 +541,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
-# DXC
+# DXC (TODO: nah, lets remove/disable it)
 if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
@@ -604,19 +614,19 @@ endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
-	get_target_property(_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ dxcBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ spirvBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 	
-	target_include_directories(dxcBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	target_include_directories(spirvBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
 	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
 	
 	target_include_directories(Nabla PUBLIC 
-		"${_DXC_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		"${_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
 		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
 	)
 	
 	add_subdirectory(builtin)
-	add_dependencies(Nabla nblBuiltinResourceData dxcBuiltinResourceData boostBuiltinResourceData)
+	add_dependencies(Nabla nblBuiltinResourceData spirvBuiltinResourceData boostBuiltinResourceData)
 	
 	if(NBL_STATIC_BUILD)
 		set(_NBL_LINK_QUALIFIER_ INTERFACE)
@@ -626,7 +636,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	
 	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
 		nblBuiltinResourceData
-		dxcBuiltinResourceData
+		spirvBuiltinResourceData
 		boostBuiltinResourceData
 	)
 	
@@ -687,7 +697,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
-	nbl_install_builtin_resources(dxcBuiltinResourceData)
+	nbl_install_builtin_resources(spirvBuiltinResourceData)
 	nbl_install_builtin_resources(boostBuiltinResourceData)
 endif()
 
@@ -707,6 +717,7 @@ if(NBL_STATIC_BUILD)
 		nbl_install_lib(OpenEXR)
 	else()
 		nbl_install_lib(OpenEXRCore)
+		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
 

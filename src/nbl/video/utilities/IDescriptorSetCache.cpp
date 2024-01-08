@@ -6,6 +6,7 @@ using namespace nbl;
 using namespace video;
 
 
+#if 0 // TODO: port
 IDescriptorSetCache::IDescriptorSetCache(ILogicalDevice* device, const uint32_t capacity)
 	: m_descPool(), m_canonicalLayout(), m_reserved(malloc(DescSetAllocator::reserved_size(1u,capacity,1u))),
 	m_setAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredReclaims()
@@ -21,3 +22,4 @@ IDescriptorSetCache::IDescriptorSetCache(ILogicalDevice* device, core::smart_ref
 	for (auto i=0u; i<getCapacity(); i++)
 		m_cache[i] = m_descPool->createDescriptorSet(core::smart_refctd_ptr(m_canonicalLayout));
 }
+#endif

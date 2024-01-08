@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_DESCRIPTOR_H_INCLUDED__
-#define __NBL_ASSET_I_DESCRIPTOR_H_INCLUDED__
+#ifndef _NBL_ASSET_I_DESCRIPTOR_H_INCLUDED_
+#define _NBL_ASSET_I_DESCRIPTOR_H_INCLUDED_
 
 #include "nbl/core/IReferenceCounted.h"
 
@@ -13,15 +12,6 @@ namespace nbl::asset
 class IDescriptor : public virtual core::IReferenceCounted
 {
 	public:
-		enum E_CATEGORY
-		{
-			EC_BUFFER = 0,
-			EC_IMAGE,
-			EC_BUFFER_VIEW,
-			EC_ACCELERATION_STRUCTURE,
-			EC_COUNT
-		};
-
 		enum class E_TYPE : uint8_t
 		{
 			ET_COMBINED_IMAGE_SAMPLER = 0,
@@ -46,6 +36,41 @@ class IDescriptor : public virtual core::IReferenceCounted
 
 			ET_COUNT
 		};
+		enum E_CATEGORY : uint8_t
+		{
+			EC_BUFFER = 0,
+			EC_IMAGE,
+			EC_BUFFER_VIEW,
+			EC_ACCELERATION_STRUCTURE,
+			EC_COUNT
+		};
+		static inline E_CATEGORY GetTypeCategory(const E_TYPE type)
+		{
+			switch (type)
+			{
+				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+				case E_TYPE::ET_STORAGE_IMAGE:
+				case E_TYPE::ET_INPUT_ATTACHMENT:
+					return EC_IMAGE;
+					break;
+				case E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
+				case E_TYPE::ET_STORAGE_TEXEL_BUFFER:
+					return EC_BUFFER_VIEW;
+					break;
+				case E_TYPE::ET_UNIFORM_BUFFER:
+				case E_TYPE::ET_STORAGE_BUFFER:
+				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
+				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
+					return EC_BUFFER;
+					break;
+				case E_TYPE::ET_ACCELERATION_STRUCTURE:
+					return EC_ACCELERATION_STRUCTURE;
+					break;
+				default:
+					break;
+			}
+			return EC_COUNT;
+		}
 
 		virtual E_CATEGORY getTypeCategory() const = 0;
 

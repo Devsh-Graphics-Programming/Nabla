@@ -27,7 +27,7 @@ class CStreamingBufferAllocator : protected CSimpleBufferAllocator
             uint8_t* mappedPtr = nullptr;
             if (bufferBinding.buffer)
             {
-                IDeviceMemoryAllocation* mem = bufferBinding.buffer->getBoundMemory();
+                IDeviceMemoryAllocation* const mem = bufferBinding.buffer->getBoundMemory().memory;
                 if (mem->isCurrentlyMapped())
                 {
                     assert(mem->getMappedRange().offset == 0ull && mem->getMappedRange().length == mem->getAllocationSize());
@@ -42,12 +42,12 @@ class CStreamingBufferAllocator : protected CSimpleBufferAllocator
                     if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
                         access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                     assert(access.value);
-                    IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem,0ull,mem->getAllocationSize()};
-                    mappedPtr = reinterpret_cast<uint8_t*>(getDevice()->mapMemory(memoryRange, access));
+                    IDeviceMemoryAllocation::MemoryRange memoryRange = {0ull,mem->getAllocationSize()};
+                    mappedPtr = reinterpret_cast<uint8_t*>(mem->map(memoryRange,access));
                 }
                 if (!mappedPtr)
                     CSimpleBufferAllocator::deallocate(bufferBinding);
-                mappedPtr += bufferBinding.buffer->getBoundMemoryOffset() + bufferBinding.offset;
+                mappedPtr += bufferBinding.buffer->getBoundMemory().offset+bufferBinding.offset;
             }
             return {std::move(bufferBinding),mappedPtr};
         }
@@ -55,9 +55,9 @@ class CStreamingBufferAllocator : protected CSimpleBufferAllocator
         inline void deallocate(value_type& allocation)
         {
             allocation.ptr = nullptr;
-            auto* mem = allocation.bufferBinding.buffer->getBoundMemory();
-            if (mem->getReferenceCount() == 1)
-                getDevice()->unmapMemory(mem);
+            auto* mem = allocation.bufferBinding.buffer->getBoundMemory().memory;
+            if (mem->getReferenceCount()==1)
+                mem->unmap();
             CSimpleBufferAllocator::deallocate(allocation.bufferBinding);
         }
 };

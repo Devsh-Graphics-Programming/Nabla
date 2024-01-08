@@ -14,6 +14,12 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 		endforeach()
 	endif()
 	
+	list(FIND ${_BUNDLE_NAME_} "${_LBR_PATH_}" _NBL_FOUND_)
+	
+	if(NOT "${_NBL_FOUND_}" STREQUAL "-1")
+		message(FATAL_ERROR "Duplicated \"${_LBR_PATH_}\" builtin resource list-request detected to \"${_BUNDLE_NAME_}\", remove the entry!")
+	endif()
+	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
 	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	
@@ -114,7 +120,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
-			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")

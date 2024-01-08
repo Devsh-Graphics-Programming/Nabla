@@ -28,7 +28,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 	if (!inbuffer)
 		return;
     auto* pipeline = inbuffer->getPipeline();
-    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getPrimitiveAssemblyParams().primitiveType;
+    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getCachedCreationParams().primitiveAssembly.primitiveType;
 
     const uint32_t idxcnt = inbuffer->getIndexCount();
     if (!inbuffer->getIndices())
@@ -181,12 +181,12 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 		const size_t vertexSize = lastOffset + lastSize;
 
         constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
-        auto& vtxParams = outbuffer->getPipeline()->getVertexInputParams();
+        auto& vtxParams = outbuffer->getPipeline()->getCachedCreationParams().vertexInput;
         vtxParams = SVertexInputParams();
-        vtxParams.enabledAttribFlags = _inbuffer->getPipeline()->getVertexInputParams().enabledAttribFlags;
+        vtxParams.enabledAttribFlags = _inbuffer->getPipeline()->getCachedCreationParams().vertexInput.enabledAttribFlags;
         vtxParams.enabledBindingFlags = 1u << NEW_VTX_BUF_BINDING;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = vertexSize;
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 
 		auto newVertBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCount*vertexSize);
         outbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertBuffer) }, NEW_VTX_BUF_BINDING);
@@ -269,14 +269,14 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
     if (idxCnt<2u || !inbuffer->getIndices())
         return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer); // yes we want an extra grab
     
-    const auto& oldVtxParams = oldPipeline->getVertexInputParams();
+    const auto& oldVtxParams = oldPipeline->getCachedCreationParams().vertexInput;
     
 	auto clone = core::move_and_static_cast<ICPUMeshBuffer>(inbuffer->clone(0u));
 
     constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
 
     auto pipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
-    auto& vtxParams = pipeline->getVertexInputParams();
+    auto& vtxParams = pipeline->getCachedCreationParams().vertexInput;
     vtxParams = SVertexInputParams();
 
     vtxParams.enabledBindingFlags = (1u<<NEW_VTX_BUF_BINDING);
@@ -308,7 +308,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 				offset[i] = -1;
 		}
 
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = stride;
 
 		auto vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(stride*idxCnt);
@@ -403,14 +403,14 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
         const auto normalAttr = inbuffer->getNormalAttributeIx();
         auto normalBinding = inbuffer->getBindingNumForAttribute(normalAttr);
         const auto oldPipeline = inbuffer->getPipeline();
-        auto vertexParams = oldPipeline->getVertexInputParams();
+        auto vertexParams = oldPipeline->getCachedCreationParams().vertexInput;
         bool notUniqueBinding = false;
         for (uint16_t attr=0u; attr<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; attr++)
         if (attr!=normalAttr && (vertexParams.enabledAttribFlags&(0x1u<<attr))!=0u && vertexParams.attributes[attr].binding==normalBinding)
             notUniqueBinding = true;
         if (notUniqueBinding)
         {
-            int32_t firstBindingNotUsed = core::findLSB(vertexParams.enabledBindingFlags^0xffffu);
+            int32_t firstBindingNotUsed = hlsl::findLSB(vertexParams.enabledBindingFlags^0xffffu);
             assert(firstBindingNotUsed>0 && firstBindingNotUsed<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
             normalBinding = static_cast<uint32_t>(firstBindingNotUsed);
 
@@ -425,7 +425,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
         auto pipeline = core::move_and_static_cast<ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
         vertexParams.bindings[normalBinding].stride = normalFormatBytesize;
         vertexParams.attributes[normalAttr].relativeOffset = 0u;
-        pipeline->getVertexInputParams() = vertexParams;
+        pipeline->getCachedCreationParams().vertexInput = vertexParams;
         outbuffer->setPipeline(std::move(pipeline));
     }
     else
@@ -641,7 +641,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	// convert index buffer for triangle primitives
     constexpr auto canonicalMeshBufferIndexType = EIT_32BIT;
     IMeshManipulator::homogenizePrimitiveTypeAndIndices(&outbuffer.get(),&outbuffer.get()+1,EPT_TRIANGLE_LIST,canonicalMeshBufferIndexType);
-    if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
+    if (outbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType != EPT_TRIANGLE_LIST)
 		return nullptr;
 
 	// STEP: weld
@@ -749,7 +749,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
             const uint32_t posId = outbuffer->getPositionAttributeIx();
             const size_t bufsz = outbuffer->getAttribBoundBuffer(posId).buffer->getSize();
 
-			const size_t vertexSize = pipeline->getVertexInputParams().bindings[0].stride;
+			const size_t vertexSize = pipeline->getCachedCreationParams().vertexInput.bindings[0].stride;
 			uint8_t* const v = (uint8_t*)(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
 			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT);
 			memcpy(vCopy, v, bufsz);
@@ -831,10 +831,10 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
     _meshbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertexBuffer) }, VTX_BUF_BINDING);
 
     auto* pipeline = _meshbuffer->getPipeline();
-    auto& vtxParams = pipeline->getVertexInputParams();
+    auto& vtxParams = pipeline->getCachedCreationParams().vertexInput;
 
     vtxParams.bindings[VTX_BUF_BINDING].stride = vertexSize;
-    vtxParams.bindings[VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+    vtxParams.bindings[VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
         const uint32_t vaid = newAttribs[i].vaid;
