@@ -8,6 +8,7 @@
 #include "nbl/asset/asset.h"
 
 #include "nbl/video/IGPUCommandPool.h"
+#include "nbl/video/TimelineEventHandlers.h"
 
 
 namespace nbl::video
@@ -18,7 +19,22 @@ class ICommandPoolCache : public core::IReferenceCounted
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		NBL_API2 ICommandPoolCache(ILogicalDevice* const device, const uint32_t queueFamilyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> _flags, const uint32_t capacity);
+		//
+		static inline core::smart_refctd_ptr<ICommandPoolCache> create(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t queueFamilyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> _flags, const uint32_t capacity)
+		{
+			auto cache = new core::smart_refctd_ptr<IGPUCommandPool>[capacity];
+			if (!cache)
+				return nullptr;
+
+			for (auto i = 0u; i<capacity; i++)
+				cache[i] = device->createCommandPool(queueFamilyIx,_flags);
+
+			void* reserved = malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u));
+			if (!reserved)
+				return nullptr;
+
+			return core::smart_refctd_ptr<ICommandPoolCache>(new ICommandPoolCache(std::move(device),cache,capacity,reserved),core::dont_grab);
+		}
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
@@ -32,33 +48,26 @@ class ICommandPoolCache : public core::IReferenceCounted
 			return nullptr;
 		}
 
-#if 0 // TODO: port
 		//
 		inline uint32_t acquirePool()
 		{
-			m_deferredResets.pollForReadyEvents(DeferredCommandPoolResetter::single_poll);
+			m_deferredResets.poll(DeferredCommandPoolResetter::single_poll);
 			return m_cmdPoolAllocator.alloc_addr(1u,1u);
 		}
 
-		// needs to be called before you reset any fences which latch the deferred release
-		inline void poll_all()
-		{
-			m_deferredResets.pollForReadyEvents(DeferredCommandPoolResetter::exhaustive_poll);
-		}
-
 		//
-		inline void releaseSet(ILogicalDevice* device, core::smart_refctd_ptr<IGPUFence>&& fence, const uint32_t poolIx)
+		inline void releasePool(const ISemaphore::SWaitInfo& futureWait, const uint32_t poolIx)
 		{
 			if (poolIx==invalid_index)
 				return;
 			
-			if (fence)
-				m_deferredResets.addEvent(GPUEventWrapper(device,std::move(fence)),DeferredCommandPoolResetter(this,poolIx));
+			if (futureWait.semaphore)
+				m_deferredResets.latch(futureWait,DeferredCommandPoolResetter(this,poolIx));
 			else
 				releaseSet(poolIx);
 		}
 
-		// only public because GPUDeferredEventHandlerST needs to know about it
+		// only public because MultiTimelineEventHandlerST needs to know about it
 		class DeferredCommandPoolResetter
 		{
 				ICommandPoolCache* m_cache;
@@ -106,13 +115,15 @@ class ICommandPoolCache : public core::IReferenceCounted
 
 				NBL_API2 void operator()();
 		};
-#endif
 
 	protected:
 		friend class DeferredCommandPoolResetter;
+		inline ICommandPoolCache(core::smart_refctd_ptr<ILogicalDevice>&& device, core::smart_refctd_ptr<IGPUCommandPool>* cache, const uint32_t capacity, void* reserved) :
+			m_cache(cache),	m_reserved(malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u))), m_cmdPoolAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredResets(std::move(device)) {}
 		inline virtual ~ICommandPoolCache()
 		{
-//			m_deferredResets.cullEvents(0u);
+			// normally the dtor would do this, but we need all the events to run before we delete the storage they reference
+			while (m_deferredResets.wait(std::chrono::steady_clock::now()+std::chrono::milliseconds(1))) {}
 			free(m_reserved);
 			delete[] m_cache;
 		}
@@ -122,7 +133,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 		core::smart_refctd_ptr<IGPUCommandPool>* m_cache;
 		void* m_reserved;
 		CommandPoolAllocator m_cmdPoolAllocator;
-//		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
+		MultiTimelineEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 };
 
 }
