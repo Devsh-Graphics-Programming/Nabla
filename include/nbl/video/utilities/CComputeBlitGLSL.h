@@ -2,6 +2,9 @@
 
 #include "nbl/asset/filters/CBlitUtilities.h"
 
+// TODO: Port to vk1.3 or delete?
+#if 0
+
 namespace nbl::video
 {
 	class NBL_API2 CComputeBlitGLSL : public core::IReferenceCounted
@@ -888,6 +891,8 @@ namespace nbl::video
 		}
 	};
 }
+
+#endif
 
 #define _NBL_VIDEO_C_COMPUTE_BLIT_GLSL_H_INCLUDED_
 #endif

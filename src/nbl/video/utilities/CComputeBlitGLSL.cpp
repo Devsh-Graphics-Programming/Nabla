@@ -3,6 +3,8 @@
 using namespace nbl;
 using namespace video;
 
+// TODO: Port to vk 1.3 or delete?
+#if 0
 core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlitGLSL::createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
@@ -51,3 +53,5 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlitGLSL::createNor
 
 	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 }
+
+#endif
