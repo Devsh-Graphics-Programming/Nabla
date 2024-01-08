@@ -29,6 +29,71 @@ uint32_t intlog2(uint32_t i)
 	return 31u - __lzcnt(i);
 }
 
+struct FtFallbackContext {
+	msdfgen::Point2 position;
+	msdfgen::Shape* shape;
+	msdfgen::Contour* contour;
+};
+
+static double f26dot6ToDouble(float x)
+{
+	return (1 / 64. * double(x));
+}
+
+msdfgen::Point2 ftPoint2(const FT_Vector& vector) {
+	return msdfgen::Point2(f26dot6ToDouble(vector.x), f26dot6ToDouble(vector.y));
+}
+
+int ftMoveTo(const FT_Vector* to, void* user) {
+	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+	if (!(context->contour && context->contour->edges.empty()))
+		context->contour = &context->shape->addContour();
+	context->position = ftPoint2(*to);
+	return 0;
+}
+int ftLineTo(const FT_Vector* to, void* user) {
+	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+	msdfgen::Point2 endpoint = ftPoint2(*to);
+	if (endpoint != context->position) {
+		context->contour->addEdge(new msdfgen::LinearSegment(context->position, endpoint));
+		context->position = endpoint;
+	}
+	return 0;
+}
+
+int ftConicTo(const FT_Vector* control, const FT_Vector* to, void* user) {
+	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+	context->contour->addEdge(new msdfgen::QuadraticSegment(context->position, ftPoint2(*control), ftPoint2(*to)));
+	context->position = ftPoint2(*to);
+	return 0;
+}
+
+int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
+	FtFallbackContext* context = reinterpret_cast<FtFallbackContext*>(user);
+	context->contour->addEdge(new msdfgen::CubicSegment(context->position, ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*to)));
+	context->position = ftPoint2(*to);
+	return 0;
+}
+
+bool getGlyphShape(msdfgen::Shape& shape, FT_Library library, FT_Face face)
+{
+	FtFallbackContext context = { };
+	context.shape = &shape;
+	FT_Outline_Funcs ftFunctions;
+	ftFunctions.move_to = &ftMoveTo;
+	ftFunctions.line_to = &ftLineTo;
+	ftFunctions.conic_to = &ftConicTo;
+	ftFunctions.cubic_to = &ftCubicTo;
+	ftFunctions.shift = 0;
+	ftFunctions.delta = 0;
+	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &context);
+	if (error)
+		return false;
+	if (!shape.contours.empty() && shape.contours.back().edges.empty())
+		shape.contours.pop_back();
+	return true;
+}
+
 // Generates atlas of MSDF textures for each ASCII character
 FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t atlasWidth, uint32_t atlasHeight, uint32_t pixelSizes, uint32_t padding)
 {
@@ -49,7 +114,7 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 	stbrp_init_target(&glyphPackerCtx, atlasWidth, atlasHeight, nodes, maxNodes);
 
 	{
-		// For each character
+		// For each represented character
 		for (char k = ' '; k <= '~'; k++)
 		{
 			wchar_t unicode = wchar_t(k);
@@ -63,7 +128,7 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 			assert(!error);
 
 			msdfgen::Shape shape;
-			bool loadedGlyph = nbl::ext::TextRendering::TextRenderer::getGlyphShape(shape, library, face);
+			bool loadedGlyph = getGlyphShape(shape, library, face);
 			assert(loadedGlyph);
 
 			//shape.normalize();
