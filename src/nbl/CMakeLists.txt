@@ -256,9 +256,6 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
-# Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
-
 # Utilities
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
