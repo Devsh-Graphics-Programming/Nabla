@@ -30,8 +30,8 @@ class ISemaphore : public IBackendObject
         // but don't want to pollute ILogicalDevice with lots of enums and structs
         struct SWaitInfo
         {
-            const ISemaphore* semaphore;
-            uint64_t value;
+            const ISemaphore* semaphore = nullptr;
+            uint64_t value = 0;
         };
         enum class WAIT_RESULT : uint8_t
         {

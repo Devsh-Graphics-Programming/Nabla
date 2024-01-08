@@ -55,6 +55,12 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             return poll_impl<true>(std::forward<Args>(args)...);
         }
 
+        template<class Clock=std::chrono::steady_clock>
+        static inline Clock::time_point default_wait()
+        {
+            return Clock::now()+std::chrono::microseconds(50);
+        }
+
         template<class Clock, class Duration=typename Clock::duration, typename... Args>
         inline uint32_t wait(const std::chrono::time_point<Clock,Duration>& timeout_time, Args&&... args)
         {
