@@ -263,14 +263,14 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 		video::IGPUDescriptorSetLayout::SBinding bindings[bindingCount];
 		{
 			bindings[0].binding = 0u;
-			bindings[0].type = asset::EDT_STORAGE_BUFFER;
+			bindings[0].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bindings[0].count = 1u;
 			bindings[0].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[0].samplers = nullptr;
 		}
 		{
 			bindings[1].binding = 1u;
-			bindings[1].type = asset::EDT_STORAGE_BUFFER;
+			bindings[1].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			bindings[1].count = 1u;
 			bindings[1].stageFlags = asset::IShader::ESS_COMPUTE;
 			bindings[1].samplers = nullptr;
@@ -278,20 +278,16 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 		m_globalStringDSLayout =
 			m_device->createDescriptorSetLayout(bindings, bindings + bindingCount);
 
-		const uint32_t descriptorPoolSizeCount = 1u;
-		video::IDescriptorPool::SDescriptorPoolSize poolSizes[descriptorPoolSizeCount];
-		poolSizes[0].type = asset::EDT_STORAGE_BUFFER;
-		poolSizes[0].count = 2u;
-
-		video::IDescriptorPool::E_CREATE_FLAGS descriptorPoolFlags =
+		video::IDescriptorPool::SCreateInfo poolCreateInfo = {};
+		poolCreateInfo.flags = 
 			static_cast<video::IDescriptorPool::E_CREATE_FLAGS>(0);
+		poolCreateInfo.maxSets = 1;
+		poolCreateInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] = 2;
 
 		core::smart_refctd_ptr<video::IDescriptorPool> descriptorPool
-			= m_device->createDescriptorPool(descriptorPoolFlags, 1,
-				descriptorPoolSizeCount, poolSizes);
+			= m_device->createDescriptorPool(std::move(poolCreateInfo));
 
-		m_globalStringDS = m_device->createDescriptorSet(descriptorPool.get(),
-			core::smart_refctd_ptr(m_globalStringDSLayout));
+		m_globalStringDS = descriptorPool->createDescriptorSet(core::smart_refctd_ptr(m_globalStringDSLayout));
 
 		const uint32_t writeDescriptorCount = 2u;
 
@@ -299,8 +295,8 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
 		{
-			descriptorInfos[0].image.imageLayout = asset::IImage::EL_GENERAL;
-			descriptorInfos[0].image.sampler = nullptr;
+			descriptorInfos[0].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[0].info.image.sampler = nullptr;
 			// TODO take offset into account?
 			descriptorInfos[0].desc = m_geomDataBuffer->getPropertyMemoryBlock(0).buffer;
 
@@ -308,20 +304,20 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 			writeDescriptorSets[0].binding = 0u;
 			writeDescriptorSets[0].arrayElement = 0u;
 			writeDescriptorSets[0].count = 1u;
-			writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+			writeDescriptorSets[0].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			writeDescriptorSets[0].info = &descriptorInfos[0];
 		}
 
 		{
-			descriptorInfos[1].image.imageLayout = asset::IImage::EL_GENERAL;
-			descriptorInfos[1].image.sampler = nullptr;
+			descriptorInfos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[1].info.image.sampler = nullptr;
 			descriptorInfos[1].desc = m_glyphIndexBuffer;
 
 			writeDescriptorSets[1].dstSet = m_globalStringDS.get();
 			writeDescriptorSets[1].binding = 1u;
 			writeDescriptorSets[1].arrayElement = 0u;
 			writeDescriptorSets[1].count = 1u;
-			writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+			writeDescriptorSets[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			writeDescriptorSets[1].info = &descriptorInfos[1];
 		}
 
@@ -343,41 +339,41 @@ void TextRenderer::updateVisibleStringDS(
 	video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
 	{
-		descriptorInfos[0].image.imageLayout = asset::IImage::EL_GENERAL;
-		descriptorInfos[0].image.sampler = nullptr;
+		descriptorInfos[0].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[0].info.image.sampler = nullptr;
 		descriptorInfos[0].desc = visibleStringMvps;
 
 		writeDescriptorSets[0].dstSet = visibleStringDS.get();
 		writeDescriptorSets[0].binding = 0u;
 		writeDescriptorSets[0].arrayElement = 0u;
 		writeDescriptorSets[0].count = 1u;
-		writeDescriptorSets[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[0].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[0].info = &descriptorInfos[0];
 	}
 
 	{
-		descriptorInfos[1].image.imageLayout = asset::IImage::EL_GENERAL;
-		descriptorInfos[1].image.sampler = nullptr;
+		descriptorInfos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[1].info.image.sampler = nullptr;
 		descriptorInfos[1].desc = visibleStringGlyphOffsets;
 
 		writeDescriptorSets[1].dstSet = visibleStringDS.get();
 		writeDescriptorSets[1].binding = 1u;
 		writeDescriptorSets[1].arrayElement = 0u;
 		writeDescriptorSets[1].count = 1u;
-		writeDescriptorSets[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[1].info = &descriptorInfos[1];
 	}
 
 	{
-		descriptorInfos[2].image.imageLayout = asset::IImage::EL_GENERAL;
-		descriptorInfos[2].image.sampler = nullptr;
+		descriptorInfos[2].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[2].info.image.sampler = nullptr;
 		descriptorInfos[2].desc = cumulativeGlyphCount;
 
 		writeDescriptorSets[2].dstSet = visibleStringDS.get();
 		writeDescriptorSets[2].binding = 2u;
 		writeDescriptorSets[2].arrayElement = 0u;
 		writeDescriptorSets[2].count = 1u;
-		writeDescriptorSets[2].descriptorType = asset::EDT_STORAGE_BUFFER;
+		writeDescriptorSets[2].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[2].info = &descriptorInfos[2];
 	}
 

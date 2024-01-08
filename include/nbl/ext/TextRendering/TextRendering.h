@@ -34,7 +34,7 @@ struct SPixelCoord
 	uint16_t x, y;
 };
 
-class NBL_API FontAtlas
+class FontAtlas
 {
 public:
 	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
@@ -57,7 +57,7 @@ struct StringBoundingBox
 	SPixelCoord min, max;
 };
 
-class NBL_API TextRenderer
+class TextRenderer
 {
 public:
 	typedef typename uint32_t size_type;
