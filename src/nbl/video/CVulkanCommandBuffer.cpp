@@ -153,13 +153,13 @@ bool CVulkanCommandBuffer::setEvent_impl(IEvent* const _event, const SEventDepen
         return false;
 
     auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo);
-    getFunctionTable().vkCmdSetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),&info);
+    getFunctionTable().vkCmdSetEvent2(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),&info);
     return true;
 }
 
 bool CVulkanCommandBuffer::resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask)
 {
-    getFunctionTable().vkCmdResetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
+    getFunctionTable().vkCmdResetEvent2(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
     return true;
 }
 
@@ -196,7 +196,7 @@ bool CVulkanCommandBuffer::waitEvents_impl(const uint32_t eventCount, IEvent* co
         bufBarrierCount += infos[i].bufferMemoryBarrierCount;
         imgBarrierCount += infos[i].imageMemoryBarrierCount;
     }
-    getFunctionTable().vkCmdWaitEvents2KHR(m_cmdbuf,eventCount,events.data(),infos.data());
+    getFunctionTable().vkCmdWaitEvents2(m_cmdbuf,eventCount,events.data(),infos.data());
     return true;
 }
 
@@ -553,7 +553,7 @@ bool CVulkanCommandBuffer::endQuery_impl(IQueryPool* const queryPool, const uint
 
 bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query)
 {
-    getFunctionTable().vkCmdWriteTimestamp2KHR(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
+    getFunctionTable().vkCmdWriteTimestamp2(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
     return true;
 }
 
