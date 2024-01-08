@@ -20,7 +20,10 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
     public:
         // Theoretically could make a factory function cause passing a null semaphore is invalid, but counting on users to be relatively intelligent.
         inline TimelineEventHandlerST(core::smart_refctd_ptr<const ISemaphore>&& sema, const uint64_t initialCapacity=4095/sizeof(FunctorValuePair)+1) :
-            m_sema(std::move(sema)), m_greatestSignal(m_sema->getCounterValue()), m_greatestLatch(0) {}
+            m_sema(std::move(sema)), m_greatestLatch(0)
+        {
+            m_greatestSignal = m_sema->getCounterValue();
+        }
         // If you don't want to deadlock here, look into the `abort*` family of methods
         ~TimelineEventHandlerST()
         {
@@ -189,11 +192,11 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         {
             return [&](FunctorValuePair& p) -> bool
             {
-                if (p.geSemaValue>m_greatestSignal)
+                if (bailed || p.geSemaValue>m_greatestSignal)
                     return false;
-                const bool last_bailed = bailed;
+                const bool bailedBefore = bailed;
                 bailed = p.func(std::forward<Args>(args)...);
-                return !last_bailed;
+                return !bailedBefore;
             };
         }
 
@@ -201,7 +204,7 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         inline PollResult poll_impl(Args&&... args)
         {
             PollResult retval = {};
-            constexpr bool ReturnsBool = std::is_same_v<decltype(std::declval<Functor>()(std::forward<Args>(args)...)), bool>;
+            constexpr bool ReturnsBool = std::is_same_v<decltype(std::declval<Functor>()(std::forward<Args>(args)...)),bool>;
             if constexpr (ReturnsBool)
                 retval.eventsLeft = for_each_popping<QueryCounter>(constructBailing(retval.bailed, std::forward<Args>(args)...));
             else
@@ -222,6 +225,8 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         {
             clear();
         }
+
+        inline ILogicalDevice* getLogicalDevice() const {return m_device.get();}
 
         inline const auto& getTimelines() const {return m_timelines;}
 
@@ -348,6 +353,8 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                         // but there's a fast path at the end
                         else if (ReturnsBool || !allReady)
                             it = eraseTimeline(it);
+                        else
+                            it++;
                     }
                 }
                 // ultra fast path for non-bailing code when everything was covered by a single wait
