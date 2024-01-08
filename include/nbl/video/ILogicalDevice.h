@@ -147,32 +147,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual IQueue::RESULT waitIdle() const = 0;
 
         //! Semaphore Stuff
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&& ) = 0;
-        //
-        struct SSemaphoreWaitInfo
-        {
-            const ISemaphore* semaphore;
-            uint64_t value;
-        };
-        enum class WAIT_RESULT : uint8_t
-        {
-            TIMEOUT,
-            SUCCESS,
-            DEVICE_LOST,
-            _ERROR
-        };
-        virtual WAIT_RESULT waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&&) = 0;
+        virtual ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
-        inline WAIT_RESULT blockForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll=true)
+        inline ISemaphore::WAIT_RESULT blockForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll=true)
         {
+            using retval_t = ISemaphore::WAIT_RESULT;
             if (!infos.empty())
             {
-                auto waitStatus = WAIT_RESULT::TIMEOUT;
-                while (waitStatus==WAIT_RESULT::TIMEOUT)
+                auto waitStatus = retval_t::TIMEOUT;
+                while (waitStatus== retval_t::TIMEOUT)
                     waitStatus = waitForSemaphores(infos,waitAll,999999999ull);
                 return waitStatus;
             }
-            return WAIT_RESULT::SUCCESS;
+            return retval_t::SUCCESS;
         }
 
         //! Event Stuff

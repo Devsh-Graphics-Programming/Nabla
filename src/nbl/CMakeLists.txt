@@ -275,7 +275,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/ISemaphore.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
