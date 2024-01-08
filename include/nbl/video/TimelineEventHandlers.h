@@ -9,12 +9,16 @@
 
 namespace nbl::video
 {
+template<typename Functor>
+class MultiTimelineEventHandlerST;
 
 // Could be made MT and relatively lockless, if only had a good lock-few circular buffer impl
 // Not sure its worth the effort as anything using this will probably need to be lockful to be MT
 template<typename Functor>
 class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 {
+        friend MultiTimelineEventHandlerST<Functor>;
+
         struct FunctorValuePair
         {
             Functor func;
@@ -22,10 +26,10 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         };
         // could be a circular buffer but whatever for now
         core::deque<FunctorValuePair> m_cb;
-        core::smart_refctd_ptr<ISemaphore> m_sema;
+        core::smart_refctd_ptr<const ISemaphore> m_sema;
         uint64_t m_greatestSignal;
         uint64_t m_greatestLatch;
-        
+
         template<bool QueryCounter=true, typename Lambda>
         inline uint32_t for_each_popping(Lambda&& l)
         {
@@ -44,34 +48,33 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             return static_cast<uint32_t>(m_cb.size());
         }
 
-        inline auto constructNonBailing()
+        template<typename... Args>
+        inline auto constructNonBailing(Args&&... args)
         {
             return [&](FunctorValuePair& p) -> bool
             {
                 if (p.geSemaValue>m_greatestSignal)
                     return false;
-                p.func();
+                p.func(std::forward<Args>(args)...);
                 return true;
             };
         }
-        inline auto constructBailing(bool& bailed)
+        template<typename... Args>
+        inline auto constructBailing(bool& bailed, Args&&... args)
         {
             return [&](FunctorValuePair& p) -> bool
             {
                 if (p.geSemaValue>m_greatestSignal)
                     return false;
                 const bool last_bailed = bailed;
-                bailed = p.func();
+                bailed = p.func(std::forward<Args>(args)...);
                 return !last_bailed;
             };
         }
 
-        // If the functor returns bool, then we bail on the on the first executed event during wait,poll,etc.
-        constexpr static inline bool ReturnsBool = std::is_same_v<decltype(std::declval<Functor>()()),bool>;
-
     public:
         // Theoretically could make a factory function cause passing a null semaphore is invalid, but counting on users to be relatively intelligent.
-        inline TimelineEventHandlerST(core::smart_refctd_ptr<ISemaphore>&& sema, const uint64_t initialCapacity = 4095 / sizeof(FunctorValuePair) + 1) :
+        inline TimelineEventHandlerST(core::smart_refctd_ptr<const ISemaphore>&& sema, const uint64_t initialCapacity = 4095 / sizeof(FunctorValuePair) + 1) :
             m_sema(std::move(sema)), m_greatestSignal(m_sema->getCounterValue()), m_greatestLatch(0) {}
         // If you don't want to deadlock here, look into the `abort*` family of methods
         ~TimelineEventHandlerST()
@@ -79,7 +82,7 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             while (wait(std::chrono::steady_clock::now()+std::chrono::seconds(5))) {}
         }
         // little utility
-        inline ISemaphore* getSemaphore() const {return m_sema.get();}
+        inline const ISemaphore* getSemaphore() const {return m_sema.get();}
 
         inline uint32_t count() const {return m_cb.size();}
 
@@ -92,29 +95,36 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             m_cb.emplace_back(std::move(function),geSemaValue);
         }
 
-        // Returns number of events still outstanding
-        inline uint32_t poll(bool& bailed)
+        //
+        struct PollResult
         {
-            bailed = false;
+            uint32_t eventsLeft = ~0u;
+            bool bailed = false;
+        };
+        template<typename... Args>
+        inline PollResult poll(Args&&... args)
+        {
+            PollResult retval = {};
+            constexpr bool ReturnsBool = std::is_same_v<decltype(std::declval<Functor>()(std::forward<Args>(args)...)),bool>;
             if constexpr (ReturnsBool)
-                return for_each_popping(constructBailing(bailed));
+                retval.eventsLeft = for_each_popping(constructBailing(retval.bailed,std::forward<Args>(args)...));
             else
-                return for_each_popping(constructNonBailing());
-        }
-        inline uint32_t poll()
-        {
-            bool dummy;
-            return poll(dummy);
+                retval.eventsLeft = for_each_popping(constructNonBailing(std::forward<Args>(args)...));
+            return retval;
         }
 
-        template<class Clock, class Duration=typename Clock::duration>
-        inline uint32_t wait(const std::chrono::time_point<Clock,Duration>& timeout_time)
+        template<class Clock, class Duration=typename Clock::duration, typename... Args>
+        inline uint32_t wait(const std::chrono::time_point<Clock,Duration>& timeout_time, Args&&... args)
         {
             if (m_cb.empty())
                 return 0;
 
-            auto singleSemaphoreWait = [&](const uint64_t waitVal, const std::chrono::time_point<Clock,Duration>& waitPoint)->uint64_t
+            auto singleSemaphoreWait = [&](const uint64_t waitVal, const std::chrono::time_point<Clock,Duration>& waitPoint) -> void
             {
+                // remeber that latch can move back, not signal though
+                if (waitVal<=m_greatestSignal)
+                    return;
+
                 const auto current_time = Clock::now();
                 if (waitPoint>current_time)
                 {
@@ -122,11 +132,12 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                     const auto nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(waitPoint-current_time).count();
                     const ISemaphore::SWaitInfo info = {.semaphore=m_sema.get(),.value = waitVal};
                     if (device->waitForSemaphores({&info,1},true,nanosecondsLeft)==ISemaphore::WAIT_RESULT::SUCCESS)
-                        return waitVal>m_greatestSignal ? waitVal:m_greatestSignal; // remeber that latch can move back, not signal though
+                        m_greatestSignal = waitVal;
                 }
-                return m_sema->getCounterValue();
+                m_greatestSignal = m_sema->getCounterValue();
             };
-
+            
+            constexpr bool ReturnsBool = std::is_same_v<decltype(std::declval<Functor>()(std::forward<Args>(args)...)),bool>;
             if constexpr (ReturnsBool)
             {
                 // Perf-assumption: there are probably no latched events with wait values less or equal to `m_greatestSignal`
@@ -140,10 +151,10 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                     // weird interpolation that works on integers, basically trying to get somethign 1/uniqueValueEstimate of the way from now to original timeout point
                     const std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(uniqueValueEstimate-1u)+timeout_time.time_since_epoch())/uniqueValueEstimate);
                     // So we only Semaphore wait for the next latch value we need
-                    m_greatestSignal = singleSemaphoreWait(m_cb.front().geSemaValue,singleWaitTimePt);
+                    singleSemaphoreWait(m_cb.front().geSemaValue,singleWaitTimePt);
 
                     bool bailed = false;
-                    for_each_popping<false>(constructBailing(bailed));
+                    for_each_popping<false>(constructBailing(bailed,std::forward<Args>(args)...));
                     if (bailed)
                         break;
                 } while ((currentTime=Clock::now())<timeout_time);
@@ -151,15 +162,16 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             }
             else
             {
-                m_greatestSignal = singleSemaphoreWait(m_greatestLatch,timeout_time);
-                return for_each_popping<false>(constructNonBailing());
+                singleSemaphoreWait(m_greatestLatch,timeout_time);
+                return for_each_popping<false>(constructNonBailing(std::forward<Args>(args)...));
             }
         }
 
         // The default behaviour of the underlying event handler is to wait for all events in its destructor.
         // This will naturally cause you problems if you add functions latched on values you never signal,
         // such as when you change your mind whether to submit. This method is then helpful to avoid a deadlock.
-        inline uint32_t abortOldest(const uint64_t upTo)
+        template<typename... Args>
+        inline uint32_t abortOldest(const uint64_t upTo, Args&&... args)
         {
             return for_each_popping([&](FunctorValuePair& p) -> bool
                 {
@@ -168,22 +180,24 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                     // don't want weird behaviour, so execute everything that would have been executed
                     // if a single `poll()` was called before `abortOldest`
                     if (p.geSemaValue<=m_greatestSignal)
-                        p.func();
+                        p.func(std::forward<Args>(args)...);
                     return true;
                 }
             );
         }
-        inline uint32_t abortLatest(const uint64_t from)
+        template<typename... Args>
+        inline uint32_t abortLatest(const uint64_t from, Args&&... args)
         {
             // We also need to run the functors in the same order they'd be ran with a single `poll()`,
             // so we run all of them from the front, not just from the `from` value.
-            for_each_popping(constructNonBailing());
+            for_each_popping(constructNonBailing(std::forward<Args>(args)...));
             // now kill the latest stuff
             while (!m_cb.empty() && m_cb.back().geSemaValue>=from)
                 m_cb.pop_back();
             return m_cb.size();
         }
-        inline void abortAll() {abortOldest(~0ull);}
+        template<typename... Args>
+        inline void abortAll(Args&&... args) {abortOldest(~0ull,std::forward<Args>(args)...);}
 };
 
 //
@@ -192,6 +206,8 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 {
     public:
         using TimelineEventHandler = TimelineEventHandlerST<Functor>;
+
+        inline MultiTimelineEventHandlerST(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)) {}
         inline ~MultiTimelineEventHandlerST()
         {
             clear();
@@ -204,66 +220,110 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         {
             uint32_t sum = 0;
             for (auto p : m_timelines)
-                sum += p->count();
+                sum += p.handler->count();
             return sum;
         }
 
-        inline void latch(ISemaphore* sema, const uint64_t geValue, Functor&& function)
+        inline bool latch(const ISemaphore::SWaitInfo& futureWait, Functor&& function)
         {
-            auto found = m_timelines.find(sema);
+            auto found = m_timelines.find(futureWait.semaphore);
             if (found==m_timelines.end())
             {
+                if (futureWait.semaphore->getOriginDevice()!=m_device.get())
+                    return false;
                 STimeline newTimeline = {
-                    .handler = new TimelineEventHandler(core::smart_refctd_ptr<ISemaphore>(sema)),
+                    .handler = new TimelineEventHandler(core::smart_refctd_ptr<const ISemaphore>(futureWait.semaphore)),
                     .waitInfoIx = m_scratchWaitInfos.size()
                 };
                 found = m_timelines.insert(found,std::move(newTimeline));
-                m_scratchWaitInfos.emplace_back(sema,0xdeadbeefBADC0FFEull);
+                m_scratchWaitInfos.emplace_back(futureWait.semaphore,0xdeadbeefBADC0FFEull);
             }
-            assert(found->handler->getSemaphore()==sema);
-            found->handler->latch(sema,geValue,std::move(function));
+            assert(found->handler->getSemaphore()==futureWait.semaphore);
+            found->handler->latch(futureWait.value,std::move(function));
+            return true;
         }
 
-        inline uint32_t poll()
-        {
-            uint32_t sum = 0;
-            for (auto p : m_timelines)
+        template<typename... Args>
+        inline typename TimelineEventHandler::PollResult poll(Args&&... args)
+        {            
+            typename TimelineEventHandler::PollResult retval = {0,false};
+            for (typename container_t::iterator it=m_timelines.begin(); it!=m_timelines.end(); )
             {
-                bool bailed;
-                p->poll(bailed);
-                if (bailed)
-                    break;
+                if (!retval.bailed)
+                {
+                    const auto local = it->handler->poll();
+                    retval.eventsLeft += local.eventsLeft;
+                    retval.bailed = local.bailed;
+                }
+                if (it->handler->count())
+                    it++;
+                else
+                    it = eraseTimeline(it);
             }
-            return sum;
+            return retval;
         }
 
-#if 0
         template<class Clock, class Duration=typename Clock::duration>
         inline uint32_t wait(const std::chrono::time_point<Clock,Duration>& timeout_time)
         {
+            bool allEmpty = true;
+            for (typename container_t::iterator it=m_timelines.begin(); it!=m_timelines.end(); )
+            {
+                if (it->handler->count())
+                {
+#if 0
+                    // TODO: adapt
+                    const waitVal = it->handler->m_greatestLatch;
+                    // need to fill all waits anyway
+                    m_scratchWaitInfos[it->waitInfoIx].value = waitVal;
+                    // remeber that latch can move back, not signal though
+                    if (waitVal>it->handler->m_greatestSignal)
+                        allEmpty = false;
+#endif
+                    it++;
+                }
+                else
+                    it = eraseTimeline(it);
+            }
+            if (allEmpty)
+                return 0;
+            
+            constexpr bool ReturnsBool = false;
+            auto singleSemaphoreWait = [&](const std::chrono::time_point<Clock,Duration>& waitPoint) -> bool
+            {
+                const auto current_time = Clock::now();
+                if (waitPoint>current_time)
+                {
+                    const auto nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(waitPoint-current_time).count();
+                    if (m_device->waitForSemaphores(m_scratchWaitInfos,!ReturnsBool,nanosecondsLeft)==ISemaphore::WAIT_RESULT::SUCCESS)
+                        return true; // remeber that latch can move back, not signal though
+                }
+                //
+
+                return false;
+            };
+
+            if constexpr (ReturnsBool)
+            {
+                return 600;
+            }
+            else
+            {
+                if (singleSemaphoreWait(timeout_time))
+                {
+                    clear();
+                    return 0;
+                }
+            }
+
             return 455;
         }
-#endif
 
         inline void abortAll()
         {
             for (auto& p : m_timelines)
                 p.handler->abortAll();
             clear();
-        }
-        inline uint32_t abortOldest(const uint64_t upTo=~0ull)
-        {
-            uint32_t sum = 0;
-            for (auto& p : m_timelines)
-                sum += p.handler->abortOldest(upTo);
-            return sum;
-        }
-        inline uint32_t abortLatest(const uint64_t from=0ull)
-        {
-            uint32_t sum = 0;
-            for (auto& p : m_timelines)
-                sum += p.handler->abortLatest(from);
-            return sum;
         }
 
     private:
@@ -282,26 +342,18 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             size_t waitInfoIx;
         };
         // We use a `set<>` instead of `unordered_set<>` because we assume you won't spam semaphores/timelines
-        using container_t = core::set<STimeline>;
+        // also we need to be able to continue iteration after an erasure of a single element
+        using container_t = core::set<STimeline,std::less<void>/*quirk of STL*/>;
 
-        template<typename Lambda>
-        inline uint32_t for_each_erasing(Lambda&& l)
-        {
-            uint32_t sum = 0;
-            // we don't check erasing when l(*it)==false on purpose, it only happens in poll and the timeline semaphore is likely to get re-added
-            for (auto it=m_timelines.begin(); it!=m_timelines.end() && l(*it); )
-                it = it->handler->count() ? (it++):eraseTimeline(it);
-            return sum;
-        }
-
-        inline container_t::iterator eraseTimeline(container_t::iterator timeline)
+        inline container_t::iterator eraseTimeline(typename container_t::iterator timeline)
         {
             // if not the last in scratch
             if (timeline->waitInfoIx<m_scratchWaitInfos.size())
             {
                 // swap the mapping with the end scratch element
                 const auto& lastScratch = m_scratchWaitInfos.back();
-                m_timelines[lastScratch.semaphore].waitInfoIx = timeline->waitInfoIx;
+                typename container_t::iterator found = m_timelines.find(lastScratch.semaphore);
+//                found->waitInfoIx = timeline->waitInfoIx;
                 m_scratchWaitInfos[timeline->waitInfoIx] = lastScratch;
             }
             m_scratchWaitInfos.pop_back();
@@ -319,6 +371,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 
         container_t m_timelines;
         core::vector<ISemaphore::SWaitInfo> m_scratchWaitInfos;
+        core::smart_refctd_ptr<ILogicalDevice> m_device;
 };
 
 }
