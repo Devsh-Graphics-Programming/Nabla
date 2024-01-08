@@ -261,7 +261,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
 
 # Utilities
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IUtilities.cpp
