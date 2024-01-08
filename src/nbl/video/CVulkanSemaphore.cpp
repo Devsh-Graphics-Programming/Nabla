@@ -15,7 +15,7 @@ uint64_t CVulkanSemaphore::getCounterValue() const
 {
 	uint64_t retval = 0u;
 	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	vulkanDevice->getFunctionTable()->vk.vkGetSemaphoreCounterValueKHR(vulkanDevice->getInternalObject(), m_semaphore, &retval);
+	vulkanDevice->getFunctionTable()->vk.vkGetSemaphoreCounterValue(vulkanDevice->getInternalObject(), m_semaphore, &retval);
 	return retval;
 }
 
@@ -26,7 +26,7 @@ void CVulkanSemaphore::signal(const uint64_t value)
 	info.value = value;
 
 	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-	vulkanDevice->getFunctionTable()->vk.vkSignalSemaphoreKHR(vulkanDevice->getInternalObject(), &info);
+	vulkanDevice->getFunctionTable()->vk.vkSignalSemaphore(vulkanDevice->getInternalObject(), &info);
 }
 
 void CVulkanSemaphore::setObjectDebugName(const char* label) const
