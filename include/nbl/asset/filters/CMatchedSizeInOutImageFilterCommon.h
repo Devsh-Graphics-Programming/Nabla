@@ -24,7 +24,7 @@ namespace asset
 	@see IImageFilter
 */
 
-class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
+class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
 
@@ -142,8 +142,11 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(subresource,range,state->outImage))
 				return false;
 
-			// TODO: remove this later when we can actually write/encode to block formats
-			if (isBlockCompressionFormat(state->outImage->getCreationParameters().format))
+			const core::vectorSIMDu32 blockDims = asset::getBlockDimensions(state->inImage->getCreationParameters().format);
+			const core::vectorSIMDu32 inOffset = core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z, 0);
+			const core::vectorSIMDu32 outOffset = core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z, 0);
+
+			if (((inOffset % blockDims) != core::vectorSIMDu32(0, 0, 0, 0)).all() && ((outOffset % blockDims) != core::vectorSIMDu32(0, 0, 0, 0)).all())
 				return false;
 
 			return true;
@@ -165,7 +168,9 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 			const core::SRange<const IImage::SBufferCopy> inRegions;
 			const core::SRange<const IImage::SBufferCopy> outRegions;
 			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
-			core::vectorSIMDu32 offsetDifference, outByteStrides; 
+			core::vectorSIMDu32 offsetDifferenceInBlocks;
+			core::vectorSIMDu32 offsetDifferenceInTexels;
+			core::vectorSIMDu32 outByteStrides;
 		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
@@ -195,17 +200,23 @@ class NBL_API CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommo
 				outRegions.begin(), {}, {}
 			};
 
+			const asset::TexelBlockInfo srcImageTexelBlockInfo(commonExecuteData.inFormat);
+			const asset::TexelBlockInfo dstImageTexelBlockInfo(commonExecuteData.outFormat);
+
 			// iterate over output regions, then input cause read cache miss is faster
 			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
 			{
 				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 				state_type::TexelRange range = {state->inOffset,state->extent};
-				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.outFormat);
+				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.inFormat);
 				// setup convert state
-				// I know my two's complement wraparound well enough to make this work
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
-				commonExecuteData.offsetDifference = state->outOffsetBaseLayer - (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
-				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
+				const auto& inOffset = (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
+				const auto& inOffsetInBlocks = srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
+				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
+				commonExecuteData.offsetDifferenceInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks;
+				commonExecuteData.offsetDifferenceInTexels = state->outOffsetBaseLayer - inOffset;
+				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(dstImageTexelBlockInfo);
 				if (!perOutput(commonExecuteData,clip))
 					return false;
 			}

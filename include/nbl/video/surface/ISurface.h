@@ -16,7 +16,7 @@ namespace nbl::video
 
 class IPhysicalDevice;
 
-class NBL_API ISurface : public core::IReferenceCounted
+class ISurface : public core::IReferenceCounted
 {
     protected:
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
@@ -213,7 +213,7 @@ class NBL_API ISurface : public core::IReferenceCounted
 
 // Base for use with Nabla's window wrappers
 template<class Window, class ImmediateBase>
-class NBL_API CSurface : public ImmediateBase
+class CSurface : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final
@@ -234,7 +234,7 @@ class NBL_API CSurface : public ImmediateBase
 
 // Base to make surfaces directly from Native OS window handles
 template<class Window, class ImmediateBase>
-class NBL_API CSurfaceNative : public ImmediateBase
+class CSurfaceNative : public ImmediateBase
 {
     public:
         inline const void* getNativeWindowHandle() const override final

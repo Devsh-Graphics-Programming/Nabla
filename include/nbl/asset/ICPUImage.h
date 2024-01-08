@@ -17,7 +17,7 @@ namespace nbl
 namespace asset
 {
 
-class NBL_API ICPUImage final : public IImage, public IAsset
+class ICPUImage final : public IImage, public IAsset
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)
@@ -176,7 +176,10 @@ class NBL_API ICPUImage final : public IImage, public IAsset
 			assert(!isImmutable_debug());
 
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
+			{
+				assert(false);
 				return false;
+			}
 		
 			buffer = std::move(_buffer);
 			regions = _regions;

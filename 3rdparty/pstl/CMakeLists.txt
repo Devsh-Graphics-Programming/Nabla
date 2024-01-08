@@ -1,5 +1,9 @@
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # only non-multi-generators and clang supported
+if(NBL_BUILD_DPL AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # only non-multi-generators and clang ifsupported
 	get_filename_component(CCBD_ABSOLUTE "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+
+	if (NBL_BUILD_DPL)
+		set(_NBL_BUILD_DPL_ ${NBL_BUILD_DPL})
+	endif()
 
 	set(TBB_INSTALL_VARS ON CACHE BOOL "" FORCE)
 	set(TBB_TEST OFF CACHE BOOL "" FORCE)
@@ -45,7 +49,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang") # only non-multi-generators and clang
 		SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/oneDPL
 		BINARY_DIR ${ONEDPL_BUILD}
 		CMAKE_ARGS ${CMAKE_ARGS_ONEDPL}
-		BUILD_COMMAND cmake --build ${ONEDPL_BUILD} --target build-all
+		BUILD_COMMAND cmake --build ${ONEDPL_BUILD}
 		INSTALL_COMMAND cmake --install ${ONEDPL_BUILD} --prefix ${ONEDPL_INSTALL_DIR}
 		USES_TERMINAL_BUILD 1
 		COMMENT "Building oneDPL..."

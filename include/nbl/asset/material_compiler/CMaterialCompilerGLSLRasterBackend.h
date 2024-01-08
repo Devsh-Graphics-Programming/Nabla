@@ -10,7 +10,7 @@
 namespace nbl::asset::material_compiler
 {
 
-class NBL_API CMaterialCompilerGLSLRasterBackend : public CMaterialCompilerGLSLBackendCommon
+class CMaterialCompilerGLSLRasterBackend : public CMaterialCompilerGLSLBackendCommon
 {
         using base_t = CMaterialCompilerGLSLBackendCommon;
 

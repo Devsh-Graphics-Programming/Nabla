@@ -33,7 +33,7 @@ namespace asset
 namespace impl
 {
 
-class NBL_API CDirQuantCacheBase
+class CDirQuantCacheBase
 {
 	public:
 		struct alignas(uint8_t) Vector8u3
@@ -213,29 +213,29 @@ class NBL_API CDirQuantCacheBase
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R8G8B8_SNORM>
 {
 	typedef Vector8u3 type;
 };
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R8G8B8A8_SNORM>
 {
 	typedef Vector8u4 type;
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
+struct CDirQuantCacheBase::value_type<EF_A2B10G10R10_SNORM_PACK32>
 {
 	typedef Vector1010102 type;
 };
 
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R16G16B16_SNORM>
 {
 	typedef Vector16u3 type;
 };
 template<> 
-struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
+struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 {
 	typedef Vector16u4 type;
 };
@@ -244,7 +244,7 @@ struct NBL_API CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 
 
 template<typename Key, class Hash, E_FORMAT... Formats>
-class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
+class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 { 
 	public:
 		template<E_FORMAT CacheFormat>
@@ -317,11 +317,9 @@ class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			system->createFile(future,path,nbl::system::IFile::ECF_READ);
-			auto file = future.get();
-			if (!file) 
-				return false;
-
-			return loadCacheFromFile<CacheFormat>(file.get(),replaceCurrentContents);
+			if (auto file=future.acquire())
+				return loadCacheFromFile<CacheFormat>(file->get(),replaceCurrentContents);
+			return false;
 		}
 
 		//!
@@ -363,11 +361,9 @@ class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		{
 			system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
 			system->createFile(future, path, nbl::system::IFile::ECF_WRITE);
-			auto file = future.get();
-			if (!file)
-				return false;
-
-			return bool(saveCacheToFile<CacheFormat>(file.get()));
+			if (auto file=future.acquire())
+				return bool(saveCacheToFile<CacheFormat>(file->get()));
+			return false;
 		}
 
 		//!
@@ -431,9 +427,9 @@ class NBL_API CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				//
 				const float maxDirectionComp = value[maxDirCompIndex];
 				//max component of 3d normal cannot be less than sqrt(1/D)
-				if (maxDirectionComp <= sqrtf(1.f/float(dimensions)))
+				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
 				{
-					//_NBL_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return core::vectorSIMDf(0.f);
 				}
 				fittingVector = value.preciseDivision(core::vectorSIMDf(maxDirectionComp));

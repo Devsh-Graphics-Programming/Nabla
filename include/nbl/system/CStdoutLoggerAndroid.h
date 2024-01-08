@@ -7,10 +7,10 @@ namespace nbl::system
 {
 
 #ifdef _NBL_PLATFORM_ANDROID_
-class NBL_API CStdoutLoggerAndroid : public IThreadsafeLogger
+class CStdoutLoggerAndroid : public IThreadsafeLogger
 {
 	public:
-		CStdoutLoggerAndroid(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+		CStdoutLoggerAndroid(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::DefaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
 	private:
 		void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override;

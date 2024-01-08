@@ -14,17 +14,17 @@ namespace nbl::core
 {
 
     template<typename AddressType>
-    struct NBL_API address_type_traits;
+    struct address_type_traits;
 
     template<>
-    struct NBL_API address_type_traits<uint32_t>
+    struct address_type_traits<uint32_t>
     {
         address_type_traits() = delete;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t   invalid_address = 0xdeadbeefu;
     };
 
     template<>
-    struct NBL_API address_type_traits<uint64_t>
+    struct address_type_traits<uint64_t>
     {
         address_type_traits() = delete;
         _NBL_STATIC_INLINE_CONSTEXPR uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
@@ -37,7 +37,7 @@ namespace nbl::core
         struct address_allocator_traits_base;
         //provide default traits
         template<class AddressAlloc>
-        struct NBL_API address_allocator_traits_base<AddressAlloc,false>
+        struct address_allocator_traits_base<AddressAlloc,false>
         {
             typedef typename AddressAlloc::size_type size_type;
 
@@ -72,7 +72,7 @@ namespace nbl::core
         };
         //forward existing traits
         template<class AddressAlloc>
-        struct NBL_API address_allocator_traits_base<AddressAlloc,true>
+        struct address_allocator_traits_base<AddressAlloc,true>
         {
             typedef typename AddressAlloc::size_type size_type;
 
@@ -99,7 +99,7 @@ namespace nbl::core
 
     //! TODO: https://en.cppreference.com/w/cpp/experimental/is_detected
     template<class AddressAlloc>
-    class NBL_API address_allocator_traits : protected AddressAlloc //maybe private?
+    class address_allocator_traits : protected AddressAlloc //maybe private?
     {
         public:
             typedef AddressAlloc                        allocator_type;
@@ -155,6 +155,7 @@ namespace nbl::core
             _NBL_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
             _NBL_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
 
+            // TODO: make the printer customizable without making a `core`->`system` circular dep
             static inline void          printDebugInfo()
             {
                 printf("has_func_multi_alloc_addr : %s\n",                  has_func_multi_alloc_addr<AddressAlloc>::value ? "true":"false");

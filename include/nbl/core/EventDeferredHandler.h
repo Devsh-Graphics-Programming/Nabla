@@ -12,7 +12,7 @@ namespace nbl::core
 {
 
 template<class Event, class Functor>
-struct NBL_API DeferredEvent
+struct DeferredEvent
 {
     using event_t = Event;
     using functor_t = Functor;
@@ -37,7 +37,7 @@ struct NBL_API DeferredEvent
     functor_t m_function;
 };
 
-class NBL_API PolymorphicEvent : public core::Uncopyable
+class PolymorphicEvent : public core::Uncopyable
 {
     protected:
         PolymorphicEvent() = default;
@@ -67,7 +67,7 @@ using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*,std:
 
 
 template<class DeferredEvent>
-class NBL_API DeferredEventHandlerST
+class DeferredEventHandlerST
 {
     protected:
         using EventContainerType = core::forward_list<DeferredEvent>;

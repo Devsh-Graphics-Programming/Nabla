@@ -1,91 +1,75 @@
-[submodule "3rdparty/SPIRV-Headers"]
-	path = 3rdparty/SPIRV-Headers
-	url = https://github.com/KhronosGroup/SPIRV-Headers.git
-[submodule "3rdparty/SPIRV-Tools"]
-	path = 3rdparty/SPIRV-Tools
-	url = https://github.com/KhronosGroup/SPIRV-Tools.git
 [submodule "3rdparty/glslang"]
 	path = 3rdparty/glslang
-	url = https://github.com/devshgraphicsprogramming/glslang.git
+	url = git@github.com:devshgraphicsprogramming/glslang.git
 	branch = nabla
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
-	url = https://github.com/google/shaderc.git
+	url = git@github.com:Devsh-Graphics-Programming/shaderc.git
 [submodule "3rdparty/bzip2"]
 	path = 3rdparty/bzip2
-	url = https://github.com/sergiud/bzip2.git
+	url = git@github.com:Devsh-Graphics-Programming/bzip2.git
 [submodule "3rdparty/lz4"]
 	path = 3rdparty/lz4
-	url = https://github.com/lz4/lz4.git
+	url = git@github.com:Devsh-Graphics-Programming/lz4.git
 [submodule "3rdparty/zlib"]
 	path = 3rdparty/zlib
-	url = https://github.com/madler/zlib.git
+	url = git@github.com:Devsh-Graphics-Programming/zlib.git
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
-	url = https://github.com/glennrp/libpng.git
+	url = git@github.com:Devsh-Graphics-Programming/libpng.git
 [submodule "3rdparty/openssl/openssl"]
 	path = 3rdparty/openssl/openssl
-	url = https://github.com/openssl/openssl.git
+	url = git@github.com:Devsh-Graphics-Programming/openssl.git
 	branch = OpenSSL_1_0_2-stable
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
-	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
-[submodule "3rdparty/bullet3"]
-	path = 3rdparty/bullet3
-	url = https://github.com/bulletphysics/bullet3.git
+	url = git@github.com:Devsh-Graphics-Programming/libjpeg-turbo.git
 [submodule "3rdparty/portable-file-dialogs"]
 	path = 3rdparty/portable-file-dialogs
-	url = https://github.com/samhocevar/portable-file-dialogs.git
+	url = git@github.com:Devsh-Graphics-Programming/portable-file-dialogs.git
 [submodule "3rdparty/libexpat"]
 	path = 3rdparty/libexpat
-	url = https://github.com/libexpat/libexpat.git
+	url = git@github.com:Devsh-Graphics-Programming/libexpat.git
 	branch = master
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
-	url = https://github.com/AnastaZIuk/glm.git
+	url = git@github.com:AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
-	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
+	url = git@github.com:Devsh-Graphics-Programming/freetype.git
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
-	url = https://github.com/AcademySoftwareFoundation/openexr.git
+	url = git@github.com:Devsh-Graphics-Programming/openexr.git
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
-	url = https://github.com/g-truc/gli.git
+	url = git@github.com:Devsh-Graphics-Programming/gli.git
 [submodule "3rdparty/parallel-hashmap"]
 	path = 3rdparty/parallel-hashmap
-	url = https://github.com/greg7mdp/parallel-hashmap
-[submodule "3rdparty/radeonrays"]
-	path = 3rdparty/radeonrays
-	url = git@github.com:devshgraphicsprogramming/RadeonRays_SDK.git
-	branch = baw
+	url = git@github.com:Devsh-Graphics-Programming/parallel-hashmap.git
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
-	url = https://github.com/NVIDIA/jitify
+	url = git@github.com:Devsh-Graphics-Programming/jitify.git
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
-	url = https://github.com/zeux/volk.git
-[submodule "3rdparty/EGL"]
-	path = 3rdparty/EGL
-	url = https://github.com/Crisspl/EGL.git
+	url = git@github.com:Devsh-Graphics-Programming/volk.git
 [submodule "3rdparty/simdjson"]
 	path = 3rdparty/simdjson
-	url = https://github.com/simdjson/simdjson.git
+	url = git@github.com:Devsh-Graphics-Programming/simdjson.git
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
-	url = https://github.com/KhronosGroup/glTF-Sample-Models.git
+	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
-	url = https://github.com/devshgraphicsprogramming/SPIRV-Cross.git
+	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
 [submodule "3rdparty/pstl/oneTBB"]
 	path = 3rdparty/pstl/oneTBB
-	url = https://github.com/Devsh-Graphics-Programming/oneTBB.git
+	url = git@github.com:Devsh-Graphics-Programming/oneTBB.git
 [submodule "3rdparty/pstl/oneDPL/oneDPL"]
 	path = 3rdparty/pstl/oneDPL/oneDPL
-	url = https://github.com/Devsh-Graphics-Programming/oneDPL.git
+	url = git@github.com:Devsh-Graphics-Programming/oneDPL.git
 [submodule "3rdparty/Vulkan-Headers"]
 	path = 3rdparty/Vulkan-Headers
-	url = git@github.com:KhronosGroup/Vulkan-Headers.git
+	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Headers.git
 	branch = main
 [submodule "examples_tests"]
 	path = examples_tests
@@ -93,3 +77,22 @@
 [submodule "3rdparty/msdfgen"]
 	path = 3rdparty/msdfgen
 	url = https://github.com/Chlumsky/msdfgen
+[submodule "3rdparty/dxc/dxc"]
+	path = 3rdparty/dxc/dxc
+	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
+	branch = devshFixes
+[submodule "3rdparty/tcpp"]
+	path = 3rdparty/tcpp
+	url = git@github.com:Erfan-Ahmadi/tcpp.git
+[submodule "3rdparty/imgui"]
+	path = 3rdparty/imgui
+	url = git@github.com:Devsh-Graphics-Programming/imgui.git
+[submodule "3rdparty/implot"]
+	path = 3rdparty/implot
+	url = git@github.com:Devsh-Graphics-Programming/implot.git
+[submodule "tests"]
+	path = tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
+[submodule "3rdparty/boost/superproject"]
+	path = 3rdparty/boost/superproject
+	url = git@github.com:boostorg/boost.git

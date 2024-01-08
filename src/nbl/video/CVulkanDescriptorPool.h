@@ -12,8 +12,8 @@ class ILogicalDevice;
 class CVulkanDescriptorPool : public IDescriptorPool
 {
 public:
-    CVulkanDescriptorPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, uint32_t maxSets, VkDescriptorPool descriptorPool)
-        : IDescriptorPool(std::move(dev), maxSets), m_descriptorPool(descriptorPool)
+    CVulkanDescriptorPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, IDescriptorPool::SCreateInfo&& createInfo, VkDescriptorPool descriptorPool)
+        : IDescriptorPool(std::move(dev), std::move(createInfo)), m_descriptorPool(descriptorPool)
     {}
 
     ~CVulkanDescriptorPool();
@@ -23,6 +23,9 @@ public:
     void setObjectDebugName(const char* label) const override;
 
 private:
+    bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets *const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) override;
+    bool reset_impl() override;
+
     VkDescriptorPool m_descriptorPool;
 };
 

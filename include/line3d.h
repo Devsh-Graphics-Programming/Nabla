@@ -15,7 +15,7 @@ namespace core
 
 //! 3D line between two points with intersection methods.
 template <class T>
-class NBL_API line3d// : public AllocationOverrideDefault
+class line3d// : public AllocationOverrideDefault
 {
 	public:
 

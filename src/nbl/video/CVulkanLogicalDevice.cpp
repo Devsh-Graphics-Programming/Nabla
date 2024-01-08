@@ -177,9 +177,12 @@ bool CVulkanLogicalDevice::createCommandBuffers_impl(IGPUCommandPool* cmdPool, I
     {
         for (uint32_t i = 0u; i < count; ++i)
         {
+            const auto* debugCb = m_physicalDevice->getDebugCallback();
+
             outCmdBufs[i] = core::make_smart_refctd_ptr<CVulkanCommandBuffer>(
                 core::smart_refctd_ptr<ILogicalDevice>(this), level, vk_commandBuffers[i],
-                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool));
+                core::smart_refctd_ptr<IGPUCommandPool>(cmdPool),
+                debugCb ? core::smart_refctd_ptr<system::ILogger>(debugCb->getLogger()) : nullptr);
         }
 
         return true;
@@ -194,7 +197,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage(IGPUImage::S
 {
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // there are a lot of extensions
-    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags);
+    vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
     vk_createInfo.extent = { params.extent.width, params.extent.height, params.extent.depth };
@@ -264,7 +267,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
 
     // Shader stages
     uint32_t shaderStageCount_total = 0u;
-    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStages(params.size() * IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT);
     uint32_t specInfoCount_total = 0u;
     core::vector<VkSpecializationInfo> vk_specInfos(vk_shaderStages.size());
     constexpr uint32_t MAX_MAP_ENTRIES_PER_SHADER = 100u;
@@ -313,7 +316,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
         vk_createInfos[i].flags = static_cast<VkPipelineCreateFlags>(creationParams[i].createFlags.value);
 
         uint32_t shaderStageCount = 0u;
-        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++ss)
+        for (uint32_t ss = 0u; ss < IGPURenderpassIndependentPipeline::GRAPHICS_SHADER_STAGE_COUNT; ++ss)
         {
             const IGPUSpecializedShader* shader = rpIndie->getShaderAtIndex(ss);
             if (!shader || shader->getAPIType() != EAT_VULKAN)
@@ -586,8 +589,7 @@ bool CVulkanLogicalDevice::createGraphicsPipelines_impl(
 
 core::smart_refctd_ptr<IGPUAccelerationStructure> CVulkanLogicalDevice::createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) 
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     
     if(!features.accelerationStructure)
     {
@@ -613,8 +615,7 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
     const core::SRange<IGPUAccelerationStructure::HostBuildGeometryInfo>& pInfos,
     IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructure)
     {
         assert(false && "device acceleration structures is not enabled.");
@@ -662,8 +663,7 @@ bool CVulkanLogicalDevice::buildAccelerationStructures(
 
 bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");
@@ -692,8 +692,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructure(core::smart_refctd_ptr<IDef
     
 bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");
@@ -723,8 +722,7 @@ bool CVulkanLogicalDevice::copyAccelerationStructureToMemory(core::smart_refctd_
 
 bool CVulkanLogicalDevice::copyAccelerationStructureFromMemory(core::smart_refctd_ptr<IDeferredOperation>&& deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
 {
-    auto physicalDevice = static_cast<const CVulkanPhysicalDevice*>(getPhysicalDevice());
-    auto features = physicalDevice->getFeatures();
+    auto features = getEnabledFeatures();
     if(!features.accelerationStructureHostCommands || !features.accelerationStructure)
     {
         assert(false && "device accelerationStructuresHostCommands is not enabled.");

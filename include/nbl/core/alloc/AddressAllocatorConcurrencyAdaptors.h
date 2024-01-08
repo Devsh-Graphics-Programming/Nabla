@@ -15,7 +15,7 @@ namespace core
 
 //! TODO: Solve priority inversion issue by providing a default FIFO and recursive lock/mutex
 template<class AddressAllocator, class RecursiveLockable>
-class NBL_API AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
+class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 {
         static_assert(std::is_standard_layout<RecursiveLockable>::value,"Lock class is not standard layout");
         RecursiveLockable lock;

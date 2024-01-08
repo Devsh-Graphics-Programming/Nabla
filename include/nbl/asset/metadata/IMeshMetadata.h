@@ -13,7 +13,7 @@ namespace asset
 {
 
 //! 
-class NBL_API IMeshMetadata : public core::Interface
+class IMeshMetadata : public core::Interface
 {
 	public:
 		struct SInstance

@@ -15,7 +15,7 @@ using ScanClass = ext::Scan::Scan<uint32_t>;
 typedef uint32_t uint;
 #include "nbl/builtin/glsl/ext/RadixSort/parameters_struct.glsl"
 
-class NBL_API RadixSort final : public core::IReferenceCounted
+class RadixSort final : public core::IReferenceCounted
 {
 public:
 	static inline const uint32_t DEFAULT_WORKGROUP_SIZE = 256u;
@@ -122,7 +122,7 @@ public:
 			ds_info[i].desc = descriptor_ranges[i].buffer;
 			ds_info[i].buffer = { descriptor_ranges[i].offset, descriptor_ranges[i].size };
 
-			writes[i] = { ds, i, 0u, 1u, asset::EDT_STORAGE_BUFFER, ds_info + i };
+			writes[i] = { ds, i, 0u, 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, ds_info + i };
 		}
 
 		driver->updateDescriptorSets(count, writes, 0u, nullptr);

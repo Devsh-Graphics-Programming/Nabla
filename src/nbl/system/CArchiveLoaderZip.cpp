@@ -106,7 +106,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			return nullptr;
 	}
 
-	core::vector<IFileArchive::SListEntry> items;
+	std::shared_ptr<core::vector<IFileArchive::SFileList::SEntry>> items = std::make_shared<core::vector<IFileArchive::SFileList::SEntry>>();
 	core::vector<SZIPFileHeader> itemsMetadata;
 	// load file entries
 	{
@@ -119,7 +119,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 			if (_path.empty())
 				return;
 
-			auto& item = items.emplace_back();
+			auto& item = items->emplace_back();
 			item.pathRelativeToArchive = _path;
 			item.size = meta.DataDescriptor.UncompressedSize;
 			item.offset = offset;
@@ -139,7 +139,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&c,offset,sizeof(c));
 				if (!success)
 					return false;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 				charCallback(c);
 			}
 			// if string is not null terminated, something went wrong reading the file
@@ -157,7 +157,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&gzipHeader,0ull,sizeof(gzipHeader));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 
 			//! The gzip file format seems to think that there can be multiple files in a gzip file
@@ -174,7 +174,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&dataLen,offset,sizeof(dataLen));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 				// skip the extra data
 				offset += dataLen;
 			}
@@ -211,7 +211,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&header.DataDescriptor.CRC32,offset,sizeof(header.DataDescriptor.CRC32));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 			// read uncompressed size
 			{
@@ -219,7 +219,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 				file->read(success,&header.DataDescriptor.UncompressedSize,offset,sizeof(header.DataDescriptor.UncompressedSize));
 				if (!success)
 					return nullptr;
-				offset += success.getSizeToProcess();
+				offset += success.getBytesToProcess();
 			}
 
 			//
@@ -235,7 +235,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 					file->read(success,&zipHeader,offset,sizeof(zipHeader));
 					if (!success)
 						break;
-					offset += success.getSizeToProcess();
+					offset += success.getBytesToProcess();
 				}
 
 				if (zipHeader.Sig!=0x04034b50u)
@@ -247,7 +247,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 					file->read(success,filename.data(),offset,zipHeader.FilenameLength);
 					if (!success)
 						break;
-					offset += success.getSizeToProcess();
+					offset += success.getBytesToProcess();
 				}
 
 				// AES encryption
@@ -265,7 +265,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 							file->read(success,&extraHeader,localOffset,sizeof(extraHeader));
 							if (!success)
 								break;
-							localOffset += success.getSizeToProcess();
+							localOffset += success.getBytesToProcess();
 							if (localOffset>offset)
 								break;
 						}
@@ -278,7 +278,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 							file->read(success,&data,localOffset,sizeof(data));
 							if (!success)
 								break;
-							localOffset += success.getSizeToProcess();
+							localOffset += success.getBytesToProcess();
 							if (localOffset>offset)
 								break;
 						}
@@ -316,7 +316,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 						if (!success)
 							return nullptr;
 					}
-					items.reserve(dirEnd.TotalEntries);
+					items->reserve(dirEnd.TotalEntries);
 					itemsMetadata.reserve(dirEnd.TotalEntries);
 					offset = dirEnd.Offset;
 					#if 0
@@ -333,11 +333,11 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderZip::createArchive_impl(core:
 		}
 	}
 
-	assert(items.size()==itemsMetadata.size());
-	if (items.empty())
+	assert(items->size()==itemsMetadata.size());
+	if (items->empty())
 		return nullptr;
 
-	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()),std::move(items),std::move(itemsMetadata));
+	return core::make_smart_refctd_ptr<CArchive>(std::move(file),core::smart_refctd_ptr(m_logger.get()), items, std::move(itemsMetadata));
 }
 
 #if 0
@@ -367,7 +367,7 @@ bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 }
 #endif
 
-CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SListEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
 {
 	const auto& header = m_itemsMetadata[item->ID];
 	// Nabla supports 0, 8, 12, 14, 99

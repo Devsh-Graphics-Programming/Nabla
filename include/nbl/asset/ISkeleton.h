@@ -5,6 +5,7 @@
 #ifndef _NBL_ASSET_I_SKELETON_H_INCLUDED_
 #define _NBL_ASSET_I_SKELETON_H_INCLUDED_
 
+#include "nbl/asset/IBuffer.h"
 #include "nbl/macros.h"
 
 #include "nbl/core/declarations.h"
@@ -17,7 +18,7 @@ namespace nbl::asset
 * joints. The two attributes are parent joint IDs and Bind Pose matrices.
 */
 template <class BufferType>
-class NBL_API ISkeleton : public virtual core::IReferenceCounted
+class ISkeleton : public virtual core::IReferenceCounted
 {
 	public:
 		using joint_id_t = uint32_t;

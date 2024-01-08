@@ -6,13 +6,14 @@
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/IBuffer.h"
+#include "nbl/core/util/bitflag.h"
 
 #include "nbl/asset/IDescriptor.h"
 
 namespace nbl::asset
 {
 
-class NBL_API IBuffer : public core::IBuffer, public IDescriptor
+class IBuffer : public core::IBuffer, public IDescriptor
 {
 	public:
 		E_CATEGORY getTypeCategory() const override {return EC_BUFFER;}
@@ -31,8 +32,9 @@ class NBL_API IBuffer : public core::IBuffer, public IDescriptor
             EUF_VERTEX_BUFFER_BIT = 0x00000080,
             EUF_INDIRECT_BUFFER_BIT = 0x00000100,
             EUF_SHADER_DEVICE_ADDRESS_BIT = 0x00020000,
-            EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT = 0x00000800,
-            EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT = 0x00001000,
+            // we will not expose transform feedback
+			//EUF_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT = 0x00000800,
+            //EUF_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT = 0x00001000,
             EUF_CONDITIONAL_RENDERING_BIT_EXT = 0x00000200,
             EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT = 0x00080000,
             EUF_ACCELERATION_STRUCTURE_STORAGE_BIT = 0x00100000,
@@ -62,8 +64,10 @@ class NBL_API IBuffer : public core::IBuffer, public IDescriptor
 		SCreationParams m_creationParams;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IBuffer::E_USAGE_FLAGS)
+
 template<class BufferType>
-struct NBL_API SBufferBinding
+struct SBufferBinding
 {
 	bool isValid() const
 	{
@@ -78,7 +82,7 @@ struct NBL_API SBufferBinding
 };
 
 template<typename BufferType>
-struct NBL_API SBufferRange
+struct SBufferRange
 {
 	// Temp Fix, If you want to uncomment this then fix every example having compile issues -> add core::smart_refctd_ptr around the buffer to be an r-value ref
 	// SBufferRange(const size_t& _offset, const size_t& _size, core::smart_refctd_ptr<BufferType>&& _buffer)

@@ -16,7 +16,7 @@ namespace nbl::scene
 {
 
 
-class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
+class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation
@@ -26,19 +26,28 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			auto system = device->getPhysicalDevice()->getSystem();
 			auto createShader = [&system,&device](auto uniqueString, asset::IShader::E_SHADER_STAGE type=asset::IShader::ESS_COMPUTE) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 			{
-				auto glslFile = system->loadBuiltinData<decltype(uniqueString)>();
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				auto glslFile = loadBuiltinData(uniqueString);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
 					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
-				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl),asset::IShader::buffer_contains_glsl_t{}, type, ""));
+				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, ""));
 				return device->createSpecializedShader(shader.get(),{nullptr,nullptr,"main"});
 			};
 
-			auto updateSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/skinning/cache_update.comp")());
-			auto debugDrawVertexSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/glsl/skinning/debug.vert")(),asset::IShader::ESS_VERTEX);
-			auto debugDrawFragmentSpec = createShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")(),asset::IShader::ESS_FRAGMENT);
+			auto updateSpec = createShader("nbl/builtin/glsl/skinning/cache_update.comp");
+			auto debugDrawVertexSpec = createShader("nbl/builtin/glsl/skinning/debug.vert",asset::IShader::ESS_VERTEX);
+			auto debugDrawFragmentSpec = createShader("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",asset::IShader::ESS_FRAGMENT);
 			if (!updateSpec || !debugDrawVertexSpec || !debugDrawFragmentSpec)
 				return nullptr;
 
@@ -363,7 +372,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createCacheUpdateDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[CacheUpdateDescriptorBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,CacheUpdateDescriptorBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+CacheUpdateDescriptorBindingCount);
 		}
 		// first uint in the `skinsToUpdate` buffer tells us how many skinCache entries to update we have
@@ -383,7 +392,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			infos[0] = skinsToUpdate;
@@ -420,7 +429,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDebugDrawDescriptorSetLayout(video::ILogicalDevice* device, asset::IShader::E_SHADER_STAGE* stageAccessFlags=nullptr)
 		{
 			video::IGPUDescriptorSetLayout::SBinding bindings[DebugDrawDescriptorBindingCount];
-			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,nullptr,stageAccessFlags);
+			video::IGPUDescriptorSetLayout::fillBindingsSameType(bindings,DebugDrawDescriptorBindingCount,asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,nullptr,stageAccessFlags);
 			return device->createDescriptorSetLayout(bindings,bindings+DebugDrawDescriptorBindingCount);
 		}
 		//
@@ -446,7 +455,7 @@ class NBL_API ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
 				writes[i].count = 1u;
-				writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].info = infos+i;
 			}
 			infos[0] = transformTree->getNodePropertyPool()->getPropertyMemoryBlock(scene::ITransformTree::parent_prop_ix);

@@ -20,7 +20,7 @@ namespace nbl::video
 namespace impl
 {
 template<class HeterogenousMemoryAddressAllocator, class CustomDeferredFreeFunctor=void>
-class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
+class SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenousMemoryAddressAllocatorAdaptor
 {
     public:
         typedef typename HeterogenousMemoryAddressAllocator::OtherAllocatorType GPUBufferAllocator;
@@ -97,7 +97,7 @@ class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenou
                     if (rangeData)
                     {
                         auto alloctr = sadbRef->getFunctorAllocator();
-                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
+                        alloctr.deallocate(reinterpret_cast<std::remove_pointer_t<decltype(alloctr)>::pointer>(rangeData),numAllocs);
                     }
                 }
 
@@ -107,7 +107,7 @@ class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenou
                     if (rangeData) // could swap the values instead
                     {
                         auto alloctr = sadbRef->getFunctorAllocator();
-                        alloctr.deallocate(reinterpret_cast<typename std::remove_pointer<decltype(alloctr)>::type::pointer>(rangeData),numAllocs);
+                        alloctr.deallocate(reinterpret_cast<std::remove_pointer_t<decltype(alloctr)>::pointer>(rangeData),numAllocs);
                     }
                     sadbRef    = other.sadbRef;
                     rangeData   = other.rangeData;
@@ -148,7 +148,7 @@ class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenou
                 }
         };
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
-        using DeferredFreeFunctor = typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type;
+        using DeferredFreeFunctor = std::conditional_t<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>;
         GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
         core::allocator<std::tuple<size_type,size_type,void*> > functorAllocator; // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty do
     public:
@@ -196,13 +196,13 @@ class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenou
         }
 
         //!
-        inline void         cull_frees() noexcept
+        inline uint32_t         cull_frees() noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.cullEvents(0u);
+            return deferredFrees.cullEvents(0u);
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
@@ -283,7 +283,7 @@ class NBL_API SubAllocatedDataBuffer : protected core::impl::FriendOfHeterogenou
 
 // this buffer is not growable
 template< typename _size_type=uint32_t, class BasicAddressAllocator=core::GeneralpurposeAddressAllocator<_size_type>, class GPUBufferAllocator=SimpleGPUBufferAllocator, class CPUAllocator=core::allocator<uint8_t> >
-class NBL_API SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
+class SubAllocatedDataBufferST : public core::IReferenceCounted, public impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator, GPUBufferAllocator, CPUAllocator> >
 {
         using Base = impl::SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<BasicAddressAllocator,GPUBufferAllocator,CPUAllocator> >;
     protected:

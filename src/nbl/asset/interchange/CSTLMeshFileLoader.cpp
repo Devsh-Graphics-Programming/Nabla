@@ -104,8 +104,8 @@ void CSTLMeshFileLoader::initialize()
 
 			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 			{
-				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
-				mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
+				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
+				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
 			}
 
 			asset::SAssetBundle newPipelineBundle(nullptr, {core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline)});
@@ -354,27 +354,21 @@ void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec
 	if (binary)
 	{
 		{
-			system::ISystem::future_t<size_t> future;
-			context->inner.mainFile->read(future, &vec.X, context->fileOffset, 4);
-
-			const auto bytesRead = future.get();
-			context->fileOffset += bytesRead;
+			system::IFile::success_t success;
+			context->inner.mainFile->read(success, &vec.X, context->fileOffset, 4);
+			context->fileOffset += success.getBytesProcessed();
 		}
 		
 		{
-			system::ISystem::future_t<size_t> future;
-			context->inner.mainFile->read(future, &vec.Y, context->fileOffset, 4);
-			
-			const auto bytesRead = future.get();
-			context->fileOffset += bytesRead;
+			system::IFile::success_t success;
+			context->inner.mainFile->read(success, &vec.Y, context->fileOffset, 4);
+			context->fileOffset += success.getBytesProcessed();
 		}
 
 		{
-			system::ISystem::future_t<size_t> future;
-			context->inner.mainFile->read(future, &vec.Z, context->fileOffset, 4);
-			
-			const auto bytesRead = future.get();
-			context->fileOffset += bytesRead;
+			system::IFile::success_t success;
+			context->inner.mainFile->read(success, &vec.Z, context->fileOffset, 4);
+			context->fileOffset += success.getBytesProcessed();
 		}
 	}
 	else
@@ -401,10 +395,9 @@ const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::stri
 
 	while (context->fileOffset != context->inner.mainFile->getSize())
 	{
-		system::ISystem::future_t<size_t> future;
-		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
-		const auto bytesRead = future.get();
-		context->fileOffset += bytesRead;
+		system::IFile::success_t success;
+		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
+		context->fileOffset += success.getBytesProcessed();
 
 		// found it, so leave
 		if (core::isspace(c))
@@ -420,15 +413,14 @@ void CSTLMeshFileLoader::goNextWord(SContext* context) const
 	uint8_t c;
 	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		system::ISystem::future_t<size_t> future;
-		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
-		const auto bytesRead = future.get();
-		context->fileOffset += bytesRead;
+		system::IFile::success_t success;
+		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
+		context->fileOffset += success.getBytesProcessed();
 
 		// found it, so leave
 		if (!core::isspace(c))
 		{
-			context->fileOffset -= bytesRead;
+			context->fileOffset -= success.getBytesProcessed();
 			break;
 		}
 	}
@@ -441,12 +433,9 @@ void CSTLMeshFileLoader::goNextLine(SContext* context) const
 	// look for newline characters
 	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
 	{
-		system::ISystem::future_t<size_t> future;
-		context->inner.mainFile->read(future, &c, context->fileOffset, sizeof(c));
-		{
-			const auto bytesRead = future.get();
-			context->fileOffset += bytesRead;
-		}
+		system::IFile::success_t success;
+		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
+		context->fileOffset += success.getBytesProcessed();
 
 		// found it, so leave
 		if (c == '\n' || c == '\r')

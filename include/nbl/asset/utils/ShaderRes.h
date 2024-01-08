@@ -54,51 +54,51 @@ enum E_GLSL_VAR_TYPE
 };
 
 template<E_SHADER_RESOURCE_TYPE restype>
-struct NBL_API SShaderResource;
+struct SShaderResource;
 
 template<>
-struct NBL_API SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
+struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 {
     bool multisample;
     IImageView<ICPUImage>::E_TYPE viewType;
     bool shadow;
 };
 template<>
-struct NBL_API SShaderResource<ESRT_SAMPLED_IMAGE>
+struct SShaderResource<ESRT_SAMPLED_IMAGE>
 {
 
 };
 template<>
-struct NBL_API SShaderResource<ESRT_STORAGE_IMAGE>
+struct SShaderResource<ESRT_STORAGE_IMAGE>
 {
     E_FORMAT format;
     IImageView<ICPUImage>::E_TYPE viewType;
     bool shadow;
 };
 template<>
-struct NBL_API SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
+struct SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
 {
 
 };
 template<>
-struct NBL_API SShaderResource<ESRT_STORAGE_TEXEL_BUFFER>
+struct SShaderResource<ESRT_STORAGE_TEXEL_BUFFER>
 {
 
 };
 template<>
-struct NBL_API SShaderResource<ESRT_SAMPLER>
+struct SShaderResource<ESRT_SAMPLER>
 {
 
 };
 template<>
-struct NBL_API SShaderResource<ESRT_INPUT_ATTACHMENT>
+struct SShaderResource<ESRT_INPUT_ATTACHMENT>
 {
     uint32_t inputAttachmentIndex;
 };
 
 namespace impl
 {
-struct NBL_API SShaderMemoryBlock
+struct SShaderMemoryBlock
 {
     bool restrict_;
     bool volatile_;
@@ -137,9 +137,6 @@ struct NBL_API SShaderMemoryBlock
 
     SMember::SMembers members;
 
-    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
-    std::string name;
-
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.
     size_t size;
@@ -154,26 +151,28 @@ struct NBL_API SShaderMemoryBlock
 }
 
 template<>
-struct NBL_API SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
+struct SShaderResource<ESRT_UNIFORM_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
 template<>
-struct NBL_API SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
+struct SShaderResource<ESRT_STORAGE_BUFFER> : public impl::SShaderMemoryBlock
 {
 
 };
 
 
 //! push-constants are treated seprately (see SIntrospectionData in ICPUShader.h)
-struct NBL_API SShaderPushConstant : public impl::SShaderMemoryBlock
+struct SShaderPushConstant : public impl::SShaderMemoryBlock
 {
     // todo
 };
 
 
-struct NBL_API SShaderResourceVariant
+struct SShaderResourceVariant
 {
+    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
+    std::string name;
     //! binding
     uint32_t binding;
     E_SHADER_RESOURCE_TYPE type;
@@ -185,6 +184,7 @@ struct NBL_API SShaderResourceVariant
     //! If descCountIsSpecConstant is true, than descriptorCount is ID of spec constant which is going to be size of this array
     //! Then user can look up default value of this specialization constant in SIntrospectionData::specConstants.
     bool descCountIsSpecConstant;
+
 
     template<E_SHADER_RESOURCE_TYPE restype>
     SShaderResource<restype>& get() { return reinterpret_cast<SShaderResource<restype>&>(variant); }
@@ -215,21 +215,21 @@ inline bool operator<(const SShaderResourceVariant& _lhs, const SShaderResourceV
 }
 
 template<E_SHADER_INFO_TYPE type>
-struct NBL_API SShaderInfo;
+struct SShaderInfo;
 
 template<>
-struct NBL_API SShaderInfo<ESIT_STAGE_INPUT>
+struct SShaderInfo<ESIT_STAGE_INPUT>
 {
 
 };
 template<>
-struct NBL_API SShaderInfo<ESIT_STAGE_OUTPUT>
+struct SShaderInfo<ESIT_STAGE_OUTPUT>
 {
     //! for dual source blending. Only relevant in Fragment Stage
     uint32_t colorIndex;
 };
 
-struct NBL_API SShaderInfoVariant
+struct SShaderInfoVariant
 {
     uint32_t location;
     struct {

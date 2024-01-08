@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-class NBL_API IQueryPool : public core::IReferenceCounted, public IBackendObject
+class IQueryPool : public core::IReferenceCounted, public IBackendObject
 {
     
 public:

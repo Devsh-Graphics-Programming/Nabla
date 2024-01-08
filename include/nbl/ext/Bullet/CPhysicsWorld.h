@@ -18,7 +18,7 @@ namespace nbl::ext::Bullet3
 {
 
 
-class NBL_API CPhysicsWorld : public core::IReferenceCounted
+class CPhysicsWorld : public core::IReferenceCounted
 {
     public:
         struct RigidBodyData

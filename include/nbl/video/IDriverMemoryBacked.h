@@ -14,8 +14,8 @@
 namespace nbl::video
 {
 
-//! Interface from which resources backed by IDeviceMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
-class NBL_API IDriverMemoryBacked : public virtual core::IReferenceCounted
+//! Interface from which resources backed by IDriverMemoryAllocation, such as ITexture and IGPUBuffer, inherit from
+class IDriverMemoryBacked : public virtual core::IReferenceCounted
 {
     public:
         struct SDriverMemoryRequirements

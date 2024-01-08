@@ -14,7 +14,7 @@ namespace core
 template<typename T> class AllocatorTrivialBase;
 
 template<>
-class NBL_API NBL_FORCE_EBO AllocatorTrivialBase<void>
+class NBL_FORCE_EBO AllocatorTrivialBase<void>
 {
     public:
         typedef void                                            value_type;
@@ -26,7 +26,7 @@ class NBL_API NBL_FORCE_EBO AllocatorTrivialBase<void>
 };
 
 template<typename T>
-class NBL_API NBL_FORCE_EBO AllocatorTrivialBase
+class NBL_FORCE_EBO AllocatorTrivialBase
 {
     public:
         typedef T                                               value_type;

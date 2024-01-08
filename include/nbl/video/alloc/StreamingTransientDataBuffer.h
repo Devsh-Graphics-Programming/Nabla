@@ -59,7 +59,7 @@ class StreamingTransientDataBuffer
         inline void* getBufferPointer() noexcept {return getBuffer()->getBoundMemory()->getMappedPointer();}
 
         //
-        inline void cull_frees() noexcept {m_composed.cull_frees();}
+        inline uint32_t cull_frees() noexcept {return m_composed.cull_frees();}
 
         //
         inline size_type max_size() noexcept {return m_composed.max_size();}
@@ -136,7 +136,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
         StreamingTransientDataBufferMT(Args... args) : m_composed(std::forward<Args>(args)...) {}
 
         //
-        inline bool needsManualFlushOrInvalidate()
+        inline bool needsManualFlushOrInvalidate() const
         {
             return m_composed.needsManualFlushOrInvalidate();
         }
@@ -158,11 +158,12 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!
-        inline void cull_frees() noexcept
+        inline uint32_t cull_frees() noexcept
         {
             lock.lock();
-            m_composed.cull_frees();
+            auto retval = m_composed.cull_frees();
             lock.unlock();
+            return retval;
         }
 
         //! you should really `this->get_lock()` if you need the guarantee that you'll be able to allocate a block of this size!

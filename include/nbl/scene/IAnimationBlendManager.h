@@ -45,7 +45,7 @@ namespace nbl::scene
 **/
 
 // TODO: move out to separate header
-class NBL_API IAnimationBlendSystem : public virtual core::IReferenceCounted
+class IAnimationBlendSystem : public virtual core::IReferenceCounted
 {
 	public:
 		using blend_id_t = uint32_t;
@@ -137,7 +137,7 @@ class NBL_API IAnimationBlendSystem : public virtual core::IReferenceCounted
 		// ? core::smart_refctd_ptr<video::IGPUBuffer> m_dispatchIndirectCommandBuffer;
 };
 
-class NBL_API IAnimationBlendManager : public virtual core::IReferenceCounted
+class IAnimationBlendManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation

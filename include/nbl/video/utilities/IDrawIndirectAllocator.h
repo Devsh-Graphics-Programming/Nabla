@@ -14,7 +14,7 @@
 namespace nbl::video
 {
 
-class NBL_API IDrawIndirectAllocator : public core::IReferenceCounted
+class IDrawIndirectAllocator : public core::IReferenceCounted
 {
     public:
         static inline constexpr auto invalid_draw_count_ix = IPropertyPool::invalid;

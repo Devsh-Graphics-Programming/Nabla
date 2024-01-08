@@ -124,8 +124,7 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 
 	protected:
 		//! Constructor.
-		IReferenceCounted()
-			: DebugName(0), ReferenceCounter(1)
+		inline IReferenceCounted() : DebugName(0), ReferenceCounter(1)
 		{
 			_NBL_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
 			static_assert(decltype(ReferenceCounter)::is_always_lock_free,"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");

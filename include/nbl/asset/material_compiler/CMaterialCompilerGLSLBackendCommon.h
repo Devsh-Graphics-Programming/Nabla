@@ -21,7 +21,7 @@ namespace nbl::asset::material_compiler
 // TODO: we need a GLSL to C++ compatibility wrapper
 #define uint uint32_t
 #define uvec2 uint64_t
-struct NBL_API nbl_glsl_MC_oriented_material_t
+struct nbl_glsl_MC_oriented_material_t
 {
     uvec2 emissive;
     uint prefetch_offset;
@@ -31,7 +31,7 @@ struct NBL_API nbl_glsl_MC_oriented_material_t
     uint nprecomp_count;
     uint genchoice_count;
 };
-struct NBL_API nbl_glsl_MC_material_data_t
+struct nbl_glsl_MC_material_data_t
 {
     nbl_glsl_MC_oriented_material_t front;
     nbl_glsl_MC_oriented_material_t back;
@@ -43,10 +43,10 @@ using material_data_t = nbl_glsl_MC_material_data_t;
 
 
 template <typename stack_el_t>
-class NBL_API ITraversalGenerator;
+class ITraversalGenerator;
 
 
-class NBL_API CMaterialCompilerGLSLBackendCommon
+class CMaterialCompilerGLSLBackendCommon
 {
 public:
 	struct instr_stream

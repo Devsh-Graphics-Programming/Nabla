@@ -19,7 +19,7 @@ namespace asset
 {
 
 // copy while pasting a configurable border
-class NBL_API CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
+class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
 		virtual ~CPaddedCopyImageFilter() {}

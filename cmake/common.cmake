@@ -13,14 +13,7 @@
 # limitations under the License.
 
 include(ProcessorCount)
-
-# submodule managment
-function(update_git_submodule _PATH)
-	execute_process(COMMAND git submodule update --init --recursive ${_PATH}
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-	)
-endfunction()
-
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 # TODO: REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
@@ -28,19 +21,20 @@ endfunction()
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
-	get_filename_component(EXECUTABLE_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
-	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
-	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
-	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
-
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
+	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
+	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
+	
+	if(MSVC)
+		set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
+	endif()
+	
 	project(${EXECUTABLE_NAME})
 
 	if(ANDROID)
 		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
 	else()
-		set(NBL_EXECUTABLE_SOURCES 
-			${NBL_ROOT_PATH}/examples_tests/common/CommonAPI.cpp
+		set(NBL_EXECUTABLE_SOURCES
 			main.cpp
 			${_EXTRA_SOURCES}
 		)
@@ -50,31 +44,49 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 			
-			if(WIN32 AND MSVC)
-				set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-				
+			if(WIN32 AND MSVC)				
 				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-				target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-					_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-				)
 			endif()
 		else()
 			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(WIN32 AND MSVC)
+			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
+		endif()
 	endif()
 	
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Nabla)
-	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
+	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
 	
+	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
+		add_dependencies(${EXECUTABLE_NAME} Nabla)
+	else()
+		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		endif()
+	
+		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
+	endif()
+		
 	target_include_directories(${EXECUTABLE_NAME}
-		PUBLIC ../../include
+		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
+		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
+		PUBLIC ../../include # in macro.. relative to what? TODO: correct
 		PRIVATE ${_EXTRA_INCLUDES}
-		PRIVATE ${NBL_EGL_INCLUDE_DIRECORIES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS})
 
 	add_compile_options(${_EXTRA_OPTIONS})
+
+	if(NBL_SANITIZE_ADDRESS)
+		if(MSVC)
+			target_compile_options(${EXECUTABLE_NAME} PUBLIC /fsanitize=address)
+		else()
+			target_compile_options(${EXECUTABLE_NAME} PUBLIC -fsanitize=address)
+		endif()
+	endif()
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		# add_compile_options("-msse4.2 -mfpmath=sse") ????
@@ -190,6 +202,28 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif ()
 		
 	endif()
+	
+	get_target_property(_EX_SOURCE_DIR_ ${EXECUTABLE_NAME} SOURCE_DIR)
+	file(RELATIVE_PATH _REL_DIR_ "${NBL_ROOT_PATH}" "${_EX_SOURCE_DIR_}")
+	
+	if(NOT "${EXECUTABLE_NAME}" STREQUAL commonpch)
+		nbl_install_exe_spec(${EXECUTABLE_NAME} "${_REL_DIR_}/bin")
+		
+		get_target_property(_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_ ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
+		get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		get_property(_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
+		
+		cmake_path(RELATIVE_PATH _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		cmake_path(RELATIVE_PATH _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_${EXECUTABLE_NAME}_PACKAGE_RUNTIME_EXE_DIR_PATH_}" OUTPUT_VARIABLE _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_)
+		
+		# DLLs relative to CPack install package
+		target_compile_definitions(${EXECUTABLE_NAME}
+			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
+			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
+		)
+	endif()
+
+	nbl_project_process_test_module()
 endmacro()
 
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
@@ -197,28 +231,45 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${LIB_NAME} Nabla)
-	
-	get_target_property(_NBL_NABLA_TARGET_BINARY_DIR_ Nabla BINARY_DIR)
-	get_target_property(NBL_EGL_INCLUDE_DIRECORIES egl INCLUDE_DIRECTORIES)
 
 	target_include_directories(${LIB_NAME}
-		PUBLIC ${_NBL_NABLA_TARGET_BINARY_DIR_}/build/import
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
-		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
-		PUBLIC ${CMAKE_SOURCE_DIR}/include
-		PUBLIC ${CMAKE_SOURCE_DIR}/src
-		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
+		PUBLIC $<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>
 		PRIVATE ${LIB_INCLUDES}
-		PRIVATE ${NBL_EGL_INCLUDE_DIRECORIES}
 	)
+	
+	if(NBL_EMBED_BUILTIN_RESOURCES)
+		get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+		
+		target_include_directories(${LIB_NAME}
+			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
+		)
+	endif()
+	
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		if(WIN32 AND MSVC)
+			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+			
+			target_compile_definitions(${LIB_NAME} PUBLIC 
+				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+			)
+		endif()
+	endif()
+
+	if(WIN32 AND MSVC)
+		target_compile_definitions(${LIB_NAME} PUBLIC 
+			_DXC_DLL_="${DXC_DLL}"
+		)
+	endif()
+	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -249,38 +300,10 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
 		)
 	endif()
-
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./debug/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		FILES ${LIB_HEADERS}
-		DESTINATION ./relwithdebinfo/include/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Release
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./debug/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS Debug
-	)
-	install(
-		TARGETS ${LIB_NAME}
-		DESTINATION ./relwithdebinfo/lib/nbl/ext/${EXT_NAME}
-		CONFIGURATIONS RelWithDebInfo
-	)
-
+	
+	nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")	
+	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
+	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
 		"${NBL_ROOT_PATH}/include/"
 		"${NBL_ROOT_PATH}/src"
@@ -295,30 +318,196 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
-# End of TODO, rest are all functions
-
 function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE) # WTF TODO: change CMAKE_BINARY_DIR in future! 
+	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
+macro(nbl_generate_conf_files)
+	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
+	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
+	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
-# function for installing header files preserving directory structure
-# _DEST_DIR is directory relative to CMAKE_INSTALL_PREFIX
-function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
+	set(_NBL_DEBUG 0)
+	set(_NBL_RELWITHDEBINFO 0)
+
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Release>)
+
+	set(_NBL_DEBUG 0)
+	set(_NBL_RELWITHDEBINFO 1)
+	
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:RelWithDebInfo>)
+
+	set(_NBL_DEBUG 1)
+	set(_NBL_RELWITHDEBINFO 0)
+
+	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
+	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
+
+	unset(NBL_CONF_DIR_DEBUG)
+	unset(NBL_CONF_DIR_RELEASE)
+	unset(NBL_CONF_DIR_RELWITHDEBINFO)
+endmacro()
+
+###########################################
+# Nabla install rules, directory structure:
+#
+# -	$<CONFIG>/include 		(header files)
+# - $<CONFIG>/lib 			(import/static/shared libraries)
+# - $<CONFIG>/runtime 		(DLLs/PDBs)
+# - $<CONFIG>/exe			(executables and media)
+#
+# If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
+
+function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
-		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release)
-		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug)
-		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo)
+		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
+		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
+		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
 	endforeach()
 endfunction()
 
-function(nbl_install_file _FILE _RELATIVE_DESTINATION)
-	install(FILES ${_FILE} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release)
-	install(FILES ${_FILE} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug)
-	install(FILES ${_FILE} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo)
+function(nbl_install_headers _HEADERS)
+	if(NOT DEFINED NBL_ROOT_PATH)
+		message(FATAL_ERROR "NBL_ROOT_PATH isn't defined!")
+	endif()
+
+	nbl_install_headers_spec("${_HEADERS}" "${NBL_ROOT_PATH}/include")
+endfunction()
+
+function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+endfunction()
+
+function(nbl_install_file _FILES)
+	nbl_install_file_spec("${_FILES}" "")
+endfunction()
+
+function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
+	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+endfunction()
+
+function(nbl_install_dir _DIR)
+	nbl_install_dir_spec("${_DIR}" "")
+endfunction()
+
+function(nbl_install_lib_spec _TARGETS _RELATIVE_DESTINATION)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION debug/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Libraries)
+	install(TARGETS ${_TARGETS} ARCHIVE DESTINATION relwithdebinfo/lib/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Libraries)
+endfunction()
+
+function(nbl_install_lib _TARGETS)
+	nbl_install_lib_spec("${_TARGETS}" "")
+endfunction()
+
+function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
+	
+	if (TARGET ${_TRGT})
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+	
+		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		
+		get_property(_DEFINED_PROPERTY_
+            TARGET ${_TRGT}
+            PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+                PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
+		
+	else()
+		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+			install(PROGRAMS ${_TRGT} DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+		endforeach()
+		
+		string(MAKE_C_IDENTIFIER "${_RELATIVE_DESTINATION}" _VAR_)
+		string(TOUPPER "${_VAR_}" _VAR_)
+		
+		get_property(_DEFINED_PROPERTY_
+            GLOBAL
+            PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+            DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(GLOBAL
+                PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH
+                BRIEF_DOCS "Relative path in CPack package to runtime DLL directory"
+			)
+		endif()
+		
+		set_property(GLOBAL PROPERTY ${_VAR_}_NS_PACKAGE_RUNTIME_DLL_DIR_PATH "${_DEST_GE_}")
+	endif()
+endfunction()
+
+function(nbl_install_program _TRGT)
+	nbl_install_program_spec("${_TRGT}" "")
+endfunction()
+
+function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
+	set(_TARGETS ${_TARGETS})
+	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	
+	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
+		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
+	endforeach()
+	
+	foreach(_TRGT IN LISTS _TARGETS)
+		get_property(_DEFINED_PROPERTY_
+			TARGET ${_TRGT}
+			PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+			DEFINED
+		)
+		
+		if(NOT _DEFINED_PROPERTY_)
+			define_property(TARGET
+				PROPERTY NBL_PACKAGE_RUNTIME_EXE_DIR_PATH
+				BRIEF_DOCS "Relative path in CPack package to runtime executable target directory"
+			)
+		endif()
+		
+		set_target_properties(${_TRGT} PROPERTIES NBL_PACKAGE_RUNTIME_EXE_DIR_PATH "${_DEST_GE_}")
+	endforeach()
+endfunction()
+
+function(nbl_install_exe _TARGETS)
+	nbl_install_exe_spec("${_TARGETS}" "")
+endfunction()
+
+function(nbl_install_media_spec _FILE _RELATIVE_DESTINATION)
+	install(FILES ${_FILE} DESTINATION exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Media EXCLUDE_FROM_ALL)
+	install(FILES ${_FILE} DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Media EXCLUDE_FROM_ALL)
+	install(FILES ${_FILE} DESTINATION relwithdebinfo/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Media EXCLUDE_FROM_ALL)
+endfunction()
+
+function(nbl_install_media _FILE)
+	nbl_install_lib_spec("${_FILE}" "")
+endfunction()
+
+function(nbl_install_builtin_resources _TARGET_)
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
+	
+	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 function(nbl_install_config_header _CONF_HDR_NAME)
@@ -331,6 +520,443 @@ function(nbl_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_rel} DESTINATION include CONFIGURATIONS Release)
 	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
+endfunction()
+
+function(NBL_TEST_MODULE_INSTALL_FILE _NBL_FILEPATH_)
+	file(RELATIVE_PATH _NBL_REL_INSTALL_DEST_ "${NBL_ROOT_PATH}" "${_NBL_FILEPATH_}")
+	cmake_path(GET _NBL_REL_INSTALL_DEST_ PARENT_PATH _NBL_REL_INSTALL_DEST_)
+					
+	nbl_install_media_spec("${_NBL_FILEPATH_}" "${_NBL_REL_INSTALL_DEST_}")
+endfunction()
+
+function(nbl_project_process_test_module)
+	set(NBL_TEMPLATE_JSON_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+	get_filename_component(NBL_TEMPLATE_JSON_DIR_ABS_ "${NBL_TEMPLATE_JSON_DIR}" ABSOLUTE)
+	set(NBL_PROFILES_JSON_DIR "${NBL_TEMPLATE_JSON_DIR}/.profiles")
+	get_filename_component(NBL_PROFILES_JSON_DIR_ABS_ "${NBL_PROFILES_JSON_DIR}" ABSOLUTE)
+
+ 	file(RELATIVE_PATH NBL_ROOT_PATH_REL "${NBL_TEMPLATE_JSON_DIR}" "${NBL_ROOT_PATH}")
+	cmake_path(GET NBL_TEMPLATE_JSON_DIR FILENAME _NBL_PF_MODULE_NAME_)
+	set(_NBL_PF_DESC_NAME_ "${_NBL_PF_MODULE_NAME_} test module")
+
+	set(NBL_EXECUTABLE_GEN_EXP_FILEPATH "$<PATH:RELATIVE_PATH,$<TARGET_FILE:${EXECUTABLE_NAME}>,${NBL_PROFILES_JSON_DIR}>") # use this in your json config file when referencing filepath of an example's executable
+
+	set(_NBL_JSON_CONFIG_FILEPATH_ "${NBL_TEMPLATE_JSON_DIR}/config.json.template")
+
+	macro(NBL_JSON_READ_VALIDATE_POPULATE _NBL_FIELD_TRAVERSAL_ _NBL_FIELD_NAME_ _NBL_EXPECTED_TYPE_ _NBL_JSON_CONTENT_)
+		string(TOUPPER "${_NBL_FIELD_NAME_}" _NBL_FIELD_NAME_UPPER_)
+		
+		string(JSON _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_CONTENT_ ERROR_VARIABLE _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_CONTENT_ERR_ GET ${_NBL_JSON_CONTENT_} ${_NBL_FIELD_NAME_})
+		string(JSON _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_LEN_ ERROR_VARIABLE _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_LEN_ERR_ LENGTH ${_NBL_JSON_CONTENT_} ${_NBL_FIELD_NAME_})
+		string(JSON _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_TYPE_ ERROR_VARIABLE _NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_TYPE_ERR_ TYPE ${_NBL_JSON_CONTENT_} ${_NBL_FIELD_NAME_})
+		
+		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+			set(_JSON_TYPE_ "${_NBL_JSON_${_NBL_FIELD_NAME_UPPER_}_TYPE_}")
+			if(NOT "${_JSON_TYPE_}" STREQUAL "${_NBL_EXPECTED_TYPE_}") # validate type
+				message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \"${_NBL_FIELD_TRAVERSAL_}.${_NBL_FIELD_NAME_}\" field is not \"${_NBL_EXPECTED_TYPE_}\" type but \"${_JSON_TYPE_}\".")
+			endif()
+			unset(_JSON_TYPE_)
+		endif()
+		
+		unset(_NBL_FIELD_NAME_UPPER_)
+	endmacro()
+	
+	macro(NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES_SPEC _NBL_INPUT_JSON_CONFIG_FILEPATH_ _NBL_FIELD_TRAVERSAL_INCLUSIVE_ _NBL_JSON_DEPENDENCIES_LIST_CONTENT_)
+		set(_NBL_INPUT_JSON_CONFIG_FILEPATH_ "${_NBL_INPUT_JSON_CONFIG_FILEPATH_}")
+		cmake_path(GET _NBL_INPUT_JSON_CONFIG_FILEPATH_ PARENT_PATH _NBL_INPUT_JSON_LOCATION_)
+		
+		string(JSON _NBL_JSON_DEPENDENCIES_LIST_CONTENT_LEN_ ERROR_VARIABLE _NBL_JSON_DEPENDENCIES_LIST_CONTENT_LEN_ERR_ LENGTH ${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_})
+		string(JSON _NBL_JSON_DEPENDENCIES_LIST_CONTENT_TYPE_ ERROR_VARIABLE _NBL_JSON_DEPENDENCIES_LIST_CONTENT_TYPE_ERR_ TYPE ${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_})
+	
+		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+			if(NOT "${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_TYPE_}" STREQUAL ARRAY) # validate type
+				message(FATAL_ERROR "Internal error while processing \"${_NBL_INPUT_JSON_CONFIG_FILEPATH_}\". Wrong usage of NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES macro, input _NBL_JSON_DEPENDENCIES_LIST_CONTENT_ = \"${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_}\" is not ARRAY type!")
+			endif()
+		endif()
+	
+		if(_NBL_JSON_DEPENDENCIES_LIST_CONTENT_LEN_ GREATER_EQUAL 1)
+			math(EXPR _NBL_STOP_ "${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_LEN_}-1")
+			
+			foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+				string(JSON _NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_} ${_NBL_IDX_})
+				
+				set(_NBL_JSON_DEPENDENCY_FILEPATH_ "${_NBL_INPUT_JSON_LOCATION_}/${_NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_}") # json config file may reference files relative to itself
+				get_filename_component(_NBL_JSON_DEPENDENCY_FILEPATH_ABS_ "${_NBL_JSON_DEPENDENCY_FILEPATH_}" ABSOLUTE)
+				
+				if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+					if(NOT EXISTS "${_NBL_JSON_DEPENDENCY_FILEPATH_}") # validate if present
+						message(FATAL_ERROR "Declared \"${_NBL_INPUT_JSON_CONFIG_FILEPATH_}\"'s ${_NBL_FIELD_TRAVERSAL_INCLUSIVE_}[${_NBL_IDX_}] = \"${_NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_DEPENDENCY_FILEPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
+					endif()
+				endif()
+				
+				string(FIND "${_NBL_JSON_DEPENDENCY_FILEPATH_ABS_}" "${NBL_MEDIA_DIRECTORY_ABS}" _NBL_IS_MEDIA_DEPENDNECY_)
+				
+				if(NOT "${_NBL_IS_MEDIA_DEPENDNECY_}" STREQUAL "-1") # filter dependencies, only those coming from NBL_MEDIA_DIRECTORY_ABS are considered for install rules
+					NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_DEPENDENCY_FILEPATH_}")
+				endif()
+			endforeach()
+		endif()
+	endmacro()
+	
+	macro(NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES _NBL_FIELD_TRAVERSAL_INCLUSIVE_ _NBL_JSON_DEPENDENCIES_LIST_CONTENT_)
+		NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES_SPEC("${_NBL_JSON_CONFIG_FILEPATH_}" "${_NBL_FIELD_TRAVERSAL_INCLUSIVE_}" "${_NBL_JSON_DEPENDENCIES_LIST_CONTENT_}")
+	endmacro()
+	
+	# adjust relative path of any non generator expression resource to generated profile directory
+	# use it after validation of the requested field
+	# it expects _NBL_INPUT_JSON_CONFIG_FILEPATH_ _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ <...>
+	# where _NBL_INPUT_JSON_CONFIG_FILEPATH_ is an input JSON configuration file for which part of its content may be referenced and passed in a fold expression
+	#_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ is name of a CMake variable JSON result will be stored in
+	# and <...> is a fold expression with input arguments for CMake string JSON GET https://cmake.org/cmake/help/latest/command/string.html#json-get beginning with <json-string>
+	# if used differently it will considered undefined behaviour
+	# supports referencing string and array of strings
+	
+	function(NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH _NBL_INPUT_JSON_CONFIG_FILEPATH_ _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_)
+		cmake_path(GET _NBL_INPUT_JSON_CONFIG_FILEPATH_ PARENT_PATH _NBL_INPUT_JSON_CONFIG_DIR_)
+	
+		# copy fold expression arguments
+		list(SUBLIST ARGV 2 ${ARGC} _ARGV_F_COPY_)
+		list(LENGTH _ARGV_F_COPY_ _ARGC_F_COPY_)
+		
+		macro(NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH _NBL_IMPL_JSON_READ_REFERENCE_FILEPATH_CONTENT_)
+			set(_NBL_JSON_REFERENCE_FILEPATH_ABS_ "${_NBL_INPUT_JSON_CONFIG_DIR_}/${_NBL_IMPL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}")
+
+			if(EXISTS "${_NBL_JSON_REFERENCE_FILEPATH_ABS_}")
+				file(RELATIVE_PATH _NBL_JSON_GEN_REFERENCE_FILEPATH_ "${NBL_PROFILES_JSON_DIR_ABS_}" "${_NBL_JSON_REFERENCE_FILEPATH_ABS_}")
+
+				list(SUBLIST _ARGV_F_COPY_ 1 ${_ARGC_F_COPY_} _NBL_MEMBER_INDEX_ARGV_)
+			
+				if(${ARGC} GREATER_EQUAL 2)
+					list(APPEND _NBL_MEMBER_INDEX_ARGV_ "${ARGV1}")
+				endif()
+
+				string(JSON ${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_} ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" ${_NBL_MEMBER_INDEX_ARGV_} "\"${_NBL_JSON_GEN_REFERENCE_FILEPATH_}\"")
+				set(${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_} "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" PARENT_SCOPE)
+			endif()
+		endmacro()
+	
+		string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_ARGV_F_COPY_})
+		string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE ${_ARGV_F_COPY_})
+		
+		if("${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL STRING)
+			NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}")
+		elseif("${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL ARRAY)
+			string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_LEN_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH ${_ARGV_F_COPY_})
+		
+			if(_NBL_JSON_READ_REFERENCE_FILEPATH_LEN_ GREATER_EQUAL 1)
+				math(EXPR _NBL_STOP_ "${_NBL_JSON_READ_REFERENCE_FILEPATH_LEN_}-1")
+				
+				foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+					string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_ARGV_F_COPY_} ${_NBL_IDX_})
+					string(JSON _NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE ${_ARGV_F_COPY_} ${_NBL_IDX_})
+					
+					if(NOT "${_NBL_JSON_READ_REFERENCE_FILEPATH_TYPE_}" STREQUAL STRING)
+						message(FATAL_ERROR "Internal error while processing \"${_NBL_JSON_CONFIG_FILEPATH_}\". NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH(${ARGV}) invocation failed while processing, referenced json array object contains an element that is not a string type!")
+					endif()
+					
+					NBL_IMPL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_READ_REFERENCE_FILEPATH_CONTENT_}" ${_NBL_IDX_})
+				endforeach()
+			endif()
+		else()
+			message(FATAL_ERROR "Internal error while processing \"${_NBL_JSON_CONFIG_FILEPATH_}\". NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH(${ARGV}) invocation failed while processing, referenced json object isn't string neither array type!")
+		endif()
+	endfunction()
+	
+	if(EXISTS "${_NBL_JSON_CONFIG_FILEPATH_}")		
+		file(READ "${_NBL_JSON_CONFIG_FILEPATH_}" _NBL_JSON_TOP_CONFIG_CONTENT_)
+		set(_NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_CONFIG_FILEPATH_}")
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON" FILES "${_NBL_JSON_CONFIG_FILEPATH_}")
+
+		# ".scriptPath" string
+		NBL_JSON_READ_VALIDATE_POPULATE("" scriptPath STRING "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+
+		if("${_NBL_JSON_SCRIPTPATH_CONTENT_}" STREQUAL "") # stop processing if script path field is empty
+			return()
+		endif()
+		
+		get_filename_component(_NBL_JSON_SCRIPTPATH_ABS_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_SCRIPTPATH_CONTENT_}" ABSOLUTE)
+		if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+			if(EXISTS "${_NBL_JSON_SCRIPTPATH_ABS_}")
+				string(FIND "${_NBL_JSON_SCRIPTPATH_ABS_}" "${NBL_TEMPLATE_JSON_DIR_ABS_}" _NBL_FOUND_)
+				
+				if("${_NBL_FOUND_}" STREQUAL "-1") # always fail validation regardless .isExecuted field if the script exist and is outside testing environment directory
+					message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" is located outside testing environment, it must be moved anywhere to \"${NBL_TEMPLATE_JSON_DIR_ABS_}/*\" location. It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
+				endif()
+			else()
+				if(_NBL_JSON_ISEXECUTED_CONTENT_)
+					set(_NBL_MESSAGE_STATUS_ failed)
+					set(_NBL_MESSAGE_TYPE FATAL_ERROR)
+				else()
+					set(_NBL_MESSAGE_STATUS_ warning)
+					set(_NBL_MESSAGE_TYPE WARNING)
+				endif()
+				
+				message(${_NBL_MESSAGE_TYPE} "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation ${_NBL_MESSAGE_STATUS_}! \".isExecuted\" field is set to \"${_NBL_JSON_ISEXECUTED_CONTENT_}\" but \".scriptPath\" = \"${_NBL_JSON_SCRIPTPATH_CONTENT_}\" doesn't exist! It's filepath is resolved to \"${_NBL_JSON_SCRIPTPATH_ABS_}\". Note that filepaths in json configs are resolved relative to them.")
+			endif()
+		endif()
+
+		NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_SCRIPTPATH_ABS_}")
+
+		# ".enableParallelBuild" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" enableParallelBuild BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		# ".threadsPerBuildProcess" number
+		NBL_JSON_READ_VALIDATE_POPULATE("" threadsPerBuildProcess NUMBER "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		# ".isExecuted" boolean
+		NBL_JSON_READ_VALIDATE_POPULATE("" isExecuted BOOLEAN "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+	
+		# configure python environment & test runtime setup script
+		file(RELATIVE_PATH NBL_TEST_TARGET_MODULE_PATH_REL "${NBL_TEMPLATE_JSON_DIR}" "${_NBL_JSON_SCRIPTPATH_ABS_}")
+		cmake_path(GET NBL_TEST_TARGET_MODULE_PATH_REL PARENT_PATH NBL_TEST_TARGET_MODULE_PATH_REL)
+		cmake_path(GET NBL_PYTHON_FRAMEWORK_RUNALLTESTS_SCRIPT_ABS STEM LAST_ONLY NBL_RUNALLTESTS_SCRIPT_FILENAME)
+
+		file(RELATIVE_PATH NBL_PYTHON_FRAMEWORK_MODULE_PATH_REL "${NBL_TEMPLATE_JSON_DIR}" "${NBL_PYTHON_MODULE_ROOT_PATH}/src")
+		cmake_path(GET _NBL_JSON_SCRIPTPATH_ABS_ STEM LAST_ONLY NBL_TEST_TARGET_INTERFACE_SCRIPT_NAME)
+		
+		set(NBL_RUNALLTESTS_SCRIPT_FILEPATH "${NBL_TEMPLATE_JSON_DIR}/${NBL_RUNALLTESTS_SCRIPT_FILENAME}")
+		configure_file("${NBL_PYTHON_FRAMEWORK_RUNALLTESTS_SCRIPT_ABS}" "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}" @ONLY)
+		NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_JSON_CONFIG_FILEPATH_}" _NBL_GEN_JSON_TOP_CONFIG_CONTENT_ "${_NBL_JSON_TOP_CONFIG_CONTENT_}" scriptPath)
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
+
+		configure_file("${NBL_PYTHON_FRAMEWORK_VS_LAUNCH_JSON_ABS}" "${NBL_TEMPLATE_JSON_DIR}/.vscode/launch.json" @ONLY)
+		configure_file("${NBL_PYTHON_FRAMEWORK_VS_SETTINGS_JSON_ABS}" "${NBL_TEMPLATE_JSON_DIR}/.vscode/settings.json" @ONLY)
+		
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_TEMPLATE_JSON_DIR}/.vscode/launch.json")
+		NBL_TEST_MODULE_INSTALL_FILE("${NBL_TEMPLATE_JSON_DIR}/.vscode/settings.json")
+
+		target_sources(${EXECUTABLE_NAME} PUBLIC "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target" FILES "${NBL_RUNALLTESTS_SCRIPT_FILEPATH}")
+		
+		target_sources(${EXECUTABLE_NAME} PUBLIC
+			"${_NBL_JSON_SCRIPTPATH_ABS_}"
+		)
+		source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/Interface" FILES 
+			"${_NBL_JSON_SCRIPTPATH_ABS_}"
+		)
+		
+		# ".cmake" object
+		NBL_JSON_READ_VALIDATE_POPULATE("" cmake OBJECT "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		
+		# ".cmake.buildModes array"
+		NBL_JSON_READ_VALIDATE_POPULATE("" buildModes ARRAY "${_NBL_JSON_CMAKE_CONTENT_}")
+		
+		# ".cmake.requiredOptions array"
+		NBL_JSON_READ_VALIDATE_POPULATE("" requiredOptions ARRAY "${_NBL_JSON_CMAKE_CONTENT_}")
+		
+		if(_NBL_JSON_REQUIREDOPTIONS_LEN_ GREATER_EQUAL 1)
+			math(EXPR _NBL_STOP_ "${_NBL_JSON_REQUIREDOPTIONS_LEN_}-1")
+			
+			foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+				string(JSON _NBL_JSON_CMAKE_REQUIRED_OPTIONS_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_REQUIREDOPTIONS_CONTENT_} ${_NBL_IDX_})
+				
+				if(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION)
+					if(NOT DEFINED "${_NBL_JSON_CMAKE_REQUIRED_OPTIONS_LIST_ELEMENT_CONTENT_}")
+						message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \"${_NBL_JSON_CMAKE_REQUIRED_OPTIONS_LIST_ELEMENT_CONTENT_}\" CMake variable is required but is not defined!")
+					endif()
+				endif()
+			endforeach()
+		endif()
+
+		# an utility to handle single json input - ".dependencies" and ".data" fields
+
+		macro(NBL_JSON_HANDLE_INPUT_CONFIG_PART _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ _NBL_INPUT_JSON_CONFIG_FILEPATH_ _NBL_INPUT_JSON_CONFIG_CONTENT_)
+			# ".dependencies" array
+			NBL_JSON_READ_VALIDATE_POPULATE("" dependencies ARRAY "${_NBL_INPUT_JSON_CONFIG_CONTENT_}")
+			NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES_SPEC("${_NBL_INPUT_JSON_CONFIG_FILEPATH_}" ".dependencies" "${_NBL_JSON_DEPENDENCIES_CONTENT_}")
+			
+			NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_INPUT_JSON_CONFIG_FILEPATH_}" "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" "${_NBL_INPUT_JSON_CONFIG_CONTENT_}" dependencies)
+			
+			# ".data" array
+			NBL_JSON_READ_VALIDATE_POPULATE("" data ARRAY "${_NBL_INPUT_JSON_CONFIG_CONTENT_}")
+			set(_NBL_GEN_JSON_DATA_CONTENT_ "${_NBL_JSON_DATA_CONTENT_}")
+			
+			if(_NBL_JSON_DATA_LEN_ GREATER_EQUAL 1)
+				math(EXPR _NBL_STOP_ "${_NBL_JSON_DATA_LEN_}-1")
+				
+				foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+					string(JSON _NBL_JSON_DATA_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_DATA_CONTENT_} ${_NBL_IDX_})
+					set(_NBL_JSON_FIELD_TRAVERSAL_ "data[${_NBL_IDX_}]")
+					
+					# "${_NBL_JSON_FIELD_TRAVERSAL_}.command" array
+					NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" command ARRAY "${_NBL_JSON_DATA_LIST_ELEMENT_CONTENT_}")
+					if(_NBL_JSON_COMMAND_LEN_ GREATER_EQUAL 1)
+						math(EXPR _NBL_STOP_2_ "${_NBL_JSON_COMMAND_LEN_}-1")
+							
+						NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_INPUT_JSON_CONFIG_FILEPATH_}" "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" "${_NBL_INPUT_JSON_CONFIG_CONTENT_}" data ${_NBL_IDX_} command)
+
+						foreach(_NBL_IDX_2_ RANGE ${_NBL_STOP_2_})
+							string(JSON _NBL_JSON_COMMAND_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" data ${_NBL_IDX_} command ${_NBL_IDX_2_})
+							string(APPEND _NBL_COMMAND_CONCAT_ "${_NBL_JSON_COMMAND_LIST_ELEMENT_CONTENT_} ") # parse command arguments, concatenate
+						endforeach()
+					endif()
+					
+					string(STRIP "${_NBL_COMMAND_CONCAT_}" _NBL_COMMAND_CONCAT_)
+					string(JSON "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" data ${_NBL_IDX_} command "\"${_NBL_COMMAND_CONCAT_}\"") # override command field to become concatenated string
+					unset(_NBL_COMMAND_CONCAT_)
+					
+					# "${_NBL_JSON_FIELD_TRAVERSAL_}.dependencies" array
+					NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" dependencies ARRAY "${_NBL_JSON_DATA_LIST_ELEMENT_CONTENT_}")		
+					NBL_READ_VALIDATE_INSTALL_JSON_DEPENDENCIES_SPEC("${_NBL_INPUT_JSON_CONFIG_FILEPATH_}" ".${_NBL_JSON_FIELD_TRAVERSAL_}.dependencies" "${_NBL_JSON_DEPENDENCIES_CONTENT_}")
+					
+					NBL_JSON_UPDATE_RELATIVE_REFERENCE_FILEPATH("${_NBL_INPUT_JSON_CONFIG_FILEPATH_}" "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" "${_NBL_INPUT_JSON_CONFIG_CONTENT_}" data ${_NBL_IDX_} dependencies)
+				endforeach()
+			endif()
+		endmacro()
+
+		# an utility to merge content from input json to create one collection of batches
+		# (stored in a variable which name is passed to as an argument) containing .dependencies and .data fields 
+
+		# _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ is name of a variable for which json output will be stored to
+		# _NBL_GEN_INPUT_JSON_CONFIG_CONTENT_ is content of an input json config the content merge with be perfrom with
+
+		macro(NBL_JSON_MERGE_INPUT_CONFIGS_CONTENT _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ _NBL_GEN_INPUT_JSON_CONFIG_CONTENT_)
+			string(JSON _NBL_GEN_JSON_INPUT_CONFIG_DEPENDENCIES_LENGTH_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH ${_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_} dependencies)
+			if(_NBL_GEN_JSON_INPUT_CONFIG_DEPENDENCIES_LENGTH_ AND _NBL_GEN_JSON_INPUT_CONFIG_DEPENDENCIES_LENGTH_ GREATER_EQUAL 1)
+				string(JSON _NBL_GEN_JSON_TOP_CONFIG_DEPENDENCIES_LENGTH_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" dependencies)
+								
+				math(EXPR _NBL_STOP_2_ "${_NBL_GEN_JSON_INPUT_CONFIG_DEPENDENCIES_LENGTH_}-1")
+
+				foreach(_NBL_IDX_2_ RANGE "${_NBL_STOP_2_}")
+					math(EXPR _NBL_IDX_2_WITH_OFFSET_ "${_NBL_IDX_2_}+${_NBL_GEN_JSON_TOP_CONFIG_DEPENDENCIES_LENGTH_}")
+							
+					string(JSON _NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_} dependencies ${_NBL_IDX_2_})
+					string(JSON "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" dependencies ${_NBL_IDX_2_WITH_OFFSET_} "\"${_NBL_JSON_DEPENDENCIES_LIST_ELEMENT_CONTENT_}\"")
+				endforeach()
+			endif()
+					
+			string(JSON _NBL_GEN_JSON_INPUT_CONFIG_DATA_LENGTH_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH ${_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_} data)
+			if(_NBL_GEN_JSON_INPUT_CONFIG_DATA_LENGTH_ AND _NBL_GEN_JSON_INPUT_CONFIG_DATA_LENGTH_ GREATER_EQUAL 1)
+				string(JSON _NBL_GEN_JSON_TOP_CONFIG_DATA_LENGTH_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" data)
+								
+				math(EXPR _NBL_STOP_2_ "${_NBL_GEN_JSON_INPUT_CONFIG_DATA_LENGTH_}-1")
+
+				foreach(_NBL_IDX_2_ RANGE "${_NBL_STOP_2_}")
+					math(EXPR _NBL_IDX_2_WITH_OFFSET_ "${_NBL_IDX_2_}+${_NBL_GEN_JSON_TOP_CONFIG_DATA_LENGTH_}")
+							
+					string(JSON _NBL_JSON_DATA_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_} data ${_NBL_IDX_2_})
+					string(JSON "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" data ${_NBL_IDX_2_WITH_OFFSET_} "${_NBL_JSON_DATA_LIST_ELEMENT_CONTENT_}")
+				endforeach()
+			endif()
+		endmacro()
+
+		# an utility to handle inputs field given json array of inputs, the output is concatenated json content
+		# from given inputs with all paths referenced validated, resolved to be relative to a generated profile
+		# and applied install rules
+
+		# _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ is name of a variable for which json output will be stored to
+		# _NBL_JSON_INPUTS_CONTENT_ is json inputs array content
+		# _NBL_JSON_INPUTS_FIELD_TRAVERSAL_ is top json traversal to the inputs array field
+
+		function(NBL_JSON_HANDLE_INPUT_CONFIGS _NBL_JSON_GEN_CONTENT_VARIABLE_NAME_ _NBL_JSON_INPUTS_CONTENT_ _NBL_JSON_INPUTS_FIELD_TRAVERSAL_)
+			string(JSON _NBL_JSON_INPUTS_TYPE_ ERROR_VARIABLE _NBL_JSON_ERROR_ TYPE "${_NBL_JSON_INPUTS_CONTENT_}")
+
+			if(NOT "${_NBL_JSON_INPUTS_TYPE_}" STREQUAL ARRAY)
+				message(FATAL_ERROR "Internal error while processing \"${_NBL_JSON_CONFIG_FILEPATH_}\"! Given _NBL_JSON_INPUTS_CONTENT_ set to \"${_NBL_JSON_INPUTS_CONTENT_}\" is not an ARRAY!")
+			endif()
+
+			string(JSON _NBL_JSON_INPUTS_LEN_ ERROR_VARIABLE _NBL_JSON_ERROR_ LENGTH "${_NBL_JSON_INPUTS_CONTENT_}")
+
+			set(${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_} "{}")
+			string(JSON "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" dependencies "[]")
+			string(JSON "${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}" data "[]")
+
+			if(_NBL_JSON_INPUTS_LEN_ GREATER_EQUAL 1)
+				math(EXPR _NBL_STOP_ "${_NBL_JSON_INPUTS_LEN_}-1")
+			
+				foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+						NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_INPUTS_FIELD_TRAVERSAL_}[${_NBL_IDX_}]" ${_NBL_IDX_} STRING "${_NBL_JSON_INPUTS_CONTENT_}")
+						set(_NBL_JSON_INPUT_CONFIG_FILEPATH_ "${NBL_TEMPLATE_JSON_DIR}/${_NBL_JSON_${_NBL_IDX_}_CONTENT_}")
+
+						if(EXISTS "${_NBL_JSON_INPUT_CONFIG_FILEPATH_}")
+							file(READ "${_NBL_JSON_INPUT_CONFIG_FILEPATH_}" _NBL_INPUT_JSON_CONFIG_CONTENT_)
+							set(_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_ "${_NBL_INPUT_JSON_CONFIG_CONTENT_}")
+					
+							NBL_JSON_HANDLE_INPUT_CONFIG_PART(_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_ "${_NBL_JSON_INPUT_CONFIG_FILEPATH_}" "${_NBL_INPUT_JSON_CONFIG_CONTENT_}")
+							NBL_JSON_MERGE_INPUT_CONFIGS_CONTENT("${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" "${_NBL_GEN_INPUT_JSON_CONFIG_CONTENT_}")
+						else()
+							message(FATAL_ERROR "\"${_NBL_JSON_CONFIG_FILEPATH_}\" validation failed! \".${_NBL_JSON_INPUTS_FIELD_TRAVERSAL_}[${_NBL_IDX_}]\" = \"${_NBL_JSON_${_NBL_IDX_}_CONTENT_}\" doesn't exist'. It's filepath is resolved to \"${_NBL_JSON_INPUT_CONFIG_FILEPATH_}\". Note that filepaths in json configs are resolved relative to them.")
+						endif()
+				endforeach()
+			endif()
+
+			set("${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}" 
+				"${${_NBL_JSON_GEN_CONTENT_VARIABLE_NAME_}}"
+			PARENT_SCOPE)
+		endfunction()
+		
+		# ".inputs" ARRAY
+		NBL_JSON_READ_VALIDATE_POPULATE("" inputs ARRAY "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+		NBL_JSON_HANDLE_INPUT_CONFIGS(_NBL_GEN_COMMON_INPUT_JSON_CONFIGS_CONTENT_ "${_NBL_JSON_INPUTS_CONTENT_}" ".inputs")
+		
+		# ".profiles" array
+		NBL_JSON_READ_VALIDATE_POPULATE("" profiles ARRAY "${_NBL_JSON_TOP_CONFIG_CONTENT_}")
+			
+		if(_NBL_JSON_PROFILES_LEN_ GREATER_EQUAL 1)
+			math(EXPR _NBL_STOP_ "${_NBL_JSON_PROFILES_LEN_}-1")
+			
+			string(JSON _NBL_GEN_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ REMOVE "${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" profiles)
+			
+			foreach(_NBL_IDX_ RANGE ${_NBL_STOP_})
+				string(JSON _NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ GET ${_NBL_JSON_PROFILES_CONTENT_} ${_NBL_IDX_})
+				set(_NBL_JSON_FIELD_TRAVERSAL_ "profiles[${_NBL_IDX_}]")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.backend" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" backend STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.platform" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" platform STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.buildModes" array
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" buildModes ARRAY "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+		
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.runConfiguration" string
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" runConfiguration STRING "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.gpuArchitectures" array
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" gpuArchitectures ARRAY "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+
+				# "${_NBL_JSON_FIELD_TRAVERSAL_}.inputs" array
+				NBL_JSON_READ_VALIDATE_POPULATE("${_NBL_JSON_FIELD_TRAVERSAL_}" inputs ARRAY "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+				NBL_JSON_HANDLE_INPUT_CONFIGS(_NBL_GEN_PROFILE_INPUT_JSON_CONFIGS_CONTENT_ "${_NBL_JSON_INPUTS_CONTENT_}" ".${_NBL_JSON_FIELD_TRAVERSAL_}")
+				NBL_JSON_MERGE_INPUT_CONFIGS_CONTENT(_NBL_GEN_PROFILE_INPUT_JSON_CONFIGS_CONTENT_ "${_NBL_GEN_COMMON_INPUT_JSON_CONFIGS_CONTENT_}") # merge common json input content to profile's
+
+				string(JSON _NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${_NBL_GEN_JSON_TOP_CONFIG_CONTENT_}" profile "${_NBL_JSON_PROFILES_LIST_ELEMENT_CONTENT_}")
+
+				# move an intput's content to an output profile's global input field object, remove config input reference
+				string(JSON _NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ REMOVE "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_}" profile inputs)
+				string(JSON _NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ REMOVE "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_}" inputs)
+				string(JSON _NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_ ERROR_VARIABLE _NBL_JSON_ERROR_ SET "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_}" input "${_NBL_GEN_PROFILE_INPUT_JSON_CONFIGS_CONTENT_}")
+
+				# after complete validation generate new profile given profiles array, resolve CMake variables and generator expressions according to profile's runConfiguration field (in future more additional conditions may apply)
+				string(CONFIGURE "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_}" _NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_CONFIGURED_ ESCAPE_QUOTES)
+				
+				set(_NBL_JSON_PROFILE_OUTPUT_FILEPATH_ "${NBL_PROFILES_JSON_DIR}/${_NBL_IDX_}.json")
+				file(GENERATE OUTPUT "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}" CONTENT "${_NBL_GEN_PROFILE_JSON_TOP_CONFIG_CONTENT_CONFIGURED_}" CONDITION $<CONFIG:${_NBL_JSON_RUNCONFIGURATION_CONTENT_}>)
+				
+				target_sources(${EXECUTABLE_NAME} PUBLIC "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
+				source_group("${NBL_PFT_SOURCE_GROUP_NAME}/target/JSON/Auto-Gen Profiles" FILES "${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
+				
+				NBL_TEST_MODULE_INSTALL_FILE("${_NBL_JSON_PROFILE_OUTPUT_FILEPATH_}")
+			endforeach()
+		endif()
+
+		NBL_TARGET_ATTACH_PYTHON_FRAMEWORK("${EXECUTABLE_NAME}")
+	endif()
+endfunction()
+
+# links builtin resource target to a target
+# @_TARGET_@ is target name builtin resource target will be linked to
+# @_BS_TARGET_@ is a builtin resource target
+
+function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
+	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	
+	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)
@@ -638,3 +1264,168 @@ endmacro()
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()
+
+function(NBL_UPDATE_SUBMODULES)
+	ProcessorCount(_GIT_SUBMODULES_JOBS_AMOUNT_)
+	
+	if(NBL_CI_GIT_SUBMODULES_SHALLOW)
+		set(NBL_SHALLOW "--depth=1")
+	else()
+		set(NBL_SHALLOW "")
+	endif()
+	
+	if(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
+		set(NBL_FORCE "--force")
+	else()
+		set(NBL_FORCE "")
+	endif()
+	
+	if(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE OR NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
+		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}\" submodule sync --recursive\n")
+	endif()
+
+	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATHS)
+		set(EXCLUDE_SUBMODULE_PATHS ${EXCLUDE_SUBMODULE_PATHS})
+		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
+		
+		if("${EXCLUDE_SUBMODULE_PATHS}" STREQUAL "")
+			set(NBL_EXCLUDE "")
+		else()
+			foreach(EXCLUDE_SUBMODULE_PATH ${EXCLUDE_SUBMODULE_PATHS})
+				string(APPEND NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none ")
+			endforeach()
+			
+			string(STRIP "${NBL_EXCLUDE}" NBL_EXCLUDE)
+		endif()
+
+		if(SHOULD_RECURSIVE)
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+		else()
+			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
+		endif()
+		
+		unset(NBL_EXCLUDE)
+	endmacro()
+	
+	set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
+	set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
+	get_filename_component(_NBL_UPDATE_IMPL_CMAKE_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmake" ABSOLUTE)
+	
+	# Proxy script for inclusive submodule updating
+	string(APPEND NBL_IMPL_SCRIPT "set(NBL_ROOT_PATH \"${NBL_ROOT_PATH}\")\nset(_GIT_SUBMODULES_JOBS_AMOUNT_ ${_GIT_SUBMODULES_JOBS_AMOUNT_})\nset(GIT_EXECUTABLE \"${GIT_EXECUTABLE}\")\nset(NBL_SHALLOW \"${NBL_SHALLOW}\")\nset(NBL_FORCE \"${NBL_FORCE}\")\n\n")
+	string(APPEND NBL_IMPL_SCRIPT
+[=[
+if(NOT DEFINED GIT_RELATIVE_ENTRY)
+	message(FATAL_ERROR "GIT_RELATIVE_ENTRY must be defined to use this script!")
+endif()
+
+if(NOT DEFINED INCLUDE_SUBMODULE_PATHS)
+	message(FATAL_ERROR "INCLUDE_SUBMODULE_PATHS must be defined to use this script!")
+endif()
+
+# update an inclusive submodule first
+execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}" submodule update --init "${GIT_RELATIVE_ENTRY}")
+
+if("${INCLUDE_SUBMODULE_PATHS}" STREQUAL "")
+	set(NBL_SUBMODULE_UPDATE_CONFIG_ENTRY "")
+else()
+	execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" config --file .gitmodules --get-regexp path
+		OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE
+	)
+
+	string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
+	
+	foreach(NBL_SUBMODULE_NAME ${NBL_SUBMODULE_CONFIG_LIST})
+		string(REGEX MATCH "submodule\\.(.*)\\.path" NBL_SUBMODULE_NAME "${NBL_SUBMODULE_NAME}")
+		list(APPEND NBL_ALL_SUBMODULES "${CMAKE_MATCH_1}")
+	endforeach()
+	
+	foreach(NBL_SUBMODULE_NAME ${NBL_ALL_SUBMODULES})		
+		list(FIND INCLUDE_SUBMODULE_PATHS "${NBL_SUBMODULE_NAME}" NBL_FOUND)
+		
+		if("${NBL_FOUND}" STREQUAL "-1")
+			list(APPEND NBL_CONFIG_SETUP_CMD "-c;submodule.${NBL_SUBMODULE_NAME}.update=none") # filter submodules - only those on the INCLUDE_SUBMODULE_PATHS list will be updated when recursive update is requested, all left will be skipped
+		endif()
+	endforeach()
+endif()
+
+execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${NBL_FORCE}
+	WORKING_DIRECTORY "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}"
+)
+]=]
+)
+	file(WRITE "${_NBL_UPDATE_IMPL_CMAKE_FILE_}" "${NBL_IMPL_SCRIPT}")
+	
+	macro(NBL_WRAPPER_COMMAND_INCLUSIVE GIT_RELATIVE_ENTRY INCLUDE_SUBMODULE_PATHS)
+		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${CMAKE_COMMAND}\" \"-DGIT_RELATIVE_ENTRY=${GIT_RELATIVE_ENTRY}\" \"-DINCLUDE_SUBMODULE_PATHS=${INCLUDE_SUBMODULE_PATHS}\" -P \"${_NBL_UPDATE_IMPL_CMAKE_FILE_}\"\n")
+	endmacro()
+	
+	if(NBL_UPDATE_GIT_SUBMODULE)
+		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
+		
+		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
+		
+		macro(NBL_IMPL_INIT_COMMON_SUBMODULES)
+			# 3rdparty except boost & gltf
+			set(NBL_3RDPARTY_MODULES_TO_SKIP
+				3rdparty/boost/superproject # a lot of submodules we don't use
+				3rdparty/glTFSampleModels # more then 2GB waste of space (disk + .gitmodules data)
+			)
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE "${NBL_3RDPARTY_MODULES_TO_SKIP}")
+			
+			# boost's 3rdparties, special case
+			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave numeric_conversion math) # wave and all of its deps, numeric_conversion is nested in conversion submodule (for some reason boostdep tool doesn't output it properly)
+			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
+				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT ${NBL_TARGET})
+			endforeach()
+			NBL_WRAPPER_COMMAND_INCLUSIVE(3rdparty/boost/superproject "${NBL_BOOST_SUBMODULES_TO_INIT}")
+			
+			# tests
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./tests FALSE "")
+		endmacro()
+		
+		NBL_IMPL_INIT_COMMON_SUBMODULES()
+		
+		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests TRUE "")
+		else()
+			# NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
+			
+			# examples and their media
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
+			NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
+		endif()
+				
+		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
+
+		if(WIN32)
+			find_package(GitBash REQUIRED)
+		
+			execute_process(COMMAND "${GIT_BASH_EXECUTABLE}" "-c"
+[=[
+>&2 echo ""
+clear
+./nbl-update-submodules.cmd 2>&1 | tee nbl-update-submodules.log
+sleep 1
+clear
+tput setaf 2; echo -e "Submodules have been updated! 
+Created nbl-update-submodules.log in your build directory."
+]=]
+				WORKING_DIRECTORY ${NBL_ROOT_PATH_BINARY}
+				OUTPUT_VARIABLE _NBL_TMP_OUTPUT_
+				RESULT_VARIABLE _NBL_TMP_RET_CODE_
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+				ERROR_STRIP_TRAILING_WHITESPACE
+			)
+
+			unset(_NBL_TMP_OUTPUT_)
+			unset(_NBL_TMP_RET_CODE_)
+		else()
+			execute_process(COMMAND "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}")
+		endif()
+		
+		message(STATUS "Submodules have been updated! Check \"${NBL_ROOT_PATH_BINARY}/nbl-update-submodules.log\" for more details.")
+	else()
+		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "NBL_UPDATE_GIT_SUBMODULE is turned OFF therefore submodules won't get updated.")
+	endif()
+endfunction()

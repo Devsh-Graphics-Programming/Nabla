@@ -1,13 +1,15 @@
 #ifndef _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 #define _NBL_UI_I_GRAPHICAL_APPLICATION_FRAMEWORK_H_INCLUDED_
 
+#include "nbl/ui/IWindow.h"
+
 #include <vector>
 #include <string>
 
 namespace nbl::ui
 {
 
-// no NBL_API because nothing in Nabla uses it
+// no because nothing in Nabla uses it
 class IGraphicalApplicationFramework
 {
 	public:
@@ -23,10 +25,6 @@ class IGraphicalApplicationFramework
 
 		virtual uint32_t getSwapchainImageCount() = 0;
 		virtual nbl::asset::E_FORMAT getDepthFormat() = 0;
-
-		virtual void recreateSurface() = 0;
-
-		virtual void onResize(uint32_t w, uint32_t h) = 0;
 };
 
 }

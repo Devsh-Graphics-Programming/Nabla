@@ -12,7 +12,7 @@ namespace nbl
 namespace video
 {
 	//! .
-	class NBL_API NBL_FORCE_EBO IVideoCapabilityReporter
+	class NBL_FORCE_EBO IVideoCapabilityReporter
 	{
 	public:
 		//! Get type of video driver

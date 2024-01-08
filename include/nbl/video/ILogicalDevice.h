@@ -3,6 +3,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/IGPUFence.h"
 /*
@@ -28,45 +29,36 @@
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
+#include "nbl/video/SPhysicalDeviceFeatures.h"
+
 namespace nbl::video
 {
 
 class IDescriptorPool;
 class IPhysicalDevice;
 
-class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
+class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
-        enum E_FEATURE
-        {
-            EF_SWAPCHAIN = 0,
-            EF_DEFERRED_HOST_OPERATIONS,
-            EF_BUFFER_DEVICE_ADDRESS,
-            EF_DESCRIPTOR_INDEXING,
-            EF_ACCELERATION_STRUCTURE,
-            EF_SHADER_FLOAT_CONTROLS,
-            EF_SPIRV_1_4,
-            EF_RAY_TRACING_PIPELINE,
-            EF_RAY_QUERY,
-            EF_FRAGMENT_SHADER_INTERLOCK,
-            EF_COUNT
-        };
-
         struct SQueueCreationParams
         {
-            IGPUQueue::E_CREATE_FLAGS flags;
-            uint32_t familyIndex;
-            uint32_t count;
-            const float* priorities;
+            constexpr static inline uint8_t MaxQueuesInFamily = 63;
+
+            IGPUQueue::E_CREATE_FLAGS flags = IGPUQueue::ECF_NONE;
+            uint8_t familyIndex = 0xff;
+            uint8_t count = 0;
+            std::array<float,MaxQueuesInFamily> priorities = []()->auto{
+                std::array<float,MaxQueuesInFamily> retval;retval.fill(IGPUQueue::DEFAULT_QUEUE_PRIORITY);return retval;
+            }();
         };
         struct SCreationParams
         {
+            constexpr static inline uint8_t MaxQueueFamilies = 16;
+
             uint32_t queueParamsCount;
-            const SQueueCreationParams* queueParams;
-            uint32_t requiredFeatureCount;
-            E_FEATURE* requiredFeatures;
-            uint32_t optionalFeatureCount;
-            E_FEATURE* optionalFeatures;
+            std::array<SQueueCreationParams,MaxQueueFamilies> queueParams = {};
+            SPhysicalDeviceFeatures featuresToEnable = {};
+            core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
         };
 
         struct SDescriptorSetCreationParams
@@ -99,6 +91,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         }
 
         inline IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
+
+        inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
         E_API_TYPE getAPIType() const;
 
@@ -159,7 +153,7 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         
         virtual core::smart_refctd_ptr<IDeferredOperation> createDeferredOperation() = 0;
         virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, core::bitflag<IGPUCommandPool::E_CREATE_FLAGS> flags) = 0;
-        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
+        virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::SCreateInfo&& createInfo) = 0;
 
         core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
@@ -194,6 +188,8 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams) { return nullptr; }
 
+        virtual uint64_t getBufferDeviceAddress(IGPUBuffer* buffer) { return ~0ull; }
+
         //! Binds memory allocation to provide the backing for the resource.
         /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
         so pooling or aliasing memory for different resources is not possible.
@@ -205,11 +201,11 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader(core::smart_refctd_ptr<asset::ICPUShader>&& cpushader) = 0;
 
-        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt = nullptr)
+        core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
         {
             if (!_unspecialized->wasCreatedBy(this))
                 return nullptr;
-            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo, _spvopt);
+            auto retval =  createSpecializedShader_impl(_unspecialized, _specInfo);
             const auto path = _unspecialized->getFilepathHint();
             if (retval && !path.empty())
                 retval->setObjectDebugName(path.c_str());
@@ -246,62 +242,31 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
             return createAccelerationStructure_impl(std::move(params));
         }
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout)
-        {
-            if (!pool->wasCreatedBy(this))
-                return nullptr;
-            if (!layout->wasCreatedBy(this))
-                return nullptr;
-            return createDescriptorSet_impl(pool, std::move(layout));
-        }
-
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPoolForDSLayouts(const IDescriptorPool::E_CREATE_FLAGS flags, const IGPUDescriptorSetLayout* const* const begin, const IGPUDescriptorSetLayout* const* const end, const uint32_t* setCounts=nullptr)
         {
-            uint32_t totalSetCount = 0;
-            std::vector<IDescriptorPool::SDescriptorPoolSize> poolSizes; // TODO: use a map
+            IDescriptorPool::SCreateInfo createInfo = {};
+
             auto setCountsIt = setCounts;
             for (auto* curLayout = begin; curLayout!=end; curLayout++,setCountsIt++)
+            if (*curLayout)
             {
                 const auto setCount = setCounts ? (*setCountsIt):1u;
-                totalSetCount += setCount;
+                createInfo.maxSets += setCount;
 
-                auto bindings = (*curLayout)->getBindings();
-                for (const auto& binding : bindings)
+                for (uint32_t t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 {
-                    auto ps = std::find_if(poolSizes.begin(), poolSizes.end(), [&](const IDescriptorPool::SDescriptorPoolSize& poolSize) { return poolSize.type == binding.type; });
-                    if (ps != poolSizes.end())
-                    {
-                        ps->count += setCount*binding.count;
-                    }
-                    else
-                    {
-                        poolSizes.push_back(IDescriptorPool::SDescriptorPoolSize { binding.type, setCount*binding.count });
-                    }
+                    const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+                    const auto& redirect = (*curLayout)->getDescriptorRedirect(type);
+                    createInfo.maxDescriptorCount[t] += setCount * redirect.getTotalCount();
                 }
-
             }
         
-            core::smart_refctd_ptr<IDescriptorPool> dsPool = createDescriptorPool(flags, totalSetCount, poolSizes.size(), poolSizes.data());
+            auto dsPool = createDescriptorPool(std::move(createInfo));
             return dsPool;
         }
 
-        void createDescriptorSets(IDescriptorPool* pool, uint32_t count, const IGPUDescriptorSetLayout* const* _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            core::SRange<const IGPUDescriptorSetLayout* const> layouts{ _layouts, _layouts + count };
-            createDescriptorSets(pool, layouts, output);
-        }
-        void createDescriptorSets(IDescriptorPool* pool, core::SRange<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
-        {
-            uint32_t i = 0u;
-            for (const IGPUDescriptorSetLayout* layout_ : layouts)
-            {
-                auto layout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(layout_);
-                output[i++] = createDescriptorSet(pool, std::move(layout));
-            }
-        }
-
         //! Fill out the descriptor sets with descriptors
-        virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
+        bool updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies);
 
         //! Create a sampler object to use with images
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
@@ -512,14 +477,21 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
+        
+        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
+        inline core::SRange<const char* const> getExtraShaderDefines() const
+        {
+            const char* const* begin = m_extraShaderDefines.data();
+            return {begin,begin+m_extraShaderDefines.size()};
+        }
 
     protected:
         ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice)
+            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
         {
             uint32_t qcnt = 0u;
-            uint32_t greatestFamNum = 0u;
-            for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+            uint8_t greatestFamNum = 0u;
+            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
             {
                 greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
                 qcnt += params.queueParams[i].count;
@@ -527,9 +499,10 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
 
             m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
             m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-
-            for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueParams, params.queueParams + params.queueParamsCount))
+            
+            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
             {
+                const auto& qci = params.queueParams[i];
                 if (qci.familyIndex == greatestFamNum)
                     continue;
 
@@ -553,10 +526,10 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         virtual bool createCommandBuffers_impl(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer>* _outCmdBufs) = 0;
         virtual bool freeCommandBuffers_impl(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt) = 0;
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createSpecializedShader_impl(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createDescriptorSet_impl(IDescriptorPool* pool, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout) = 0;
+        virtual void updateDescriptorSets_impl(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) = 0;
         virtual core::smart_refctd_ptr<IGPUAccelerationStructure> createAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
@@ -590,8 +563,41 @@ class NBL_API ILogicalDevice : public core::IReferenceCounted, public IDeviceMem
         ) = 0;
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
+        
+        void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
 
+        template<typename... Args>
+        inline void addShaderDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
+        {
+            const ptrdiff_t pos = pool.tellp();
+            m_extraShaderDefines.push_back(reinterpret_cast<const char*>(pos));
+            pool << define << " ";
+            ((pool << std::forward<Args>(args)), ...);
+        }
+        inline void finalizeShaderDefinePool(std::ostringstream&& pool)
+        {
+            m_ShaderDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraShaderDefines.size());
+            const auto data = ptrdiff_t(m_ShaderDefineStringPool.data());
+
+            const auto str = pool.str();
+            size_t nullCharsWritten = 0u;
+            for (auto i=0u; i<m_extraShaderDefines.size(); i++)
+            {
+                auto& dst = m_extraShaderDefines[i];
+                const auto len = (i!=(m_extraShaderDefines.size()-1u) ? ptrdiff_t(m_extraShaderDefines[i+1]):str.length())-ptrdiff_t(dst);
+                const char* src = str.data()+ptrdiff_t(dst);
+                dst += data+(nullCharsWritten++);
+                memcpy(const_cast<char*>(dst),src,len);
+                const_cast<char*>(dst)[len] = 0;
+            }
+        }
+
+        core::vector<char> m_ShaderDefineStringPool;
+        core::vector<const char*> m_extraShaderDefines;
+
+        core::smart_refctd_ptr<asset::CCompilerSet> m_compilerSet;
         core::smart_refctd_ptr<IAPIConnection> m_api;
+        SPhysicalDeviceFeatures m_enabledFeatures;
         IPhysicalDevice* m_physicalDevice;
 
         using queues_array_t = core::smart_refctd_dynamic_array<CThreadSafeGPUQueueAdapter*>;

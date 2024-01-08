@@ -11,7 +11,7 @@ namespace nbl::video
 
 class ILogicalDevice;
 
-class NBL_API IBackendObject
+class IBackendObject
 {
     public:
         constexpr static inline size_t MAX_DEBUG_NAME_LENGTH = 255ull;
@@ -63,6 +63,8 @@ class NBL_API IBackendObject
         }
 
         const char* getObjectDebugName() const { return m_debugName; }
+
+        // TODO: consider setting tags for backend objects: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkSetDebugUtilsObjectTagEXT.html
 
     protected:
         virtual ~IBackendObject();

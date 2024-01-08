@@ -1,16 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
-#define __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
+#ifndef _NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED_
+#define _NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED_
 
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 
 namespace nbl::system
 {
 
-class NBL_API FuncPtrLoader : public core::Uncopyable
+class FuncPtrLoader : public core::Uncopyable
 {
 	protected:
 		FuncPtrLoader() = default;

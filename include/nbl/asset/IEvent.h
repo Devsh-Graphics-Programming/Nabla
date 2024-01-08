@@ -7,7 +7,7 @@ namespace nbl {
 namespace asset
 {
 
-class NBL_API IEvent
+class IEvent
 {
 public:
     enum E_CREATE_FLAGS : uint32_t

@@ -20,7 +20,7 @@ namespace nbl::asset
 
 	but we can provide useful metadata from the loader.
 */
-class NBL_API IImageMetadata : public core::Interface
+class IImageMetadata : public core::Interface
 {
 	public:
 		struct ColorSemantic

@@ -11,7 +11,7 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
-#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
+#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeGenerator.h"
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -421,7 +421,7 @@ void CMitsubaLoader::initialize()
 
 	auto* glslc = m_assetMgr->getGLSLCompiler();
 
-	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_system));
+	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeGenerator>(m_system));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
@@ -1189,21 +1189,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto* ds0layout = _layout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
-	{
-		auto count = _ctx.backend_ctx.vt.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
-
-		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
-		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
-
-		_ctx.backend_ctx.vt.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
-
-		for (const auto& w : (*writes))
-		{
-			auto descRng = ds0->getDescriptors(w.binding);
-			for (uint32_t i = 0u; i < w.count; ++i)
-				descRng.begin()[w.arrayElement+i].assign(w.info[i], w.descriptorType);
-		}
-	}
+	const bool updateSuccess = _ctx.backend_ctx.vt.vt->updateDescriptorSet(ds0.get());
+	assert(updateSuccess);
+	
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));

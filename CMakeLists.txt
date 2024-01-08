@@ -2,11 +2,9 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
-cmake_minimum_required(VERSION 3.20)
-#policies
-cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
-set(OpenGL_GL_PREFERENCE LEGACY)
-#cmake_policy(SET CMP )
+cmake_minimum_required(VERSION 3.26)
+cmake_policy(SET CMP0112 NEW)
+cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 
 set(NBL_BUILD_ANDROID OFF)
 
@@ -14,9 +12,19 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
+enable_language(C CXX ASM)
 
 option(NBL_STATIC_BUILD "" ON) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" OFF)
+option(NBL_SANITIZE_ADDRESS OFF)
+
+if(MSVC)
+	if(NBL_SANITIZE_ADDRESS)
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
+	else()
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
+	endif()
+endif()
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
@@ -56,6 +64,9 @@ endif()
 
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+get_filename_component(NBL_PYTHON_MODULE_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests" ABSOLUTE)
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -81,25 +92,59 @@ if (NBL_COMPILE_WITH_CUDA)
 endif()
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
-
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
+
+if(NBL_SANITIZE_ADDRESS) # get rid of RTC1 flag provided by CMake for ASAN purposes
+	unset(CMAKE_CXX_FLAGS_DEBUG CACHE) 
+	unset(CMAKE_CXX_FLAGS_DEBUG)
+	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO CACHE) 
+	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+endif()
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
-if (DEFINED ENV{NUMBER_OF_PROCESSORS})
-	set(NBL_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
-else()
-	set(NBL_PARALLEL_BUILD_JOBS 8)
+option(_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_ "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" OFF)
+
+include(ProcessorCount)
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	ProcessorCount(_NBL_JOBS_AMOUNT_)
+	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+		set(_NBL_JOBS_AMOUNT_ 1)
+	endif()
+endif()
+
+cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
+cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
+
+if(NBL_CI_MODE)
+	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
+	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
+		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
+	
+		set(_NBL_JOBS_AMOUNT_ "${_CI_NBL_JOBS_AMOUNT_}")
+	endif()
+endif()
+
+set(_NBL_JOBS_AMOUNT_ "${_NBL_JOBS_AMOUNT_}" CACHE STRING "Max jobs amount for the build to be invoked" FORCE)
+
+math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
+math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
+
+if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
+	if(_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_)
+		set(_NBL_CMAKE_STATUS_ WARNING)
+	else()
+		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
+	endif()
+	
+	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define '_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
 macro(nbl_adjust_flags)
-	option(NBL_SANITIZE_ADDRESS OFF)
-	
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		option(NBL_SANITIZE_THREAD OFF)
 	endif()
@@ -183,30 +228,28 @@ macro(nbl_adjust_flags)
 		endif()
 
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
-		if (NBL_SANITIZE_ADDRESS)
-			set(NBL_MSVC_FLAG_SANITIZE_ADDRESS "/fsanitize=address")
-			message(WARNING "Due to https://github.com/google/sanitizers/issues/328 expect not to be able to use the Debug target!")
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /wholearchive:clang_rt.asan_dbg-x86_64.lib /wholearchive:clang_rt.asan_cxx_dbg-x86_64.lib")
-			set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /wholearchive:clang_rt.asan-x86_64.lib /wholearchive:clang_rt.asan_cxx-x86_64.lib")
+		if(NBL_SANITIZE_ADDRESS)
+			list(APPEND CMAKE_CXX_FLAGS /fsanitize=address)
+			list(APPEND CMAKE_C_FLAGS /fsanitize=address)
 		endif()
 		
 		# debug
 		string(REPLACE "/W3" "/W0" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}" )
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /fp:fast /Zc:wchar_t /INCREMENTAL" )
 		string(REPLACE "/W3" "/W0" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP${_NBL_JOBS_AMOUNT_} /fp:fast /Zc:wchar_t /INCREMENTAL")
 		
 		# release
 		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}") # for some reason simply replacing /GS -> /GS- doesn't work... so it vanishes here and appears a few lines below!
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
 		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
 		
 		# relWithDebInfo
 		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP /Gy /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP${_NBL_JOBS_AMOUNT_} /Gy /sdl- /Oy- /fp:fast")
 		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP /Gy /Zc:wchar_t /Zi /sdl- /Oy- /fp:fast ${NBL_MSVC_SANITIZE_ADDRESS}")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy /Zc:wchar_t /sdl- /Oy- /fp:fast")
 		
 		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
 		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
@@ -222,6 +265,7 @@ macro(nbl_adjust_definitions)
 		PNG_NO_MNG_FEATURES
 		_7ZIP_ST
 		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+		BOOST_ALL_NO_LIB
 	)
 	
 	if(ANDROID)
@@ -258,7 +302,7 @@ endif()
 #uncomment in the future
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
-option(NBL_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 
 option(NBL_PCH "Enable pre-compiled header" ON)
 
@@ -266,9 +310,9 @@ option(NBL_FAST_MATH "Enable fast low-precision math" ON)
 
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
-option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
-
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
+
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -284,24 +328,30 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
+option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
+option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
-if(NBL_UPDATE_GIT_SUBMODULE)
-execute_process(COMMAND git submodule init
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-execute_process(COMMAND git submodule sync --recursive
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-endif()
+set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
+get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
+				
+option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
+option(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE "Submodules will be updated with --force flag if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, use with caution - if there are any uncommited files in submodules' working tree they will be removed!" OFF)
+option(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE "Sync initialized submodule paths if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, this is useful when any submodule remote path got modified and you want to apply this modification to your local repository. Turning NBL_FORCE_ON_UPDATE_GIT_SUBMODULE implies this option" OFF)
+option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
+option(NBL_CI_GIT_SUBMODULES_SHALLOW "" OFF)
+
+find_package(Git REQUIRED)
+find_package (Python3 COMPONENTS Interpreter REQUIRED)
+include(common)
+
+NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
-OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
-
-add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
-
-if(NBL_BUILD_TOOLS)
-	add_subdirectory(tools) # convert2BAW
-endif()
+add_subdirectory(src/nbl)
+add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
 
 if(NBL_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
@@ -312,5 +362,8 @@ if(NBL_BUILD_DOCS)
 endif()
 
 add_subdirectory(artifacts)
+
+option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
+include(cpack/package)
 
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

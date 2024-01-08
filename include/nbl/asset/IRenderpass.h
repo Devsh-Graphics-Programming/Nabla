@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class NBL_API IRenderpass
+class IRenderpass
 {
 public:
     static constexpr inline uint32_t ATTACHMENT_UNUSED = 0xffFFffFFu;
@@ -149,8 +149,6 @@ public:
                 sb._array = refs+refOffset;\
                 refOffset += sb._count;
 
-                // Todo(achal): It is probably wise to do the existence check on colorAttachements
-                // as well since it could be NULL according to the Vulkan spec
                 _COPY_ATTACHMENT_REFS(colorAttachments, colorAttachmentCount);
                 if (sb.inputAttachments)
                 {

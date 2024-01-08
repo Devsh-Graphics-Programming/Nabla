@@ -4,14 +4,16 @@ using namespace nbl;
 using namespace nbl::system;
 
 #ifdef _NBL_PLATFORM_LINUX_
+
+#include <sys/sysinfo.h>
 ISystem::SystemInfo CSystemLinux::getSystemInfo() const
 {
     SystemInfo info;
 
     // TODO
-    info.cpuFrequencyHz = 3000000000u;
+    // info.cpuFrequencyHz = 3000000000u;
 
-    sysinfo linuxSystemInfo;
+    struct sysinfo linuxSystemInfo;
     sysinfo(&linuxSystemInfo);
     info.totalMemory = linuxSystemInfo.totalram;
     info.availableMemory = linuxSystemInfo.freeram;

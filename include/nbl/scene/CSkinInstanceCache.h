@@ -11,7 +11,7 @@ namespace nbl::scene
 {
 
 template<template<class...> class allocator = core::allocator>
-class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
+class CSkinInstanceCache final : public ISkinInstanceCache
 {
 		using this_t = CSkinInstanceCache<allocator>;
 
@@ -77,7 +77,7 @@ class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
             const auto* transformTree = params.associatedTransformTree.get();
             assert(transformTree->getRenderDescriptorSetBindingCount()<=ITransformTreeWithNormalMatrices::RenderDescriptorSetBindingCount);
             const auto poolSizeCount = CacheDescriptorSetBindingCount+ITransformTreeWithNormalMatrices::RenderDescriptorSetBindingCount+1u;
-			video::IDescriptorPool::SDescriptorPoolSize size = {asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER,poolSizeCount};
+			video::IDescriptorPool::SDescriptorPoolSize size = {asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,poolSizeCount};
 			auto dsp = params.device->createDescriptorPool(video::IDescriptorPool::ECF_NONE,2u,1u,&size);
 			if (!dsp)
 				return nullptr;
@@ -87,7 +87,7 @@ class NBL_API CSkinInstanceCache final : public ISkinInstanceCache
 			for (auto i=0u; i<CacheDescriptorSetBindingCount; i++)
 			{
 				writes[i].binding = i;
-				writes[i].descriptorType = asset::E_DESCRIPTOR_TYPE::EDT_STORAGE_BUFFER;
+				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				writes[i].count = 1u;
 			}
 			auto cacheUpdateLayout = createCacheDescriptorSetLayout(params.device);

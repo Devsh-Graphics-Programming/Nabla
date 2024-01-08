@@ -17,7 +17,7 @@ namespace nbl
 			
 		*/
 
-		class NBL_API CPrecomputedDither : public CDither<CPrecomputedDither>
+		class CPrecomputedDither : public CDither<CPrecomputedDither>
 		{
 			public:
 				CPrecomputedDither() {}

@@ -6,6 +6,8 @@
 #define __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/util/bitflag.h"
+#include "nbl/video/EApiType.h"
 
 namespace nbl::video
 {
@@ -20,7 +22,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
+class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
         friend class ILogicalDevice;
 
@@ -78,7 +80,7 @@ class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         enum E_MEMORY_PROPERTY_FLAGS : uint32_t
         {
-            EMPF_NONE               = 0x00000000,
+            EMPF_NONE               = 0,
             EMPF_DEVICE_LOCAL_BIT   = 0x00000001,
             EMPF_HOST_READABLE_BIT  = 0x00000002, 
             EMPF_HOST_WRITABLE_BIT  = 0x00000004, 
@@ -93,7 +95,8 @@ class NBL_API IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         
         enum E_MEMORY_HEAP_FLAGS : uint32_t
         {
-            EMHF_DEVICE_LOCAL_BIT = 0x00000001,
+            EMHF_NONE               = 0,
+            EMHF_DEVICE_LOCAL_BIT   = 0x00000001,
             EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 

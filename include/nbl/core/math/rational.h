@@ -16,7 +16,7 @@ namespace core
 
 
 template<typename NumeratorType=int32_t, typename DenominatorType=typename std::make_unsigned<NumeratorType>::type>
-class NBL_API rational
+class rational
 {
 		// TODO: detect the usage of an atomic as the type and strip it to its normal variable
 		using non_atomic_numerator = NumeratorType;

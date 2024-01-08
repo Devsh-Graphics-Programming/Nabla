@@ -7,6 +7,7 @@
 
 #include "matrix4SIMD.h"
 #include "nbl/core/math/glslFunctions.tcc"
+#include "aabbox3d.h"
 
 namespace nbl
 {

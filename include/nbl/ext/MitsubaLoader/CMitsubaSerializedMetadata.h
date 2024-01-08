@@ -16,7 +16,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class NBL_API CMitsubaSerializedMetadata final : public asset::IAssetMetadata
+class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
 {
     public:
         class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata

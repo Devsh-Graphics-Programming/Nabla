@@ -23,12 +23,12 @@ namespace asset
 {
 
 
-struct NBL_API SwizzleBase
+struct SwizzleBase
 {
     _NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
 };
 
-struct NBL_API VoidSwizzle : SwizzleBase
+struct VoidSwizzle : SwizzleBase
 {
 	template<typename InT, typename OutT>
     void operator()(const InT* in, OutT* out) const;
@@ -50,7 +50,7 @@ inline void VoidSwizzle::operator()(const InT* in, OutT* out) const
     Base class for \bruntime\b swizzle - stateful
 */
 
-struct NBL_API PolymorphicSwizzle : SwizzleBase
+struct PolymorphicSwizzle : SwizzleBase
 {
     virtual void impl(const double in[SwizzleBase::MaxChannels], double out[SwizzleBase::MaxChannels]) const { assert(false); } // not overriden
 	virtual void impl(const uint64_t in[SwizzleBase::MaxChannels], double out[SwizzleBase::MaxChannels]) const { assert(false); } // not overriden
