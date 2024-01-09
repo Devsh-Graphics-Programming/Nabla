@@ -4,6 +4,8 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
+#include <chrono>
+
 #include "nbl/video/decl/IBackendObject.h"
 
 
@@ -13,6 +15,7 @@ namespace nbl::video
 class ISemaphore : public IBackendObject
 {
     public:
+        // basically a pool function
         virtual uint64_t getCounterValue() const = 0;
 
         //! Basically the counter can only monotonically increase with time (ergo the "timeline"):
@@ -23,6 +26,21 @@ class ISemaphore : public IBackendObject
         // without any execution dependencies, you can only signal a value higher than 2 but less than 3 which is impossible.
         virtual void signal(const uint64_t value) = 0;
 
+        // We don't provide waits as part of the semaphore (cause you can await multiple at once with ILogicalDevice),
+        // but don't want to pollute ILogicalDevice with lots of enums and structs
+        struct SWaitInfo
+        {
+            const ISemaphore* semaphore = nullptr;
+            uint64_t value = 0;
+        };
+        enum class WAIT_RESULT : uint8_t
+        {
+            TIMEOUT,
+            SUCCESS,
+            DEVICE_LOST,
+            _ERROR
+        };
+
         // Vulkan: const VkSemaphore*
         virtual const void* getNativeHandle() const = 0;
 
@@ -32,5 +50,4 @@ class ISemaphore : public IBackendObject
 };
 
 }
-
 #endif

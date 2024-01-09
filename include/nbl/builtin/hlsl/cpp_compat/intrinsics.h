@@ -53,7 +53,7 @@ inline T determinant(const matrix<T,N,M>& m)
 
 NBL_BIT_OP_GLM_PASSTHROUGH(findLSB,findLSB)
 
-NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findLSB)
+NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 
 // inverse not defined cause its implemented via hidden friend
 template<typename T, uint16_t N, uint16_t M>

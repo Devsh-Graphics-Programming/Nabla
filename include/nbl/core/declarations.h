@@ -66,7 +66,6 @@
 #include "nbl/core/util/to_underlying.h"
 
 // other useful things
-#include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/IBuffer.h"
 #include "nbl/core/IReferenceCounted.h"
