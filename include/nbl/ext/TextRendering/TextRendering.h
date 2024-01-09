@@ -12,6 +12,9 @@
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
 #include <nbl/ext/TextRendering/TextRendering.h>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 
@@ -19,6 +22,7 @@ using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
+using namespace nbl::hlsl;
 
 namespace nbl
 {
@@ -338,6 +342,59 @@ private:
 
 	core::smart_refctd_ptr<video::IGPUComputePipeline> m_expansionPipeline;
 	FontAtlas* m_fontAtlas;
+};
+
+// Helper class for building an msdfgen shape from a glyph
+// The shape can be built like a canvas drawing API (move to, line to, 
+// and by adding quadratic & cubic segments)
+class GlyphShapeBuilder {
+public:
+	// Shape that is currently being created
+	msdfgen::Shape* shape;
+
+	// Start a new line from here
+	void moveTo(const float64_t2 to)
+	{
+		if (!(currentContour && currentContour->edges.empty()))
+			currentContour = &shape->addContour();
+		lastPosition = to;
+	}
+
+	// Continue the last line started with moveTo (could also use the last 
+	// position from a lineTo)
+	void lineTo(const float64_t2 to)
+	{
+		if (to != lastPosition) {
+			currentContour->addEdge(new msdfgen::LinearSegment(msdfPoint(lastPosition), msdfPoint(to)));
+			lastPosition = to;
+		}
+	}
+
+	// Continue the last moveTo or lineTo with a quadratic bezier:
+	// [last position, control, end]
+	void quadratic(const float64_t2 control, const float64_t2 to)
+	{
+		currentContour->addEdge(new msdfgen::QuadraticSegment(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
+		lastPosition = to;
+	}
+
+	// Continue the last moveTo or lineTo with a cubic bezier:
+	// [last position, control1, control2, end]
+	void cubic(const float64_t2 control1, const float64_t2 control2, const float64_t2 to)
+	{
+		currentContour->addEdge(new msdfgen::CubicSegment(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
+		lastPosition = to;
+	}
+private:
+	msdfgen::Point2 msdfPoint(const float64_t2 point)
+	{
+		return msdfgen::Point2(point.x, point.y);
+	}
+
+	// Set with move to and line to
+	float64_t2 lastPosition;
+	// Current contour, used for adding edges
+	msdfgen::Contour* currentContour = nullptr;
 };
 
 }
