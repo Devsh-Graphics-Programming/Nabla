@@ -349,14 +349,13 @@ private:
 // and by adding quadratic & cubic segments)
 class GlyphShapeBuilder {
 public:
-	// Shape that is currently being created
-	msdfgen::Shape* shape;
+	GlyphShapeBuilder(msdfgen::Shape& createShape) : shape(createShape) {}
 
 	// Start a new line from here
 	void moveTo(const float64_t2 to)
 	{
 		if (!(currentContour && currentContour->edges.empty()))
-			currentContour = &shape->addContour();
+			currentContour = &shape.addContour();
 		lastPosition = to;
 	}
 
@@ -385,14 +384,22 @@ public:
 		currentContour->addEdge(new msdfgen::CubicSegment(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
 		lastPosition = to;
 	}
+
+	void finish()
+	{
+		if (!shape.contours.empty() && shape.contours.back().edges.empty())
+			shape.contours.pop_back();
+	}
 private:
 	msdfgen::Point2 msdfPoint(const float64_t2 point)
 	{
 		return msdfgen::Point2(point.x, point.y);
 	}
 
+	// Shape that is currently being created
+	msdfgen::Shape& shape;
 	// Set with move to and line to
-	float64_t2 lastPosition;
+	float64_t2 lastPosition = float64_t2(0.0);
 	// Current contour, used for adding edges
 	msdfgen::Contour* currentContour = nullptr;
 };

@@ -64,8 +64,7 @@ int ftCubicTo(const FT_Vector* control1, const FT_Vector* control2, const FT_Vec
 
 bool drawFreetypeGlyph(msdfgen::Shape& shape, FT_Library library, FT_Face face)
 {
-	GlyphShapeBuilder builder = {};
-	builder.shape = &shape;
+	GlyphShapeBuilder builder(shape);
 	FT_Outline_Funcs ftFunctions;
 	ftFunctions.move_to = &ftMoveTo;
 	ftFunctions.line_to = &ftLineTo;
@@ -76,8 +75,7 @@ bool drawFreetypeGlyph(msdfgen::Shape& shape, FT_Library library, FT_Face face)
 	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &builder);
 	if (error)
 		return false;
-	if (!shape.contours.empty() && shape.contours.back().edges.empty())
-		shape.contours.pop_back();
+	builder.finish();
 	return true;
 }
 
