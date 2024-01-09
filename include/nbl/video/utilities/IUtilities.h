@@ -1,3 +1,6 @@
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_VIDEO_I_UTILITIES_H_INCLUDED_
 #define _NBL_VIDEO_I_UTILITIES_H_INCLUDED_
 
@@ -16,7 +19,6 @@
 namespace nbl::video
 {
 
-#if 0 // TODO: port
 class NBL_API2 IUtilities : public core::IReferenceCounted
 {
     protected:
@@ -29,9 +31,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         nbl::system::logger_opt_smart_ptr m_logger;
 
     public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
-            : m_device(std::move(device))
-            , m_logger(std::move(logger))
+        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger=nullptr, const uint32_t downstreamSize=0x4000000u, const uint32_t upstreamSize=0x4000000u)
+            : m_device(std::move(device)), m_logger(std::move(logger))
         {
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
@@ -39,22 +40,23 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto queueFamProps = physicalDevice->getQueueFamilyProperties();
             uint32_t minImageTransferGranularityVolume = 1u; // minImageTransferGranularity.width * height * depth
 
-            for (uint32_t i = 0; i < queueFamProps.size(); i++)
+            for (auto& qf : queueFamProps)
             {
-                uint32_t volume = queueFamProps[i].minImageTransferGranularity.width * queueFamProps[i].minImageTransferGranularity.height * queueFamProps[i].minImageTransferGranularity.depth;
-                if(minImageTransferGranularityVolume < volume)
+                uint32_t volume = qf.minImageTransferGranularity.width*qf.minImageTransferGranularity.height*qf.minImageTransferGranularity.depth;
+                if(minImageTransferGranularityVolume<volume)
                     minImageTransferGranularityVolume = volume;
             }
 
             // host-mapped device memory needs to have this alignment in flush/invalidate calls, therefore this is the streaming buffer's "allocationAlignment".
-            m_allocationAlignment = static_cast<uint32_t>(limits.nonCoherentAtomSize);
-            m_allocationAlignmentForBufferImageCopy = core::max(static_cast<uint32_t>(limits.optimalBufferCopyOffsetAlignment), m_allocationAlignment);
+            m_allocationAlignment = limits.nonCoherentAtomSize;
+            m_allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
 
-            const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
+            constexpr uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
+            const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations * OptimalCoalescedInvocationXferSize;
             const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
-            const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();;
-            const uint32_t maxOptimalTransferAtom = core::max(bufferOptimalTransferAtom, maxImageOptimalTransferAtom);
-            const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom, minImageOptimalTransferAtom);
+            const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();
+            const uint32_t maxOptimalTransferAtom = core::max(bufferOptimalTransferAtom,maxImageOptimalTransferAtom);
+            const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
 
             // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom <= stagingBufferSize/4
             assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
@@ -62,8 +64,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
             assert(minStreamingBufferAllocationSize <= minOptimalTransferAtom);
 
-            assert(maxOptimalTransferAtom * 4u <= upstreamSize);
-            assert(maxOptimalTransferAtom * 4u <= downstreamSize);
+            assert(maxOptimalTransferAtom*OptimalCoalescedInvocationXferSize <= upstreamSize);
+            assert(maxOptimalTransferAtom*OptimalCoalescedInvocationXferSize <= downstreamSize);
 
             assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
             assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
@@ -71,15 +73,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto& enabledFeatures = m_device->getEnabledFeatures();
 
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
-            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT;
-            if(enabledFeatures.bufferDeviceAddress)
-                commonUsages |= IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+            auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
             if (enabledFeatures.accelerationStructure)
                 commonUsages |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
             
-            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_NONE);
-            if(enabledFeatures.bufferDeviceAddress)
-                allocateFlags |= IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
@@ -102,8 +100,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
                     access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                 assert(access.value);
-                IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
-                m_device->mapMemory(memoryRange, access);
+                mem->map({0ull,reqs.size},access);
 
                 m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
                 m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
@@ -130,23 +127,22 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
                     access |= IDeviceMemoryAllocation::EMCAF_WRITE;
                 assert(access.value);
-                IDeviceMemoryAllocation::MappedMemoryRange memoryRange = {mem.get(),0ull,mem->getAllocationSize()};
-                m_device->mapMemory(memoryRange, access);
+                mem->map({0ull,reqs.size},access);
 
                 m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
                 m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
             }
+#if 0 // TODO: port
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
             // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
             const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
+#endif
         }
 
-        ~IUtilities()
+        inline ~IUtilities()
         {
-            m_device->unmapMemory(m_defaultDownloadBuffer->getBuffer()->getBoundMemory());
-            m_device->unmapMemory(m_defaultUploadBuffer->getBuffer()->getBoundMemory());
         }
 
         //!
@@ -162,6 +158,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return m_defaultDownloadBuffer.get();
         }
 
+#if 0 // TODO: port
         //!
         virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const
         {
@@ -173,7 +170,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         {
             return m_scanner.get();
         }
-        
+#endif
         //! This function provides some guards against streamingBuffer fragmentation or allocation failure
         static uint32_t getAllocationSizeForStreamingBuffer(const size_t size, const uint64_t alignment, uint32_t maxFreeBlock, const uint32_t optimalTransferAtom)
         {
@@ -198,6 +195,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return allocationSize;
         }
 
+#if 0 // TODO: port
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(IQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
         {
@@ -396,6 +394,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         
 
         // pipelineBarrierAutoSubmit?
+#endif
 
         // --------------
         // downloadBufferRangeViaStagingBuffer
@@ -406,9 +405,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
         struct default_data_consumption_callback_t
         {
-            default_data_consumption_callback_t(void* dstPtr) :
-                m_dstPtr(dstPtr)
-            {}
+            default_data_consumption_callback_t(void* dstPtr) : m_dstPtr(dstPtr) {}
 
             inline void operator()(const size_t dstOffset, const void* srcPtr, const size_t size)
             {
@@ -444,8 +441,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
                     {
                         const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
-                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory(), m_copyRange.offset, m_copyRange.length, nonCoherentAtomSize);
-                        device->invalidateMappedMemoryRanges(1u, &flushRange);
+                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,nonCoherentAtomSize);
+                        device->invalidateMappedMemoryRanges(1u,&flushRange);
                     }
                     // Call the function
                     const uint8_t* copySrc = reinterpret_cast<uint8_t*>(m_downstreamingBuffer->getBufferPointer()) + m_copyRange.offset;
@@ -459,7 +456,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 StreamingTransientDataBufferMT<>* m_downstreamingBuffer;
                 const size_t m_dstOffset;
         };
-
+#if 0 // TODO: port
         //! Calls the callback to copy the data to a destination Offset
         //! * IMPORTANT: To make the copies ready, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `submissionFence` is signaled.
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
@@ -742,20 +739,21 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo = {}
         );
+#endif
 
-    protected:
-        
+    protected:        
         // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
         // and round the end of the range up to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize.
-        static IDeviceMemoryAllocation::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
+        static ILogicalDevice::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
         {
-            IDeviceMemoryAllocation::MappedMemoryRange range = {};
+            ILogicalDevice::MappedMemoryRange range = {};
             range.memory = mem;
             range.offset = core::alignDown(off, nonCoherentAtomSize);
             range.length = core::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
             return range;
         }
 
+#if 0 // TODO: port
         //! Internal tool used to patch command buffers in submit info.
         class CSubmitInfoPatcher
         {
@@ -820,16 +818,18 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             core::vector<IGPUCommandBuffer*> m_allCommandBuffers;
             core::smart_refctd_ptr<IGPUCommandBuffer> m_newCommandBuffer; // if necessary, then need to hold reference to.
         };
-
+#endif
         core::smart_refctd_ptr<ILogicalDevice> m_device;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
 
+#if 0 // TODO: port
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
         core::smart_refctd_ptr<CScanner> m_scanner;
-};
 #endif
+};
+
 class ImageRegionIterator
 {
     public:
