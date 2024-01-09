@@ -9,28 +9,48 @@
 
 namespace nbl::video
 {
+class TimelineEventHandlerBase : core::Unmovable, core::Uncopyable
+{
+    public:
+        struct PollResult
+        {
+            uint32_t eventsLeft = ~0u;
+            bool bailed = false;
+        };
+
+        // little utility
+        inline const ISemaphore* getSemaphore() const { return m_sema.get(); }
+        
+        // todo: rename to default_wait_point ?
+        template<class Clock=std::chrono::steady_clock>
+        static inline Clock::time_point default_wait()
+        {
+            return Clock::now()+std::chrono::microseconds(50);
+        }
+
+    protected:
+        TimelineEventHandlerBase(core::smart_refctd_ptr<const ISemaphore>&& sema) : m_sema(std::move(sema)) {}
+
+        core::smart_refctd_ptr<const ISemaphore> m_sema;
+};
+
 template<typename Functor>
 class MultiTimelineEventHandlerST;
 
 // Could be made MT and relatively lockless, if only had a good lock-few circular buffer impl
 // Not sure its worth the effort as anything using this will probably need to be lockful to be MT
 template<typename Functor>
-class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
+class TimelineEventHandlerST final : TimelineEventHandlerBase
 {
     public:
         // Theoretically could make a factory function cause passing a null semaphore is invalid, but counting on users to be relatively intelligent.
         inline TimelineEventHandlerST(core::smart_refctd_ptr<const ISemaphore>&& sema, const uint64_t initialCapacity=4095/sizeof(FunctorValuePair)+1) :
-            m_sema(std::move(sema)), m_greatestLatch(0)
-        {
-            m_greatestSignal = m_sema->getCounterValue();
-        }
+            TimelineEventHandlerBase(std::move(sema)), m_greatestLatch(0), m_greatestSignal(m_sema->getCounterValue()) {}
         // If you don't want to deadlock here, look into the `abort*` family of methods
         ~TimelineEventHandlerST()
         {
             while (wait(std::chrono::steady_clock::now()+std::chrono::seconds(5))) {}
         }
-        // little utility
-        inline const ISemaphore* getSemaphore() const {return m_sema.get();}
 
         inline uint32_t count() const {return m_cb.size();}
 
@@ -44,21 +64,10 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         }
 
         //
-        struct PollResult
-        {
-            uint32_t eventsLeft = ~0u;
-            bool bailed = false;
-        };
         template<typename... Args>
         inline PollResult poll(Args&&... args)
         {
             return poll_impl<true>(std::forward<Args>(args)...);
-        }
-
-        template<class Clock=std::chrono::steady_clock>
-        static inline Clock::time_point default_wait()
-        {
-            return Clock::now()+std::chrono::microseconds(50);
         }
 
         template<class Clock, class Duration=typename Clock::duration, typename... Args>
@@ -160,7 +169,6 @@ class TimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         };
         // could be a circular buffer but whatever for now
         core::deque<FunctorValuePair> m_cb;
-        core::smart_refctd_ptr<const ISemaphore> m_sema;
         uint64_t m_greatestSignal;
         uint64_t m_greatestLatch;
 
@@ -410,7 +418,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
         inline container_t::iterator eraseTimeline(typename container_t::iterator timeline)
         {
             // if not the last in scratch
-            if (timeline->waitInfoIx<m_scratchWaitInfos.size())
+            if (timeline->waitInfoIx+1<m_scratchWaitInfos.size())
             {
                 // swap the mapping with the end scratch element
                 const auto& lastScratch = m_scratchWaitInfos.back();
