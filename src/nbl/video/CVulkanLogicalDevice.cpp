@@ -261,7 +261,7 @@ bool CVulkanLogicalDevice::bindBufferMemory_impl(const uint32_t count, const SBi
         {
             VkBufferDeviceAddressInfoKHR info = {VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR,nullptr};
             info.buffer = vulkanBuffer->getInternalObject();
-            vulkanBuffer->setDeviceAddress(m_devf.vk.vkGetBufferDeviceAddressKHR(m_vkdev,&info));
+            vulkanBuffer->setDeviceAddress(m_devf.vk.vkGetBufferDeviceAddress(m_vkdev,&info));
         }
     }
     return true;
