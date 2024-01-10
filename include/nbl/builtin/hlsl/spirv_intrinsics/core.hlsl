@@ -18,6 +18,22 @@ namespace hlsl
 #ifdef __HLSL_VERSION
 namespace spirv
 {
+[[vk::ext_builtin_input(spv::BuiltInHelperInvocation)]]
+static const bool HelperInvocation;
+
+[[vk::ext_builtin_input(spv::BuiltInNumWorkgroups)]]
+static const uint32_t3 NumWorkGroups;
+// TODO: Doesn't work, find out why and file issue on DXC!
+//[[vk::ext_builtin_input(spv::BuiltInWorkgroupSize)]]
+//static const uint32_t3 WorkgroupSize;
+[[vk::ext_builtin_input(spv::BuiltInWorkgroupId)]]
+static const uint32_t3 WorkgroupId;
+[[vk::ext_builtin_input(spv::BuiltInLocalInvocationId)]]
+static const uint32_t3 LocalInvocationId;
+[[vk::ext_builtin_input(spv::BuiltInGlobalInvocationId)]]
+static const uint32_t3 GlobalInvocationId;
+[[vk::ext_builtin_input(spv::BuiltInLocalInvocationIndex)]]
+static const uint32_t LocalInvocationIndex;
 
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);

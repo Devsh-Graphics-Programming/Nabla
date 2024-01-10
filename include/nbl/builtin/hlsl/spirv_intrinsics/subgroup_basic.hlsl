@@ -14,10 +14,17 @@ namespace hlsl
 {
 namespace spirv
 {
+[[vk::ext_builtin_input(spv::BuiltInSubgroupSize)]]
+static const uint32_t SubgroupSize;
+[[vk::ext_builtin_input(spv::BuiltInNumSubgroups)]]
+static const uint32_t NumSubgroups;
+[[vk::ext_builtin_input(spv::BuiltInSubgroupId)]]
+static const uint32_t SubgroupId;
+[[vk::ext_builtin_input(spv::BuiltInSubgroupLocalInvocationId)]]
+static const uint32_t SubgroupLocalInvocationId;
 
 [[vk::ext_instruction( spv::OpGroupNonUniformElect )]]
 bool subgroupElect(uint32_t executionScope);
-
 }
 }
 }
