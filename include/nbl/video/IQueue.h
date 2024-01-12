@@ -109,7 +109,8 @@ class IQueue : public core::Interface, public core::Unmovable
         virtual RESULT waitIdle() const = 0;
 
         // we cannot derive from IBackendObject because we can't derive from IReferenceCounted
-        inline bool wasCreatedBy(const ILogicalDevice* device) const { return device == m_originDevice; }
+        inline const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
+        inline bool wasCreatedBy(const ILogicalDevice* device) const {return device==m_originDevice;}
         // Vulkan: const VkQueue*
         virtual const void* getNativeHandle() const = 0;
 
