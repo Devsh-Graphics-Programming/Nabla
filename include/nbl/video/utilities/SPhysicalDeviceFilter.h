@@ -23,8 +23,7 @@ namespace nbl::video
             size_t size = 0ull;
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryFlags = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
         };
-        const MemoryRequirement* memoryRequirements = nullptr;
-        uint32_t memoryRequirementsCount = 0u;
+        std::span<const MemoryRequirement> memoryRequirements = {};
         
         struct QueueRequirement
         {
@@ -49,8 +48,7 @@ namespace nbl::video
             // family's transfer granularity needs to be <=
             asset::VkExtent3D maxImageTransferGranularity = {0x80000000u,0x80000000u,0x80000000u};
         };
-        const QueueRequirement* queueRequirements = nullptr;
-        uint32_t queueRequirementsCount = 0u;
+        std::span<const QueueRequirement> queueRequirements = {};
 
         // To determine whether a queue family of a physical device supports presentation to a given surface
         //  See vkGetPhysicalDeviceSurfaceSupportKHR
@@ -60,8 +58,7 @@ namespace nbl::video
             // Setting this to `EQF_NONE` means it sufffices to find any queue family that can present to this surface, regardless of flags it might have
             core::bitflag<IQueue::FAMILY_FLAGS> presentationQueueFlags = IQueue::FAMILY_FLAGS::NONE;
         };
-        const SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
-        uint32_t requiredSurfaceCompatibilitiesCount = 0u;
+        std::span<const SurfaceCompatibility> requiredSurfaceCompatibilities = {};
 
 
         // sift through multiple devices
@@ -120,28 +117,24 @@ namespace nbl::video
                 return false;
 
             // Surface Compatibility
-            if (requiredSurfaceCompatibilities != nullptr)
+            for (const auto& requiredSurfaceCompatibility : requiredSurfaceCompatibilities)
             {
-                for (uint32_t i = 0u; i < requiredSurfaceCompatibilitiesCount; ++i)
-                {
-                    const auto& requiredSurfaceCompatibility = requiredSurfaceCompatibilities[i];
-                    if (requiredSurfaceCompatibility.surface == nullptr)
-                        continue; // we don't care about compatibility with a nullptr surface :)
+                if (requiredSurfaceCompatibility.surface == nullptr)
+                    continue; // we don't care about compatibility with a nullptr surface :)
                     
-                    const auto& queueFamilyProperties = physicalDevice->getQueueFamilyProperties();
+                const auto& queueFamilyProperties = physicalDevice->getQueueFamilyProperties();
 
-                    bool physicalDeviceSupportsSurfaceWithQueueFlags = false;
-                    for (uint32_t qfam = 0u; qfam < queueFamilyProperties.size(); ++qfam)
-                    {
-                        const auto& familyProperty = queueFamilyProperties[qfam];
-                        if(familyProperty.queueFlags.hasFlags(requiredSurfaceCompatibility.presentationQueueFlags))
-                            if(requiredSurfaceCompatibility.surface->isSupportedForPhysicalDevice(physicalDevice, qfam))
-                                physicalDeviceSupportsSurfaceWithQueueFlags = true;
-                    }
-
-                    if(!physicalDeviceSupportsSurfaceWithQueueFlags)
-                        return false;
+                bool physicalDeviceSupportsSurfaceWithQueueFlags = false;
+                for (uint32_t qfam = 0u; qfam < queueFamilyProperties.size(); ++qfam)
+                {
+                    const auto& familyProperty = queueFamilyProperties[qfam];
+                    if(familyProperty.queueFlags.hasFlags(requiredSurfaceCompatibility.presentationQueueFlags))
+                        if(requiredSurfaceCompatibility.surface->isSupportedForPhysicalDevice(physicalDevice, qfam))
+                            physicalDeviceSupportsSurfaceWithQueueFlags = true;
                 }
+
+                if(!physicalDeviceSupportsSurfaceWithQueueFlags)
+                    return false;
             }
 
             // Memory Requirements Checking:
@@ -155,25 +148,23 @@ namespace nbl::video
             }
             // over-estimation, Not exact 
             // TODO: Exact or Better Logic -> try find a feasible fitting of requirements into heaps.
-            for (uint32_t m = 0; m < memoryRequirementsCount; ++m)
+            for (const auto& req : memoryRequirements)
             {
-                size_t memSize = memoryRequirements[m].size;
-                for (uint32_t h = 0; h < memoryProps.memoryHeapCount; ++h)
-                    if (heapFlags[h].hasFlags(memoryRequirements[m].memoryFlags))
-                        memSize = (memoryProps.memoryHeaps[h].size > memSize) ? 0ull : memSize - memoryProps.memoryHeaps[h].size;
-                if (memSize > 0)
+                size_t memSize = req.size;
+                for (uint32_t h=0; h<memoryProps.memoryHeapCount; ++h)
+                    if (heapFlags[h].hasFlags(req.memoryFlags))
+                        memSize = memoryProps.memoryHeaps[h].size>memSize ? 0ull:(memSize-memoryProps.memoryHeaps[h].size);
+                if (memSize>0)
                     return false;
             }
             
             // Queue Requirements Checking:
             // over-estimation, Not exact 
             // TODO: Exact or Better Logic -> try find a feasible fitting of requirements into queue families.
-            for (uint32_t q = 0; q < queueRequirementsCount; ++q)
+            for (const auto& queueReqs : queueRequirements)
             {
-                const auto& queueReqs = queueRequirements[q];
                 uint32_t queueCount = queueReqs.queueCount;
-                
-                for (uint32_t qfam = 0; qfam < queueProps.size(); ++qfam)
+                for (uint32_t qfam=0; qfam<queueProps.size(); ++qfam)
                 {
                     const auto& queueFamilyProps = queueProps[qfam];
                     if (queueReqs.familyMatches(queueFamilyProps))
