@@ -257,7 +257,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         return availableFeatureSet.find(name)!=availableFeatureSet.end();
     };
     //! Required by Nabla Core Profile
-    if (!isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
+    if (!rdoc && !isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
         return nullptr;
     if (!isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
         return nullptr;
@@ -294,7 +294,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         addToPNextChain(&vulkan13Properties);
         //! Required by Nabla Core Profile
         VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
-        addToPNextChain(&externalMemoryHostProperties);
         VkPhysicalDeviceRobustness2PropertiesEXT                robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
         addToPNextChain(&robustness2Properties);
         //! Extensions (ordered by spec extension number)
@@ -314,6 +313,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 #endif
         VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
         VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
+        //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
+        if (isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
+            addToPNextChain(&externalMemoryHostProperties);
         //! This is only written for convenience to avoid getting validation errors otherwise vulkan will just skip any strutctures it doesn't recognize
         if (isExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
             addToPNextChain(&conservativeRasterizationProperties);
@@ -504,7 +506,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
             
         //! Nabla Core Extensions
-        properties.limits.minImportedHostPointerAlignment = externalMemoryHostProperties.minImportedHostPointerAlignment;
+        if (isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME)) // renderdoc special
+            properties.limits.minImportedHostPointerAlignment = externalMemoryHostProperties.minImportedHostPointerAlignment;
 
         // there's no ShaderAtomicFloatPropertiesEXT 
 
@@ -1395,7 +1398,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         extensionsToEnable.insert(VK_KHR_EXTERNAL_FENCE_WIN32_EXTENSION_NAME); // All Requirements Exist in Vulkan 1.1 (including instance extensions)
 #endif
         enableExtensionIfAvailable(VK_KHR_EXTERNAL_FENCE_FD_EXTENSION_NAME);
-        extensionsToEnable.insert(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+        enableExtensionIfAvailable(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
         extensionsToEnable.insert(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
 
         //! required but has overhead so conditional
