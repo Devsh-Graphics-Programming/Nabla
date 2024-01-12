@@ -55,7 +55,7 @@ struct SIntendedSubmitInfo final
             IQueue::SSubmitInfo submit = *this;
             // we only signal the last semaphore which is used as scratch
             submit.signalSemaphores = {&scratchSemaphore,1};
-            assert(submit.isValid());
+            assert(submit.valid());
             frontHalf.queue->submit({&submit,1});
             // We wait (stall) on the immediately preceeding submission timeline semaphore signal value and increase it for the next signaller
             {
