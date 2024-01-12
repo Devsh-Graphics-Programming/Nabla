@@ -54,11 +54,11 @@ namespace nbl::video
         //  See vkGetPhysicalDeviceSurfaceSupportKHR
         struct SurfaceCompatibility
         {
-            ISurface* surface = nullptr;
+            const ISurface* surface = nullptr;
             // Setting this to `EQF_NONE` means it sufffices to find any queue family that can present to this surface, regardless of flags it might have
             core::bitflag<IPhysicalDevice::E_QUEUE_FLAGS> presentationQueueFlags = IPhysicalDevice::E_QUEUE_FLAGS::EQF_NONE;
         };
-        SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
+        const SurfaceCompatibility* requiredSurfaceCompatibilities = nullptr;
         uint32_t requiredSurfaceCompatibilitiesCount = 0u;
 
 
