@@ -4,7 +4,7 @@
 
 namespace nbl::video
 {
-const char* IUtilities::SIntendedSubmitInfo::ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
+const char* SIntendedSubmitInfo::ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
 - No `commandBuffers` or `signalSemaphores` given in respective spans
 - `commandBuffer.back()` is not Resettable
 - `commandBuffer.back()` is not already begun with ONE_TIME_SUBMIT_BIT
@@ -168,44 +168,7 @@ IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     }
     return intendedNextSubmit;
 }
-
-void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo
-)
-{
-    if(!submitInfo.isValid())
-    {
-        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
-        assert(false);
-        return;
-    }
-
-    CSubmitInfoPatcher submitInfoPatcher;
-    submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
-    submitInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,submissionFence,submitInfo);
-    submitInfoPatcher.end();
-
-    assert(submitInfo.isValid());
-    submissionQueue->submit(1u,&submitInfo,submissionFence);
-}
-
-void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo
-)
-{
-    if(!submitInfo.isValid())
-    {
-        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
-        assert(false);
-        return;
-    }
-
-    auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,fence.get(),submitInfo);
-    m_device->blockForFences(1u,&fence.get());
-}
+#endif
 
 ImageRegionIterator::ImageRegionIterator(
     const core::SRange<const asset::IImage::SBufferCopy>& copyRegions,
@@ -762,6 +725,5 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     else
         return false;
 }
-#endif
 
 } // namespace nbl::video
