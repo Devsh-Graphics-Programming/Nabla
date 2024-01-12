@@ -749,7 +749,7 @@ bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, co
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT))
         return false;
 
-    if (!layout || this->isCompatibleDevicewise(layout))
+    if (!layout || !this->isCompatibleDevicewise(layout))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
