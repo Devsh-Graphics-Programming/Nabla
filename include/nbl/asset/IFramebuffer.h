@@ -96,7 +96,7 @@ class IFramebuffer
                     if (!attachments[i])
                         return true;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-commonparent
-                    if (rp->isCompatibleDevicewise(attachments[i].get()))
+                    if (!rp->isCompatibleDevicewise(attachments[i].get()))
                         return true;
                     
                     const auto& viewParams = attachments[i]->getCreationParameters();
