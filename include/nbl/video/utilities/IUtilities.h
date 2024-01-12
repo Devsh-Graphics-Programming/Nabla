@@ -7,11 +7,9 @@
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "nbl/video/IGPUBuffer.h"
-#include "nbl/video/IGPUImage.h"
-#include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/utilities/SIntendedSubmitInfo.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
 #include "nbl/video/utilities/CScanner.h"
 #include "nbl/video/utilities/CComputeBlit.h"
@@ -195,22 +193,60 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return allocationSize;
         }
 
-#if 0 // TODO: port
-        //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(IQueue* queue, IGPUBuffer::SCreationParams&& params, const void* data)
+
+        //! This method lets you wrap any other function following the "submit on overflow" pattern with the final submission
+        //! to `intendedSubmit.queue` happening automatically, no need for the user to handle the submit at the end.
+        //! WARNING: Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
+        //!  of the `updateBufferRangeViaStagingBufferAutoSubmit` function above.
+        //! Parameters:
+        //! - `intendedSubmit`: more lax than regular `SIntendedSubmitInfo::valid()`, only needs a valid queue and at least one semaphore to use as scratch and signal.
+        //!     if you don't have a commandbuffer usable as scratch as the last one, we'll patch internally.
+        inline IQueue::RESULT autoSubmit(SIntendedSubmitInfo& intendedSubmit, const std::function<bool(SIntendedSubmitInfo&)>& what)
         {
-            if(!params.usage.hasFlags(IGPUBuffer::EUF_TRANSFER_DST_BIT))
+            if (!intendedSubmit.frontHalf.valid() || intendedSubmit.signalSemaphores.empty())
             {
-                assert(false);
-                return nullptr;
+                // TODO: log error
+                return IQueue::RESULT::OTHER_ERROR;
             }
-            auto buffer = m_device->createBuffer(std::move(params));
-            auto mreqs = buffer->getMemoryReqs();
-            mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto mem = m_device->allocate(mreqs, buffer.get());
-            updateBufferRangeViaStagingBufferAutoSubmit(asset::SBufferRange<IGPUBuffer>{0u, params.size, core::smart_refctd_ptr(buffer)}, data, queue);
-            return buffer;
+
+            const auto raii = intendedSubmit.frontHalf.patch();
+            if (!raii)
+            {
+                // TODO: log error
+                return IQueue::RESULT::OTHER_ERROR;
+            }
+
+            if (!what(intendedSubmit))
+                return IQueue::RESULT::OTHER_ERROR;
+            intendedSubmit.frontHalf.getScratchCommandBuffer()->end();
+
+            const IQueue::SSubmitInfo submit = intendedSubmit;
+            if (const auto error=intendedSubmit.frontHalf.queue->submit({&submit,1}); error!=IQueue::RESULT::SUCCESS)
+                return error;
+            // If there's any subsequent submit in a chain, make sure it waits for this one to finish
+            // (to achieve a command ordering in the cmdbuffer transparent to overflow submits)
+            intendedSubmit.frontHalf.waitSemaphores = {&intendedSubmit.signalSemaphores.front(),1};
+            intendedSubmit.signalSemaphores = {};
+            return IQueue::RESULT::SUCCESS;
         }
+
+        //! This function is an specialization of the `autoSubmit` function above, it will additionally wait on the Host (CPU) for the final submit to finish.
+        //! WARNING: This function blocks CPU and stalls the GPU!
+        inline bool autoSubmitAndBlock(const SIntendedSubmitInfo::SFrontHalf& submit, const std::function<bool(SIntendedSubmitInfo&)>& what)
+        {            
+            auto semaphore = m_device->createSemaphore(0);
+            // so we begin latching everything on the value of 1, but if we overflow it increases
+            IQueue::SSubmitInfo::SSemaphoreInfo info = {semaphore.get(),1};
+
+            SIntendedSubmitInfo intendedSubmit = {.frontHalf=submit,.signalSemaphores={&info,1}};
+            if (autoSubmit(intendedSubmit,what)!=IQueue::RESULT::SUCCESS)
+                return false;
+            
+            // Watch carefully and note that we might not be waiting on the value of `1` for why @see `SIntendedSubmitInfo::signalSemaphores`
+            const ISemaphore::SWaitInfo waitInfo = {info.semaphore,info.value};
+            m_device->blockForSemaphores({&waitInfo,1});
+            return true;
+        }  
 
         // --------------
         // updateBufferRangeViaStagingBuffer
@@ -219,61 +255,36 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
         //! If the allocation from staging memory fails due to large buffer size or fragmentation then This function may need to submit the command buffer via the `submissionQueue`. 
         //! Returns:
-        //!     IQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
-        //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
-        //!     Make sure to submit with the new SSubmitInfo returned by this function
+        //!     True on successful recording of copy commands and handling of overflows, false on failure for any reason.
         //! Parameters:
+        //!     - nextSubmit:
+        //!         Is the SubmitInfo you intended to submit your command buffers with, it will be patched if overflow occurred @see SIntendedSubmitInfo
         //!     - bufferRange: contains offset + size into bufferRange::buffer that will be copied from `data` (offset doesn't affect how `data` is accessed)
         //!     - data: raw pointer to data that will be copied to bufferRange::buffer
-        //!     - intendedNextSubmit:
-        //!         Is the SubmitInfo you intended to submit your command buffers.
-        //!         ** The last command buffer will be used to record the copy commands
-        //!     - submissionQueue: IQueue used to submit, when needed. 
-        //!         Note: This parameter is required but may not be used if there is no need to submit
-        //!     - submissionFence: 
-        //!         - This is the fence you will use to submit the copies to, this allows freeing up space in stagingBuffer when the fence is signalled, indicating that the copy has finished.
-        //!         - This fence will be in `UNSIGNALED` state after exiting the function. (It will reset after each implicit submit)
-        //!         - This fence may be used for CommandBuffer submissions using `submissionQueue` inside the function.
-        //!         ** NOTE: This fence will be signalled everytime there is a submission inside this function, which may be more than one until the job is finished.
         //! Valid Usage:
+        //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
+        //!     * bufferRange must be valid (see `SBufferRange::isValid()`)
         //!     * data must not be nullptr
-        //!     * bufferRange should be valid (see SBufferRange::isValid())
-        //!     * intendedNextSubmit::commandBufferCount must be > 0
-        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
-        //!     * The last command buffer should be in `RECORDING` state.
-        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
-        //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
-        //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
-        //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
-        //!     * submissionQueue must point to a valid IQueue
-        //!     * submissionFence must point to a valid IGPUFence
-        //!     * submissionFence must be in `UNSIGNALED` state
-        //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after fence is signaled. 
-        [[nodiscard("Use The New IQueue::SubmitInfo")]] inline IQueue::SSubmitInfo updateBufferRangeViaStagingBuffer(
-            const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit
-        )
+        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
         {
-            if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
+            if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
-                // TODO: log error -> intendedNextSubmit is invalid
-                assert(false);
-                return intendedNextSubmit;
+                m_logger.log("Invalid `bufferRange` or buffer has no `EUF_TRANSFER_DST_BIT` usage flag, cannot `updateBufferRangeViaStagingBuffer`!", system::ILogger::ELL_ERROR);
+                return false;
+            }
+
+            if (!nextSubmit.valid())
+            {
+                m_logger.log(nextSubmit.ErrorText,system::ILogger::ELL_ERROR);
+                return false;
             }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
-            
-            // Use the last command buffer in intendedNextSubmit, it should be in recording state
-            auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
-            auto* cmdpool = cmdbuf->getPool();
-            assert(cmdbuf->isResettable());
-            assert(cmdpool->getQueueFamilyIndex() == submissionQueue->getFamilyIndex());
-            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
-            assert(bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT));
+            const uint32_t optimalTransferAtom = limits.maxResidentInvocations * sizeof(uint32_t);
 
+            auto cmdbuf = nextSubmit.frontHalf.getScratchCommandBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
-            for (size_t uploadedSize = 0ull; uploadedSize < bufferRange.size;)
+            for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
                 // how much hasn't been uploaded yet
                 const size_t size = bufferRange.size-uploadedSize;
@@ -295,106 +306,41 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // keep trying again
                 if (localOffset == StreamingTransientDataBufferMT<>::invalid_value)
                 {
-                    // but first sumbit the already buffered up copies
-                    cmdbuf->end();
-                    IQueue::SSubmitInfo submit = intendedNextSubmit;
-                    submit.signalSemaphoreCount = 0u;
-                    submit.pSignalSemaphores = nullptr;
-                    assert(submit.isValid());
-                    submissionQueue->submit(1u, &submit, submissionFence);
-                    m_device->blockForFences(1u, &submissionFence);
-                    intendedNextSubmit.commandBufferCount = 1u;
-                    intendedNextSubmit.commandBuffers = &cmdbuf;
-                    intendedNextSubmit.waitSemaphoreCount = 0u;
-                    intendedNextSubmit.pWaitSemaphores = nullptr;
-                    intendedNextSubmit.pWaitDstStageMask = nullptr;
-                    // before resetting we need poll all events in the allocator's deferred free list
-                    m_defaultUploadBuffer->cull_frees();
-                    // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
-                    m_device->resetFences(1u, &submissionFence);
-                    cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
-                    cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+                    nextSubmit.overflowSubmit();
                     continue;
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
                 {
-                    auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize,limits.nonCoherentAtomSize);
+                    auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory().memory,localOffset,subSize,limits.nonCoherentAtomSize);
                     m_device->flushMappedMemoryRanges(1u,&flushRange);
                 }
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 IGPUCommandBuffer::SBufferCopy copy;
                 copy.srcOffset = localOffset;
-                copy.dstOffset = bufferRange.offset + uploadedSize;
+                copy.dstOffset = bufferRange.offset+uploadedSize;
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
-                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,core::smart_refctd_ptr<IGPUFence>(submissionFence),&cmdbuf); // can queue with a reset but not yet pending fence, just fine
+                // this doesn't actually free the memory, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
+                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getScratchSemaphoreNextWait(),&cmdbuf);
                 uploadedSize += subSize;
             }
-            return intendedNextSubmit;
+            return true;
         }
 
-        //! This function is an specialization of the `updateBufferRangeViaStagingBuffer` function above.
-        //! Submission of the commandBuffer to submissionQueue happens automatically, no need for the user to handle submit
-        //! WARNING: Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        //! Parameters:
-        //! - `submitInfo`: IQueue::SSubmitInfo used to submit the copy operations.
-        //!     * Use this parameter to wait for previous operations to finish using submitInfo::waitSemaphores or signal new semaphores using submitInfo::signalSemaphores
-        //!     * Fill submitInfo::commandBuffers with the commandbuffers you want to be submitted before the copy in this struct as well, for example pipeline barrier commands.
-        //!     * Empty by default: waits for no semaphore and signals no semaphores.
-        //! Patches the submitInfo::commandBuffers
-        //! If submitInfo::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `RECORDING` or `INITIAL` state, It won't add another command buffer and uses the last command buffer for the copy commands.
-        //! WARNING: If commandBufferCount > 0, The last commandBuffer won't be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
-        //! Valid Usage:
-        //!     * If submitInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
-        //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
-        inline void updateBufferRangeViaStagingBufferAutoSubmit(
-            const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo = {}
-        )
+        //! WARNING: This function blocks the CPU and stalls the GPU!
+        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(const SIntendedSubmitInfo::SFrontHalf& submit, IGPUBuffer::SCreationParams&& params, const void* data)
         {
-            if(!submitInfo.isValid())
-            {
-                // TODO: log error
-                assert(false);
-                return;
-            }
-
-            CSubmitInfoPatcher submitInfoPatcher;
-            submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
-            submitInfo = updateBufferRangeViaStagingBuffer(bufferRange,data,submissionQueue,submissionFence,submitInfo);
-            submitInfoPatcher.end();
-
-            assert(submitInfo.isValid());
-            submissionQueue->submit(1u,&submitInfo,submissionFence);
+            auto buffer = m_device->createBuffer(std::move(params));
+            auto mreqs = buffer->getMemoryReqs();
+            mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+            auto mem = m_device->allocate(mreqs,buffer.get());
+            if (!autoSubmitAndBlock(submit,[&](auto& info){return updateBufferRangeViaStagingBuffer(info,asset::SBufferRange<IGPUBuffer>{0u,params.size,core::smart_refctd_ptr(buffer)},data);}))
+                return nullptr;
+            return buffer;
         }
-        
-        //! This function is an specialization of the `updateBufferRangeViaStagingBufferAutoSubmit` function above.
-        //! Additionally waits for the fence
-        //! WARNING: This function blocks CPU and stalls the GPU!
-        inline void updateBufferRangeViaStagingBufferAutoSubmit(
-            const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data,
-            IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo = {}
-        )
-        {
-            if(!submitInfo.isValid())
-            {
-                // TODO: log error
-                assert(false);
-                return;
-            }
-
-            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-            updateBufferRangeViaStagingBufferAutoSubmit(bufferRange, data, submissionQueue, fence.get(), submitInfo);
-            m_device->blockForFences(1u, &fence.get());
-        }
-        
 
         // pipelineBarrierAutoSubmit?
-#endif
 
         // --------------
         // downloadBufferRangeViaStagingBuffer
@@ -577,42 +523,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         }
 
         //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
-        //! Submission of the commandBuffer to submissionQueue happens automatically, no need for the user to handle submit
-        //! Parameters:
-        //! - `submitInfo`: IQueue::SSubmitInfo used to submit the copy operations.
-        //!     * Use this parameter to wait for previous operations to finish using submitInfo::waitSemaphores or signal new semaphores using submitInfo::signalSemaphores
-        //!     * Fill submitInfo::commandBuffers with the commandbuffers you want to be submitted before the copy in this struct as well, for example pipeline barrier commands.
-        //!     * Empty by default: waits for no semaphore and signals no semaphores.
-        //! Patches the submitInfo::commandBuffers
-        //! If submitInfo::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `RECORDING` or `INITIAL` state, It won't add another command buffer and uses the last command buffer for the copy commands.
-        //! WARNING: If commandBufferCount > 0, The last commandBuffer won't be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
-        //! Valid Usage:
-        //!     * If submitInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
-        //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
-        inline void downloadBufferRangeViaStagingBufferAutoSubmit(
-            const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo = {}
-        )
-        {
-            if (!submitInfo.isValid())
-            {
-                // TODO: log error
-                assert(false);
-                return;
-            }
-
-            CSubmitInfoPatcher submitInfoPatcher;
-            submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
-            submitInfo = downloadBufferRangeViaStagingBuffer(consumeCallback, srcBufferRange, submissionQueue, submissionFence, submitInfo);
-            submitInfoPatcher.end();
-
-            assert(submitInfo.isValid());
-            submissionQueue->submit(1u, &submitInfo, submissionFence);
-        }
-
-        //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
         inline void downloadBufferRangeViaStagingBufferAutoSubmit(
@@ -633,13 +543,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto* fenceptr = fence.get();
             m_device->blockForFences(1u, &fenceptr);
 
-            m_defaultDownloadBuffer->cull_frees();
+            //! TODO: NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 
+            m_defaultDownloadBuffer->cull_frees(); // its while(poll()) {} now IIRC
         }
-        
+#endif        
         // --------------
         // buildAccelerationStructures
         // --------------
-
+#if 0 // TODO: port later when we have an example
         //! WARNING: This function blocks the CPU and stalls the GPU!
         inline void buildAccelerationStructures(IQueue* queue, const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
         {
@@ -664,11 +575,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         
             m_device->blockForFences(1u,&fence.get());
         }
-
+#endif
         // --------------
         // updateImageViaStagingBuffer
         // --------------
-
+#if 0 // TODO: port
         //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
         //! Returns:
@@ -712,33 +623,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         [[nodiscard("Use The New IQueue::SubmitInfo")]] IQueue::SSubmitInfo updateImageViaStagingBuffer(
             asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
             IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit);
-        
-        //! This function is an specialization of the `updateImageViaStagingBuffer` function above.
-        //! Submission of the commandBuffer to submissionQueue happens automatically, no need for the user to handle submit
-        //! Parameters:
-        //! - `submitInfo`: IQueue::SSubmitInfo used to submit the copy operations.
-        //!     * Use this parameter to wait for previous operations to finish using submitInfo::waitSemaphores or signal new semaphores using submitInfo::signalSemaphores
-        //!     * Fill submitInfo::commandBuffers with the commandbuffers you want to be submitted before the copy in this struct as well, for example pipeline barrier commands.
-        //!     * Empty by default: waits for no semaphore and signals no semaphores.
-        //! Patches the submitInfo::commandBuffers
-        //! If submitInfo::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
-        //! If submitInfo::commandBufferCount > 0 the last command buffer is in `RECORDING` or `INITIAL` state, It won't add another command buffer and uses the last command buffer for the copy commands.
-        //! WARNING: If commandBufferCount > 0, The last commandBuffer won't be in the same state as it was before entering the function, because it needs to be `end()`ed and submitted
-        //! Valid Usage:
-        //!     * If submitInfo::commandBufferCount > 0 and the last command buffer must be in one of these stages: `EXECUTABLE`, `INITIAL`, `RECORDING`
-        //! For more info on command buffer states See `ICommandBuffer::E_STATE` comments.
-        void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo submitInfo = {});
-
-        //! This function is an specialization of the `updateImageViaStagingBufferAutoSubmit` function above.
-        //! Additionally waits for the fence
-        //! WARNING: This function blocks CPU and stalls the GPU!
-        void updateImageViaStagingBufferAutoSubmit(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo = {}
-        );
 #endif
 
     protected:        
@@ -753,72 +637,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return range;
         }
 
-#if 0 // TODO: port
-        //! Internal tool used to patch command buffers in submit info.
-        class CSubmitInfoPatcher
-        {
-        public:
-            //! Patches the submitInfo::commandBuffers and then makes sure the last command buffer is in recording state
-            //! If submitInfo::commandBufferCount == 0, it will create an implicit command buffer to use for recording copy commands
-            //! If submitInfo::commandBufferCount > 0 the last command buffer is in `EXECUTABLE` state, It will add another temporary command buffer to end of the array and use it for recording and submission
-            //! If submitInfo::commandBufferCount > 0 the last command buffer is in `RECORDING` or `INITIAL` state, It won't add another command buffer and uses the last command buffer for the copy commands.
-            //! Params:
-            //!     - submitInfo: IQueue::SSubmitInfo to patch
-            //!     - device: logical device to create new command pool and command buffer if necessary.
-            //!     - newCommandPoolFamIdx: family index to create commandPool with if necessary.
-            inline void patchAndBegin(IQueue::SSubmitInfo& submitInfo, core::smart_refctd_ptr<ILogicalDevice> device, uint32_t newCommandPoolFamIdx)
-            {
-                bool needToCreateNewCommandBuffer = false;
 
-                if (submitInfo.commandBufferCount <= 0u)
-                    needToCreateNewCommandBuffer = true;
-                else
-                {
-                    auto lastCmdBuf = submitInfo.commandBuffers[submitInfo.commandBufferCount - 1u];
-                    if (lastCmdBuf->getState() == IGPUCommandBuffer::STATE::EXECUTABLE)
-                        needToCreateNewCommandBuffer = true;
-                }
-
-                // commandBuffer used to record the commands
-                if (needToCreateNewCommandBuffer)
-                {
-                    core::smart_refctd_ptr<IGPUCommandPool> pool = device->createCommandPool(newCommandPoolFamIdx, IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-                    device->createCommandBuffers(pool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &m_newCommandBuffer);
-
-                    const uint32_t newCommandBufferCount = (needToCreateNewCommandBuffer) ? submitInfo.commandBufferCount + 1 : submitInfo.commandBufferCount;
-                    m_allCommandBuffers.resize(newCommandBufferCount);
-
-                    for (uint32_t i = 0u; i < submitInfo.commandBufferCount; ++i)
-                        m_allCommandBuffers[i] = submitInfo.commandBuffers[i];
-
-                    m_recordCommandBuffer = m_newCommandBuffer.get();
-                    m_allCommandBuffers[newCommandBufferCount - 1u] = m_recordCommandBuffer;
-
-                    submitInfo.commandBufferCount = newCommandBufferCount;
-                    submitInfo.commandBuffers = m_allCommandBuffers.data();
-
-                    m_recordCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-                }
-                else
-                {
-                    m_recordCommandBuffer = submitInfo.commandBuffers[submitInfo.commandBufferCount - 1u];
-                    // If the last command buffer is in INITIAL state, bring it to RECORDING state
-                    if (m_recordCommandBuffer->getState() == IGPUCommandBuffer::STATE::INITIAL)
-                        m_recordCommandBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-                }
-            }
-            inline void end()
-            {
-                m_recordCommandBuffer->end();
-            }
-            inline IGPUCommandBuffer* getRecordingCommandBuffer() { return m_recordCommandBuffer; }
-
-        private:
-            IGPUCommandBuffer* m_recordCommandBuffer;
-            core::vector<IGPUCommandBuffer*> m_allCommandBuffers;
-            core::smart_refctd_ptr<IGPUCommandBuffer> m_newCommandBuffer; // if necessary, then need to hold reference to.
-        };
-#endif
         core::smart_refctd_ptr<ILogicalDevice> m_device;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
