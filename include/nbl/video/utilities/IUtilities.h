@@ -496,7 +496,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
-        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(const SIntendedSubmitInfo::SFrontHalf& submit,const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
+        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(const SIntendedSubmitInfo::SFrontHalf& submit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
         {
             if (!autoSubmitAndBlock(submit,[&](SIntendedSubmitInfo& nextSubmit){return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);}))
                 return false;
