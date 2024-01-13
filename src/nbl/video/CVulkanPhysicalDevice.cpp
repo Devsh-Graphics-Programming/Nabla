@@ -1407,10 +1407,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
 
         // extensions
-        REQUIRE_EXTENSION_IF(enabledFeatures.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE),VK_KHR_SWAPCHAIN_EXTENSION_NAME,nullptr);
+        const bool swapchainEnabled = enabledFeatures.swapchainMode.hasFlags(E_SWAPCHAIN_MODE::ESM_SURFACE);
+        REQUIRE_EXTENSION_IF(swapchainEnabled,VK_KHR_SWAPCHAIN_EXTENSION_NAME,nullptr);
         {
             // If we reach here then the instance extension VK_KHR_Surface was definitely enabled otherwise the extension wouldn't be reported by physical device
-            REQUIRE_EXTENSION_IF(true,VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
+            REQUIRE_EXTENSION_IF(swapchainEnabled,VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME);
             // TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/508
         }
 
