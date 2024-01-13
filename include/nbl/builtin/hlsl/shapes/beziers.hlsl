@@ -534,7 +534,7 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
     
 // This function returns the analytic quadratic equation to solve for bezier's t value for intersection with another bezier curve
 template<typename float_t>
-static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) bezier, NBL_CONST_REF_ARG(vector<float_t, 2>) lineStart, NBL_CONST_REF_ARG(vector<float_t, 2>) lineVector)
+static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(QuadraticBezier<float_t> bezier, NBL_CONST_REF_ARG(vector<float_t, 2>) lineStart, NBL_CONST_REF_ARG(vector<float_t, 2>) lineVector)
 {
     using float_t2 = vector<float_t, 2>;
     using float_t3 = vector<float_t, 3>;
