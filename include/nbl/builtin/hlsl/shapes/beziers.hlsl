@@ -479,10 +479,10 @@ struct Quadratic
     float_t getClosestT(NBL_CONST_REF_ARG(float_t2) pos, float_t closestDistanceSquared = numeric_limits<float_t>::max) NBL_CONST_MEMBER_FUNC
     {
         Candidates candidates = getClosestCandidates(pos);
-        uint8_t idx = 0u;
+        uint32_t idx = 0u;
 
         [[unroll(MaxCandidates)]]
-        for (uint8_t i = 0; i < MaxCandidates; i++)
+        for (uint32_t i = 0; i < MaxCandidates; i++)
         {
             candidates[i] = clamp(candidates[i], 0.0, 1.0);
             const float_t2 distVector = evaluate(candidates[i]) - pos;

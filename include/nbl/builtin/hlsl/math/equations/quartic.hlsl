@@ -35,7 +35,7 @@ namespace equations
     {
         using float_t2 = vector<float_t, 2>;
         using float_t3 = vector<float_t, 3>;
-        using float4_t = vector<float_t, 4>;
+        using float_t4 = vector<float_t, 4>;
 
         // form: ax^4 + bx^3 + cx^2 + dx + e
         float_t a;
@@ -56,14 +56,14 @@ namespace equations
         }
 
         // Originally from: https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
-        float4_t computeRoots() NBL_CONST_MEMBER_FUNC
+        float_t4 computeRoots() NBL_CONST_MEMBER_FUNC
         {
             float_t  coeffs[4];
             float_t  z, u, v, sub;
             float_t  A, B, C, D;
             float_t  sq_A, p, q, r;
             int     i;
-            float4_t s = float4_t(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
+            float_t4 s = float_t4(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
             uint32_t rootCount = 0;
 
             /* normal form: x^4 + Ax^3 + Bx^2 + Cx + D = 0 */
