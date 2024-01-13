@@ -99,6 +99,8 @@ struct SIntendedSubmitInfo final
                     inline CRAIISpanPatch& operator=(CRAIISpanPatch&& rhs)
                     {
                         commandBuffersStorage = std::move(rhs.commandBuffersStorage);
+                        std::swap(toNullify,rhs.toNullify);
+                        std::swap(m_recordingCommandBuffer,rhs.m_recordingCommandBuffer);
                         return *this;
                     }
 
