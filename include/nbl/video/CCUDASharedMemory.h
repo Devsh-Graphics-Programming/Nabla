@@ -20,10 +20,6 @@
 namespace nbl::video
 {
 
-class CCUDAMemoryMapping: public core::IReferenceCounted
-{
-};
-
 class CCUDASharedMemory : public core::IReferenceCounted
 {
 public:
