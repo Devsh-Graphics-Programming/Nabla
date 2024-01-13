@@ -298,16 +298,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 // copy only the unpadded part
-                if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
+                if (localOffset!=StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
                     memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + localOffset, dataPtr, subSize);
                 }
-                // keep trying again
-                if (localOffset == StreamingTransientDataBufferMT<>::invalid_value)
+                else
                 {
                     nextSubmit.overflowSubmit();
-                    continue;
+                    continue; // keep trying again
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
                 if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
@@ -402,9 +401,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 StreamingTransientDataBufferMT<>* m_downstreamingBuffer;
                 const size_t m_dstOffset;
         };
-#if 0 // TODO: port
+
         //! Calls the callback to copy the data to a destination Offset
-        //! * IMPORTANT: To make the copies ready, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `submissionFence` is signaled.
+        //! * IMPORTANT: To make all the callbacks execute, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `nextSubmit.signalSemaphores.front()` is signaled.
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
         //! Returns:
         //!     IQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
@@ -438,50 +437,44 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * submissionQueue must point to a valid IQueue
         //!     * submissionFence must point to a valid IGPUFence
         //!     * submissionFence must be in `UNSIGNALED` state
-        [[nodiscard("Use The New IQueue::SubmitInfo")]] inline IQueue::SSubmitInfo downloadBufferRangeViaStagingBuffer(
-            const std::function<data_consumption_callback_t>& consumeCallback, const asset::SBufferRange<IGPUBuffer>& srcBufferRange,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit = {}
-        )
+        inline bool downloadBufferRangeViaStagingBuffer(const std::function<data_consumption_callback_t>& consumeCallback, SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange)
         {
-            if (!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
+            if (!srcBufferRange.isValid() || !srcBufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_SRC_BIT))
             {
-                // TODO: log error -> intendedNextSubmit is invalid
-                assert(false);
-                return intendedNextSubmit;
+                m_logger.log("Invalid `srcBufferRange` or buffer has no `EUF_TRANSFER_SRC_BIT` usage flag, cannot `downloadBufferRangeViaStagingBuffer`!",system::ILogger::ELL_ERROR);
+                return false;
             }
 
-            // Use the last command buffer in intendedNextSubmit, it should be in recording state
-            auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount - 1];
-
-            assert(cmdbuf->getState() == IGPUCommandBuffer::STATE::RECORDING && cmdbuf->isResettable());
-            assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
+            if (!nextSubmit.valid())
+            {
+                m_logger.log(nextSubmit.ErrorText, system::ILogger::ELL_ERROR);
+                return false;
+            }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
 
-            auto* cmdpool = cmdbuf->getPool();
-            assert(cmdpool->getQueueFamilyIndex() == submissionQueue->getFamilyIndex());
- 
+            auto cmdbuf = nextSubmit.frontHalf.getScratchCommandBuffer();
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
-            for (size_t downloadedSize = 0ull; downloadedSize < srcBufferRange.size;)
+            for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
             {
                 const size_t notDownloadedSize = srcBufferRange.size - downloadedSize;
                 // how large we can make the allocation
-                uint32_t maxFreeBlock = m_defaultDownloadBuffer.get()->max_size();
+                const uint32_t maxFreeBlock = m_defaultDownloadBuffer->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize, m_allocationAlignment, maxFreeBlock, optimalTransferAtom);
-                const uint32_t copySize = core::min(allocationSize, notDownloadedSize);
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
+                const uint32_t copySize = core::min(allocationSize,notDownloadedSize);
 
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultDownloadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 
-                if (localOffset != StreamingTransientDataBufferMT<>::invalid_value)
+                if (localOffset!=StreamingTransientDataBufferMT<>::invalid_value)
                 {
                     IGPUCommandBuffer::SBufferCopy copy;
                     copy.srcOffset = srcBufferRange.offset + downloadedSize;
                     copy.dstOffset = localOffset;
                     copy.size = copySize;
-                    cmdbuf->copyBuffer(srcBufferRange.buffer.get(), m_defaultDownloadBuffer.get()->getBuffer(), 1u, &copy);
+                    cmdbuf->copyBuffer(srcBufferRange.buffer.get(),m_defaultDownloadBuffer->getBuffer(),1u,&copy);
 
                     auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(
                         IDeviceMemoryAllocation::MemoryRange(localOffset,copySize),
@@ -490,63 +483,29 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         m_defaultDownloadBuffer.get(),
                         downloadedSize
                     );
-                    m_defaultDownloadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, core::smart_refctd_ptr<IGPUFence>(submissionFence), &dataConsumer.get());
+                    m_defaultDownloadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getScratchSemaphoreNextWait(),&dataConsumer.get());
 
                     downloadedSize += copySize;
                 }
-                else
-                {
-                    // but first sumbit the already buffered up copies
-                    cmdbuf->end();
-                    IQueue::SSubmitInfo submit = intendedNextSubmit;
-                    submit.signalSemaphoreCount = 0u;
-                    submit.pSignalSemaphores = nullptr;
-                    assert(submit.isValid());
-                    submissionQueue->submit(1u, &submit, submissionFence);
-                    m_device->blockForFences(1u, &submissionFence);
-
-                    intendedNextSubmit.commandBufferCount = 1u;
-                    intendedNextSubmit.commandBuffers = &cmdbuf;
-                    intendedNextSubmit.waitSemaphoreCount = 0u;
-                    intendedNextSubmit.pWaitSemaphores = nullptr;
-                    intendedNextSubmit.pWaitDstStageMask = nullptr;
-
-                    // before resetting we need poll all events in the allocator's deferred free list
-                    m_defaultDownloadBuffer->cull_frees();
-                    // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
-                    m_device->resetFences(1u, &submissionFence);
-                    cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
-                    cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-                }
+                else // but first sumbit the already buffered up copies
+                    nextSubmit.overflowSubmit();
             }
-            return intendedNextSubmit;
+            return true;
         }
 
         //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
-        inline void downloadBufferRangeViaStagingBufferAutoSubmit(
-            const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data,
-            IQueue* submissionQueue, const IQueue::SSubmitInfo& submitInfo = {}
-        )
+        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(const SIntendedSubmitInfo::SFrontHalf& submit,const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
         {
-            if (!submitInfo.isValid())
-            {
-                // TODO: log error
-                assert(false);
-                return;
-            }
-            
+            if (!autoSubmitAndBlock(submit,[&](SIntendedSubmitInfo& nextSubmit){return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);}))
+                return false;
 
-            auto fence = m_device->createFence(IGPUFence::ECF_UNSIGNALED);
-            downloadBufferRangeViaStagingBufferAutoSubmit(std::function<data_consumption_callback_t>(default_data_consumption_callback_t(data)), srcBufferRange, submissionQueue, fence.get(), submitInfo);
-            auto* fenceptr = fence.get();
-            m_device->blockForFences(1u, &fenceptr);
-
-            //! TODO: NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 
-            m_defaultDownloadBuffer->cull_frees(); // its while(poll()) {} now IIRC
+            //! NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 
+            m_defaultDownloadBuffer->cull_frees();
+            return true;
         }
-#endif        
+
         // --------------
         // buildAccelerationStructures
         // --------------
