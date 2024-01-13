@@ -94,7 +94,7 @@ struct QuadraticBezier
 
     }
 
-    void splitFromStart(double t)
+    void splitFromStart(float_t t)
     {
         // order matters :D
         P2 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
@@ -102,12 +102,18 @@ struct QuadraticBezier
         P0 = P0;
     }
 
-    void splitToEnd(double t)
+    void splitToEnd(float_t t)
     {
         // order matters :D
         P0 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
         P1 = (1.0 - t) * P1 + t * P2;
         P2 = P2;
+    }
+
+    void splitFromMinToMax(float_t minT, float_t maxT)
+    {
+        splitFromStart(maxT);
+        splitToEnd(minT / maxT);
     }
 
     void rotate(NBL_CONST_REF_ARG(float_t2x2) rotation)
@@ -391,7 +397,7 @@ struct Quadratic
     NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxCandidates = 3u;
     using Candidates = vector<float_t, MaxCandidates>;
 
-    Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos)
+    Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos) NBL_CONST_MEMBER_FUNC
     {
         // p(t)    = (1-t)^2*A + 2(1-t)t*B + t^2*C
         // p'(t)   = 2*t*(A-2*B+C) + 2*(B-A)
@@ -403,14 +409,14 @@ struct Quadratic
         const float_t PARAMETER_THRESHOLD = exp2(24);
         Candidates candidates;
             
-        float_t2 Bdiv2 = B*0.5f;
+        float_t2 Bdiv2 = B*0.5;
         float_t2 CsubPos = C - pos;
         float_t Alen2 = dot(A, A);
             
         // if A = 0, solve linear instead
         if(Alen2 < exp2(-23.0f)*dot(B,B))
         {
-            candidates[0] = abs(dot(2.0f*Bdiv2,CsubPos))/dot(2.0f*Bdiv2,2.0f*Bdiv2);
+            candidates[0] = abs(dot(2.0*Bdiv2, CsubPos)) / dot(2.0*Bdiv2, 2.0*Bdiv2);
             candidates[1] = PARAMETER_THRESHOLD;
             candidates[2] = PARAMETER_THRESHOLD;
         }
@@ -470,6 +476,27 @@ struct Quadratic
         return candidates;
     }
 
+    float_t getClosestT(NBL_CONST_REF_ARG(float_t2) pos, float_t closestDistanceSquared = numeric_limits<float_t>::max) NBL_CONST_MEMBER_FUNC
+    {
+        Candidates candidates = getClosestCandidates(pos);
+        uint8_t idx = 0u;
+
+        [[unroll(MaxCandidates)]]
+        for (uint8_t i = 0; i < MaxCandidates; i++)
+        {
+            candidates[i] = clamp(candidates[i], 0.0, 1.0);
+            const float_t2 distVector = evaluate(candidates[i]) - pos;
+            const float_t candidateDistanceSquared = dot(distVector, distVector);
+            if (candidateDistanceSquared < closestDistanceSquared)
+            {
+                closestDistanceSquared = candidateDistanceSquared;
+                idx = i;
+            }
+        }
+
+        return candidates[idx];
+    }
+
     float_t2x2 getLocalCoordinateSpace(float_t t)
     {
         // normalize tangent
@@ -478,9 +505,9 @@ struct Quadratic
     }
 };
 
-// This function returns the analytic quartic equation to solve for this bezier's t value for intersection with another bezier curve
+// This function returns the analytic quartic equation to solve for lhs bezier's t value for intersection with another bezier curve
 template<typename float_t>
-static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) thisCurve, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) otherCurve)
+static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) lhs, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) rhs)
 {
     // Algorithm based on Computer Aided Geometric Design: 
     // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#page99
@@ -499,12 +526,12 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
     // https://www.desmos.com/calculator/mjwqvnvyb8?lang=pt-BR
 
     // for convenience
-    const float_t p0x = otherCurve.P0.x;
-    const float_t p1x = otherCurve.P1.x;
-    const float_t p2x = otherCurve.P2.x;
-    const float_t p0y = otherCurve.P0.y;
-    const float_t p1y = otherCurve.P1.y;
-    const float_t p2y = otherCurve.P2.y;
+    const float_t p0x = rhs.P0.x;
+    const float_t p1x = rhs.P1.x;
+    const float_t p2x = rhs.P2.x;
+    const float_t p0y = rhs.P0.y;
+    const float_t p1y = rhs.P1.y;
+    const float_t p2y = rhs.P2.y;
 
     // Implicitize other curve
     const float_t k0 = (4 * p0y * p1y) - (4 * p0y * p2y) - (4 * (p1y * p1y)) + (4 * p1y * p2y) - ((p0y * p0y)) + (2 * p0y * p2y) - ((p2y * p2y));
@@ -514,7 +541,7 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
     const float_t k4 = -(4 * p0x * p1x * p1y) - (4 * p0x * p1x * p2y) + (8 * p0x * p2x * p1y) + (4 * (p1x * p1x) * p0y) + (4 * (p1x * p1x) * p2y) - (4 * p1x * p2x * p0y) - (4 * p1x * p2x * p1y) + (2 * (p0x * p0x) * p2y) - (2 * p0x * p2x * p0y) - (2 * p0x * p2x * p2y) + (2 * (p2x * p2x) * p0y);
     const float_t k5 = (4 * p0x * p1x * p1y * p2y) - (4 * (p1x * p1x) * p0y * p2y) + (4 * p1x * p2x * p0y * p1y) - ((p0x * p0x) * (p2y * p2y)) + (2 * p0x * p2x * p0y * p2y) - ((p2x * p2x) * (p0y * p0y)) - (4 * p0x * p2x * (p1y * p1y));
         
-    Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(thisCurve);
+    Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(lhs);
     // for convenience
     const float64_t2 A = quadratic.A;
     const float64_t2 B = quadratic.B;
