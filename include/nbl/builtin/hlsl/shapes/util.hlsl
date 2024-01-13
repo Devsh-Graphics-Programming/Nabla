@@ -17,7 +17,7 @@ namespace util
 {
 
 template<typename float_t>
-static vector<float_t, 2> LineLineIntersection(vector<float_t, 2> P1, vector<float_t, 2> V1, vector<float_t, 2> P2, vector<float_t, 2> V2)
+static vector<float_t, 2> LineLineIntersection(NBL_CONST_REF_ARG(vector<float_t, 2>) P1, NBL_CONST_REF_ARG(vector<float_t, 2>) V1, NBL_CONST_REF_ARG(vector<float_t, 2>) P2, NBL_CONST_REF_ARG(vector<float_t, 2>) V2)
 {
     typedef vector<float_t, 2> float_t2;
 
