@@ -195,18 +195,18 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07891
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07892
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcStageMask-03851
-    for (auto j=0u; j<depInfo.memBarrierCount; j++)
-    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.memBarriers[j]))
+    for (const auto& barrier : depInfo.memBarriers)
+    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),barrier))
         return true;
-    for (auto j=0u; j<depInfo.bufBarrierCount; j++)
+    for (const auto& barrier : depInfo.bufBarriers)
     {
         // AFAIK, no special constraints on alignment or usage here
-        if (invalidBufferRange(depInfo.bufBarriers[j].range,1u,IGPUBuffer::EUF_NONE))
-        if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.bufBarriers[j]))
+        if (invalidBufferRange(barrier.range,1u,IGPUBuffer::EUF_NONE))
+        if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),barrier))
             return true;
     }
-    for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),depInfo.imgBarriers[j]))
+    for (const auto& barrier : depInfo.imgBarriers)
+    if (!device->validateMemoryBarrier(m_cmdpool->getQueueFamilyIndex(),barrier))
         return true;
     #endif // _NBL_DEBUG
     return false;
@@ -261,19 +261,19 @@ bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_fla
     return resetEvent_impl(_event,stageMask);
 }
 
-bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
+bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEventDependencyInfo* depInfos)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::BOTH))
         return false;
 
-    if (eventCount==0u)
+    if (events.empty())
         return false;
 
     uint32_t totalBufferCount = 0u;
     uint32_t totalImageCount = 0u;
-    for (auto i=0u; i<eventCount; ++i)
+    for (auto i=0u; i<events.size(); ++i)
     {
-        if (!pEvents[i] || !this->isCompatibleDevicewise(pEvents[i]))
+        if (!events[i] || !this->isCompatibleDevicewise(events[i]))
             return false;
 
         const auto& depInfo = depInfos[i];
@@ -283,24 +283,24 @@ bool IGPUCommandBuffer::waitEvents(const uint32_t eventCount, IEvent* const* con
         if (invalidDependency(depInfo))
             return false;
 
-        totalBufferCount += depInfo.bufBarrierCount;
-        totalImageCount += depInfo.imgBarrierCount;
+        totalBufferCount += depInfo.bufBarriers.size();
+        totalImageCount += depInfo.imgBarriers.size();
     }
 
-    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,eventCount,pEvents,totalBufferCount,totalImageCount);
+    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,events.size(),events.data(),totalBufferCount,totalImageCount);
     if (!cmd)
         return false;
 
     auto outIt = cmd->getDeviceMemoryBacked();
-    for (auto i=0u; i<eventCount; ++i)
+    for (auto i=0u; i<events.size(); ++i)
     {
         const auto& depInfo = depInfos[i];
-        for (auto j=0u; j<depInfo.bufBarrierCount; j++)
-            *(outIt++) = depInfo.bufBarriers[j].range.buffer;
-        for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-            *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(depInfo.imgBarriers[j].image);
+        for (const auto& barrier : depInfo.bufBarriers)
+            *(outIt++) = barrier.range.buffer;
+        for (const auto& barrier : depInfo.imgBarriers)
+            *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(barrier.image);
     }
-    return waitEvents_impl(eventCount,pEvents,depInfos);
+    return waitEvents_impl(events,depInfos);
 }
 
 bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
@@ -308,7 +308,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     if (!checkStateBeforeRecording(~queue_flags_t::NONE))
         return false;
 
-    if (depInfo.memBarrierCount==0u && depInfo.bufBarrierCount==0u && depInfo.imgBarrierCount==0u)
+    if (depInfo.memBarriers.empty() && depInfo.bufBarriers.empty() && depInfo.imgBarriers.empty())
         return false;
 
     if (invalidDependency(depInfo))
@@ -318,7 +318,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     if (withinSubpass)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-bufferMemoryBarrierCount-01178
-        if (depInfo.bufBarrierCount)
+        if (!depInfo.bufBarriers.empty())
             return false;
 
         auto invalidSubpassMemoryBarrier = [dependencyFlags](const asset::SMemoryBarrier& barrier) -> bool
@@ -338,15 +338,14 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
                 return true;
             return false;
         };
-        for (auto i=0u; i<depInfo.memBarrierCount; i++)
+        for (const auto& barrier : depInfo.memBarriers)
         {
-            if (invalidSubpassMemoryBarrier(depInfo.memBarriers[i]))
+            if (invalidSubpassMemoryBarrier(barrier))
                 return false;
         }
-        for (auto i=0u; i<depInfo.imgBarrierCount; i++)
+        for (const auto& barrier : depInfo.imgBarriers)
         {
-            const auto& barrier = depInfo.imgBarriers[i];
-            if (invalidSubpassMemoryBarrier(depInfo.memBarriers[i]))
+            if (invalidSubpassMemoryBarrier(barrier.barrier.dep))
                 return false;
 
             // TODO: under NBL_DEBUG, cause waay too expensive to validate
@@ -370,15 +369,15 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     else if (dependencyFlags.hasFlags(asset::EDF_VIEW_LOCAL_BIT))
         return false;
 
-    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList,depInfo.bufBarrierCount,depInfo.imgBarrierCount);
+    auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList,depInfo.bufBarriers.size(),depInfo.imgBarriers.size());
     if (!cmd)
         return false;
 
     auto outIt = cmd->getVariableCountResources();
-    for (auto j=0u; j<depInfo.bufBarrierCount; j++)
-        *(outIt++) = depInfo.bufBarriers[j].range.buffer;
-    for (auto j=0u; j<depInfo.imgBarrierCount; j++)
-        *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(depInfo.imgBarriers[j].image);
+    for (const auto& barrier : depInfo.bufBarriers)
+        *(outIt++) = barrier.range.buffer;
+    for (const auto& barrier : depInfo.imgBarriers)
+        *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(barrier.image);
     return pipelineBarrier_impl(dependencyFlags,depInfo);
 }
 
