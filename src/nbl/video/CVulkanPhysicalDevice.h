@@ -109,6 +109,75 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             // [NOOP] If sparseImageFloat32AtomicMinMax is enabled, shaderImageFloat32AtomicMinMax must be enabled
         }
 
+        inline static SExternalMemoryProperties mapExternalMemoryProps(VkExternalMemoryProperties const& props)
+        {
+            return {
+                .exportableTypes = props.exportFromImportedHandleTypes,
+                .compatibleTypes = props.compatibleHandleTypes,
+                .dedicatedOnly = props.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT ? 1u : 0u,
+                .exportable = props.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT ? 1u : 0u,
+                .importable = props.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT ? 1u : 0u,
+            };
+        }
+
+        SExternalMemoryProperties getExternalBufferProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override
+        {
+            assert(!(handleType & (handleType - 1)));
+            VkPhysicalDeviceExternalBufferInfo info = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+                .usage = static_cast<VkBufferUsageFlags>(usage.value),
+                .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType)
+            };
+            VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+            vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+            return mapExternalMemoryProps(externalProps.externalMemoryProperties);
+        }
+
+        SExternalImageFormatProperties getExternalImageProperties_impl(
+            asset::E_FORMAT format, 
+            IGPUImage::TILING tiling, 
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
+            core::bitflag<IGPUImage::E_CREATE_FLAGS> flags,  
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override
+        {
+            assert(!(handleType & (handleType - 1)));
+
+            VkPhysicalDeviceExternalImageFormatInfo extInfo = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+                .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType),
+            };
+
+            VkPhysicalDeviceImageFormatInfo2 info = {
+                .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+                .pNext = &extInfo,
+                .format = static_cast<VkFormat>(format),
+                .tiling = static_cast<VkImageTiling>(tiling),
+                .usage = usage.value,
+                .flags = flags.value,
+            };
+
+            VkExternalImageFormatProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES };
+
+            VkImageFormatProperties2 props = {
+                .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+                .pNext = &externalProps,
+            };
+
+            vkGetPhysicalDeviceImageFormatProperties2(m_vkPhysicalDevice, &info, &props);
+
+            return 
+                { 
+                    {
+                        .maxExtent = props.imageFormatProperties.maxExtent,
+                        .maxMipLevels = props.imageFormatProperties.maxMipLevels,
+                        .maxArrayLayers = props.imageFormatProperties.maxArrayLayers,
+                        .sampleCounts = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.imageFormatProperties.sampleCounts),
+                        .maxResourceSize = props.imageFormatProperties.maxResourceSize,
+                    }, 
+                    mapExternalMemoryProps(externalProps.externalMemoryProperties) 
+                };
+        }
+
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;
 
     private:

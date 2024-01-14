@@ -83,30 +83,6 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
         };
 
-        /* ExternalMemoryProperties *//* provided by VK_KHR_external_memory_capabilities */
-        struct SExternalMemoryProperties
-        {
-            uint32_t exportableTypes : 7 = ~0u;
-            uint32_t compatibleTypes : 7 = ~0u;
-            uint32_t dedicatedOnly : 1 = 0u;
-            uint32_t exportable : 1 = ~0u;
-            uint32_t importable : 1 = ~0u;
-
-            bool operator == (SExternalMemoryProperties const& rhs) const = default;
-
-            SExternalMemoryProperties operator &(SExternalMemoryProperties rhs) const
-            {
-                rhs.exportableTypes &= exportableTypes;
-                rhs.compatibleTypes &= compatibleTypes;
-                rhs.dedicatedOnly |= dedicatedOnly;
-                rhs.exportable &= exportable;
-                rhs.importable &= importable;
-                return rhs;
-            }
-        };
-
-        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
-
         //
         const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
 

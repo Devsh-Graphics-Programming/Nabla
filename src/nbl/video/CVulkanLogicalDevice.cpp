@@ -337,14 +337,43 @@ bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBin
 core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams)
 {
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
-    // VkBufferDeviceAddressCreateInfoEXT, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-    vk_createInfo.pNext = nullptr;
+    // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
+
+    VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
+       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+       .handleTypes = creationParams.externalHandleTypes.value,
+    };
+
+    const bool external = creationParams.externalHandleTypes.value;
+
+    vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
-    vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
+    vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
+
+    bool dedicatedOnly = false;
+
+    if (external)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalBufferProperties(creationParams.usage, handleType);
+
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
+
+            // TODO: Handle this
+            dedicatedOnly = props.dedicatedOnly;
+        }
+    }
 
     VkBuffer vk_buffer;
     if (m_devf.vk.vkCreateBuffer(m_vkdev,&vk_createInfo,nullptr,&vk_buffer)!=VK_SUCCESS)

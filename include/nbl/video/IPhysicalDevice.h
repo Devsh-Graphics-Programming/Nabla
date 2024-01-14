@@ -26,8 +26,54 @@
 namespace nbl::video
 {
 
+
+
+
 class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 {
+    template<class F> static constexpr bool is_bitflag = false;
+    template<class F> static constexpr bool is_bitflag<core::bitflag<F>> = true;
+
+    template<class T> struct RequestMapTraits;
+    template<class R, class...Args>struct RequestMapTraits<R(IPhysicalDevice::*)(Args...) const> : RequestMapTraits<R(IPhysicalDevice::*)(Args...)> {};
+    template<class R, class...Args> struct RequestMapTraits<R(IPhysicalDevice::*)(Args...)>
+    {
+        using Key = std::tuple<std::remove_cvref_t<Args>...>;
+        struct Hasher
+        {
+            template<int N = sizeof...(Args)>
+            static size_t hash(size_t seed, Key const& key)
+            {
+                if constexpr (0 == N)
+                    return seed;
+                else 
+                {
+                    using cur = std::remove_cvref_t<decltype(std::get<N - 1>(key))>;
+       
+                    if constexpr (is_bitflag<cur>)
+                        core::hash_combine(seed, cur::UNDERLYING_TYPE(std::get<N - 1>(key).value));
+                    else if constexpr (std::is_convertible_v<cur, size_t>)
+                        core::hash_combine(seed, size_t(std::get<N - 1>(key)));
+                    else
+                        core::hash_combine(seed, std::get<N - 1>(key));
+                    
+                    return hash<N - 1>(seed, key);
+                }
+
+            }
+
+            size_t operator()(Key const& key) const
+            {
+                return hash(0, key);
+            }
+        };
+
+        using Map = std::unordered_map<Key, R, Hasher>;
+    };
+
+    template<class T>
+    using RequestMap = typename RequestMapTraits<T>::Map;
+
     public:
         //
         virtual E_API_TYPE getAPIType() const = 0;
@@ -242,6 +288,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             !! Same goes for `vkGetPhysicalDeviceSparseImageFormatProperties2`
         */
+
         struct SFormatBufferUsages
         {
             struct SUsage
@@ -687,6 +734,81 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             return createLogicalDevice_impl(std::move(params));
         }
 
+
+        /* ExternalMemoryProperties *//* provided by VK_KHR_external_memory_capabilities */
+        struct SExternalMemoryProperties
+        {
+            uint32_t exportableTypes : 7 = ~0u;
+            uint32_t compatibleTypes : 7 = ~0u;
+            uint32_t dedicatedOnly : 1 = 0u;
+            uint32_t exportable : 1 = ~0u;
+            uint32_t importable : 1 = ~0u;
+
+            bool operator == (SExternalMemoryProperties const& rhs) const = default;
+
+            SExternalMemoryProperties operator &(SExternalMemoryProperties rhs) const
+            {
+                rhs.exportableTypes &= exportableTypes;
+                rhs.compatibleTypes &= compatibleTypes;
+                rhs.dedicatedOnly |= dedicatedOnly;
+                rhs.exportable &= exportable;
+                rhs.importable &= importable;
+                return rhs;
+            }
+        };
+
+        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint32_t));
+
+        struct SImageFormatProperties
+        {
+            VkExtent3D maxExtent = {};
+            uint32_t maxMipLevels = {};
+            uint32_t maxArrayLayers = {};
+            IGPUImage::E_SAMPLE_COUNT_FLAGS sampleCounts = IGPUImage::ESCF_1_BIT;
+            uint64_t maxResourceSize = 0;
+
+            bool operator == (SImageFormatProperties const& rhs) const = default;
+        };
+
+        struct SExternalImageFormatProperties : SImageFormatProperties, SExternalMemoryProperties
+        {
+        };
+
+        SExternalMemoryProperties getExternalBufferProperties(
+            core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage, 
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+        {
+            usage &= ~asset::IBuffer::EUF_SYNTHEHIC_FLAGS_MASK; // mask out synthetic flags
+            {
+                std::shared_lock lock(m_externalBufferPropertiesMutex);
+                auto it = m_externalBufferProperties.find({ usage, handleType });
+                if (it != m_externalBufferProperties.end())
+                    return it->second;
+            }
+
+            std::unique_lock lock(m_externalBufferPropertiesMutex);
+            return m_externalBufferProperties[{ usage, handleType }] = getExternalBufferProperties_impl(usage, handleType);
+        }
+
+        SExternalImageFormatProperties getExternalImageProperties(
+            asset::E_FORMAT format, 
+            IGPUImage::TILING tiling, 
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
+            core::bitflag<IGPUImage::E_CREATE_FLAGS> flags, 
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+        {
+            auto key = std::tuple{ format, tiling, usage, flags, handleType };
+            {
+                std::shared_lock lock(m_externalImagePropertiesMutex);
+                auto it = m_externalImageProperties.find(key);
+                if (it != m_externalImageProperties.end())
+                    return it->second;
+            }
+
+            std::unique_lock lock(m_externalImagePropertiesMutex);
+            return m_externalImageProperties[key] = getExternalImageProperties_impl(format, tiling, usage, flags, handleType);
+        }
+
     protected:
         struct SInitData final
         {
@@ -744,6 +866,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             else
                 return 220u; // largest from above
         }
+
+        // external memory 
+        /* ExternalBufferProperties *//* provided by VK_KHR_external_memory_capabilities */
+
+
+        virtual SExternalMemoryProperties getExternalBufferProperties_impl(core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+        mutable RequestMap<decltype(&getExternalBufferProperties_impl)> m_externalBufferProperties;
+        mutable std::shared_mutex m_externalBufferPropertiesMutex;
+
+        virtual SExternalImageFormatProperties getExternalImageProperties_impl(
+            asset::E_FORMAT format, 
+            IGPUImage::TILING tiling, 
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
+            core::bitflag<IGPUImage::E_CREATE_FLAGS> flags, 
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+        mutable RequestMap<decltype(&getExternalImageProperties_impl)> m_externalImageProperties;
+        mutable std::shared_mutex m_externalImagePropertiesMutex;
 
         // Format Promotion
         struct SBufferFormatPromotionRequestHash
