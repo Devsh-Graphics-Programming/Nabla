@@ -16,7 +16,7 @@ class CVulkanBuffer : public CVulkanDeviceMemoryBacked<IGPUBuffer>
        using base_t = CVulkanDeviceMemoryBacked<IGPUBuffer>;
 
     public:
-        inline CVulkanBuffer(const CVulkanLogicalDevice* dev, IGPUBuffer::SCreationParams&& creationParams, const VkBuffer buffer) : base_t(dev,std::move(creationParams),buffer) {}
+        inline CVulkanBuffer(const CVulkanLogicalDevice* dev, IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly, const VkBuffer buffer) : base_t(dev,std::move(creationParams), dedicatedOnly, buffer) {}
     
         void setObjectDebugName(const char* label) const override;
 

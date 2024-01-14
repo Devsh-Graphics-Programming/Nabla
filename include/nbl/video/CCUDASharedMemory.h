@@ -49,7 +49,7 @@ public:
 
     core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
-    core::smart_refctd_ptr<IGPUImage>  exportAsImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const;
+    core::smart_refctd_ptr<IGPUImage>  createAndBindImage(ILogicalDevice* device, IGPUImage::SCreationParams&& params) const;
 
 protected:
 

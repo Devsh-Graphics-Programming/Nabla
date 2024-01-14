@@ -793,11 +793,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         SExternalImageFormatProperties getExternalImageProperties(
             asset::E_FORMAT format, 
             IGPUImage::TILING tiling, 
+            IGPUImage::E_TYPE type,
             core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
             core::bitflag<IGPUImage::E_CREATE_FLAGS> flags, 
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
-            auto key = std::tuple{ format, tiling, usage, flags, handleType };
+            auto key = std::tuple{ format, tiling, type, usage, flags, handleType };
             {
                 std::shared_lock lock(m_externalImagePropertiesMutex);
                 auto it = m_externalImageProperties.find(key);
@@ -806,7 +807,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             }
 
             std::unique_lock lock(m_externalImagePropertiesMutex);
-            return m_externalImageProperties[key] = getExternalImageProperties_impl(format, tiling, usage, flags, handleType);
+            return m_externalImageProperties[key] = getExternalImageProperties_impl(format, tiling, type, usage, flags, handleType);
         }
 
     protected:
@@ -878,6 +879,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         virtual SExternalImageFormatProperties getExternalImageProperties_impl(
             asset::E_FORMAT format, 
             IGPUImage::TILING tiling, 
+            IGPUImage::E_TYPE type,
             core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
             core::bitflag<IGPUImage::E_CREATE_FLAGS> flags, 
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;

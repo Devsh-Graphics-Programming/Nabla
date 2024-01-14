@@ -77,16 +77,12 @@ core::smart_refctd_ptr<IGPUBuffer> CCUDASharedMemory::exportAsBuffer(ILogicalDev
 
 #endif
 
-core::smart_refctd_ptr<IGPUImage>  CCUDASharedMemory::exportAsImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const
+core::smart_refctd_ptr<IGPUImage>  CCUDASharedMemory::createAndBindImage(ILogicalDevice* device, IGPUImage::SCreationParams&& params) const
 {
 	if (!device || !m_device->isMatchingDevice(device->getPhysicalDevice()))
 		return nullptr;
 
-	auto img = device->createImage({
-		std::move(params), {{ .externalHandleTypes = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE }},
-		IGPUImage::TILING::LINEAR,
-		1 /*preinitialized*/,
-	});
+	auto img = device->createImage(std::move(params));
 	
 	if (exportAsMemory(device, img.get()))
 		return img;

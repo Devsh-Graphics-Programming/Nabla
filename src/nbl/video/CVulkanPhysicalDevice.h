@@ -136,6 +136,7 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
         SExternalImageFormatProperties getExternalImageProperties_impl(
             asset::E_FORMAT format, 
             IGPUImage::TILING tiling, 
+            IGPUImage::E_TYPE type,
             core::bitflag<IGPUImage::E_USAGE_FLAGS> usage, 
             core::bitflag<IGPUImage::E_CREATE_FLAGS> flags,  
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override
@@ -150,7 +151,8 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
             VkPhysicalDeviceImageFormatInfo2 info = {
                 .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
                 .pNext = &extInfo,
-                .format = static_cast<VkFormat>(format),
+                .format = getVkFormatFromFormat(format),
+                .type  = static_cast<VkImageType>(type),
                 .tiling = static_cast<VkImageTiling>(tiling),
                 .usage = usage.value,
                 .flags = flags.value,
@@ -163,7 +165,9 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
                 .pNext = &externalProps,
             };
 
-            vkGetPhysicalDeviceImageFormatProperties2(m_vkPhysicalDevice, &info, &props);
+            VkResult re = vkGetPhysicalDeviceImageFormatProperties2(m_vkPhysicalDevice, &info, &props);
+            if(VK_SUCCESS != re)
+                return {};
 
             return 
                 { 

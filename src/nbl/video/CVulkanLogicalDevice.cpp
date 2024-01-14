@@ -378,7 +378,7 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     VkBuffer vk_buffer;
     if (m_devf.vk.vkCreateBuffer(m_vkdev,&vk_createInfo,nullptr,&vk_buffer)!=VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanBuffer>(this,std::move(creationParams),vk_buffer);
+    return core::make_smart_refctd_ptr<CVulkanBuffer>(this,std::move(creationParams), dedicatedOnly, vk_buffer);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
@@ -399,17 +399,24 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
 {
-    VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
-    vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
+    VkExternalMemoryImageCreateInfo  externalMemoryInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+        .handleTypes = params.externalHandleTypes.value,
+    };
 
-    std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
+    const bool external = params.externalHandleTypes.value;
+
+    VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, &externalMemoryInfo };
+    vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value, true);
+
+    std::array<VkFormat, asset::E_FORMAT::EF_COUNT> vk_formatList;
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, &vk_stencilUsage };
     vk_formatListStruct.viewFormatCount = 0u;
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())
-    for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
-    if (params.viewFormats.test(fmt))
-        vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
+        for (auto fmt = 0; fmt < vk_formatList.size(); fmt++)
+            if (params.viewFormats.test(fmt))
+                vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
     vk_formatListStruct.pViewFormats = vk_formatList.data();
 
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &vk_formatListStruct };
@@ -421,16 +428,45 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     vk_createInfo.arrayLayers = params.arrayLayers;
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
-    vk_createInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.usage.value,asset::isDepthOrStencilFormat(params.format));
-    vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
+    vk_createInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.usage.value, asset::isDepthOrStencilFormat(params.format));
+    vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT : VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-    vk_createInfo.initialLayout = params.preinitialized ? VK_IMAGE_LAYOUT_PREINITIALIZED:VK_IMAGE_LAYOUT_UNDEFINED;
+    vk_createInfo.initialLayout = params.preinitialized ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
+
+    bool dedicatedOnly = false;
+    if (external)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
+        auto pd = dynamic_cast<const CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalImageProperties(params.format, params.tiling, params.type, params.usage, params.flags, handleType);
+
+            if (props.maxArrayLayers < vk_createInfo.arrayLayers || 
+                !core::bitflag<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.sampleCounts).hasFlags(params.samples) ||
+                /* props.maxResourceSize?? */
+                props.maxExtent.width < vk_createInfo.extent.width ||
+                props.maxExtent.height < vk_createInfo.extent.height ||
+                props.maxExtent.depth < vk_createInfo.extent.depth)
+            {
+                return nullptr;
+            }
+
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
+
+            dedicatedOnly |= props.dedicatedOnly;
+        }
+    }
 
     VkImage vk_image;
-    if (m_devf.vk.vkCreateImage(m_vkdev,&vk_createInfo,nullptr,&vk_image)!=VK_SUCCESS)
+    if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) != VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanImage>(this,std::move(params),vk_image);
+    return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params), dedicatedOnly, vk_image);
 }
 
 core::smart_refctd_ptr<IGPUImageView> CVulkanLogicalDevice::createImageView_impl(IGPUImageView::SCreationParams&& params)

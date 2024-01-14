@@ -6,7 +6,7 @@ namespace nbl::video
 {
 
 template<class Interface>
-IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const CVulkanLogicalDevice* device, const VkResource_t vkHandle)
+IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interface>::obtainRequirements(const CVulkanLogicalDevice* device, bool dedicatedOnly, const VkResource_t vkHandle)
 {    
     const std::conditional_t<IsImage,VkImageMemoryRequirementsInfo2,VkBufferMemoryRequirementsInfo2> vk_memoryRequirementsInfo = {
         IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2:VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,vkHandle
@@ -24,8 +24,8 @@ IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanDeviceMemoryBacked<Interfa
     memoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
     memoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
     memoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
-    memoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
-    memoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+    memoryReqs.prefersDedicatedAllocation  = dedicatedOnly | vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = dedicatedOnly | vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
     return memoryReqs;
 }
 
