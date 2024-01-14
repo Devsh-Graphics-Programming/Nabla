@@ -20,6 +20,7 @@ inline auto HLSL_ID(Args&&... args) \
 
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
+NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
 
 template<typename T>
 inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}

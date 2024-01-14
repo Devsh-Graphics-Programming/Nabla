@@ -36,8 +36,8 @@ namespace equations
     template<typename float_t>
     struct Quadratic
     {
-        using float2_t = vector<float_t, 2>;
-        using float3_t = vector<float_t, 3>;
+        using float_t2 = vector<float_t, 2>;
+        using float_t3 = vector<float_t, 3>;
 
         float_t a;
         float_t b;
@@ -54,9 +54,9 @@ namespace equations
             return t * (a * t + b) + c;
         }
 
-        float2_t computeRoots()
+        float_t2 computeRoots()
         {
-            float2_t ret;
+            float_t2 ret;
 
             const float_t det = b * b - 4.0 * a * c;
             const float_t detSqrt = sqrt(det);
