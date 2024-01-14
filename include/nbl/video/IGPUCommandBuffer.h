@@ -667,7 +667,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             BOTH = OUTSIDE|INSIDE
         };
         using queue_flags_t = IQueue::FAMILY_FLAGS;
-        bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
+        bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=~queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
 
         template<typename ResourceBarrier>
         bool invalidDependency(const SDependencyInfo<ResourceBarrier>& depInfo) const;

@@ -28,7 +28,7 @@ struct SIntendedSubmitInfo final
             // frees have already been latched on the scratch semaphore you must signal anyway.
             if (!scratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
                 return false;
-            if (scratch->getState()!=IGPUCommandBuffer::STATE::INITIAL)
+            if (scratch->getState()!=IGPUCommandBuffer::STATE::RECORDING)
                 return false;
             return true;
         }
@@ -93,7 +93,8 @@ struct SIntendedSubmitInfo final
                 public:
                     inline ~CRAIISpanPatch()
                     {
-                        toNullify->commandBuffers = {};
+                        if (toNullify)
+                            toNullify->commandBuffers = {};
                     }
                     inline CRAIISpanPatch(CRAIISpanPatch&& other) : CRAIISpanPatch() {operator=(std::move(other));}
                     inline CRAIISpanPatch& operator=(CRAIISpanPatch&& rhs)
