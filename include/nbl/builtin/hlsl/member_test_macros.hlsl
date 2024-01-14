@@ -68,7 +68,6 @@ NBL_GENERATE_MEMBER_TESTER(z)
 NBL_GENERATE_MEMBER_TESTER(w)
 
 
-#define NBL_REPEAT(fn, n) BOOST_PP_REPEAT(n, fn, n)
 
 #define NBL_TYPE_DECLARE(z, n, x) BOOST_PP_COMMA_IF(x) typename Arg##n
 #define NBL_TYPE_DECLARE_DEFAULT(z, n, x) BOOST_PP_COMMA_IF(x) typename Arg##n=void
@@ -76,23 +75,23 @@ NBL_GENERATE_MEMBER_TESTER(w)
 #define NBL_DECLVAL_DECLARE(z, n, x) impl::declval<Arg##n>() BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(BOOST_PP_INC(n), x))
 
 #define GENERATE_STATIC_METHOD_TESTER_SPEC(z, n, x) \
-template<class T NBL_REPEAT(NBL_TYPE_DECLARE, n)> \
-struct has_static_method_##x<T NBL_REPEAT(NBL_TYPE_FWD, n), typename make_void<decltype(T::x(NBL_REPEAT(NBL_DECLVAL_DECLARE, n)))>::type> : true_type \
+template<class T BOOST_PP_REPEAT(n, NBL_TYPE_DECLARE, n)> \
+struct has_static_method_##x<T BOOST_PP_REPEAT(n, NBL_TYPE_FWD, n), typename make_void<decltype(T::x(BOOST_PP_REPEAT(n, NBL_DECLVAL_DECLARE, n)))>::type> : true_type \
 { \
-    using return_type = decltype(T::x(NBL_REPEAT(NBL_DECLVAL_DECLARE, n))); \
+    using return_type = decltype(T::x(BOOST_PP_REPEAT(n, NBL_DECLVAL_DECLARE, n))); \
     NBL_CONSTEXPR_STATIC_INLINE uint arg_count = n; \
 }; 
 
 #define GENERATE_STATIC_METHOD_TESTER(x, n) \
-template<typename T NBL_REPEAT(NBL_TYPE_DECLARE_DEFAULT, n), class=void> \
+template<typename T BOOST_PP_REPEAT(n, NBL_TYPE_DECLARE_DEFAULT, n), class=void> \
 struct has_static_method_##x : false_type {}; \
 BOOST_PP_REPEAT(n, GENERATE_STATIC_METHOD_TESTER_SPEC, x)
 
 #define GENERATE_METHOD_TESTER_SPEC(z, n, x) \
-template<class T NBL_REPEAT(NBL_TYPE_DECLARE, n)> \
-struct has_method_##x<T NBL_REPEAT(NBL_TYPE_FWD, n), typename make_void<decltype(impl::declval<T>().x(NBL_REPEAT(NBL_DECLVAL_DECLARE, n)))>::type> : impl::if_2_else_1<impl::has_static_method_##x<T NBL_REPEAT(NBL_TYPE_FWD, n)>::value> \
+template<class T BOOST_PP_REPEAT(n, NBL_TYPE_DECLARE, n)> \
+struct has_method_##x<T BOOST_PP_REPEAT(n, NBL_TYPE_FWD, n), typename make_void<decltype(impl::declval<T>().x(BOOST_PP_REPEAT(n, NBL_DECLVAL_DECLARE, n)))>::type> : impl::if_2_else_1<impl::has_static_method_##x<T BOOST_PP_REPEAT(n, NBL_TYPE_FWD, n)>::value> \
 { \
-    using return_type = decltype(impl::declval<T>().x(NBL_REPEAT(NBL_DECLVAL_DECLARE, n))); \
+    using return_type = decltype(impl::declval<T>().x(BOOST_PP_REPEAT(n, NBL_DECLVAL_DECLARE, n))); \
     NBL_CONSTEXPR_STATIC_INLINE uint arg_count = n; \
 }; 
 
@@ -113,7 +112,7 @@ struct has_method_##x<T NBL_REPEAT(NBL_TYPE_FWD, n), typename make_void<decltype
 namespace nbl { \
 namespace hlsl { \
 namespace impl { GENERATE_STATIC_METHOD_TESTER(x, 4) } \
-template<typename T NBL_REPEAT(NBL_TYPE_DECLARE_DEFAULT, 4), class=void> \
+template<typename T BOOST_PP_REPEAT(4, NBL_TYPE_DECLARE_DEFAULT, 4), class=void> \
 struct has_method_##x : false_type {}; \
 BOOST_PP_REPEAT(4, GENERATE_METHOD_TESTER_SPEC, x) \
 }}
