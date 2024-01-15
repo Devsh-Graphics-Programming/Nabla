@@ -28,9 +28,6 @@ namespace spirv_cross
     struct SPIRType;
 }
 
-// podzielic CIntrospectionData na dwie klasy
-// jedna bez inputOutput i bez push constant blocka `CIntrospectionData`
-// druga dziedziczy z pierwszej i dodaje te 2 rzeczy `CStageIntrospectionData`
 
 // wszystkie struktury w CIntrospecionData powininny u¿ywaæ bit flagi, ozaczaj¹cej shader stage (core::unordered_map)
 // CStageIntrospecionData nie powinien u¿ywaæ bit flagi, ozaczaj¹cej shader stage (core::vector)
@@ -63,36 +60,45 @@ namespace nbl::asset
 class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 {
 	public:
-		class NBL_API2 CIntrospectionData : public core::IReferenceCounted
+		constexpr static inline uint16_t MaxPushConstantsSize = 256;
+		//
+		class CIntrospectionData : public core::IReferenceCounted
 		{
 			public:
+				struct SArrayInfo
+				{
+					union
+					{
+						uint32_t value = 0;
+						struct
+						{
+							uint32_t specID : 30;
+							uint32_t isSpecConstant : 1;
+							// illegal for push constant block members
+							uint32_t isRuntimeSized : 1;
+						};
+					};
+
+					inline bool isArray() const {return value || isSpecConstant || isRuntimeSized;}
+				};
 				struct SDescriptorInfo
 				{
-					uint32_t binding;
+					inline bool operator<(const SDescriptorInfo& _rhs) const
+					{
+						return binding<_rhs.binding;
+					}
+
+					uint32_t binding = ~0u;
+					SArrayInfo count = {};
+					IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT;
 				};
-				struct SCombinedImageSampler final : SDescriptorInfo
-				{
-					IImageView<ICPUImage>::E_TYPE viewType : 3;
-					uint8_t multisample : 1;
-					uint8_t shadow : 1;
-				};
-				struct SStorageImage final : SDescriptorInfo
-				{
-					// `EF_UNKNOWN` means that Shader will use the StoreWithoutFormat or LoadWithoutFormat capability
-					E_FORMAT format = EF_UNKNOWN;
-					IImageView<ICPUImage>::E_TYPE viewType : 3;
-					uint8_t shadow : 1;
-				};
-				struct SUniformTexelBuffer final : SDescriptorInfo
-				{
-				};
-				struct SStorageTexelBuffer final : SDescriptorInfo
-				{
-				};
-				struct SInputAttachment final : SDescriptorInfo
-				{
-					uint32_t index;
-				};
+		};
+		// Forward declare for friendship
+		class CPipelineIntrospectionData;
+		class CStageIntrospectionData : public CIntrospectionData
+		{
+			public:
+				//! General
 				enum class VAR_TYPE : uint8_t
 				{
 					UNKNOWN_OR_STRUCT,
@@ -108,20 +114,23 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					F32,
 					F16
 				};
-				struct SArrayInfo
+				struct SInterface
 				{
-					union
-					{
-						uint32_t value = 0;
-						struct
-						{
-							uint32_t specID : 31;
-							uint32_t isSpecConstant : 1;
-						};
-					};
-					uint32_t stride = 0;
+					uint32_t location;
+					uint32_t elements; // of array
+					VAR_TYPE basetype;
 
-					inline bool isArray() const {return stride;}
+					inline bool operator<(const SInterface& _rhs) const
+					{
+						return location < _rhs.location;
+					}
+				};
+				struct SInputInterface final : SInterface {};
+				struct SOutputInterface : SInterface {};
+				struct SFragmentOutputInterface final : SOutputInterface
+				{
+					//! for dual source blending
+					uint8_t colorIndex;
 				};
 				struct STypeInfo
 				{
@@ -135,7 +144,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint16_t rowMajor : 1 = 0;
 					//! stride==0 implies not matrix
 					uint16_t stride : 11 = 0;
-					VAR_TYPE type = UNKNOWN_OR_STRUCT;
+					VAR_TYPE type = VAR_TYPE::UNKNOWN_OR_STRUCT;
 					uint8_t restrict_ : 1 = false;
 					uint8_t volatile_ : 1 = false;
 					uint8_t coherent : 1 = false;
@@ -143,24 +152,27 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint8_t writeonly : 1 = false;
 				};
 				//
-				template<template<typename> class span_t>
-				constexpr static inline bool IsSpan = std::is_same_v<span_t<void>,std::span<void>>;
+				template<typename T, bool Mutable>
+				using span_t = std::conditional_t<Mutable,core::based_span<T>,std::span<const T>>;
 				//
-				template<template<typename> class span_t>
+				template<bool Mutable=false>
 				struct SMemoryBlock
 				{
 					struct SMember
 					{
-						inline std::enable_if_t<IsSpan<span_t>,std::string_view> getName() const
+						inline std::enable_if_t<!Mutable,std::string_view> getName() const
 						{
 							return std::string_view(name.data(),name.size());
 						}
 
-						span_t<SMember> members;
-						// self
-						span_t<char> name;
-						SArrayInfo count = {};
+						//! children
+						span_t<SMember,Mutable> members = {};
+						//! self
+						span_t<char,Mutable> name = {};
 						uint32_t offset = 0;
+						SArrayInfo count = {};
+						// only relevant if `count.isArray()`
+						uint32_t stride = 0;
 						// This is the size of the entire member, so for an array it includes everything
 						uint32_t size = 0;
 						STypeInfo typeInfo = {};
@@ -168,86 +180,155 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 					decltype(SMember::members) members;
 				};
-				//
-				template<template<typename> class span_t>
-				struct SUniformBuffer final : SDescriptorInfo, SMemoryBlock<span_t>
+				//! Maybe one day in the future they'll use memory blocks, but not now
+				template<bool Mutable=false>
+				struct SSpecConstant final
 				{
-					size_t size = 0;
+					span_t<char,Mutable> name = {};
+					union {
+						uint64_t u64;
+						int64_t i64;
+						uint32_t u32;
+						int32_t i32;
+						double f64;
+						float f32;
+					} defaultValue;
+					uint32_t id;
+					uint32_t byteSize;
+					VAR_TYPE type;
 				};
-				template<template<typename> class span_t>
-				struct SStorageBuffer final : SDescriptorInfo, SMemoryBlock<span_t>
+
+				//! Push Constants
+				template<bool Mutable=false>
+				struct SPushConstantInfo : SMemoryBlock<Mutable>
 				{
-					inline std::enable_if_t<IsSpan<span_t>,bool> isLastMemberRuntimeSized() const
+					span_t<char,Mutable> name = {};
+					// believe it or not you can declare an empty PC block
+					bool present = false;
+				};
+
+				//! Descriptors
+				template<bool Mutable=false>
+				struct SDescriptorVarInfo final : SDescriptorInfo
+				{
+					struct SCombinedImageSampler final
 					{
-						if (members.empty())
-							return false;
-						return members.back().count.value==0;
-					}
-					inline std::enable_if_t<IsSpan<span_t>,size_t> getRuntimeSize(size_t lastMemberElementCount) const
+						IImageView<ICPUImage>::E_TYPE viewType : 3;
+						uint8_t multisample : 1;
+						uint8_t shadow : 1;
+					};
+					struct SStorageImage final
 					{
-						if (isLastMemberRuntimeSized)
+						// `EF_UNKNOWN` means that Shader will use the StoreWithoutFormat or LoadWithoutFormat capability
+						E_FORMAT format = EF_UNKNOWN;
+						IImageView<ICPUImage>::E_TYPE viewType : 3;
+						uint8_t shadow : 1;
+					};
+					struct SUniformTexelBuffer final
+					{
+					};
+					struct SStorageTexelBuffer final
+					{
+					};
+					struct SUniformBuffer final : SMemoryBlock<span_t>
+					{
+						size_t size = 0;
+					};
+					struct SStorageBuffer final : SMemoryBlock<Mutable>
+					{
+						inline std::enable_if_t<!Mutable,bool> isLastMemberRuntimeSized() const
 						{
-							const auto& lastMember = members.back();
-							assert(members.back().count.isArray());
-							return sizeWithoutLastMember+lastMemberElementCount*lastMember.count.stride;
+							if (members.empty())
+								return false;
+							return members.back().count.isRuntimeSized;
 						}
-						return sizeWithoutLastMember;
-					}
+						inline std::enable_if_t<!Mutable,size_t> getRuntimeSize(size_t lastMemberElementCount) const
+						{
+							if (isLastMemberRuntimeSized)
+							{
+								const auto& lastMember = members.back();
+								assert(!lastMember.count.isSpecConstantID);
+								return sizeWithoutLastMember+lastMemberElementCount*lastMember.stride;
+							}
+							return sizeWithoutLastMember;
+						}
 
-					//! Use `getRuntimeSize` for size of the struct with assumption of passed number of elements.
-					//! Need special handling if last member is rutime-sized array (e.g. buffer SSBO `buffer { float buf[]; }`)
-					size_t sizeWithoutLastMember;
+						//! Use `getRuntimeSize` for size of the struct with assumption of passed number of elements.
+						//! Need special handling if last member is rutime-sized array (e.g. buffer SSBO `buffer { float buf[]; }`)
+						size_t sizeWithoutLastMember;
+					};
+					struct SInputAttachment final
+					{
+						uint32_t index;
+					};
+
+					//! Note: for SSBOs and UBOs it's the block name
+					span_t<char,Mutable> name = {};
+					//
+					SArrayInfo count = {};
+					//
+					union
+					{
+						SCombinedImageSampler combinedImageSampler;
+						SStorageImage storageImage;
+						SUniformTexelBuffer uniformTexelBuffer;
+						SStorageTexelBuffer storageTexelBuffer;
+						SStorageBuffer uniformBuffer;
+						SStorageBuffer storageBuffer;
+						SInputAttachment inputAttachment;
+						// TODO: acceleration structure?
+					};
 				};
-				// DO NOT CHANGE THE ORDER! Or you'll mess up `getDescriptorType(const SDescriptorVariant&)`
-				using SDescriptorVariant = std::variant<
-					SCombinedImageSampler,
-					SStorageImage,
-					SUniformTexelBuffer,
-					SStorageTexelBuffer,
-					SInputAttachment,
-					SUniformBuffer<std::span>,
-					SStorageBuffer<std::span>
-				>;
-				static inline IDescriptor::E_TYPE getDescriptorType(const SDescriptorVariant& v)
-				{
-					return static_cast<IDescriptor::E_TYPE>(v.index());
-				}
 
+
+				//! For the Factory Creation
+				struct SParams
+				{
+					std::string entryPoint;
+					core::smart_refctd_ptr<const ICPUShader> shader;
+
+					bool operator==(const SParams& rhs) const
+					{
+						if (entryPoint != rhs.entryPoint)
+							return false;
+						if (!rhs.shader)
+							return false;
+						if (shader->getStage() != rhs.shader->getStage())
+							return false;
+						if (shader->getContentType() != rhs.shader->getContentType())
+							return false;
+						if (shader->getContent()->getSize() != rhs.shader->getContent()->getSize())
+							return false;
+						return memcmp(shader->getContent()->getPointer(), rhs.shader->getContent()->getPointer(), shader->getContent()->getSize()) == 0;
+					}
+				};
+				inline const auto& getParams() const {return m_params;}
+
+				//! TODO: Add getters for all the other members!
 				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
 
-
-				//! Push constants uniform block
-				struct {
-					bool present;
-					core::string name;
-					SShaderPushConstant info;
-				} pushConstant;
-
-				bool canSpecializationlesslyCreateDescSetFrom() const
+				inline bool canSpecializationlesslyCreateDescSetFrom() const
 				{
 					for (const auto& descSet : m_descriptorSetBindings)
 					{
-						auto found = std::find_if(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& bnd) { return bnd.descCountIsSpecConstant; });
-						if (found != descSet.end())
+						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<std::span>& bnd)->bool{ return bnd.count.isSpecConstant;});
+						if (found!=descSet.end())
 							return false;
 					}
 					return true;
 				}
 
 			protected:
-				using final_member_t = SMemoryBlock<std::span>::SMember;
-				inline CIntrospectionData(core::vector<SDescriptorVariant>* _descriptorSetBindings, core::vector<const char>&& _stringPool, core::vector<final_member_t>&& _memberPool) :
-					m_stringPool(std::move(_stringPool)), m_memberPool(std::move(_memberPool))
-				{
-					for (auto i=0; i<4; i++)
-						m_descriptorSetBindings[i] = std::move(_descriptorSetBindings[i]);
-				}
-				// We don't need to do anything, all the data was allocated from vector pools
-				inline ~CIntrospectionData() {}
+				friend CSPIRVIntrospector;
 
-				using creation_member_t = SMemoryBlock<core::based_span>::SMember;
+				// all members are set-up outside the ctor
+				inline CStageIntrospectionData() {}
+				// We don't need to do anything, all the data was allocated from vector pools
+				inline ~CStageIntrospectionData() {}
+
+				using creation_member_t = SMemoryBlock<true>::SMember;
 				template<class Pre>
-				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<core::based_span>& block, Pre& pre)
+				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<true>& block, Pre& pre)
 				{
 					std::stack<creation_member_t*> s;
 					auto pushAllMembers = [](const auto& parent)->void
@@ -265,7 +346,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 				}
 				template<class Pre>
-				inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<core::based_span>& block, Pre& pre)
+				inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<true>& block, Pre& pre)
 				{
 					std::queue<creation_member_t*> q;
 					// TODO: pushAllMembers
@@ -278,82 +359,62 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 				}
 				
+				// Parameters it was created with
+				SParams m_params;
+				//! Sorted by `id`
+				core::vector<SSpecConstant<>> m_specConstants;
+				//! Sorted by `location`
+				core::vector<SInputInterface> m_input;
+				std::variant<
+					core::vector<SFragmentOutputInterface>, // when `params.shader->getStage()==ESS_FRAGMENT`
+					core::vector<SOutputInterface> // otherwise
+				> m_output;
 				//! Each vector is sorted by `binding`
-				core::vector<SDescriptorVariant> m_descriptorSetBindings[4];
+				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[4];
 				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
 				// then just convert from `SMemoryBlock<core::based_span>` to `SMemoryBlock<std::span>`
 				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
-				core::vector<const char> m_stringPool;
-				core::vector<final_member_t> m_memberPool;
+				core::vector<const char*> m_stringPool;
+				core::vector<SMemoryBlock<>> m_memberPool;
 		};
-		class CStageIntrospectionData final : public CIntrospectionData
+		class CPipelineIntrospectionData final : public CIntrospectionData
 		{
 			public:
-				struct SParams
+				struct SDescriptorInfo final : CIntrospectionData::SDescriptorInfo
 				{
-					std::string entryPoint;
-					core::smart_refctd_ptr<const ICPUShader> cpuShader;
+					// Which shader stages touch it
+					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::ESS_UNKNOWN;
+				};
+				//
+				inline CPipelineIntrospectionData()
+				{
+					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::ESS_UNKNOWN);
+				}
 
-					bool operator==(const SParams& rhs) const
+				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
+				NBL_API2 bool merge(const CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants=nullptr);
+
+				//
+				NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection();
+				NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID);
+				NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection();
+
+			protected:
+				// ESS_UNKNOWN on a byte means its not declared in any shader merged so far
+				std::array<core::bitflag<ICPUShader::E_SHADER_STAGE>,MaxPushConstantsSize> m_pushConstantBytes;
+				//
+				struct Hash
+				{
+					inline size_t operator()(const SDescriptorInfo& item) const {return item.binding;}
+				};
+				struct KeyEqual
+				{
+					inline bool operator()(const SDescriptorInfo& lhs, const SDescriptorInfo& rhs) const
 					{
-						if (entryPoint != rhs.entryPoint)
-							return false;
-						if (!rhs.cpuShader)
-							return false;
-						if (cpuShader->getStage() != rhs.cpuShader->getStage())
-							return false;
-						if (cpuShader->getContentType() != rhs.cpuShader->getContentType())
-							return false;
-						if (cpuShader->getContent()->getSize() != rhs.cpuShader->getContent()->getSize())
-							return false;
-						return memcmp(cpuShader->getContent()->getPointer(), rhs.cpuShader->getContent()->getPointer(), cpuShader->getContent()->getSize()) == 0;
+						return lhs.binding==rhs.binding;
 					}
 				};
-				struct SSpecConstant
-				{
-					// TODO: change to std::string_view to big pool allocated thing later
-					std::string name;
-					union {
-						uint64_t u64;
-						int64_t i64;
-						uint32_t u32;
-						int32_t i32;
-						double f64;
-						float f32;
-					} defaultValue;
-					uint32_t id;
-					uint32_t byteSize;
-					VAR_TYPE type;
-				};
-				struct SInterface
-				{
-					uint32_t location;
-					uint32_t elements; // of array
-					VAR_TYPE basetype;
-
-					inline bool operator<(const SInterface& _rhs) const
-					{
-						return location<_rhs.location;
-					}
-				};
-				struct SInputInterface final : SInterface {};
-				struct SOutputInterface : SInterface {};
-				struct SFragmentOutputInterface final : SOutputInterface
-				{
-					//! for dual source blending
-					uint8_t colorIndex;
-				};
-
-				// Parameters it was created with
-				const SParams params;
-				//! Sorted by `id`
-				core::vector<SSpecConstant> specConstants;
-				//! Sorted by `location`
-				core::vector<SInputInterface> input;
-				std::variant<
-					core::vector<SFragmentOutputInterface>, // when `params.cpuShader->getStage()==ESS_FRAGMENT`
-					core::vector<SOutputInterface> // otherwise
-				> output;
+				core::unordered_set<SDescriptorInfo,Hash,KeyEqual> m_descriptorSetBindings[4];
 		};
 
 		// 
@@ -361,38 +422,47 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 		//! params.cpuShader.contentType should be ECT_SPIRV
 		//! the compiled SPIRV must be compiled with IShaderCompiler::SCompilerOptions::debugInfoFlags enabling EDIF_SOURCE_BIT implicitly or explicitly, with no `spirvOptimizer` used in order to include names in introspection data
-		// powinna zwracac CStageIntrospectionData
-		core::smart_refctd_ptr<const CIntrospectionData> introspect(const SIntrospectionParams& params, bool insertToCache = true);
+		inline core::smart_refctd_ptr<const CStageIntrospectionData> introspect(const CStageIntrospectionData::SParams& params, bool insertToCache=true)
+		{
+			if (!params.shader)
+				return nullptr;
+    
+			if (params.shader->getContentType()!=IShader::E_CONTENT_TYPE::ECT_SPIRV)
+				return nullptr;
 
-		// 
-		//core::smart_refctd_ptr<const CIntrospectionData> merge(const std::span<const CStageIntrospectionData>& asdf, const ICPUShader::SSPecInfo::spec_constant_map_t& = {});
+			// TODO: templated find!
+			auto introspectionData = m_introspectionCache.find(params);
+			if (introspectionData != m_introspectionCache.end())
+				return introspectionData->second;
 
-		// When the methods take a span of shaders, they are computing things for an imaginary pipeline that includes **all** of them
-		// przeniesc do CIntrospectionData
-		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, const std::span<const ICPUShader::SSpecInfo> _infos);
+			// TODO: roll these 3 lines into `doIntrospection`
+			const ICPUBuffer* spv = params.shader->getContent();
+			spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
+			auto introspection = doIntrospection(comp,params.entryPoint,params.shader->getStage());
+    
+			if (insertToCache)
+				m_introspectionCache.insert(introspectionData,introspection);
 
-		//
-		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info)
-		//TODO: inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(CStageIntrospectionData* asdf)
+			return introspection;
+		}
+		
+		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
 		{
 			if (info.shader->getStage()!=IShader::ESS_COMPUTE)
 				return nullptr;
 
-			core::smart_refctd_ptr<const CIntrospectionData> introspection = nullptr;
-			
-			//TODO: zamiast tego mergujemy `CStageIntrospectionData` w `CIntrospectionData` u¿ywaj¹c `merge`
-			if (!introspectAllShaders(&introspection,{&info,1}))
-				return nullptr;
+			// TODO: 
+			// 1. find or perform introspection using `info`
+			// 2. if `layout` then just check for compatiblity
+			// 3. if `!layout` then create `CPipelineIntrospectionData` from the stage introspection and create a Layout
 
-			auto layout = createApproximatePipelineLayoutFromIntrospection_impl(&introspection,{&info,1});
 			ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
 			params.shader = info;
 			return ICPUComputePipeline::create(params);
 		}
 
-		//
+#if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way
 		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos);
-
 		struct CShaderStages
 		{
 			const CStageIntrospectionData* vertex = nullptr;
@@ -402,39 +472,42 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			const CStageIntrospectionData* geometry = nullptr;
 		}
 		core::smart_refctd_ptr<ICPUGraphicsPipeline> createApproximateGraphicsPipeline(const CShaderStages& shaderStages);
-	
+#endif	
 	private:
-		//TODO: przenieœæ jako members do CIntrospectionData
-		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl();
-		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(const uint32_t setID);
-		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl();
-
-		core::smart_refctd_ptr<CStageIntrospectionData> introspectShader(const ICPUShader::SSpecInfo _infos);
-
-		core::smart_refctd_ptr<const CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const std::string& entryPoint, const IShader::E_SHADER_STAGE stage) const;
-		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const;
-		size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
-
-	private:
+		NBL_API2 core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
 
 		struct KeyHasher
 		{
-			size_t operator()(const SIntrospectionParams& param) const 
+			inline size_t operator()(const CStageIntrospectionData::SParams& params) const
 			{
 				auto stringViewHasher = std::hash<std::string_view>();
 
-				auto code = std::string_view(reinterpret_cast<const char*>(param.cpuShader->getContent()->getPointer()), param.cpuShader->getContent()->getSize());
+				auto code = std::string_view(reinterpret_cast<const char*>(params.shader->getContent()->getPointer()),params.shader->getContent()->getSize());
 				size_t hash = stringViewHasher(code);
 
-				core::hash_combine<std::string_view>(hash, std::string_view(param.entryPoint));
-				core::hash_combine<uint32_t>(hash, static_cast<uint32_t>(param.cpuShader->getStage()));
+				core::hash_combine<std::string_view>(hash, std::string_view(params.entryPoint));
+				core::hash_combine<uint32_t>(hash, static_cast<uint32_t>(params.shader->getStage()));
 
 				return hash;
 			}
+			inline size_t operator()(const core::smart_refctd_ptr<const CStageIntrospectionData>& data) const
+			{
+				return operator()(data->getParams());
+			}
+		};
+		struct KeyEquals
+		{
+			inline bool operator()(const core::smart_refctd_ptr<const CStageIntrospectionData>& lhs, const CStageIntrospectionData::SParams& rhs) const
+			{
+				return lhs->getParams()==rhs;
+			}
+			inline bool operator()(const core::smart_refctd_ptr<const CStageIntrospectionData>& lhs, const core::smart_refctd_ptr<const CStageIntrospectionData>& rhs) const
+			{
+				return operator()(lhs,rhs->getParams());
+			}
 		};
 
-		using ParamsToDataMap = core::unordered_map<SIntrospectionParams,core::smart_refctd_ptr<const CIntrospectionData>, KeyHasher>;
-		// using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>, KeyHasher, KeyEquals>;
+		using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>,KeyHasher,KeyEquals>;
 		ParamsToDataMap m_introspectionCache;
 };
 

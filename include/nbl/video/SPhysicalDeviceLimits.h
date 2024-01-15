@@ -3,6 +3,7 @@
 
 
 #include "nbl/asset/utils/CGLSLCompiler.h" // asset::CGLSLCompiler::E_SPIRV_VERSION
+#include "nbl/asset/utils/CSPIRVIntrospector.h" // asset::CSPIRVIntrospector::MaxPushConstantsSize
 
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IRenderpass.h"
@@ -27,7 +28,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxUBOSize = 1u<<16u;
     constexpr static inline uint32_t MinMaxSSBOSize = 1u<<30u;
     uint32_t maxSSBOSize = MinMaxSSBOSize;
-    constexpr static inline uint16_t MaxMaxPushConstantsSize = 256u;
+    constexpr static inline uint16_t MaxMaxPushConstantsSize = asset::CSPIRVIntrospector::MaxPushConstantsSize;
     uint16_t maxPushConstantsSize = 128u;
     uint32_t maxMemoryAllocationCount = 1u<<12u;
     uint32_t maxSamplerAllocationCount = 4000u;
