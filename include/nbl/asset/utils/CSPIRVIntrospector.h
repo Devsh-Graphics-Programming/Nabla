@@ -311,7 +311,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				{
 					for (const auto& descSet : m_descriptorSetBindings)
 					{
-						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<std::span>& bnd)->bool{ return bnd.count.isSpecConstant;});
+						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<>& bnd)->bool{ return bnd.count.isSpecConstant;});
 						if (found!=descSet.end())
 							return false;
 					}
@@ -433,7 +433,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			// TODO: templated find!
 			auto introspectionData = m_introspectionCache.find(params);
 			if (introspectionData != m_introspectionCache.end())
-				return introspectionData->second;
+				return *introspectionData;
 
 			// TODO: roll these 3 lines into `doIntrospection`
 			const ICPUBuffer* spv = params.shader->getContent();
@@ -478,6 +478,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 		struct KeyHasher
 		{
+			using is_transparent = void;
+
 			inline size_t operator()(const CStageIntrospectionData::SParams& params) const
 			{
 				auto stringViewHasher = std::hash<std::string_view>();
@@ -497,6 +499,12 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		};
 		struct KeyEquals
 		{
+			using is_transparent = void;
+
+			inline bool operator()(const CStageIntrospectionData::SParams& lhs, const core::smart_refctd_ptr<const CStageIntrospectionData>& rhs) const
+			{
+				return lhs==rhs->getParams();
+			}
 			inline bool operator()(const core::smart_refctd_ptr<const CStageIntrospectionData>& lhs, const CStageIntrospectionData::SParams& rhs) const
 			{
 				return lhs->getParams()==rhs;

@@ -64,27 +64,6 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }//anonymous ns
 
-core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntrospector::introspect(const SIntrospectionParams& params, bool insertToCache)
-{
-    if (!params.cpuShader)
-        return nullptr;
-    
-    if (params.cpuShader->getContentType()!=IShader::E_CONTENT_TYPE::ECT_SPIRV)
-        return nullptr;
-
-    auto introspectionData = m_introspectionCache.find(params);
-    if (introspectionData != m_introspectionCache.end())
-        return introspectionData->second;
-
-    const ICPUBuffer* spv = params.cpuShader->getContent();
-    spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-    auto introspection = doIntrospection(comp,params.entryPoint,params.cpuShader->getStage());
-    
-    if (insertToCache)
-        m_introspectionCache[params] = introspection;
-
-    return introspection;
-}
 
 bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* outIntrospections, const std::span<const ICPUShader::SSpecInfo> infos)
 {
