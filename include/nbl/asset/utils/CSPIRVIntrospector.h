@@ -3,7 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
 #define _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
-#if 0
+
+
 #include "nbl/core/declarations.h"
 
 #include <cstdint>
@@ -40,109 +41,322 @@ namespace spirv_cross
 // ogarn¹æ sytuacje gdy jeden descriptor binding ma wiêcej arrayElementCount ni¿ w SPIR-V
 // w `CStageIntrospectionData` powinien byæ trzymana struktura `SIntrospectionParams`
 
-// 
+// TODO: put this somewhere useful in a separate header
+namespace nbl::core
+{
+
+template<typename T, size_t Extent=std::dynamic_extent>
+struct based_span : private std::span<T,Extent>
+{
+	constexpr based_span() : span<T,Extent>() {}
+
+	constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : span<T,Extent>(span.begin()-basePtr,span.end()-basePtr) {}
+
+	inline std::span<T,Extent> operator()(T* newBase) const {return std::span<T,Extent>(begin()+newBase,end()+newBase);}
+};
+
+}
+
 namespace nbl::asset
 {
+
 class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 {
 	public:
-		static IDescriptor::E_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
+		class NBL_API2 CIntrospectionData : public core::IReferenceCounted
 		{
-			switch (_t)
-			{
-				case ESRT_COMBINED_IMAGE_SAMPLER:
-					return IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-					break;
-				case ESRT_STORAGE_IMAGE:
-					return IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
-					break;
-				case ESRT_UNIFORM_TEXEL_BUFFER:
-					return IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
-					break;
-				case ESRT_STORAGE_TEXEL_BUFFER:
-					return IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER;
-					break;
-				case ESRT_UNIFORM_BUFFER:
-					return IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-					break;
-				case ESRT_STORAGE_BUFFER:
-					return IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
-					break;
-				default:
-					break;
-			}
-			return IDescriptor::E_TYPE::ET_COUNT;
-		}
-
-	class NBL_API2 CIntrospectionData : public core::IReferenceCounted
-	{
-		protected:
-			~CIntrospectionData();
-
-		public:
-			struct SSpecConstant
-			{
-				uint32_t id;
-				size_t byteSize;
-				E_GLSL_VAR_TYPE type;
-				std::string name;
-				union {
-					uint64_t u64;
-					int64_t i64;
-					uint32_t u32;
-					int32_t i32;
-					double f64;
-					float f32;
-				} defaultValue;
-			};
-			//! Sorted by `id`
-			core::vector<SSpecConstant> specConstants;
-			//! Each vector is sorted by `binding`
-			core::vector<SShaderResourceVariant> descriptorSetBindings[4];
-			//! Sorted by `location`
-			core::vector<SShaderInfoVariant> inputOutput;
-
-			//! Push constants uniform block
-			struct {
-				bool present;
-				core::string name;
-				SShaderPushConstant info;
-			} pushConstant;
-
-			bool canSpecializationlesslyCreateDescSetFrom() const
-			{
-				for (const auto& descSet : descriptorSetBindings)
+			public:
+				struct SDescriptorInfo
 				{
-					auto found = std::find_if(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& bnd) { return bnd.descCountIsSpecConstant; });
-					if (found != descSet.end())
-						return false;
+					uint32_t binding;
+				};
+				struct SCombinedImageSampler final : SDescriptorInfo
+				{
+					IImageView<ICPUImage>::E_TYPE viewType : 3;
+					uint8_t multisample : 1;
+					uint8_t shadow : 1;
+				};
+				struct SStorageImage final : SDescriptorInfo
+				{
+					// `EF_UNKNOWN` means that Shader will use the StoreWithoutFormat or LoadWithoutFormat capability
+					E_FORMAT format = EF_UNKNOWN;
+					IImageView<ICPUImage>::E_TYPE viewType : 3;
+					uint8_t shadow : 1;
+				};
+				struct SUniformTexelBuffer final : SDescriptorInfo
+				{
+				};
+				struct SStorageTexelBuffer final : SDescriptorInfo
+				{
+				};
+				struct SInputAttachment final : SDescriptorInfo
+				{
+					uint32_t index;
+				};
+				enum class VAR_TYPE : uint8_t
+				{
+					UNKNOWN_OR_STRUCT,
+					U64,
+					I64,
+					U32,
+					I32,
+					U16,
+					I16,
+					U8,
+					I8,
+					F64,
+					F32,
+					F16
+				};
+				struct SArrayInfo
+				{
+					union
+					{
+						uint32_t value = 0;
+						struct
+						{
+							uint32_t specID : 31;
+							uint32_t isSpecConstant : 1;
+						};
+					};
+					uint32_t stride = 0;
+
+					inline bool isArray() const {return stride;}
+				};
+				struct STypeInfo
+				{
+					inline bool isScalar() const {return lastRow==0 && lastCol==0;}
+					inline bool isVector() const {return lastRow>0 && lastCol==0;}
+					inline bool isMatrix() const {return lastRow>0 && stride>0;}
+
+					uint16_t lastRow : 2 = 0;
+					uint16_t lastCol : 2 = 0;
+					//! rowMajor=false implies col-major
+					uint16_t rowMajor : 1 = 0;
+					//! stride==0 implies not matrix
+					uint16_t stride : 11 = 0;
+					VAR_TYPE type = UNKNOWN_OR_STRUCT;
+					uint8_t restrict_ : 1 = false;
+					uint8_t volatile_ : 1 = false;
+					uint8_t coherent : 1 = false;
+					uint8_t readonly : 1 = false;
+					uint8_t writeonly : 1 = false;
+				};
+				//
+				template<template<typename> class span_t>
+				constexpr static inline bool IsSpan = std::is_same_v<span_t<void>,std::span<void>>;
+				//
+				template<template<typename> class span_t>
+				struct SMemoryBlock
+				{
+					struct SMember
+					{
+						inline std::enable_if_t<IsSpan<span_t>,std::string_view> getName() const
+						{
+							return std::string_view(name.data(),name.size());
+						}
+
+						span_t<SMember> members;
+						// self
+						span_t<char> name;
+						SArrayInfo count = {};
+						uint32_t offset = 0;
+						// This is the size of the entire member, so for an array it includes everything
+						uint32_t size = 0;
+						STypeInfo typeInfo = {};
+					};
+
+					decltype(SMember::members) members;
+				};
+				//
+				template<template<typename> class span_t>
+				struct SUniformBuffer final : SDescriptorInfo, SMemoryBlock<span_t>
+				{
+					size_t size = 0;
+				};
+				template<template<typename> class span_t>
+				struct SStorageBuffer final : SDescriptorInfo, SMemoryBlock<span_t>
+				{
+					inline std::enable_if_t<IsSpan<span_t>,bool> isLastMemberRuntimeSized() const
+					{
+						if (members.empty())
+							return false;
+						return members.back().count.value==0;
+					}
+					inline std::enable_if_t<IsSpan<span_t>,size_t> getRuntimeSize(size_t lastMemberElementCount) const
+					{
+						if (isLastMemberRuntimeSized)
+						{
+							const auto& lastMember = members.back();
+							assert(members.back().count.isArray());
+							return sizeWithoutLastMember+lastMemberElementCount*lastMember.count.stride;
+						}
+						return sizeWithoutLastMember;
+					}
+
+					//! Use `getRuntimeSize` for size of the struct with assumption of passed number of elements.
+					//! Need special handling if last member is rutime-sized array (e.g. buffer SSBO `buffer { float buf[]; }`)
+					size_t sizeWithoutLastMember;
+				};
+				// DO NOT CHANGE THE ORDER! Or you'll mess up `getDescriptorType(const SDescriptorVariant&)`
+				using SDescriptorVariant = std::variant<
+					SCombinedImageSampler,
+					SStorageImage,
+					SUniformTexelBuffer,
+					SStorageTexelBuffer,
+					SInputAttachment,
+					SUniformBuffer<std::span>,
+					SStorageBuffer<std::span>
+				>;
+				static inline IDescriptor::E_TYPE getDescriptorType(const SDescriptorVariant& v)
+				{
+					return static_cast<IDescriptor::E_TYPE>(v.index());
 				}
-				return true;
-			}
-		};
 
-		struct SIntrospectionParams
+				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
+
+
+				//! Push constants uniform block
+				struct {
+					bool present;
+					core::string name;
+					SShaderPushConstant info;
+				} pushConstant;
+
+				bool canSpecializationlesslyCreateDescSetFrom() const
+				{
+					for (const auto& descSet : m_descriptorSetBindings)
+					{
+						auto found = std::find_if(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& bnd) { return bnd.descCountIsSpecConstant; });
+						if (found != descSet.end())
+							return false;
+					}
+					return true;
+				}
+
+			protected:
+				using final_member_t = SMemoryBlock<std::span>::SMember;
+				inline CIntrospectionData(core::vector<SDescriptorVariant>* _descriptorSetBindings, core::vector<const char>&& _stringPool, core::vector<final_member_t>&& _memberPool) :
+					m_stringPool(std::move(_stringPool)), m_memberPool(std::move(_memberPool))
+				{
+					for (auto i=0; i<4; i++)
+						m_descriptorSetBindings[i] = std::move(_descriptorSetBindings[i]);
+				}
+				// We don't need to do anything, all the data was allocated from vector pools
+				inline ~CIntrospectionData() {}
+
+				using creation_member_t = SMemoryBlock<core::based_span>::SMember;
+				template<class Pre>
+				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<core::based_span>& block, Pre& pre)
+				{
+					std::stack<creation_member_t*> s;
+					auto pushAllMembers = [](const auto& parent)->void
+					{
+						for (const auto& m : parent.members(m_memberPool.data()))
+							s.push(&m);
+					};
+					pushAllMembers(block);
+					while (!s.empty())
+					{
+						const auto& m = s.top();
+						pre(*m);
+						s.pop();
+						pushAllMembers(*m);
+					}
+				}
+				template<class Pre>
+				inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<core::based_span>& block, Pre& pre)
+				{
+					std::queue<creation_member_t*> q;
+					// TODO: pushAllMembers
+					while (!s.empty())
+					{
+						const auto& m = q.front();
+						pre(*m);
+						q.pop();
+						pushAllMembers(*m);
+					}
+				}
+				
+				//! Each vector is sorted by `binding`
+				core::vector<SDescriptorVariant> m_descriptorSetBindings[4];
+				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
+				// then just convert from `SMemoryBlock<core::based_span>` to `SMemoryBlock<std::span>`
+				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
+				core::vector<const char> m_stringPool;
+				core::vector<final_member_t> m_memberPool;
+		};
+		class CStageIntrospectionData final : public CIntrospectionData
 		{
-			std::string entryPoint;
-			core::smart_refctd_ptr<const ICPUShader> cpuShader;
+			public:
+				struct SParams
+				{
+					std::string entryPoint;
+					core::smart_refctd_ptr<const ICPUShader> cpuShader;
 
-			bool operator==(const SIntrospectionParams& rhs) const
-			{
-				if (entryPoint != rhs.entryPoint)
-					return false;
-				if (!rhs.cpuShader)
-					return false;
-				if (cpuShader->getStage() != rhs.cpuShader->getStage())
-					return false;
-				if (cpuShader->getContentType() != rhs.cpuShader->getContentType())
-					return false;
-				if (cpuShader->getContent()->getSize() != rhs.cpuShader->getContent()->getSize())
-					return false;
-				return memcmp(cpuShader->getContent()->getPointer(), rhs.cpuShader->getContent()->getPointer(), cpuShader->getContent()->getSize()) == 0;
-			}
+					bool operator==(const SParams& rhs) const
+					{
+						if (entryPoint != rhs.entryPoint)
+							return false;
+						if (!rhs.cpuShader)
+							return false;
+						if (cpuShader->getStage() != rhs.cpuShader->getStage())
+							return false;
+						if (cpuShader->getContentType() != rhs.cpuShader->getContentType())
+							return false;
+						if (cpuShader->getContent()->getSize() != rhs.cpuShader->getContent()->getSize())
+							return false;
+						return memcmp(cpuShader->getContent()->getPointer(), rhs.cpuShader->getContent()->getPointer(), cpuShader->getContent()->getSize()) == 0;
+					}
+				};
+				struct SSpecConstant
+				{
+					// TODO: change to std::string_view to big pool allocated thing later
+					std::string name;
+					union {
+						uint64_t u64;
+						int64_t i64;
+						uint32_t u32;
+						int32_t i32;
+						double f64;
+						float f32;
+					} defaultValue;
+					uint32_t id;
+					uint32_t byteSize;
+					VAR_TYPE type;
+				};
+				struct SInterface
+				{
+					uint32_t location;
+					uint32_t elements; // of array
+					VAR_TYPE basetype;
+
+					inline bool operator<(const SInterface& _rhs) const
+					{
+						return location<_rhs.location;
+					}
+				};
+				struct SInputInterface final : SInterface {};
+				struct SOutputInterface : SInterface {};
+				struct SFragmentOutputInterface final : SOutputInterface
+				{
+					//! for dual source blending
+					uint8_t colorIndex;
+				};
+
+				// Parameters it was created with
+				const SParams params;
+				//! Sorted by `id`
+				core::vector<SSpecConstant> specConstants;
+				//! Sorted by `location`
+				core::vector<SInputInterface> input;
+				std::variant<
+					core::vector<SFragmentOutputInterface>, // when `params.cpuShader->getStage()==ESS_FRAGMENT`
+					core::vector<SOutputInterface> // otherwise
+				> output;
 		};
 
-		//In the future there's also going list of enabled extensions
+		// 
 		CSPIRVIntrospector() = default;
 
 		//! params.cpuShader.contentType should be ECT_SPIRV
@@ -225,6 +439,4 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 };
 
 } // nbl::asset
-
-#endif
 #endif

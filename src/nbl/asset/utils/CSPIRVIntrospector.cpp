@@ -748,55 +748,6 @@ size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& _comp, con
 }
 
 
-static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
-{
-    using MembersT = impl::SShaderMemoryBlock::SMember::SMembers;
-    core::stack<MembersT> stack;
-    core::queue<MembersT> q;
-    if (_res.members.array)
-        q.push(_res.members);
-    while (!q.empty()) {//build stack
-        MembersT curr = q.front();
-        stack.push(curr);
-        q.pop();
-        for (uint32_t i = 0u; i < curr.count; ++i) {
-            const auto& m = curr.array[i];
-            if (m.members.array)
-                q.push(m.members);
-        }
-    }
-    while (!stack.empty()) {
-        MembersT m = stack.top();
-        stack.pop();
-        _NBL_DELETE_ARRAY(m.array, m.count);
-    }
-}
-
-static void deinitIntrospectionData(CSPIRVIntrospector::CIntrospectionData* _data)
-{
-    for (auto& descSet : _data->descriptorSetBindings)
-        for (auto& res : descSet)
-        {
-            switch (res.type)
-            {
-            case ESRT_STORAGE_BUFFER:
-                deinitShdrMemBlock(res.get<ESRT_STORAGE_BUFFER>());
-                break;
-            case ESRT_UNIFORM_BUFFER:
-                deinitShdrMemBlock(res.get<ESRT_UNIFORM_BUFFER>());
-                break;
-            default: break;
-            }
-        }
-    if (_data->pushConstant.present)
-        deinitShdrMemBlock(_data->pushConstant.info);
-}
-
-CSPIRVIntrospector::CIntrospectionData::~CIntrospectionData()
-{
-    deinitIntrospectionData(this);
-}
-
 
 } // nbl:asset
 
