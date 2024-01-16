@@ -83,7 +83,7 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "//#pragma compile_flags ";
+        insertion << "#pragma compile_flags ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -204,11 +204,11 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     return resolvedString;
 }
 
-//std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
-//{
-//    std::vector<LPCWSTR> extra_dxc_compile_flags = {};
-//    return preprocessShader(code, stage, extra_dxc_compile_flags, preprocessOptions);
-//}
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+{
+    std::vector<std::string> extra_dxc_compile_flags = {};
+    return preprocessShader(std::move(code), stage, extra_dxc_compile_flags, preprocessOptions);
+}
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
@@ -238,41 +238,47 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     // Set profile two letter prefix based on stage
     switch (stage)
     {
-    case asset::IShader::ESS_VERTEX:
-        targetProfile.replace(0, 2, L"vs");
-        break;
-    case asset::IShader::ESS_TESSELLATION_CONTROL:
-        targetProfile.replace(0, 2, L"ds");
-        break;
-    case asset::IShader::ESS_TESSELLATION_EVALUATION:
-        targetProfile.replace(0, 2, L"hs");
-        break;
-    case asset::IShader::ESS_GEOMETRY:
-        targetProfile.replace(0, 2, L"gs");
-        break;
-    case asset::IShader::ESS_FRAGMENT:
-        targetProfile.replace(0, 2, L"ps");
-        break;
-    case asset::IShader::ESS_COMPUTE:
-        targetProfile.replace(0, 2, L"cs");
-        break;
-    case asset::IShader::ESS_TASK:
-        targetProfile.replace(0, 2, L"as");
-        break;
-    case asset::IShader::ESS_MESH:
-        targetProfile.replace(0, 2, L"ms");
-        break;
-    default:
-        hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
-        return nullptr;
+        case asset::IShader::ESS_VERTEX:
+            targetProfile.replace(0, 2, L"vs");
+            break;
+        case asset::IShader::ESS_TESSELLATION_CONTROL:
+            targetProfile.replace(0, 2, L"ds");
+            break;
+        case asset::IShader::ESS_TESSELLATION_EVALUATION:
+            targetProfile.replace(0, 2, L"hs");
+            break;
+        case asset::IShader::ESS_GEOMETRY:
+            targetProfile.replace(0, 2, L"gs");
+            break;
+        case asset::IShader::ESS_FRAGMENT:
+            targetProfile.replace(0, 2, L"ps");
+            break;
+        case asset::IShader::ESS_COMPUTE:
+            targetProfile.replace(0, 2, L"cs");
+            break;
+        case asset::IShader::ESS_TASK:
+            targetProfile.replace(0, 2, L"as");
+            break;
+        case asset::IShader::ESS_MESH:
+            targetProfile.replace(0, 2, L"ms");
+            break;
+        default:
+            hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
+            return nullptr;
     };
 
-
+    std::wstring* arg_storage = NULL;
     std::vector<LPCWSTR> arguments;
-    if (dxc_compile_flags.size()) {
+
+    if (dxc_compile_flags.size()) { // #pragma wave overrides compile flags
+        size_t arg_size = dxc_compile_flags.size();
         arguments = {};
-        for (size_t i = 0; i < dxc_compile_flags.size(); i++)
-            arguments.push_back(LPCWSTR(dxc_compile_flags[i].c_str()));
+        arguments.reserve(arg_size);
+        arg_storage = new std::wstring[arg_size]; // prevent deallocation before shader compilation
+        for (size_t i = 0; i < dxc_compile_flags.size(); i++) {
+            arg_storage[i] = std::wstring(dxc_compile_flags[i].begin(), dxc_compile_flags[i].end());
+            arguments.push_back(arg_storage[i].c_str());
+        }
     }
     else {
         arguments = {
@@ -315,10 +321,13 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         this, 
         m_dxcCompilerTypes, 
         newCode,
-        &arguments[0],
+        arguments.data(),
         arguments.size(),
         hlslOptions
     );
+
+    if (arg_storage)
+        delete[] arg_storage;
 
     if (!compileResult.objectBlob)
     {
@@ -341,4 +350,6 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
+
+
 #endif
