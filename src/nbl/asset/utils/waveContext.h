@@ -47,7 +47,10 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() {}
+        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() 
+    {
+        hash_token_occurences = 0;
+    }
 
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
@@ -55,6 +58,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         assert(false); // should never be called
         return false;
     }
+
 
     // interpretation of #pragma's of the form 'wave option[(value)]'
     template <typename ContextT, typename ContainerT>
@@ -64,6 +68,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
+        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
@@ -98,15 +103,20 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             return true;
         }
         
-        if (strcmp(optionStr, "dxc_compile_flags") == 0) {
+        if (strcmp(optionStr, "dxc_compile_flags") == 0 && hash_token_occurences == 1) {
             m_dxc_compile_flags_override.clear();
             for (auto valueIter = values.begin(); valueIter != values.end(); valueIter++) {
                 std::string compiler_option_s = std::string(valueIter->get_value().c_str());
-                if (compiler_option_s[0] == '"' && compiler_option_s[compiler_option_s.length() - 1] == '"')
-                    compiler_option_s = compiler_option_s.substr(1, compiler_option_s.length() - 2);
+                // if this compiler flag is encapsulated in quotation marks, strip them
+                //if (compiler_option_s[0] == '"' && compiler_option_s[compiler_option_s.length() - 1] == '"')
+                //    compiler_option_s = compiler_option_s.substr(1, compiler_option_s.length() - 2);
+
+                // if the compiler flag is a separator that is a comma or whitespace, do not add to list of flag overrides 
+                if (compiler_option_s == "," || compiler_option_s == " ")
+                    continue;
                 m_dxc_compile_flags_override.push_back(compiler_option_s);
             }
-            
+            return true;
         }
 
         return false;
@@ -126,7 +136,9 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     const IShaderCompiler::CIncludeFinder* m_includeFinder;
     system::logger_opt_ptr m_logger;
     IShader::E_SHADER_STAGE m_pragmaStage;
+    int hash_token_occurences;
     std::vector<std::string> m_dxc_compile_flags_override;
+
 };
 
 class context : private boost::noncopyable
