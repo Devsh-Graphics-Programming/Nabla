@@ -1236,17 +1236,25 @@ bool IGPUCommandBuffer::drawMeshBuffer(const IGPUMeshBuffer* const meshBuffer)
     }
 }
 */
-
+template<bool dst>
 static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
 {
     switch (layout)
     {
         case IGPUImage::LAYOUT::GENERAL:
-        case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
-        case IGPUImage::LAYOUT::SHARED_PRESENT:
-            break;
-        default:
             return false;
+        case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+            if (!dst)
+                return false;
+            break;
+        case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
+            if (dst)
+                return false;
+            break;
+        case IGPUImage::LAYOUT::SHARED_PRESENT:
+            return false;
+        default:
+            break;
     }
     return true;
 }
@@ -1256,7 +1264,7 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve(srcImageLayout) || disallowedLayoutForBlitAndResolve(dstImageLayout))
+    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
         return false;
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
@@ -1289,7 +1297,7 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
     
-    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve(srcImageLayout) || disallowedLayoutForBlitAndResolve(dstImageLayout))
+    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
         return false;
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
