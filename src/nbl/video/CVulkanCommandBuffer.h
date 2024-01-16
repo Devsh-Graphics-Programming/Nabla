@@ -401,6 +401,12 @@ public:
 
 	inline const void* getNativeHandle() const override {return &m_cmdbuf;}
     VkCommandBuffer getInternalObject() const {return m_cmdbuf;}
+    
+protected:
+    virtual ~CVulkanCommandBuffer() final
+    {
+        out_of_order_dtor();
+    }
 
 private:
     VkCommandBuffer m_cmdbuf;

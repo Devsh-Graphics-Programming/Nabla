@@ -29,7 +29,7 @@
 #include "nbl/video/CThreadSafeGPUQueueAdapter.h"
 #include "nbl/video/IDeviceMemoryAllocator.h"
 
-#include "nbl/video/SPhysicalDeviceFeatures.h"
+#include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video
 {
@@ -477,39 +477,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // OpenGL: const egl::CEGL::Context*
         // Vulkan: const VkDevice*
         virtual const void* getNativeHandle() const = 0;
-        
-        // these are the defines which shall be added to any IGPUShader which has its source as GLSL
-        inline core::SRange<const char* const> getExtraShaderDefines() const
-        {
-            const char* const* begin = m_extraShaderDefines.data();
-            return {begin,begin+m_extraShaderDefines.size()};
-        }
 
     protected:
-        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params)
-            : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet)
-        {
-            uint32_t qcnt = 0u;
-            uint8_t greatestFamNum = 0u;
-            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
-            {
-                greatestFamNum = (std::max)(greatestFamNum, params.queueParams[i].familyIndex);
-                qcnt += params.queueParams[i].count;
-            }
-
-            m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-            m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
-            
-            for (uint32_t i=0u; i<params.queueParamsCount; ++i)
-            {
-                const auto& qci = params.queueParams[i];
-                if (qci.familyIndex == greatestFamNum)
-                    continue;
-
-                (*m_offsets)[qci.familyIndex + 1u] = qci.count;
-            }
-            std::inclusive_scan(m_offsets->begin(),m_offsets->end(),m_offsets->begin());
-        }
+        ILogicalDevice(core::smart_refctd_ptr<IAPIConnection>&& api, IPhysicalDevice* physicalDevice, const SCreationParams& params);
 
         // must be called by implementations of mapMemory()
         static void post_mapMemory(IDeviceMemoryAllocation* memory, void* ptr, IDeviceMemoryAllocation::MemoryRange rng, core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access) 
@@ -563,37 +533,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ) = 0;
         virtual core::smart_refctd_ptr<IGPUGraphicsPipeline> createGraphicsPipeline_impl(IGPUPipelineCache* pipelineCache, IGPUGraphicsPipeline::SCreationParams&& params) = 0;
         virtual bool createGraphicsPipelines_impl(IGPUPipelineCache* pipelineCache, core::SRange<const IGPUGraphicsPipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUGraphicsPipeline>* output) = 0;
-        
-        void addCommonShaderDefines(std::ostringstream& pool, const bool runningInRenderDoc);
-
-        template<typename... Args>
-        inline void addShaderDefineToPool(std::ostringstream& pool, const char* define, Args&&... args)
-        {
-            const ptrdiff_t pos = pool.tellp();
-            m_extraShaderDefines.push_back(reinterpret_cast<const char*>(pos));
-            pool << define << " ";
-            ((pool << std::forward<Args>(args)), ...);
-        }
-        inline void finalizeShaderDefinePool(std::ostringstream&& pool)
-        {
-            m_ShaderDefineStringPool.resize(static_cast<size_t>(pool.tellp())+m_extraShaderDefines.size());
-            const auto data = ptrdiff_t(m_ShaderDefineStringPool.data());
-
-            const auto str = pool.str();
-            size_t nullCharsWritten = 0u;
-            for (auto i=0u; i<m_extraShaderDefines.size(); i++)
-            {
-                auto& dst = m_extraShaderDefines[i];
-                const auto len = (i!=(m_extraShaderDefines.size()-1u) ? ptrdiff_t(m_extraShaderDefines[i+1]):str.length())-ptrdiff_t(dst);
-                const char* src = str.data()+ptrdiff_t(dst);
-                dst += data+(nullCharsWritten++);
-                memcpy(const_cast<char*>(dst),src,len);
-                const_cast<char*>(dst)[len] = 0;
-            }
-        }
-
-        core::vector<char> m_ShaderDefineStringPool;
-        core::vector<const char*> m_extraShaderDefines;
 
         core::smart_refctd_ptr<asset::CCompilerSet> m_compilerSet;
         core::smart_refctd_ptr<IAPIConnection> m_api;

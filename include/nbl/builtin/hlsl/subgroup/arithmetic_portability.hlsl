@@ -5,8 +5,9 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
 
-#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
+#include "nbl/builtin/hlsl/device_capabilities_traits.hlsl"
 
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
 
@@ -17,20 +18,12 @@ namespace hlsl
 namespace subgroup
 {
 
-#ifdef NBL_GLSL_LIMIT_SHADER_SUBGROUP_ARITHMETIC
-#define IMPL native
-#else
-#define IMPL portability
-#endif
-
-template<class Binop>
-struct reduction : IMPL::reduction<Binop> {};
-template<class Binop>
-struct inclusive_scan : IMPL::inclusive_scan<Binop> {};
-template<class Binop>
-struct exclusive_scan : IMPL::exclusive_scan<Binop> {};
-
-#undef IMPL
+template<class Binop, class device_capabilities=void>
+struct reduction : impl::reduction<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+template<class Binop, class device_capabilities=void>
+struct inclusive_scan : impl::inclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+template<class Binop, class device_capabilities=void>
+struct exclusive_scan : impl::exclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
 
 }
 }

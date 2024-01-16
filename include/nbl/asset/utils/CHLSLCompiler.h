@@ -10,7 +10,7 @@
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
-namespace nbl::asset::hlsl::impl
+namespace nbl::asset::impl
 {
 	class DXC;
 }
@@ -47,13 +47,14 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//}
 
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
-
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const;
+							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 	protected:
 
 		// This can't be a unique_ptr due to it being an undefined type 
 		// when Nabla is used as a lib
-		nbl::asset::hlsl::impl::DXC* m_dxcCompilerTypes;
+		nbl::asset::impl::DXC* m_dxcCompilerTypes;
 
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
