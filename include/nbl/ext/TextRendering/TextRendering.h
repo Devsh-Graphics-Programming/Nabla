@@ -77,6 +77,12 @@ class TextRenderer
 public:
 	typedef typename uint32_t size_type;
 
+	static asset::IImage::SBufferCopy copyGlyphShapeToImage(
+		IGPUBuffer* scratchBuffer, uint32_t scratchBufferOffset,
+		uint32_t glyphWidth, uint32_t glyphHeight,
+		msdfgen::Shape shape
+	);
+
 	TextRenderer(FontAtlas* atlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
 
 	using pool_size_t = uint32_t;

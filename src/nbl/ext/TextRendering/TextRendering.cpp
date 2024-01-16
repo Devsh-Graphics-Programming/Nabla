@@ -79,7 +79,7 @@ bool drawFreetypeGlyph(msdfgen::Shape& shape, FT_Library library, FT_Face face)
 	return true;
 }
 
-asset::IImage::SBufferCopy copyGlyphShapeToImage(
+asset::IImage::SBufferCopy TextRenderer::copyGlyphShapeToImage(
 	IGPUBuffer* scratchBuffer, uint32_t scratchBufferOffset,
 	uint32_t glyphWidth, uint32_t glyphHeight,
 	msdfgen::Shape shape
@@ -94,7 +94,7 @@ asset::IImage::SBufferCopy copyGlyphShapeToImage(
 
 	float scaleX = (1.0 / float(shapeBoundsWidth)) * glyphWidth;
 	float scaleY = (1.0 / float(shapeBoundsHeight)) * glyphHeight;
-	msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, 0.0);
+	msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, msdfgen::Vector2(-shapeBounds.l, -shapeBounds.b));
 
 	auto texelBufferPtr = reinterpret_cast<char*>(scratchBuffer->getBoundMemory()->getMappedPointer()) + scratchBufferOffset;
 	for (int y = 0; y < msdfMap.height(); ++y)
@@ -205,7 +205,7 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
 
 				// Generate MSDF for the current mip and copy it
-				dataBufferCopyRegions.push_back(copyGlyphShapeToImage(data.get(), 0, mipW, mipH, shape));
+				dataBufferCopyRegions.push_back(TextRenderer::copyGlyphShapeToImage(data.get(), 0, mipW, mipH, shape));
 				dataBuffers.push_back(data);
 			}
 
