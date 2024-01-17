@@ -242,22 +242,6 @@ double CIESProfile::getIntegral() const {
      return !error;
  }
 
-
-class CIESProfileMetadata final : public asset::IAssetMetadata {
-public:
-  CIESProfileMetadata(double maxIntensity)
-      : IAssetMetadata(), maxIntensity(maxIntensity) {}
-
-  _NBL_STATIC_INLINE_CONSTEXPR const char *LoaderName = "CIESProfileLoader";
-  const char *getLoaderName() const override { return LoaderName; }
-
-  double getMaxIntensity() const { return maxIntensity; }
-
-private:
-  double maxIntensity;
-};
-
-
 asset::SAssetBundle
 CIESProfileLoader::loadAsset(io::IReadFile* _file,
     const asset::IAssetLoader::SAssetLoadParams& _params,
