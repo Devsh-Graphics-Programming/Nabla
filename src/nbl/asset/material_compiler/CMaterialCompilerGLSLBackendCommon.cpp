@@ -611,10 +611,10 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 	instr_t instr = instr_stream::OP_INVALID;
 	switch (tree->symbol)
 	{
-	case IR::INode::ES_EMISSION: 
+	case IR::INode::ES_ROOT: 
 	{
-		auto* node = static_cast<const IR::CEmissionNode*>(tree);
-		out_next = node->children;
+		auto* node = static_cast<const IR::CRootNode*>(tree);
+		out_next = IR::INode::createChildrenArray(node->children[0]);
 	}
 	break;
 	case IR::INode::ES_GEOM_MODIFIER:
@@ -1175,19 +1175,20 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
-emitter_t CMaterialCompilerGLSLBackendCommon::lowerEmitter(SContext* _ctx, IR::CEmitterNode* _node) {
+emitter_t CMaterialCompilerGLSLBackendCommon::lowerEmitter(SContext* _ctx, const IR::CEmitterNode* _node) {
 	emitter_t res;
-	res.emissive =  core::rgb32f_to_rgb19e7(_node->intensity.pointer);
-	res.normalizeEnergy = 0.0f;
+	res.emissive = core::rgb32f_to_rgb19e7(_node->intensity.pointer);
 	if (_node->emissionProfile) {
 		auto& profile = _node->emissionProfile;
-		std::tie(res.orientation[0], res.orientation[1], res.orientation[2]) = { profile.left[0], profile.left[1], profile.left[2] };
-		std::tie(res.orientation[3], res.orientation[4], res.orientation[5]) = { profile.up[0], profile.up[1], profile.up[2] };
+		std::tie(res.orientation[0], res.orientation[1], res.orientation[2]) = std::tuple<float,float,float>({ profile.up[0], profile.up[1], profile.up[2] });
+		std::tie(res.orientation[3], res.orientation[4], res.orientation[5]) = std::tuple<float, float, float>({ profile.view[0], profile.view[1], profile.view[2] });
+		auto& rawBytes = reinterpret_cast<uint32_t&>(res.orientation[0]);
+		rawBytes ^= rawBytes & 1;
+		rawBytes |= profile.right_hand;
 		res.emissionProfile = reinterpret_cast<uint64_t&>(packTexture(_ctx, profile.texture));
-		res.normalizeEnergy = profile.normalizeEnergy;
 	}
 	else {
-		res.emissionProfile = 0xFFFFFFFFFFFFFFFF;
+		res.emissionProfile = reinterpret_cast<uint64_t&>(instr_stream::VTID::invalid());
 	}
 	return res;
 }
@@ -1200,12 +1201,12 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 	res.usedRegisterCount = 0u;
 	res.globalPrefetchRegCountFlags = 0u;
 
-	core::unordered_map<IR::CEmitterNode*, uint32_t> emitterCache;
-	auto getOrCreateEmitter = [&](IR::CEmitterNode* node) -> uint32_t {
+	core::unordered_map<const IR::CEmitterNode*, uint32_t> emitterCache;
+	auto getOrCreateEmitter = [&](const IR::CEmitterNode* node) -> uint32_t {
 		auto it = emitterCache.find(node);
 		if (it == emitterCache.end()) {
 			auto emitter = lowerEmitter(_ctx, node);
-			it = emitterCache.emplace(node, res.emitterData.size() + 1).first;
+			it = emitterCache.emplace(node, res.emitterData.size()).first;
 			res.emitterData.push_back(emitter);
 		}
 		return it->second;
@@ -1363,18 +1364,19 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 
 	for (const IR::INode* root : _ir->roots)
 	{
+		if (root->symbol != IR::INode::ES_ROOT) {
+			os::Printer::log("Material compiler: Non root node added as root; ignoring it", ELL_WARNING);
+			continue;
+		}
 		oriented_material_t material;
-		if (root->symbol == IR::INode::ES_EMISSION) {
-			auto* node = static_cast<const IR::CEmissionNode*>(root);
-			material = compileBSDFRootNode(node->children[0]);
-			material.emitter_id = getOrCreateEmitter(node->emitter);
+		auto* node = static_cast<const IR::CRootNode*>(root);
+		material = compileBSDFRootNode(node->children[0]);
+		if (node->children[1]) {
+			material.emitter_id = getOrCreateEmitter(static_cast<const IR::CEmitterNode*>(node->children[1]));
 		}
 		else {
-			material = compileBSDFRootNode(root);
-			material.emitter_id = 0;
+			material.emitter_id = NBL_MC_INVALID_EMITTER_ID;
 		}
-
-		printf("asdfasf %d\n", material.emitter_id);
 		res.materials.insert({ root, material });
 	}
 

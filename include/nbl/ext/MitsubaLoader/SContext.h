@@ -9,6 +9,7 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
+#include "nbl/asset/interchange/CIESProfileLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
@@ -110,8 +111,8 @@ namespace MitsubaLoader
 			return key;
 		}
 
-		static auto emissionProfileSamplerParams(const CElementEmissionProfile& profile) {
-			asset::ISampler::SParams res = { asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETBC_INT_OPAQUE_BLACK, asset::ISampler::ETF_NEAREST, asset::ISampler::ETF_NEAREST, asset::ISampler::ESMM_NEAREST, 0u, false, asset::ECO_ALWAYS };
+		static auto emissionProfileSamplerParams(const CElementEmissionProfile& profile, const asset::CIESProfileMetadata& meta) {
+			asset::ISampler::SParams res = { asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETBC_INT_OPAQUE_BLACK, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, 0u, false, asset::ECO_ALWAYS };
 			return res;
 		}
 

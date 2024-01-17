@@ -65,6 +65,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl"
   "nbl/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl"
   "nbl/builtin/glsl/bxdf/bsdf/specular/ggx.glsl"
+  #ies
+  "nbl/builtin/glsl/ies/functions.glsl"
   # colorspace
   "nbl/builtin/glsl/colorspace/EOTF.glsl"
   "nbl/builtin/glsl/colorspace/OETF.glsl"

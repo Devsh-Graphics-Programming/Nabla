@@ -231,7 +231,10 @@ class CElementEmitter : public IElement
 							case Type::DIRECTIONAL:
 								[[fallthrough]];
 							case Type::COLLIMATED:
-								[[fallthrough]];/*
+								[[fallthrough]];
+							case Type::AREA:
+								[[fallthrough]];
+								/*
 							case Type::SKY:
 								[[fallthrough]];
 							case Type::SUN:
@@ -258,8 +261,9 @@ class CElementEmitter : public IElement
 				case IElement::Type::EMISSION_PROFILE: {
 					if (type == Type::AREA) {
 						area.emissionProfile = static_cast<CElementEmissionProfile*>(_child);
+						return true;
 					}
-					return true;
+					return false;
 				}
 				case IElement::Type::TEXTURE:
 					if (type!=SPOT || name!="texture")

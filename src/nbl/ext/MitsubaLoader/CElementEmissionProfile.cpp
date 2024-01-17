@@ -56,20 +56,6 @@ bool CElementEmissionProfile::processChildData(IElement* _child, const std::stri
 {
 	if (!_child)
 		return true;
-	switch (_child->getType())
-	{
-	case IElement::Type::TRANSFORM:
-	{
-		auto tform = static_cast<CElementTransform*>(_child);
-		if (name != "toWorld")
-			return false;
-		transform = *tform;
-		return true;
-	}
-	break;
-	default:
-		break;
-	}
 	return false;
 }
 

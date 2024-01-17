@@ -58,7 +58,6 @@ struct CElementEmissionProfile : public IElement {
 	std::string getLogName() const override { return "emissionprofile "; }
 
 	std::string filename;
-	CElementTransform transform;
 	float normalizeEnergy;
 };
 

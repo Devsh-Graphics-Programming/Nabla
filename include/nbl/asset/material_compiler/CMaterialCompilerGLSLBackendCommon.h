@@ -26,12 +26,14 @@ struct nbl_glsl_MC_emitter_t
 {
 	uvec2 emissive;
 	uvec2 emissionProfile;
-	float normalizeEnergy;
-	float orientation[6]; // not vector because of alignment, [0:3] left [3:6] up
+	float orientation[6]; // LSB of orientation[0] is 1 if right handed; [0:3] y axis [3:6] z axis
 };
+
+#define NBL_MC_INVALID_EMITTER_ID 0xffffffffu
+
 struct nbl_glsl_MC_oriented_material_t
 {
-	uint emitter_id; // 0 = invalid
+	uint emitter_id;
     uint prefetch_offset;
     uint prefetch_count;
     uint instr_offset;
@@ -603,7 +605,7 @@ protected:
 		"NDF_PHONG"
 	};
 	static std::string genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream);
-	emitter_t lowerEmitter(CMaterialCompilerGLSLBackendCommon::SContext* _ctx, IR::CEmitterNode* node);
+	emitter_t lowerEmitter(CMaterialCompilerGLSLBackendCommon::SContext* _ctx, const IR::CEmitterNode* node);
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 

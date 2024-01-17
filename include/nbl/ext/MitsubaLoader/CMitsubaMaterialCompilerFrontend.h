@@ -12,6 +12,8 @@
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 
+#include "nbl/asset/interchange/CIESProfileLoader.h"
+
 
 namespace nbl::ext::MitsubaLoader
 {
@@ -45,6 +47,7 @@ class CMitsubaMaterialCompilerFrontend
 
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
+        using emission_profile_type = std::tuple< core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, const asset::CIESProfileMetadata*>;
 
         const SContext* m_loaderContext;
 
@@ -52,7 +55,7 @@ class CMitsubaMaterialCompilerFrontend
 
         tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
 
-        tex_ass_type getEmissionProfile(const CElementEmissionProfile* _element) const;
+        emission_profile_type getEmissionProfile(const CElementEmissionProfile* _element) const;
 
         tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
 

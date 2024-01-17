@@ -715,21 +715,9 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 
 	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh)
 	{
-		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
-		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
 		auto emitter = shape->obtainEmitter();
-		if (emitter.type == CElementEmitter::AREA) {
-			cacheEmissionProfile(ctx, emitter.area.emissionProfile);
-			auto* emissionNode = ctx.ir->allocNode<asset::material_compiler::IR::CEmissionNode>();
-			// TODO cache 
-			auto* emitterNode = ctx.frontend.createEmitterNode(ctx.ir.get(), &emitter, core::matrix4SIMD(tform));
-			emissionNode->emitter = emitterNode;
-			emissionNode->children[0] = bsdf.front;
-			bsdf.front = emissionNode;
-		}
-
-		ctx.ir->addRootNode(bsdf.front);
-		ctx.ir->addRootNode(bsdf.back);
+		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
+		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf, &emitter, core::matrix4SIMD(tform));
 
 		SContext::SInstanceData instance(
 			tform,
@@ -980,38 +968,31 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 {
 	if (!profile)
 		return;
-	
+
 	const auto cacheKey = ctx.emissionProfileCacheKey(*profile);
 
 	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+
 	if (ctx.override_->findCachedAsset(cacheKey, types, ctx.inner, 0u).getContents().empty())
 	{
 		auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, ctx.inner.params, 0u, ctx.override_);
 
-		ICPUImageView::SCreationParams viewParams = {};
+	
 		auto contentRange = assetLoaded.getContents();
 		if (contentRange.empty())
 		{
 			os::Printer::log("[ERROR] Could Not Find Texture: " + cacheKey, ELL_ERROR);
 			return;
 		}
-		viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(*contentRange.begin());
-		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
-		viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-		viewParams.format = viewParams.image->getCreationParameters().format;
-		viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-		viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
-		viewParams.subresourceRange.layerCount = 1u;
-
-		asset::SAssetBundle viewBundle(nullptr, { ICPUImageView::create(std::move(viewParams)) });
-		ctx.override_->insertAssetIntoCache(std::move(viewBundle), cacheKey, ctx.inner, 0u);
-	}
 	
-	{
-		ISampler::SParams samplerParams = ctx.emissionProfileSamplerParams(*profile);
-		const asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
+		auto meta = core::make_smart_refctd_ptr<asset::CIESProfileMetadata>(*static_cast<const asset::CIESProfileMetadata*>(assetLoaded.getMetadata()));
+		asset::SAssetBundle viewBundle(std::move(meta), {assetLoaded.getContents().begin()[0]});
+		ctx.override_->insertAssetIntoCache(std::move(viewBundle), cacheKey, ctx.inner, 0u);
+
+		ISampler::SParams samplerParams = ctx.emissionProfileSamplerParams(*profile, reinterpret_cast<const asset::CIESProfileMetadata&>(*assetLoaded.getMetadata()));
+		const asset::IAsset::E_TYPE types2[] = { asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
 		const std::string samplerCacheKey = ctx.samplerCacheKey(samplerParams);
-		if (ctx.override_->findCachedAsset(samplerCacheKey, types, ctx.inner, 0u).getContents().empty())
+		if (ctx.override_->findCachedAsset(samplerCacheKey, types2, ctx.inner, 0u).getContents().empty())
 		{
 			SAssetBundle samplerBundle(nullptr, { core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) });
 			ctx.override_->insertAssetIntoCache(std::move(samplerBundle), samplerCacheKey, ctx.inner, 0u);
@@ -1154,17 +1135,37 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 	}
 }
 
-auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
+auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf, const CElementEmitter* emitter, core::matrix4SIMD tform) -> SContext::bsdf_type
 {
 	if (!bsdf)
-		return {nullptr,nullptr};
+		return { nullptr,nullptr };
 
 	auto found = ctx.instrStreamCache.find(bsdf);
-	if (found!=ctx.instrStreamCache.end())
-		return found->second;
-	auto retval = genBSDFtreeTraversal(ctx, bsdf);
-	ctx.instrStreamCache.insert({bsdf,retval});
-	return retval;
+	if (found == ctx.instrStreamCache.end())
+		found = ctx.instrStreamCache.insert({ bsdf,genBSDFtreeTraversal(ctx, bsdf) }).first;
+	auto compiled_bsdf = found->second;
+
+	asset::material_compiler::IR::INode* frontRootNode = nullptr;
+	asset::material_compiler::IR::INode* backRootNode = nullptr;
+	if (compiled_bsdf.front) {
+		frontRootNode = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
+
+		// TODO cache 
+		if (emitter->type == CElementEmitter::AREA) {
+			cacheEmissionProfile(ctx, emitter->area.emissionProfile);
+			frontRootNode->children[1] = ctx.frontend.createEmitterNode(ctx.ir.get(), emitter, tform);
+		}
+		frontRootNode->children[0] = compiled_bsdf.front;
+		ctx.ir->addRootNode(frontRootNode);
+	}
+
+	if (compiled_bsdf.back) {
+		backRootNode = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
+		backRootNode->children[0] = compiled_bsdf.back;
+		ctx.ir->addRootNode(backRootNode);
+	}
+
+	return { frontRootNode, backRootNode };
 }
 
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type

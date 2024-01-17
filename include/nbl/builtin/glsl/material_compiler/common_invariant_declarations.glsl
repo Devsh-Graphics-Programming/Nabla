@@ -80,14 +80,13 @@ void nbl_glsl_MC_finalizeMicrofacet(inout nbl_glsl_MC_microfacet_t mf)
 
 #include <nbl/builtin/glsl/format/decode.glsl>
 
-#define NBL_GLSL_MC_INVALID_EMITTER_ID 0
+#define NBL_GLSL_MC_INVALID_EMITTER_ID 0xffffffffu
 
 struct nbl_glsl_MC_emitter_t
 {
 	uvec2 emissive;
 	uvec2 emissionProfile;
-	float normalizeEnergy;
-	float orientation[6]; // [0:3] left [3:6] up
+	float orientation[6]; // [0:3] left vector [3:6] up
 };
 
 struct nbl_glsl_MC_oriented_material_t

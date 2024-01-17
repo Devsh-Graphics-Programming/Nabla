@@ -31,7 +31,6 @@
 #cmakedefine _NBL_COMPILE_WITH_TGA_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_OPENEXR_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_GLI_LOADER_
-#cmakedefine _NBL_COMPILE_WITH_IES_LOADER_
 
 // writers
 #cmakedefine _NBL_COMPILE_WITH_STL_WRITER_

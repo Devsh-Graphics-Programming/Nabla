@@ -215,6 +215,7 @@ bool nbl_glsl_MC_op_isDelta(in uint op)
 #ifdef TEX_PREFETCH_STREAM
 #include <nbl/builtin/glsl/bump_mapping/utils.glsl>
 #endif
+#include <nbl/builtin/glsl/ies/functions.glsl>
 
 // OptiX likes this one better
 #define nbl_glsl_MC_pullUpNormal nbl_glsl_pullUpNormal_towardsV
@@ -584,23 +585,23 @@ nbl_glsl_MC_eval_pdf_aov_t nbl_glsl_MC_instr_execute_BLEND(
 // 	// return nbl_glsl_vTextureGrad(orientedMaterial.texID.xy, vec2(0.5), mat2(1.0)).r * vec3(2.0);
 // }
 
-vec2 nbl_glsl_MC_convert_dir_to_ies_uv(vec3 dir) {
-	return vec2((atan(dir.x, dir.y) + nbl_glsl_PI) / (2.0*nbl_glsl_PI), acos(dir.z) / nbl_glsl_PI);
-}
 
 vec3 nbl_glsl_MC_oriented_material_t_getEmissive(in nbl_glsl_MC_oriented_material_t orientedMaterial, vec3 dir)
 {
 	if (orientedMaterial.emitter_id == NBL_GLSL_MC_INVALID_EMITTER_ID) {
 		return vec3(0.0);
 	}
-	nbl_glsl_MC_emitter_t emitter = nbl_glsl_MC_fetchEmitterData(orientedMaterial.emitter_id - 1);
+	nbl_glsl_MC_emitter_t emitter = nbl_glsl_MC_fetchEmitterData(orientedMaterial.emitter_id);
 	vec3 emissive = nbl_glsl_decodeRGB19E7(emitter.emissive);
 #if _NBL_VT_FLOAT_VIEWS_COUNT
-	if (emitter.normalizeEnergy != 0.0f) {
-		vec3 left = vec3(emitter.orientation[0],emitter.orientation[1],emitter.orientation[2]);
-		vec3 up = vec3(emitter.orientation[3],emitter.orientation[4],emitter.orientation[5]);
-		vec3 view = cross(left, up);
-		return emitter.normalizeEnergy * emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_MC_convert_dir_to_ies_uv(normalize(mat3(left, up, view)*dir)), mat2(0.0)).r;
+	if (nbl_glsl_isValidVirtualTex(emitter.emissionProfile)) {
+		vec3 up = vec3(emitter.orientation[0],emitter.orientation[1],emitter.orientation[2]);
+		vec3 view = vec3(emitter.orientation[3],emitter.orientation[4],emitter.orientation[5]);
+		vec3 right = cross(up, view);
+		if ((floatBitsToInt(emitter.orientation[0])&1u) != 1u) {
+			right *= -1;
+		}
+		return emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_IES_convert_dir_to_uv(normalize(mat3(right, up, view)*dir)), mat2(0.0)).r;
 	}
 #endif
 	return emissive;

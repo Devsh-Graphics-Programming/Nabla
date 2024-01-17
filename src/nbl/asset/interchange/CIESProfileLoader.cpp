@@ -4,13 +4,96 @@ using namespace nbl;
 using namespace asset;
 
 
+namespace nbl {
+namespace asset {
+
+class CIESProfile {
+public:
+    _NBL_STATIC_INLINE_CONSTEXPR double MAX_VANGLE = 180.0;
+    _NBL_STATIC_INLINE_CONSTEXPR double MAX_HANGLE = 360.0;
+
+    enum PhotometricType : uint32_t {
+        TYPE_NONE,
+        TYPE_C,
+        TYPE_B,
+        TYPE_A,
+    };
+
+    CIESProfile() = default;
+    CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
+        : type(type), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
+    ~CIESProfile() = default;
+    core::vector<double>& getHoriAngles() { return hAngles; }
+    const core::vector<double>& getHoriAngles() const { return hAngles; }
+    core::vector<double>& getVertAngles() { return vAngles; }
+    const core::vector<double>& getVertAngles() const { return vAngles; }
+    void addHoriAngle(double hAngle) {
+        hAngles.push_back(hAngle);
+        data.resize(getHoriSize() * getVertSize());
+    }
+    size_t getHoriSize() const { return hAngles.size(); }
+    size_t getVertSize() const { return vAngles.size(); }
+    void setValue(size_t i, size_t j, double val) {
+        data[getVertSize() * i + j] = val;
+    }
+    double getValue(size_t i, size_t j) const {
+        return data[getVertSize() * i + j];
+    }
+    double sample(double vAngle, double hAngle) const;
+    double getMaxValue() const {
+        return *std::max_element(std::begin(data), std::end(data));
+    }
+    double getIntegral() const;
+private:
+    PhotometricType type;
+    core::vector<double> hAngles;
+    core::vector<double> vAngles;
+    core::vector<double> data;
+};
+
+}
+}
+
+class CIESProfileParser {
+public:
+    CIESProfileParser(char* buf, size_t size) { ss << std::string(buf, size); }
+
+    bool parse(CIESProfile& result);
+
+private:
+    int getInt(const char* errorMsg) {
+        int in;
+        if (ss >> in)
+            return in;
+        error = true;
+        if (!this->errorMsg)
+            this->errorMsg = errorMsg;
+        return 0;
+    }
+
+    double getDouble(const char* errorMsg) {
+        double in;
+        if (ss >> in)
+            return in;
+        error = true;
+        if (!this->errorMsg)
+            this->errorMsg = errorMsg;
+        return -1.0;
+    }
+
+    bool error{ false };
+    const char* errorMsg{ nullptr };
+    std::stringstream ss;
+};
+
 double CIESProfile::sample(double vAngle, double hAngle) const {
     vAngle = fmod(vAngle, vAngles.back()); // warp angle
     hAngle = hAngles.back() == 0.0
                  ? 0.0
                  : fmod(hAngle,
                         hAngles.back()); // when last horizontal angle is zero
-                                         // it's symmetric across all planes
+                                   
+    // it's symmetric across all planes
 
     // bilinear interpolation
     auto lb = [](const core::vector<double> &angles, double angle) -> int {
@@ -34,6 +117,22 @@ double CIESProfile::sample(double vAngle, double hAngle) const {
     double s0 = getValue(i0, j0) * (1.0-v) + getValue(i0, j1) * (v);
     double s1 = getValue(i1, j0) * (1.0-v) + getValue(i1, j1) * (v);
     return s0 * (1.0 - u) + s1 * u;
+}
+
+double CIESProfile::getIntegral() const {
+    size_t numHSamples = 2 * getHoriSize();
+    size_t numVSamples = 2 * getVertSize();
+    double dTheta = core::PI<double>() / numVSamples;
+    double dPhi = 2 * core::PI<double>() / numHSamples;
+    double dThetaInAngle = MAX_VANGLE / numVSamples;
+    double dPhiInAngle = MAX_HANGLE / numHSamples;
+    double res = 0;
+    for (size_t i = 0; i < numVSamples; i++) {
+        for (size_t j = 0; j < numHSamples; j++) {
+            res += dPhi * dTheta * sin(dTheta * i) * sample(i* dThetaInAngle,j*dPhiInAngle);
+        }
+    }
+    return res;
 }
 
 
@@ -76,8 +175,10 @@ double CIESProfile::sample(double vAngle, double hAngle) const {
      }
      CIESProfile::PhotometricType type =
          static_cast<CIESProfile::PhotometricType>(type_);
-     assert(type == CIESProfile::PhotometricType::TYPE_C &&
-         "Only type C is supported for now");
+     if (type != CIESProfile::PhotometricType::TYPE_C) {
+         errorMsg = "Only type C is supported for now";
+         return false;
+     }
 
      int unitsType = getInt("unitsType truncated");
      double width = getDouble("width truncated"),
@@ -93,13 +194,19 @@ double CIESProfile::sample(double vAngle, double hAngle) const {
      auto& vAngles = result.getVertAngles();
      for (int i = 0; i < vSize; i++) {
          vAngles[i] = getDouble("vertical angle truncated");
-         if (i != 0 && vAngles[i - 1] > vAngles[i])
-             return false; // Angles should be sorted
      }
-     assert((vAngles[0] == 0.0 || vAngles[0] == 90.0) &&
-         "First angle must be 0 or 90 in type C");
-     assert((vAngles[vSize - 1] == 90.0 || vAngles[vSize - 1] == 180.0) &&
-         "Last angle must be 90 or 180 in type C");
+     if (!std::is_sorted(vAngles.begin(), vAngles.end())) {
+         errorMsg = "Angles should be sorted";
+         return false;
+     }
+     if (vAngles[0] != 0.0 && vAngles[0] != 90.0) {
+         errorMsg = "First angle must be 0 or 90 in type C";
+         return false;
+     }
+     if (vAngles[vSize - 1] != 90.0 && vAngles[vSize - 1] != 180.0) {
+         errorMsg = "Last angle must be 90 or 180 in type C";
+         return false;
+     }
 
      auto& hAngles = result.getHoriAngles();
      for (int i = 0; i < hSize; i++) {
@@ -107,10 +214,15 @@ double CIESProfile::sample(double vAngle, double hAngle) const {
          if (i != 0 && hAngles[i - 1] > hAngles[i])
              return false; // Angles should be sorted
      }
-     assert((hAngles[0] == 0.0) && "First angle must be 0 in type C");
-     assert((hAngles[hSize - 1] == 0.0 || hAngles[hSize - 1] == 90.0 ||
-         hAngles[hSize - 1] == 180.0 || hAngles[hSize - 1] == 360.0) &&
-         "Last angle must be 0, 90, 180 or 360 in type C");
+     if (hAngles[0] != 0.0) {
+         errorMsg = "First angle must be 0 in type C";
+         return false;
+     } 
+     if (hAngles[hSize - 1] != 0.0 && hAngles[hSize - 1] != 90.0 &&
+         hAngles[hSize - 1] != 180.0 && hAngles[hSize - 1] != 360.0) {
+         errorMsg = "Last angle must be 0, 90, 180 or 360 in type C";
+         return false;
+     }
 
      double factor = ballastFactor * candelaMultiplier;
      for (int i = 0; i < hSize; i++) {
@@ -168,8 +280,36 @@ CIESProfileLoader::loadAsset(io::IReadFile* _file,
         return {};
 
     auto meta =
-        core::make_smart_refctd_ptr<CIESProfileMetadata>(profile.getMaxValue());
-    return asset::SAssetBundle(std::move(meta), { std::move(image) });
+        core::make_smart_refctd_ptr<CIESProfileMetadata>(profile.getMaxValue(), profile.getIntegral());
+
+    ICPUImageView::SCreationParams viewParams = {};
+    viewParams.image = image;
+    viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
+    viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+    viewParams.format = viewParams.image->getCreationParameters().format;
+    viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+    viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
+    viewParams.subresourceRange.layerCount = 1u;
+
+    return asset::SAssetBundle (std::move(meta), {ICPUImageView::create(std::move(viewParams))});
+}
+
+static inline core::vectorSIMDf octahdronUVToDir(float u, float v) {
+    core::vectorSIMDf pos = core::vectorSIMDf(2 * (u - 0.5), 2 * (v - 0.5), 0.0);
+    float abs_x = core::abs(pos.x), abs_y = core::abs(pos.y);
+    pos.z = 1.0 - abs_x - abs_y;
+    if (pos.z < 0.0) {
+        pos.x = core::sign(pos.x) * (1.0 - abs_y);
+        pos.y = core::sign(pos.y) * (1.0 - abs_x);
+    }
+
+    return core::normalize(pos);
+}
+
+static inline std::pair<float,float> sphericalDirToAngles(core::vectorSIMDf dir) {
+    float theta = std::acos(dir.z);
+    float phi = std::atan2(dir.y, dir.x);
+    return { theta, phi < 0 ? phi + 2 * core::PI<float>() : phi };
 }
 
 core::smart_refctd_ptr<asset::ICPUImage>
@@ -203,12 +343,14 @@ CIESProfileLoader::createTexture(const CIESProfile& profile, size_t width, size_
     double maxValue = profile.getMaxValue();
     double maxValueRecip = 1.0 / maxValue;
 
-    double vertAngleRate = MAX_VANGLE / height;
-    double horiAngleRate = MAX_HANGLE / width;
+    double vertInv = 1.0 / height;
+    double horiInv = 1.0 / width;
     char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
     for (size_t i = 0; i < height; i++) {
         for (size_t j = 0; j < width; j++) {
-            double I = profile.sample(i * vertAngleRate, j * horiAngleRate);
+            auto dir = octahdronUVToDir(j * vertInv, i * horiInv);
+            auto [theta, phi] = sphericalDirToAngles(dir);
+            double I = profile.sample(core::degrees(theta), core::degrees(phi));
             uint16_t value = static_cast<uint16_t>(
                 std::clamp(I * maxValueRecip * 65535.0, 0.0, 65535.0));
             *reinterpret_cast<uint16_t*>(
