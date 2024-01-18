@@ -60,6 +60,7 @@ public:
 		{
 			if (argv[i] == "-no-nbl-builtins")
 			{
+				// unmount builtins
 				m_logger->log("Unmounting builtins.");
 				m_system->unmountBuiltins();
 				no_nbl_builtins = true;
@@ -67,15 +68,32 @@ public:
 			}
 			else if (argv[i] == "-Fo")
 			{
+				// get filepath to save output to
 				if (i + 1 < argc) {
 					i++;
 					output_filepath = argv[i];
-					m_logger->log("Saving compiled shader code to " + output_filepath);
+					m_logger->log("Compiled shader code will be saved to " + output_filepath);
 				}
 				else {
 					m_logger->log("Incorrect arguments. Expecting filename after -Fo.", ILogger::ELL_ERROR);
 				}
 			}
+			else if (argv[i] == "-HV")
+			{
+				// find the -HV parameter and upgrade it to 2021 if below 2021 and not equal to 202x
+				if (i + 1 < argc) {
+					i++;
+					auto version = argv[i];
+					if (version.length() >= 4 && (version[2] < '2' || (version[2] == '2' && version[3] <= '0'))) {
+						m_logger->log("-HV " + version + " is lower than minimal required by Nabla. Forcibly setting the parameter to -HV 2021", ILogger::ELL_WARNING);
+						argv[i] = "2021";
+					}
+				}
+				else {
+					m_logger->log("Incorrect arguments. Expecting version after -HV.", ILogger::ELL_ERROR);
+				}
+			}
+
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -134,9 +152,9 @@ private:
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
 		std::vector<std::string> dxc_compile_flags_from_pragma = {};
-		auto shaderStage = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+		auto shaderStageOverride = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
-		auto preprocessed_shader_code = hlslcompiler->preprocessShader(std::move(shader_code), shaderStage, dxc_compile_flags_from_pragma, options.preprocessorOptions);
+		auto preprocessed_shader_code = hlslcompiler->preprocessShader(std::move(shader_code), shaderStageOverride, dxc_compile_flags_from_pragma, options.preprocessorOptions);
 
 		
 		// override arguments from command line to ones listed in pragma
@@ -145,8 +163,8 @@ private:
 
 		add_required_arguments_if_not_present();
 
-		if (shaderStage)
-			add_shader_stage(shaderStage);
+		if (!try_upgrade_shader_stage() && shaderStageOverride)
+			add_shader_stage(shaderStageOverride);
 
 		//convert string arguments to wstring arguments
 		int arg_size = m_arguments.size() - 1; // skip input file argument
@@ -198,9 +216,30 @@ private:
 		
 	}
 
+	// returns false if shader stage is not present in arguments
+	// returns true otherwise, and upgrades to 6.7 if needed
+	bool try_upgrade_shader_stage() {
+		
+		auto foundShaderStageArgument = std::find(m_arguments.begin(), m_arguments.end(), "-T");
+		if (foundShaderStageArgument != m_arguments.end()) {
+			auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - m_arguments.begin() + 1;
+			std::string targetProfile = m_arguments[foundShaderStageArgumentValueIdx];
+			if (targetProfile.length() >= 6) {
+				int version = (targetProfile[3] - '0') * 10 + (targetProfile[5] - '0');
+				if (version < 67)
+				{
+					m_logger->log("-T %s is lower than required by Nabla. Forcibly setting it to version 6.7", ILogger::ELL_WARNING, targetProfile);
+					targetProfile.replace(3, 3, "6_7");
+					m_arguments[foundShaderStageArgumentValueIdx] = targetProfile;
+				}
+			}
+			return true; 
+		}
+		return false;
+	}
+
+
 	void add_shader_stage(asset::IShader::E_SHADER_STAGE shaderStage) {
-		if(std::find(m_arguments.begin(), m_arguments.end(), "-T") != m_arguments.end())
-			return; // Flag is already passed as argument
 
 		std::string targetProfile("XX_6_7");
 		
