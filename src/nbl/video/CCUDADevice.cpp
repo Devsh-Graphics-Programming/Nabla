@@ -139,7 +139,7 @@ CUresult CCUDADevice::importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemap
 
 	if (!handleType.hasFlags(ISemaphore::EHT_OPAQUE_WIN32) || !handle)
 		return CUDA_ERROR_INVALID_VALUE;
-
+    
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
 		.handle = {.win32 = {.handle = handle }},

@@ -9,7 +9,6 @@ namespace nbl::video
 CVulkanImage::~CVulkanImage()
 {
     preDestroyStep();
-    // don't destroy imported handles
     if (!m_cachedCreationParams.skipHandleDestroy)
     {
         const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

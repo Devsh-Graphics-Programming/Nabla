@@ -11,9 +11,11 @@ namespace nbl::video
 core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
 {
 	IDeviceMemoryAllocator::SAllocateInfo info = {
-		.size = m_params.granularSize,
-		.externalHandleType = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
-		.externalHandle = m_params.osHandle,
+		{
+			.allocationSize = m_params.granularSize,
+			.externalHandleType = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
+			.externalHandle = m_params.osHandle,
+		}
 	};
 
 	auto pd = device->getPhysicalDevice();
@@ -43,46 +45,12 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemor
 		std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDASharedMemory>(this))).memory;
 }
 
-#if 0
-core::smart_refctd_ptr<IGPUBuffer> CCUDASharedMemory::exportAsBuffer(ILogicalDevice* device, core::bitflag<asset::IBuffer::E_USAGE_FLAGS> usage) const
+core::smart_refctd_ptr<IGPUImage>  CCUDASharedMemory::createAndBindImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const
 {
 	if (!device || !m_device->isMatchingDevice(device->getPhysicalDevice()))
 		return nullptr;
 
-	auto buf = device->createBuffer({{
-			.size = m_params.granularSize,
-			.usage = usage }, {{
-			.postDestroyCleanup = std::make_unique<CCUDADevice::SCUDACleaner>(core::smart_refctd_ptr<const CCUDASharedMemory>(this)),
-			.externalHandleTypes = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
-			.externalHandle = m_params.osHandle
-		}}});
-
-	auto req = buf->getMemoryReqs();
-	auto pd = device->getPhysicalDevice();
-	switch (m_params.location)
-	{
-	case CU_MEM_LOCATION_TYPE_DEVICE: req.memoryTypeBits &= pd->getDeviceLocalMemoryTypeBits(); break;
-	case CU_MEM_LOCATION_TYPE_HOST: req.memoryTypeBits &= pd->getHostVisibleMemoryTypeBits(); break;
-	// TODO(Atil): Figure out how to handle these
-	case CU_MEM_LOCATION_TYPE_HOST_NUMA: 
-	case CU_MEM_LOCATION_TYPE_HOST_NUMA_CURRENT: 
-	default: break;
-	}
-
-	if (!device->allocate(req, buf.get()).isValid())
-		return nullptr;
-
-	return buf;
-}
-
-#endif
-
-core::smart_refctd_ptr<IGPUImage>  CCUDASharedMemory::createAndBindImage(ILogicalDevice* device, IGPUImage::SCreationParams&& params) const
-{
-	if (!device || !m_device->isMatchingDevice(device->getPhysicalDevice()))
-		return nullptr;
-
-	auto img = device->createImage(std::move(params));
+	auto img = device->createImage({ std::move(params), { {.externalHandleTypes = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE } }, IGPUImage::TILING::LINEAR });
 	
 	if (exportAsMemory(device, img.get()))
 		return img;

@@ -45,7 +45,7 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
 }
 
 
-core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaphore::SCreationParams&& params)
+core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(uint64_t initialValue, ISemaphore::SCreationParams&& params)
 {
     VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
     VkExportSemaphoreWin32HandleInfoKHR handleInfo = { .sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR, .dwAccess = GENERIC_ALL };
@@ -54,7 +54,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
     VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
     type.pNext = params.externalHandleTypes.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
     type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
-    type.initialValue = params.initialValue;
+    type.initialValue = initialValue;
 
     VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, &type };
     createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
@@ -150,16 +150,15 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
         return ret;
 
-    const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     {
-        if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        if (info.allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
             vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo };
-    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.allocationSize = info.allocationSize;
     vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkImportMemoryWin32HandleInfoKHR importInfo = { 
@@ -168,13 +167,26 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         .handle = info.externalHandle
     };
 
+    VkExportMemoryWin32HandleInfoKHR handleInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .dwAccess = GENERIC_ALL,
+    };
+
+    VkExportMemoryAllocateInfo exportInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+        .pNext = &exportInfo,
+        .handleTypes = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleType),
+    };
+    
     const void** pNext = &vk_allocateFlagsInfo.pNext;
 
     if (info.externalHandleType)
     {
-        // Importing
-        *pNext = &importInfo;
-        pNext = &importInfo.pNext;
+        if (info.externalHandle) //importing
+            *pNext = &importInfo;
+        else // exporting
+            *pNext = &exportInfo;
+        pNext = (const void**)&((VkBaseInStructure*)*pNext)->pNext;
     }
 
     if(info.dedication)
@@ -207,15 +219,8 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     // automatically allocation goes out of scope and frees itself if no success later on
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
 
-    CVulkanMemoryAllocation::SCreationParams params = {
-        .allocateFlags = allocateFlags,
-        .memoryPropertyFlags = memoryPropertyFlags,
-        .externalHandleType = info.externalHandleType,
-        .externalHandle = info.externalHandle,
-        .dedicated = !!info.dedication,
-        .allocationSize = info.size,
-    };
-    
+    CVulkanMemoryAllocation::SCreationParams params = { info, memoryPropertyFlags, !!info.dedication };
+      
     ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,vk_deviceMemory, std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
@@ -334,7 +339,7 @@ bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBin
 }
 
 
-core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams)
+core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly)
 {
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkBufferDeviceAddressCreateInfoEXT, VkBufferOpaqueCaptureAddressCreateInfo, VkDedicatedAllocationBufferCreateInfoNV, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
@@ -344,9 +349,8 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
        .handleTypes = creationParams.externalHandleTypes.value,
     };
 
-    const bool external = creationParams.externalHandleTypes.value;
 
-    vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr;
+    vk_createInfo.pNext = creationParams.externalHandleTypes.value ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
@@ -354,26 +358,6 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
 
-    bool dedicatedOnly = false;
-
-    if (external)
-    {
-        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
-
-        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
-        {
-            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
-            requestedTypes ^= handleType;
-
-            auto props = m_physicalDevice->getExternalBufferProperties(creationParams.usage, handleType);
-
-            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
-                return nullptr;
-
-            // TODO: Handle this
-            dedicatedOnly = props.dedicatedOnly;
-        }
-    }
 
     VkBuffer vk_buffer;
     if (m_devf.vk.vkCreateBuffer(m_vkdev,&vk_createInfo,nullptr,&vk_buffer)!=VK_SUCCESS)
@@ -397,15 +381,13 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
     return nullptr;
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly)
 {
     VkExternalMemoryImageCreateInfo  externalMemoryInfo = {
         .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
         .handleTypes = params.externalHandleTypes.value,
     };
-
-    const bool external = params.externalHandleTypes.value;
-
+ 
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, &externalMemoryInfo };
     vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value, true);
 
@@ -434,35 +416,7 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
     vk_createInfo.initialLayout = params.preinitialized ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
 
-    bool dedicatedOnly = false;
-    if (external)
-    {
-        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
-        auto pd = dynamic_cast<const CVulkanPhysicalDevice*>(m_physicalDevice)->getInternalObject();
-        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
-        {
-            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
-            requestedTypes ^= handleType;
-
-            auto props = m_physicalDevice->getExternalImageProperties(params.format, params.tiling, params.type, params.usage, params.flags, handleType);
-
-            if (props.maxArrayLayers < vk_createInfo.arrayLayers || 
-                !core::bitflag<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.sampleCounts).hasFlags(params.samples) ||
-                /* props.maxResourceSize?? */
-                props.maxExtent.width < vk_createInfo.extent.width ||
-                props.maxExtent.height < vk_createInfo.extent.height ||
-                props.maxExtent.depth < vk_createInfo.extent.depth)
-            {
-                return nullptr;
-            }
-
-            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
-                return nullptr;
-
-            dedicatedOnly |= props.dedicatedOnly;
-        }
-    }
-
+   
     VkImage vk_image;
     if (m_devf.vk.vkCreateImage(m_vkdev, &vk_createInfo, nullptr, &vk_image) != VK_SUCCESS)
         return nullptr;

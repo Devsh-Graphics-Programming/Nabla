@@ -305,7 +305,7 @@ bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEvent
 
 bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
 {
-    if (!checkStateBeforeRecording(~queue_flags_t::NONE))
+    if (!checkStateBeforeRecording(/*everything is allowed*/))
         return false;
 
     if (depInfo.memBarriers.empty() && depInfo.bufBarriers.empty() && depInfo.imgBarriers.empty())
