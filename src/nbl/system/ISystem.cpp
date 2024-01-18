@@ -308,4 +308,15 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
 
 void  ISystem::unmountBuiltins() {
 
+    auto removeByKey = [&, this](const char* s) {
+        auto range = m_cachedArchiveFiles.findRange(s);
+        for (auto it = range.begin(); it != range.end(); ++it)
+        {
+            unmount(it->second.get(), s);
+        }
+    };
+    removeByKey("nbl/builtin");
+    removeByKey("spirv");
+    removeByKey("boost");
+    
 }

@@ -131,7 +131,7 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
     else
     {
         options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
-        return { (uint8_t*) result.objectBlob->GetBufferPointer(), result.objectBlob->GetBufferSize() };
+        return { nullptr, 0 };
     }
 
     ComPtr<IDxcBlob> resultingBlob;

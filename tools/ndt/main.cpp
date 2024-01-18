@@ -41,7 +41,7 @@ public:
 		auto argc = argv.size();
 
 		// expect the first argument to be
-		// nsc.exe
+		// .exe
 		// second the filename of a shader to compile
 		if (argc < 2) {
 			m_logger->log("Insufficient arguments.", ILogger::ELL_ERROR);
@@ -76,6 +76,14 @@ public:
 				}
 			}
 		}
+
+#ifndef NBL_EMBED_BUILTIN_RESOURCES
+		if (!no_nbl_builtins) {
+			m_system->unmountBuiltins();
+			no_nbl_builtins = true;
+			m_logger->log("ndt.exe was compiled with builtin resources disabled. Force enabling -no-nbl-builtins.", ILogger::ELL_WARNING);
+		}
+#endif
 		string shader_code = open_shader_file(file_to_compile);
 		auto compilation_result = compile_shader(shader_code, file_to_compile);
 
@@ -88,15 +96,7 @@ public:
 		else {
 			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
 		}
-		/*std::string command = "dxc.exe";
-		for (std::string arg : arguments)
-		{
-			command.append(" ").append(arg);
-		}
 
-		int execute = std::system(command.c_str());*/
-
-		//std::cout << "-no-nbl-builtins - " << no_nbl_builtins;
 
 
 		return true;
@@ -116,10 +116,9 @@ private:
 		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
 		const IShaderCompiler::SPreprocessorOptions::SMacroDefinition WorkgroupSizeDefine = { "WORKGROUP_SIZE",WorkgroupSizeAsStr };
 
-		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(std::move(m_system));
+		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
-		options.stage = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN; // probably not needed, requires guessing -T target profile
 		// want as much debug as possible
 		options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
 		// this lets you source-level debug/step shaders in renderdoc
@@ -130,17 +129,23 @@ private:
 		options.preprocessorOptions.logger = m_logger.get();
 		options.preprocessorOptions.extraDefines = { &WorkgroupSizeDefine,&WorkgroupSizeDefine + 1 };
 
-		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(m_system);
+		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
 		std::vector<std::string> dxc_compile_flags_from_pragma = {};
-		auto preprocessed_shader_code = hlslcompiler->preprocessShader(std::move(shader_code), options.stage, dxc_compile_flags_from_pragma, options.preprocessorOptions);
+		auto shaderStage = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
+		auto preprocessed_shader_code = hlslcompiler->preprocessShader(std::move(shader_code), shaderStage, dxc_compile_flags_from_pragma, options.preprocessorOptions);
+
+		
 		// override arguments from command line to ones listed in pragma
 		if (dxc_compile_flags_from_pragma.size())
 			m_arguments = dxc_compile_flags_from_pragma;
 
 		add_required_arguments_if_not_present();
+
+		if (shaderStage)
+			add_shader_stage(shaderStage);
 
 		//convert string arguments to wstring arguments
 		int arg_size = m_arguments.size() - 1; // skip input file argument
@@ -190,6 +195,46 @@ private:
 			}
 		}
 		
+	}
+
+	void add_shader_stage(asset::IShader::E_SHADER_STAGE shaderStage) {
+		if(std::find(m_arguments.begin(), m_arguments.end(), "-T") != m_arguments.end())
+			return; // Flag is already passed as argument
+
+		std::string targetProfile("XX_6_7");
+		
+		switch (shaderStage)
+		{
+		case asset::IShader::ESS_VERTEX:
+			targetProfile.replace(0, 2, "vs");
+			break;
+		case asset::IShader::ESS_TESSELLATION_CONTROL:
+			targetProfile.replace(0, 2, "ds");
+			break;
+		case asset::IShader::ESS_TESSELLATION_EVALUATION:
+			targetProfile.replace(0, 2, "hs");
+			break;
+		case asset::IShader::ESS_GEOMETRY:
+			targetProfile.replace(0, 2, "gs");
+			break;
+		case asset::IShader::ESS_FRAGMENT:
+			targetProfile.replace(0, 2, "ps");
+			break;
+		case asset::IShader::ESS_COMPUTE:
+			targetProfile.replace(0, 2, "cs");
+			break;
+		case asset::IShader::ESS_TASK:
+			targetProfile.replace(0, 2, "as");
+			break;
+		case asset::IShader::ESS_MESH:
+			targetProfile.replace(0, 2, "ms");
+			break;
+		default:
+			m_logger->log("invalid shader stage %i", system::ILogger::ELL_ERROR, shaderStage);
+		};
+		m_arguments.push_back("-T");
+		m_arguments.push_back(targetProfile);
+		m_logger->log("Shader stage pragma found, adding argument -T "+ targetProfile);
 	}
 
 
