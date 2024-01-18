@@ -37,6 +37,13 @@ class CCUDADevice : public core::IReferenceCounted
 		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_FD;
 		static constexpr CUmemAllocationHandleType ALLOCATION_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 #endif
+		struct SCUDACleaner : video::ICleanup
+		{
+			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
+			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
+				: resource(std::move(resource))
+			{ }
+		};
 
 		enum E_VIRTUAL_ARCHITECTURE
 		{
@@ -95,18 +102,10 @@ class CCUDADevice : public core::IReferenceCounted
 	protected:
 		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
 
-		friend class CCUDAHandler;
-		friend class CCUDASharedMemory;
-		friend class CCUDASharedSemaphore;
 
-		struct SCUDACleaner : video::ICleanup
-		{
-			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
-			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
-				: resource(std::move(resource))
-			{ }
-		};
-		
+		// CUDAHandler creates CUDADevice, it needs to access ctor
+		friend class CCUDAHandler;
+
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
 		~CCUDADevice();
 		

@@ -69,8 +69,6 @@ class ISemaphore : public IBackendObject
             //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandleType != EHT_NONE
             //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandleType != EHT_NONE
             void* externalHandle = nullptr;
-
-            uint64_t initialValue = 0;
         };
 
         auto const& getCreationParams() const
@@ -85,7 +83,7 @@ class ISemaphore : public IBackendObject
         {}
         virtual ~ISemaphore() = default;
 
-        SCreationParams m_creationParams;
+        const SCreationParams m_creationParams;
 };
 
 }

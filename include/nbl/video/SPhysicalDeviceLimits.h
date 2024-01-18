@@ -552,10 +552,6 @@ struct SPhysicalDeviceLimits
     /* CooperativeMatrixPropertiesKHR  *//* VK_KHR_cooperative_matrix */
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
-    bool externalFenceWin32 = false; /* VK_KHR_external_fence_win32 */ // [TODO] requires instance extensions, add them
-    bool externalMemoryWin32 = false; /* VK_KHR_external_memory_win32 */ // [TODO] requires instance extensions, add them
-    bool externalSemaphoreWin32 = false; /* VK_KHR_external_semaphore_win32 */ // [TODO] requires instance extensions, add them
-
     /*  Always enabled if available, reported as limits */
 
     // Core 1.0 Features

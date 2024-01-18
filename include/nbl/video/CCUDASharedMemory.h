@@ -23,6 +23,7 @@ namespace nbl::video
 class CCUDASharedMemory : public core::IReferenceCounted
 {
 public:
+    // required for us to see the move ctor
     friend class CCUDADevice;
 
     CUdeviceptr getDeviceptr() const { return m_params.ptr;  }
@@ -49,11 +50,11 @@ public:
 
     core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
-    core::smart_refctd_ptr<IGPUImage>  createAndBindImage(ILogicalDevice* device, IGPUImage::SCreationParams&& params) const;
+    core::smart_refctd_ptr<IGPUImage>  createAndBindImage(ILogicalDevice* device, asset::IImage::SCreationParams&& params) const;
 
 protected:
 
-    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params)
+    CCUDASharedMemory(core::smart_refctd_ptr<CCUDADevice>&& device, SCachedCreationParams&& params)
         : m_device(std::move(device))
         , m_params(std::move(params))
     {}

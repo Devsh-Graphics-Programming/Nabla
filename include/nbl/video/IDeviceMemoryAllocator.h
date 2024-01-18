@@ -12,19 +12,11 @@ namespace nbl::video
 class IDeviceMemoryAllocator
 {
 	public:
-		struct SAllocateInfo
+		struct SAllocateInfo: IDeviceMemoryAllocation::SInfo
 		{
-			size_t size : 54 = 0ull;
-			size_t flags : 5 = 0u; // IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS
-			size_t memoryTypeIndex : 5 = 0u;
+			uint32_t memoryTypeIndex = 0u;
 			IDeviceMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
 			// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
-
-			// Handle Type for external resources
-			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
-			//! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
-			//! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
-			void* externalHandle = nullptr;
 		};
 
 		//! IMemoryTypeIterator extracts memoryType indices from memoryTypeBits in arbitrary order
@@ -54,8 +46,8 @@ class IDeviceMemoryAllocator
 				inline SAllocateInfo operator()(IDeviceMemoryBacked* dedication)
 				{
 					SAllocateInfo ret = {};
-					ret.size = m_reqs.size;
-					ret.flags = m_allocateFlags;
+					ret.allocationSize = m_reqs.size;
+					ret.allocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(m_allocateFlags);
 					ret.memoryTypeIndex = dereference();
 					ret.dedication = dedication;
 					ret.externalHandleType = m_handleType;

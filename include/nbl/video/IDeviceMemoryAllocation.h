@@ -164,14 +164,21 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         //! Constant variant of getMappedPointer
         inline const void* getMappedPointer() const { return m_mappedPtr; }
 
-        struct SCreationParams
+        struct SInfo
         {
-            core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags = E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
+            uint64_t allocationSize = 0;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE;
+			// Handle Type for external resources
+			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
+			//! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
+			//! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
+			void* externalHandle = nullptr;
+        };
+
+        struct SCreationParams: SInfo
+        {
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
-            E_EXTERNAL_HANDLE_TYPE externalHandleType = E_EXTERNAL_HANDLE_TYPE::EHT_NONE;
-            void* externalHandle = nullptr;
             const bool dedicated = false;
-            const size_t allocationSize;
         };
 
     protected:
@@ -183,10 +190,10 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         IDeviceMemoryAllocation(
             const ILogicalDevice* originDevice, SCreationParams&& params = {})
             : m_originDevice(originDevice)
+            , m_params(std::move(params))
             , m_mappedPtr(nullptr)
             , m_mappedRange{ 0, 0 }
             , m_currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
-            , m_params(std::move(params))
         {}
 
         virtual void* map_impl(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint) = 0;
@@ -194,10 +201,10 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 
 
         const ILogicalDevice* m_originDevice = nullptr;
-        uint8_t* m_mappedPtr;
-        MemoryRange m_mappedRange;
-        core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> m_currentMappingAccess;
-        SCreationParams m_params;
+        SCreationParams m_params = {};
+        uint8_t* m_mappedPtr = nullptr;
+        MemoryRange m_mappedRange = {};
+        core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> m_currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
         std::unique_ptr<struct ICleanup> m_postDestroyCleanup = nullptr;
 };
 

@@ -234,7 +234,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! WARNING: This function blocks CPU and stalls the GPU!
         inline bool autoSubmitAndBlock(const SIntendedSubmitInfo::SFrontHalf& submit, const std::function<bool(SIntendedSubmitInfo&)>& what)
         {            
-            auto semaphore = m_device->createSemaphore(ISemaphore::SCreationParams{.initialValue=0});
+            auto semaphore = m_device->createSemaphore();
             // so we begin latching everything on the value of 1, but if we overflow it increases
             IQueue::SSubmitInfo::SSemaphoreInfo info = {semaphore.get(),1};
 

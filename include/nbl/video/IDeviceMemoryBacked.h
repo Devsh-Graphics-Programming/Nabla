@@ -126,7 +126,7 @@ class IDeviceMemoryBacked : public IBackendObject
 
         //! members
         SCachedCreationParams m_cachedCreationParams;
-        SDeviceMemoryRequirements m_cachedMemoryReqs;
+        const SDeviceMemoryRequirements m_cachedMemoryReqs;
         void* m_cachedExternalHandle = nullptr;
 };
 
