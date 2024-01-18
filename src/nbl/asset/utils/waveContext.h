@@ -115,8 +115,8 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
                 if (compiler_option_s == " ") 
                 {
                     //reset
-                    arg.clear();
                     m_dxc_compile_flags_override.push_back(arg);
+                    arg.clear();
                 }
                 else 
                 {
