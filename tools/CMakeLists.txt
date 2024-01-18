@@ -1,1 +1,1 @@
-add_subdirectory(ndt)
+add_subdirectory(nsc)

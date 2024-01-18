@@ -21,8 +21,8 @@ set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
-	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
 	if(MSVC)
@@ -61,13 +61,17 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
+		
+		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
+			if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+				message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined to create an example target!")
+			endif()
+		
+			add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 		endif()
-	
-		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
