@@ -32,7 +32,6 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
-			// TODO: Add extra dxc options
 			std::span<const std::string> dxcOptions;
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
@@ -55,7 +54,17 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
-
+		constexpr static inline const wchar_t* RequiredArguments[] = {
+			L"-spirv",
+			L"-Zpr",
+			L"-enable-16bit-types",
+			L"-fvk-use-scalar-layout",
+			L"-Wno-c++11-extensions",
+			L"-Wno-c++1z-extensions",
+			L"-Wno-gnu-static-float-init",
+			L"-fspv-target-env=vulkan1.3"
+		};
+		constexpr static inline uint32_t RequiredArgumentCount = 8;
 		
 	protected:
 		// This can't be a unique_ptr due to it being an undefined type 

@@ -101,34 +101,23 @@ static void try_upgrade_shader_stage(std::vector<std::wstring> &arguments) {
 
 
 static void add_required_arguments_if_not_present(std::vector<std::wstring>& arguments, system::logger_opt_ptr &logger) {
-    constexpr int required_arg_size = 8;
-    std::wstring required_arguments[] = {
-        L"-spirv",
-        L"-Zpr",
-        L"-enable-16bit-types",
-        L"-fvk-use-scalar-layout",
-        L"-Wno-c++11-extensions",
-        L"-Wno-c++1z-extensions",
-        L"-Wno-gnu-static-float-init",
-        L"-fspv-target-env=vulkan1.3"
-    };
-    bool found_arg_flags[required_arg_size]{};
+    bool found_arg_flags[CHLSLCompiler::RequiredArgumentCount]{};
     int argc = arguments.size();
     for (int i = 0; i < argc; i++)
     {
-        for (int j = 0; j < required_arg_size; j++)
+        for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
         {
-            if (arguments[i] == required_arguments[j]) {
+            if (arguments[i] == CHLSLCompiler::RequiredArguments[j]) {
                 found_arg_flags[j] = true;
                 break;
             }
         }
     }
-    for (int j = 0; j < required_arg_size; j++)
+    for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
     {
         if (!found_arg_flags[j]) {
-            logger.log("Required compile flag not found %ls. This flag will be force enabled as it is required by Nabla.", system::ILogger::ELL_WARNING, required_arguments[j]);
-            arguments.push_back(required_arguments[j]);
+            logger.log("Required compile flag not found %ls. This flag will be force enabled as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
+            arguments.push_back(CHLSLCompiler::RequiredArguments[j]);
         }
     }
 }
@@ -348,17 +337,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     }
     else { //lastly default arguments
         arguments = {
-        L"-spirv",
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
-        L"-Zpr", // Packs matrices in row-major order by default
-        L"-enable-16bit-types",
-        L"-fvk-use-scalar-layout",
-        L"-Wno-c++11-extensions",
-        L"-Wno-c++1z-extensions",
-        L"-Wno-gnu-static-float-init",
-        L"-fspv-target-env=vulkan1.3"
         };
+        for (size_t i = 0; i < RequiredArgumentCount; i++)
+            arguments.push_back(RequiredArguments[i]);
         // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
         // This is how we can get more optimizer options.
         // 
