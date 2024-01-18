@@ -48,25 +48,41 @@ void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamily
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-04088
     if (concurrentSharing)
         selfQueueFamilyIndex = IQueue::FamilyIgnored;
+
+    auto mapQFIdx = [](uint32_t idx)
+    {
+        switch (idx)
+        {
+        case IQueue::FamilyExternal:
+        case IQueue::FamilyIgnored:
+        case IQueue::FamilyForeign:
+            idx |= 1u << 31;
+            break;
+        }
+        return idx;
+    };
+
     if constexpr (!std::is_same_v<vk_barrier_t,VkMemoryBarrier2>)
     {
-        out.srcQueueFamilyIndex = selfQueueFamilyIndex;
-        out.dstQueueFamilyIndex = selfQueueFamilyIndex;
+        out.srcQueueFamilyIndex = mapQFIdx(selfQueueFamilyIndex);
+        out.dstQueueFamilyIndex = mapQFIdx(selfQueueFamilyIndex);
     }
     const asset::SMemoryBarrier* memoryBarrier;
     if constexpr (std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
     {
         memoryBarrier = &in.dep;
         // in.otherQueueFamilyIndex==selfQueueFamilyIndex not resulting in ownership transfer is implicit
-        if (!concurrentSharing && in.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
-        switch (in.ownershipOp)
+        if (!concurrentSharing && in.otherQueueFamilyIndex != IQueue::FamilyIgnored)
         {
+            switch (in.ownershipOp)
+            {
             case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:
-                out.dstQueueFamilyIndex = in.otherQueueFamilyIndex;
+                out.dstQueueFamilyIndex = mapQFIdx(in.otherQueueFamilyIndex);
                 break;
             case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::ACQUIRE:
-                out.srcQueueFamilyIndex = in.otherQueueFamilyIndex;
+                out.srcQueueFamilyIndex = mapQFIdx(in.otherQueueFamilyIndex);
                 break;
+            }
         }
     }
     else
