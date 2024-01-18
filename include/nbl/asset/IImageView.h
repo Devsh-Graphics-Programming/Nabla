@@ -102,20 +102,14 @@ class IImageView : public IDescriptor
 				return false;
 
 			const auto& imgParams = _params.image->getCreationParameters();
-			/* TODO: LAter
-			image must have been created with a usage value containing at least one of VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-			VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_USAGE_SHADING_RATE_IMAGE_BIT_NV, or VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT
-			if (imgParams.)
-				return false;
-			*/
-
+			#if 0 // extremely annoying
 			const auto kValidUsages = IImage::EUF_SAMPLED_BIT|IImage::EUF_STORAGE_BIT|
 				IImage::EUF_RENDER_ATTACHMENT_BIT|IImage::EUF_TRANSIENT_ATTACHMENT_BIT|IImage::EUF_INPUT_ATTACHMENT_BIT|
 				IImage::EUF_SHADING_RATE_ATTACHMENT_BIT|IImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04441
 			if ((imgParams.usage.value&kValidUsages)==0u)
 				return false;
+			#endif
 
 			const auto& subresourceRange = _params.subresourceRange;
 			// declared some usages but they are not a subset
