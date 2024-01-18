@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+// TODO: review
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
@@ -10,13 +11,15 @@
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
+#include <wrl.h>
+#include <combaseapi.h>
+
+#include <dxc/dxcapi.h>
+
+#include <sstream>
 #include <regex>
 #include <iterator>
 #include <codecvt>
-#include <wrl.h>
-#include <combaseapi.h>
-#include <sstream>
-#include <dxc/dxcapi.h>
 
 
 using namespace nbl;
@@ -34,19 +37,6 @@ struct DXC
     ComPtr<IDxcCompiler3> m_dxcCompiler;
 };
 }
-
-struct DxcCompilationResult
-{
-    Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorMessages;
-    Microsoft::WRL::ComPtr<IDxcBlob> objectBlob;
-    Microsoft::WRL::ComPtr<IDxcResult> compileResult;
-
-    std::string GetErrorMessagesString()
-    {
-        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
-    }
-};
-
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
@@ -70,7 +60,20 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
+
+struct DxcCompilationResult
+{
+    ComPtr<IDxcBlobEncoding> errorMessages;
+    ComPtr<IDxcBlob> objectBlob;
+    ComPtr<IDxcResult> compileResult;
+
+    std::string GetErrorMessagesString()
+    {
+        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
+    }
+};
+
+DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -80,7 +83,7 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "#pragma wave dxc_compile_flags( ";
+        insertion << "//#pragma compile_flags ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -89,10 +92,10 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
             insertion << str.c_str() << " ";
         }
 
-        insertion << ")\n";
-        insertIntoStart(source, std::move(insertion));
+        insertion << "\n";
+        compiler->insertIntoStart(source, std::move(insertion));
     }
-    nbl::asset::impl::DXC* dxc = m_dxcCompilerTypes;
+    
     ComPtr<IDxcBlobEncoding> src;
     auto res = dxc->m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
@@ -131,7 +134,7 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
     else
     {
         options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
-        return { nullptr, 0 };
+        return result;
     }
 
     ComPtr<IDxcBlob> resultingBlob;
@@ -140,19 +143,18 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
 
     result.objectBlob = resultingBlob;
 
-    return { (uint8_t*)result.objectBlob->GetBufferPointer(), result.objectBlob->GetBufferSize() };
+    return result;
 }
 
 
 #include "nbl/asset/utils/waveContext.h"
 
-
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     context.add_macro_definition("__HLSL_VERSION");
    
-    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
     // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
     // to match boost wave syntax
     // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
@@ -190,22 +192,12 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
-    if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
-        dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
-
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
-
-
 
     return resolvedString;
 }
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
-{
-    std::vector<std::string> extra_dxc_compile_flags = {};
-    return preprocessShader(std::move(code), stage, extra_dxc_compile_flags, preprocessOptions);
-}
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
@@ -216,9 +208,9 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
-    std::vector<std::string> dxc_compile_flags = {};
+
     auto stage = hlslOptions.stage;
-    auto newCode = preprocessShader(code, stage, dxc_compile_flags, hlslOptions.preprocessorOptions);
+    auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions);
 
     // Suffix is the shader model version
     // TODO: Figure out a way to get the shader model version automatically
@@ -264,21 +256,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             return nullptr;
     };
 
-    std::wstring* arg_storage = NULL;
-    std::vector<LPCWSTR> arguments;
-
-    if (dxc_compile_flags.size()) { // #pragma wave overrides compile flags
-        size_t arg_size = dxc_compile_flags.size();
-        arguments = {};
-        arguments.reserve(arg_size);
-        arg_storage = new std::wstring[arg_size]; // prevent deallocation before shader compilation
-        for (size_t i = 0; i < dxc_compile_flags.size(); i++) {
-            arg_storage[i] = std::wstring(dxc_compile_flags[i].begin(), dxc_compile_flags[i].end());
-            arguments.push_back(arg_storage[i].c_str());
-        }
-    }
-    else {
-        arguments = {
+    std::vector<LPCWSTR> arguments = {
         L"-spirv",
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
@@ -289,48 +267,47 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-Wno-c++1z-extensions",
         L"-Wno-gnu-static-float-init",
         L"-fspv-target-env=vulkan1.3"
-        };
-        // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
-        // This is how we can get more optimizer options.
-        // 
-        // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
-        // optimization levels greater than zero; they will all invoke the same optimization recipe. 
-        // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-        if (hlslOptions.spirvOptimizer)
-        {
-            arguments.push_back(L"-O0");
-        }
+    };
 
-        // Debug only values
-        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
-            arguments.push_back(L"-fspv-debug=file");
-        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
-            arguments.push_back(L"-fspv-debug=source");
-        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
-            arguments.push_back(L"-fspv-debug=line");
-        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
-            arguments.push_back(L"-fspv-debug=tool");
-        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
-            arguments.push_back(L"-fspv-debug=vulkan-with-source");
+    // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+    // This is how we can get more optimizer options.
+    // 
+    // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+    // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+    // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+    if (hlslOptions.spirvOptimizer)
+    {
+        arguments.push_back(L"-O0");
     }
 
-    auto compileResult = dxcCompile( 
+    // Debug only values
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+        arguments.push_back(L"-fspv-debug=file");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+        arguments.push_back(L"-fspv-debug=source");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+        arguments.push_back(L"-fspv-debug=line");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+        arguments.push_back(L"-fspv-debug=tool");
+    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+        arguments.push_back(L"-fspv-debug=vulkan-with-source");
+
+    auto compileResult = dxcCompile(
+        this, 
+        m_dxcCompilerTypes, 
         newCode,
-        arguments.data(),
+        &arguments[0],
         arguments.size(),
         hlslOptions
     );
 
-    if (arg_storage)
-        delete[] arg_storage;
-
-    if (!compileResult.begin)
+    if (!compileResult.objectBlob)
     {
         return nullptr;
     }
 
-    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.size);
-    memcpy(outSpirv->getPointer(), compileResult.begin, compileResult.size);
+    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
+    memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
     // Optimizer step
     if (hlslOptions.spirvOptimizer)
@@ -345,6 +322,4 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
-
-
 #endif

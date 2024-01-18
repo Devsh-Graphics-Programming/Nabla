@@ -149,8 +149,6 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 m_cachedArchiveFiles.removeObject(dummy,pathAlias);
         }
 
-        void unmountBuiltins();
-
         //
         struct SystemInfo
         {

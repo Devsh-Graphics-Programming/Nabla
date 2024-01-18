@@ -29,7 +29,3 @@ android-sample/bin/*
 preprocessed.hlsl
 compiled.spv
 .vs/*
-tools/ndt/__main__.py
-tools/ndt/.vscode/settings.json
-tools/ndt/.vscode/launch.json
-tools/ndt/.profiles/0.json
