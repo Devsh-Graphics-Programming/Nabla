@@ -63,6 +63,7 @@ public:
 				m_logger->log("Unmounting builtins.");
 				m_system->unmountBuiltins();
 				no_nbl_builtins = true;
+				m_arguments.erase(m_arguments.begin() + i - 1);
 			}
 			else if (argv[i] == "-Fo")
 			{
