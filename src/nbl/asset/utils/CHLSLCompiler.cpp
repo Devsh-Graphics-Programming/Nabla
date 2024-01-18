@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-// TODO: review
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
@@ -11,12 +10,6 @@
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
-#include <wrl.h>
-#include <combaseapi.h>
-
-#include <dxc/dxcapi.h>
-
-#include <sstream>
 #include <regex>
 #include <iterator>
 #include <codecvt>
@@ -60,20 +53,7 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-
-struct DxcCompilationResult
-{
-    ComPtr<IDxcBlobEncoding> errorMessages;
-    ComPtr<IDxcBlob> objectBlob;
-    ComPtr<IDxcResult> compileResult;
-
-    std::string GetErrorMessagesString()
-    {
-        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
-    }
-};
-
-DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
+CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -93,9 +73,9 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
         }
 
         insertion << "\n";
-        compiler->insertIntoStart(source, std::move(insertion));
+        insertIntoStart(source, std::move(insertion));
     }
-    
+    nbl::asset::impl::DXC* dxc = m_dxcCompilerTypes;
     ComPtr<IDxcBlobEncoding> src;
     auto res = dxc->m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
@@ -317,9 +297,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             arguments.push_back(L"-fspv-debug=vulkan-with-source");
     }
 
-    auto compileResult = dxcCompile(
-        this, 
-        m_dxcCompilerTypes, 
+    auto compileResult = dxcCompile( 
         newCode,
         arguments.data(),
         arguments.size(),
