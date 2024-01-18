@@ -70,7 +70,83 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
+
+static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments) 
+{
+    auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-HV");
+    if (foundShaderStageArgument != arguments.end()) {
+        auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
+        std::wstring version = arguments[foundShaderStageArgumentValueIdx];
+        if (version.length() >= 4 && (version[2] < '2' || (version[2] == '2' && version[3] <= '0'))) 
+            arguments[foundShaderStageArgumentValueIdx] = L"2021";
+    }
+}
+
+
+static void try_upgrade_shader_stage(std::vector<std::wstring> &arguments) {
+    auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
+    if (foundShaderStageArgument != arguments.end()) {
+        auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
+        std::wstring targetProfile = arguments[foundShaderStageArgumentValueIdx];
+        if (targetProfile.length() >= 6) {
+            int argument_version = (targetProfile[3] - '0') * 10 + (targetProfile[5] - '0');
+            if (argument_version < 67)
+            {
+                targetProfile.replace(3, 3, L"6_7");
+                arguments[foundShaderStageArgumentValueIdx] = targetProfile;
+            }
+        }
+    }
+}
+
+
+static void add_required_arguments_if_not_present(std::vector<std::wstring>& arguments, system::logger_opt_ptr &logger) {
+    constexpr int required_arg_size = 8;
+    std::wstring required_arguments[] = {
+        L"-spirv",
+        L"-Zpr",
+        L"-enable-16bit-types",
+        L"-fvk-use-scalar-layout",
+        L"-Wno-c++11-extensions",
+        L"-Wno-c++1z-extensions",
+        L"-Wno-gnu-static-float-init",
+        L"-fspv-target-env=vulkan1.3"
+    };
+    bool found_arg_flags[required_arg_size]{};
+    int argc = arguments.size();
+    for (int i = 0; i < argc; i++)
+    {
+        for (int j = 0; j < required_arg_size; j++)
+        {
+            if (arguments[i] == required_arguments[j]) {
+                found_arg_flags[j] = true;
+                break;
+            }
+        }
+    }
+    for (int j = 0; j < required_arg_size; j++)
+    {
+        if (!found_arg_flags[j]) {
+            logger.log("Required compile flag not found %ls. This flag will be force enabled as it is required by Nabla.", system::ILogger::ELL_WARNING, required_arguments[j]);
+            arguments.push_back(required_arguments[j]);
+        }
+    }
+}
+
+
+template <typename T>
+static void populate_arguments_with_type_conversion(std::vector<std::wstring> &arguments, T &iterable_collection, system::logger_opt_ptr &logger) {
+    size_t arg_size = iterable_collection.size();
+    arguments.reserve(arg_size);
+    for (auto it = iterable_collection.begin(); it != iterable_collection.end(); it++) {
+        auto temp = std::wstring(it->begin(), it->end()); // *it is string, therefore create wstring
+        arguments.push_back(temp);
+    }
+    add_required_arguments_if_not_present(arguments, logger);
+}
+
+
+static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -90,9 +166,8 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
         }
 
         insertion << ")\n";
-        insertIntoStart(source, std::move(insertion));
+        compiler->insertIntoStart(source, std::move(insertion));
     }
-    nbl::asset::impl::DXC* dxc = m_dxcCompilerTypes;
     ComPtr<IDxcBlobEncoding> src;
     auto res = dxc->m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
@@ -131,7 +206,7 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
     else
     {
         options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
-        return { nullptr, 0 };
+        return result;
     }
 
     ComPtr<IDxcBlob> resultingBlob;
@@ -140,7 +215,7 @@ CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, 
 
     result.objectBlob = resultingBlob;
 
-    return { (uint8_t*)result.objectBlob->GetBufferPointer(), result.objectBlob->GetBufferSize() };
+    return result;
 }
 
 
@@ -263,21 +338,15 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
             return nullptr;
     };
-
-    std::wstring* arg_storage = NULL;
-    std::vector<LPCWSTR> arguments;
-
-    if (dxc_compile_flags.size()) { // #pragma wave overrides compile flags
-        size_t arg_size = dxc_compile_flags.size();
-        arguments = {};
-        arguments.reserve(arg_size);
-        arg_storage = new std::wstring[arg_size]; // prevent deallocation before shader compilation
-        for (size_t i = 0; i < dxc_compile_flags.size(); i++) {
-            arg_storage[i] = std::wstring(dxc_compile_flags[i].begin(), dxc_compile_flags[i].end());
-            arguments.push_back(arg_storage[i].c_str());
-        }
+    
+    std::vector<std::wstring> arguments = {};
+    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
+        populate_arguments_with_type_conversion(arguments, dxc_compile_flags, hlslOptions.preprocessorOptions.logger);
     }
-    else {
+    else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
+        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, hlslOptions.preprocessorOptions.logger);
+    }
+    else { //lastly default arguments
         arguments = {
         L"-spirv",
         L"-HV", L"202x",
@@ -314,28 +383,34 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             arguments.push_back(L"-fspv-debug=vulkan-with-source");
     }
 
+    try_upgrade_shader_stage(arguments);
+    try_upgrade_hlsl_version(arguments);
+    
+    uint32_t argc = arguments.size();
+    LPCWSTR* argsArray = new LPCWSTR[argc];
+    for (size_t i = 0; i < argc; i++)
+        argsArray[i] = arguments[i].c_str();
+    
     auto compileResult = dxcCompile( 
+        this,
+        m_dxcCompilerTypes,
         newCode,
-        arguments.data(),
-        arguments.size(),
+        argsArray,
+        argc,
         hlslOptions
     );
 
-    if (arg_storage)
-        delete[] arg_storage;
-
-    if (!compileResult.begin)
+    if (!compileResult.objectBlob)
     {
         return nullptr;
     }
 
-    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.size);
-    memcpy(outSpirv->getPointer(), compileResult.begin, compileResult.size);
+    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
+    memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
     // Optimizer step
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), hlslOptions.preprocessorOptions.logger);
-
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }

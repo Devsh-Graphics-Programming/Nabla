@@ -33,6 +33,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
 			// TODO: Add extra dxc options
+			std::span<const std::string> dxcOptions;
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
@@ -55,14 +56,8 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
-		struct SdxcCompileResult {
-			uint8_t *begin;
-			size_t size;
-		};
-		SdxcCompileResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const;
-	protected:
 		
-
+	protected:
 		// This can't be a unique_ptr due to it being an undefined type 
 		// when Nabla is used as a lib
 		nbl::asset::impl::DXC* m_dxcCompilerTypes;
@@ -70,7 +65,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		static CHLSLCompiler::SOptions option_cast(const IShaderCompiler::SCompilerOptions& options)
 		{
 			CHLSLCompiler::SOptions ret = {};
-			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_GLSL)
+			if (options.getCodeContentType() == IShader::E_CONTENT_TYPE::ECT_HLSL)
 				ret = static_cast<const CHLSLCompiler::SOptions&>(options);
 			else
 				ret.setCommonData(options);
