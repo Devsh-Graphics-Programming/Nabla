@@ -60,6 +60,8 @@ public:
 		{
 			if (argv[i] == "-no-nbl-builtins")
 			{
+				m_logger->log("Unmounting builtins.");
+				m_system->unmountBuiltins();
 				no_nbl_builtins = true;
 			}
 			else if (argv[i] == "-Fo")
@@ -78,9 +80,14 @@ public:
 		auto compilation_result = compile_shader(shader_code, file_to_compile);
 
 		// writie compiled shader to file as bytes
-		std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
-		output_file.write((const char*)compilation_result.objectBlob->GetBufferPointer(), compilation_result.objectBlob->GetBufferSize());
-		output_file.close();
+		if (compilation_result.begin) {
+			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
+			output_file.write((const char*)compilation_result.begin, compilation_result.size);
+			output_file.close();
+		}
+		else {
+			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
+		}
 		/*std::string command = "dxc.exe";
 		for (std::string arg : arguments)
 		{
@@ -103,7 +110,7 @@ public:
 
 private:
 
-	CHLSLCompiler::DxcCompilationResult compile_shader(std::string& shader_code, std::string_view sourceIdentifier) {
+	CHLSLCompiler::SdxcCompileResult compile_shader(std::string& shader_code, std::string_view sourceIdentifier) {
 		constexpr uint32_t WorkgroupSize = 256;
 		constexpr uint32_t WorkgroupCount = 2048;
 		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
@@ -122,6 +129,9 @@ private:
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
 		options.preprocessorOptions.extraDefines = { &WorkgroupSizeDefine,&WorkgroupSizeDefine + 1 };
+
+		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(m_system);
+		options.preprocessorOptions.includeFinder = includeFinder.get();
 
 		std::vector<std::string> dxc_compile_flags_from_pragma = {};
 		auto preprocessed_shader_code = hlslcompiler->preprocessShader(std::move(shader_code), options.stage, dxc_compile_flags_from_pragma, options.preprocessorOptions);

@@ -7,10 +7,6 @@
 
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
-#include <wrl.h>
-#include <combaseapi.h>
-#include <sstream>
-#include <dxc/dxcapi.h>
 
 
 
@@ -27,18 +23,7 @@ namespace nbl::asset
 class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 {
 	public:
-
-		struct DxcCompilationResult
-		{
-			Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorMessages;
-			Microsoft::WRL::ComPtr<IDxcBlob> objectBlob;
-			Microsoft::WRL::ComPtr<IDxcResult> compileResult;
-
-			std::string GetErrorMessagesString()
-			{
-				return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
-			}
-		};
+		
 
 		IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 
@@ -70,7 +55,11 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 
-		DxcCompilationResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const;
+		struct SdxcCompileResult {
+			uint8_t *begin;
+			size_t size;
+		};
+		SdxcCompileResult dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const;
 	protected:
 		
 

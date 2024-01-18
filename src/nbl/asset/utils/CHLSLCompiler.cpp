@@ -13,6 +13,10 @@
 #include <regex>
 #include <iterator>
 #include <codecvt>
+#include <wrl.h>
+#include <combaseapi.h>
+#include <sstream>
+#include <dxc/dxcapi.h>
 
 
 using namespace nbl;
@@ -30,6 +34,19 @@ struct DXC
     ComPtr<IDxcCompiler3> m_dxcCompiler;
 };
 }
+
+struct DxcCompilationResult
+{
+    Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorMessages;
+    Microsoft::WRL::ComPtr<IDxcBlob> objectBlob;
+    Microsoft::WRL::ComPtr<IDxcResult> compileResult;
+
+    std::string GetErrorMessagesString()
+    {
+        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
+    }
+};
+
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
@@ -53,7 +70,7 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
+CHLSLCompiler::SdxcCompileResult CHLSLCompiler::dxcCompile(std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options) const
 {
     // Append Commandline options into source only if debugInfoFlags will emit source
     auto sourceEmittingFlags =
@@ -63,7 +80,7 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "#pragma compile_flags ";
+        insertion << "#pragma wave dxc_compile_flags( ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -72,7 +89,7 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
             insertion << str.c_str() << " ";
         }
 
-        insertion << "\n";
+        insertion << ")\n";
         insertIntoStart(source, std::move(insertion));
     }
     nbl::asset::impl::DXC* dxc = m_dxcCompilerTypes;
@@ -114,7 +131,7 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
     else
     {
         options.preprocessorOptions.logger.log("DXC Compilation Failed:\n%s", system::ILogger::ELL_ERROR, errorMessagesString.c_str());
-        return result;
+        return { (uint8_t*) result.objectBlob->GetBufferPointer(), result.objectBlob->GetBufferSize() };
     }
 
     ComPtr<IDxcBlob> resultingBlob;
@@ -123,7 +140,7 @@ CHLSLCompiler::DxcCompilationResult CHLSLCompiler::dxcCompile(std::string& sourc
 
     result.objectBlob = resultingBlob;
 
-    return result;
+    return { (uint8_t*)result.objectBlob->GetBufferPointer(), result.objectBlob->GetBufferSize() };
 }
 
 
@@ -135,7 +152,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     context.add_macro_definition("__HLSL_VERSION");
    
-     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
     // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
     // to match boost wave syntax
     // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
@@ -307,13 +324,13 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     if (arg_storage)
         delete[] arg_storage;
 
-    if (!compileResult.objectBlob)
+    if (!compileResult.begin)
     {
         return nullptr;
     }
 
-    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
-    memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
+    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.size);
+    memcpy(outSpirv->getPointer(), compileResult.begin, compileResult.size);
     
     // Optimizer step
     if (hlslOptions.spirvOptimizer)
