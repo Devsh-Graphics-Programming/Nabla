@@ -182,6 +182,18 @@ class CCUDAHandler : public core::IReferenceCounted
 			return createProgram(prog,std::move(source),file->getFileName().string().c_str(),headerCount,headerContents,includeNames);
 		}
 
+		struct SCUDADeviceInfo
+		{
+			CUdevice handle = {};
+			CUuuid uuid = {};
+			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
+		};
+
+		inline core::vector<SCUDADeviceInfo> const& getAvailableDevices() const
+		{
+			return m_availableDevices;
+		}
+
 		//
 		inline nvrtcResult compileProgram(nvrtcProgram prog, core::SRange<const char* const> options)
 		{
@@ -217,6 +229,7 @@ class CCUDAHandler : public core::IReferenceCounted
 			result = createProgram(&program,std::move(source),filename,headerCount,headerContents,includeNames);
 			return compileDirectlyToPTX_impl(result,program,nvrtcOptions,log);
 		}
+
 		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
 			const char* source, const char* filename, core::SRange<const char* const> nvrtcOptions,
 			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
@@ -225,6 +238,7 @@ class CCUDAHandler : public core::IReferenceCounted
 		{
 			return compileDirectlyToPTX(std::string(source),filename,nvrtcOptions,headerCount,headerContents,includeNames,log);
 		}
+
 		inline ptx_and_nvrtcResult_t compileDirectlyToPTX(
 			system::IFile* file, core::SRange<const char* const> nvrtcOptions,
 			const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr,
@@ -245,16 +259,8 @@ class CCUDAHandler : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<CCUDADevice> createDevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* physicalDevice);
 protected:
-		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version)
-			: m_cuda(std::move(_cuda)), m_nvrtc(std::move(_nvrtc)), m_headers(std::move(_headers)), m_logger(std::move(_logger)), m_version(_version)
-		{
-			for (auto& header : m_headers)
-			{
-				m_headerContents.push_back(reinterpret_cast<const char*>(header->getMappedPointer()));
-				m_headerNamesStorage.push_back(header->getFileName().string());
-				m_headerNames.push_back(m_headerNamesStorage.back().c_str());
-			}
-		}
+		CCUDAHandler(CUDA&& _cuda, NVRTC&& _nvrtc, core::vector<core::smart_refctd_ptr<system::IFile>>&& _headers, core::smart_refctd_ptr<system::ILogger>&& _logger, int _version);
+
 		~CCUDAHandler() = default;
 
 
@@ -284,6 +290,8 @@ protected:
 		core::vector<const char*> m_headerNames;
 		system::logger_opt_smart_ptr m_logger;
 		int m_version;
+
+		core::vector<SCUDADeviceInfo> m_availableDevices;
 };
 
 }

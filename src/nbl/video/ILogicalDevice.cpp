@@ -111,7 +111,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     return getSupportedStageMask(queueFamilyIndex).hasFlags(stageMask);
 }
 
-bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accesMask) const
 {
     if (queueFamilyIndex>m_queueFamilyInfos->size())
         return false;
@@ -119,15 +119,16 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-    return getSupportedAccessMask(queueFamilyIndex).hasFlags(stageMask);
+    VK_ACCESS_SHADER_WRITE_BIT;
+    if (accesMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
+        accesMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+    else if (accesMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
+        accesMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
+    if (accesMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
+        accesMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+    else if (accesMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
+        accesMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+    return getSupportedAccessMask(queueFamilyIndex).hasFlags(accesMask);
 }
 
 bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const
