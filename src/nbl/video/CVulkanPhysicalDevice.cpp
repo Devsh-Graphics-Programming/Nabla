@@ -1204,6 +1204,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrixRobustness = cooperativeMatrixFeatures.robustness;
 #endif
+
     }
 
     // we compare all limits against the defaults easily!

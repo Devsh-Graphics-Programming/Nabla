@@ -147,7 +147,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual IQueue::RESULT waitIdle() const = 0;
 
         //! Semaphore Stuff
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(uint64_t initialValue = 0, ISemaphore::SCreationParams&& = {}) = 0;
         virtual ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
         inline ISemaphore::WAIT_RESULT blockForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll=true)
@@ -285,29 +285,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Descriptor Creation
         // Buffer (@see ICPUBuffer)
-        inline core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams)
-        {
-            const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
-            if (creationParams.size>maxSize)
-            {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
-                return nullptr;
-            }
-            return createBuffer_impl(std::move(creationParams));
-        }
+        core::smart_refctd_ptr<IGPUBuffer> createBuffer(IGPUBuffer::SCreationParams&& creationParams);
+
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
         core::smart_refctd_ptr<IGPUBufferView> createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt);
+
         // Creates an Image (@see ICPUImage)
-        inline core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& creationParams)
-        {
-            if (!IGPUImage::validateCreationParameters(creationParams))
-            {
-                m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
-                return nullptr;
-            }
-            // TODO: @Cyprian validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage
-            return createImage_impl(std::move(creationParams));
-        }
+        core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& params);
+
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
@@ -765,9 +750,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual bool bindBufferMemory_impl(const uint32_t count, const SBindBufferMemoryInfo* pInfos) = 0;
         virtual bool bindImageMemory_impl(const uint32_t count, const SBindImageMemoryInfo* pInfos) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) = 0;
+        virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
-        virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
+        virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;

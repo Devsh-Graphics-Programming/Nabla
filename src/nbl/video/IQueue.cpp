@@ -13,8 +13,15 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
     auto* logger = m_originDevice->getPhysicalDevice()->getDebugCallback()->getLogger();
     for (const auto& submit : _submits)
     {
-        if (!submit.valid())
+        switch (submit.valid())
+        {
+        case SSubmitInfo::INVALID:
             return RESULT::OTHER_ERROR;
+        case SSubmitInfo::WORK_WITHOUT_SYNC:
+            logger->log("Work withouth sync!", system::ILogger::ELL_WARNING);
+        default:
+            break;
+        }
 
         auto invalidSemaphores = [this,logger](const std::span<const SSubmitInfo::SSemaphoreInfo> semaphoreInfos) -> bool
         {

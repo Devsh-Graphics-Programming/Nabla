@@ -6,7 +6,8 @@
 
 
 #include "nbl/video/IPhysicalDevice.h"
-
+#include "nbl/video/CCUDASharedMemory.h"
+#include "nbl/video/CCUDASharedSemaphore.h"
 
 #ifdef _NBL_COMPILE_WITH_CUDA_
 
@@ -23,10 +24,27 @@
 namespace nbl::video
 {
 class CCUDAHandler;
+class CCUDASharedMemory;
+class CCUDASharedSemaphore;
 
 class CCUDADevice : public core::IReferenceCounted
 {
     public:
+#ifdef _WIN32
+		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
+		static constexpr CUmemAllocationHandleType ALLOCATION_HANDLE_TYPE = CU_MEM_HANDLE_TYPE_WIN32;
+#else
+		static constexpr IDeviceMemoryBacked::E_EXTERNAL_HANDLE_TYPE EXTERNAL_MEMORY_HANDLE_TYPE = IDeviceMemoryBacked::EHT_OPAQUE_FD;
+		static constexpr CUmemAllocationHandleType ALLOCATION_TYPE = CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+#endif
+		struct SCUDACleaner : video::ICleanup
+		{
+			core::smart_refctd_ptr<const core::IReferenceCounted> resource;
+			SCUDACleaner(core::smart_refctd_ptr<const core::IReferenceCounted> resource)
+				: resource(std::move(resource))
+			{ }
+		};
+
 		enum E_VIRTUAL_ARCHITECTURE
 		{
 			EVA_30,
@@ -72,123 +90,33 @@ class CCUDADevice : public core::IReferenceCounted
 		// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#vulkan-interoperability
 		// Watch out, use Driver API (`cu` functions) NOT the Runtime API (`cuda` functions)
 		// Also maybe separate this out into its own `CCUDA` class instead of nesting it here?
-#if 0
-		template<typename ObjType>
-		struct GraphicsAPIObjLink
-		{
-				GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr), acquired(false)
-				{
-					asImage = {nullptr};
-				}
-				GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : GraphicsAPIObjLink()
-				{
-					obj = std::move(_obj);
-				}
-				GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
-				{
-					operator=(std::move(other));
-				}
 
-				GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
-				{
-					std::swap(obj,other.obj);
-					std::swap(cudaHandle,other.cudaHandle);
-					std::swap(acquired,other.acquired);
-					std::swap(asImage,other.asImage);
-					return *this;
-				}
-
-				~GraphicsAPIObjLink()
-				{
-					assert(!acquired); // you've fucked up, there's no way for us to fix it, you need to release the objects on a proper stream
-					if (obj)
-						CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
-				}
-
-				//
-				auto* getObject() const {return obj.get();}
-
-			private:
-				core::smart_refctd_ptr<ObjType> obj;
-				CUgraphicsResource cudaHandle;
-				bool acquired;
-
-				friend class CCUDAHandler;
-			public:
-				union
-				{
-					struct
-					{
-						CUdeviceptr pointer;
-					} asBuffer;
-					struct
-					{
-						CUmipmappedArray mipmappedArray;
-						CUarray array;
-					} asImage;
-				};
-		};
-
-		//
-		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		static CUresult registerImage(GraphicsAPIObjLink<video::IGPUImage>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
+		CUdevice getInternalObject() const { return m_handle; }
+		const CCUDAHandler* getHandler() const { return m_handler.get();  }
+		CUresult importGPUSemaphore(core::smart_refctd_ptr<CCUDASharedSemaphore>* outPtr, ISemaphore* sem);
+		CUresult createSharedMemory(core::smart_refctd_ptr<CCUDASharedMemory>* outMem, struct CCUDASharedMemory::SCreationParams&& inParams);
+		bool isMatchingDevice(const IPhysicalDevice* device) { return device && !memcmp(device->getProperties().deviceUUID, m_vulkanDevice->getProperties().deviceUUID, 16); }
 		
-
-		template<typename ObjType>
-		static CUresult acquireResourcesFromGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
-		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsMapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = true;
-			return retval;
-		}
-		template<typename ObjType>
-		static CUresult releaseResourcesToGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
-		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (!iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsUnmapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = false;
-			return retval;
-		}
-
-		static CUresult acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
-		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, CUstream stream);
-		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
-#endif
+		size_t roundToGranularity(CUmemLocationType location, size_t size) const;
 
 	protected:
+		CUresult reserveAdrressAndMapMemory(CUdeviceptr* outPtr, size_t size, size_t alignment, CUmemLocationType location, CUmemGenericAllocationHandle memory);
+
+
+		// CUDAHandler creates CUDADevice, it needs to access ctor
 		friend class CCUDAHandler;
-		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture);
-		~CCUDADevice() = default;
+
+		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture, CUdevice _handle, core::smart_refctd_ptr<CCUDAHandler>&& _handler);
+		~CCUDADevice();
 		
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
 		IPhysicalDevice* const m_vulkanDevice;
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
+		core::smart_refctd_ptr<CCUDAHandler> m_handler;
+		CUdevice m_handle;
+		CUcontext m_context;
+		size_t m_allocationGranularity[4];
 };
 
 }

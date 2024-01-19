@@ -24,6 +24,8 @@ We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
 class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
+    friend class IDeviceMemoryAllocator;
+    friend class ILogicalDevice;
     public:
         //! Access flags for how the application plans to use mapped memory (if any)
         /** When you create the memory you can allow for it to be mapped (be given a pointer)
@@ -68,6 +70,19 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EMHF_MULTI_INSTANCE_BIT = 0x00000002,
         };
 
+        //! Flags for imported/exported allocation
+        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
+        {
+            EHT_NONE = 0,
+            EHT_OPAQUE_WIN32 = 0x00000002,
+            EHT_OPAQUE_WIN32_KMT = 0x00000004,
+            EHT_D3D11_TEXTURE = 0x00000008,
+            EHT_D3D11_TEXTURE_KMT = 0x00000010,
+            EHT_D3D12_HEAP = 0x00000020,
+            EHT_D3D12_RESOURCE = 0x00000040,
+            EHT_HOST_MAPPED_FOREIGN_MEMORY = 0x00000100,
+        };
+
         //
         const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
 
@@ -75,25 +90,25 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         E_API_TYPE getAPIType() const;
 
         //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-        inline bool isDedicated() const {return m_dedicated;}
+        inline bool isDedicated() const {return m_params.dedicated;}
 
         //! Returns the size of the memory allocation
-        inline size_t getAllocationSize() const {return m_allocationSize;}
+        inline size_t getAllocationSize() const {return m_params.allocationSize;}
 
         //!
-        inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const { return m_allocateFlags; }
+        inline core::bitflag<E_MEMORY_ALLOCATE_FLAGS> getAllocateFlags() const { return m_params.allocateFlags; }
 
         //!
-        inline core::bitflag<E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlags() const { return m_memoryPropertyFlags; }
+        inline core::bitflag<E_MEMORY_PROPERTY_FLAGS> getMemoryPropertyFlags() const { return m_params.memoryPropertyFlags; }
 
         //! Utility function, tells whether the allocation can be mapped (whether mapMemory will ever return anything other than nullptr)
-        inline bool isMappable() const {return m_memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT)||m_memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT);}
+        inline bool isMappable() const {return m_params.memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT)|| m_params.memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT);}
         //! Utility function, tell us if writes by the CPU or GPU need extra visibility operations to become visible for reading on the other processor
         /** Only execute flushes or invalidations if the allocation requires them, and batch them (flush one combined range instead of two or more)
         for greater efficiency. To execute a flush or invalidation, use IDriver::flushMappedAllocationRanges and IDriver::invalidateMappedAllocationRanges respectively. */
         inline bool haveToMakeVisible() const
         {
-            return !m_memoryPropertyFlags.hasFlags(EMPF_HOST_COHERENT_BIT);
+            return !m_params.memoryPropertyFlags.hasFlags(EMPF_HOST_COHERENT_BIT);
         }
 
         //!
@@ -106,9 +121,9 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         {
             if (isCurrentlyMapped())
                 return nullptr;
-            if(accessHint.hasFlags(EMCAF_READ) && !m_memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT))
+            if(accessHint.hasFlags(EMCAF_READ) && !m_params.memoryPropertyFlags.hasFlags(EMPF_HOST_READABLE_BIT))
                 return nullptr;
-            if(accessHint.hasFlags(EMCAF_WRITE) && !m_memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT))
+            if(accessHint.hasFlags(EMCAF_WRITE) && !m_params.memoryPropertyFlags.hasFlags(EMPF_HOST_WRITABLE_BIT))
                 return nullptr;
             m_mappedPtr = reinterpret_cast<uint8_t*>(map_impl(range,accessHint));
             if (m_mappedPtr)
@@ -149,23 +164,49 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         //! Constant variant of getMappedPointer
         inline const void* getMappedPointer() const { return m_mappedPtr; }
 
+        struct SInfo
+        {
+            uint64_t allocationSize = 0;
+            core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE;
+			// Handle Type for external resources
+			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
+			//! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
+			//! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
+            ExternalHandleType externalHandle = 0;
+        };
+
+        struct SCreationParams: SInfo
+        {
+            core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
+            const bool dedicated = false;
+        };
+        
+        inline const SCreationParams& getCreationParams() const { return m_params; }
+
     protected:
-        inline IDeviceMemoryAllocation(
-            const ILogicalDevice* const originDevice, const size_t _size, const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> allocateFlags, const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags, const bool dedicated
-        ) : m_originDevice(originDevice), m_allocationSize(_size), m_allocateFlags(allocateFlags), m_memoryPropertyFlags(memoryPropertyFlags), m_dedicated(dedicated) {}
+        inline void setPostDestroyCleanup(std::unique_ptr<struct ICleanup>&& cleanup)
+        {
+            m_postDestroyCleanup = std::move(cleanup);
+        }
+
+        IDeviceMemoryAllocation(
+            const ILogicalDevice* originDevice, SCreationParams&& params = {})
+            : m_originDevice(originDevice)
+            , m_params(std::move(params))
+            , m_mappedPtr(nullptr)
+            , m_mappedRange{ 0, 0 }
+            , m_currentMappingAccess(EMCAF_NO_MAPPING_ACCESS)
+        {}
 
         virtual void* map_impl(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint) = 0;
         virtual bool unmap_impl() = 0;
 
-
-        const ILogicalDevice* const m_originDevice;
-        const size_t m_allocationSize;
+        const ILogicalDevice* m_originDevice = nullptr;
+        SCreationParams m_params = {};
         uint8_t* m_mappedPtr = nullptr;
         MemoryRange m_mappedRange = {};
         core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> m_currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
-        const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> m_allocateFlags;
-        const core::bitflag<E_MEMORY_PROPERTY_FLAGS> m_memoryPropertyFlags;
-        const bool m_dedicated;
+        std::unique_ptr<struct ICleanup> m_postDestroyCleanup = nullptr;
 };
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS)

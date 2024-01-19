@@ -552,7 +552,6 @@ struct SPhysicalDeviceLimits
     /* CooperativeMatrixPropertiesKHR  *//* VK_KHR_cooperative_matrix */
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
 
-
     /*  Always enabled if available, reported as limits */
 
     // Core 1.0 Features

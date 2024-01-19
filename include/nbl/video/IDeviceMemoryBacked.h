@@ -19,6 +19,15 @@ namespace nbl::video
 struct NBL_API2 ICleanup
 {
     virtual ~ICleanup() = 0;
+
+    std::unique_ptr<ICleanup> next;
+
+    static void chain(std::unique_ptr<ICleanup>& first, std::unique_ptr<ICleanup>&& next)
+    {
+        if (first)
+            return chain(first->next, std::move(next));
+        first = std::move(next);
+    }
 };
 
 //! Interface from which resources backed by IDeviceMemoryAllocation inherit from
@@ -36,6 +45,8 @@ class IDeviceMemoryBacked : public IBackendObject
             uint8_t queueFamilyIndexCount = 0u;
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
+
+            core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = IDeviceMemoryAllocation::EHT_NONE;
 
             //! If you specify queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
@@ -92,7 +103,12 @@ class IDeviceMemoryBacked : public IBackendObject
         {
             const uint32_t* queueFamilyIndices = nullptr;
         };
-
+        
+        void chainPreDestroyCleanup(std::unique_ptr<ICleanup> first)
+        {
+            ICleanup::chain(m_cachedCreationParams.preDestroyCleanup, std::move(first));
+        }
+        
     protected:
         inline IDeviceMemoryBacked(core::smart_refctd_ptr<const ILogicalDevice>&& originDevice, SCreationParams&& creationParams, const SDeviceMemoryRequirements& reqs)
             : IBackendObject(std::move(originDevice)), m_cachedCreationParams(std::move(creationParams)), m_cachedMemoryReqs(reqs) {}
@@ -107,10 +123,9 @@ class IDeviceMemoryBacked : public IBackendObject
             m_cachedCreationParams.preDestroyCleanup = nullptr;
         }
 
-
         //! members
         SCachedCreationParams m_cachedCreationParams;
-        SDeviceMemoryRequirements m_cachedMemoryReqs;
+        const SDeviceMemoryRequirements m_cachedMemoryReqs;
 };
 
 } // end namespace nbl::video

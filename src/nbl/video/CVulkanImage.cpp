@@ -9,7 +9,8 @@ namespace nbl::video
 CVulkanImage::~CVulkanImage()
 {
     preDestroyStep();
-    // don't destroy imported handles
+    // e.g. don't destroy imported handles from the same VkInstance (e.g. if hooking into external Vulkan codebase)
+    // truly EXTERNAL_MEMORY imported handles, do need to be destroyed + CloseHandled (separate thing)
     if (!m_cachedCreationParams.skipHandleDestroy)
     {
         const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());

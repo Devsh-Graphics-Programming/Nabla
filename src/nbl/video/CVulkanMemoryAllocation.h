@@ -15,10 +15,9 @@ class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 {
     public:
         CVulkanMemoryAllocation(
-            const CVulkanLogicalDevice* dev, const size_t size,
-            const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags,
-            const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
-            const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
+            const CVulkanLogicalDevice* dev,
+            const VkDeviceMemory deviceMemoryHandle, 
+            SCreationParams&& params
         );
 
         inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }

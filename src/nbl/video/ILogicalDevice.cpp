@@ -111,7 +111,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     return getSupportedStageMask(queueFamilyIndex).hasFlags(stageMask);
 }
 
-bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accesMask) const
 {
     if (queueFamilyIndex>m_queueFamilyInfos->size())
         return false;
@@ -119,15 +119,15 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-    return getSupportedAccessMask(queueFamilyIndex).hasFlags(stageMask);
+    if (accesMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
+        accesMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+    else if (accesMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
+        accesMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
+    if (accesMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
+        accesMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+    else if (accesMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
+        accesMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+    return getSupportedAccessMask(queueFamilyIndex).hasFlags(accesMask);
 }
 
 bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const
@@ -647,4 +647,74 @@ bool ILogicalDevice::createGraphicsPipelines(
     if (!output[i])
         return false;
     return true;
+}
+
+core::smart_refctd_ptr<IGPUBuffer> ILogicalDevice::createBuffer(IGPUBuffer::SCreationParams&& creationParams)
+{
+    const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
+    if (creationParams.size > maxSize)
+    {
+        m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!", system::ILogger::ELL_ERROR, creationParams.size, this, maxSize);
+        return nullptr;
+    }
+
+    bool dedicatedOnly = false;
+    if (creationParams.externalHandleTypes.value)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = creationParams.externalHandleTypes;
+
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalBufferProperties(creationParams.usage, handleType);
+
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(creationParams.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
+
+            dedicatedOnly |= props.dedicatedOnly;
+        }
+    }
+    return createBuffer_impl(std::move(creationParams), dedicatedOnly);
+}
+
+core::smart_refctd_ptr<IGPUImage> ILogicalDevice::createImage(IGPUImage::SCreationParams&& params)
+{
+    if (!IGPUImage::validateCreationParameters(params))
+    {
+        m_logger.log("Failed to create Image, invalid creation parameters!", system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+
+    const bool external = params.externalHandleTypes.value;
+    bool dedicatedOnly = false;
+    if (external)
+    {
+        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> requestedTypes = params.externalHandleTypes;
+        while (const auto idx = hlsl::findLSB(static_cast<uint32_t>(requestedTypes.value)) + 1)
+        {
+            const auto handleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(1u << (idx - 1));
+            requestedTypes ^= handleType;
+
+            auto props = m_physicalDevice->getExternalImageProperties(params.format, params.tiling, params.type, params.usage, params.flags, handleType);
+
+            if (props.maxArrayLayers < params.arrayLayers ||
+                !core::bitflag<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.sampleCounts).hasFlags(params.samples) ||
+                /* props.maxResourceSize?? */
+                props.maxExtent.width < params.extent.width ||
+                props.maxExtent.height < params.extent.height ||
+                props.maxExtent.depth < params.extent.depth)
+            {
+                return nullptr;
+            }
+
+            if (!core::bitflag(static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(props.compatibleTypes)).hasFlags(params.externalHandleTypes)) // incompatibility between requested types
+                return nullptr;
+
+            dedicatedOnly |= props.dedicatedOnly;
+        }
+    }
+    // TODO: @Cyprian validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage
+    return createImage_impl(std::move(params), dedicatedOnly);
 }
