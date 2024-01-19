@@ -68,7 +68,7 @@ class IQueue : public core::Interface, public core::Unmovable
         {
             SUCCESS,
             DEVICE_LOST,
-            OTHER_ERROR
+            OTHER_ERROR,
         };
         //
         struct SSubmitInfo
@@ -92,16 +92,23 @@ class IQueue : public core::Interface, public core::Unmovable
             std::span<const SCommandBufferInfo> commandBuffers = {};
             std::span<const SSemaphoreInfo> signalSemaphores = {};
 
-            inline bool valid() const
+            enum Validity
+            {
+                INVALID,
+                VALID,
+                WORK_WITHOUT_SYNC,
+            };
+
+            inline Validity valid() const
             {
                 // any two being empty is wrong
                 if (commandBuffers.empty() && signalSemaphores.empty()) // wait and do nothing
-                    return false;
+                    return INVALID;
                 if (waitSemaphores.empty() && signalSemaphores.empty()) // work without sync
-                    return false;
+                   return WORK_WITHOUT_SYNC;
                 if (waitSemaphores.empty() && commandBuffers.empty()) // signal without doing work first
-                    return false;
-                return true;
+                    return INVALID;
+                return VALID;
             }
         };
         virtual RESULT submit(const std::span<const SSubmitInfo> _submits);
