@@ -10,14 +10,14 @@ struct TransferRequest
     // This represents a transfer command/request
     uint64_t srcAddr;
     uint64_t dstAddr;
-    uint64_t srcIndexAddr = 0; // IOTA default
-    uint64_t dstIndexAddr = 0; // IOTA default
+    uint64_t srcIndexAddr; // IOTA default
+    uint64_t dstIndexAddr; // IOTA default
     uint64_t elementCount : 35; // allow up to 64GB IGPUBuffers
     uint64_t propertySize : 24; // all the leftover bits (just use bytes now)
-    uint64_t fill : 1 = false;
+    uint64_t fill;
     // 0=uint8, 1=uint16, 2=uint32, 3=uint64
-    uint64_t srcIndexSizeLog2 : 2 = 1;
-    uint64_t dstIndexSizeLog2 : 2 = 1;
+    uint64_t srcIndexSizeLog2 : 2;
+    uint64_t dstIndexSizeLog2 : 2;
 };
 
 struct GlobalPushContants 

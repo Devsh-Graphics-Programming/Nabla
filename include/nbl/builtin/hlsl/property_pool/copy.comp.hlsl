@@ -1,5 +1,18 @@
 #include "nbl/builtin/hlsl/jit/device_capabilities.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/property_pool/transfer.hlsl"
+
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6144
+template<typename capability_traits=nbl::hlsl::jit::device_capabilities_traits>
+uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize() {
+    return uint32_t3(capability_traits::maxOptimallyResidentWorkgroupInvocations, 1, 1);
+}
+
+[[numthreads(1, 1, 1)]
+void main(uint32_t3 dispatchId : SV_DispatchThreadID)
+{
+    nbl::hlsl::property_pool::main(dispatchId);
+}
 
 namespace nbl
 {
@@ -7,11 +20,6 @@ namespace hlsl
 {
 namespace property_pools
 {
-// https://github.com/microsoft/DirectXShaderCompiler/issues/6144
-template<typename capability_traits=nbl::hlsl::jit::device_capabilities_traits>
-uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize() {
-    return uint32_t3(capability_traits::maxOptimallyResidentWorkgroupInvocations, 1, 1);
-}
 
 [[vk::push_constant]] GlobalPushContants globals;
 
@@ -37,13 +45,13 @@ struct TransferLoop
 
     void copyLoop(uint baseInvocationIndex, uint propertyId, TransferRequest transferRequest, uint dispatchSize)
     {
-        uint lastInvocation = min(transferRequest.elementCount, gloabls.endOffset);
+        uint lastInvocation = min(transferRequest.elementCount, globals.endOffset);
         for (uint invocationIndex = globals.beginOffset + baseInvocationIndex; invocationIndex < lastInvocation; invocationIndex += dispatchSize)
         {
             iteration(propertyId, transferRequest.propertySize, transferRequest.srcAddr, transferRequest.dstAddr, invocationIndex);
         }
     }
-}
+};
 
 // For creating permutations of the functions based on parameters that are constant over the transfer request
 // These branches should all be scalar, and because of how templates work, the loops shouldn't have any
@@ -59,7 +67,7 @@ struct TransferLoopPermutationSrcIndexSizeLog
        else if (transferRequest.dstIndexSizeLog2 == 2) TransferLoop<Fill, SrcIndexIota, DstIndexIota, SrcIndexSizeLog2, 2>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
        else /*if (transferRequest.dstIndexSizeLog2 == 3)*/ TransferLoop<Fill, SrcIndexIota, DstIndexIota, SrcIndexSizeLog2, 3>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
     }
-}
+};
 
 template<bool Fill, bool SrcIndexIota, bool DstIndexIota>
 struct TransferLoopPermutationDstIota
@@ -71,7 +79,7 @@ struct TransferLoopPermutationDstIota
        else if (transferRequest.srcIndexSizeLog2 == 2) TransferLoopPermutationSrcIndexSizeLog<Fill, SrcIndexIota, DstIndexIota, 2>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
        else /*if (transferRequest.srcIndexSizeLog2 == 3)*/ TransferLoopPermutationSrcIndexSizeLog<Fill, SrcIndexIota, DstIndexIota, 3>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
     }
-}
+};
 
 template<bool Fill, bool SrcIndexIota>
 struct TransferLoopPermutationSrcIota
@@ -82,7 +90,7 @@ struct TransferLoopPermutationSrcIota
         if (dstIota) TransferLoopPermutationDstIota<Fill, SrcIndexIota, true>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
         else TransferLoopPermutationDstIota<Fill, SrcIndexIota, false>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
     }
-}
+};
 
 template<bool Fill>
 struct TransferLoopPermutationFill
@@ -93,9 +101,9 @@ struct TransferLoopPermutationFill
         if (srcIota) TransferLoopPermutationSrcIota<Fill, true>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
         else TransferLoopPermutationSrcIota<Fill, false>.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize);
     }
-}
+};
 
-void main(uint32_t3 dispatchId : SV_DispatchThreadID)
+void main(uint32_t3 dispatchId)
 {
     const uint propertyId = dispatchId.y;
     const uint invocationIndex = dispatchId.x;
@@ -107,12 +115,14 @@ void main(uint32_t3 dispatchId : SV_DispatchThreadID)
     transferRequest.dstAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t));
     transferRequest.srcIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 2);
     transferRequest.dstIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 3);
-    // TODO: These are all part of the same bitfield and shoulbe read with a single RawBufferLoad
-    transferRequest.elementCount = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
-    transferRequest.propertySize = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 5);
-    transferRequest.fill = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 6);
-    transferRequest.srcIndexSizeLog2 = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 7);
-    transferRequest.dstIndexSizeLog2 = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 8);
+    // Remaining elements are part of the same bitfield
+    // TODO: Do this only using raw buffer load?
+    uint64_t bitfieldType = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
+    transferRequest.elementCount = bitfieldType;
+    transferRequest.propertySize = bitfieldType >> 35;
+    transferRequest.fill = bitfieldType >> (35 + 24);
+    transferRequest.srcIndexSizeLog2 = bitfieldType >> (35 + 24 + 1);
+    transferRequest.dstIndexSizeLog2 = bitfieldType >> (35 + 24 + 1 + 2);
 
     const uint dispatchSize = capability_traits::maxOptimallyResidentWorkgroupInvocations;
     const bool fill = transferRequest.fill == 1;
@@ -124,4 +134,3 @@ void main(uint32_t3 dispatchId : SV_DispatchThreadID)
 }
 }
 }
-
