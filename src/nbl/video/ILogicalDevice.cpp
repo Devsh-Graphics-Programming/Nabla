@@ -119,7 +119,6 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values
-    VK_ACCESS_SHADER_WRITE_BIT;
     if (accesMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
         accesMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
     else if (accesMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)

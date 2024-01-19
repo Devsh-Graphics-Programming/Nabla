@@ -28,7 +28,6 @@ namespace nbl::video
 
 
 
-
 class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 {
     template<class F> static constexpr bool is_bitflag = false;

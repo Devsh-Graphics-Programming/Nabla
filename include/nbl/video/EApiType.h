@@ -13,6 +13,15 @@ enum E_API_TYPE : uint32_t
     //EAT_WEBGPU
 };
 
+
+using ExternalHandleType =
+#ifdef _WIN32
+void*
+#else
+int
+#endif
+;
+
 }
 
 #endif

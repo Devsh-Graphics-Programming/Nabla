@@ -123,11 +123,9 @@ class IDeviceMemoryBacked : public IBackendObject
             m_cachedCreationParams.preDestroyCleanup = nullptr;
         }
 
-
         //! members
         SCachedCreationParams m_cachedCreationParams;
         const SDeviceMemoryRequirements m_cachedMemoryReqs;
-        void* m_cachedExternalHandle = nullptr;
 };
 
 } // end namespace nbl::video

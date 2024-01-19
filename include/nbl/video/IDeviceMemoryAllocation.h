@@ -172,7 +172,7 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
 			//! Imports the given handle  if externalHandle != nullptr && externalHandleType != EHT_NONE
 			//! Creates exportable memory if externalHandle == nullptr && externalHandleType != EHT_NONE
-			void* externalHandle = nullptr;
+            ExternalHandleType externalHandle = 0;
         };
 
         struct SCreationParams: SInfo
@@ -180,6 +180,8 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags = E_MEMORY_PROPERTY_FLAGS::EMPF_NONE;
             const bool dedicated = false;
         };
+        
+        inline const SCreationParams& getCreationParams() const { return m_params; }
 
     protected:
         inline void setPostDestroyCleanup(std::unique_ptr<struct ICleanup>&& cleanup)
@@ -198,7 +200,6 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 
         virtual void* map_impl(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint) = 0;
         virtual bool unmap_impl() = 0;
-
 
         const ILogicalDevice* m_originDevice = nullptr;
         SCreationParams m_params = {};

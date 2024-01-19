@@ -68,7 +68,7 @@ class ISemaphore : public IBackendObject
             core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
             //! Imports the given handle  if externalHandle != nullptr && externalMemoryHandleType != EHT_NONE
             //! Creates exportable memory if externalHandle == nullptr && externalMemoryHandleType != EHT_NONE
-            void* externalHandle = nullptr;
+            ExternalHandleType externalHandle = nullptr;
         };
 
         auto const& getCreationParams() const

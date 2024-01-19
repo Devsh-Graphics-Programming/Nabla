@@ -10,14 +10,6 @@ namespace nbl::video
 
 core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDASharedMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
 {
-	IDeviceMemoryAllocator::SAllocateInfo info = {
-		{
-			.allocationSize = m_params.granularSize,
-			.externalHandleType = CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
-			.externalHandle = m_params.osHandle,
-		}
-	};
-
 	auto pd = device->getPhysicalDevice();
 	uint32_t memoryTypeBits = (1 << pd->getMemoryProperties().memoryTypeCount) - 1;
 	uint32_t vram = pd->getDeviceLocalMemoryTypeBits();
