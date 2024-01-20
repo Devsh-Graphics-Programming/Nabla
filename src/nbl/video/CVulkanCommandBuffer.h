@@ -48,7 +48,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo) override;
         bool resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask) override;
-        bool waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos) override;
+        bool waitEvents_impl(const std::span<IEvent*> events, const SEventDependencyInfo* depInfos) override;
         bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo) override;
 
         bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) override;

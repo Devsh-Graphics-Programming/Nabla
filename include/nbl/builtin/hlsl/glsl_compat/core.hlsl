@@ -60,12 +60,14 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
  * For Compute Shaders
  */
 
-// TODO (Future): Its annoying we have to forward declare those, but accessing gl_NumSubgroups and other gl_* values is not yet possible due to https://github.com/microsoft/DirectXShaderCompiler/issues/4217
-// also https://github.com/microsoft/DirectXShaderCompiler/issues/5280
-uint32_t gl_LocalInvocationIndex();
+// TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
+uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
+// TODO: DXC BUG prevents us from defining this!
 uint32_t3 gl_WorkGroupSize();
-uint32_t3 gl_GlobalInvocationID();
-uint32_t3 gl_WorkGroupID();
+uint32_t3 gl_WorkGroupID() {return spirv::WorkgroupId;}
+uint32_t3 gl_LocalInvocationID() {return spirv::LocalInvocationId;}
+uint32_t3 gl_GlobalInvocationID() {return spirv::GlobalInvocationId;}
+uint32_t gl_LocalInvocationIndex() {return spirv::LocalInvocationIndex;}
 
 void barrier() {
     spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);

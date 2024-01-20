@@ -18,7 +18,7 @@ namespace workgroup
 
 namespace impl
 {
-template<class BinOp, uint16_t ItemCount>
+template<class BinOp, uint16_t ItemCount, class device_capabilities>
 struct reduce
 {
     using type_t = typename BinOp::type_t;
@@ -29,7 +29,7 @@ struct reduce
         const uint16_t lastInvocation = ItemCount-1;
         const uint16_t subgroupMask = uint16_t(glsl::gl_SubgroupSize()-1u);
 
-        subgroup::inclusive_scan<BinOp> subgroupOp;
+        subgroup::inclusive_scan<BinOp,device_capabilities> subgroupOp;
 
         lastInvocationInLevel = lastInvocation;
         scanLoadIndex = SubgroupContiguousIndex();
@@ -78,10 +78,10 @@ struct reduce
     bool participate;
 };
 
-template<class BinOp, bool Exclusive, uint16_t ItemCount>
+template<class BinOp, bool Exclusive, uint16_t ItemCount, class device_capabilities>
 struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShaderCompiler/issues/5966
 {
-    using base_t = reduce<BinOp,ItemCount>;
+    using base_t = reduce<BinOp,ItemCount,device_capabilities>;
     base_t __base;
     using type_t = typename base_t::type_t;
 

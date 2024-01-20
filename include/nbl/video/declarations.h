@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
-#define __NBL_VIDEO_DECLARATIONS_H_INCLUDED__
+#ifndef _NBL_VIDEO_DECLARATIONS_H_INCLUDED_
+#define _NBL_VIDEO_DECLARATIONS_H_INCLUDED_
 
 
 // dependencies
@@ -16,7 +15,6 @@
 //#include "nbl/video/asset_traits.h"
 
 // alloc
-#include "nbl/video/alloc/CStreamingBufferAllocator.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 // platform and API specific stuff

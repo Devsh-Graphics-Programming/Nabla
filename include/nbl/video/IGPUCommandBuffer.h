@@ -146,18 +146,15 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             using image_barrier_t = SImageMemoryBarrier<ResourceBarrier>;
 
             // no dependency flags because they must be 0 per the spec
-            uint32_t memBarrierCount = 0;
-            const asset::SMemoryBarrier* memBarriers = nullptr;
-            uint32_t bufBarrierCount = 0;
-            const buffer_barrier_t* bufBarriers = nullptr;
-            uint32_t imgBarrierCount = 0;
-            const image_barrier_t* imgBarriers = nullptr;
+            std::span<const asset::SMemoryBarrier> memBarriers = {};
+            std::span<const buffer_barrier_t> bufBarriers = {};
+            std::span<const image_barrier_t> imgBarriers = {};
         };
 
         using SEventDependencyInfo = SDependencyInfo<asset::SMemoryBarrier>;
         bool setEvent(IEvent* const _event, const SEventDependencyInfo& depInfo);
         bool resetEvent(IEvent* _event, const core::bitflag<stage_flags_t> stageMask);
-        bool waitEvents(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos);
+        bool waitEvents(const std::span<IEvent*> events, const SEventDependencyInfo* depInfos);
         
         struct SOwnershipTransferBarrier
         {
@@ -539,7 +536,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo) = 0;
         virtual bool resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask) = 0;
-        virtual bool waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos) = 0;
+        virtual bool waitEvents_impl(const std::span<IEvent*> events, const SEventDependencyInfo* depInfos) = 0;
         virtual bool pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo) = 0;
 
         virtual bool fillBuffer_impl(const asset::SBufferRange<IGPUBuffer>& range, const uint32_t data) = 0;
@@ -670,7 +667,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             BOTH = OUTSIDE|INSIDE
         };
         using queue_flags_t = IQueue::FAMILY_FLAGS;
-        bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
+        bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=~queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
 
         template<typename ResourceBarrier>
         bool invalidDependency(const SDependencyInfo<ResourceBarrier>& depInfo) const;

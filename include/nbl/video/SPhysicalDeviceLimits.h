@@ -332,7 +332,7 @@ struct SPhysicalDeviceLimits
 
     /* VK_EXT_external_memory_host */
     /* ExternalMemoryHostPropertiesEXT */
-    uint32_t minImportedHostPointerAlignment = 0x1u<<16u;
+    uint32_t minImportedHostPointerAlignment = 0x1u<<31u;
 
     /* ShaderAtomicFloatFeaturesEXT *//* VK_EXT_shader_atomic_float */
     // [REQUIRE] Nabla Core Profile

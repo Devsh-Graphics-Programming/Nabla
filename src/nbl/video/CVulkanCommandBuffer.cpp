@@ -98,76 +98,77 @@ static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> s
 
 template<typename ResourceBarrier>
 VkDependencyInfoKHR fill(
-    VkMemoryBarrier2* memoryBarriers, VkBufferMemoryBarrier2* bufferBarriers, VkImageMemoryBarrier2* imageBarriers,
+    VkMemoryBarrier2* const memoryBarriers, VkBufferMemoryBarrier2* const bufferBarriers, VkImageMemoryBarrier2* const imageBarriers,
     const IGPUCommandBuffer::SDependencyInfo<ResourceBarrier>& depInfo, const uint32_t selfQueueFamilyIndex=IQueue::FamilyIgnored
 ) {
     VkDependencyInfoKHR info = { VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR,nullptr };
-    for (auto i=0; i<depInfo.memBarrierCount; i++)
+    auto outMem = memoryBarriers;
+    for (const auto& in : depInfo.memBarriers)
     {
-        auto& out = memoryBarriers[i];
-        out.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR;
-        out.pNext = nullptr;
-        fill(out,depInfo.memBarriers[i],selfQueueFamilyIndex);
+        outMem->sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR;
+        outMem->pNext = nullptr;
+        fill(*(outMem++),in,selfQueueFamilyIndex);
     }
-    for (auto i=0; i<depInfo.bufBarrierCount; i++)
+    auto outBuf = bufferBarriers;
+    for (const auto& in : depInfo.bufBarriers)
     {
-        auto& out = bufferBarriers[i];
-        out.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
-        out.pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT
+        outBuf->sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
+        outBuf->pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT
 
-        const auto& in = depInfo.bufBarriers[i];
-        fill(out,in.barrier,selfQueueFamilyIndex,in.range.buffer->getCachedCreationParams().isConcurrentSharing());
-        out.buffer = static_cast<const CVulkanBuffer*>(in.range.buffer.get())->getInternalObject();
-        out.offset = in.range.offset;
-        out.size = in.range.size;
+        fill(*outBuf,in.barrier,selfQueueFamilyIndex,in.range.buffer->getCachedCreationParams().isConcurrentSharing());
+        outBuf->buffer = static_cast<const CVulkanBuffer*>(in.range.buffer.get())->getInternalObject();
+        outBuf->offset = in.range.offset;
+        outBuf->size = in.range.size;
+        outBuf++;
     }
-    for (auto i=0; i<depInfo.imgBarrierCount; i++)
+    auto outImg = imageBarriers;
+    for (const auto& in : depInfo.imgBarriers)
     {
-        auto& out = imageBarriers[i];
-        out.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
-        out.pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT or VkSampleLocationsInfoEXT
+        outImg->sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
+        outImg->pNext = nullptr; // VkExternalMemoryAcquireUnmodifiedEXT or VkSampleLocationsInfoEXT
 
-        const auto& in = depInfo.imgBarriers[i];
-        out.oldLayout = getVkImageLayoutFromImageLayout(in.oldLayout);
-        out.newLayout = getVkImageLayoutFromImageLayout(in.newLayout);
-        fill(out,in.barrier,selfQueueFamilyIndex,in.image->getCachedCreationParams().isConcurrentSharing());
-        out.image = static_cast<const CVulkanImage*>(in.image)->getInternalObject();
-        out.subresourceRange = getVkImageSubresourceFrom(in.subresourceRange);
+        outImg->oldLayout = getVkImageLayoutFromImageLayout(in.oldLayout);
+        outImg->newLayout = getVkImageLayoutFromImageLayout(in.newLayout);
+        fill(*outImg,in.barrier,selfQueueFamilyIndex,in.image->getCachedCreationParams().isConcurrentSharing());
+        outImg->image = static_cast<const CVulkanImage*>(in.image)->getInternalObject();
+        outImg->subresourceRange = getVkImageSubresourceFrom(in.subresourceRange);
+        outImg++;
     }
     info.dependencyFlags = 0u;
-    info.memoryBarrierCount = depInfo.memBarrierCount;
+    info.memoryBarrierCount = depInfo.memBarriers.size();
     info.pMemoryBarriers = memoryBarriers;
-    info.bufferMemoryBarrierCount = depInfo.bufBarrierCount;
+    info.bufferMemoryBarrierCount = depInfo.bufBarriers.size();
     info.pBufferMemoryBarriers = bufferBarriers;
-    info.imageMemoryBarrierCount = depInfo.imgBarrierCount;
+    info.imageMemoryBarrierCount = depInfo.imgBarriers.size();
     info.pImageMemoryBarriers = imageBarriers;
     return info;
 }
 
 bool CVulkanCommandBuffer::setEvent_impl(IEvent* const _event, const SEventDependencyInfo& depInfo)
 {
-    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarrierCount);
-    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarrierCount);
-    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarrierCount);
+    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarriers.size());
+    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarriers.size());
+    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarriers.size());
     if (!memoryBarriers || !bufferBarriers || !imageBarriers)
         return false;
 
     auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo);
-    getFunctionTable().vkCmdSetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),&info);
+    getFunctionTable().vkCmdSetEvent2(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),&info);
     return true;
 }
 
 bool CVulkanCommandBuffer::resetEvent_impl(IEvent* const _event, const core::bitflag<stage_flags_t> stageMask)
 {
-    getFunctionTable().vkCmdResetEvent2KHR(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
+    getFunctionTable().vkCmdResetEvent2(m_cmdbuf,static_cast<CVulkanEvent*>(_event)->getInternalObject(),getVkPipelineStageFlagsFromPipelineStageFlags(stageMask));
     return true;
 }
 
-bool CVulkanCommandBuffer::waitEvents_impl(const uint32_t eventCount, IEvent* const* const pEvents, const SEventDependencyInfo* depInfos)
+bool CVulkanCommandBuffer::waitEvents_impl(const std::span<IEvent*> events, const SEventDependencyInfo* depInfos)
 {
-    IGPUCommandPool::StackAllocation<VkEvent> events(m_cmdpool,eventCount);
+    const uint32_t eventCount = events.size();
+    IGPUCommandPool::StackAllocation<VkEvent> vk_events(m_cmdpool,eventCount);
     IGPUCommandPool::StackAllocation<VkDependencyInfoKHR> infos(m_cmdpool,eventCount);
-    if (!events || !infos)
+    if (!vk_events || !infos)
         return false;
 
     uint32_t memBarrierCount = 0u;
@@ -175,9 +176,9 @@ bool CVulkanCommandBuffer::waitEvents_impl(const uint32_t eventCount, IEvent* co
     uint32_t imgBarrierCount = 0u;
     for (auto i=0u; i<eventCount; i++)
     {
-        memBarrierCount += depInfos[i].memBarrierCount;
-        bufBarrierCount += depInfos[i].bufBarrierCount;
-        imgBarrierCount += depInfos[i].imgBarrierCount;
+        memBarrierCount += depInfos[i].memBarriers.size();
+        bufBarrierCount += depInfos[i].bufBarriers.size();
+        imgBarrierCount += depInfos[i].imgBarriers.size();
     }
     IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,memBarrierCount);
     IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,bufBarrierCount);
@@ -190,27 +191,27 @@ bool CVulkanCommandBuffer::waitEvents_impl(const uint32_t eventCount, IEvent* co
     imgBarrierCount = 0u;
     for (auto i=0u; i<eventCount; i++)
     {
-        events[i] = static_cast<CVulkanEvent*>(pEvents[i])->getInternalObject();
+        vk_events[i] = static_cast<CVulkanEvent*>(events[i])->getInternalObject();
         infos[i] = fill(memoryBarriers.data()+memBarrierCount,bufferBarriers.data()+bufBarrierCount,imageBarriers.data()+imgBarrierCount,depInfos[i]);
         memBarrierCount += infos[i].memoryBarrierCount;
         bufBarrierCount += infos[i].bufferMemoryBarrierCount;
         imgBarrierCount += infos[i].imageMemoryBarrierCount;
     }
-    getFunctionTable().vkCmdWaitEvents2KHR(m_cmdbuf,eventCount,events.data(),infos.data());
+    getFunctionTable().vkCmdWaitEvents2(m_cmdbuf,eventCount,vk_events.data(),infos.data());
     return true;
 }
 
 bool CVulkanCommandBuffer::pipelineBarrier_impl(const core::bitflag<asset::E_DEPENDENCY_FLAGS> dependencyFlags, const SPipelineBarrierDependencyInfo& depInfo)
 {
-    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarrierCount);
-    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarrierCount);
-    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarrierCount);
+    IGPUCommandPool::StackAllocation<VkMemoryBarrier2KHR> memoryBarriers(m_cmdpool,depInfo.memBarriers.size());
+    IGPUCommandPool::StackAllocation<VkBufferMemoryBarrier2KHR> bufferBarriers(m_cmdpool,depInfo.bufBarriers.size());
+    IGPUCommandPool::StackAllocation<VkImageMemoryBarrier2KHR> imageBarriers(m_cmdpool,depInfo.imgBarriers.size());
     if (!memoryBarriers || !bufferBarriers || !imageBarriers)
         return false;
 
     auto info = fill(memoryBarriers.data(),bufferBarriers.data(),imageBarriers.data(),depInfo,m_cmdpool->getQueueFamilyIndex());
     info.dependencyFlags = static_cast<VkDependencyFlagBits>(dependencyFlags.value);
-    getFunctionTable().vkCmdPipelineBarrier2KHR(m_cmdbuf,&info);
+    getFunctionTable().vkCmdPipelineBarrier2(m_cmdbuf,&info);
     return true;
 }
 
@@ -553,7 +554,7 @@ bool CVulkanCommandBuffer::endQuery_impl(IQueryPool* const queryPool, const uint
 
 bool CVulkanCommandBuffer::writeTimestamp_impl(const asset::PIPELINE_STAGE_FLAGS pipelineStage, IQueryPool* const queryPool, const uint32_t query)
 {
-    getFunctionTable().vkCmdWriteTimestamp2KHR(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
+    getFunctionTable().vkCmdWriteTimestamp2(m_cmdbuf, getVkPipelineStageFlagsFromPipelineStageFlags(pipelineStage), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), query);
     return true;
 }
 

@@ -148,31 +148,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Semaphore Stuff
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
-        //
-        struct SSemaphoreWaitInfo
-        {
-            const ISemaphore* semaphore;
-            uint64_t value;
-        };
-        enum class WAIT_RESULT : uint8_t
-        {
-            TIMEOUT,
-            SUCCESS,
-            DEVICE_LOST,
-            _ERROR
-        };
-        virtual WAIT_RESULT waitForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
+        virtual ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
-        inline WAIT_RESULT blockForSemaphores(const std::span<const SSemaphoreWaitInfo> infos, const bool waitAll=true)
+        inline ISemaphore::WAIT_RESULT blockForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll=true)
         {
+            using retval_t = ISemaphore::WAIT_RESULT;
             if (!infos.empty())
             {
-                auto waitStatus = WAIT_RESULT::TIMEOUT;
-                while (waitStatus==WAIT_RESULT::TIMEOUT)
+                auto waitStatus = retval_t::TIMEOUT;
+                while (waitStatus== retval_t::TIMEOUT)
                     waitStatus = waitForSemaphores(infos,waitAll,999999999ull);
                 return waitStatus;
             }
-            return WAIT_RESULT::SUCCESS;
+            return retval_t::SUCCESS;
         }
 
         //! Event Stuff
@@ -1080,14 +1068,14 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-aspectMask-08703
                 // and we check the following all at once:
                 case IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL:
-                    if (srcStageIsHost)
+                    if (!dst && srcStageIsHost)
                         return true;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-03938
                     if (aspectMask && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT))
                         return true;
                     break;
                 case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
-                    if (srcStageIsHost)
+                    if (!dst && srcStageIsHost)
                         return true;
                     {
                         constexpr auto ValidUsages = IGPUImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IGPUImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT;
@@ -1103,12 +1091,12 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01212
                 case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
-                    if (srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+                    if (!dst && srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
                         return true;
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01213
                 case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
-                    if (srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+                    if (!dst && srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
                         return true;
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01198

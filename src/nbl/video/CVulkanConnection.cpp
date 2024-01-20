@@ -234,7 +234,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     std::unique_ptr<CVulkanDebugCallback> debugCallback = std::make_unique<CVulkanDebugCallback>(std::move(logger));
 
     VkDebugUtilsMessengerCreateInfoEXT debugMessengerCreateInfo = { VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT, nullptr };
-    if (logger && enabledFeatures.debugUtils)
+    if (enabledFeatures.debugUtils)
     {
         debugMessengerCreateInfo.flags = 0;
         auto debugCallbackFlags = getDebugCallbackFlagsFromLogLevelMask(logLevelMask);
