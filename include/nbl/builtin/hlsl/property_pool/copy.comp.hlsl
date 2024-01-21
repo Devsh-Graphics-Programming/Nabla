@@ -33,7 +33,9 @@ struct TransferLoop
 
     void copyLoop(uint baseInvocationIndex, uint propertyId, TransferRequest transferRequest, uint dispatchSize)
     {
-        uint lastInvocation = min(transferRequest.elementCount, globals.endOffset);
+        uint64_t elementCount = uint64_t(transferRequest.elementCount32)
+            | uint64_t(transferRequest.elementCountExtra) << 32;
+        uint lastInvocation = min(elementCount, globals.endOffset);
         for (uint invocationIndex = globals.beginOffset + baseInvocationIndex; invocationIndex < lastInvocation; invocationIndex += dispatchSize)
         {
             iteration(propertyId, transferRequest.propertySize, transferRequest.srcAddr, transferRequest.dstAddr, invocationIndex);
@@ -106,12 +108,13 @@ void main(uint32_t3 dispatchId)
     transferRequest.dstIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 3);
     // Remaining elements are part of the same bitfield
     // TODO: Do this only using raw buffer load?
-    uint64_t bitfieldType = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
-    transferRequest.elementCount = bitfieldType;
-    transferRequest.propertySize = bitfieldType >> 35;
-    transferRequest.fill = bitfieldType >> (35 + 24);
-    transferRequest.srcIndexSizeLog2 = bitfieldType >> (35 + 24 + 1);
-    transferRequest.dstIndexSizeLog2 = bitfieldType >> (35 + 24 + 1 + 2);
+    uint2 bitfieldType = vk::RawBufferLoad<uint2>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
+    transferRequest.elementCount32 = bitfieldType;
+    transferRequest.elementCountExtra = bitfieldType;
+    transferRequest.propertySize = bitfieldType >> 3;
+    transferRequest.fill = bitfieldType >> (3 + 24);
+    transferRequest.srcIndexSizeLog2 = bitfieldType >> (3 + 24 + 1);
+    transferRequest.dstIndexSizeLog2 = bitfieldType >> (3 + 24 + 1 + 2);
 
     const uint dispatchSize = nbl::hlsl::device_capabilities_traits<device_capabilities>::maxOptimallyResidentWorkgroupInvocations;
     const bool fill = transferRequest.fill == 1;
