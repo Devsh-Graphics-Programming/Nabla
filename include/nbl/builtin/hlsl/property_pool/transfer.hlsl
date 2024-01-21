@@ -17,7 +17,7 @@ struct TransferRequest
     uint64_t dstIndexAddr; // IOTA default
     uint64_t elementCount : 35; // allow up to 64GB IGPUBuffers
     uint64_t propertySize : 24; // all the leftover bits (just use bytes now)
-    uint64_t fill;
+    uint64_t fill : 1;
     // 0=uint8, 1=uint16, 2=uint32, 3=uint64
     uint64_t srcIndexSizeLog2 : 2;
     uint64_t dstIndexSizeLog2 : 2;
