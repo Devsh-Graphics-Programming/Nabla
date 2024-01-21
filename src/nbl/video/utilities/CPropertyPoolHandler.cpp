@@ -6,9 +6,32 @@ using namespace nbl;
 using namespace video;
 
 //
-CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)), m_dsCache()
+CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device))
 {
-	// TODO: rewrite in HLSL!
+	auto system = m_device->getPhysicalDevice()->getSystem();
+	// TODO: Reuse asset manager from elsewhere?
+	auto assetManager = core::make_smart_refctd_ptr<asset::IAssetManager>(core::smart_refctd_ptr<system::ISystem>(system));
+
+	video::IGPUObjectFromAssetConverter CPU2GPU;
+	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
+	cpu2gpuParams.assetManager = assetManager.get();
+	cpu2gpuParams.device = m_device.get();
+	
+	auto loadShader = [&](const char* path)
+	{
+		asset::IAssetLoader::SAssetLoadParams params = {};
+		auto shader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(path, params).getContents().begin());
+		shader->setSpecializationInfo(asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
+		assert(shader);
+
+		auto gpuShaders = CPU2GPU.getGPUObjectsFromAssets(&shader, &shader + 1u, cpu2gpuParams);
+		auto gpuShader = gpuShaders->begin()[0u];
+		assert(gpuShader);
+
+		return gpuShader;
+	};
+	auto shader = loadShader("../../../include/nbl/builtin/hlsl/property_pool/copy.comp.hlsl");
+
 #if 0
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
 	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
@@ -66,6 +89,7 @@ bool CPropertyPoolHandler::transferProperties(
 	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
 )
 {
+#if 0
 	if (requestsBegin==requestsEnd)
 		return true;
 	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
@@ -180,7 +204,11 @@ bool CPropertyPoolHandler::transferProperties(
 		result = copyPass(requests,leftOverProps)&&result;
 
 	return result;
+#endif
+	return false;
 }
+
+#if 0 // TODO: up streaming requests
 
 uint32_t CPropertyPoolHandler::transferProperties(
 	StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
@@ -189,6 +217,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint
 )
 {
+#if 0
 	if (!requestCount)
 		return 0u;
 
@@ -526,72 +555,9 @@ uint32_t CPropertyPoolHandler::transferProperties(
 	const auto leftOverProps = requestCount-fullPasses*m_maxPropertiesPerPass;
 	if (leftOverProps)
 		return copyPass(requests,leftOverProps);
+#endif
 	
 	return 0u;
 }
 
-uint32_t CPropertyPoolHandler::TransferDescriptorSetCache::acquireSet(
-	CPropertyPoolHandler* handler, const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
-	const TransferRequest* requests, const uint32_t propertyCount
-)
-{
-	auto retval = IDescriptorSetCache::acquireSet();
-	if (retval==IDescriptorSetCache::invalid_index)
-		return IDescriptorSetCache::invalid_index;
-	
-
-	auto device = handler->getDevice();
-	const auto maxPropertiesPerPass = handler->getMaxPropertiesPerTransferDispatch();
-
-
-	IGPUDescriptorSet::SDescriptorInfo infos[MaxPropertiesPerDispatch*2u+2u];
-	infos[0] = scratch;
-	infos[0].info.buffer.size = sizeof(nbl_glsl_property_pool_transfer_t)*propertyCount;
-	infos[1] = addresses;
-	auto* inDescInfo = infos+2;
-	auto* outDescInfo = infos+2+maxPropertiesPerPass;
-	for (uint32_t i=0u; i<propertyCount; i++)
-	{
-		const auto& request = requests[i];
-			
-		const auto& memblock = request.memblock;
-
-		// no not attempt to bind sized ranges of the buffers, remember that the copies are indexed, so the reads and writes may be scattered
-		if (request.isDownload())
-		{
-			inDescInfo[i] = memblock;
-			outDescInfo[i] = request.buffer;
-		}
-		else
-		{
-			inDescInfo[i] = request.buffer;
-			outDescInfo[i] = memblock;
-		}
-	}
-	// just to make Vulkan shut up
-	for (uint32_t i=propertyCount; i<maxPropertiesPerPass; i++)
-	{
-		inDescInfo[i] = scratch;
-		outDescInfo[i] = scratch;
-	}
-	IGPUDescriptorSet::SWriteDescriptorSet writes[4u];
-	IGPUDescriptorSet* const set = IDescriptorSetCache::getSet(retval);
-	for (auto i=0u; i<4u; i++)
-	{
-		writes[i].dstSet = set;
-		writes[i].binding = i;
-		writes[i].arrayElement = 0u;
-		writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
-	}
-	writes[0].count = 1u;
-	writes[0].info = infos;
-	writes[1].count = 1u;
-	writes[1].info = infos+1u;
-	writes[2].count = maxPropertiesPerPass;
-	writes[2].info = inDescInfo;
-	writes[3].count = maxPropertiesPerPass;
-	writes[3].info = outDescInfo;
-	device->updateDescriptorSets(4u, writes, 0u, nullptr);
-
-	return retval;
-}
+#endif

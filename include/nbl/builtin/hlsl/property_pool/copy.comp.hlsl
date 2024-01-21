@@ -3,10 +3,10 @@
 #include "nbl/builtin/hlsl/property_pool/transfer.hlsl"
 
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6144
-template<typename capability_traits=nbl::hlsl::jit::device_capabilities_traits>
-uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize() {
-    return uint32_t3(capability_traits::maxOptimallyResidentWorkgroupInvocations, 1, 1);
-}
+// template<typename capability_traits=nbl::hlsl::jit::device_capabilities_traits>
+// uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize() {
+//     return uint32_t3(capability_traits::maxOptimallyResidentWorkgroupInvocations, 1, 1);
+// }
 
 [[numthreads(1, 1, 1)]
 void main(uint32_t3 dispatchId : SV_DispatchThreadID)

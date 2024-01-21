@@ -1,3 +1,6 @@
+#ifndef _NBL_BUILTIN_HLSL_GLSL_PROPERTY_POOLS_TRANSFER_
+#define _NBL_BUILTIN_HLSL_GLSL_PROPERTY_POOLS_TRANSFER_
+
 namespace nbl
 {
 namespace hlsl
@@ -30,7 +33,9 @@ struct GlobalPushContants
     // BDA address (GPU pointer) into the transfer commands buffer
     uint64_t transferCommandsAddress;
 };
+}
+}
+}
 
-}
-}
-}
+#endif
+
