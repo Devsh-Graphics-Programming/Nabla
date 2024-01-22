@@ -31,6 +31,9 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		return gpuShader;
 	};
 	auto shader = loadShader("../../../include/nbl/builtin/hlsl/property_pool/copy.comp.hlsl");
+	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(nbl::hlsl::property_pools::GlobalPushContants)};
+	auto layout = m_device->createPipelineLayout(&baseDWORD,&baseDWORD+1u);
+	m_pipeline = m_device->createComputePipeline(nullptr,std::move(layout),std::move(shader));
 
 #if 0
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
@@ -89,6 +92,73 @@ bool CPropertyPoolHandler::transferProperties(
 	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
 )
 {
+	if (requestsBegin==requestsEnd)
+		return true;
+	if (!scratch.buffer || !scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
+	{
+		logger.log("CPropertyPoolHandler: Need a valid scratch buffer which can have updates staged from the commandbuffer!",system::ILogger::ELL_ERROR);
+		return false;
+	}
+	// TODO: validate usage flags
+	uint32_t maxScratchSize = MaxPropertiesPerDispatch * sizeof(nbl::hlsl::property_pools::TransferRequest);
+	if (scratch.offset + maxScratchSize > scratch.buffer->getSize())
+	    logger.log("CPropertyPoolHandler: The scratch buffer binding provided might not be big enough in the worst case! (Scratch buffer size: %i Max scratch size: %i)",
+			system::ILogger::ELL_WARNING,
+			scratch.buffer->getSize() - scratch.offset,
+			maxScratchSize);
+
+	const auto totalProps = std::distance(requestsBegin,requestsEnd);
+	bool success = true;
+	
+	uint32_t numberOfPasses = totalProps / MaxPropertiesPerDispatch;
+	nbl::hlsl::property_pools::TransferRequest transferRequestsData[MaxPropertiesPerDispatch];
+	uint64_t scratchBufferDeviceAddr = m_device->getBufferDeviceAddress(scratch.buffer.get()) + scratch.offset;
+	uint64_t addressBufferDeviceAddr = m_device->getBufferDeviceAddress(addresses.buffer.get()) + addresses.offset;
+
+	for (uint32_t transferPassRequestsIndex = 0; transferPassRequestsIndex < totalProps; transferPassRequestsIndex += MaxPropertiesPerDispatch)
+	{
+		const TransferRequest* transferPassRequests = requestsBegin + transferPassRequestsIndex;
+		uint32_t requestsThisPass = core::min<uint32_t>(std::distance(transferPassRequests, requestsEnd), MaxPropertiesPerDispatch);
+		uint64_t maxElements = 0;
+		for (uint32_t i = 0; i < requestsThisPass; i ++)
+		{
+			auto& transferRequest = transferRequestsData[i];
+			auto srcRequest = transferPassRequests + i;
+			transferRequest.srcAddr = m_device->getBufferDeviceAddress(srcRequest->memblock.buffer.get()) + srcRequest->memblock.offset;
+			transferRequest.dstAddr = m_device->getBufferDeviceAddress(srcRequest->buffer.buffer.get()) + srcRequest->buffer.offset;
+			transferRequest.srcIndexAddr = srcRequest->srcAddressesOffset ? addressBufferDeviceAddr + srcRequest->srcAddressesOffset : 0;
+			transferRequest.dstIndexAddr = srcRequest->dstAddressesOffset ? addressBufferDeviceAddr + srcRequest->dstAddressesOffset : 0;
+			transferRequest.elementCount32 = uint32_t(srcRequest->elementCount & (uint64_t(1) << 32) - 1);
+			transferRequest.elementCountExtra = uint32_t(srcRequest->elementCount >> 32);
+			transferRequest.propertySize = srcRequest->elementSize;
+			transferRequest.fill = 0; // TODO
+			transferRequest.srcIndexSizeLog2 = 1u; // TODO
+			transferRequest.dstIndexSizeLog2 = 1u; // TODO
+
+			maxElements = core::max<uint64_t>(maxElements, srcRequest->elementCount);
+		}
+		cmdbuf->updateBuffer(scratch.buffer.get(),scratch.offset,sizeof(TransferRequest)*requestsThisPass,transferRequestsData);
+		// TODO: pipeline barrier
+		cmdbuf->bindComputePipeline(m_pipeline.get());
+		
+		nbl::hlsl::property_pools::GlobalPushContants pushConstants;
+		{
+			pushConstants.beginOffset = baseDWORD;
+			pushConstants.endOffset = endDWORD;
+			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr;
+		}
+		cmdbuf->pushConstants(m_pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::property_pools::GlobalPushContants), &pushConstants);
+
+		// dispatch
+		{
+			const auto& limits = m_device->getPhysicalDevice()->getLimits();
+			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations * requestsThisPass;
+			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(maxElements,invocationCoarseness), requestsThisPass, 1u);
+		}
+		// TODO: pipeline barrier
+	}
+
+	return success;
 #if 0
 	if (requestsBegin==requestsEnd)
 		return true;

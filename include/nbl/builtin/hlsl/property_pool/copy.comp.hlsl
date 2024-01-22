@@ -14,16 +14,22 @@ namespace property_pools
 template<bool Fill, bool SrcIndexIota, bool DstIndexIota, uint64_t SrcIndexSizeLog2, uint64_t DstIndexSizeLog2>
 struct TransferLoop
 {
-    void iteration(uint propertyId, uint64_t propertySize, uint64_t srcAddr, uint64_t dstAddr, uint invocationIndex)
+    void iteration(uint propertyId, TransferRequest transferRequest, uint invocationIndex)
     {
-        const uint64_t srcOffset = uint64_t(invocationIndex) * (uint64_t(1) << SrcIndexSizeLog2) * propertySize;
-        const uint64_t dstOffset = uint64_t(invocationIndex) * (uint64_t(1) << DstIndexSizeLog2) * propertySize;
-        
-        const uint64_t srcIndexAddress = Fill ? srcAddr + srcOffset : srcAddr;
-        const uint64_t dstIndexAddress = Fill ? dstAddr + dstOffset : dstAddr;
+        const uint64_t srcIndexSize = uint64_t(1) << SrcIndexSizeLog2;
+        const uint64_t dstIndexSize = uint64_t(1) << DstIndexSizeLog2;
 
-        const uint64_t srcAddressMapped = SrcIndexIota ? srcIndexAddress : vk::RawBufferLoad<uint64_t>(srcIndexAddress); 
-        const uint64_t dstAddressMapped = DstIndexIota ? dstIndexAddress : vk::RawBufferLoad<uint64_t>(dstIndexAddress); 
+        const uint64_t srcOffset = uint64_t(invocationIndex) * srcIndexSize * transferRequest.propertySize;
+        const uint64_t dstOffset = uint64_t(invocationIndex) * dstIndexSize * transferRequest.propertySize;
+        
+        const uint64_t srcIndexAddress = Fill ? transferRequest.srcIndexAddr + srcOffset : transferRequest.srcIndexAddr;
+        const uint64_t dstIndexAddress = Fill ? transferRequest.dstIndexAddr + dstOffset : transferRequest.dstIndexAddr;
+
+        const uint64_t srcAddressBufferOffset = SrcIndexIota ? srcIndexAddress : vk::RawBufferLoad<uint32_t>(srcIndexAddress);
+        const uint64_t dstAddressBufferOffset = DstIndexIota ? dstIndexAddress : vk::RawBufferLoad<uint32_t>(dstIndexAddress);
+
+        const uint64_t srcAddressMapped = transferRequest.srcAddr + srcAddressBufferOffset * srcIndexSize; 
+        const uint64_t dstAddressMapped = transferRequest.dstAddr + dstAddressBufferOffset * dstIndexSize; 
 
         if (SrcIndexSizeLog2 == 0) {} // we can't write individual bytes
         else if (SrcIndexSizeLog2 == 1) vk::RawBufferStore<uint16_t>(dstAddressMapped, vk::RawBufferLoad<uint16_t>(srcAddressMapped));
@@ -35,10 +41,10 @@ struct TransferLoop
     {
         uint64_t elementCount = uint64_t(transferRequest.elementCount32)
             | uint64_t(transferRequest.elementCountExtra) << 32;
-        uint lastInvocation = min(elementCount, globals.endOffset);
-        for (uint invocationIndex = globals.beginOffset + baseInvocationIndex; invocationIndex < lastInvocation; invocationIndex += dispatchSize)
+        uint64_t lastInvocation = min(elementCount, globals.endOffset);
+        for (uint64_t invocationIndex = globals.beginOffset + baseInvocationIndex; invocationIndex < lastInvocation; invocationIndex += dispatchSize)
         {
-            iteration(propertyId, transferRequest.propertySize, transferRequest.srcAddr, transferRequest.dstAddr, invocationIndex);
+            iteration(propertyId, transferRequest, invocationIndex);
         }
     }
 };
@@ -46,6 +52,10 @@ struct TransferLoop
 // For creating permutations of the functions based on parameters that are constant over the transfer request
 // These branches should all be scalar, and because of how templates are compiled statically, the loops shouldn't have any
 // branching within them
+// 
+// Permutations:
+// 2 (fill or not) * 2 (src index iota or not) * 2 (dst index iota or not) * 4 (src index size) * 4 (dst index size)
+// Total amount of permutations: 128
 
 template<bool Fill, bool SrcIndexIota, bool DstIndexIota, uint64_t SrcIndexSizeLog2>
 struct TransferLoopPermutationSrcIndexSizeLog
@@ -76,7 +86,7 @@ struct TransferLoopPermutationSrcIota
 {
     void copyLoop(uint baseInvocationIndex, uint propertyId, TransferRequest transferRequest, uint dispatchSize)
     {
-        bool dstIota = transferRequest.dstAddr == 0;
+        bool dstIota = transferRequest.dstIndexAddr == 0;
         if (dstIota) { TransferLoopPermutationDstIota<Fill, SrcIndexIota, true> loop; loop.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize); }
         else { TransferLoopPermutationDstIota<Fill, SrcIndexIota, false> loop; loop.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize); }
     }
@@ -87,7 +97,7 @@ struct TransferLoopPermutationFill
 {
     void copyLoop(uint baseInvocationIndex, uint propertyId, TransferRequest transferRequest, uint dispatchSize)
     {
-        bool srcIota = transferRequest.srcAddr == 0;
+        bool srcIota = transferRequest.srcIndexAddr == 0;
         if (srcIota) { TransferLoopPermutationSrcIota<Fill, true> loop; loop.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize); }
         else { TransferLoopPermutationSrcIota<Fill, false> loop; loop.copyLoop(baseInvocationIndex, propertyId, transferRequest, dispatchSize); }
     }

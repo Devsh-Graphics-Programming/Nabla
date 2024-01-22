@@ -74,12 +74,12 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			asset::SBufferRange<IGPUBuffer> memblock = {};
 			E_FLAG flags = EF_NONE;
 			uint16_t elementSize = 0u;
-			uint32_t elementCount = 0u;
+			uint64_t elementCount = 0u;
 			// the source or destination buffer depending on the transfer type
 			asset::SBufferBinding<video::IGPUBuffer> buffer = {};
 			// can be invalid, if invalid, treated like an implicit {0,1,2,3,...} iota view
-			uint32_t srcAddressesOffset = IPropertyPool::invalid;
-			uint32_t dstAddressesOffset = IPropertyPool::invalid;
+			uint64_t srcAddressesOffset = IPropertyPool::invalid;
+			uint64_t dstAddressesOffset = IPropertyPool::invalid;
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] bool transferProperties(
@@ -206,7 +206,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
     protected:
 		~CPropertyPoolHandler() {}
 
-		static inline constexpr auto MaxPropertiesPerDispatch = 0u; // TODO
+		static inline constexpr auto MaxPropertiesPerDispatch = nbl::hlsl::property_pools::MaxPropertiesPerDispatch;
 		static inline constexpr auto DescriptorCacheSize = 128u;
 
 

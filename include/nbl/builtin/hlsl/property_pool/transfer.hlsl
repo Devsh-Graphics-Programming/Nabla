@@ -1,6 +1,8 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_PROPERTY_POOLS_TRANSFER_
 #define _NBL_BUILTIN_HLSL_GLSL_PROPERTY_POOLS_TRANSFER_
 
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+
 namespace nbl
 {
 namespace hlsl
@@ -40,6 +42,9 @@ struct GlobalPushContants
     // BDA address (GPU pointer) into the transfer commands buffer
     uint64_t transferCommandsAddress;
 };
+
+NBL_CONSTEXPR uint32_t MaxPropertiesPerDispatch = 128;
+
 }
 }
 }
