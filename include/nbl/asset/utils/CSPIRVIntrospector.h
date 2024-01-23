@@ -14,17 +14,16 @@
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-#include "nbl/asset/utils/ShaderRes.h"
+//#include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 
-
 #include "nbl/core/definitions.h"
-
 
 namespace spirv_cross
 {
     class ParsedIR;
     class Compiler;
+	class Resource;
     struct SPIRType;
 }
 
@@ -43,13 +42,22 @@ namespace nbl::core
 {
 
 template<typename T, size_t Extent=std::dynamic_extent>
-struct based_span : private std::span<T,Extent>
+struct based_span
 {
-	constexpr based_span() : span<T,Extent>() {}
+	public:
+		constexpr based_span()
+		{
+			static_assert(sizeof(based_span<T,Extent>)==sizeof(std::span<T,Extent>));
+		}
 
-	constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : span<T,Extent>(span.begin()-basePtr,span.end()-basePtr) {}
+		constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : m_offset(span.data()-basePtr), m_size(span.size()) {}
+		constexpr explicit based_span(size_t offset, size_t size) : m_offset(offset), m_size(size) {}
 
-	inline std::span<T,Extent> operator()(T* newBase) const {return std::span<T,Extent>(begin()+newBase,end()+newBase);}
+		inline std::span<T,Extent> operator()(T* newBase) const {return {newBase+m_offset,m_size};}
+
+	private:
+		size_t m_offset = ~0ull;
+		size_t m_size = 0ull;
 };
 
 }
@@ -72,14 +80,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint32_t value = 0;
 						struct
 						{
-							uint32_t specID : 30;
+							uint32_t specID : 31;
 							uint32_t isSpecConstant : 1;
-							// illegal for push constant block members
-							uint32_t isRuntimeSized : 1;
 						};
 					};
 
-					inline bool isArray() const {return value || isSpecConstant || isRuntimeSized;}
+					// illegal for push constant block members
+					inline bool isRuntimeSized() const { return value == 0; }
 				};
 				struct SDescriptorInfo
 				{
@@ -89,7 +96,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 
 					uint32_t binding = ~0u;
-					SArrayInfo count = {};
+					std::span<SArrayInfo> count = {};
 					IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT;
 				};
 		};
@@ -160,17 +167,19 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				{
 					struct SMember
 					{
-						inline std::enable_if_t<!Mutable,std::string_view> getName() const
+						// TODO [Przemek]: doesn't work when `Mutable = true`, fix
+						/*inline std::enable_if_t<!Mutable,std::string_view> getName() const
 						{
 							return std::string_view(name.data(),name.size());
-						}
+						}*/
 
 						//! children
+						span_t<char, Mutable> name = {};
 						span_t<SMember,Mutable> members = {};
 						//! self
-						span_t<char,Mutable> name = {};
+						
 						uint32_t offset = 0;
-						SArrayInfo count = {};
+						span_t<SArrayInfo,Mutable> count = {};
 						// only relevant if `count.isArray()`
 						uint32_t stride = 0;
 						// This is the size of the entire member, so for an array it includes everything
@@ -178,6 +187,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						STypeInfo typeInfo = {};
 					};
 
+					span_t<char, Mutable> name = {};
 					decltype(SMember::members) members;
 				};
 				//! Maybe one day in the future they'll use memory blocks, but not now
@@ -230,23 +240,25 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					struct SStorageTexelBuffer final
 					{
 					};
-					struct SUniformBuffer final : SMemoryBlock<span_t>
+					struct SUniformBuffer final : SMemoryBlock<true>
 					{
 						size_t size = 0;
 					};
-					struct SStorageBuffer final : SMemoryBlock<Mutable>
+					struct SStorageBuffer final : SMemoryBlock<true>
 					{
-						inline std::enable_if_t<!Mutable,bool> isLastMemberRuntimeSized() const
+						template<bool C=!Mutable>
+						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
 						{
-							if (members.empty())
+							if (this->members.empty())
 								return false;
-							return members.back().count.isRuntimeSized;
+							return this->members.back().count.isRuntimeSized;
 						}
-						inline std::enable_if_t<!Mutable,size_t> getRuntimeSize(size_t lastMemberElementCount) const
+						template<bool C=!Mutable>
+						inline std::enable_if_t<C,size_t> getRuntimeSize(size_t lastMemberElementCount) const
 						{
 							if (isLastMemberRuntimeSized)
 							{
-								const auto& lastMember = members.back();
+								const auto& lastMember = this->members.back();
 								assert(!lastMember.count.isSpecConstantID);
 								return sizeWithoutLastMember+lastMemberElementCount*lastMember.stride;
 							}
@@ -265,8 +277,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					//! Note: for SSBOs and UBOs it's the block name
 					span_t<char,Mutable> name = {};
 					//
-					SArrayInfo count = {};
-					//
 					union
 					{
 						SCombinedImageSampler combinedImageSampler;
@@ -279,7 +289,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						// TODO: acceleration structure?
 					};
 				};
-
 
 				//! For the Factory Creation
 				struct SParams
@@ -307,24 +316,25 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//! TODO: Add getters for all the other members!
 				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
 
-				inline bool canSpecializationlesslyCreateDescSetFrom() const
+				/*inline bool canSpecializationlesslyCreateDescSetFrom() const
 				{
 					for (const auto& descSet : m_descriptorSetBindings)
 					{
-						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<>& bnd)->bool{ return bnd.count.isSpecConstant;});
+						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<>& bnd)->bool{ return bnd.count.isSpecConstant();});
 						if (found!=descSet.end())
 							return false;
 					}
 					return true;
-				}
-
-			protected:
-				friend CSPIRVIntrospector;
+				}*/
 
 				// all members are set-up outside the ctor
 				inline CStageIntrospectionData() {}
+
 				// We don't need to do anything, all the data was allocated from vector pools
 				inline ~CStageIntrospectionData() {}
+
+			protected:
+				friend CSPIRVIntrospector;
 
 				using creation_member_t = SMemoryBlock<true>::SMember;
 				template<class Pre>
@@ -345,36 +355,41 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						pushAllMembers(*m);
 					}
 				}
-				template<class Pre>
-				inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<true>& block, Pre& pre)
-				{
-					std::queue<creation_member_t*> q;
-					// TODO: pushAllMembers
-					while (!s.empty())
-					{
-						const auto& m = q.front();
-						pre(*m);
-						q.pop();
-						pushAllMembers(*m);
-					}
-				}
+				//template<class Pre>
+				//inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<true>& block, Pre& pre)
+				//{
+				//	std::queue<creation_member_t*> q;
+				//	// TODO: pushAllMembers
+				//	while (!s.empty())
+				//	{
+				//		const auto& m = q.front();
+				//		pre(*m);
+				//		q.pop();
+				//		pushAllMembers(*m);
+				//	}
+				//}
+
+				SDescriptorVarInfo<>& addResource_common(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
 				
 				// Parameters it was created with
 				SParams m_params;
 				//! Sorted by `id`
-				core::vector<SSpecConstant<>> m_specConstants;
+				core::vector<SSpecConstant<>> m_specConstants; // TODO: maybe unordered_set?
 				//! Sorted by `location`
 				core::vector<SInputInterface> m_input;
 				std::variant<
 					core::vector<SFragmentOutputInterface>, // when `params.shader->getStage()==ESS_FRAGMENT`
 					core::vector<SOutputInterface> // otherwise
 				> m_output;
+				//!
+				SPushConstantInfo<> m_pushConstants;
 				//! Each vector is sorted by `binding`
 				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[4];
 				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
 				// then just convert from `SMemoryBlock<core::based_span>` to `SMemoryBlock<std::span>`
 				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
-				core::vector<const char*> m_stringPool;
+				core::vector<char> m_stringPool;
+				core::vector<SArrayInfo> m_arraySizePool;
 				core::vector<SMemoryBlock<>> m_memberPool;
 		};
 		class CPipelineIntrospectionData final : public CIntrospectionData
@@ -431,17 +446,14 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				return nullptr;
 
 			// TODO: templated find!
-			auto introspectionData = m_introspectionCache.find(params);
-			if (introspectionData != m_introspectionCache.end())
-				return *introspectionData;
+			//auto introspectionData = m_introspectionCache.find(params);
+			//if (introspectionData != m_introspectionCache.end())
+			//	return *introspectionData;
 
-			// TODO: roll these 3 lines into `doIntrospection`
-			const ICPUBuffer* spv = params.shader->getContent();
-			spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-			auto introspection = doIntrospection(comp,params.entryPoint,params.shader->getStage());
-    
-			if (insertToCache)
-				m_introspectionCache.insert(introspectionData,introspection);
+			auto introspection = doIntrospection(params);
+
+			//if (insertToCache)
+			//	m_introspectionCache.insert(introspectionData,introspection);
 
 			return introspection;
 		}
@@ -475,6 +487,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 #endif	
 	private:
 		NBL_API2 core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
+		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, CStageIntrospectionData::SMemoryBlock<true>& _res, uint32_t _blockBaseTypeID, uint32_t _varID/*, const mapId2SpecConst_t& _sortedId2sconst*/) const;
+		size_t calcBytesizeforType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const;
 
 		struct KeyHasher
 		{
@@ -515,8 +529,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			}
 		};
 
-		using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>,KeyHasher,KeyEquals>;
-		ParamsToDataMap m_introspectionCache;
+		//using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>,KeyHasher,KeyEquals>;
+		//ParamsToDataMap m_introspectionCache;
 };
 
 } // nbl::asset
