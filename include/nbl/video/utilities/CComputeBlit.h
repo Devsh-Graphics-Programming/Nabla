@@ -229,7 +229,7 @@ namespace nbl::video
 				   "}\n";
 
 			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
-			auto gpuShader = m_device->createShader(std::move(cpuShader));
+			auto gpuShader = m_device->createShader(std::move(cpuShader.get()));
 
 			return gpuShader;
 		}
@@ -663,17 +663,15 @@ namespace nbl::video
 				readyForNorm.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
 				readyForNorm.oldLayout = video::IGPUImage::LAYOUT::GENERAL;
 				readyForNorm.newLayout = video::IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
-				readyForNorm.image = normalizationInImage;
+				readyForNorm.image = normalizationInImage.get();
 				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 				readyForNorm.subresourceRange.levelCount = 1u;
 				readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
 
-				depInfo.bufBarrierCount = 1;
-				depInfo.bufBarriers = &alphaTestBarrier;
-				depInfo.imgBarrierCount = 1;
-				depInfo.imgBarriers = &readyForNorm;
+				depInfo.bufBarriers = { &alphaTestBarrier, &alphaTestBarrier + 1 };
+				depInfo.imgBarriers = { &readyForNorm, &readyForNorm + 1 };
 
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, &depInfo);
+				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, depInfo);
 
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 				cmdbuf->bindComputePipeline(normalizationPipeline);
@@ -685,26 +683,28 @@ namespace nbl::video
 		template <typename BlitUtilities, typename... Args>
 		inline void blit(video::IQueue* computeQueue, Args&&... args)
 		{
-			auto cmdPool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
+			auto cmdPool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::CREATE_FLAGS::NONE);
 			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
-			cmdPool->createCommandBuffers(video::IGPUCommandBuffer::EL_PRIMARY, { &cmdbuf, &cmdbuf + 1 });
+			cmdPool->createCommandBuffers(video::IGPUCommandPool::BUFFER_LEVEL::PRIMARY, {&cmdbuf, &cmdbuf + 1});
 
 			auto semaphore = m_device->createSemaphore(0);
 
-			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+			cmdbuf->begin(video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 			blit<BlitUtilities>(cmdbuf.get(), std::forward<Args>(args)...);
 			cmdbuf->end();
 
 			video::IQueue::SSubmitInfo submitInfo;
 			video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo;
-			submitInfo.commandBuffers = { &cmdbuf, &cmdbuf + 1 };
+			video::IQueue::SSubmitInfo::SCommandBufferInfo cmdbufInfo;
+			cmdbufInfo.cmdbuf = cmdbuf.get();
+			submitInfo.commandBuffers = { &cmdbufInfo, &cmdbufInfo + 1 };
 			submitInfo.signalSemaphores = { &signalInfo, &signalInfo + 1 };
 			signalInfo.semaphore = semaphore.get();
 			signalInfo.value = 1;
-			signalInfo.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BIT;
+			signalInfo.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
 			computeQueue->submit({ &submitInfo, &submitInfo + 1 });
 
-			video::ILogicalDevice::SSemaphoreWaitInfo waitInfos{ semaphore.get(), 1 };
+			video::ISemaphore::SWaitInfo waitInfos{ semaphore.get(), 1 };
 			m_device->blockForSemaphores({ &waitInfos, &waitInfos + 1});
 		}
 

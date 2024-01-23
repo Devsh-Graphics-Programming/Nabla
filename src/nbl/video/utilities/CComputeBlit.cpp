@@ -3,8 +3,8 @@
 using namespace nbl;
 using namespace video;
 
-#if 0 // TODO: port
-core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
+
+core::smart_refctd_ptr<video::IGPUShader> CComputeBlit::createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 	const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
@@ -37,12 +37,11 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTe
 		   "}\n";
 
 	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlitGLSLGLSL::createAlphaTestSpecializedShader");
-	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
-	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+	return  m_device->createShader(std::move(cpuShader.get()));
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
+core::smart_refctd_ptr<video::IGPUShader> CComputeBlit::createNormalizationSpecializedShader(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
 	const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
@@ -89,8 +88,6 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 		   "}\n";
 
 	auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlitGLSL::createNormalizationSpecializedShader");
-	auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
 
-	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
+	return m_device->createShader(std::move(cpuShader.get()));
 }
-#endif

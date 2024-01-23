@@ -18,7 +18,7 @@ using namespace nbl::video;
 	TODO (Mihailo): Add support for downloading a region of a specific subresource
 */
 
-#if 0 // TODO (Mihailo): port
+
 inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	ILogicalDevice* logicalDevice,
 	IQueue* queue,
@@ -74,8 +74,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 
 		IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
 		decltype(info)::image_barrier_t barrier = {};
-		info.imgBarrierCount = 1u;
-		info.imgBarriers = &barrier;
+		info.imgBarriers = { &barrier, &barrier + 1 };
 
 		{
 			barrier.barrier.dep.srcStageMask = PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
@@ -127,9 +126,9 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 
 	queue->submit({ &info, &info + 1});
 
-	ILogicalDevice::SSemaphoreWaitInfo waitInfo{ signalSemaphore.get(), 1u};
+	ISemaphore::SWaitInfo waitInfo{ signalSemaphore.get(), 1u};
 
-	if (logicalDevice->blockForSemaphores({&waitInfo, &waitInfo + 1}) != ILogicalDevice::WAIT_RESULT::SUCCESS)
+	if (logicalDevice->blockForSemaphores({&waitInfo, &waitInfo + 1}) != ISemaphore::WAIT_RESULT::SUCCESS)
 		return nullptr;
 
 	core::smart_refctd_ptr<ICPUImageView> cpuImageView;
@@ -209,7 +208,7 @@ inline bool createScreenShot(
 	IAssetWriter::SAssetWriteParams writeParams(cpuImageView.get());
 	return assetManager->writeAsset(filename.string(),writeParams); // TODO: Use std::filesystem::path
 }
-#endif
+
 
 } // namespace nbl::ext::ScreenShot
 
