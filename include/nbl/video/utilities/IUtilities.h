@@ -538,7 +538,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // --------------
         // updateImageViaStagingBuffer
         // --------------
-#if 0 // TODO: port
         //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
         //! Returns:
@@ -579,10 +578,20 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * submissionFence must point to a valid IGPUFence
         //!     * submissionFence must be in `UNSIGNALED` state
         //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
-        [[nodiscard("Use The New IQueue::SubmitInfo")]] IQueue::SSubmitInfo updateImageViaStagingBuffer(
-            asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-            IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit);
-#endif
+        bool updateImageViaStagingBuffer(
+            SIntendedSubmitInfo& nextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+            const core::SRange<const asset::IImage::SBufferCopy>& regions);
+
+        inline bool updateImageViaStagingBufferAutoSubmit(
+            const SIntendedSubmitInfo::SFrontHalf& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+            const core::SRange<const asset::IImage::SBufferCopy>& regions)
+        {
+            if (!autoSubmitAndBlock(submit, [&](SIntendedSubmitInfo& nextSubmit) { return updateImageViaStagingBuffer(nextSubmit, srcBuffer, srcFormat, dstImage, currentDstImageLayout, regions); }))
+            {
+                return false;
+            }
+            return true;
+        }
 
     protected:        
         // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
