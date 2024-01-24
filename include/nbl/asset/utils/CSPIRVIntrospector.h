@@ -51,7 +51,7 @@ struct based_span
 		}
 
 		constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : m_offset(span.data()-basePtr), m_size(span.size()) {}
-		constexpr explicit based_span(size_t offset, size_t size) : m_offset(offset), m_size(size) {}
+		constexpr based_span(size_t offset, size_t size) : m_offset(offset), m_size(size) {}
 
 		inline std::span<T,Extent> operator()(T* newBase) const {return {newBase+m_offset,m_size};}
 
@@ -86,7 +86,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					};
 
 					// illegal for push constant block members
-					inline bool isRuntimeSized() const { return value == 0; }
+					inline bool isRuntimeSized() const {return !isSpecConstant && value==0;}
 				};
 				struct SDescriptorInfo
 				{
@@ -96,7 +96,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 
 					uint32_t binding = ~0u;
-					std::span<SArrayInfo> count = {};
 					IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT;
 				};
 		};
@@ -129,7 +128,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 					inline bool operator<(const SInterface& _rhs) const
 					{
-						return location < _rhs.location;
+						return location<_rhs.location;
 					}
 				};
 				struct SInputInterface final : SInterface {};
@@ -151,12 +150,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint16_t rowMajor : 1 = 0;
 					//! stride==0 implies not matrix
 					uint16_t stride : 11 = 0;
-					VAR_TYPE type = VAR_TYPE::UNKNOWN_OR_STRUCT;
+					VAR_TYPE type : 6 = VAR_TYPE::UNKNOWN_OR_STRUCT;
 					uint8_t restrict_ : 1 = false;
-					uint8_t volatile_ : 1 = false;
-					uint8_t coherent : 1 = false;
-					uint8_t readonly : 1 = false;
-					uint8_t writeonly : 1 = false;
+					uint8_t aliased : 1 = false;
 				};
 				//
 				template<typename T, bool Mutable>
@@ -221,13 +217,18 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				template<bool Mutable=false>
 				struct SDescriptorVarInfo final : SDescriptorInfo
 				{
+					struct SRWDescriptor
+					{
+						uint8_t readonly : 1 = false;
+						uint8_t writeonly : 1 = false;
+					};
 					struct SCombinedImageSampler final
 					{
 						IImageView<ICPUImage>::E_TYPE viewType : 3;
 						uint8_t multisample : 1;
 						uint8_t shadow : 1;
 					};
-					struct SStorageImage final
+					struct SStorageImage final : SRWDescriptor
 					{
 						// `EF_UNKNOWN` means that Shader will use the StoreWithoutFormat or LoadWithoutFormat capability
 						E_FORMAT format = EF_UNKNOWN;
@@ -237,14 +238,14 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					struct SUniformTexelBuffer final
 					{
 					};
-					struct SStorageTexelBuffer final
+					struct SStorageTexelBuffer final : SRWDescriptor
 					{
 					};
 					struct SUniformBuffer final : SMemoryBlock<true>
 					{
 						size_t size = 0;
 					};
-					struct SStorageBuffer final : SMemoryBlock<true>
+					struct SStorageBuffer final : SRWDescriptor, SMemoryBlock<true>
 					{
 						template<bool C=!Mutable>
 						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
@@ -274,8 +275,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint32_t index;
 					};
 
+					inline bool isArray() const {return count.empty();}
+
 					//! Note: for SSBOs and UBOs it's the block name
 					span_t<char,Mutable> name = {};
+					span_t<SArrayInfo,Mutable> count = {};
+					uint8_t restrict_ : 1 = false;
+					uint8_t aliased : 1 = false;
 					//
 					union
 					{
@@ -369,7 +375,40 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//	}
 				//}
 
-				SDescriptorVarInfo<>& addResource_common(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
+				//! Only call these during construction!
+				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal)
+				{
+					if (count)
+					{
+						const auto off = m_arraySizePool.size();
+						m_arraySizePool.resize(off+count);
+						for (size_t i=0; i<count; i++)
+						{
+							// the API for this spec constant checking is truly messed up
+							if (size_is_literal[i])
+								m_arraySizePool[i].value = sizes[i];
+							else
+							{
+								m_arraySizePool[i].specID = sizes[i]; // ID of spec constant if size is spec constant
+								m_arraySizePool[i].isSpecConstant = true;
+							}
+						}
+						return {off,count};
+					}
+					else
+						return {};
+				}
+				inline core::based_span<char> addString(const std::string_view str)
+				{
+					const auto sz = str.size();
+					const auto off = m_stringPool.size();
+					m_stringPool.resize(off+sz+1);
+					memcpy(m_stringPool.data()+off,str.data(),sz);
+					m_stringPool.back() = '\0';
+					return {off,sz};
+				}
+				SDescriptorVarInfo<true>* addResource(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
+				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, const uint32_t blockBaseTypeID);
 				
 				// Parameters it was created with
 				SParams m_params;
@@ -384,7 +423,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//!
 				SPushConstantInfo<> m_pushConstants;
 				//! Each vector is sorted by `binding`
-				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[4];
+				constexpr static inline uint8_t DescriptorSetCount = 4;
+				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[DescriptorSetCount];
 				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
 				// then just convert from `SMemoryBlock<core::based_span>` to `SMemoryBlock<std::span>`
 				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
@@ -397,6 +437,10 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			public:
 				struct SDescriptorInfo final : CIntrospectionData::SDescriptorInfo
 				{
+					inline bool isArray() const {return count || isRuntimeSized;}
+
+					uint32_t count : 31;
+					uint32_t isRuntimeSized : 1;
 					// Which shader stages touch it
 					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::ESS_UNKNOWN;
 				};
@@ -486,8 +530,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		core::smart_refctd_ptr<ICPUGraphicsPipeline> createApproximateGraphicsPipeline(const CShaderStages& shaderStages);
 #endif	
 	private:
-		NBL_API2 core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
-		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, CStageIntrospectionData::SMemoryBlock<true>& _res, uint32_t _blockBaseTypeID, uint32_t _varID/*, const mapId2SpecConst_t& _sortedId2sconst*/) const;
+		core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
 		size_t calcBytesizeforType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const;
 
 		struct KeyHasher
