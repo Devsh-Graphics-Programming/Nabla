@@ -417,6 +417,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
         assert(resources.push_constant_buffers.size()==1);
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
+        pPushConstantsMutable->name = addString(r.name);
         stageIntroData->shaderMemBlockIntrospection(comp,pPushConstantsMutable,r);
     }
     else
@@ -441,9 +442,10 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalizeShaderMemBlocks()
     auto addBaseAndConvertBlockToImmutable = [&](SMemoryBlock<true>& block)->void
     {
         visitMemoryBlockPreOrderDFS(block,addBaseAndConvertTypeToImmutable);
-        auto& asMutable = reinterpret_cast<SMemoryBlock<false>&>(block);
-        asMutable.name = block.name(basePtr);
-        asMutable.type = reinterpret_cast<SType<false>*>(block.type(basePtr));
+        auto& asImmutable = reinterpret_cast<SMemoryBlock<false>&>(block);
+        asImmutable.name = block.name(basePtr);
+        asImmutable.type = reinterpret_cast<SType<false>*>(block.type(basePtr));
+        printf("DEBUG SHADER MEMORY BLOCK:\n%s\n",printMemBlock(asImmutable).c_str());
     };
     addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
     for (auto& set : m_descriptorSetBindings)
@@ -466,9 +468,28 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalizeShaderMemBlocks()
 
 std::string CSPIRVIntrospector::CStageIntrospectionData::printMemBlock(const SMemoryBlock<false>& block) const
 {
+    if (!block.type)
+        return "EMPTY BLOCK";
+
     std::ostringstream retval = {};
+    auto outputCounts = [&](std::span<const SArrayInfo> counts)->void
+    {
+        for (auto& extent : counts)
+        {
+            retval << "[";
+            if (extent.isSpecConstant)
+                retval << "specID=" << extent.specID;
+            else if (!extent.isRuntimeSized())
+                retval << extent.value;
+            retval << "]";
+        }
+    };
+
     std::string indentation = {};
-    retval << block.type->typeName.data() << " {" << "} " << block.name.data() << ";\n";
+    std::stack<SType<false>*> stk;
+    retval << block.type->typeName.data() << " {" << "} " << block.name.data();
+    outputCounts(block.type->count);
+    retval << ";\n";
     return retval.str();
 }
 

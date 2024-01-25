@@ -236,7 +236,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				template<bool Mutable=false>
 				struct SMemoryBlock
 				{
-					span_t<char,Mutable> name = {};
 					type_ptr<Mutable> type = nullptr;
 				};
 				template<bool Mutable, class Pre>
@@ -291,6 +290,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				template<bool Mutable=false>
 				struct SPushConstantInfo : SMemoryBlock<Mutable>
 				{
+					span_t<char,Mutable> name = {};
 					// believe it or not you can declare an empty PC block
 					inline bool present() const {return SMemoryBlock<Mutable>::type;}
 				};
