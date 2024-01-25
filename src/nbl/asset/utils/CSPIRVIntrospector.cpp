@@ -76,7 +76,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
     };
     core::stack<StackElement> introspectionStack;
 
-    // TODO: might need to lookup SPIRType based on `base_type_id` and forward to `SPIRType::type_alias` here instead
+    // NOTE: might need to lookup SPIRType based on `base_type_id` and forward to `SPIRType::type_alias` here instead
     introspectionStack.emplace(r.base_type_id);
 
     bool first = true;
@@ -123,24 +123,8 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
 
         member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor); // ?
 
-        // if array, then we can get array stride from decoration (via spirv-cross)
-        // otherwise arrayStride is left with value 0
-        if (mtype.array.size())
-        {
-            member.count = mtype.array[0];
-            member.stride = _comp.type_struct_member_array_stride(_parentType, m);
-        }
-
-        if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
-            pushStack.push({ member.members, mtype, member.offset });
-        else
-        {
-            //member.mtxRowCnt = mtype.vecsize;
-            //member.mtxColCnt = mtype.columns;
             //if (member.mtxColCnt > 1u)
             //    member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
-        }
-    }
 #endif
         }
 
@@ -196,9 +180,18 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             if (typeEnum!=VAR_TYPE::UNKNOWN_OR_STRUCT)
             {
                 // TODO: assign names of simple types
-                //getTypeStore()->typeName = m_typenames[isMatrix][typeEnum-VAR_TYPE::UNKNOWN_OR_STRUCT];
+                //getTypeStore()->typeName = m_typenames[typeEnum-VAR_TYPE::UNKNOWN_OR_STRUCT][lastRow][lastColumn];
             }
-            getTypeStore()->info.type = typeEnum;
+
+            auto& info = getTypeStore()->info;
+            {
+                info.lastRow = type.vecsize-1;
+                info.lastCol = type.columns-1;
+                info.rowMajor = comp.get_decoration(entry.selfTypeID,spv::DecorationRowMajor);
+                info.type = typeEnum;
+                info.restrict_ = comp.get_decoration(entry.selfTypeID,spv::DecorationRestrict);
+                info.aliased = comp.get_decoration(entry.selfTypeID,spv::DecorationAliased);
+            }
         }
     }
 }
@@ -504,8 +497,9 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize()
 
 void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts)
 {
-    for (auto& extent : counts)
+    for (auto i=counts.size()-1; i!=(~0ull); i--)
     {
+        const auto extent = counts[i];
         out << "[";
         if (extent.isSpecConstant)
             out << "specID=" << extent.specID;
@@ -524,9 +518,12 @@ void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& 
             out << "\t";
         return out;
     };
-    indent() << type->typeName.data() << "\n";
+    indent() << type->typeName.data();
     if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
+    {
+        out << "\n";
         indent() << "{\n";
+    }
 
     // in-order
     const auto nextDepth = depth+1;

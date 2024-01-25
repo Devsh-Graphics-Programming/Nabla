@@ -108,6 +108,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		class CIntrospectionData : public core::IReferenceCounted
 		{
 			public:
+				//! NOTE: Whenever its used in a span, the extents are recorded Least Significant Stride to Most
+				//! So `var[Z][Y][X]` is stored as `{X,Y,Z}`
 				struct SArrayInfo
 				{
 					union
@@ -173,6 +175,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					//! for dual source blending
 					uint8_t colorIndex;
 				};
+				//! TODO: certain things can only be applied on top of members, like:
+				//! - stride
 				struct STypeInfo
 				{
 					inline bool isScalar() const {return lastRow==0 && lastCol==0;}
@@ -182,12 +186,12 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint16_t lastRow : 2 = 0;
 					uint16_t lastCol : 2 = 0;
 					//! rowMajor=false implies col-major
-					uint16_t rowMajor : 1 = true;
+					uint16_t rowMajor : 1 = true; // have it both in SMemberInfo and here, two different ways to get decorations
 					//! stride==0 implies not matrix
-					uint16_t stride : 11 = 0;
+					uint16_t stride : 11 = 0; // move to SMemberInfo
 					VAR_TYPE type : 6 = VAR_TYPE::UNKNOWN_OR_STRUCT;
-					uint8_t restrict_ : 1 = false;
-					uint8_t aliased : 1 = false;
+					uint8_t restrict_ : 1 = false; // have it both in SMemberInfo and here, two different ways to get decorations
+					uint8_t aliased : 1 = false; // have it both in SMemberInfo and here, two different ways to get decorations
 				};
 				//
 				template<typename T, bool Mutable>
@@ -203,6 +207,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						inline bool isArray() const {return !count.empty();}
 
 						//! children
+						//! TODO: replace these 5 SoA arrays with some struct similar to `STypeInfo` that has the per-member decorations, call it `SMemberInfo`
 						using member_type_t = ptr_t<SType<Mutable>,Mutable>;
 						inline ptr_t<member_type_t,Mutable> memberTypes() const {return reinterpret_cast<const ptr_t<member_type_t,Mutable>&>(memberInfoStorage);}
 						using member_name_t = span_t<char,Mutable>;
@@ -228,8 +233,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						}
 						using member_offset_t = member_size_t;
 						inline ptr_t<member_offset_t,Mutable> memberOffsets() const {return memberSizes()+memberCount;}
-						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						using member_stride_t = uint32_t;
+						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
 
 						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t);
@@ -346,7 +351,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
 						{
 							if (type->memberCount)
-								return type->memberTypes()[type->memberCount-1].count.isRuntimeSized();
+								return type->memberTypes()[type->memberCount-1].count.front().isRuntimeSized();
 							return false;
 						}
 						template<bool C=!Mutable>
@@ -355,7 +360,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 							if (isLastMemberRuntimeSized())
 							{
 								const auto& lastMember = type->memberTypes()[type->memberCount-1];
-								assert(!lastMember.count.isSpecConstantID);
+								assert(!lastMember.count.front().isSpecConstantID);
 								return sizeWithoutLastMember+lastMemberElementCount*type->memberStrides()[type->memberCount-1];
 							}
 							return sizeWithoutLastMember;
