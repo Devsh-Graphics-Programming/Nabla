@@ -417,82 +417,132 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
         assert(resources.push_constant_buffers.size()==1);
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
-        pPushConstantsMutable->name = addString(r.name);
+        pPushConstantsMutable->name = stageIntroData->addString(r.name);
         stageIntroData->shaderMemBlockIntrospection(comp,pPushConstantsMutable,r);
     }
     else
         pPushConstantsMutable->type = {};
 
     // convert all Mutable to non-mutable
-    stageIntroData->finalizeShaderMemBlocks();
+    stageIntroData->finalize();
 
     return stageIntroData;
 }
 
-void CSPIRVIntrospector::CStageIntrospectionData::finalizeShaderMemBlocks()
+void CSPIRVIntrospector::CStageIntrospectionData::finalize()
 {
     auto* const basePtr = m_memPool.data();
-    auto addBaseAndConvertTypeToImmutable = [basePtr](SType<true>* type)->void
+    auto addBaseAndConvertStringToImmutable = [basePtr](std::span<const char>& name)->void
     {
-        auto* outMutable = reinterpret_cast<SType<false>*>(type);
-        outMutable->typeName = type->typeName(basePtr);
-        outMutable->count = type->count(basePtr);
-        outMutable->memberInfoStorage = type->memberInfoStorage(basePtr);
+        name = reinterpret_cast<const core::based_span<char>&>(name)(basePtr);
+    };
+    auto addBaseAndConvertExtentToImmutable = [basePtr](std::span<const CIntrospectionData::SArrayInfo>& count)->void
+    {
+        count = reinterpret_cast<const core::based_span<CIntrospectionData::SArrayInfo>&>(count)(basePtr);
+    };
+    // TODO: spec constant finalization 
+
+    auto addBaseAndConvertTypeToImmutable = [&](SType<true>* type)->void
+    {
+        auto* outImmutable = reinterpret_cast<SType<false>*>(type);
+        addBaseAndConvertStringToImmutable(outImmutable->typeName);
+        addBaseAndConvertExtentToImmutable(outImmutable->count);
+        // get these before they change
+        const auto memberTypes = type->memberTypes()(basePtr);
+        const auto memberNames = type->memberNames()(basePtr);
+        for (auto m=0; m<type->memberCount; m++)
+        {
+            reinterpret_cast<const SType<false>**>(memberTypes)[m] = reinterpret_cast<const SType<false>*>(memberTypes[m](basePtr));
+            reinterpret_cast<std::span<const char>*>(memberNames)[m] = memberNames[m](basePtr);
+        }
+        outImmutable->memberInfoStorage = type->memberInfoStorage(basePtr);
     };
     auto addBaseAndConvertBlockToImmutable = [&](SMemoryBlock<true>& block)->void
     {
         visitMemoryBlockPreOrderDFS(block,addBaseAndConvertTypeToImmutable);
         auto& asImmutable = reinterpret_cast<SMemoryBlock<false>&>(block);
-        asImmutable.name = block.name(basePtr);
         asImmutable.type = reinterpret_cast<SType<false>*>(block.type(basePtr));
-        printf("DEBUG SHADER MEMORY BLOCK:\n%s\n",printMemBlock(asImmutable).c_str());
     };
+
     addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
-    for (auto& set : m_descriptorSetBindings)
-    for (auto& descriptor : set)
+    addBaseAndConvertStringToImmutable(m_pushConstants.name);
+    std::ostringstream debug = {};
+    if (m_pushConstants.type)
     {
+        debug << "PUSH CONSTANT BLOCK:\n";
+        printType(debug,m_pushConstants.type);
+        debug << "} " << m_pushConstants.name.data() << ";\n";
+    }
+    
+    for (auto set=0; set<DescriptorSetCount; set++)
+    for (auto& descriptor : m_descriptorSetBindings[set])
+    {
+        addBaseAndConvertStringToImmutable(descriptor.name);
+        addBaseAndConvertExtentToImmutable(descriptor.count);
         auto& asMutable = reinterpret_cast<SDescriptorVarInfo<true>&>(descriptor);
+        debug << "(set=" << set << ",binding=" << descriptor.binding << ") ";
         switch (descriptor.type)
         {
             case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
                 addBaseAndConvertBlockToImmutable(asMutable.uniformBuffer);
+                printType(debug,descriptor.uniformBuffer.type);
                 break;
             case IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
                 addBaseAndConvertBlockToImmutable(asMutable.storageBuffer);
+                printType(debug,descriptor.storageBuffer.type);
                 break;
             default:
+                debug << "TODO_type"; // don't implement if not needed
                 break;
         }
+        debug << " " << descriptor.name.data();
+        printExtents(debug,descriptor.count);
+        debug << ";\n";
+    }
+    printf("%s\n",debug.str().c_str());
+}
+
+void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts)
+{
+    for (auto& extent : counts)
+    {
+        out << "[";
+        if (extent.isSpecConstant)
+            out << "specID=" << extent.specID;
+        else if (!extent.isRuntimeSized())
+            out << extent.value;
+        out << "]";
     }
 }
-
-std::string CSPIRVIntrospector::CStageIntrospectionData::printMemBlock(const SMemoryBlock<false>& block) const
+void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& out, const SType<false>* type, const uint32_t depth)
 {
-    if (!block.type)
-        return "EMPTY BLOCK";
-
-    std::ostringstream retval = {};
-    auto outputCounts = [&](std::span<const SArrayInfo> counts)->void
+    assert(type);
+    // pre
+    auto indent = [&]() -> std::ostringstream&
     {
-        for (auto& extent : counts)
-        {
-            retval << "[";
-            if (extent.isSpecConstant)
-                retval << "specID=" << extent.specID;
-            else if (!extent.isRuntimeSized())
-                retval << extent.value;
-            retval << "]";
-        }
+        for (auto i=0; i<depth; i++)
+            out << "\t";
+        return out;
     };
+    indent() << type->typeName.data() << "\n";
+    if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
+        indent() << "{\n";
 
-    std::string indentation = {};
-    std::stack<SType<false>*> stk;
-    retval << block.type->typeName.data() << " {" << "} " << block.name.data();
-    outputCounts(block.type->count);
-    retval << ";\n";
-    return retval.str();
+    // in-order
+    const auto nextDepth = depth+1;
+    for (auto m=0; m<type->memberCount; m++)
+    {
+        printType(out,type->memberTypes()[m],nextDepth); out << " " << type->memberNames()[m].data() << "; // offset=" << type->memberOffsets()[m] << ",size=" << type->memberSizes()[m] << ",stride=" << type->memberStrides()[m] << "\n";
+    }
+
+    // post
+    if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
+        indent() << "}";
+    printExtents(out,type->count);
+}
 }
 
+#if 0
 size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const
 {
     size_t bytesize = 0u;
@@ -537,3 +587,4 @@ size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& comp, cons
                 }
 
 }
+#endif

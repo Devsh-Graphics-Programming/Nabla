@@ -206,14 +206,26 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						using member_type_t = ptr_t<SType<Mutable>,Mutable>;
 						inline ptr_t<member_type_t,Mutable> memberTypes() const {return reinterpret_cast<const ptr_t<member_type_t,Mutable>&>(memberInfoStorage);}
 						using member_name_t = span_t<char,Mutable>;
-						inline ptr_t<member_name_t,Mutable> memberNames() const {return reinterpret_cast<const ptr_t<member_name_t,Mutable>&>(memberTypes()+memberCount);}
+						inline ptr_t<member_name_t,Mutable> memberNames() const
+						{
+							if constexpr (Mutable)
+								return (memberTypes()+memberCount).byte_offset();
+							else
+								return reinterpret_cast<const member_name_t*>(memberTypes()+memberCount);
+						}
 
 						//! SPIR-V is a bit dumb and types of the same struct can have variable size depending on std140, std430, or scalar layouts
 						//! it would have been much easier if the layout was baked into the struct, so there'd be a separate type
 						//! (like a template instantation) of each free-floating struct in different layouts or at least like cv-qualifiers baked into a type.
 						using member_size_t = uint32_t;
 						// This is the size of the entire member, so for an array it includes everything
-						inline ptr_t<member_size_t,Mutable> memberSizes() const {return reinterpret_cast<const ptr_t<member_size_t,Mutable>&>(memberNames()+memberCount);}
+						inline ptr_t<member_size_t,Mutable> memberSizes() const
+						{
+							if constexpr (Mutable)
+								return (memberNames()+memberCount).byte_offset();
+							else
+								return reinterpret_cast<const member_size_t*>(memberNames()+memberCount);
+						}
 						using member_offset_t = member_size_t;
 						inline ptr_t<member_offset_t,Mutable> memberOffsets() const {return memberSizes()+memberCount;}
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
@@ -417,11 +429,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}*/
 
 				// all members are set-up outside the ctor
-				inline CStageIntrospectionData()
-				{
-					// TODO: add these up-front
-					//m_typenames[][] = addString("float64_t");
-				}
+				inline CStageIntrospectionData() {}
 
 				// We don't need to do anything, all the data was allocated from vector pools
 				inline ~CStageIntrospectionData() {}
@@ -430,7 +438,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				friend CSPIRVIntrospector;
 
 				//! Only call these during construction!
-				inline size_t allocOffset(const size_t bytes)
+				inline size_t allocOffset(const size_t bytes) // TODO: move to cpp
 				{
 					const size_t off = m_memPool.size();
 					m_memPool.resize(off+bytes);
@@ -442,7 +450,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					const auto off = allocOffset(sizeof(T)*count);
 					return {off,count};
 				}
-				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal)
+				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal) // TODO: move to cpp
 				{
 					if (count)
 					{
@@ -464,7 +472,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					else
 						return {};
 				}
-				inline core::based_span<char> addString(const std::string_view str)
+				inline core::based_span<char> addString(const std::string_view str) // TODO: move to cpp
 				{
 					const auto range = alloc<char>(str.size()+1);
 					const auto out = range(m_memPool.data());
@@ -473,7 +481,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return range;
 				}
 				SDescriptorVarInfo<true>* addResource(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
-				inline core::based_offset<SType<true>> addType(const size_t memberCount)
+				inline core::based_offset<SType<true>> addType(const size_t memberCount) // TODO: move to cpp
 				{
 					const auto memberStorage = allocOffset(SType<true>::StoragePerMember*memberCount);
 					auto retval = alloc<SType<true>>(1);
@@ -484,8 +492,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return {retval.byte_offset()};
 				}
 				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r);
-				void finalizeShaderMemBlocks();
-				std::string printMemBlock(const SMemoryBlock<false>& block) const;
+				void finalize();
+
+				//! debug
+				static void printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts);
+				static void printType(std::ostringstream& out, const SType<false>* counts, const uint32_t depth=0);
 				
 				// Parameters it was created with
 				SParams m_params;
@@ -512,10 +523,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			public:
 				struct SDescriptorInfo final : CIntrospectionData::SDescriptorInfo
 				{
-					inline bool isArray() const {return count || isRuntimeSized;}
+					inline bool isArray() const {return stride;}
+					inline bool isRuntimeSized() const {return isArray() && count==0;}
 
-					uint32_t count : 31;
-					uint32_t isRuntimeSized : 1;
+					uint32_t count : 21 = 0;
+					uint32_t stride : 11 = 0;
 					// Which shader stages touch it
 					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::ESS_UNKNOWN;
 				};
