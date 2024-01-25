@@ -34,30 +34,39 @@ namespace nbl::core
 template<typename T>
 struct based_offset
 {
+		constexpr static inline bool IsConst = std::is_const_v<T>;
+
 	public:
 		using element_type = T;
 
 		constexpr based_offset() {}
 
-		constexpr explicit based_offset(T* basePtr, T* ptr) : m_offset(ptr-basePtr) {}
-		constexpr based_offset(const size_t offset) : m_offset(offset) {}
+		constexpr explicit based_offset(T* basePtr, T* ptr) : m_byteOffset(ptrdiff_t(ptr)-ptrdiff_t(basePtr)) {}
+		constexpr based_offset(const size_t _byteOffset) : m_byteOffset(_byteOffset) {}
 
-		inline operator bool() const {return m_offset!=InvalidOffset;}
-		inline T* operator()(T* newBase) const {return bool(*this) ? (newBase+m_offset):nullptr;}
-		inline T* operator()(std::conditional_t<std::is_const_v<T>,const void*,void*> newBase) const {return operator()(reinterpret_cast<T*>(newBase));}
+		inline explicit operator bool() const {return m_byteOffset!=InvalidOffset;}
+		inline T* operator()(std::conditional_t<IsConst,const void*,void*> newBase) const
+		{
+			std::conditional_t<IsConst,const uint8_t,uint8_t>* retval = nullptr;
+			if (bool(*this))
+				retval = reinterpret_cast<decltype(retval)>(newBase)+m_byteOffset;
+			return reinterpret_cast<T*>(retval);
+		}
 		
-		inline based_offset<T> operator+(const size_t extraOff) const {return {m_offset+extraOff};}
+		inline based_offset<T> operator+(const size_t extraOff) const {return {sizeof(T)*extraOff+m_byteOffset};}
 
-		inline auto offset() const {return m_offset;}
+		inline auto byte_offset() const {return m_byteOffset;}
 
 	private:
 		constexpr static inline size_t InvalidOffset = ~0ull;
-		size_t m_offset = InvalidOffset;
+		size_t m_byteOffset = InvalidOffset;
 };
 
 template<typename T, size_t Extent=std::dynamic_extent>
 struct based_span
 {
+		constexpr static inline bool IsConst = std::is_const_v<T>;
+
 	public:
 		using element_type = T;
 
@@ -66,16 +75,23 @@ struct based_span
 			static_assert(sizeof(based_span<T,Extent>)==sizeof(std::span<T,Extent>));
 		}
 
-		constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : m_offset(span.data()-basePtr), m_size(span.size()) {}
-		constexpr based_span(size_t offset, size_t size) : m_offset(offset), m_size(size) {}
+		constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : m_byteOffset(ptrdiff_t(span.data())-ptrdiff_t(basePtr)), m_size(span.size()) {}
+		constexpr based_span(size_t byteOffset, size_t size) : m_byteOffset(byteOffset), m_size(size) {}
 
-		inline std::span<T,Extent> operator()(T* newBase) const {return {newBase+m_offset,m_size};}
-		inline std::span<T,Extent> operator()(std::conditional_t<std::is_const_v<T>,const void*,void*> newBase) const {return operator()(reinterpret_cast<T*>(newBase));}
+		inline bool empty() const {return m_size==0ull;}
+		
+		inline std::span<T> operator()(std::conditional_t<IsConst,const void*,void*> newBase) const
+		{
+			std::conditional_t<IsConst,const uint8_t,uint8_t>* retval = nullptr;
+			if (!empty())
+				retval = reinterpret_cast<decltype(retval)>(newBase)+m_byteOffset;
+			return {reinterpret_cast<T*>(retval),m_size};
+		}
 
-		inline auto offset() const {return m_offset;}
+		inline auto byte_offset() const {return m_byteOffset;}
 
 	private:
-		size_t m_offset = ~0ull;
+		size_t m_byteOffset = ~0ull;
 		size_t m_size = 0ull;
 };
 
@@ -188,21 +204,21 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 						//! children
 						using member_type_t = ptr_t<SType<Mutable>,Mutable>;
-						ptr_t<member_type_t,Mutable> memberTypes() const {return {memberInfoStorage.offset()};}
+						inline ptr_t<member_type_t,Mutable> memberTypes() const {return reinterpret_cast<const ptr_t<member_type_t,Mutable>&>(memberInfoStorage);}
 						using member_name_t = span_t<char,Mutable>;
-						ptr_t<member_name_t,Mutable> memberNames() const {return {(memberTypes()+memberCount).offset()};}
+						inline ptr_t<member_name_t,Mutable> memberNames() const {return reinterpret_cast<const ptr_t<member_name_t,Mutable>&>(memberTypes()+memberCount);}
 
 						//! SPIR-V is a bit dumb and types of the same struct can have variable size depending on std140, std430, or scalar layouts
 						//! it would have been much easier if the layout was baked into the struct, so there'd be a separate type
 						//! (like a template instantation) of each free-floating struct in different layouts or at least like cv-qualifiers baked into a type.
 						using member_size_t = uint32_t;
 						// This is the size of the entire member, so for an array it includes everything
-						ptr_t<member_size_t,Mutable> memberSizes() const {return {(memberNames()+memberCount).offset()};}
+						inline ptr_t<member_size_t,Mutable> memberSizes() const {return reinterpret_cast<const ptr_t<member_size_t,Mutable>&>(memberNames()+memberCount);}
 						using member_offset_t = member_size_t;
-						ptr_t<member_offset_t,Mutable> memberOffsets() const {return {(memberSizes()+memberCount).offset()};}
+						inline ptr_t<member_offset_t,Mutable> memberOffsets() const {return memberSizes()+memberCount;}
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						using member_stride_t = uint32_t;
-						ptr_t<member_stride_t,Mutable> memberStrides() const {return {(memberOffsets()+memberCount).offset()};}
+						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
 
 						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t);
 
@@ -223,6 +239,36 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					span_t<char,Mutable> name = {};
 					type_ptr<Mutable> type = nullptr;
 				};
+				template<bool Mutable, class Pre>
+				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<Mutable>& block, Pre& pre)
+				{
+					auto* const basePtr = m_memPool.data();
+
+					std::stack<type_ptr<Mutable>> stk;
+					if (block.type)
+						stk.push(block.type);
+					while (!stk.empty())
+					{
+						const auto& entry = stk.top();
+						std::conditional_t<Mutable,SType<true>,const SType<false>>* type;
+						if constexpr (Mutable)
+							type = entry(basePtr);
+						else
+							type = entry;
+
+						stk.pop();
+
+						const type_ptr<Mutable>* members;
+						if constexpr(Mutable)
+							members = type->memberTypes()(basePtr);
+						else
+							members = type->memberTypes();
+						for (auto i=0u; i<type->memberCount; i++)
+							stk.push(members[i]);
+
+						pre(type);
+					}
+				}
 				//! Maybe one day in the future they'll use memory blocks, but not now
 				template<bool Mutable=false>
 				struct SSpecConstant final
@@ -278,27 +324,27 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					struct SStorageTexelBuffer final : SRWDescriptor
 					{
 					};
-					struct SUniformBuffer final : SMemoryBlock<true>
+					struct SUniformBuffer final : SMemoryBlock<Mutable>
 					{
 						size_t size = 0;
 					};
-					struct SStorageBuffer final : SRWDescriptor, SMemoryBlock<true>
+					struct SStorageBuffer final : SRWDescriptor, SMemoryBlock<Mutable>
 					{
 						template<bool C=!Mutable>
 						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
 						{
-							if (this->members.empty())
-								return false;
-							return this->members.back().count.isRuntimeSized;
+							if (type->memberCount)
+								return type->memberTypes()[type->memberCount-1].count.isRuntimeSized();
+							return false;
 						}
 						template<bool C=!Mutable>
 						inline std::enable_if_t<C,size_t> getRuntimeSize(const size_t lastMemberElementCount) const
 						{
-							if (isLastMemberRuntimeSized)
+							if (isLastMemberRuntimeSized())
 							{
-								const auto& lastMember = this->members.back();
+								const auto& lastMember = type->memberTypes()[type->memberCount-1];
 								assert(!lastMember.count.isSpecConstantID);
-								return sizeWithoutLastMember+lastMemberElementCount*lastMember.stride;
+								return sizeWithoutLastMember+lastMemberElementCount*type->memberStrides()[type->memberCount-1];
 							}
 							return sizeWithoutLastMember;
 						}
@@ -326,7 +372,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						SStorageImage storageImage;
 						SUniformTexelBuffer uniformTexelBuffer;
 						SStorageTexelBuffer storageTexelBuffer;
-						SStorageBuffer uniformBuffer;
+						SUniformBuffer uniformBuffer;
 						SStorageBuffer storageBuffer;
 						SInputAttachment inputAttachment;
 						// TODO: acceleration structure?
@@ -378,40 +424,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			protected:
 				friend CSPIRVIntrospector;
-#if 0
-				using creation_member_t = SMemoryBlock<true>::SMember;
-				template<class Pre>
-				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<true>& block, Pre& pre)
-				{
-					std::stack<creation_member_t*> s;
-					auto pushAllMembers = [](const auto& parent)->void
-					{
-						for (const auto& m : parent.members(m_memberPool.data()))
-							s.push(&m);
-					};
-					pushAllMembers(block);
-					while (!s.empty())
-					{
-						const auto& m = s.top();
-						pre(*m);
-						s.pop();
-						pushAllMembers(*m);
-					}
-				}
-				//template<class Pre>
-				//inline void visitMemoryBlockPreOrderBFS(SMemoryBlock<true>& block, Pre& pre)
-				//{
-				//	std::queue<creation_member_t*> q;
-				//	// TODO: pushAllMembers
-				//	while (!s.empty())
-				//	{
-				//		const auto& m = q.front();
-				//		pre(*m);
-				//		q.pop();
-				//		pushAllMembers(*m);
-				//	}
-				//}
-#endif
+
+				//! Only call these during construction!
 				inline size_t allocOffset(const size_t bytes)
 				{
 					const size_t off = m_memPool.size();
@@ -424,7 +438,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					const auto off = allocOffset(sizeof(T)*count);
 					return {off,count};
 				}
-				//! Only call these during construction!
 				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal)
 				{
 					if (count)
@@ -464,9 +477,10 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					auto pType = retval(m_memPool.data()).data();
 					pType->memberCount = memberCount;
 					pType->memberInfoStorage = {memberStorage};
-					return {retval.offset()};
+					return {retval.byte_offset()};
 				}
 				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r);
+				void finalizeShaderMemBlocks();
 				
 				// Parameters it was created with
 				SParams m_params;
