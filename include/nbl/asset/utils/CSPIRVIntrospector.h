@@ -292,7 +292,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				struct SPushConstantInfo : SMemoryBlock<Mutable>
 				{
 					// believe it or not you can declare an empty PC block
-					bool present = false;
+					inline bool present() const {return SMemoryBlock<Mutable>::type;}
 				};
 
 				//! Descriptors
@@ -417,7 +417,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}*/
 
 				// all members are set-up outside the ctor
-				inline CStageIntrospectionData() {}
+				inline CStageIntrospectionData()
+				{
+					// TODO: add these up-front
+					//m_typenames[][] = addString("float64_t");
+				}
 
 				// We don't need to do anything, all the data was allocated from vector pools
 				inline ~CStageIntrospectionData() {}
@@ -481,6 +485,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r);
 				void finalizeShaderMemBlocks();
+				std::string printMemBlock(const SMemoryBlock<false>& block) const;
 				
 				// Parameters it was created with
 				SParams m_params;
@@ -493,7 +498,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					core::vector<SOutputInterface> // otherwise
 				> m_output;
 				//!
-				SPushConstantInfo<> m_pushConstants;
+				SPushConstantInfo<> m_pushConstants = {};
 				//! Each vector is sorted by `binding`
 				constexpr static inline uint8_t DescriptorSetCount = 4;
 				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[DescriptorSetCount];
