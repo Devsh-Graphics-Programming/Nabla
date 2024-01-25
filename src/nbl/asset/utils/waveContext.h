@@ -52,6 +52,13 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         hash_token_occurences = 0;
     }
 
+    template <typename ContextT, typename TokenT>
+    bool found_directive(ContextT const& ctx, TokenT const& directive)
+    {
+        hash_token_occurences++;
+        return false;
+    }
+
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
     {
@@ -68,7 +75,6 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
-        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
@@ -103,24 +109,27 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             return true;
         }
         
-        if (strcmp(optionStr, "dxc_compile_flags") == 0 && hash_token_occurences == 1) {
+        if (strcmp(optionStr, "dxc_compile_flags") ) {
+            if (0 && hash_token_occurences != 1) {
+                m_logger.log("Pre-processor error: Encountered a \"#pragma wave dxc_compile_flags\" but it is not the first preprocessor directive.", system::ILogger::ELL_ERROR);
+                return false;
+            }
             m_dxc_compile_flags_override.clear();
             std::string arg = "";
             for (auto valueIter = values.begin(); valueIter != values.end(); valueIter++) {
                 std::string compiler_option_s = std::string(valueIter->get_value().c_str());
-                //the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
-                //for dxc_compile_flags just join the strings until it finds a whitespace or end of args
+                // the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
+                // for dxc_compile_flags just join the strings until it finds a whitespace or end of args
 
-                // if the compiler flag is a separator that is a whitespace, do not add to list of flag overrides 
                 if (compiler_option_s == " ") 
                 {
-                    //reset
+                    // push argument and reset
                     m_dxc_compile_flags_override.push_back(arg);
                     arg.clear();
                 }
                 else 
                 {
-                    //append
+                    // append string
                     arg += compiler_option_s;
                 }
             }
@@ -491,7 +500,8 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
             result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
     }
     else {
-        ctx.get_hooks().m_logger.log("Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
+        ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
+        return false;
     }
 
     if (!result)

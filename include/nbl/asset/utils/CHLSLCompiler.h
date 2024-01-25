@@ -51,7 +51,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//}
 
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 		constexpr static inline const wchar_t* RequiredArguments[] = {
@@ -64,7 +64,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			L"-Wno-gnu-static-float-init",
 			L"-fspv-target-env=vulkan1.3"
 		};
-		constexpr static inline uint32_t RequiredArgumentCount = 8;
+		constexpr static inline uint32_t RequiredArgumentCount = sizeof(RequiredArguments) / sizeof(RequiredArguments[0]);
 		
 	protected:
 		// This can't be a unique_ptr due to it being an undefined type 

@@ -18,13 +18,34 @@
 #include <sstream>
 #include <dxc/dxcapi.h>
 
-
 using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
-
+static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
+    switch (stage)
+    {
+    case asset::IShader::ESS_VERTEX:
+        return L"vs";
+    case asset::IShader::ESS_TESSELLATION_CONTROL:
+        return L"ds";
+    case asset::IShader::ESS_TESSELLATION_EVALUATION:
+        return L"hs";
+    case asset::IShader::ESS_GEOMETRY:
+        return L"gs";
+    case asset::IShader::ESS_FRAGMENT:
+        return L"ps";
+    case asset::IShader::ESS_COMPUTE:
+        return L"cs";
+    case asset::IShader::ESS_TASK:
+        return L"as";
+    case asset::IShader::ESS_MESH:
+        return L"ms";
+    default:
+        return nullptr;
+    };
+}
 
 namespace nbl::asset::impl
 {
@@ -71,58 +92,66 @@ CHLSLCompiler::~CHLSLCompiler()
 }
 
 
-static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments) 
+static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
 {
-    auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-HV");
-    if (foundShaderStageArgument != arguments.end()) {
-        auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
-        std::wstring version = arguments[foundShaderStageArgumentValueIdx];
-        if (version.length() >= 4 && (version[2] < '2' || (version[2] == '2' && version[3] <= '0'))) 
-            arguments[foundShaderStageArgumentValueIdx] = L"2021";
+    auto stageArgumentPos = std::find(arguments.begin(), arguments.end(), L"-HV");
+    if (stageArgumentPos != arguments.end()) {
+        auto index = stageArgumentPos - arguments.begin() + 1; // -HV XXXXX, get index of second
+        std::wstring version = arguments[index];
+        if (!isalpha(version.back()) && version.length() >= 4 && std::stoi(version) < 2021)
+            arguments[index] = L"2021";
+    }
+    else {
+        logger.log("Compile flag error: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+        arguments.push_back(L"-HV");
+        arguments.push_back(L"202x");
     }
 }
 
 
-static void try_upgrade_shader_stage(std::vector<std::wstring> &arguments) {
+static void try_upgrade_shader_stage(std::vector<std::wstring> &arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
     auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
     if (foundShaderStageArgument != arguments.end()) {
         auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
-        std::wstring targetProfile = arguments[foundShaderStageArgumentValueIdx];
-        if (targetProfile.length() >= 6) {
-            int argument_version = (targetProfile[3] - '0') * 10 + (targetProfile[5] - '0');
+        std::wstring s = arguments[foundShaderStageArgumentValueIdx];
+        if (s.length() >= 6) {
+            //TODO replace first 2 if shaderStageOverrideFromPragma != Unknown
+            
+            //TODO fix this parsing in case 6_10 gets released
+            //Even though they could name it 7_0 at that point
+
+            auto it = std::find(s.begin(), s.end(), '_');
+            while (it != s.end())
+            {
+
+            }
+           /* int argument_version = (targetProfile[3] - '0') * 10 + (targetProfile[5] - '0');
             if (argument_version < 67)
             {
                 targetProfile.replace(3, 3, L"6_7");
                 arguments[foundShaderStageArgumentValueIdx] = targetProfile;
-            }
+            }*/
         }
     }
 }
 
 
 static void add_required_arguments_if_not_present(std::vector<std::wstring>& arguments, system::logger_opt_ptr &logger) {
-    bool found_arg_flags[CHLSLCompiler::RequiredArgumentCount]{};
-    int argc = arguments.size();
-    for (int i = 0; i < argc; i++)
-    {
-        for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
-        {
-            if (arguments[i] == CHLSLCompiler::RequiredArguments[j]) {
-                found_arg_flags[j] = true;
-                break;
-            }
-        }
-    }
+    auto set = std::unordered_set<std::wstring>();
+    for (int i = 0; i < arguments.size(); i++)
+        set.insert(arguments[i]);
     for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
     {
-        if (!found_arg_flags[j]) {
-            logger.log("Required compile flag not found %ls. This flag will be force enabled as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
+        bool missing = set.find(CHLSLCompiler::RequiredArguments[j]) == set.end();
+        if (missing) {
+            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
             arguments.push_back(CHLSLCompiler::RequiredArguments[j]);
         }
     }
 }
 
-
+// adds missing required arguments
+// converts arguments from std::string to std::wstring
 template <typename T>
 static void populate_arguments_with_type_conversion(std::vector<std::wstring> &arguments, T &iterable_collection, system::logger_opt_ptr &logger) {
     size_t arg_size = iterable_collection.size();
@@ -211,7 +240,7 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 #include "nbl/asset/utils/waveContext.h"
 
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override) const
 {
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     context.add_macro_definition("__HLSL_VERSION");
@@ -268,7 +297,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
 {
     std::vector<std::string> extra_dxc_compile_flags = {};
-    return preprocessShader(std::move(code), stage, extra_dxc_compile_flags, preprocessOptions);
+    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
 }
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
@@ -281,8 +310,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         return nullptr;
     }
     std::vector<std::string> dxc_compile_flags = {};
-    auto stage = hlslOptions.stage;
-    auto newCode = preprocessShader(code, stage, dxc_compile_flags, hlslOptions.preprocessorOptions);
+    IShader::E_SHADER_STAGE stageOverrideFromPragma = IShader::ESS_UNKNOWN;
+    auto newCode = preprocessShader(code, stageOverrideFromPragma, hlslOptions.preprocessorOptions, dxc_compile_flags);
 
     // Suffix is the shader model version
     // TODO: Figure out a way to get the shader model version automatically
@@ -295,47 +324,33 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     // or from brute forcing every -T option until one isn't accepted
     //
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
-
-    // Set profile two letter prefix based on stage
-    switch (stage)
+    IShader::E_SHADER_STAGE stage = options.stage;
+    if (stageOverrideFromPragma != IShader::ESS_UNKNOWN)
     {
-        case asset::IShader::ESS_VERTEX:
-            targetProfile.replace(0, 2, L"vs");
-            break;
-        case asset::IShader::ESS_TESSELLATION_CONTROL:
-            targetProfile.replace(0, 2, L"ds");
-            break;
-        case asset::IShader::ESS_TESSELLATION_EVALUATION:
-            targetProfile.replace(0, 2, L"hs");
-            break;
-        case asset::IShader::ESS_GEOMETRY:
-            targetProfile.replace(0, 2, L"gs");
-            break;
-        case asset::IShader::ESS_FRAGMENT:
-            targetProfile.replace(0, 2, L"ps");
-            break;
-        case asset::IShader::ESS_COMPUTE:
-            targetProfile.replace(0, 2, L"cs");
-            break;
-        case asset::IShader::ESS_TASK:
-            targetProfile.replace(0, 2, L"as");
-            break;
-        case asset::IShader::ESS_MESH:
-            targetProfile.replace(0, 2, L"ms");
-            break;
-        default:
-            hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
-            return nullptr;
-    };
-    
+        // Shader Stage was overriden using #pragma
+        // #pragma wave shaderStage overrides all other definitions of shader stage, such as
+        // -T argument (passed here as options.stage)
+        // shader stage inferred from file extension in asset namespace
+        stage = stageOverrideFromPragma;
+    }
+   
     std::vector<std::wstring> arguments = {};
-    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
+    if (dxc_compile_flags.size() || hlslOptions.dxcOptions.size()) { // #pragma dxc_compile_flags takes priority
         populate_arguments_with_type_conversion(arguments, dxc_compile_flags, hlslOptions.preprocessorOptions.logger);
     }
     else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
         populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, hlslOptions.preprocessorOptions.logger);
     }
-    else { //lastly default arguments
+    else { // lastly default arguments
+
+        // Set profile two letter prefix based on stage
+        auto stageStr = ShaderStageToString(stage);
+        if (!stageStr) {
+            hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
+            return nullptr;
+        }
+        targetProfile.replace(0, 2, stageStr);
+       
         arguments = {
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
@@ -366,7 +381,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             arguments.push_back(L"-fspv-debug=vulkan-with-source");
     }
 
-    try_upgrade_shader_stage(arguments);
+    try_upgrade_shader_stage(arguments, stageOverrideFromPragma);
     try_upgrade_hlsl_version(arguments);
     
     uint32_t argc = arguments.size();

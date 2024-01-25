@@ -114,21 +114,14 @@ private:
 		constexpr uint32_t WorkgroupSize = 256;
 		constexpr uint32_t WorkgroupCount = 2048;
 		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
-		const IShaderCompiler::SPreprocessorOptions::SMacroDefinition WorkgroupSizeDefine = { "WORKGROUP_SIZE",WorkgroupSizeAsStr };
 
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
-		// want as much debug as possible
 		options.stage = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
-		options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
-		// this lets you source-level debug/step shaders in renderdoc
-		//if (physDev->getLimits().shaderNonSemanticInfo)
-		//options.debugInfoFlags |= IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
-		// if you don't set the logger and source identifier you'll have no meaningful errors
+		//options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
-		options.preprocessorOptions.extraDefines = { &WorkgroupSizeDefine,&WorkgroupSizeDefine + 1 };
 		options.dxcOptions = std::span<std::string>(m_arguments);
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
 		options.preprocessorOptions.includeFinder = includeFinder.get();
