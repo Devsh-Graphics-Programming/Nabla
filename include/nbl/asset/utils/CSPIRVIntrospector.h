@@ -27,24 +27,40 @@ namespace spirv_cross
     struct SPIRType;
 }
 
-
-// wszystkie struktury w CIntrospecionData powininny u¿ywaæ bit flagi, ozaczaj¹cej shader stage (core::unordered_map)
-// CStageIntrospecionData nie powinien u¿ywaæ bit flagi, ozaczaj¹cej shader stage (core::vector)
-
-// hashowane s¹ tylko set i binding
-// dla spec constant tylko specConstantID
-// validacja kolizji (dla SSpecConstants mo¿e siê jedynie ró¿niæ name)
-// ogarn¹æ sytuacje gdy jeden descriptor binding ma wiêcej arrayElementCount ni¿ w SPIR-V
-// w `CStageIntrospectionData` powinien byæ trzymana struktura `SIntrospectionParams`
-
 // TODO: put this somewhere useful in a separate header
 namespace nbl::core
 {
+
+template<typename T>
+struct based_offset
+{
+	public:
+		using element_type = T;
+
+		constexpr based_offset() {}
+
+		constexpr explicit based_offset(T* basePtr, T* ptr) : m_offset(ptr-basePtr) {}
+		constexpr based_offset(const size_t offset) : m_offset(offset) {}
+
+		inline operator bool() const {return m_offset!=InvalidOffset;}
+		inline T* operator()(T* newBase) const {return bool(*this) ? (newBase+m_offset):nullptr;}
+		inline T* operator()(std::conditional_t<std::is_const_v<T>,const void*,void*> newBase) const {return operator()(reinterpret_cast<T*>(newBase));}
+		
+		inline based_offset<T> operator+(const size_t extraOff) const {return {m_offset+extraOff};}
+
+		inline auto offset() const {return m_offset;}
+
+	private:
+		constexpr static inline size_t InvalidOffset = ~0ull;
+		size_t m_offset = InvalidOffset;
+};
 
 template<typename T, size_t Extent=std::dynamic_extent>
 struct based_span
 {
 	public:
+		using element_type = T;
+
 		constexpr based_span()
 		{
 			static_assert(sizeof(based_span<T,Extent>)==sizeof(std::span<T,Extent>));
@@ -54,6 +70,9 @@ struct based_span
 		constexpr based_span(size_t offset, size_t size) : m_offset(offset), m_size(size) {}
 
 		inline std::span<T,Extent> operator()(T* newBase) const {return {newBase+m_offset,m_size};}
+		inline std::span<T,Extent> operator()(std::conditional_t<std::is_const_v<T>,const void*,void*> newBase) const {return operator()(reinterpret_cast<T*>(newBase));}
+
+		inline auto offset() const {return m_offset;}
 
 	private:
 		size_t m_offset = ~0ull;
@@ -147,7 +166,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint16_t lastRow : 2 = 0;
 					uint16_t lastCol : 2 = 0;
 					//! rowMajor=false implies col-major
-					uint16_t rowMajor : 1 = 0;
+					uint16_t rowMajor : 1 = true;
 					//! stride==0 implies not matrix
 					uint16_t stride : 11 = 0;
 					VAR_TYPE type : 6 = VAR_TYPE::UNKNOWN_OR_STRUCT;
@@ -156,35 +175,53 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				};
 				//
 				template<typename T, bool Mutable>
+				using ptr_t = std::conditional_t<Mutable,core::based_offset<T>,const T*>;
+				//
+				template<typename T, bool Mutable>
 				using span_t = std::conditional_t<Mutable,core::based_span<T>,std::span<const T>>;
 				//
 				template<bool Mutable=false>
-				struct SMemoryBlock
+				struct SType
 				{
-					struct SMember
-					{
-						// TODO [Przemek]: doesn't work when `Mutable = true`, fix
-						/*inline std::enable_if_t<!Mutable,std::string_view> getName() const
-						{
-							return std::string_view(name.data(),name.size());
-						}*/
+					public:
+						inline bool isArray() const {return !count.empty();}
 
 						//! children
-						span_t<char, Mutable> name = {};
-						span_t<SMember,Mutable> members = {};
-						//! self
-						
-						uint32_t offset = 0;
-						span_t<SArrayInfo,Mutable> count = {};
-						// only relevant if `count.isArray()`
-						uint32_t stride = 0;
-						// This is the size of the entire member, so for an array it includes everything
-						uint32_t size = 0;
-						STypeInfo typeInfo = {};
-					};
+						using member_type_t = ptr_t<SType<Mutable>,Mutable>;
+						ptr_t<member_type_t,Mutable> memberTypes() const {return {memberInfoStorage.offset()};}
+						using member_name_t = span_t<char,Mutable>;
+						ptr_t<member_name_t,Mutable> memberNames() const {return {(memberTypes()+memberCount).offset()};}
 
-					span_t<char, Mutable> name = {};
-					decltype(SMember::members) members;
+						//! SPIR-V is a bit dumb and types of the same struct can have variable size depending on std140, std430, or scalar layouts
+						//! it would have been much easier if the layout was baked into the struct, so there'd be a separate type
+						//! (like a template instantation) of each free-floating struct in different layouts or at least like cv-qualifiers baked into a type.
+						using member_size_t = uint32_t;
+						// This is the size of the entire member, so for an array it includes everything
+						ptr_t<member_size_t,Mutable> memberSizes() const {return {(memberNames()+memberCount).offset()};}
+						using member_offset_t = member_size_t;
+						ptr_t<member_offset_t,Mutable> memberOffsets() const {return {(memberSizes()+memberCount).offset()};}
+						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
+						using member_stride_t = uint32_t;
+						ptr_t<member_stride_t,Mutable> memberStrides() const {return {(memberOffsets()+memberCount).offset()};}
+
+						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t);
+
+						//! self
+						span_t<char,Mutable> typeName = {};
+						span_t<SArrayInfo,Mutable> count = {};
+						STypeInfo info = {};
+
+					//private:
+						uint32_t memberCount = 0;
+						ptr_t<char,Mutable> memberInfoStorage = {};
+				};
+				template<bool Mutable=false>
+				using type_ptr = SType<Mutable>::member_type_t;
+				template<bool Mutable=false>
+				struct SMemoryBlock
+				{
+					span_t<char,Mutable> name = {};
+					type_ptr<Mutable> type = nullptr;
 				};
 				//! Maybe one day in the future they'll use memory blocks, but not now
 				template<bool Mutable=false>
@@ -208,7 +245,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				template<bool Mutable=false>
 				struct SPushConstantInfo : SMemoryBlock<Mutable>
 				{
-					span_t<char,Mutable> name = {};
 					// believe it or not you can declare an empty PC block
 					bool present = false;
 				};
@@ -222,18 +258,19 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint8_t readonly : 1 = false;
 						uint8_t writeonly : 1 = false;
 					};
-					struct SCombinedImageSampler final
+					struct SImage
 					{
-						IImageView<ICPUImage>::E_TYPE viewType : 3;
-						uint8_t multisample : 1;
-						uint8_t shadow : 1;
+						IImageView<ICPUImage>::E_TYPE viewType : 3 = IImageView<ICPUImage>::E_TYPE::ET_2D;
+						uint8_t shadow : 1 = false;
 					};
-					struct SStorageImage final : SRWDescriptor
+					struct SCombinedImageSampler final : SImage
+					{
+						uint8_t multisample : 1;
+					};
+					struct SStorageImage final : SRWDescriptor, SImage
 					{
 						// `EF_UNKNOWN` means that Shader will use the StoreWithoutFormat or LoadWithoutFormat capability
 						E_FORMAT format = EF_UNKNOWN;
-						IImageView<ICPUImage>::E_TYPE viewType : 3;
-						uint8_t shadow : 1;
 					};
 					struct SUniformTexelBuffer final
 					{
@@ -255,7 +292,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 							return this->members.back().count.isRuntimeSized;
 						}
 						template<bool C=!Mutable>
-						inline std::enable_if_t<C,size_t> getRuntimeSize(size_t lastMemberElementCount) const
+						inline std::enable_if_t<C,size_t> getRuntimeSize(const size_t lastMemberElementCount) const
 						{
 							if (isLastMemberRuntimeSized)
 							{
@@ -341,7 +378,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			protected:
 				friend CSPIRVIntrospector;
-
+#if 0
 				using creation_member_t = SMemoryBlock<true>::SMember;
 				template<class Pre>
 				inline void visitMemoryBlockPreOrderDFS(SMemoryBlock<true>& block, Pre& pre)
@@ -374,41 +411,62 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//		pushAllMembers(*m);
 				//	}
 				//}
-
+#endif
+				inline size_t allocOffset(const size_t bytes)
+				{
+					const size_t off = m_memPool.size();
+					m_memPool.resize(off+bytes);
+					return off;
+				}
+				template<typename T>
+				inline core::based_span<T> alloc(const size_t count)
+				{
+					const auto off = allocOffset(sizeof(T)*count);
+					return {off,count};
+				}
 				//! Only call these during construction!
 				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal)
 				{
 					if (count)
 					{
-						const auto off = m_arraySizePool.size();
-						m_arraySizePool.resize(off+count);
+						const auto range = alloc<SArrayInfo>(count);
+						auto arraySizes = range(m_memPool.data());
 						for (size_t i=0; i<count; i++)
 						{
 							// the API for this spec constant checking is truly messed up
 							if (size_is_literal[i])
-								m_arraySizePool[i].value = sizes[i];
+								arraySizes[i].value = sizes[i];
 							else
 							{
-								m_arraySizePool[i].specID = sizes[i]; // ID of spec constant if size is spec constant
-								m_arraySizePool[i].isSpecConstant = true;
+								arraySizes[i].specID = sizes[i]; // ID of spec constant if size is spec constant
+								arraySizes[i].isSpecConstant = true;
 							}
 						}
-						return {off,count};
+						return range;
 					}
 					else
 						return {};
 				}
 				inline core::based_span<char> addString(const std::string_view str)
 				{
-					const auto sz = str.size();
-					const auto off = m_stringPool.size();
-					m_stringPool.resize(off+sz+1);
-					memcpy(m_stringPool.data()+off,str.data(),sz);
-					m_stringPool.back() = '\0';
-					return {off,sz};
+					const auto range = alloc<char>(str.size()+1);
+					const auto out = range(m_memPool.data());
+					memcpy(out.data(),str.data(),str.size());
+					out.back() = '\0';
+					return range;
 				}
 				SDescriptorVarInfo<true>* addResource(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
-				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, const uint32_t blockBaseTypeID);
+				inline core::based_offset<SType<true>> addType(const size_t memberCount)
+				{
+					const auto memberStorage = allocOffset(SType<true>::StoragePerMember*memberCount);
+					auto retval = alloc<SType<true>>(1);
+					// allocated everything before touching any data stores, to avoid pointer invalidation
+					auto pType = retval(m_memPool.data()).data();
+					pType->memberCount = memberCount;
+					pType->memberInfoStorage = {memberStorage};
+					return {retval.offset()};
+				}
+				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r);
 				
 				// Parameters it was created with
 				SParams m_params;
@@ -426,11 +484,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				constexpr static inline uint8_t DescriptorSetCount = 4;
 				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[DescriptorSetCount];
 				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
-				// then just convert from `SMemoryBlock<core::based_span>` to `SMemoryBlock<std::span>`
+				// then just convert from `SMemoryBlock<true>` to `SMemoryBlock<false>`
 				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
-				core::vector<char> m_stringPool;
-				core::vector<SArrayInfo> m_arraySizePool;
-				core::vector<SMemoryBlock<>> m_memberPool;
+				core::vector<char> m_memPool;
 		};
 		class CPipelineIntrospectionData final : public CIntrospectionData
 		{
