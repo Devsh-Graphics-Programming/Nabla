@@ -112,7 +112,7 @@ class FFT final : public core::IReferenceCounted
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
 													(passAxis<<28u)| // direction
 													((numChannels-1u)<<26u)| // max channel
-													(core::findMSB(paddedAxisLen)<<3u)| // log2(fftSize)
+													(hlsl::findMSB(paddedAxisLen)<<3u)| // log2(fftSize)
 													uint32_t(std::get<2u>(passes[i]));
 					}
 

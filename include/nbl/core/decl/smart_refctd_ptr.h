@@ -51,7 +51,7 @@ class smart_refctd_ptr
 		template<class U>
 		explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
 			
-        template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
+        template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
         inline smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept
         {
             this->copy(other);
@@ -61,7 +61,7 @@ class smart_refctd_ptr
             this->copy(other);
         }
 
-		template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+		template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
 		inline smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept
 		{
             this->move(std::move(other));
@@ -74,12 +74,12 @@ class smart_refctd_ptr
 		~smart_refctd_ptr() noexcept;
 
 		inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept;
-        template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
+        template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
 		inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept;
 
 		inline smart_refctd_ptr& operator=(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept;
         //those std::enable_if_t's most likely not needed, but just to be sure (i put them to trigger SFINAE to be sure call to non-templated ctor is always generated in case of same type)
-		template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+		template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
 		inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept;
 
 		// so that you don't mix refcounting methods
@@ -98,8 +98,13 @@ class smart_refctd_ptr
 		inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
 		inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
 
+		// conversions
 		inline explicit operator bool() const { return ptr; }
 		inline bool operator!() const { return !ptr; }
+
+// TODO: later, need to figure out some stuff about fwd declarations of concepts
+//		template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED> && std::is_assignable_v<U,I_REFERENCE_COUNTED>)
+//		inline operator smart_refctd_ptr<U>&&() && {return *reinterpret_cast<smart_refctd_ptr<U>>(this);}
 
 		template<class U>
 		inline bool operator==(const smart_refctd_ptr<U> &other) const { return ptr == other.ptr; }
