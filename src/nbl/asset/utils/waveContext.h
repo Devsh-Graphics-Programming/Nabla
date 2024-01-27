@@ -109,8 +109,8 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             return true;
         }
         
-        if (strcmp(optionStr, "dxc_compile_flags") ) {
-            if (0 && hash_token_occurences != 1) {
+        if (strcmp(optionStr, "dxc_compile_flags") == 0) {
+            if (hash_token_occurences != 1) {
                 m_logger.log("Pre-processor error: Encountered a \"#pragma wave dxc_compile_flags\" but it is not the first preprocessor directive.", system::ILogger::ELL_ERROR);
                 return false;
             }
