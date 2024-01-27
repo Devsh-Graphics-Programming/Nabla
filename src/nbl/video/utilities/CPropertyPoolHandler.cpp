@@ -12,28 +12,28 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	// TODO: Reuse asset manager from elsewhere?
 	auto assetManager = core::make_smart_refctd_ptr<asset::IAssetManager>(core::smart_refctd_ptr<system::ISystem>(system));
 
-	video::IGPUObjectFromAssetConverter CPU2GPU;
-	video::IGPUObjectFromAssetConverter::SParams cpu2gpuParams;
-	cpu2gpuParams.assetManager = assetManager.get();
-	cpu2gpuParams.device = m_device.get();
-	
 	auto loadShader = [&](const char* path)
-	{
-		asset::IAssetLoader::SAssetLoadParams params = {};
-		auto shader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(path, params).getContents().begin());
-		shader->setSpecializationInfo(asset::ISpecializedShader::SInfo(nullptr, nullptr, "main"));
-		assert(shader);
+		{
+			asset::IAssetLoader::SAssetLoadParams params = {};
+			auto assetBundle = assetManager->getAsset(path, params);
+			auto assets = assetBundle.getContents();
+			assert(!assets.empty());
 
-		auto gpuShaders = CPU2GPU.getGPUObjectsFromAssets(&shader, &shader + 1u, cpu2gpuParams);
-		auto gpuShader = gpuShaders->begin()[0u];
-		assert(gpuShader);
-
-		return gpuShader;
-	};
+			auto cpuShader = asset::IAsset::castDown<asset::ICPUShader>(assets[0]);
+			auto shader = m_device->createShader(cpuShader.get());
+			return shader;
+		};
 	auto shader = loadShader("../../../include/nbl/builtin/hlsl/property_pool/copy.comp.hlsl");
-	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(nbl::hlsl::property_pools::GlobalPushContants)};
-	auto layout = m_device->createPipelineLayout(&baseDWORD,&baseDWORD+1u);
-	m_pipeline = m_device->createComputePipeline(nullptr,std::move(layout),std::move(shader));
+	const asset::SPushConstantRange baseDWORD = { asset::IShader::ESS_COMPUTE,0u,sizeof(nbl::hlsl::property_pools::GlobalPushContants) };
+	auto layout = m_device->createPipelineLayout({ &baseDWORD,1u });
+
+	{
+		video::IGPUComputePipeline::SCreationParams params = {};
+		params.layout = layout.get();
+		params.shader.shader = shader.get();
+
+		m_device->createComputePipelines(nullptr, { &params, 1 }, &m_pipeline);
+	}
 
 #if 0
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
@@ -86,7 +86,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 
 
 bool CPropertyPoolHandler::transferProperties(
-	IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
+	IGPUCommandBuffer* const cmdbuf, //IGPUFence* const fence,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
 	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
@@ -112,8 +112,8 @@ bool CPropertyPoolHandler::transferProperties(
 	
 	uint32_t numberOfPasses = totalProps / MaxPropertiesPerDispatch;
 	nbl::hlsl::property_pools::TransferRequest transferRequestsData[MaxPropertiesPerDispatch];
-	uint64_t scratchBufferDeviceAddr = m_device->getBufferDeviceAddress(scratch.buffer.get()) + scratch.offset;
-	uint64_t addressBufferDeviceAddr = m_device->getBufferDeviceAddress(addresses.buffer.get()) + addresses.offset;
+	uint64_t scratchBufferDeviceAddr = scratch.buffer.get()->getDeviceAddress() + scratch.offset;
+	uint64_t addressBufferDeviceAddr = addresses.buffer.get()->getDeviceAddress() + addresses.offset;
 
 	for (uint32_t transferPassRequestsIndex = 0; transferPassRequestsIndex < totalProps; transferPassRequestsIndex += MaxPropertiesPerDispatch)
 	{
@@ -124,8 +124,8 @@ bool CPropertyPoolHandler::transferProperties(
 		{
 			auto& transferRequest = transferRequestsData[i];
 			auto srcRequest = transferPassRequests + i;
-			transferRequest.srcAddr = m_device->getBufferDeviceAddress(srcRequest->memblock.buffer.get()) + srcRequest->memblock.offset;
-			transferRequest.dstAddr = m_device->getBufferDeviceAddress(srcRequest->buffer.buffer.get()) + srcRequest->buffer.offset;
+			transferRequest.srcAddr = srcRequest->memblock.buffer.get()->getDeviceAddress() + srcRequest->memblock.offset;
+			transferRequest.dstAddr = srcRequest->buffer.buffer.get()->getDeviceAddress() + srcRequest->buffer.offset;
 			transferRequest.srcIndexAddr = srcRequest->srcAddressesOffset ? addressBufferDeviceAddr + srcRequest->srcAddressesOffset : 0;
 			transferRequest.dstIndexAddr = srcRequest->dstAddressesOffset ? addressBufferDeviceAddr + srcRequest->dstAddressesOffset : 0;
 			transferRequest.elementCount32 = uint32_t(srcRequest->elementCount & (uint64_t(1) << 32) - 1);
@@ -137,7 +137,7 @@ bool CPropertyPoolHandler::transferProperties(
 
 			maxElements = core::max<uint64_t>(maxElements, srcRequest->elementCount);
 		}
-		cmdbuf->updateBuffer(scratch.buffer.get(),scratch.offset,sizeof(TransferRequest)*requestsThisPass,transferRequestsData);
+		cmdbuf->updateBuffer({ scratch.offset,sizeof(TransferRequest) * requestsThisPass, core::smart_refctd_ptr(scratch.buffer) }, transferRequestsData);
 		// TODO: pipeline barrier
 		cmdbuf->bindComputePipeline(m_pipeline.get());
 		
