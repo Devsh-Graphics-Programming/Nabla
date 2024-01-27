@@ -81,9 +81,13 @@ public:
 		}
 #endif
 
-		//TODO unfuck this
-		const ICPUShader* shader_code = open_shader_file(file_to_compile);
-		auto compilation_result = compile_shader(shader_code, file_to_compile);
+		const ICPUShader* shader = open_shader_file(file_to_compile);
+		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
+		{
+			m_logger->log("Error. Loaded shader file content is not HLSL.", ILogger::ELL_ERROR);
+			return false;
+		}
+		auto compilation_result = compile_shader(shader, file_to_compile);
 
 		// writie compiled shader to file as bytes
 		if (compilation_result && !output_filepath.empty()) {
@@ -105,7 +109,7 @@ public:
 
 private:
 
-	core::smart_refctd_ptr<ICPUShader> compile_shader(const ICPUShader* shader_code, std::string_view sourceIdentifier) {
+	core::smart_refctd_ptr<ICPUShader> compile_shader(const ICPUShader* shader, std::string_view sourceIdentifier) {
 		constexpr uint32_t WorkgroupSize = 256;
 		constexpr uint32_t WorkgroupCount = 2048;
 		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
@@ -113,7 +117,7 @@ private:
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
-		options.stage = shader_code->getStage();
+		options.stage = shader->getStage();
 		//options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
@@ -121,7 +125,7 @@ private:
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
-		return hlslcompiler->compileToSPIRV((const char*)shader_code->getContent()->getPointer(), options);
+		return hlslcompiler->compileToSPIRV((const char*)shader->getContent()->getPointer(), options);
 	}
 
 
