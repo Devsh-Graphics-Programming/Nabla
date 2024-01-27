@@ -51,33 +51,26 @@ public:
 			return false;
 		}
 		std::string output_filepath = "";
-		for (auto i = 1; i < m_arguments.size(); i++)
-		{
-			if (m_arguments[i] == "-no-nbl-builtins")
-			{
-				// unmount builtins
-				m_logger->log("Unmounting builtins.");
-				m_system->unmountBuiltins();
-				no_nbl_builtins = true;
-				m_arguments.erase(m_arguments.begin() + i - 1);
-				i--;
-			}
-			else if (m_arguments[i] == "-Fo")
-			{
-				// get filepath to save output to
-				if (i + 1 < argc)
-				{
-					output_filepath = argv[i + 1];
-					m_logger->log("Compiled shader code will be saved to " + output_filepath);
-					m_arguments.erase(m_arguments.begin() + i, m_arguments.begin() + i + 1);
-					i--;
-				}
-				else
-				{
-					m_logger->log("Incorrect arguments. Expecting filename after -Fo.", ILogger::ELL_ERROR);
-				}
-			}
 
+
+		auto builtin_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-no-nbl-builtins");
+		if (builtin_flag_pos != m_arguments.end()) {
+			m_logger->log("Unmounting builtins.");
+			m_system->unmountBuiltins();
+			no_nbl_builtins = true;
+			m_arguments.erase(builtin_flag_pos);
+		}
+
+		auto output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fo");
+		if (output_flag_pos != m_arguments.end()) {
+			if (output_flag_pos + 1 != m_arguments.end()) {
+				output_filepath = *output_flag_pos;
+				m_logger->log("Compiled shader code will be saved to " + output_filepath);
+				m_arguments.erase(output_flag_pos, output_flag_pos+1);
+			}
+			else {
+				m_logger->log("Incorrect arguments. Expecting filename after -Fo.", ILogger::ELL_ERROR);
+			}
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -87,7 +80,9 @@ public:
 			m_logger->log("nsc.exe was compiled with builtin resources disabled. Force enabling -no-nbl-builtins.", ILogger::ELL_WARNING);
 		}
 #endif
-		string shader_code = open_shader_file(file_to_compile);
+
+		//TODO unfuck this
+		const ICPUShader* shader_code = open_shader_file(file_to_compile);
 		auto compilation_result = compile_shader(shader_code, file_to_compile);
 
 		// writie compiled shader to file as bytes
@@ -110,7 +105,7 @@ public:
 
 private:
 
-	core::smart_refctd_ptr<ICPUShader> compile_shader(std::string& shader_code, std::string_view sourceIdentifier) {
+	core::smart_refctd_ptr<ICPUShader> compile_shader(const ICPUShader* shader_code, std::string_view sourceIdentifier) {
 		constexpr uint32_t WorkgroupSize = 256;
 		constexpr uint32_t WorkgroupCount = 2048;
 		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
@@ -118,7 +113,7 @@ private:
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
-		options.stage = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+		options.stage = shader_code->getStage();
 		//options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
@@ -126,15 +121,29 @@ private:
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
-		return hlslcompiler->compileToSPIRV(shader_code.c_str(), options);
+		return hlslcompiler->compileToSPIRV((const char*)shader_code->getContent()->getPointer(), options);
 	}
 
 
-	std::string open_shader_file(std::string& filepath) {
-		std::ifstream stream(filepath);
-		std::string str((std::istreambuf_iterator<char>(stream)),
-			std::istreambuf_iterator<char>());
-		return str;
+	const ICPUShader* open_shader_file(std::string& filepath) {
+
+		m_assetMgr = make_smart_refctd_ptr<asset::IAssetManager>(smart_refctd_ptr(m_system));
+		auto resourceArchive = make_smart_refctd_ptr<system::CMountDirectoryArchive>(localInputCWD, smart_refctd_ptr(m_logger), m_system.get());
+		m_system->mount(std::move(resourceArchive));
+
+		IAssetLoader::SAssetLoadParams lp = {};
+		lp.logger = m_logger.get();
+		lp.workingDirectory = "";
+		auto assetBundle = m_assetMgr->getAsset(filepath, lp);
+		const auto assets = assetBundle.getContents();
+		if (assets.empty()) {
+			m_logger->log("Could not load shader %s", ILogger::ELL_ERROR, filepath);
+			return false;
+		}
+		assert(assets.size() == 1);
+		smart_refctd_ptr<ICPUSpecializedShader> source = IAsset::castDown<ICPUSpecializedShader>(assets[0]);
+
+		return source->getUnspecialized();
 	}
 
 
@@ -142,6 +151,8 @@ private:
 	smart_refctd_ptr<ISystem> m_system;
 	smart_refctd_ptr<CStdoutLogger> m_logger;
 	std::vector<std::string> m_arguments;
+	core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
+
 
 };
 

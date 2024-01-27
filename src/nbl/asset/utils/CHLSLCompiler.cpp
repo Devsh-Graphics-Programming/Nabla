@@ -166,12 +166,10 @@ static void populate_arguments_with_type_conversion(std::vector<std::wstring> &a
 
 static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    // Append Commandline options into source only if debugInfoFlags will emit source
-    auto sourceEmittingFlags =
-        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT |
-        CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
-    if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
+    // Emit compile flags as a #pragma directive
+    // "#pragma wave dxc_compile_flags allows" intended use is to be able to recompile a shader with the same* flags as initial compilation
+    // mainly meant to be used while debugging in RenderDoc.
+    // * (except "-no-nbl-builtins") 
     {
         std::ostringstream insertion;
         insertion << "#pragma wave dxc_compile_flags( ";
@@ -303,50 +301,32 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
     auto hlslOptions = option_cast(options);
-
+    auto logger = hlslOptions.preprocessorOptions.logger;
     if (!code)
     {
-        hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
+        logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
     std::vector<std::string> dxc_compile_flags = {};
-    IShader::E_SHADER_STAGE stageOverrideFromPragma = IShader::ESS_UNKNOWN;
-    auto newCode = preprocessShader(code, stageOverrideFromPragma, hlslOptions.preprocessorOptions, dxc_compile_flags);
+    IShader::E_SHADER_STAGE stage = options.stage;
+    auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions, dxc_compile_flags);
 
     // Suffix is the shader model version
-    // TODO: Figure out a way to get the shader model version automatically
-    // 
-    // We can't get it from the DXC library itself, as the different versions and the parsing
-    // use a weird lexer based system that resolves to a hash, and all of that is in a scoped variable
-    // (lib/DXIL/DxilShaderModel.cpp:83)
-    // 
-    // Another option is trying to fetch it from the commandline tool, either from parsing the help message
-    // or from brute forcing every -T option until one isn't accepted
-    //
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
-    IShader::E_SHADER_STAGE stage = options.stage;
-    if (stageOverrideFromPragma != IShader::ESS_UNKNOWN)
-    {
-        // Shader Stage was overriden using #pragma
-        // #pragma wave shaderStage overrides all other definitions of shader stage, such as
-        // -T argument (passed here as options.stage)
-        // shader stage inferred from file extension in asset namespace
-        stage = stageOverrideFromPragma;
-    }
    
     std::vector<std::wstring> arguments = {};
     if (dxc_compile_flags.size() || hlslOptions.dxcOptions.size()) { // #pragma dxc_compile_flags takes priority
-        populate_arguments_with_type_conversion(arguments, dxc_compile_flags, hlslOptions.preprocessorOptions.logger);
+        populate_arguments_with_type_conversion(arguments, dxc_compile_flags, logger);
     }
     else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
-        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, hlslOptions.preprocessorOptions.logger);
+        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
     }
     else { // lastly default arguments
 
         // Set profile two letter prefix based on stage
         auto stageStr = ShaderStageToString(stage);
         if (!stageStr) {
-            hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
+            logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
             return nullptr;
         }
         targetProfile.replace(0, 2, stageStr);
@@ -381,8 +361,8 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             arguments.push_back(L"-fspv-debug=vulkan-with-source");
     }
 
-    try_upgrade_shader_stage(arguments, stageOverrideFromPragma);
-    try_upgrade_hlsl_version(arguments);
+    try_upgrade_shader_stage(arguments, stage, logger);
+    try_upgrade_hlsl_version(arguments, logger);
     
     uint32_t argc = arguments.size();
     LPCWSTR* argsArray = new LPCWSTR[argc];
@@ -408,7 +388,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     
     // Optimizer step
     if (hlslOptions.spirvOptimizer)
-        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), hlslOptions.preprocessorOptions.logger);
+        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
