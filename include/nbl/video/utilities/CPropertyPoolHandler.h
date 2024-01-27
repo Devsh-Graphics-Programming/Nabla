@@ -81,7 +81,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] bool transferProperties(
-			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
+			IGPUCommandBuffer* const cmdbuf, //IGPUFence* const fence,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
 			system::logger_opt_ptr logger, const uint32_t baseDWORD=0u, const uint32_t endDWORD=~0ull
@@ -177,8 +177,9 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint=std::chrono::steady_clock::now()+std::chrono::microseconds(500u)
 		);
 #endif
-
-#if 0 // TODO: freeing properties
+		
+// TODO: freeing properties
+#if 0
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
 		static inline bool freeProperties(IPropertyPool* pool, UpStreamingRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
 		{
@@ -213,7 +214,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 
 		uint32_t m_alignment;
 };
-#endif
 
 }
+
 #endif
