@@ -1,10 +1,4 @@
-// TODO: Cypi
-
-
-// nsc input/simple_shader.hlsl -T ps_6_0 -E Main -Fo output/shader.ps
-
 #include "nbl/system/IApplicationFramework.h"
-
 #include <iostream>
 #include <cstdlib>
 #include <string>
@@ -35,9 +29,8 @@ public:
 
 		auto argc = argv.size();
 
-		// expect the first argument to be
-		// .exe
-		// second the filename of a shader to compile
+		// expect the first argument to be nsc.exe
+		// second argument should be input: filename of a shader to compile
 		if (argc < 2) {
 			m_logger->log("Insufficient arguments.", ILogger::ELL_ERROR);
 			return false;
@@ -110,15 +103,10 @@ public:
 private:
 
 	core::smart_refctd_ptr<ICPUShader> compile_shader(const ICPUShader* shader, std::string_view sourceIdentifier) {
-		constexpr uint32_t WorkgroupSize = 256;
-		constexpr uint32_t WorkgroupCount = 2048;
-		const string WorkgroupSizeAsStr = std::to_string(WorkgroupSize);
-
 		smart_refctd_ptr<CHLSLCompiler> hlslcompiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(m_system));
 
 		CHLSLCompiler::SOptions options = {};
 		options.stage = shader->getStage();
-		//options.debugInfoFlags = IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT;
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
 		options.dxcOptions = std::span<std::string>(m_arguments);
