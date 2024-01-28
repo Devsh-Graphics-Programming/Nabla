@@ -109,30 +109,46 @@ static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, syste
 }
 
 
-static void try_upgrade_shader_stage(std::vector<std::wstring> &arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
-    auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
-    if (foundShaderStageArgument != arguments.end()) {
-        auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
-        std::wstring s = arguments[foundShaderStageArgumentValueIdx];
-        if (s.length() >= 6) {
-            //TODO replace first 2 if shaderStageOverrideFromPragma != Unknown
-            
-            //TODO fix this parsing in case 6_10 gets released
-            //Even though they could name it 7_0 at that point
+static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
+	
+	constexpr int MajorReqVersion = 6,
+		MinorReqVersion = 7;
 
-            auto it = std::find(s.begin(), s.end(), '_');
-            while (it != s.end())
-            {
+	auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
+	if (foundShaderStageArgument != arguments.end() && foundShaderStageArgument + 1 != arguments.end()) {
+		auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
+		std::wstring s = arguments[foundShaderStageArgumentValueIdx];
+		if (s.length() >= 6) {
+			if (shaderStageOverrideFromPragma != IShader::ESS_UNKNOWN)
+			{
+				// replace first 2 characters if shaderStageOverrideFromPragma != Unknown
+				auto stageStr = ShaderStageToString(shaderStageOverrideFromPragma);
+				if (!stageStr) {
+					logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
+					return;
+				}
+				s.replace(0, 2, stageStr);
+			}
 
-            }
-           /* int argument_version = (targetProfile[3] - '0') * 10 + (targetProfile[5] - '0');
-            if (argument_version < 67)
-            {
-                targetProfile.replace(3, 3, L"6_7");
-                arguments[foundShaderStageArgumentValueIdx] = targetProfile;
-            }*/
-        }
-    }
+			std::vector<std::wstring::iterator> underscorePositions = {};
+			auto it = std::find(s.begin(), s.end(), '_');
+			while (it != s.end())
+				underscorePositions.push_back(it);
+			std::wstring majorVersionString, minorVersionString;
+			int size = underscorePositions.size();
+			auto secondLastUnderscore = underscorePositions[size - 2];
+			auto lastUnderscore = underscorePositions[size - 1];
+			majorVersionString = std::wstring(secondLastUnderscore + 1, lastUnderscore);
+			minorVersionString = std::wstring(lastUnderscore + 1, s.end());
+
+			int major = std::stoi(majorVersionString);
+			int minor = std::stoi(minorVersionString);
+			if (major < MajorReqVersion || (major == MajorReqVersion && minor < MinorReqVersion))
+			{
+				arguments[foundShaderStageArgumentValueIdx] = std::wstring(s.begin(), secondLastUnderscore + 1) + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion);
+			}
+		}
+	}
 }
 
 
