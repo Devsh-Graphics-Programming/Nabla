@@ -57,13 +57,16 @@ public:
 		auto output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fo");
 		if (output_flag_pos != m_arguments.end()) {
 			if (output_flag_pos + 1 != m_arguments.end()) {
-				output_filepath = *output_flag_pos;
+				output_filepath = *(output_flag_pos + 1);
 				m_logger->log("Compiled shader code will be saved to " + output_filepath);
 				m_arguments.erase(output_flag_pos, output_flag_pos+1);
 			}
 			else {
 				m_logger->log("Incorrect arguments. Expecting filename after -Fo.", ILogger::ELL_ERROR);
 			}
+		}
+		else {
+			m_logger->log("Missing arguments. Expecting -Fo {filename}.", ILogger::ELL_ERROR);
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -120,7 +123,7 @@ private:
 	const ICPUShader* open_shader_file(std::string& filepath) {
 
 		m_assetMgr = make_smart_refctd_ptr<asset::IAssetManager>(smart_refctd_ptr(m_system));
-		auto resourceArchive = make_smart_refctd_ptr<system::CMountDirectoryArchive>(localInputCWD, smart_refctd_ptr(m_logger), m_system.get());
+		auto resourceArchive = make_smart_refctd_ptr<system::CMountDirectoryArchive>(path(localInputCWD), logger_opt_smart_ptr(smart_refctd_ptr(m_logger)), m_system.get());
 		m_system->mount(std::move(resourceArchive));
 
 		IAssetLoader::SAssetLoadParams lp = {};
@@ -130,7 +133,7 @@ private:
 		const auto assets = assetBundle.getContents();
 		if (assets.empty()) {
 			m_logger->log("Could not load shader %s", ILogger::ELL_ERROR, filepath);
-			return false;
+			return nullptr;
 		}
 		assert(assets.size() == 1);
 		smart_refctd_ptr<ICPUSpecializedShader> source = IAsset::castDown<ICPUSpecializedShader>(assets[0]);

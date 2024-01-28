@@ -132,8 +132,10 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
 
 			std::vector<std::wstring::iterator> underscorePositions = {};
 			auto it = std::find(s.begin(), s.end(), '_');
-			while (it != s.end())
+            while (it != s.end()) {
 				underscorePositions.push_back(it);
+                it = std::find(it + 1, s.end(), '_');
+            }
 			std::wstring majorVersionString, minorVersionString;
 			int size = underscorePositions.size();
 			auto secondLastUnderscore = underscorePositions[size - 2];
