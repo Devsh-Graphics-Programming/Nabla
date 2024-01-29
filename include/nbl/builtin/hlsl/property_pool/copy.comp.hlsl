@@ -14,13 +14,13 @@ namespace property_pools
 template<bool Fill, bool SrcIndexIota, bool DstIndexIota, uint64_t SrcIndexSizeLog2, uint64_t DstIndexSizeLog2>
 struct TransferLoop
 {
-    void iteration(uint propertyId, TransferRequest transferRequest, uint invocationIndex)
+    void iteration(uint propertyId, TransferRequest transferRequest, uint64_t invocationIndex)
     {
         const uint64_t srcIndexSize = uint64_t(1) << SrcIndexSizeLog2;
         const uint64_t dstIndexSize = uint64_t(1) << DstIndexSizeLog2;
 
-        const uint64_t srcOffset = uint64_t(invocationIndex) * srcIndexSize * transferRequest.propertySize;
-        const uint64_t dstOffset = uint64_t(invocationIndex) * dstIndexSize * transferRequest.propertySize;
+        const uint64_t srcOffset = invocationIndex * srcIndexSize * transferRequest.propertySize;
+        const uint64_t dstOffset = invocationIndex * dstIndexSize * transferRequest.propertySize;
         
         const uint64_t srcIndexAddress = Fill ? transferRequest.srcIndexAddr + srcOffset : transferRequest.srcIndexAddr;
         const uint64_t dstIndexAddress = Fill ? transferRequest.dstIndexAddr + dstOffset : transferRequest.dstIndexAddr;
@@ -112,26 +112,28 @@ void main(uint32_t3 dispatchId)
     // Loading transfer request from the pointer (can't use struct
     // with BDA on HLSL SPIRV)
     TransferRequest transferRequest;
-    transferRequest.srcAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress);
+    transferRequest.srcAddr = vk::RawBufferLoad<uint>(globals.transferCommandsAddress) | vk::RawBufferLoad<uint>(globals.transferCommandsAddress + sizeof(uint)) << 32;
     transferRequest.dstAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t));
     transferRequest.srcIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 2);
     transferRequest.dstIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 3);
     // Remaining elements are part of the same bitfield
     // TODO: Do this only using raw buffer load?
-    uint2 bitfieldType = vk::RawBufferLoad<uint2>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
-    transferRequest.elementCount32 = bitfieldType;
-    transferRequest.elementCountExtra = bitfieldType;
-    transferRequest.propertySize = bitfieldType >> 3;
-    transferRequest.fill = bitfieldType >> (3 + 24);
-    transferRequest.srcIndexSizeLog2 = bitfieldType >> (3 + 24 + 1);
-    transferRequest.dstIndexSizeLog2 = bitfieldType >> (3 + 24 + 1 + 2);
+    uint64_t bitfieldType = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
+    transferRequest.elementCount32 = uint32_t(bitfieldType);
+    transferRequest.elementCountExtra = uint32_t(bitfieldType);
+    transferRequest.propertySize = uint32_t(bitfieldType >> 3);
+    transferRequest.fill = uint32_t(bitfieldType >> (3 + 24));
+    transferRequest.srcIndexSizeLog2 = uint32_t(bitfieldType >> (3 + 24 + 1));
+    transferRequest.dstIndexSizeLog2 = uint32_t(bitfieldType >> (3 + 24 + 1 + 2));
 
     const uint dispatchSize = nbl::hlsl::device_capabilities_traits<device_capabilities>::maxOptimallyResidentWorkgroupInvocations;
     const bool fill = transferRequest.fill == 1;
 
-    vk::RawBufferStore<uint32_t>(transferRequest.dstAddr, 69);
-    // if (fill) { TransferLoopPermutationFill<true> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
-    // else { TransferLoopPermutationFill<false> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
+    vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 3, transferRequest.srcAddr);
+    vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 4, transferRequest.dstAddr);
+    vk::RawBufferStore<uint>(globals.transferCommandsAddress + 40 * 5, vk::RawBufferLoad<uint>(transferRequest.srcAddr + sizeof(uint16_t) * 3));
+    //if (fill) { TransferLoopPermutationFill<true> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
+    //else { TransferLoopPermutationFill<false> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
 }
 
 }

@@ -147,7 +147,7 @@ bool CPropertyPoolHandler::transferProperties(
 			pushConstants.endOffset = endDWORD;
 			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr;
 		}
-		cmdbuf->pushConstants(m_pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::property_pools::GlobalPushContants), &pushConstants);
+		cmdbuf->pushConstants(m_pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(pushConstants), &pushConstants);
 
 		// dispatch
 		{

@@ -18,6 +18,10 @@ struct TransferRequest
     uint64_t srcIndexAddr; // IOTA default
     uint64_t dstIndexAddr; // IOTA default
     // TODO: go back to this ideal layout when things work
+    // (Getting a fatal error from DXC when using 64-bit bitfields:)
+    // fatal error: generated SPIR-V is invalid: [VUID-StandaloneSpirv-Base-04781] Expected 32-bit int type for Base operand: BitFieldInsert
+    // %58 = OpBitFieldInsert %ulong %42 %57 %uint_0 %uint_35
+    //
     //uint64_t elementCount : 35; // allow up to 64GB IGPUBuffers
     //uint64_t propertySize : 24; // all the leftover bits (just use bytes now)
     //uint64_t fill : 1;
@@ -34,13 +38,13 @@ struct TransferRequest
 
 struct GlobalPushContants 
 {
+    // BDA address (GPU pointer) into the transfer commands buffer
+    uint64_t transferCommandsAddress;
     // Define the range of invocations (X axis) that will be transfered over in this dispatch
     // May be sectioned off in the case of overflow or any other situation that doesn't allow
     // for a full transfer
     uint64_t beginOffset;
     uint64_t endOffset;
-    // BDA address (GPU pointer) into the transfer commands buffer
-    uint64_t transferCommandsAddress;
 };
 
 NBL_CONSTEXPR uint32_t MaxPropertiesPerDispatch = 128;
