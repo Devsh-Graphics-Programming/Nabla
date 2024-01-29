@@ -11,6 +11,27 @@
 namespace nbl::asset
 {
 
+static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType basetype)
+{
+    switch (basetype)
+    {
+    case spirv_cross::SPIRType::Int:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::I32;
+    case spirv_cross::SPIRType::UInt:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::U32;
+    case spirv_cross::SPIRType::Float:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::F32;
+    case spirv_cross::SPIRType::Int64:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::I64;
+    case spirv_cross::SPIRType::UInt64:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::U64;
+    case spirv_cross::SPIRType::Double:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::F64;
+    default:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::UNKNOWN_OR_STRUCT;
+    }
+}
+
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
@@ -208,24 +229,11 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
 
     core::smart_refctd_ptr<CStageIntrospectionData> stageIntroData = core::make_smart_refctd_ptr<CStageIntrospectionData>();
 
-    // TODO [Przemek]: now `inputOutput` vector is separated into `m_input` and `m_output`, adapt the code accordingly
-    /*auto addInfo_common = [&stageIntroData, &comp](const spirv_cross::Resource& r, IDescriptor::E_TYPE type) -> SShaderInfoVariant& 
-    {
-        introData->inputOutput.emplace_back();
-        SShaderInfoVariant& info = introData->inputOutput.back();
-        info.type = type;
-        info.location = comp.get_decoration(r.id, spv::DecorationLocation);
-        return info;
-        };*/
-
     comp.set_entry_point(params.entryPoint, stage);
 
 
-    // TODO [Przemog]
     // spec constants
-    /*
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = comp.get_specialization_constants();
-    mapId2SpecConst_t mapId2SpecConst;
     stageIntroData->m_specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
@@ -235,7 +243,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
 
         const spirv_cross::SPIRConstant& sconstval = comp.get_constant(sconsts[i].id);
         const spirv_cross::SPIRType& type = comp.get_type(sconstval.constant_type);
-        specConst.byteSize = calcBytesizeforType(comp, type);
+        specConst.byteSize = calcBytesizeForType(comp, type);
         specConst.type = spvcrossType2E_TYPE(type.basetype);
 
         switch (type.basetype)
@@ -261,19 +269,9 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         default: break;
         }
 
-        auto where = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        introData->specConstants.insert(where, specConst);
+        auto where = std::lower_bound(stageIntroData->m_specConstants.begin(), stageIntroData->m_specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
+        stageIntroData->m_specConstants.insert(where, specConst);
     }
-    for (const auto& sc : sconsts)
-    {
-        CIntrospectionData::SSpecConstant dummy;
-        dummy.id = sc.constant_id;
-        auto it = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), dummy, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        if (it == introData->specConstants.end() || it->id != dummy.id)
-            continue;
-        mapId2SpecConst.insert({ sc.id,&*it });
-    }
-    */
 
     spirv_cross::ShaderResources resources = comp.get_shader_resources(/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
@@ -378,31 +376,43 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     for (auto& descSet : stageIntroData->m_descriptorSetBindings)
         std::sort(descSet.begin(),descSet.end());
 
-    // TODO: PRzemog finish
-    /*auto getStageIOtype = [&comp](uint32_t _base_type_id)
+    auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t _base_type_id)
         {
             const auto& type = comp.get_type(_base_type_id);
-            decltype(SShaderInfoVariant::glslType) glslType;
-            glslType.basetype = spvcrossType2E_TYPE(type.basetype);
+            glslType.baseType = spvcrossType2E_TYPE(type.basetype);
             glslType.elements = type.vecsize;
 
             return glslType;
-        };*/
+        };
 
     // in/out
-    /*for (const spirv_cross::Resource& r : resources.stage_inputs)
+    for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
-        CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& res = addInfo_common(r, ESIT_STAGE_INPUT);
-        res.glslType = getStageIOtype(r.base_type_id);
+        CSPIRVIntrospector::CStageIntrospectionData::SInputInterface& res = stageIntroData->m_input.emplace_back();
+        getStageIOtype(res, r.base_type_id);
     }
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
-        CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
-        res.glslType = getStageIOtype(r.base_type_id);
+        using OutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface>;
+        using FragmentOutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface>;
 
-        res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
+        if (params.shader->getStage() == IShader::ESS_FRAGMENT)
+        {
+            CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
+                std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
+            getStageIOtype(res, r.base_type_id);
+
+            res.colorIndex = comp.get_decoration(r.id, spv::DecorationIndex);
+        }
+        else
+        {
+            CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface res =
+                std::get<OutputVecT>(stageIntroData->m_output).emplace_back();
+            getStageIOtype(res, r.base_type_id);
+        }
     }
-    std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _lhs, const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _rhs) { return _lhs.location < _rhs.location; });*/
+    // why do we need it sorted?
+    //std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _lhs, const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _rhs) { return _lhs.location < _rhs.location; });
 
     // push constants
     auto* pPushConstantsMutable = reinterpret_cast<CStageIntrospectionData::SPushConstantInfo<true>*>(&stageIntroData->m_pushConstants);
@@ -537,10 +547,8 @@ void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& 
         indent() << "}";
     printExtents(out,type->count);
 }
-}
 
-#if 0
-size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const
+size_t CSPIRVIntrospector::calcBytesizeForType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const
 {
     size_t bytesize = 0u;
     switch (type.basetype)
@@ -581,7 +589,5 @@ size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& comp, cons
         bytesize *= type.array[0];
 
     return bytesize;
-                }
-
 }
-#endif
+}

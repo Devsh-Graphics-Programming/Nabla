@@ -4,6 +4,9 @@
 #ifndef _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
 #define _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
 
+// TODO: 
+// - test specialization constant as an array size
+// - test input / output
 
 #include "nbl/core/declarations.h"
 
@@ -161,7 +164,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				{
 					uint32_t location;
 					uint32_t elements; // of array
-					VAR_TYPE basetype;
+					VAR_TYPE baseType;
 
 					inline bool operator<(const SInterface& _rhs) const
 					{
@@ -457,25 +460,24 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 				inline core::based_span<SArrayInfo> addCounts(const size_t count, const uint32_t* sizes, const bool* size_is_literal) // TODO: move to cpp
 				{
-					if (count)
-					{
-						const auto range = alloc<SArrayInfo>(count);
-						auto arraySizes = range(m_memPool.data());
-						for (size_t i=0; i<count; i++)
-						{
-							// the API for this spec constant checking is truly messed up
-							if (size_is_literal[i])
-								arraySizes[i].value = sizes[i];
-							else
-							{
-								arraySizes[i].specID = sizes[i]; // ID of spec constant if size is spec constant
-								arraySizes[i].isSpecConstant = true;
-							}
-						}
-						return range;
-					}
-					else
+					if (count == 0)
 						return {};
+
+					const auto range = alloc<SArrayInfo>(count);
+					auto arraySizes = range(m_memPool.data());
+					for (size_t i=0; i<count; i++)
+					{
+						// the API for this spec constant checking is truly messed up
+						if (size_is_literal[i])
+							arraySizes[i].value = sizes[i];
+						else
+						{
+							arraySizes[i].specID = sizes[i]; // ID of spec constant if size is spec constant
+							arraySizes[i].isSpecConstant = true;
+						}
+					}
+
+					return range;
 				}
 				inline core::based_span<char> addString(const std::string_view str) // TODO: move to cpp
 				{
@@ -623,7 +625,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 #endif	
 	private:
 		core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
-		size_t calcBytesizeforType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const;
+		size_t calcBytesizeForType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const;
 
 		struct KeyHasher
 		{
