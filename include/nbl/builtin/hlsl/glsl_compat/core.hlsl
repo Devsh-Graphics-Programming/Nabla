@@ -18,7 +18,7 @@ namespace glsl
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicAdd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)

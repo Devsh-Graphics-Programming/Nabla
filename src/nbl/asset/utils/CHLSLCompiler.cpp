@@ -83,7 +83,7 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
     if ((options.debugInfoFlags.value & sourceEmittingFlags) != CHLSLCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
     {
         std::ostringstream insertion;
-        insertion << "//#pragma compile_flags ";
+        insertion << "#pragma compile_flags ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -149,7 +149,8 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl:
 
 #include "nbl/asset/utils/waveContext.h"
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, std::vector<std::string>& dxc_compile_flags_override, const SPreprocessorOptions& preprocessOptions) const
 {
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     context.add_macro_definition("__HLSL_VERSION");
@@ -192,12 +193,22 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
+    if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
+        dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
+
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
+
+
 
     return resolvedString;
 }
 
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+{
+    std::vector<std::string> extra_dxc_compile_flags = {};
+    return preprocessShader(std::move(code), stage, extra_dxc_compile_flags, preprocessOptions);
+}
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
 {
@@ -208,9 +219,9 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
-
+    std::vector<std::string> dxc_compile_flags = {};
     auto stage = hlslOptions.stage;
-    auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions);
+    auto newCode = preprocessShader(code, stage, dxc_compile_flags, hlslOptions.preprocessorOptions);
 
     // Suffix is the shader model version
     // TODO: Figure out a way to get the shader model version automatically
@@ -256,7 +267,21 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
             return nullptr;
     };
 
-    std::vector<LPCWSTR> arguments = {
+    std::wstring* arg_storage = NULL;
+    std::vector<LPCWSTR> arguments;
+
+    if (dxc_compile_flags.size()) { // #pragma wave overrides compile flags
+        size_t arg_size = dxc_compile_flags.size();
+        arguments = {};
+        arguments.reserve(arg_size);
+        arg_storage = new std::wstring[arg_size]; // prevent deallocation before shader compilation
+        for (size_t i = 0; i < dxc_compile_flags.size(); i++) {
+            arg_storage[i] = std::wstring(dxc_compile_flags[i].begin(), dxc_compile_flags[i].end());
+            arguments.push_back(arg_storage[i].c_str());
+        }
+    }
+    else {
+        arguments = {
         L"-spirv",
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),
@@ -267,39 +292,42 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         L"-Wno-c++1z-extensions",
         L"-Wno-gnu-static-float-init",
         L"-fspv-target-env=vulkan1.3"
-    };
+        };
+        // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+        // This is how we can get more optimizer options.
+        // 
+        // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+        // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+        // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+        if (hlslOptions.spirvOptimizer)
+        {
+            arguments.push_back(L"-O0");
+        }
 
-    // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
-    // This is how we can get more optimizer options.
-    // 
-    // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
-    // optimization levels greater than zero; they will all invoke the same optimization recipe. 
-    // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-    if (hlslOptions.spirvOptimizer)
-    {
-        arguments.push_back(L"-O0");
+        // Debug only values
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+            arguments.push_back(L"-fspv-debug=file");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+            arguments.push_back(L"-fspv-debug=source");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+            arguments.push_back(L"-fspv-debug=line");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+            arguments.push_back(L"-fspv-debug=tool");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+            arguments.push_back(L"-fspv-debug=vulkan-with-source");
     }
-
-    // Debug only values
-    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
-        arguments.push_back(L"-fspv-debug=file");
-    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
-        arguments.push_back(L"-fspv-debug=source");
-    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
-        arguments.push_back(L"-fspv-debug=line");
-    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
-        arguments.push_back(L"-fspv-debug=tool");
-    if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
-        arguments.push_back(L"-fspv-debug=vulkan-with-source");
 
     auto compileResult = dxcCompile(
         this, 
         m_dxcCompilerTypes, 
         newCode,
-        &arguments[0],
+        arguments.data(),
         arguments.size(),
         hlslOptions
     );
+
+    if (arg_storage)
+        delete[] arg_storage;
 
     if (!compileResult.objectBlob)
     {
@@ -322,4 +350,6 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
+
+
 #endif
