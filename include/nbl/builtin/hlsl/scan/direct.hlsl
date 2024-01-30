@@ -1,10 +1,20 @@
-#ifndef _NBL_HLSL_WORKGROUP_SIZE_
-#define _NBL_HLSL_WORKGROUP_SIZE_ 256
-#endif
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/scan/declarations.hlsl"
 
-#include "nbl/builtin/hlsl/scan/descriptors.hlsl"
-#include "nbl/builtin/hlsl/scan/virtual_workgroup.hlsl"
-#include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6144
+uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize() {return uint32_t3(WORKGROUP_SIZE,1,1);}
+
+struct ScanPushConstants
+{
+    nbl::hlsl::scan::Parameters_t scanParams;
+    nbl::hlsl::scan::DefaultSchedulerParameters_t schedulerParams;
+};
+
+[[vk::push_constant]]
+ScanPushConstants spc;
 
 namespace nbl
 {
@@ -12,39 +22,22 @@ namespace hlsl
 {
 namespace scan
 {
-#ifndef _NBL_HLSL_SCAN_PUSH_CONSTANTS_DEFINED_
-	cbuffer PC // REVIEW: register and packoffset selection
-	{
-		Parameters_t scanParams;
-		DefaultSchedulerParameters_t schedulerParams;
-	};
-#define _NBL_HLSL_SCAN_PUSH_CONSTANTS_DEFINED_
-#endif
-
-#ifndef _NBL_HLSL_SCAN_GET_PARAMETERS_DEFINED_
 Parameters_t getParameters()
 {
-	return pc.scanParams;
+    return spc.scanParams;
 }
-#define _NBL_HLSL_SCAN_GET_PARAMETERS_DEFINED_
-#endif
 
-#ifndef _NBL_HLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
 DefaultSchedulerParameters_t getSchedulerParameters()
 {
-	return pc.schedulerParams;
+    return spc.schedulerParams;
 }
-#define _NBL_HLSL_SCAN_GET_SCHEDULER_PARAMETERS_DEFINED_
-#endif
+
 }
 }
 }
 
-#ifndef _NBL_HLSL_MAIN_DEFINED_
-[numthreads(_NBL_HLSL_WORKGROUP_SIZE_, 1, 1)]
-void CSMain()
+[numthreads(WORKGROUP_SIZE,1,1)]
+void main()
 {
-	nbl::hlsl::scan::main();
+    nbl::hlsl::scan::main();
 }
-#define _NBL_HLSL_MAIN_DEFINED_
-#endif
