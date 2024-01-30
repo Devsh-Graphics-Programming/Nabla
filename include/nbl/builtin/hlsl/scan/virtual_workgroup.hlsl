@@ -6,29 +6,27 @@
 #include "nbl/builtin/hlsl/math/typeless_arithmetic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl" // This is where all the nbl_glsl_workgroupOPs are defined
 #include "nbl/builtin/hlsl/scan/declarations.hlsl"
-
+#include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
 #include "nbl/builtin/hlsl/binops.hlsl"
 
-#if 0
 namespace nbl
 {
 namespace hlsl
 {
 namespace scan
 {
-	template<class Binop, class Storage_t>
-	void virtualWorkgroup(in uint treeLevel, in uint localWorkgroupIndex)
+	template<class Binop, typename Storage_t, uint16_t ItemCount, class Accessor, bool isExclusive, class device_capabilities=void>
+	void virtualWorkgroup(NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) accessor)
 	{
 		const Parameters_t params = getParameters();
-		const uint levelInvocationIndex = localWorkgroupIndex * _NBL_HLSL_WORKGROUP_SIZE_ + SubgroupContiguousIndex();
-		const bool lastInvocationInGroup = SubgroupContiguousIndex() == (_NBL_HLSL_WORKGROUP_SIZE_ - 1);
+		const uint32_t levelInvocationIndex = localWorkgroupIndex * glsl::gl_WorkGroupSize().x + SubgroupContiguousIndex();
+		const bool lastInvocationInGroup = SubgroupContiguousIndex() == (gl_WorkGroupSize().x - 1);
 
-		const uint lastLevel = params.topLevel << 1u;
-		const uint pseudoLevel = levelInvocationIndex <= params.lastElement[pseudoLevel];
-
+		const uint32_t lastLevel = params.topLevel << 1u;
+		const uint32_t pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
 		const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
 
-		Storage_t data = Binop::identity();
+		Storage_t data = Binop::identity(); // REVIEW: replace Storage_t with Binop::type_t?
 		if(inRange)
 		{
 			getData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
@@ -36,17 +34,19 @@ namespace scan
 
 		if(treeLevel < params.topLevel) 
 		{
-			#error "Must also define some scratch accessor when calling operation()"
-			data = workgroup::reduction<Binop>()(data);
+            data = workgroup::reduction<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
 		}
-		// REVIEW: missing _TYPE_ check and extra case here
+        else if (!isExclusive && params.topLevel == 0u)
+        {
+            data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
+        }
 		else if (treeLevel != params.topLevel)
 		{
-			data = workgroup::inclusive_scan<Binop>()(data);
+			data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
 		}
 		else
 		{
-			data = workgroup::exclusive_scan<Binop>()(data);
+			data = workgroup::exclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
 		}
 		setData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel, inRange);
 	}
@@ -54,8 +54,6 @@ namespace scan
 }
 }
 
-#ifndef _NBL_HLSL_SCAN_MAIN_DEFINED_ // TODO REVIEW: Are these needed, can this logic be refactored?
-#include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
 namespace nbl
 {
 namespace hlsl
@@ -66,11 +64,13 @@ namespace scan
 	void main()
 	{
 		const DefaultSchedulerParameters_t schedulerParams = getSchedulerParameters();
-		const uint topLevel = getParameters().topLevel;
+		const uint32_t topLevel = getParameters().topLevel;
 		// persistent workgroups
 		while (true)
 		{
-			uint treeLevel,localWorkgroupIndex;
+            // REVIEW: Need to create accessor here.
+            // REVIEW: Regarding ItemsPerWG this must probably be calculated after each getWork call?
+			uint32_t treeLevel,localWorkgroupIndex;
 			if (scheduler::getWork(schedulerParams,topLevel,treeLevel,localWorkgroupIndex))
 			{
 				return;
@@ -84,9 +84,5 @@ namespace scan
 }
 }
 }
-#endif
-
-#define _NBL_HLSL_SCAN_MAIN_DEFINED_
-#endif
 
 #endif

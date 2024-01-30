@@ -1,31 +1,13 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
 #define _NBL_HLSL_SCAN_DEFAULT_SCHEDULER_INCLUDED_
 
-#include "nbl/builtin/hlsl/scan/parameters_struct.hlsl"
-
-#ifdef __cplusplus
-#define uint uint32_t
-#endif
-
-namespace nbl
-{
-namespace hlsl
-{
-namespace scan
-{	
-	struct DefaultSchedulerParameters_t
-	{
-		uint finishedFlagOffset[NBL_BUILTIN_MAX_SCAN_LEVELS-1];
-		uint cumulativeWorkgroupCount[NBL_BUILTIN_MAX_SCAN_LEVELS];
-
-	};
-}
-}
-}
-
-#ifdef __cplusplus
-#undef uint
-#else
+#include "nbl/builtin/hlsl/scan/declarations.hlsl"
+#include "nbl/builtin/hlsl/scan/descriptors.hlsl"
+#include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 
 namespace nbl
 {
@@ -33,6 +15,8 @@ namespace hlsl
 {
 namespace scan
 {
+
+#ifdef HLSL
 namespace scheduler
 {
 	/**
@@ -58,17 +42,17 @@ namespace scheduler
 	 * |> finishedFlagOffset - an index in the scratch buffer where each virtual workgroup indicates that ALL its invocations have finished their work. This helps 
 	 *							synchronizing between workgroups with while-loop spinning.
 	 */
-	void computeParameters(in uint elementCount, out Parameters_t _scanParams, out DefaultSchedulerParameters_t _schedulerParams)
+	void computeParameters(NBL_CONST_REF_ARG(uint32_t) elementCount, out Parameters_t _scanParams, out DefaultSchedulerParameters_t _schedulerParams)
 	{
 #define WorkgroupCount(Level) (_scanParams.lastElement[Level+1]+1u)
+        const uint32_t workgroupSizeLog2 = firstbithigh(glsl::gl_WorkGroupSize().x);
 		_scanParams.lastElement[0] = elementCount-1u;
-		_scanParams.topLevel = firstbithigh(_scanParams.lastElement[0])/_NBL_HLSL_WORKGROUP_SIZE_LOG2_;
-		// REVIEW: _NBL_HLSL_WORKGROUP_SIZE_LOG2_ is defined in files that include THIS file. Why not query the API for workgroup size at runtime?
+		_scanParams.topLevel = firstbithigh(_scanParams.lastElement[0]) / workgroupSizeLog2;
 		
-		for (uint i=0; i<NBL_BUILTIN_MAX_SCAN_LEVELS/2;)
+		for (uint32_t i=0; i<NBL_BUILTIN_MAX_SCAN_LEVELS/2;)
 		{
-			const uint next = i+1;
-			_scanParams.lastElement[next] = _scanParams.lastElement[i]>>_NBL_HLSL_WORKGROUP_SIZE_LOG2_;
+			const uint32_t next = i+1;
+			_scanParams.lastElement[next] = _scanParams.lastElement[i]>>workgroupSizeLog2;
 			i = next;
 		}
 		_schedulerParams.cumulativeWorkgroupCount[0] = WorkgroupCount(0);
@@ -130,34 +114,31 @@ namespace scheduler
 	 * localWorkgroupIndex - the workgroup index the current invocation is a part of in the specific virtual dispatch. 
 	 * For example, if we have dispatched 10 workgroups and we the virtual workgroup number is 35, then the localWorkgroupIndex should be 5.
 	 */
-	template<class ScratchAccessor>
-	bool getWork(in DefaultSchedulerParameters_t params, in uint topLevel, out uint treeLevel, out uint localWorkgroupIndex)
+	template<class Accessor>
+	bool getWork(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex)
 	{
-		ScratchAccessor sharedScratch;
 		if(SubgroupContiguousIndex() == 0u) 
 		{
-			uint64_t original;
-			InterlockedAdd(scanScratch.workgroupsStarted, 1u, original); // REVIEW: Refactor InterlockedAdd with GLSL terminology? // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
-			sharedScratch.set(SubgroupContiguousIndex(), original);
+			uint32_t originalWGs = glsl::atomicAdd(scanScratchBuf[0].workgroupsStarted, 1u);
+            sharedScratch.set(0u, originalWGs);
 		}
 		else if (SubgroupContiguousIndex() == 1u) 
 		{
-			sharedScratch.set(SubgroupContiguousIndex(), 0u);
+			sharedScratch.set(1u, 0u);
 		}
-		GroupMemoryBarrierWithGroupSync(); // REVIEW: refactor this somewhere with GLSL terminology?
-		
-		const uint globalWorkgroupIndex; // does every thread need to know?
-		sharedScratch.get(0u, globalWorkgroupIndex);
-		const uint lastLevel = topLevel<<1u;
+		sharedScratch.workgroupExecutionAndMemoryBarrier();
+        
+		const uint32_t globalWorkgroupIndex = sharedScratch.get(0u); // does every thread need to know?
+		const uint32_t lastLevel = topLevel<<1u;
 		if (SubgroupContiguousIndex()<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[SubgroupContiguousIndex()]) 
 		{
-			InterlockedAdd(sharedScratch.get(1u, ?), 1u); // REVIEW: The way scratchaccessoradaptor is implemented (e.g. under subgroup/arithmetic_portability) doesn't allow for atomic ops on the scratch buffer. Should we ask for another implementation that overrides the [] operator ?
+            sharedScratch.atomicAdd(1u, 1u);
 		}
-		GroupMemoryBarrierWithGroupSync(); // TODO (PentaKon): Possibly refactor?
+		sharedScratch.workgroupExecutionAndMemoryBarrier();
 		
-		sharedScratch.get(1u, treeLevel);
+		treeLevel = sharedScratch.get(1u);
 		if(treeLevel>lastLevel)
-			return true;
+            return true;
 		
 		localWorkgroupIndex = globalWorkgroupIndex;
 		const bool dependentLevel = treeLevel != 0u;
@@ -170,52 +151,55 @@ namespace scheduler
 				uint dependentsCount = 1u;
 				if(treeLevel <= topLevel) 
 				{
-					dependentsCount = _NBL_HLSL_WORKGROUP_SIZE_; // REVIEW: Defined in the files that include this file?
+					dependentsCount = glsl::gl_WorkGroupSize().x;
 					const bool lastWorkgroup = (globalWorkgroupIndex+1u)==params.cumulativeWorkgroupCount[treeLevel];
 					if (lastWorkgroup) 
 					{
-						const Parameters_t scanParams = getParameters(); // TODO (PentaKon): Undeclared as of now, this should return the Parameters_t from the push constants of (in)direct shader
+						const Parameters_t scanParams = getParameters();
 						dependentsCount = scanParams.lastElement[treeLevel]+1u;
 						if (treeLevel<topLevel) 
 						{
-							dependentsCount -= scanParams.lastElement[treeLevel+1u]*_NBL_HLSL_WORKGROUP_SIZE_;
+							dependentsCount -= scanParams.lastElement[treeLevel+1u] * glsl::gl_WorkGroupSize().x;
 						}
 					}
 				}
 				uint dependentsFinishedFlagOffset = localWorkgroupIndex;
 				if (treeLevel>topLevel) // !(prevLevel<topLevel) TODO: merge with `else` above?
-					dependentsFinishedFlagOffset /= _NBL_HLSL_WORKGROUP_SIZE_;
+					dependentsFinishedFlagOffset /= glsl::gl_WorkGroupSize().x;
 				dependentsFinishedFlagOffset += params.finishedFlagOffset[prevLevel];
-				while (scanScratch.data[dependentsFinishedFlagOffset]!=dependentsCount) // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
-					GroupMemoryBarrierWithGroupSync(); // TODO (PentaKon): Possibly refactor?
+				while (scanScratchBuf[0].data[dependentsFinishedFlagOffset]!=dependentsCount)
+					glsl::memoryBarrierBuffer();
 			}
 		}
-		GroupMemoryBarrierWithGroupSync(); // TODO (PentaKon): Possibly refactor?
+		sharedScratch.workgroupExecutionAndMemoryBarrier();
+        glsl::memoryBarrierBuffer();
 		return false;
 	}
 	
-	void markComplete(in DefaultSchedulerParameters_t params, in uint topLevel, in uint treeLevel, in uint localWorkgroupIndex)
+	void markComplete(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex)
 	{
-		GroupMemoryBarrierWithGroupSync(); // must complete writing the data before flags itself as complete  // TODO (PentaKon): Possibly refactor?
+        glsl::memoryBarrierBuffer();
 		if (SubgroupContiguousIndex()==0u)
 		{
-			uint finishedFlagOffset = params.finishedFlagOffset[treeLevel];
+			uint32_t finishedFlagOffset = params.finishedFlagOffset[treeLevel];
 			if (treeLevel<topLevel)
 			{
-				finishedFlagOffset += localWorkgroupIndex/_NBL_HLSL_WORKGROUP_SIZE_;
-				InterlockedAdd(scanScratch.data[finishedFlagOffset],1u);
+				finishedFlagOffset += localWorkgroupIndex/glsl::gl_WorkGroupSize().x;
+                glsl::atomicAdd(scanScratchBuf[0].data[finishedFlagOffset], 1u);
 			}
 			else if (treeLevel!=(topLevel<<1u))
 			{
 				finishedFlagOffset += localWorkgroupIndex;
-				scanScratch.data[finishedFlagOffset] = 1u; // TODO (PentaKon): Refactor this when the ScanScratch descriptor set is declared
+				scanScratchBuf[0].data[finishedFlagOffset] = 1u;
 			}
 		}
 	}
 }
-}
-}
-}
 #endif
+
+}
+}
+}
+
 
 #endif
