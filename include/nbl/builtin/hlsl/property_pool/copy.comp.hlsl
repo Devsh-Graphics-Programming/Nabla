@@ -131,7 +131,7 @@ void main(uint32_t3 dispatchId)
 
     vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 3, transferRequest.srcAddr);
     vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 4, transferRequest.dstAddr);
-    //vk::RawBufferStore<uint>(globals.transferCommandsAddress + 40 * 5, vk::RawBufferLoad<uint>(transferRequest.srcAddr + sizeof(uint16_t) * 3));
+    vk::RawBufferStore<uint>(globals.transferCommandsAddress + 40 * 5, vk::RawBufferLoad<uint>(transferRequest.srcAddr + sizeof(uint16_t) * 3));
     //if (fill) { TransferLoopPermutationFill<true> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
     //else { TransferLoopPermutationFill<false> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
 }
