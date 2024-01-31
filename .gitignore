@@ -33,3 +33,5 @@ tools/nsc/__main__.py
 tools/nsc/.vscode/*
 tools/nsc/.profiles/*
 tools/nsc/bin/*
+*/__pycache__/*
+__pycache__/*

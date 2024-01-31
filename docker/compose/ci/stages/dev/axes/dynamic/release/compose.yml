@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  nabla.kazoo.server.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.kazoo.server.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.kazoo.server.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    entrypoint: ["zkServer.cmd"]
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    healthcheck:
+      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "--host", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+  nabla.cmake.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic", "--config", "release"]
+    
+  nabla.build.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.build.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.build.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.cmake.dynamic.release:
+        condition: service_completed_successfully
+      nabla.kazoo.server.dynamic.release:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Release", "--libType", "dynamic"]
+    
+  nabla.cpack.dynamic.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.dynamic.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.dynamic.release:
+        condition: service_completed_successfully
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "dynamic", "--config", "Release"]
+
+networks:
+  nabla.network:
+    external: true

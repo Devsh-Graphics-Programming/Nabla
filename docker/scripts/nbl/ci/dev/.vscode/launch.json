@@ -1,0 +1,117 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "dev.nabla.base.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.2",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.static.release.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.3",
+                "port": 5679
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.static.relwithdebinfo.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.4",
+                "port": 5680
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.static.debug.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.5",
+                "port": 5681
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.dynamic.release.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.6",
+                "port": 5682
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.dynamic.relwithdebinfo.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.7",
+                "port": 5683
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        },
+		{
+            "name": "dev.nabla.dynamic.debug.x86_64.windows Container Remote Debug",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "172.28.5.8",
+                "port": 5684
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "."
+                }
+            ],
+            "justMyCode": true
+        }
+    ]
+}
