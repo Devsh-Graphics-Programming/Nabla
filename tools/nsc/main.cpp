@@ -36,8 +36,8 @@ public:
 			return false;
 		}
 
-		m_arguments = std::vector<std::string>(argv.begin() + 2, argv.end()); // turn argv into vector for convenience
-		std::string file_to_compile = argv[1];
+		m_arguments = std::vector<std::string>(argv.begin() + 1, argv.end()-1); // turn argv into vector for convenience
+		std::string file_to_compile = argv.back();
 
 		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ)) {
 			m_logger->log("Incorrect arguments. Expecting second argument to be filename of the shader intended to compile.", ILogger::ELL_ERROR);
