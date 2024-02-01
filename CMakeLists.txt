@@ -108,6 +108,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_ "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" OFF)
+option(_NBL_JOBS_OVERRIDE_ "Override jobs with safe bias if required to respect currently available memory" OFF)
 
 include(ProcessorCount)
 
@@ -125,7 +126,7 @@ endif()
 cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
 cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
 
-if(NBL_CI_MODE)
+if(_NBL_JOBS_OVERRIDE_)
 	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
 	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
 		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
