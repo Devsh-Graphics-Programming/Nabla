@@ -333,7 +333,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
    
     std::vector<std::wstring> arguments = {};
-    if (dxc_compile_flags.size() || hlslOptions.dxcOptions.size()) { // #pragma dxc_compile_flags takes priority
+    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
         populate_arguments_with_type_conversion(arguments, dxc_compile_flags, logger);
     }
     else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
