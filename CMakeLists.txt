@@ -110,10 +110,15 @@ endif()
 option(_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_ "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" OFF)
 
 include(ProcessorCount)
+
 if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
+	if(NOT "$ENV{_NBL_JOBS_AMOUNT_}" STREQUAL "")
+		set(_NBL_JOBS_AMOUNT_ "$ENV{_NBL_JOBS_AMOUNT_}")
+	else()
+		ProcessorCount(_NBL_JOBS_AMOUNT_)
+		if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+			set(_NBL_JOBS_AMOUNT_ 1)
+		endif()
 	endif()
 endif()
 
@@ -129,7 +134,7 @@ if(NBL_CI_MODE)
 	endif()
 endif()
 
-set(_NBL_JOBS_AMOUNT_ "${_NBL_JOBS_AMOUNT_}" CACHE STRING "Max jobs amount for the build to be invoked" FORCE)
+message(STATUS "_NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\"")
 
 math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
 math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
