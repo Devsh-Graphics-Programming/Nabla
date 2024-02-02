@@ -55,7 +55,7 @@ public:
 		}
 
 		auto output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fo");
-		if (output_flag_pos != m_arguments.end())
+		if (output_flag_pos == m_arguments.end())
 			output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fc");
 			
 		if (output_flag_pos == m_arguments.end()) {
