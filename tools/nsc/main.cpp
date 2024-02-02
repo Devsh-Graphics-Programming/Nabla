@@ -55,18 +55,22 @@ public:
 		}
 
 		auto output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fo");
-		if (output_flag_pos != m_arguments.end()) {
-			if (output_flag_pos + 1 != m_arguments.end()) {
-				output_filepath = *(output_flag_pos + 1);
-				m_logger->log("Compiled shader code will be saved to " + output_filepath);
-				m_arguments.erase(output_flag_pos, output_flag_pos+1);
-			}
-			else {
-				m_logger->log("Incorrect arguments. Expecting filename after -Fo.", ILogger::ELL_ERROR);
-			}
+		if (output_flag_pos != m_arguments.end())
+			output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fc");
+			
+		if (output_flag_pos == m_arguments.end()) {
+			m_logger->log("Missing arguments. Expecting `-Fo {filename}` or `-Fc {filename}`.", ILogger::ELL_ERROR);
+			return false;
+		}
+
+		if (output_flag_pos + 1 != m_arguments.end()) {
+			output_filepath = *(output_flag_pos + 1);
+			m_logger->log("Compiled shader code will be saved to " + output_filepath);
+			m_arguments.erase(output_flag_pos, output_flag_pos+1);
 		}
 		else {
-			m_logger->log("Missing arguments. Expecting -Fo {filename}.", ILogger::ELL_ERROR);
+			m_logger->log("Incorrect arguments. Expecting filename after -Fo or -Fc.", ILogger::ELL_ERROR);
+			return false;
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -91,11 +95,12 @@ public:
 			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
 			output_file.close();
 			m_logger->log("Shader compilation successful.");
+			return true;
 		}
 		else {
 			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
+			return false;
 		}
-		return true;
 	}
 
 	void workLoopBody() override {}
