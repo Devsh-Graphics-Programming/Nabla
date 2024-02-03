@@ -1,9 +1,9 @@
+#include "nabla.h"
 #include "nbl/system/IApplicationFramework.h"
+
 #include <iostream>
 #include <cstdlib>
 #include <string>
-#include <fstream>
-#include <streambuf>
 
 using namespace nbl;
 using namespace nbl::system;
@@ -40,7 +40,7 @@ public:
 		std::string file_to_compile = argv.back();
 
 		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ)) {
-			m_logger->log("Incorrect arguments. Expecting second argument to be filename of the shader intended to compile.", ILogger::ELL_ERROR);
+			m_logger->log("Incorrect arguments. Expecting last argument to be filename of the shader intended to compile.", ILogger::ELL_ERROR);
 			return false;
 		}
 		std::string output_filepath = "";
@@ -128,12 +128,10 @@ private:
 	const ICPUShader* open_shader_file(std::string& filepath) {
 
 		m_assetMgr = make_smart_refctd_ptr<asset::IAssetManager>(smart_refctd_ptr(m_system));
-		auto resourceArchive = make_smart_refctd_ptr<system::CMountDirectoryArchive>(path(localInputCWD), logger_opt_smart_ptr(smart_refctd_ptr(m_logger)), m_system.get());
-		m_system->mount(std::move(resourceArchive));
 
 		IAssetLoader::SAssetLoadParams lp = {};
 		lp.logger = m_logger.get();
-		lp.workingDirectory = "";
+		lp.workingDirectory = localInputCWD;
 		auto assetBundle = m_assetMgr->getAsset(filepath, lp);
 		const auto assets = assetBundle.getContents();
 		if (assets.empty()) {
