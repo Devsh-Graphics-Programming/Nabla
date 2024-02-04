@@ -88,13 +88,13 @@ public:
 		}
 #endif
 
-		const ICPUShader* shader = open_shader_file(file_to_compile);
+		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
 			m_logger->log("Error. Loaded shader file content is not HLSL.", ILogger::ELL_ERROR);
 			return false;
 		}
-		auto compilation_result = compile_shader(shader, file_to_compile);
+		auto compilation_result = compile_shader(shader.get(), file_to_compile);
 
 		// writie compiled shader to file as bytes
 		if (compilation_result && !output_filepath.empty()) {
@@ -132,7 +132,7 @@ private:
 	}
 
 
-	const ICPUShader* open_shader_file(std::string& filepath) {
+	core::smart_refctd_ptr<const ICPUShader> open_shader_file(std::string filepath) {
 
 		m_assetMgr = make_smart_refctd_ptr<asset::IAssetManager>(smart_refctd_ptr(m_system));
 
@@ -146,9 +146,19 @@ private:
 			return nullptr;
 		}
 		assert(assets.size() == 1);
+
+		// could happen when the file is missing an extension and we can't deduce its a shader
+		if (assets[0]->getAssetType()==IAsset::ET_BUFFER)
+		{
+			auto buf = IAsset::castDown<ICPUBuffer>(assets[0]);
+			std::string source; source.resize(buf->getSize()+1);
+			memcpy(source.data(),buf->getPointer(),buf->getSize());
+			return core::make_smart_refctd_ptr<ICPUShader>(source.data(), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath));
+		}
+
 		smart_refctd_ptr<ICPUSpecializedShader> source = IAsset::castDown<ICPUSpecializedShader>(assets[0]);
 
-		return source->getUnspecialized();
+		return core::smart_refctd_ptr<const ICPUShader>(source->getUnspecialized());
 	}
 
 
