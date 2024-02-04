@@ -32,8 +32,8 @@ public:
 #ifndef NBL_DEBUG
 		std::string str = argv[0];
 		for (auto i=1; i<argc; i++)
-			str += " "+argv[i];
-		m_logger->log("Arguments Received: %s", ILogger::ELL_DEBUG, str.c_str());
+			str += "\n"+argv[i];
+		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
 #endif
 
 		// expect the first argument to be nsc.exe
