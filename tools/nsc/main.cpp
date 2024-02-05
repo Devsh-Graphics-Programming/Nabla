@@ -112,6 +112,7 @@ public:
 			{
 			    output_filepath = outputFlagVector[1];
 			}
+			m_arguments.erase(output_flag_pos, output_flag_pos+1);
 		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath);
 		}
