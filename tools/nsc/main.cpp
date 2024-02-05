@@ -61,23 +61,59 @@ public:
 			m_arguments.erase(builtin_flag_pos);
 		}
 
-		auto output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fo");
-		if (output_flag_pos == m_arguments.end())
-			output_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-Fc");
-			
-		if (output_flag_pos == m_arguments.end()) {
-			m_logger->log("Missing arguments. Expecting `-Fo {filename}` or `-Fc {filename}`.", ILogger::ELL_ERROR);
+		auto split = [&](const std::string& str, char delim) 
+		{
+			std::vector<std::string> strings;
+			size_t start, end = 0;
+		
+			while ((start = str.find_first_not_of(delim, end)) != std::string::npos) 
+			{
+			    end = str.find(delim, start);
+			    strings.push_back(str.substr(start, end - start));
+			}
+		
+			return strings;
+		};
+		
+		auto findOutputFlag = [&](const std::string_view& outputFlag)
+		{
+			return std::find_if(m_arguments.begin(), m_arguments.end(), [&](const std::string& argument) 
+			{
+				return argument.find(outputFlag.data()) != std::string::npos;
+			});
+		};
+		
+		auto output_flag_pos = findOutputFlag("-Fc");
+		
+		if (output_flag_pos == m_arguments.end()) 
+		{
+			m_logger->log("Missing arguments. Expecting `-Fc {filename}`.", ILogger::ELL_ERROR);
 			return false;
 		}
-
-		if (output_flag_pos + 1 != m_arguments.end()) {
-			output_filepath = *(output_flag_pos + 1);
+		else
+		{
+			// we need to assume -Fc may be passed with output file name quoted together with "", so we split it (DXC does it)
+			const auto& outpufFlag = *output_flag_pos;
+			auto outputFlagVector = split(outpufFlag, ' ');
+		
+			if(outpufFlag == "-Fc")
+			{
+			    if (output_flag_pos + 1 != m_arguments.end()) 
+			    {
+				output_filepath = *(output_flag_pos + 1);
+			    }
+			    else 
+			    {
+				m_logger->log("Incorrect arguments. Expecting filename after -Fc.", ILogger::ELL_ERROR);
+				return false;
+			    }
+			}
+			else
+			{
+			    output_filepath = outputFlagVector[1];
+			}
+		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath);
-			m_arguments.erase(output_flag_pos, output_flag_pos+1);
-		}
-		else {
-			m_logger->log("Incorrect arguments. Expecting filename after -Fo or -Fc.", ILogger::ELL_ERROR);
-			return false;
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
