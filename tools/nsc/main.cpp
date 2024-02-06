@@ -138,6 +138,14 @@ public:
 			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
 			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
 			output_file.close();
+
+			// TODO: remove it
+			{
+				std::fstream output_file("C:/temp.spv", std::ios::out | std::ios::binary);
+				output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
+				output_file.close();
+			}
+
 			m_logger->log("Shader compilation successful.");
 			return true;
 		}
