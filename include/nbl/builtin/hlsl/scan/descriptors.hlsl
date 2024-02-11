@@ -10,11 +10,6 @@
 
 // coherent -> globallycoherent
 
-// (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
-#ifndef SCRATCH_SIZE
-#error "Must manually define SCRATCH_SIZE for now"
-#endif
-
 namespace nbl
 {
 namespace hlsl
@@ -22,14 +17,14 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=SCRATCH_SIZE>
+template<uint32_t scratchElementCount=scratchSz> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
 struct Scratch
 {
     uint32_t workgroupsStarted;
     uint32_t data[scratchElementCount];
 };
 
-[[vk::binding(0 ,0)]] StructuredBuffer<uint32_t> scanInputBuf; // (REVIEW): Make the type externalizable. Decide how (#define?)
+[[vk::binding(0 ,0)]] RWStructuredBuffer<uint32_t /*Storage_t*/> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
 [[vk::binding(1 ,0)]] RWStructuredBuffer<Scratch> globallycoherent scanScratchBuf; // (REVIEW): Check if globallycoherent can be used with Vulkan Mem Model
 
 template<typename Storage_t, bool isExclusive=false>
@@ -64,11 +59,11 @@ void getData(
             if(isExclusive)
             {
                 if (!firstInvocationInGroup)
-                    data += scanInputBuf[offset-1u];
+                    data += scanBuffer[offset-1u];
             }
             else
             {
-                data += scanInputBuf[offset];
+                data += scanBuffer[offset];
             }
 		}
 	}
@@ -77,7 +72,7 @@ void getData(
 		if (notFirstOrLastLevel)
 			data = scanScratchBuf[0].data[offset];
 		else
-			data = scanInputBuf[offset];
+			data = scanBuffer[offset];
 	}
 }
 
@@ -106,7 +101,7 @@ void setData(
 			scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
 		}
 		else
-			scanInputBuf[levelInvocationIndex] = data;
+			scanBuffer[levelInvocationIndex] = data;
 	}
 }
 

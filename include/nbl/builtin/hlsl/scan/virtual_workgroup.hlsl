@@ -15,7 +15,7 @@ namespace hlsl
 {
 namespace scan
 {
-	template<class Binop, typename Storage_t, uint16_t ItemCount, class Accessor, bool isExclusive, class device_capabilities=void>
+	template<class Binop, typename Storage_t, bool isExclusive, uint16_t ItemCount, class Accessor, class device_capabilities=void>
 	void virtualWorkgroup(NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) accessor)
 	{
 		const Parameters_t params = getParameters();
@@ -26,6 +26,9 @@ namespace scan
 		const uint32_t pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
 		const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
 
+        // REVIEW: Right now in order to support REDUCE operation we need to set the max treeLevel == topLevel
+        // so that it exits after reaching the top?
+
 		Storage_t data = Binop::identity(); // REVIEW: replace Storage_t with Binop::type_t?
 		if(inRange)
 		{
@@ -34,34 +37,26 @@ namespace scan
 
 		if(treeLevel < params.topLevel) 
 		{
-            data = workgroup::reduction<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
+            data = workgroup::reduction<Binop,ItemCount,device_capabilities>::template __call<Accessor>(data,accessor);
 		}
         else if (!isExclusive && params.topLevel == 0u)
         {
-            data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
+            data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(data,accessor);
         }
 		else if (treeLevel != params.topLevel)
 		{
-			data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
+			data = workgroup::inclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(data,accessor);
 		}
 		else
 		{
-			data = workgroup::exclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(value,accessor);
+			data = workgroup::exclusive_scan<Binop,ItemCount,device_capabilities>::template __call<Accessor>(data,accessor);
 		}
 		setData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel, inRange);
 	}
-}
-}
-}
 
-namespace nbl
-{
-namespace hlsl
-{
-namespace scan
-{
 	DefaultSchedulerParameters_t getSchedulerParameters(); // this is defined in the final shader that assembles all the SCAN operation components
-	void main()
+	template<class Binop, typename Storage_t, bool isExclusive, uint16_t ItemCount, class Accessor>
+    void main(NBL_REF_ARG(Accessor) accessor)
 	{
 		const DefaultSchedulerParameters_t schedulerParams = getSchedulerParameters();
 		const uint32_t topLevel = getParameters().topLevel;
@@ -71,12 +66,12 @@ namespace scan
             // REVIEW: Need to create accessor here.
             // REVIEW: Regarding ItemsPerWG this must probably be calculated after each getWork call?
 			uint32_t treeLevel,localWorkgroupIndex;
-			if (scheduler::getWork(schedulerParams,topLevel,treeLevel,localWorkgroupIndex))
+			if (scheduler::getWork<Accessor>(schedulerParams, topLevel, treeLevel, localWorkgroupIndex, accessor))
 			{
 				return;
 			}
 
-			virtualWorkgroup(treeLevel,localWorkgroupIndex);
+			virtualWorkgroup<Binop, Storage_t, isExclusive, ItemCount, Accessor>(treeLevel, localWorkgroupIndex, accessor);
 
 			scheduler::markComplete(schedulerParams,topLevel,treeLevel,localWorkgroupIndex);
 		}
