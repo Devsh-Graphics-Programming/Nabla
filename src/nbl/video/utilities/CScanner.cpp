@@ -3,11 +3,10 @@
 using namespace nbl;
 using namespace video;
 
-#if 0 // TODO: port
 core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
-	core::smart_refctd_ptr<const system::IFile> glsl;
+	core::smart_refctd_ptr<const system::IFile> hlsl;
 	{
 		auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
 		{
@@ -19,24 +18,59 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 		};
 
 		if(indirect)
-			glsl = loadBuiltinData("nbl/builtin/glsl/scan/indirect.comp");
+			hlsl = loadBuiltinData("nbl/builtin/hlsl/scan/indirect.hlsl");
 		else
-			glsl = loadBuiltinData("nbl/builtin/glsl/scan/direct.comp");
+			hlsl = loadBuiltinData("nbl/builtin/hlsl/scan/direct.hlsl");
 	}
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glsl->getSize());
-	memcpy(buffer->getPointer(), glsl->getMappedPointer(), glsl->getSize());
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "????");
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hlsl->getSize());
+	memcpy(buffer->getPointer(), hlsl->getMappedPointer(), hlsl->getSize());
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "????");
+
+	// (REVIEW): All of the below, that rely on enumerations, should probably be changed to take advantage of HLSL-CPP compatibility.
+	// Issue is that CScanner caches all shaders for all permutations of scanType-dataType-operator and it's not clear how to 
+	// do this without enums
 	const char* storageType = nullptr;
 	switch (dataType)
 	{
 		case EDT_UINT:
-			storageType = "uint";
+			storageType = "uint32_t";
 			break;
 		case EDT_INT:
-			storageType = "int";
+			storageType = "int32_t";
 			break;
 		case EDT_FLOAT:
-			storageType = "float";
+			storageType = "float32_t";
+			break;
+		default:
+			assert(false);
+			break;
+	}
+
+	bool isExclusive = scanType == EST_EXCLUSIVE;
+
+	const char* binop = nullptr;
+	switch (op)
+	{
+		case EO_AND:
+			binop = "bit_and";
+			break;
+		case EO_OR:
+			binop = "bit_or";
+			break;
+		case EO_XOR:
+			binop = "bit_xor";
+			break;
+		case EO_ADD:
+			binop = "plus";
+			break;
+		case EO_MUL:
+			binop = "multiplies";
+			break;
+		case EO_MAX:
+			binop = "maximum";
+			break;
+		case EO_MIN:
+			binop = "minimum";
 			break;
 		default:
 			assert(false);
@@ -45,8 +79,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 
 	return asset::CGLSLCompiler::createOverridenCopy(
 		cpushader.get(),
-		"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ %d\n#define _NBL_GLSL_SCAN_TYPE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
-		m_workgroupSize,hlsl::findMSB(m_workgroupSize),uint32_t(scanType),storageType,uint32_t(op)
+		"#define WORKGROUP_SIZE %d\nconst bool isExclusive = %b\ntypedef storageType %s\n#define BINOP nbl::hlsl::%s\n",
+		m_workgroupSize,isExclusive,storageType,binop
 	);
 }
-#endif

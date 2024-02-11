@@ -9,13 +9,11 @@
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/IDescriptorSetCache.h"
 
+#include "nbl/builtin/hlsl/scan/declarations.hlsl"
+static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS & 0x1, "NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 namespace nbl::video
 {
-
-#include "nbl/builtin/glsl/scan/parameters_struct.glsl"
-#include "nbl/builtin/glsl/scan/default_scheduler.glsl"
-static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 /**
 Utility class to help you perform the equivalent of `std::inclusive_scan` and `std::exclusive_scan` with data on the GPU.
@@ -150,9 +148,9 @@ class CScanner final : public core::IReferenceCounted
 		enum E_SCAN_TYPE : uint8_t
 		{
 			 // computes output[n] = Sum_{i<=n}(input[i])
-			 EST_INCLUSIVE = _NBL_GLSL_SCAN_TYPE_INCLUSIVE_,
+			 EST_INCLUSIVE = 0u,
 			 // computes output[n] = Sum_{i<n}(input[i]), meaning first element is identity
-			 EST_EXCLUSIVE = _NBL_GLSL_SCAN_TYPE_EXCLUSIVE_,
+			 EST_EXCLUSIVE,
 			 EST_COUNT
 		};
 		// Only 4 byte wide data types supported due to need to trade the via shared memory,
@@ -167,18 +165,18 @@ class CScanner final : public core::IReferenceCounted
 		};
 		enum E_OPERATOR : uint8_t
 		{
-			EO_AND = _NBL_GLSL_SCAN_OP_AND_,
-			EO_XOR = _NBL_GLSL_SCAN_OP_XOR_,
-			EO_OR = _NBL_GLSL_SCAN_OP_OR_,
-			EO_ADD = _NBL_GLSL_SCAN_OP_ADD_,
-			EO_MUL = _NBL_GLSL_SCAN_OP_MUL_,
-			EO_MIN = _NBL_GLSL_SCAN_OP_MIN_,
-			EO_MAX = _NBL_GLSL_SCAN_OP_MAX_,
-			EO_COUNT = _NBL_GLSL_SCAN_OP_COUNT_
+			EO_AND = 0u,
+			EO_XOR,
+			EO_OR,
+			EO_ADD,
+			EO_MUL,
+			EO_MIN,
+			EO_MAX,
+			EO_COUNT
 		};
 
 		// This struct is only for managing where to store intermediate results of the scans
-		struct Parameters : nbl_glsl_scan_Parameters_t // this struct and its methods are also available in GLSL so you can launch indirect dispatches
+		struct Parameters : nbl::hlsl::scan::Parameters_t // this struct and its methods are also available in GLSL so you can launch indirect dispatches
 		{
 			static inline constexpr uint32_t MaxScanLevels = NBL_BUILTIN_MAX_SCAN_LEVELS;
 
@@ -210,7 +208,7 @@ class CScanner final : public core::IReferenceCounted
 			}
 		};
                 // the default scheduler we provide works as described above in the big documentation block
-		struct SchedulerParameters : nbl_glsl_scan_DefaultSchedulerParameters_t  // this struct and its methods are also available in GLSL so you can launch indirect dispatches
+		struct SchedulerParameters : nbl::hlsl::scan::DefaultSchedulerParameters_t  // this struct and its methods are also available in GLSL so you can launch indirect dispatches
 		{
 			SchedulerParameters()
 			{
@@ -305,14 +303,14 @@ class CScanner final : public core::IReferenceCounted
 			if (!m_specialized_shaders[scanType][dataType][op])
 			{
 				auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op));
-				cpuShader->setFilePathHint("nbl/builtin/glsl/scan/direct.comp");
+				cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
 				cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
 				auto gpushader = m_device->createShader(std::move(cpuShader));
 
 				m_specialized_shaders[scanType][dataType][op] = m_device->createSpecializedShader(
 					gpushader.get(),{nullptr,nullptr,"main"});
-				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/direct.comp"
+				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/hlsl/scan/direct.hlsl"
 			}
 			return m_specialized_shaders[scanType][dataType][op].get();
 		}
