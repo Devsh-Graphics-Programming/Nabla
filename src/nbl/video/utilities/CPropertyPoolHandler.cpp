@@ -84,6 +84,10 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 #endif
 }
 
+uint64_t getAlignment(uint64_t addr)
+{
+	return addr & 7;
+}
 
 bool CPropertyPoolHandler::transferProperties(
 	IGPUCommandBuffer* const cmdbuf, //IGPUFence* const fence,
@@ -134,6 +138,8 @@ bool CPropertyPoolHandler::transferProperties(
 			transferRequest.fill = 0; // TODO
 			transferRequest.srcIndexSizeLog2 = 1u; // TODO
 			transferRequest.dstIndexSizeLog2 = 1u; // TODO
+			assert(getAlignment(transferRequest.srcAddr) == 0);
+			assert(getAlignment(transferRequest.dstAddr) == 0);
 
 			maxElements = core::max<uint64_t>(maxElements, srcRequest->elementCount);
 		}
@@ -147,6 +153,8 @@ bool CPropertyPoolHandler::transferProperties(
 			pushConstants.endOffset = endDWORD;
 			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr;
 		}
+		assert(getAlignment(scratchBufferDeviceAddr) == 0);
+		assert(getAlignment(sizeof(TransferRequest)) == 0);
 		cmdbuf->pushConstants(m_pipeline->getLayout(), asset::IShader::ESS_COMPUTE, 0u, sizeof(pushConstants), &pushConstants);
 
 		// dispatch
