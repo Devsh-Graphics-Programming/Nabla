@@ -53,6 +53,18 @@ namespace nbl::core
                 }
             }
 
+            static inline void         multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses, const size_type* bytes,
+                                                        const size_type alignment, const size_type* hint=nullptr) noexcept
+            {
+                for (uint32_t i=0; i<count; i++)
+                {
+                    if (outAddresses[i]!=AddressAlloc::invalid_address)
+                        continue;
+
+                    outAddresses[i] = alloc.alloc_addr(bytes[i],alignment,hint ? hint[i]:0ull);
+                }
+            }
+
             static inline void         multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
             {
                 for (uint32_t i=0; i<count; i++)
@@ -184,6 +196,14 @@ namespace nbl::core
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
                     impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment+i,hint ? (hint+i):nullptr);
+            }
+
+            static inline void              multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses,
+                                                             const size_type* bytes, const size_type alignment, const size_type* hint=nullptr) noexcept
+            {
+                for (uint32_t i=0; i<count; i+=maxMultiOps)
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
+                                                                alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment,hint ? (hint+i):nullptr);
             }
 
             static inline void             multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept

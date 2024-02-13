@@ -49,7 +49,7 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 
 			m_addressAllocator = AddrAllocator(
 				_reservedAllocator.allocate(AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(allocatableDescriptors), args...), _NBL_SIMD_ALIGNMENT),
-				static_cast<size_type>(allocatableDescriptors), 0u, maxAllocatableAlignment, static_cast<size_type>(allocatableDescriptors), std::forward<Args>(args)...
+				static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(allocatableDescriptors), std::forward<Args>(args)...
 			);
 			m_reservedAllocator = ReservedAllocator(std::move(_reservedAllocator));
             m_reservedSize = allocatableDescriptors;
@@ -77,14 +77,13 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 
         //! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
         template<typename... Args>
-        inline void multi_allocate(uint32_t count, value_type* outAddresses, const size_type* byteSizes, const size_type* alignments, const Args&... args)
+        inline void multi_allocate(uint32_t count, value_type* outAddresses, const size_type* sizes, const Args&... args)
         {
-            core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(m_addressAllocator,count,outAddresses,byteSizes,alignments,args...);
+            core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(m_addressAllocator,count,outAddresses,sizes,1,args...);
         }
-        template<typename... Args>
-        inline void multi_deallocate(Args&&... args)
+        inline void multi_deallocate(uint32_t count, const size_type* addr, const size_type* sizes)
         {
-            core::address_allocator_traits<AddressAllocator>::multi_free_addr(m_addressAllocator,std::forward<Args>(args)...);
+            core::address_allocator_traits<AddressAllocator>::multi_free_addr(m_addressAllocator,count,addr,sizes);
         }
 
         // to conform to IBufferAllocator concept
