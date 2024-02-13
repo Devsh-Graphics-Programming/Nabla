@@ -191,6 +191,9 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLILoader.cpp
 
+# IES profile loaders
+	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CIESProfileLoader.cpp
+
 # Image writers
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterJPG.cpp

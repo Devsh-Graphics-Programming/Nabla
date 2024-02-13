@@ -90,6 +90,9 @@ class CIdGenerator
 };
 
 
+
+
+
 // base class for the many traversals:
 // - texture prefetch
 // - normal precompute
@@ -285,18 +288,7 @@ class ITraversalGenerator
 
 		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
-			// cache, obviously
-			const SContext::VTallocKey cacheKey = {tex.image.get(),tex.sampler.get()};
-			if (auto found = m_ctx->VTallocMap.find(cacheKey); found != m_ctx->VTallocMap.end())
-				return found->second;
-
-			auto addr = m_ctx->vt.alloc(cacheKey.first->getCreationParameters().image.get(),cacheKey.second);
-			{
-				std::pair<SContext::VTallocKey,instr_stream::VTID> item{cacheKey,addr};
-				m_ctx->VTallocMap.insert(item);
-			}
-
-			return addr;
+			return CMaterialCompilerGLSLBackendCommon::packTexture(m_ctx, tex);
 		}
 
 		// returns if the instruction actually got pushed
@@ -613,11 +605,18 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	return q.front().node;
 }
 
+
 std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& out_next, tmp_bxdf_translation_cache_t* cache)
 {
 	instr_t instr = instr_stream::OP_INVALID;
 	switch (tree->symbol)
 	{
+	case IR::INode::ES_ROOT: 
+	{
+		auto* node = static_cast<const IR::CRootNode*>(tree);
+		out_next = IR::INode::createChildrenArray(node->children[0]);
+	}
+	break;
 	case IR::INode::ES_GEOM_MODIFIER:
 	{
 		auto* node = static_cast<const IR::CGeomModifierNode*>(tree);
@@ -1176,6 +1175,24 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
+emitter_t CMaterialCompilerGLSLBackendCommon::lowerEmitter(SContext* _ctx, const IR::CEmitterNode* _node) {
+	emitter_t res;
+	res.emissive = core::rgb32f_to_rgb19e7(_node->intensity.pointer);
+	if (_node->emissionProfile) {
+		auto& profile = _node->emissionProfile;
+		std::tie(res.orientation[0], res.orientation[1], res.orientation[2]) = std::tuple<float,float,float>({ profile.up[0], profile.up[1], profile.up[2] });
+		std::tie(res.orientation[3], res.orientation[4], res.orientation[5]) = std::tuple<float, float, float>({ profile.view[0], profile.view[1], profile.view[2] });
+		auto& rawBytes = reinterpret_cast<uint32_t&>(res.orientation[0]);
+		rawBytes ^= rawBytes & 1;
+		rawBytes |= profile.right_hand;
+		res.emissionProfile = reinterpret_cast<uint64_t&>(packTexture(_ctx, profile.texture));
+	}
+	else {
+		res.emissionProfile = reinterpret_cast<uint64_t&>(instr_stream::VTID::invalid());
+	}
+	return res;
+}
+
 auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream) -> result_t
 {
 	result_t res;
@@ -1184,8 +1201,23 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 	res.usedRegisterCount = 0u;
 	res.globalPrefetchRegCountFlags = 0u;
 
-	for (const IR::INode* root : _ir->roots)
-	{
+	core::unordered_map<const IR::CEmitterNode*, uint32_t> emitterCache;
+	auto getOrCreateEmitter = [&](const IR::CEmitterNode* node) -> uint32_t {
+		auto it = emitterCache.find(node);
+		if (it == emitterCache.end()) {
+			auto emitter = lowerEmitter(_ctx, node);
+			it = emitterCache.emplace(node, res.emitterData.size()).first;
+			res.emitterData.push_back(emitter);
+		}
+		return it->second;
+	};
+
+	core::unordered_map<const IR::INode*, oriented_material_t> compiledBSDFRootNodes;
+	auto compileBSDFRootNode = [&](const IR::INode* root) -> oriented_material_t {
+		auto it = compiledBSDFRootNodes.find(root);
+		if (it != compiledBSDFRootNodes.end()) {
+			return it->second;
+		}
 		uint32_t remainingRegisters = instr_stream::MAX_REGISTER_COUNT;
 
 		const size_t interm_bsdf_data_begin_ix = _ctx->bsdfData.size();
@@ -1303,29 +1335,49 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 			res.bsdfData.push_back(bsdf_data);
 		}
 
-		result_t::instr_streams_t streams;
+		oriented_material_t material;
 		{
-			streams.offset = res.instructions.size();
+			material.instr_offset = res.instructions.size();
 
-			streams.rem_and_pdf_count = rem_pdf_stream.size();
+			material.rem_pdf_count = rem_pdf_stream.size();
 			res.instructions.insert(res.instructions.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
 
-			streams.gen_choice_count = gen_choice_stream.size();
+			material.genchoice_count = gen_choice_stream.size();
 			res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
 
-			streams.norm_precomp_count = normal_precomp_stream.size();
+			material.nprecomp_count = normal_precomp_stream.size();
 			res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
 
-			streams.prefetch_offset = res.prefetch_stream.size();
-			streams.tex_prefetch_count = tex_prefetch_stream.size();
+			material.prefetch_offset = res.prefetch_stream.size();
+			material.prefetch_count = tex_prefetch_stream.size();
 			res.prefetch_stream.insert(res.prefetch_stream.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
 		}
 
-		res.streams.insert({root,streams});
-
-		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp_count==0u);
-		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch_count==0u);
+		res.noNormPrecompStream = res.noNormPrecompStream && (material.nprecomp_count==0u);
+		res.noPrefetchStream = res.noPrefetchStream && (material.prefetch_count==0u);
 		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-remainingRegisters);
+
+		compiledBSDFRootNodes.emplace(root, material);
+
+		return material;
+	};
+
+	for (const IR::INode* root : _ir->roots)
+	{
+		if (root->symbol != IR::INode::ES_ROOT) {
+			os::Printer::log("Material compiler: Non root node added as root; ignoring it", ELL_WARNING);
+			continue;
+		}
+		oriented_material_t material;
+		auto* node = static_cast<const IR::CRootNode*>(root);
+		material = compileBSDFRootNode(node->children[0]);
+		if (node->children[1]) {
+			material.emitter_id = getOrCreateEmitter(static_cast<const IR::CEmitterNode*>(node->children[1]));
+		}
+		else {
+			material.emitter_id = NBL_MC_INVALID_EMITTER_ID;
+		}
+		res.materials.insert({ root, material });
 	}
 
 	_ir->deinitTmpNodes();
@@ -1359,10 +1411,10 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 
 	res.allIsotropic = true;
 	res.noBSDF = true;
-	for (const auto& e : res.streams)
+	for (const auto& e : res.materials)
 	{
-		const result_t::instr_streams_t& streams = e.second;
-		auto rem_and_pdf = streams.get_rem_and_pdf();
+		const oriented_material_t& material = e.second;
+		auto rem_and_pdf = material.get_rem_and_pdf();
 		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) 
 		{
 			const uint32_t first = rem_and_pdf.first;
@@ -1415,10 +1467,10 @@ R"(
 }
 
 }
-void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const
+void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const oriented_material_t& _material, const result_t& _res, const SContext* _ctx) const
 {
 	_out << "####### remainder_and_pdf stream\n";
-	auto rem_and_pdf = _streams.get_rem_and_pdf();
+	auto rem_and_pdf = _material.get_rem_and_pdf();
 	for (uint32_t i = 0u; i < rem_and_pdf.count; ++i)
 	{
 		using namespace remainder_and_pdf;
@@ -1437,7 +1489,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 			_out << "SRC2 = " << regs.z << "\n";
 	}
 	_out << "####### gen_choice stream\n";
-	auto gen_choice = _streams.get_gen_choice();
+	auto gen_choice = _material.get_gen_choice();
 	for (uint32_t i = 0u; i < gen_choice.count; ++i)
 	{
 		using namespace gen_choice;
@@ -1454,7 +1506,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "rem_and_pdf offset " << rnp_offset << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
-	auto tex_prefetch = _streams.get_tex_prefetch();
+	auto tex_prefetch = _material.get_tex_prefetch();
 	for (uint32_t i = 0u; i < tex_prefetch.count; ++i)
 	{
 		using namespace tex_prefetch;
@@ -1473,7 +1525,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
 	_out << "####### normal_precomp stream\n";
-	auto norm_precomp = _streams.get_norm_precomp();
+	auto norm_precomp = _material.get_norm_precomp();
 	for (uint32_t i = 0u; i < norm_precomp.count; ++i)
 	{
 		const instr_t instr = _res.instructions[norm_precomp.first + i];

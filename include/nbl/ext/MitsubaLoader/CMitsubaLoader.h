@@ -73,10 +73,11 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
-		
-		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
 
-		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
+		void cacheEmissionProfile(SContext& ctx, const CElementEmissionProfile* profile);
+
+		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf, const CElementEmitter* emitter, core::matrix4SIMD tform);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>

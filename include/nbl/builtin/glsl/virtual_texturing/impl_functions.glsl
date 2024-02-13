@@ -26,6 +26,9 @@ uvec2 nbl_glsl_unpackWrapModes(in uvec2 texData)
 {
     return (texData.yy >> uvec2(28u, 30u))& uvec2(0x03u);
 }
+bool nbl_glsl_isValidVirtualTex(in uvec2 texData) {
+    return (texData.y >> 28u & 15u) != 15u;
+}
 uint nbl_glsl_unpackMaxMipInVT(in uvec2 texData)
 {
     return bitfieldExtract(texData.y,24,4);

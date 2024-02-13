@@ -73,7 +73,8 @@ class IR : public core::IReferenceCounted
             enum E_SYMBOL: uint8_t
             {
                 ES_GEOM_MODIFIER,
-                ES_EMISSION,
+                ES_ROOT,
+                ES_EMITTER,
                 ES_OPACITY,
                 ES_BSDF,
                 ES_BSDF_COMBINER,
@@ -239,6 +240,7 @@ class IR : public core::IReferenceCounted
             }
 
             using color_t = core::vector3df_SIMD;
+            using vec3_t = core::vector3df_SIMD;
 
             explicit INode(E_SYMBOL s) : symbol(s) {}
             virtual ~INode() = default;
@@ -298,11 +300,18 @@ class IR : public core::IReferenceCounted
             *static_cast<CGeomModifierNode*>(node) = *rhs;
         }
             break;
-        case INode::ES_EMISSION:
+        case INode::ES_EMITTER:
         {
-            auto* rhs = static_cast<const CEmissionNode*>(_rhs);
-            node = allocNode<CEmissionNode>();
-            *static_cast<CEmissionNode*>(node) = *rhs;
+            auto* rhs = static_cast<const CEmitterNode*>(_rhs);
+            node = allocNode<CEmitterNode>();
+            *static_cast<CEmitterNode*>(node) = *rhs;
+        }
+            break;
+        case INode::ES_ROOT:
+        {
+            auto* rhs = static_cast<const CRootNode*>(_rhs);
+            node = allocNode<CRootNode>();
+            *static_cast<CRootNode*>(node) = *rhs;
         }
             break;
         case INode::ES_OPACITY:
@@ -424,11 +433,29 @@ class IR : public core::IReferenceCounted
         //};
     };
 
-    struct CEmissionNode : INode
+    struct CEmitterNode : INode
     {
-        CEmissionNode() : INode(ES_EMISSION) {}
+        CEmitterNode() : INode(ES_EMITTER) {}
+
+        struct EmissionProfile {
+            EmissionProfile() { }
+            operator bool() const {
+                return texture.image.get();
+            }
+            STextureSource texture;
+            vec3_t up;
+            vec3_t view;
+            bool right_hand;
+        };
 
         color_t intensity = color_t(1.f);
+        EmissionProfile emissionProfile;
+    };
+
+    struct CRootNode : INode
+    {
+        // Represents the root of tree. child[0] = bsdf, child[1] = optional emitter
+        CRootNode() : INode(ES_ROOT) {}
     };
 
     struct COpacityNode : INode

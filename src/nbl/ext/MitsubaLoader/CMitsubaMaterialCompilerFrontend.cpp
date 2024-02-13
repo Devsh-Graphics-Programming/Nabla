@@ -20,6 +20,7 @@ std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwind
 
     return {_element,scale};
 }
+
 auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
 {
     float scale = 1.f;
@@ -53,6 +54,58 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
         return {view, sampler, scale};
     }
     return { nullptr, nullptr, scale };
+}
+
+
+auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) const -> emission_profile_type
+{
+    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+
+    const auto key = SContext::emissionProfileCacheKey(*_element);
+    auto viewBundle = m_loaderContext->override_->findCachedAsset(key, types, m_loaderContext->inner, 0u);
+    if (!viewBundle.getContents().empty())
+    {
+        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
+        types[0] = asset::IAsset::ET_SAMPLER;
+        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
+        const std::string samplerKey = m_loaderContext->samplerCacheKey(m_loaderContext->emissionProfileSamplerParams(*_element, meta));
+        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
+        assert(!samplerBundle.getContents().empty());
+        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
+
+        return { view, sampler, &meta };
+    }
+    return { nullptr, nullptr, nullptr };
+}
+
+CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform) {
+    assert(_emitter->type == CElementEmitter::AREA);
+    auto* res = ir->allocNode<asset::material_compiler::IR::CEmitterNode>();
+    res->intensity = _emitter->area.radiance;
+    if (_emitter->area.emissionProfile) {
+        asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
+        auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
+        if (!image) {
+            os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
+            return nullptr;
+        }
+        profile.texture = { image, sampler, 1.f };
+
+        auto inverseTransform = core::transpose(core::concatenateBFollowedByA(transform, _emitter->transform.matrix));
+        profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
+        profile.up = core::normalize(inverseTransform[1]);
+        profile.view = core::normalize(inverseTransform[2]);
+
+        res->emissionProfile = profile;
+        float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
+        if (normalizeEnergy < 0.0f) {
+            res->intensity *= meta->getMaxIntensity();
+        }
+        else if (normalizeEnergy > 0.0f) {
+            res->intensity *= normalizeEnergy / meta->getIntegral();
+        }
+    }
+    return res;
 }
 
 CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend::getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const
@@ -471,7 +524,8 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         case IRNode::ES_BSDF_COMBINER: [[fallthrough]];
         case IRNode::ES_OPACITY: [[fallthrough]];
         case IRNode::ES_GEOM_MODIFIER: [[fallthrough]];
-        case IRNode::ES_EMISSION:
+        case IRNode::ES_EMITTER:
+        case IRNode::ES_ROOT:
             return ir->copyNode(front);
         case IRNode::ES_BSDF:
         {
@@ -546,9 +600,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
 
         *dst = ir_node;
     }
-
-    ir->addRootNode(frontroot);
-    ir->addRootNode(backroot);
 
     return { frontroot, backroot };
 }

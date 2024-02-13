@@ -39,6 +39,11 @@ layout(set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
     nbl_glsl_MC_prefetch_instr_t data[];
 } prefetch_instr_buf;
 
+layout(set = 0, binding = 7, std430) restrict readonly buffer EMITTER_BUF
+{
+    nbl_glsl_MC_emitter_t data[];
+} emitter_buf;
+
 // Note: this GLSL header defines just those 3 material compiler functions.
 // The rest of them must still be defined by the user!
 nbl_glsl_MC_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
@@ -52,6 +57,10 @@ nbl_glsl_MC_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
 nbl_glsl_MC_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
     return bsdf_buf.data[ix];
+}
+nbl_glsl_MC_emitter_t nbl_glsl_MC_fetchEmitterData(in uint ix)
+{
+    return emitter_buf.data[ix];
 }
 
 uint nbl_glsl_VT_layer2pid(in uint layer)

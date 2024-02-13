@@ -165,6 +165,7 @@ void ParserManager::parseElement(const Context& ctx, const char* _el, const char
 	bool goesOnStack = found->second.second;
 	if (!goesOnStack)
 		return;
+
 	
 	elements.push(el);
 	if (el.first && el.first->id.size())

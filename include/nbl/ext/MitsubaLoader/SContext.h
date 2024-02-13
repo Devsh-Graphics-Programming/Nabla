@@ -9,6 +9,7 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/utils/IGeometryCreator.h"
 #include "nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h"
+#include "nbl/asset/interchange/CIESProfileLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
@@ -101,6 +102,18 @@ namespace MitsubaLoader
 			}
 			key += "?view";
 			return key;
+		}
+
+		static std::string emissionProfileCacheKey(const CElementEmissionProfile& profile)
+		{
+			std::string key = profile.filename;
+			key += "?ies";
+			return key;
+		}
+
+		static auto emissionProfileSamplerParams(const CElementEmissionProfile& profile, const asset::CIESProfileMetadata& meta) {
+			asset::ISampler::SParams res = { asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETC_CLAMP_TO_EDGE, asset::ISampler::ETBC_INT_OPAQUE_BLACK, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, 0u, false, asset::ECO_ALWAYS };
+			return res;
 		}
 
 		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)

@@ -79,6 +79,8 @@
 #include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
+#include "nbl/asset/interchange/CIESProfileLoader.h"
+
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 
@@ -185,6 +187,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CIESProfileLoader>());
 
     for (auto& loader : m_loaders.vector)
         loader->initialize();

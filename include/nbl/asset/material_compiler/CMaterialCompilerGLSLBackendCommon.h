@@ -22,15 +22,34 @@ namespace nbl::asset::material_compiler
 // TODO: we need a GLSL to C++ compatibility wrapper
 #define uint uint32_t
 #define uvec2 uint64_t
+struct nbl_glsl_MC_emitter_t
+{
+	uvec2 emissive;
+	uvec2 emissionProfile;
+	float orientation[6]; // LSB of orientation[0] is 1 if right handed; [0:3] y axis [3:6] z axis
+};
+
+#define NBL_MC_INVALID_EMITTER_ID 0xffffffffu
+
 struct nbl_glsl_MC_oriented_material_t
 {
-    uvec2 emissive;
+	uint emitter_id;
     uint prefetch_offset;
     uint prefetch_count;
     uint instr_offset;
     uint rem_pdf_count;
     uint nprecomp_count;
     uint genchoice_count;
+
+	struct stream_t
+	{
+		uint32_t first;
+		uint32_t count;
+	};
+	stream_t get_rem_and_pdf() const { return { instr_offset, rem_pdf_count }; }
+	stream_t get_gen_choice() const { return { instr_offset + rem_pdf_count, genchoice_count }; }
+	stream_t get_norm_precomp() const { return { instr_offset + rem_pdf_count + genchoice_count, nprecomp_count }; }
+	stream_t get_tex_prefetch() const { return { prefetch_offset, prefetch_count }; }
 };
 struct nbl_glsl_MC_material_data_t
 {
@@ -39,6 +58,7 @@ struct nbl_glsl_MC_material_data_t
 };
 #undef uint
 #undef uvec2
+using emitter_t = nbl_glsl_MC_emitter_t;
 using oriented_material_t = nbl_glsl_MC_oriented_material_t;
 using material_data_t = nbl_glsl_MC_material_data_t;
 
@@ -272,7 +292,9 @@ public:
 	#undef SWITCH_REG_CNT_FOR_PARAM_NUM
 		}
 
+
 		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
+
 	#include "nbl/nblpack.h"
 		struct STextureData {
 			STextureData() = default;
@@ -540,6 +562,22 @@ public:
 	struct result_t;
 	struct SContext;
 
+	inline static instr_stream::VTID packTexture(SContext* ctx, const IR::INode::STextureSource& tex)
+	{
+		// cache, obviously
+		const SContext::VTallocKey cacheKey = { tex.image.get(),tex.sampler.get() };
+		if (auto found = ctx->VTallocMap.find(cacheKey); found != ctx->VTallocMap.end())
+			return found->second;
+
+		auto addr = ctx->vt.alloc(cacheKey.first->getCreationParameters().image.get(), cacheKey.second);
+		{
+			std::pair<SContext::VTallocKey, instr_stream::VTID> item{ cacheKey,addr };
+			ctx->VTallocMap.insert(item);
+		}
+
+		return addr;
+	}
+
 	enum E_GENERATOR_STREAM_TYPE
 	{
 		EGST_ABSENT,
@@ -567,6 +605,7 @@ protected:
 		"NDF_PHONG"
 	};
 	static std::string genPreprocDefinitions(const result_t& _res, E_GENERATOR_STREAM_TYPE _generatorChoiceStream);
+	emitter_t lowerEmitter(CMaterialCompilerGLSLBackendCommon::SContext* _ctx, const IR::CEmitterNode* node);
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 
@@ -702,33 +741,11 @@ public:
 
 	struct result_t
 	{
-		// TODO: should probably use <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl> here, actually material compiler should just make `nbl_glsl_MC_oriented_material_t`
-		struct instr_streams_t
-		{
-			struct stream_t
-			{
-				uint32_t first;
-				uint32_t count;
-			};
-
-			stream_t get_rem_and_pdf() const { return { offset, rem_and_pdf_count }; }
-			stream_t get_gen_choice() const { return {offset + rem_and_pdf_count, gen_choice_count}; }
-			stream_t get_norm_precomp() const { return { offset + rem_and_pdf_count + gen_choice_count, norm_precomp_count }; }
-
-			uint32_t offset;
-			uint32_t rem_and_pdf_count;
-			uint32_t gen_choice_count;
-			uint32_t norm_precomp_count;
-
-			stream_t get_tex_prefetch() const { return { prefetch_offset, tex_prefetch_count }; }
-
-			uint32_t prefetch_offset;
-			uint32_t tex_prefetch_count;
-		};
 
 		instr_stream::traversal_t instructions;
 		instr_stream::tex_prefetch::prefetch_stream_t prefetch_stream;
 		core::vector<instr_stream::SBSDFUnion> bsdfData;
+		core::vector<emitter_t> emitterData;
 
 		//TODO flags like alpha tex always present etc..
 		bool noPrefetchStream;
@@ -745,7 +762,7 @@ public:
 		core::unordered_set<instr_stream::E_NDF> NDFs;
 
 		//one element for each input IR root node
-		core::unordered_map<const IR::INode*, instr_streams_t> streams;
+		core::unordered_map<const IR::INode*, oriented_material_t> materials;
 
 		//has to go after #version and before required user-provided descriptors and functions
 		std::string fragmentShaderSource_declarations;
@@ -753,7 +770,7 @@ public:
 		std::string fragmentShaderSource;
 	};
 
-	void debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const;
+	void debugPrint(std::ostream& _out, const oriented_material_t& _material, const result_t& _res, const SContext* _ctx) const;
 
 	virtual result_t compile(SContext* _ctx, IR* _ir, E_GENERATOR_STREAM_TYPE _generatorChoiceStream=EGST_PRESENT);
 };

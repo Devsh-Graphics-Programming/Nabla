@@ -265,13 +265,6 @@ public:
 			return attempt == 0u; // no failed attempts
 		}
 
-		//! Only called when the was unable to be loaded
-		inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
-		{
-			outAddToCache = false; // if you want to return a “default error asset”
-			return SAssetBundle();
-		}
-
 		//! After a successful load of an asset or sub-asset
 		//TODO change name
 		virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
@@ -282,6 +275,10 @@ public:
 
 		//! Restores all of assets in _bundle
 		virtual void handleRestore(SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels);
+
+
+		//! Only called when the was unable to be loaded
+		virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
 	};
 
 public:

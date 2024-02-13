@@ -133,6 +133,15 @@ bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle
     return _mgr->insertBuiltinAssetIntoCache(_asset);
 }
 
+
+
+//! Only called when the was unable to be loaded
+SAssetBundle IAssetLoader::IAssetLoaderOverride::handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+{
+    outAddToCache = false; // if you want to return a ¡°default error asset¡±
+    return SAssetBundle(0);
+}
+
 bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr,  core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path)
 {
     asset::SAssetBundle bundle(std::move(metadata), { _asset });
