@@ -1457,6 +1457,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 		}
 	}
 
+	os::Printer::log("Material Compiler: Total Emitter count: "+std::to_string(res.emitterData.size()), nbl::ELL_INFORMATION);
+
 	res.fragmentShaderSource_declarations =
 		genPreprocDefinitions(res, _generatorChoiceStream) +
 R"(
@@ -1469,6 +1471,7 @@ R"(
 }
 void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const oriented_material_t& _material, const result_t& _res, const SContext* _ctx) const
 {
+	_out << "####### emitter_id " << _material.emitter_id << "\n";
 	_out << "####### remainder_and_pdf stream\n";
 	auto rem_and_pdf = _material.get_rem_and_pdf();
 	for (uint32_t i = 0u; i < rem_and_pdf.count; ++i)
