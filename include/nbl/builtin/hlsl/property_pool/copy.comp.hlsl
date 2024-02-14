@@ -19,18 +19,20 @@ struct TransferLoop
         const uint64_t srcIndexSize = uint64_t(1) << SrcIndexSizeLog2;
         const uint64_t dstIndexSize = uint64_t(1) << DstIndexSizeLog2;
 
-        const uint64_t srcOffset = invocationIndex * srcIndexSize * transferRequest.propertySize;
-        const uint64_t dstOffset = invocationIndex * dstIndexSize * transferRequest.propertySize;
+        // Fill: Always use offset 0 on src
+        const uint64_t srcOffset = Fill ? 0 : invocationIndex * transferRequest.propertySize;
+        const uint64_t dstOffset = invocationIndex * transferRequest.propertySize;
         
-        const uint64_t srcIndexAddress = Fill ? transferRequest.srcIndexAddr + srcOffset : transferRequest.srcIndexAddr;
-        const uint64_t dstIndexAddress = Fill ? transferRequest.dstIndexAddr + dstOffset : transferRequest.dstIndexAddr;
-
-        const uint64_t srcAddressBufferOffset = SrcIndexIota ? srcIndexAddress : vk::RawBufferLoad<uint32_t>(srcIndexAddress);
-        const uint64_t dstAddressBufferOffset = DstIndexIota ? dstIndexAddress : vk::RawBufferLoad<uint32_t>(dstIndexAddress);
+        // IOTA: Use the index as the fetching offset
+        // Non IOTA: Read the address buffer ("index buffer") to select fetching offset
+        const uint64_t srcAddressBufferOffset = SrcIndexIota ? srcOffset : vk::RawBufferLoad<uint32_t>(transferRequest.srcIndexAddr + srcOffset * sizeof(uint32_t));
+        const uint64_t dstAddressBufferOffset = DstIndexIota ? dstOffset : vk::RawBufferLoad<uint32_t>(transferRequest.dstIndexAddr + dstOffset * sizeof(uint32_t));
 
         const uint64_t srcAddressMapped = transferRequest.srcAddr + srcAddressBufferOffset * srcIndexSize; 
         const uint64_t dstAddressMapped = transferRequest.dstAddr + dstAddressBufferOffset * dstIndexSize; 
 
+        //vk::RawBufferStore<uint64_t>(transferRequest.dstAddr + invocationIndex * sizeof(uint64_t) * 2, srcAddressMapped,8);
+        //vk::RawBufferStore<uint64_t>(transferRequest.dstAddr + invocationIndex * sizeof(uint64_t) * 2 + sizeof(uint64_t), dstAddressMapped,8);
         if (SrcIndexSizeLog2 == 0) {} // we can't write individual bytes
         else if (SrcIndexSizeLog2 == 1) vk::RawBufferStore<uint16_t>(dstAddressMapped, vk::RawBufferLoad<uint16_t>(srcAddressMapped));
         else if (SrcIndexSizeLog2 == 2) vk::RawBufferStore<uint32_t>(dstAddressMapped, vk::RawBufferLoad<uint32_t>(srcAddressMapped));
@@ -111,36 +113,49 @@ void main(uint32_t3 dispatchId)
 
     // Loading transfer request from the pointer (can't use struct
     // with BDA on HLSL SPIRV)
+    uint64_t transferCmdAddr = globals.transferCommandsAddress + sizeof(TransferRequest) * propertyId;
     TransferRequest transferRequest;
-    transferRequest.srcAddr = vk::RawBufferLoad<uint>(globals.transferCommandsAddress) | vk::RawBufferLoad<uint>(globals.transferCommandsAddress + sizeof(uint)) << 32;
-    transferRequest.dstAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t));
-    transferRequest.srcIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 2);
-    transferRequest.dstIndexAddr = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 3);
+    transferRequest.srcAddr = vk::RawBufferLoad<uint64_t>(transferCmdAddr,8);
+    transferRequest.dstAddr = vk::RawBufferLoad<uint64_t>(transferCmdAddr + sizeof(uint64_t),8);
+    transferRequest.srcIndexAddr = vk::RawBufferLoad<uint64_t>(transferCmdAddr + sizeof(uint64_t) * 2,8);
+    transferRequest.dstIndexAddr = vk::RawBufferLoad<uint64_t>(transferCmdAddr + sizeof(uint64_t) * 3,8);
     // Remaining elements are part of the same bitfield
     // TODO: Do this only using raw buffer load?
-    uint64_t bitfieldType = vk::RawBufferLoad<uint64_t>(globals.transferCommandsAddress + sizeof(uint64_t) * 4);
+    uint64_t bitfieldType = vk::RawBufferLoad<uint64_t>(transferCmdAddr + sizeof(uint64_t) * 4,8);
     transferRequest.elementCount32 = uint32_t(bitfieldType);
-    transferRequest.elementCountExtra = uint32_t(bitfieldType);
-    transferRequest.propertySize = uint32_t(bitfieldType >> 3);
-    transferRequest.fill = uint32_t(bitfieldType >> (3 + 24));
-    transferRequest.srcIndexSizeLog2 = uint32_t(bitfieldType >> (3 + 24 + 1));
-    transferRequest.dstIndexSizeLog2 = uint32_t(bitfieldType >> (3 + 24 + 1 + 2));
+    transferRequest.elementCountExtra = uint32_t(bitfieldType >> 32);
+    transferRequest.propertySize = uint32_t(bitfieldType >> (32 + 3));
+    transferRequest.fill = uint32_t(bitfieldType >> (32 + 3 + 24));
+    transferRequest.srcIndexSizeLog2 = uint32_t(bitfieldType >> (32 + 3 + 24 + 1));
+    transferRequest.dstIndexSizeLog2 = uint32_t(bitfieldType >> (32 + 3 + 24 + 1 + 2));
 
     const uint dispatchSize = nbl::hlsl::device_capabilities_traits<device_capabilities>::maxOptimallyResidentWorkgroupInvocations;
     const bool fill = transferRequest.fill == 1;
 
-    vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 3, transferRequest.srcAddr);
-    vk::RawBufferStore<uint64_t>(globals.transferCommandsAddress + 40 * 4, transferRequest.dstAddr);
-    vk::RawBufferStore<uint>(globals.transferCommandsAddress + 40 * 5, vk::RawBufferLoad<uint>(transferRequest.srcAddr + sizeof(uint16_t) * 3));
-    //if (fill) { TransferLoopPermutationFill<true> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
-    //else { TransferLoopPermutationFill<false> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
+    //uint64_t debugWriteAddr = transferRequest.dstAddr + sizeof(uint64_t) * 9 * propertyId;
+    //vk::RawBufferStore<uint64_t>(debugWriteAddr + sizeof(uint64_t) * 0, transferRequest.srcAddr,8);
+    //vk::RawBufferStore<uint64_t>(debugWriteAddr + sizeof(uint64_t) * 1, transferRequest.dstAddr,8);
+    //vk::RawBufferStore<uint64_t>(debugWriteAddr + sizeof(uint64_t) * 2, transferRequest.srcIndexAddr,8);
+    //vk::RawBufferStore<uint64_t>(debugWriteAddr + sizeof(uint64_t) * 3, transferRequest.dstIndexAddr,8);
+    //uint64_t elementCount = uint64_t(transferRequest.elementCount32)
+    //    | uint64_t(transferRequest.elementCountExtra) << 32;
+    //vk::RawBufferStore<uint64_t>(debugWriteAddr + sizeof(uint64_t) * 4, elementCount,8);
+    //vk::RawBufferStore<uint32_t>(debugWriteAddr + sizeof(uint64_t) * 5, transferRequest.propertySize,4);
+    //vk::RawBufferStore<uint32_t>(debugWriteAddr + sizeof(uint64_t) * 6, transferRequest.fill,4);
+    //vk::RawBufferStore<uint32_t>(debugWriteAddr + sizeof(uint64_t) * 7, transferRequest.srcIndexSizeLog2,4);
+    //vk::RawBufferStore<uint32_t>(debugWriteAddr + sizeof(uint64_t) * 8, transferRequest.dstIndexSizeLog2,4);
+    //vk::RawBufferStore<uint64_t>(transferRequest.dstAddr + sizeof(uint64_t) * invocationIndex, invocationIndex,8);
+    
+    if (fill) { TransferLoopPermutationFill<true> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
+    else { TransferLoopPermutationFill<false> loop; loop.copyLoop(invocationIndex, propertyId, transferRequest, dispatchSize); }
 }
 
 }
 }
 }
 
-[numthreads(1,1,1)]
+// TODO: instead use some sort of replace function for getting optimal size?
+[numthreads(512,1,1)]
 void main(uint32_t3 dispatchId : SV_DispatchThreadID)
 {
     nbl::hlsl::property_pools::main<nbl::hlsl::jit::device_capabilities>(dispatchId);

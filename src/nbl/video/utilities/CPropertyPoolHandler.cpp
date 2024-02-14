@@ -130,8 +130,8 @@ bool CPropertyPoolHandler::transferProperties(
 			auto srcRequest = transferPassRequests + i;
 			transferRequest.srcAddr = srcRequest->memblock.buffer.get()->getDeviceAddress() + srcRequest->memblock.offset;
 			transferRequest.dstAddr = srcRequest->buffer.buffer.get()->getDeviceAddress() + srcRequest->buffer.offset;
-			transferRequest.srcIndexAddr = srcRequest->srcAddressesOffset ? addressBufferDeviceAddr + srcRequest->srcAddressesOffset : 0;
-			transferRequest.dstIndexAddr = srcRequest->dstAddressesOffset ? addressBufferDeviceAddr + srcRequest->dstAddressesOffset : 0;
+			transferRequest.srcIndexAddr = srcRequest->srcAddressesOffset != IPropertyPool::invalid ? addressBufferDeviceAddr + srcRequest->srcAddressesOffset : 0;
+			transferRequest.dstIndexAddr = srcRequest->dstAddressesOffset != IPropertyPool::invalid ? addressBufferDeviceAddr + srcRequest->dstAddressesOffset : 0;
 			transferRequest.elementCount32 = uint32_t(srcRequest->elementCount & (uint64_t(1) << 32) - 1);
 			transferRequest.elementCountExtra = uint32_t(srcRequest->elementCount >> 32);
 			transferRequest.propertySize = srcRequest->elementSize;
@@ -144,7 +144,18 @@ bool CPropertyPoolHandler::transferProperties(
 			maxElements = core::max<uint64_t>(maxElements, srcRequest->elementCount);
 		}
 		cmdbuf->updateBuffer({ scratch.offset,sizeof(TransferRequest) * requestsThisPass, core::smart_refctd_ptr(scratch.buffer) }, transferRequestsData);
-		// TODO: pipeline barrier
+		
+		const asset::SMemoryBarrier barriers[1] = { {
+			.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COPY_BIT,
+			.srcAccessMask = asset::ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+			.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
+			.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS
+		} };
+		cmdbuf->pipelineBarrier(asset::EDF_NONE,IGPUCommandBuffer::SPipelineBarrierDependencyInfo{
+			.memBarriers = barriers
+			// TODO: .bufBarriers = instead
+		});
+
 		cmdbuf->bindComputePipeline(m_pipeline.get());
 		
 		nbl::hlsl::property_pools::GlobalPushContants pushConstants;
