@@ -29,12 +29,12 @@ public:
 
 		auto argc = argv.size();
 
-#ifndef NBL_DEBUG
-		std::string str = argv[0];
-		for (auto i=1; i<argc; i++)
-			str += "\n"+argv[i];
-		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
-#endif
+//#ifndef NBL_DEBUG
+//		std::string str = argv[0];
+//		for (auto i=1; i<argc; i++)
+//			str += "\n"+argv[i];
+//		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
+//#endif
 
 		// expect the first argument to be nsc.exe
 		// second argument should be input: filename of a shader to compile

@@ -118,38 +118,56 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
 	if (foundShaderStageArgument != arguments.end() && foundShaderStageArgument + 1 != arguments.end()) {
 		auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
 		std::wstring s = arguments[foundShaderStageArgumentValueIdx];
-		if (s.length() >= 6) {
-			if (shaderStageOverrideFromPragma != IShader::ESS_UNKNOWN)
-			{
-				// replace first 2 characters if shaderStageOverrideFromPragma != Unknown
-				auto stageStr = ShaderStageToString(shaderStageOverrideFromPragma);
-				if (!stageStr) {
-					logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
-					return;
-				}
-				s.replace(0, 2, stageStr);
-			}
-
-			std::vector<std::wstring::iterator> underscorePositions = {};
-			auto it = std::find(s.begin(), s.end(), '_');
+        if (s.length() >= 6) {
+            std::vector<std::wstring::iterator> underscorePositions = {};
+            auto it = std::find(s.begin(), s.end(), '_');
             while (it != s.end()) {
-				underscorePositions.push_back(it);
+                underscorePositions.push_back(it);
                 it = std::find(it + 1, s.end(), '_');
             }
-			std::wstring majorVersionString, minorVersionString;
-			int size = underscorePositions.size();
-			auto secondLastUnderscore = underscorePositions[size - 2];
-			auto lastUnderscore = underscorePositions[size - 1];
-			majorVersionString = std::wstring(secondLastUnderscore + 1, lastUnderscore);
-			minorVersionString = std::wstring(lastUnderscore + 1, s.end());
+            if (shaderStageOverrideFromPragma != IShader::ESS_UNKNOWN)
+            {
+                // replace first 2 characters if shaderStageOverrideFromPragma != Unknown
+                auto stageStr = ShaderStageToString(shaderStageOverrideFromPragma);
+                if (!stageStr) {
+                    logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
+                    return;
+                }
+                if (underscorePositions.size() == 0)
+                {
+                    logger.log("incorrect format for shader stage parameter, expecting shader stage, underscore, then version", system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
+                    return;
+                }
+                int len = underscorePositions[0] - s.begin();
+                s.replace(0, len, stageStr);
+            }
 
-			int major = std::stoi(majorVersionString);
-			int minor = std::stoi(minorVersionString);
-			if (major < MajorReqVersion || (major == MajorReqVersion && minor < MinorReqVersion))
-			{
-				arguments[foundShaderStageArgumentValueIdx] = std::wstring(s.begin(), secondLastUnderscore + 1) + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion);
-			}
-		}
+            std::wstring majorVersionString, minorVersionString;
+            int size = underscorePositions.size();
+            auto secondLastUnderscore = underscorePositions[size - 2];
+            auto lastUnderscore = underscorePositions[size - 1];
+            majorVersionString = std::wstring(secondLastUnderscore + 1, lastUnderscore);
+            minorVersionString = std::wstring(lastUnderscore + 1, s.end());
+            try
+            {
+                int major = std::stoi(majorVersionString);
+                int minor = std::stoi(minorVersionString);
+                if (major < MajorReqVersion || (major == MajorReqVersion && minor < MinorReqVersion))
+                {
+                    logger.log("Upgrading shader stage version number to %i %i", system::ILogger::ELL_DEBUG, MajorReqVersion, MinorReqVersion);
+                    arguments[foundShaderStageArgumentValueIdx] = std::wstring(s.begin(), secondLastUnderscore + 1) + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion);
+                }
+            }
+            catch (const std::invalid_argument& e) {
+                logger.log("Parsing shader version failed, invalid argument exception: %s", system::ILogger::ELL_ERROR, e.what());
+            }
+            catch (const std::out_of_range& e) {
+                logger.log("Parsing shader version failed, out of range exception: %s", system::ILogger::ELL_ERROR, e.what());
+            }
+        }
+        else {
+            logger.log("invalid shader stage '%s' argument, expecting a string of length >= 6 ", system::ILogger::ELL_ERROR, s);
+        }
 	}
 }
 
