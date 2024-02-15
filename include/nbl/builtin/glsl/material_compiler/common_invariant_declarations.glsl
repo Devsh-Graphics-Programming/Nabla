@@ -86,7 +86,7 @@ struct nbl_glsl_MC_emitter_t
 {
 	uvec2 emissive;
 	uvec2 emissionProfile;
-	float orientation[6]; // [0:3] left vector [3:6] up
+	float orientation[6]; // [0:3] up vector [3:6] view vector
 };
 
 struct nbl_glsl_MC_oriented_material_t

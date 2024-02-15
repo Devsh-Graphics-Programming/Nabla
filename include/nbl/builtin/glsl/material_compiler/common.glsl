@@ -597,11 +597,11 @@ vec3 nbl_glsl_MC_oriented_material_t_getEmissive(in nbl_glsl_MC_oriented_materia
 	if (nbl_glsl_isValidVirtualTex(emitter.emissionProfile)) {
 		vec3 up = vec3(emitter.orientation[0],emitter.orientation[1],emitter.orientation[2]);
 		vec3 view = vec3(emitter.orientation[3],emitter.orientation[4],emitter.orientation[5]);
-		vec3 right = cross(up, view);
+		vec3 right = cross(view, up);
 		if ((floatBitsToInt(emitter.orientation[0])&1u) != 1u) {
 			right *= -1;
 		}
-		return emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_IES_convert_dir_to_uv(normalize(mat3(right, up, view)*dir)), mat2(0.0)).r;
+		return emissive * nbl_glsl_vTextureGrad(emitter.emissionProfile, nbl_glsl_IES_convert_dir_to_uv(mat3(right, up, view)*dir), mat2(0.0)).r;
 	}
 #endif
 	return emissive;
