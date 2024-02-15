@@ -12,8 +12,7 @@
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
 #include "glm/glm/glm.hpp"
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/property_pool/transfer.hlsl"
 
 namespace nbl::video

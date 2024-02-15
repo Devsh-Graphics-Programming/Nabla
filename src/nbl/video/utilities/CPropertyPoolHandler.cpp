@@ -24,8 +24,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 			return shader;
 		};
 	auto shader = loadShader("../../../include/nbl/builtin/hlsl/property_pool/copy.comp.hlsl");
-	const asset::SPushConstantRange baseDWORD = { asset::IShader::ESS_COMPUTE,0u,sizeof(nbl::hlsl::property_pools::GlobalPushContants) };
-	auto layout = m_device->createPipelineLayout({ &baseDWORD,1u });
+	const asset::SPushConstantRange transferInfoPushConstants = { asset::IShader::ESS_COMPUTE,0u,sizeof(nbl::hlsl::property_pools::TransferDispatchInfo) };
+	auto layout = m_device->createPipelineLayout({ &transferInfoPushConstants,1u });
 
 	{
 		video::IGPUComputePipeline::SCreationParams params = {};
@@ -93,7 +93,7 @@ bool CPropertyPoolHandler::transferProperties(
 	IGPUCommandBuffer* const cmdbuf, //IGPUFence* const fence,
 	const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 	const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
-	system::logger_opt_ptr logger, const uint32_t baseDWORD, const uint32_t endDWORD
+	system::logger_opt_ptr logger, const uint32_t baseOffsetBytes, const uint32_t endOffsetBytes
 )
 {
 	if (requestsBegin==requestsEnd)
@@ -158,10 +158,11 @@ bool CPropertyPoolHandler::transferProperties(
 
 		cmdbuf->bindComputePipeline(m_pipeline.get());
 		
-		nbl::hlsl::property_pools::GlobalPushContants pushConstants;
+		nbl::hlsl::property_pools::TransferDispatchInfo pushConstants;
 		{
-			pushConstants.beginOffset = baseDWORD;
-			pushConstants.endOffset = endDWORD;
+			// TODO: Should the offset bytes be handled elsewhere?
+			pushConstants.beginOffset = baseOffsetBytes;
+			pushConstants.endOffset = endOffsetBytes;
 			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr;
 		}
 		assert(getAlignment(scratchBufferDeviceAddr) == 0);
@@ -172,7 +173,7 @@ bool CPropertyPoolHandler::transferProperties(
 		{
 			const auto& limits = m_device->getPhysicalDevice()->getLimits();
 			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations * requestsThisPass;
-			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(maxElements,invocationCoarseness), requestsThisPass, 1u);
+			cmdbuf->dispatch((maxElements - 1) / nbl::hlsl::property_pools::OptimalDispatchSize + 1, requestsThisPass, 1u);
 		}
 		// TODO: pipeline barrier
 	}

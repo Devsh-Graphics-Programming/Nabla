@@ -34,9 +34,12 @@ struct TransferRequest
     uint32_t fill: 1;
     uint32_t srcIndexSizeLog2 : 2;
     uint32_t dstIndexSizeLog2 : 2;
+    
+    // Reads a TransferRequest from a BDA
+    static TransferRequest newFromAddress(const uint64_t address);
 };
 
-struct GlobalPushContants 
+struct TransferDispatchInfo 
 {
     // BDA address (GPU pointer) into the transfer commands buffer
     uint64_t transferCommandsAddress;
@@ -48,6 +51,9 @@ struct GlobalPushContants
 };
 
 NBL_CONSTEXPR uint32_t MaxPropertiesPerDispatch = 128;
+
+// TODO: instead use some sort of replace function for getting optimal size?
+NBL_CONSTEXPR uint32_t OptimalDispatchSize = 256;
 
 }
 }
