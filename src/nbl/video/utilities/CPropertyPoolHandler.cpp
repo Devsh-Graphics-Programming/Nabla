@@ -138,8 +138,28 @@ bool CPropertyPoolHandler::transferProperties(
 			transferRequest.fill = 0; // TODO
 			transferRequest.srcIndexSizeLog2 = 1u; // TODO
 			transferRequest.dstIndexSizeLog2 = 1u; // TODO
-			assert(getAlignment(transferRequest.srcAddr) == 0);
-			assert(getAlignment(transferRequest.dstAddr) == 0);
+			if (getAlignment(transferRequest.srcAddr) != 0)
+			{
+				logger.log("CPropertyPoolHandler: memblock.buffer BDA address %I64i is not aligned to 8 byte (64 bit)",system::ILogger::ELL_ERROR, transferRequest.srcAddr);
+			}
+			if (getAlignment(transferRequest.dstAddr) != 0)
+			{
+				logger.log("CPropertyPoolHandler: buffer.buffer BDA address %I64i is not aligned to 8 byte (64 bit)",system::ILogger::ELL_ERROR, transferRequest.dstAddr);
+			}
+			if (getAlignment(transferRequest.propertySize) != 0)
+			{
+				logger.log("CPropertyPoolHandler: propertySize %i is not aligned to 8 byte (64 bit)",system::ILogger::ELL_ERROR, srcRequest->elementSize);
+			}
+			if (transferRequest.srcIndexSizeLog2 < 1 || transferRequest.srcIndexSizeLog2 > 3)
+			{
+				auto srcIndexSizeLog2 = transferRequest.srcIndexSizeLog2;
+				logger.log("CPropertyPoolHandler: srcIndexSizeLog2 %i (%i bit values) are unsupported",system::ILogger::ELL_ERROR, srcIndexSizeLog2, (1 << transferRequest.srcIndexSizeLog2) * sizeof(uint8_t));
+			}
+			if (transferRequest.dstIndexSizeLog2 < 1 || transferRequest.dstIndexSizeLog2 > 3)
+			{
+				auto dstIndexSizeLog2 = transferRequest.dstIndexSizeLog2;
+				logger.log("CPropertyPoolHandler: dstIndexSizeLog2 %i (%i bit values) are unsupported",system::ILogger::ELL_ERROR, dstIndexSizeLog2, (1 << transferRequest.srcIndexSizeLog2) * sizeof(uint8_t));
+			}
 
 			maxElements = core::max<uint64_t>(maxElements, srcRequest->elementCount);
 		}
@@ -163,7 +183,7 @@ bool CPropertyPoolHandler::transferProperties(
 			// TODO: Should the offset bytes be handled elsewhere?
 			pushConstants.beginOffset = baseOffsetBytes;
 			pushConstants.endOffset = endOffsetBytes;
-			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr;
+			pushConstants.transferCommandsAddress = scratchBufferDeviceAddr + transferPassRequestsIndex * sizeof(TransferRequest);
 		}
 		assert(getAlignment(scratchBufferDeviceAddr) == 0);
 		assert(getAlignment(sizeof(TransferRequest)) == 0);
