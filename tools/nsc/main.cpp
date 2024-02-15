@@ -83,29 +83,34 @@ public:
 			});
 		};
 		
-		auto output_flag_pos = findOutputFlag("-Fc");
-		
+		auto output_flag_pos_fc = findOutputFlag("-Fc");
+		auto output_flag_pos_fo = findOutputFlag("-Fo");
+		if (output_flag_pos_fc != m_arguments.end() && output_flag_pos_fo != m_arguments.end()) {
+			m_logger->log("Invalid arguments. Passed both -Fo and -Fc.", ILogger::ELL_ERROR);
+			return false;
+		}
+		auto output_flag_pos = output_flag_pos_fc != m_arguments.end() ? output_flag_pos_fc : output_flag_pos_fo;
 		if (output_flag_pos == m_arguments.end()) 
 		{
-			m_logger->log("Missing arguments. Expecting `-Fc {filename}`.", ILogger::ELL_ERROR);
+			m_logger->log("Missing arguments. Expecting `-Fc {filename}` or `-Fo {filename}`.", ILogger::ELL_ERROR);
 			return false;
 		}
 		else
 		{
 			// we need to assume -Fc may be passed with output file name quoted together with "", so we split it (DXC does it)
-			const auto& outpufFlag = *output_flag_pos;
-			auto outputFlagVector = split(outpufFlag, ' ');
+			const auto& outputFlag = *output_flag_pos;
+			auto outputFlagVector = split(outputFlag, ' ');
 		
-			if(outpufFlag == "-Fc")
+			if(outputFlag == "-Fc" || outputFlag == "-Fo")
 			{
 			    if (output_flag_pos + 1 != m_arguments.end()) 
 			    {
-				output_filepath = *(output_flag_pos + 1);
+					output_filepath = *(output_flag_pos + 1);
 			    }
 			    else 
 			    {
-				m_logger->log("Incorrect arguments. Expecting filename after -Fc.", ILogger::ELL_ERROR);
-				return false;
+					m_logger->log("Incorrect arguments. Expecting filename after %s.", ILogger::ELL_ERROR, outputFlag);
+					return false;
 			    }
 			}
 			else
