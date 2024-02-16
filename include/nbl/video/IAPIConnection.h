@@ -57,7 +57,7 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         virtual IDebugCallback* getDebugCallback() const = 0;
 
-        core::SRange<IPhysicalDevice* const> getPhysicalDevices() const;
+        std::span<IPhysicalDevice* const> getPhysicalDevices() const;
 
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
 
