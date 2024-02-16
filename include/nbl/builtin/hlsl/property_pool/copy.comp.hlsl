@@ -25,18 +25,31 @@ struct TransferLoop
         
         // IOTA: Use the index as the fetching offset
         // Non IOTA: Read the address buffer ("index buffer") to select fetching offset
-        const uint64_t srcAddressBufferOffset = SrcIndexIota ? srcOffset : vk::RawBufferLoad<uint32_t>(transferRequest.srcIndexAddr + srcOffset * sizeof(uint32_t));
-        const uint64_t dstAddressBufferOffset = DstIndexIota ? dstOffset : vk::RawBufferLoad<uint32_t>(transferRequest.dstIndexAddr + dstOffset * sizeof(uint32_t));
+        uint64_t srcAddressBufferOffset;
+        uint64_t dstAddressBufferOffset;
+
+        if (SrcIndexIota) srcAddressBufferOffset = srcOffset;
+        else 
+        {
+            if (SrcIndexSizeLog2 == 0) {} // we can't read individual byte
+            else if (SrcIndexSizeLog2 == 1) srcAddressBufferOffset = vk::RawBufferLoad<uint16_t>(transferRequest.srcIndexAddr + srcOffset * sizeof(uint16_t));
+            else if (SrcIndexSizeLog2 == 2) srcAddressBufferOffset = vk::RawBufferLoad<uint32_t>(transferRequest.srcIndexAddr + srcOffset * sizeof(uint32_t));
+            else if (SrcIndexSizeLog2 == 3) srcAddressBufferOffset = vk::RawBufferLoad<uint64_t>(transferRequest.srcIndexAddr + srcOffset * sizeof(uint64_t));
+        }
+
+        if (DstIndexIota) dstAddressBufferOffset = dstOffset;
+        else 
+        {
+            if (DstIndexSizeLog2 == 0) {} // we can't read individual byte
+            else if (DstIndexSizeLog2 == 1) dstAddressBufferOffset = vk::RawBufferLoad<uint16_t>(transferRequest.dstIndexAddr + dstOffset * sizeof(uint16_t));
+            else if (DstIndexSizeLog2 == 2) dstAddressBufferOffset = vk::RawBufferLoad<uint32_t>(transferRequest.dstIndexAddr + dstOffset * sizeof(uint32_t));
+            else if (DstIndexSizeLog2 == 3) dstAddressBufferOffset = vk::RawBufferLoad<uint64_t>(transferRequest.dstIndexAddr + dstOffset * sizeof(uint64_t));
+        }
 
         const uint64_t srcAddressMapped = transferRequest.srcAddr + srcAddressBufferOffset * srcIndexSize; 
         const uint64_t dstAddressMapped = transferRequest.dstAddr + dstAddressBufferOffset * dstIndexSize; 
 
-        //vk::RawBufferStore<uint64_t>(transferRequest.dstAddr + invocationIndex * sizeof(uint64_t) * 2, srcAddressMapped,8);
-        //vk::RawBufferStore<uint64_t>(transferRequest.dstAddr + invocationIndex * sizeof(uint64_t) * 2 + sizeof(uint64_t), dstAddressMapped,8);
-        if (SrcIndexSizeLog2 == 0) {} // we can't write individual bytes
-        else if (SrcIndexSizeLog2 == 1) vk::RawBufferStore<uint16_t>(dstAddressMapped, vk::RawBufferLoad<uint16_t>(srcAddressMapped));
-        else if (SrcIndexSizeLog2 == 2) vk::RawBufferStore<uint32_t>(dstAddressMapped, vk::RawBufferLoad<uint32_t>(srcAddressMapped));
-        else if (SrcIndexSizeLog2 == 3) vk::RawBufferStore<uint64_t>(dstAddressMapped, vk::RawBufferLoad<uint64_t>(srcAddressMapped));
+        vk::RawBufferStore<uint32_t>(dstAddressMapped, vk::RawBufferLoad<uint32_t>(srcAddressMapped));
     }
 
     void copyLoop(NBL_CONST_REF_ARG(TransferDispatchInfo) dispatchInfo, uint baseInvocationIndex, uint propertyId, TransferRequest transferRequest, uint dispatchSize)

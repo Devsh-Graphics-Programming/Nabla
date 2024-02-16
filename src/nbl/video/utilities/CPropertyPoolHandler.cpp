@@ -193,7 +193,8 @@ bool CPropertyPoolHandler::transferProperties(
 		{
 			const auto& limits = m_device->getPhysicalDevice()->getLimits();
 			const auto invocationCoarseness = limits.maxOptimallyResidentWorkgroupInvocations * requestsThisPass;
-			cmdbuf->dispatch((maxElements - 1) / nbl::hlsl::property_pools::OptimalDispatchSize + 1, requestsThisPass, 1u);
+			const auto dispatchElements = (maxElements - 1) / requestsThisPass + 1;
+			cmdbuf->dispatch(limits.computeOptimalPersistentWorkgroupDispatchSize(dispatchElements,invocationCoarseness), requestsThisPass, 1u);
 		}
 		// TODO: pipeline barrier
 	}
