@@ -708,7 +708,8 @@ public:
             commonCompileOptions.stage = shaderStage;
             commonCompileOptions.debugInfoFlags = 
                 asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT |
+                asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT;
             commonCompileOptions.spirvOptimizer = nullptr; // TODO: create/get spirv optimizer in logical device?
             commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
