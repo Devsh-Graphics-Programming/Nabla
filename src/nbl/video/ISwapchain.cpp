@@ -7,29 +7,25 @@
 namespace nbl::video
 {
 	
-ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount)
-    : IBackendObject(std::move(dev)), m_imageCount(imageCount)
-{
-    assert(params.queueFamilyIndexCount<=ILogicalDevice::SCreationParams::MaxQueueFamilies);
-    std::copy_n(params.queueFamilyIndices,params.queueFamilyIndexCount,m_queueFamilies.data());
-    params.queueFamilyIndices = m_queueFamilies.data();
-    params.oldSwapchain = nullptr; // don't need to keep a reference to the old swapchain anymore
-
-    assert(imageCount<=ISwapchain::MaxImages);
-    m_imgCreationParams = {
+ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<const ISwapchain>&& oldSwapchain) :
+    IBackendObject(std::move(dev)), m_params(std::move(params)), m_imgCreationParams({
         .type = IGPUImage::ET_2D,
         .samples = IGPUImage::ESCF_1_BIT,
         .format = m_params.surfaceFormat.format,
-        .extent = { m_params.width, m_params.height, 1u },
+        .extent = {m_params.sharedParams.width,m_params.sharedParams.height,1u},
         .mipLevels = 1u,
-        .arrayLayers = m_params.arrayLayers,
-        .flags = m_params.viewFormats.count()>1u ? IGPUImage::ECF_MUTABLE_FORMAT_BIT:IGPUImage::ECF_NONE,
-        .usage = m_params.imageUsage,
+        .arrayLayers = m_params.sharedParams.arrayLayers,
+        .flags = m_params.computeImageCreationFlags(getOriginDevice()->getPhysicalDevice()),
+        .usage = m_params.sharedParams.imageUsage,
         // stencil usage remains none because swapchains don't have stencil formats!
         .viewFormats = m_params.viewFormats
-    };
-    if (!(getOriginDevice()->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[m_imgCreationParams.format]<m_imgCreationParams.usage))
-        m_imgCreationParams.flags |= IGPUImage::ECF_EXTENDED_USAGE_BIT;
+    }), m_oldSwapchain(std::move(oldSwapchain)), m_imageCount(imageCount)
+{
+    assert(params.queueFamilyIndices.size()<=ILogicalDevice::SCreationParams::MaxQueueFamilies);
+    assert(imageCount<=ISwapchain::MaxImages);
+
+    std::copy(m_params.queueFamilyIndices.begin(),m_params.queueFamilyIndices.end(),m_queueFamilies.data());
+    m_params.queueFamilyIndices = {m_queueFamilies.data(),m_params.queueFamilyIndices.size()};
 }
 
 }

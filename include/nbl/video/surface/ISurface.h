@@ -31,64 +31,49 @@ class ISurface : public core::IReferenceCounted
     public:
         struct SColorSpace
         {
-            asset::E_COLOR_PRIMARIES primary;
-            asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION eotf;
+            inline bool operator==(const SColorSpace&) const = default;
+            inline bool operator!=(const SColorSpace&) const = default;
+
+            asset::E_COLOR_PRIMARIES primary = asset::ECP_COUNT;
+            asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION eotf = asset::EOTF_UNKNOWN;
         };
         struct SFormat
         {
-            SFormat()
-                : format(asset::EF_UNKNOWN)
-                , colorSpace({asset::ECP_COUNT, asset::EOTF_UNKNOWN})
-            {}
+            inline SFormat() = default;
+            inline SFormat(const asset::E_FORMAT _format, const asset::E_COLOR_PRIMARIES _primary, const asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION _eotf) : format(_format), colorSpace({_primary, _eotf}) {}
 
-            SFormat(asset::E_FORMAT _format, asset::E_COLOR_PRIMARIES _primary, asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION _eotf)
-                : format(_format)
-                , colorSpace({_primary, _eotf})
-            {
-            }
-            asset::E_FORMAT format;
-            SColorSpace colorSpace;
+            inline bool operator==(const SFormat&) const = default;
+            inline bool operator!=(const SFormat&) const = default;
+
+            asset::E_FORMAT format = asset::EF_UNKNOWN;
+            SColorSpace colorSpace = {};
         };
-        enum E_PRESENT_MODE
+        // TODO: move these structs and enums to HLSL header!
+        enum E_PRESENT_MODE : uint8_t
         {
+            EPM_NONE = 0x0,
             EPM_IMMEDIATE = 1<<0,
             EPM_MAILBOX = 1<<1,
             EPM_FIFO = 1<<2,
             EPM_FIFO_RELAXED = 1<<3,
+            EPM_ALL_BITS = 0x7u,
             EPM_UNKNOWN = 0
         };
 
-        enum E_SURFACE_TRANSFORM_FLAGS : uint32_t
+        enum E_SURFACE_TRANSFORM_FLAGS : uint16_t
         {
-            EST_IDENTITY_BIT = 0x00000001,
-            EST_ROTATE_90_BIT = 0x00000002,
-            EST_ROTATE_180_BIT = 0x00000004,
-            EST_ROTATE_270_BIT = 0x00000008,
-            EST_HORIZONTAL_MIRROR_BIT = 0x00000010,
-            EST_HORIZONTAL_MIRROR_ROTATE_90_BIT = 0x00000020,
-            EST_HORIZONTAL_MIRROR_ROTATE_180_BIT = 0x00000040,
-            EST_HORIZONTAL_MIRROR_ROTATE_270_BIT = 0x00000080,
-            EST_INHERIT_BIT = 0x00000100,
-            EST_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+            EST_NONE = 0x0,
+            EST_IDENTITY_BIT = 0x0001,
+            EST_ROTATE_90_BIT = 0x0002,
+            EST_ROTATE_180_BIT = 0x0004,
+            EST_ROTATE_270_BIT = 0x0008,
+            EST_HORIZONTAL_MIRROR_BIT = 0x0010,
+            EST_HORIZONTAL_MIRROR_ROTATE_90_BIT = 0x0020,
+            EST_HORIZONTAL_MIRROR_ROTATE_180_BIT = 0x0040,
+            EST_HORIZONTAL_MIRROR_ROTATE_270_BIT = 0x0080,
+            EST_INHERIT_BIT = 0x0100,
+            EST_ALL_BITS = 0x01FF
         };
-
-        #include "nbl/builtin/glsl/utils/surface_transform_e.h"
-        static_assert(int(EST_IDENTITY_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY);
-        static_assert(int(EST_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90);
-        static_assert(int(EST_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180);
-        static_assert(int(EST_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270);
-        static_assert(int(EST_HORIZONTAL_MIRROR_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_90_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_180_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180);
-        static_assert(int(EST_HORIZONTAL_MIRROR_ROTATE_270_BIT) == NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270);
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_IDENTITY
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_90
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_180
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_ROTATE_270
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_90
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_180
-        #undef NBL_GLSL_SURFACE_TRANSFORM_E_HORIZONTAL_MIRROR_ROTATE_270
 
         // A matrix that can be pre-multiplied to the projection matrix in order to apply the
         // surface transform.
@@ -174,36 +159,38 @@ class ISurface : public core::IReferenceCounted
             }
         }
 
-        enum E_COMPOSITE_ALPHA : uint32_t
+        enum E_COMPOSITE_ALPHA : uint8_t
         {
-            ECA_OPAQUE_BIT = 0x00000001,
-            ECA_PRE_MULTIPLIED_BIT = 0x00000002,
-            ECA_POST_MULTIPLIED_BIT = 0x00000004,
-            ECA_INHERIT_BIT = 0x00000008,
-            ECA_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+            ECA_NONE = 0x0,
+            ECA_OPAQUE_BIT = 0x01,
+            ECA_PRE_MULTIPLIED_BIT = 0x02,
+            ECA_POST_MULTIPLIED_BIT = 0x04,
+            ECA_INHERIT_BIT = 0x08,
+            ECA_ALL_BITS = 0x0F
         };
+        // TODO: end of move to HLSL block
 
         struct SCapabilities
         {
-            uint32_t minImageCount;
-            uint32_t maxImageCount;
-            VkExtent2D currentExtent;
-            VkExtent2D minImageExtent;
-            VkExtent2D maxImageExtent;
-            uint32_t maxImageArrayLayers;
-            core::bitflag<E_SURFACE_TRANSFORM_FLAGS> supportedTransforms;
-            E_SURFACE_TRANSFORM_FLAGS currentTransform;
-            core::bitflag<E_COMPOSITE_ALPHA> supportedCompositeAlpha;
-            core::bitflag<asset::IImage::E_USAGE_FLAGS> supportedUsageFlags;
+            core::bitflag<asset::IImage::E_USAGE_FLAGS> supportedUsageFlags = {};
+            VkExtent2D currentExtent = {0u,0u};
+            VkExtent2D minImageExtent = {~0u,~0u};
+            VkExtent2D maxImageExtent = {0u,0u};
+            uint8_t minImageCount = ~0u;
+            uint8_t maxImageCount = 0;
+            uint8_t maxImageArrayLayers = 0;
+            core::bitflag<E_COMPOSITE_ALPHA> supportedCompositeAlpha = ECA_NONE;
+            core::bitflag<E_SURFACE_TRANSFORM_FLAGS> supportedTransforms = EST_NONE;
+            E_SURFACE_TRANSFORM_FLAGS currentTransform = EST_NONE;
         };
 
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
-        virtual bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
+        virtual bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, const uint32_t _queueFamIx) const = 0;
 
         virtual void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const = 0;
 
-        virtual ISurface::E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const = 0;
+        virtual core::bitflag<ISurface::E_PRESENT_MODE> getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const = 0;
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 

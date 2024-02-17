@@ -1,26 +1,27 @@
 #ifndef _NBL_VIDEO_C_SURFACE_VULKAN_H_INCLUDED_
 #define _NBL_VIDEO_C_SURFACE_VULKAN_H_INCLUDED_
 
+
 #include "BuildConfigOptions.h"
+
+#include "nbl/ui/IWindowAndroid.h"
 
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/CVulkanConnection.h"
 
-#include "nbl/ui/IWindowAndroid.h"
+#include "volk.h"
+
 
 namespace nbl::video
 {
-
-
-#include "volk.h"
 
 class NBL_API2 ISurfaceVulkan : public ISurface
 {
         using base_t = ISurface;
     public:
-        bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override;
+        bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, const uint32_t _queueFamIx) const override;
         void getAvailableFormatsForPhysicalDevice(const IPhysicalDevice* physicalDevice, uint32_t& formatCount, ISurface::SFormat* formats) const override;
-        E_PRESENT_MODE getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override;
+        core::bitflag<ISurface::E_PRESENT_MODE> getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const override;
         bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const override;
 
         inline VkSurfaceKHR getInternalObject() const { return m_vkSurfaceKHR; }

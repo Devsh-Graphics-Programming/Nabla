@@ -14,7 +14,7 @@ class ILogicalDevice;
 class CVulkanSwapchain final : public ISwapchain
 {
     public:
-        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params, core::smart_refctd_ptr<const CVulkanSwapchain>&& oldSwapchain=nullptr);
 
         core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
@@ -24,19 +24,20 @@ class CVulkanSwapchain final : public ISwapchain
         inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
 
     private:
-        CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores);
+        CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, core::smart_refctd_ptr<const CVulkanSwapchain>&& oldSwapchain, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores);
         ~CVulkanSwapchain();
 
         ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) override;
-
         PRESENT_RESULT present_impl(const SPresentInfo& info) override;
+
+        core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) const override;
 
         inline VkSemaphoreSubmitInfoKHR getAdaptorSemaphore(const bool notNull)
         {
             VkSemaphoreSubmitInfoKHR info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr,VK_NULL_HANDLE};
             if (notNull)
             {
-                info.semaphore = m_adaptorSemaphores[(m_internalCounter++)%(2*m_imageCount)];
+                info.semaphore = m_adaptorSemaphores[(m_internalCounter++)%(getImageCount()*2)];
                 // value is ignored because the adaptors are binary
                 info.stageMask = VK_PIPELINE_STAGE_2_NONE;
                 info.deviceIndex = 0u; // TODO: later obtain from swapchain

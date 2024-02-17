@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params)
+core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params, core::smart_refctd_ptr<const CVulkanSwapchain>&& oldSwapchain)
 { 
     if (!logicalDevice || logicalDevice->getAPIType()!=EAT_VULKAN || logicalDevice->getEnabledFeatures().swapchainMode==ESM_NONE)
         return nullptr;
@@ -15,6 +15,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
     if (!params.surface)
         return nullptr;
     // now check if any queue family of the physical device supports this surface
+    // TODO: check with logical device queues
     {
         auto physDev = logicalDevice->getPhysicalDevice();
         const uint32_t queueFamilyCount = physDev->getQueueFamilyProperties().size();
@@ -25,21 +26,28 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
             return nullptr;
     }
 
-    auto device = core::smart_refctd_ptr_static_cast<CVulkanLogicalDevice>(logicalDevice);
+    auto device = core::smart_refctd_ptr_static_cast<const CVulkanLogicalDevice>(logicalDevice);
     const VkSurfaceKHR vk_surface = static_cast<const ISurfaceVulkan*>(params.surface.get())->getInternalObject();
 
     // get present mode
     VkPresentModeKHR vkPresentMode;
-    if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_IMMEDIATE)
-        vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_MAILBOX)
-        vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_FIFO)
-        vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-    else if (params.presentMode==ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED)
-        vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-    else
-        return nullptr;
+    switch (params.sharedParams.presentMode.value)
+    {
+        case ISurface::E_PRESENT_MODE::EPM_IMMEDIATE:
+            vkPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+            break;
+        case ISurface::E_PRESENT_MODE::EPM_MAILBOX:
+            vkPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+            break;
+        case ISurface::E_PRESENT_MODE::EPM_FIFO:
+            vkPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+            break;
+        case ISurface::E_PRESENT_MODE::EPM_FIFO_RELAXED:
+            vkPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+            break;
+        default:
+            return nullptr;
+    }
     
     //! fill format list for mutable formats
     VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, nullptr };
@@ -60,33 +68,38 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
         {
             const auto format = static_cast<asset::E_FORMAT>(fmt);
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSwapchainCreateInfoKHR.html#VUID-VkSwapchainCreateInfoKHR-pNext-04099
-            if (asset::getFormatClass(format) != asset::getFormatClass(params.surfaceFormat.format))
+            if (asset::getFormatClass(format)!=asset::getFormatClass(params.surfaceFormat.format))
                 return nullptr;
             vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(format);
         }
 
         // just deduce the mutable flag, cause we're so constrained by spec, it dictates we must list all formats if we're doing mutable
-        if (vk_formatListStruct.viewFormatCount > 1)
+        if (vk_formatListStruct.viewFormatCount>1)
             vk_createInfo.flags |= VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR;
     }
     vk_formatListStruct.pViewFormats = vk_formatList.data();
 
+    std::array<uint32_t, ILogicalDevice::SCreationParams::MaxQueueFamilies> queueFamilyIndices;
+    std::copy(params.queueFamilyIndices.begin(),params.queueFamilyIndices.end(),queueFamilyIndices.data());
     vk_createInfo.surface = vk_surface;
-    vk_createInfo.minImageCount = params.minImageCount;
+    vk_createInfo.minImageCount = params.sharedParams.minImageCount;
     vk_createInfo.imageFormat = getVkFormatFromFormat(params.surfaceFormat.format);
     vk_createInfo.imageColorSpace = getVkColorSpaceKHRFromColorSpace(params.surfaceFormat.colorSpace);
-    vk_createInfo.imageExtent = {params.width,params.height};
-    vk_createInfo.imageArrayLayers = params.arrayLayers;
-    vk_createInfo.imageUsage = getVkImageUsageFlagsFromImageUsageFlags(params.imageUsage,asset::isDepthOrStencilFormat(params.surfaceFormat.format));
+    vk_createInfo.imageExtent = {params.sharedParams.width,params.sharedParams.height};
+    vk_createInfo.imageArrayLayers = params.sharedParams.arrayLayers;
+    vk_createInfo.imageUsage = getVkImageUsageFlagsFromImageUsageFlags(params.sharedParams.imageUsage,asset::isDepthOrStencilFormat(params.surfaceFormat.format));
     vk_createInfo.imageSharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
-    vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
-    vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-    vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.preTransform);
-    vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.compositeAlpha);
+    vk_createInfo.queueFamilyIndexCount = queueFamilyIndices.size();
+    vk_createInfo.pQueueFamilyIndices = queueFamilyIndices.data();
+    vk_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(params.sharedParams.preTransform.value);
+    vk_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(params.sharedParams.compositeAlpha.value);
     vk_createInfo.presentMode = vkPresentMode;
     vk_createInfo.clipped = VK_FALSE;
-    if (params.oldSwapchain && params.oldSwapchain->wasCreatedBy(device.get()))
-        vk_createInfo.oldSwapchain = IBackendObject::device_compatibility_cast<CVulkanSwapchain*>(params.oldSwapchain.get(),device.get())->getInternalObject();
+    if (oldSwapchain)
+    {
+        assert(oldSwapchain->wasCreatedBy(device.get()));
+        vk_createInfo.oldSwapchain = oldSwapchain->getInternalObject();
+    }
     else
         vk_createInfo.oldSwapchain = VK_NULL_HANDLE;
 
@@ -116,17 +129,17 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
         }
     }
 
-    return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,vk_swapchain,adaptorSemaphores),core::dont_grab);
+    return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,std::move(oldSwapchain),vk_swapchain,adaptorSemaphores),core::dont_grab);
 }
 
-CVulkanSwapchain::CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores)
-    : ISwapchain(std::move(logicalDevice),std::move(params),imageCount), m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain)
+CVulkanSwapchain::CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, core::smart_refctd_ptr<const CVulkanSwapchain>&& oldSwapchain, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores)
+    : ISwapchain(std::move(logicalDevice),std::move(params),imageCount,std::move(oldSwapchain)), m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain)
 {
     {
         const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
         uint32_t dummy = imageCount;
         auto retval = vulkanDevice->getFunctionTable()->vk.vkGetSwapchainImagesKHR(vulkanDevice->getInternalObject(),m_vkSwapchainKHR,&dummy,m_images);
-        assert(retval==VK_SUCCESS && dummy==m_imageCount);
+        assert(retval==VK_SUCCESS && dummy==getImageCount());
     }
 
     std::copy_n(_adaptorSemaphores,imageCount,m_adaptorSemaphores);
@@ -137,7 +150,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto& vk = vulkanDevice->getFunctionTable()->vk;
 
-    for (auto i=0u; i<2*m_imageCount; i++)
+    for (auto i=0u; i<getImageCount()*2; i++)
         vk.vkDestroySemaphore(vulkanDevice->getInternalObject(),m_adaptorSemaphores[i],nullptr);
 
     vk.vkDestroySwapchainKHR(vulkanDevice->getInternalObject(),m_vkSwapchainKHR,nullptr);
@@ -260,6 +273,18 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
     return PRESENT_RESULT::SUCCESS;
 }
 
+core::smart_refctd_ptr<ISwapchain> CVulkanSwapchain::recreate_impl(SSharedCreationParams&& params) const
+{
+    SCreationParams fullParams = {
+        .surface = core::smart_refctd_ptr(getCreationParameters().surface),
+        .surfaceFormat = getCreationParameters().surfaceFormat,
+        .sharedParams = std::move(params),
+        .viewFormats = getCreationParameters().viewFormats,
+        .queueFamilyIndices = getCreationParameters().queueFamilyIndices
+    };
+    return create(core::smart_refctd_ptr<const ILogicalDevice>(getOriginDevice()),std::move(fullParams),core::smart_refctd_ptr<const CVulkanSwapchain>(this));
+}
+
 core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t imageIndex)
 {
     if (!setImageExists(imageIndex))
@@ -307,14 +332,16 @@ core::smart_refctd_ptr<IGPUImage> CVulkanSwapchain::createImage(const uint32_t i
     // }
 
     auto device = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-
+    
+    std::array<uint32_t,ILogicalDevice::SCreationParams::MaxQueueFamilies> queueFamilyIndices;
+    std::copy(getCreationParameters().queueFamilyIndices.begin(),getCreationParameters().queueFamilyIndices.end(),queueFamilyIndices.data());
     IGPUImage::SCreationParams creationParams = {};
     static_cast<asset::IImage::SCreationParams&>(creationParams) = getImageCreationParams();
     creationParams.preDestroyCleanup = std::make_unique<CCleanupSwapchainReference>(core::smart_refctd_ptr<ISwapchain>(this), imageIndex);
     creationParams.postDestroyCleanup = nullptr;
-    creationParams.queueFamilyIndexCount = getCreationParameters().queueFamilyIndexCount;
+    creationParams.queueFamilyIndexCount = queueFamilyIndices.size();
     creationParams.skipHandleDestroy = true;
-    creationParams.queueFamilyIndices = getCreationParameters().queueFamilyIndices;
+    creationParams.queueFamilyIndices = queueFamilyIndices.data();
     creationParams.tiling = IGPUImage::TILING::OPTIMAL;
     creationParams.preinitialized = false;
 
