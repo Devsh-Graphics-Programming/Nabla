@@ -424,6 +424,31 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 				//! TODO: Add getters for all the other members!
 				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
+				inline const auto& getInputs() const { return m_input; }
+				inline const core::vector<SFragmentOutputInterface>& getFragmentShaderOutputs() const
+				{
+					if (m_shaderStage != IShader::ESS_FRAGMENT)
+					{
+						// TODO: log error
+						return {};
+					}
+
+					return std::get<core::vector<SFragmentOutputInterface>>(m_output);
+				}
+				inline const core::vector<SOutputInterface>& getShaderOutputs() const
+				{
+					if (m_shaderStage == IShader::ESS_UNKNOWN || m_shaderStage == IShader::ESS_FRAGMENT)
+					{
+						// TODO: log error
+						return {};
+					}
+
+					return std::get<core::vector<SOutputInterface>>(m_output);
+				}
+				inline const SPushConstantInfo<>& getPushConstants() { return m_pushConstants; }
+				inline const core::vector<SDescriptorVarInfo<>>& getDescriptorSetBinding(uint32_t dsID) { return m_descriptorSetBindings[dsID]; }
+
+				inline const auto& getPushConstants() const {return m_pushConstants;}
 
 				/*inline bool canSpecializationlesslyCreateDescSetFrom() const
 				{
@@ -505,6 +530,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				static void printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts);
 				static void printType(std::ostringstream& out, const SType<false>* counts, const uint32_t depth=0);
 				
+				IShader::E_SHADER_STAGE m_shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+
 				// Parameters it was created with
 				SParams m_params;
 				//! Sorted by `id`
@@ -548,7 +575,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				NBL_API2 bool merge(const CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants=nullptr);
 
 				//
-				NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection();
+				NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection);
 				NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID);
 				NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection();
 
@@ -580,9 +607,10 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			if (!params.shader)
 				return nullptr;
     
-			if (params.shader->getContentType()!=IShader::E_CONTENT_TYPE::ECT_SPIRV)
+			if (params.shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
 				return nullptr;
 
+			// TODO: uncomment and test
 			// TODO: templated find!
 			//auto introspectionData = m_introspectionCache.find(params);
 			//if (introspectionData != m_introspectionCache.end())
@@ -598,7 +626,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
 		{
-			if (info.shader->getStage()!=IShader::ESS_COMPUTE)
+			if (info.shader->getStage()!=IShader::ESS_COMPUTE || !info.valid())
 				return nullptr;
 
 			// TODO: 
@@ -606,9 +634,42 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			// 2. if `layout` then just check for compatiblity
 			// 3. if `!layout` then create `CPipelineIntrospectionData` from the stage introspection and create a Layout
 
-			ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
-			params.shader = info;
-			return ICPUComputePipeline::create(params);
+			CStageIntrospectionData::SParams params;
+			params.entryPoint = info.entryPoint;
+			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+
+			auto introspection = introspect(params);
+
+			if (layout)
+			{
+				// TODO: merge CStageIntrospection into CPipelineIntrospection
+			}
+			else
+			{
+
+			}
+
+			auto pc = introspection->getPushConstants();
+
+			
+
+			CPipelineIntrospectionData pplnIntroData;
+			pplnIntroData.createPushConstantRangesFromIntrospection(introspection);
+
+
+			//ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
+			//params.shader = info;
+			//return ICPUComputePipeline::create(params);
+			return nullptr;
+
+			/*core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+			for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+				dsLayout[i] = introspection->createApproximateDescriptorSetLayoutFromIntrospection(i, introspections, shaders);
+
+			return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+				(pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
+				std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
+			);*/
 		}
 
 #if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way

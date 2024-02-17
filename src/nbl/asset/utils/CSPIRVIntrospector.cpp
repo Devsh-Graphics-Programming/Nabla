@@ -11,6 +11,59 @@
 namespace nbl::asset
 {
 
+namespace
+{
+    E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
+    {
+        using namespace spv;
+        constexpr E_FORMAT convert[]
+        {
+            EF_UNKNOWN,
+            EF_R32G32B32A32_SFLOAT,
+            EF_R16G16B16A16_SFLOAT,
+            EF_R32_SFLOAT,
+            EF_R8G8B8A8_UNORM,
+            EF_R8G8B8A8_SNORM,
+            EF_R32G32_SFLOAT,
+            EF_R16G16_SFLOAT,
+            EF_B10G11R11_UFLOAT_PACK32,
+            EF_R16_SFLOAT,
+            EF_R16G16B16A16_UNORM,
+            EF_A2B10G10R10_UNORM_PACK32,
+            EF_R16G16_UNORM,
+            EF_R8G8_UNORM,
+            EF_R16G16_UNORM,
+            EF_R8_UNORM,
+            EF_R16G16B16A16_SNORM,
+            EF_R16G16_SNORM,
+            EF_R8G8_SNORM,
+            EF_R16_SNORM,
+            EF_R8_SNORM,
+            EF_R32G32B32A32_SINT,
+            EF_R16G16B16A16_SINT,
+            EF_R8G8B8A8_SINT,
+            EF_R32_SINT,
+            EF_R32G32_SINT,
+            EF_R16G16_SINT,
+            EF_R8G8_SINT,
+            EF_R16_SINT,
+            EF_R8_SINT,
+            EF_R32G32B32A32_UINT,
+            EF_R16G16B16A16_UINT,
+            EF_R8G8B8A8_UINT,
+            EF_R32_UINT,
+            EF_A2B10G10R10_UINT_PACK32,
+            EF_R32G32_UINT,
+            EF_R16G16_UINT,
+            EF_R8G8_UINT,
+            EF_R16_UINT,
+            EF_R8_UINT,
+            EF_UNKNOWN
+        };
+        return convert[_imgfmt];
+    }
+}//anonymous ns
+
 static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType basetype)
 {
     switch (basetype)
@@ -39,8 +92,11 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 }
 
 //
-NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection()
+NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
+    auto& ps = introspection->getPushConstants();
+    auto a = ps.type->memberInfoStorage;
+
     return nullptr;
 }
 NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID)
@@ -84,7 +140,7 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
 void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r)
 {
     core::unordered_map<uint32_t/*spirv_cross::TypeID*/,type_ptr<true>> typeCache;
-
+    
     struct StackElement
     {
         // the root type pointer backed by slightly different memory, so handle it specially when detected
@@ -154,7 +210,8 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             continue;
 
         getTypeStore()->count = addCounts(type.array.size(),type.array.data(),type.array_size_literal.data());
-        getTypeStore()->typeName = addString("TODO");
+        auto memberTypeName = comp.get_member_name(entry.selfTypeID, 0);
+        getTypeStore()->typeName = addString(memberTypeName); 
         {
             auto typeEnum = VAR_TYPE::UNKNOWN_OR_STRUCT;
             switch (type.basetype)
@@ -228,11 +285,12 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         return nullptr;
 
     core::smart_refctd_ptr<CStageIntrospectionData> stageIntroData = core::make_smart_refctd_ptr<CStageIntrospectionData>();
+    stageIntroData->m_shaderStage = shaderStage;
 
     comp.set_entry_point(params.entryPoint, stage);
 
-
     // spec constants
+        // TODO: hash map instead
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = comp.get_specialization_constants();
     stageIntroData->m_specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
@@ -273,7 +331,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         stageIntroData->m_specConstants.insert(where, specConst);
     }
 
-    spirv_cross::ShaderResources resources = comp.get_shader_resources(/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
+    spirv_cross::ShaderResources resources = comp.get_shader_resources(comp.get_active_interface_variables()/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
         auto* res = stageIntroData->addResource(comp,r,IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
@@ -339,16 +397,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
             res->storageImage.writeonly = type.image.access==spv::AccessQualifierWriteOnly;
             res->storageImage.viewType = spvcrossImageType2ImageView(type.image);
             res->storageImage.shadow = type.image.depth;
-            switch (type.image.format)
-            {
-                case spv::ImageFormatRgba32f:
-                    res->storageImage.format = EF_R32G32B32A32_SFLOAT;
-                    break;
-                // TODO: Przemog1 do the rest!
-                default:
-                    res->storageImage.format = EF_UNKNOWN;
-                    break;
-            }
+            res->storageImage.format = spvImageFormat2E_FORMAT(type.image.format);
         }
         else
         {
@@ -376,11 +425,13 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     for (auto& descSet : stageIntroData->m_descriptorSetBindings)
         std::sort(descSet.begin(),descSet.end());
 
+    // TODO: test
     auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t _base_type_id)
         {
             const auto& type = comp.get_type(_base_type_id);
             glslType.baseType = spvcrossType2E_TYPE(type.basetype);
             glslType.elements = type.vecsize;
+            glslType.location = comp.get_decoration(type.self, spv::DecorationLocation);
 
             return glslType;
         };
@@ -388,11 +439,13 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
+                                                                                            // TODO: hash map instead
         CSPIRVIntrospector::CStageIntrospectionData::SInputInterface& res = stageIntroData->m_input.emplace_back();
         getStageIOtype(res, r.base_type_id);
     }
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
+            // TODO: hash map instead
         using OutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface>;
         using FragmentOutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface>;
 
@@ -411,11 +464,10 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
             getStageIOtype(res, r.base_type_id);
         }
     }
-    // why do we need it sorted?
-    //std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _lhs, const CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<>& _rhs) { return _lhs.location < _rhs.location; });
 
     // push constants
     auto* pPushConstantsMutable = reinterpret_cast<CStageIntrospectionData::SPushConstantInfo<true>*>(&stageIntroData->m_pushConstants);
+    
     if (resources.push_constant_buffers.size())
     {
         assert(resources.push_constant_buffers.size()==1);
