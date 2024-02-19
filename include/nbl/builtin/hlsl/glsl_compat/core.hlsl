@@ -56,6 +56,18 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompSwap<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, spv::DecorationRelaxedPrecision, value, comparator);
 }
 
+template<typename T>
+T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    static_assert( is_integral<T>::value );
+    if( is_unsigned<T>::value )
+    {
+        return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
+    }
+    //if( is_signed<T>::value )
+        return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
+}
+
 /**
  * For Compute Shaders
  */
