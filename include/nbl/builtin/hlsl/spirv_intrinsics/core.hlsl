@@ -129,6 +129,15 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
+
+template<typename Unsigned>
+[[vk::ext_instruction( spv::OpBitFieldUExtract )]]
+Unsigned bitfieldExtractUnsigned( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+
+template<typename Signed>
+[[vk::ext_instruction( spv::OpBitFieldSExtract )]]
+Signed bitfieldExtractSigned( Signed val, uint32_t offsetBits, uint32_t numBits );
+
 }
 #endif
 }
