@@ -307,9 +307,11 @@ class ISwapchain : public IBackendObject
             _ERROR // GDI macros getting in the way of just ERROR
         };
         // Even though in Vulkan image acquisition is not a queue operation, we perform a micro-submit to adapt a Timeline Semaphore to work with it 
+        // If we return anything other than `SUCCESS` or `SUBOPTIMAL`, then `info.signalSemaphores` won't get signalled to the requested values!
         inline ACQUIRE_IMAGE_RESULT acquireNextImage(SAcquireInfo info, uint32_t* const out_imgIx)
         {
-            if (!out_imgIx || !info.queue)
+            // Signalling a timeline semaphore on acquire isn't optional, how else will you protect against using an image before its ready!?
+            if (!out_imgIx || !info.queue || info.signalSemaphores.empty())
                 return ACQUIRE_IMAGE_RESULT::_ERROR;
 
             auto* threadsafeQ = dynamic_cast<CThreadSafeQueueAdapter*>(info.queue);
@@ -326,18 +328,11 @@ class ISwapchain : public IBackendObject
             {
                 case ACQUIRE_IMAGE_RESULT::SUCCESS: [[fallthrough]];
                 case ACQUIRE_IMAGE_RESULT::SUBOPTIMAL:
-                    // TODO: pop deferred event slot
-                    if (m_oldSwapchain)
-                    {
-                        bool canDrop = false;//count>m_imageCount && count>m_oldSwapchain->getImageCount();
-                        for (;false;)
-                        if (false) // TODO: just poll the event slots
-                        {
-                            canDrop = false;
-                        }
-                        if (canDrop)
-                            m_oldSwapchain = nullptr;
-                    }
+                    m_acquireCounter++;
+                    //assert(!unacquired(out_imgIx)); // should happen in the impl anyway
+                    m_frameResources[*out_imgIx] = nullptr;
+                    if (m_oldSwapchain && m_acquireCounter>core::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
+                        m_oldSwapchain = nullptr;
                     break;
                 default:
                     break;
@@ -352,13 +347,14 @@ class ISwapchain : public IBackendObject
             uint32_t imgIndex;
             std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores = {};
         };
-        enum class PRESENT_RESULT : uint8_t
+        enum class PRESENT_RESULT : int8_t
         {
+            FATAL_ERROR = -1,
             SUCCESS = 0,
             SUBOPTIMAL,
-            _ERROR // There are other types of errors as well for if they are ever required in the future
+            _ERROR
         };
-        inline PRESENT_RESULT present(SPresentInfo info)
+        inline PRESENT_RESULT present(SPresentInfo info, core::smart_refctd_ptr<core::IReferenceCounted>&& frameResources=nullptr)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
                 return PRESENT_RESULT::_ERROR;
@@ -373,13 +369,24 @@ class ISwapchain : public IBackendObject
             if (threadsafeQ)
                 threadsafeQ->m.unlock();
 
-            // If not error (so you can re-push)
-            if (retval!=PRESENT_RESULT::_ERROR)
-            {
-                // TODO: push onto deferred event slot even 
-                // latch the frees on the wait semaphores
-            }
+            // If not FATAL_ERROR then semaphore wait will actually occur in the future and resources should be released, either:
+            // - on the next acquire of the same index
+            // - when dropping the swapchain entirely, but need to wait on all previous presents to finish (some manageable UB)
+            if (retval!=PRESENT_RESULT::FATAL_ERROR)
+                m_frameResources[info.imgIndex] = std::move(frameResources);
             return retval;
+        }
+
+        inline bool acquiredImagesAwaitingPresent()
+        {
+            for (uint8_t i=0; i<m_imageCount; i++)
+            {
+                if (unacquired(i))
+                    m_frameResources[i] = nullptr;
+                else
+                    return true;
+            }
+            return false;
         }
 
         //
@@ -398,8 +405,8 @@ class ISwapchain : public IBackendObject
             const uint8_t m_imageIndex;
         };
 
-        //
-        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams&& params={}) const
+        // utility function
+        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams&& params={})
         {
             if (!params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1}))
                 return nullptr;
@@ -410,12 +417,11 @@ class ISwapchain : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<const ISwapchain>&& oldSwapchain);
+        ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain);
         virtual inline ~ISwapchain()
         {
+            while (acquiredImagesAwaitingPresent()) {}
             assert(m_imageExists.load()==0u);
-
-            // TODO: block until all deferred event slots are finished
         }
 
         inline const auto& getImageCreationParams() const {return m_imgCreationParams;}
@@ -427,10 +433,20 @@ class ISwapchain : public IBackendObject
             return (m_imageExists.fetch_or(ixMask)&ixMask)==0;
         }
 
+        inline uint64_t getAcquireCount() const {return m_acquireCounter;}
+
+        virtual bool unacquired(const uint8_t imageIndex) const = 0;
         virtual ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) = 0;
         virtual PRESENT_RESULT present_impl(const SPresentInfo& info) = 0;
 
-        virtual core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) const = 0;
+        virtual core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) = 0;
+        
+        // The user needs to hold onto the old swapchain by themselves as well, because without the `KHR_swapchain_maintenance1` extension:
+        // - Images cannot be "unacquired", so all already acquired images of a swapchain (even if its retired) must be presented
+        // - No way to query that the presentation is finished, so we can't destroy a swapchain just because we issued a present on all previously acquired images
+        // This means new swapchain should hold onto the old swapchain for `getImageCount()` acquires or until an acquisition error.
+        // But we don't handle the acquisition error case because we just presume swapchain will be recreated and eventually there will be one with enough acquisitions.
+        core::smart_refctd_ptr<ISwapchain> m_oldSwapchain;
 
     private:
         friend class CCleanupSwapchainReference;
@@ -442,13 +458,11 @@ class ISwapchain : public IBackendObject
 
         SCreationParams m_params;
         const asset::IImage::SCreationParams m_imgCreationParams;
-        // The user needs to hold onto the old swapchain by themselves as well, because without the `KHR_swapchain_maintenance1` extension:
-        // - Images cannot be "unacquired", so all already acquired images of a swapchain (even if its retired) must be presented
-        // - No way to query that the presentation is finished, so we can't destroy a swapchain just because we issued a present on all previously acquired images
-        // This means new swapchain should hold onto the old swapchain for `getImageCount()` acquires or until an acquisition error
-        core::smart_refctd_ptr<const ISwapchain> m_oldSwapchain;
-        std::array<uint8_t,ILogicalDevice::SCreationParams::MaxQueueFamilies> m_queueFamilies;
+        std::array<uint8_t,ILogicalDevice::MaxQueueFamilies> m_queueFamilies;
         const uint8_t m_imageCount;
+        uint64_t m_acquireCounter = 0;
+        // resource to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
+        std::array<core::smart_refctd_ptr<core::IReferenceCounted>,ILogicalDevice::MaxQueueFamilies> m_frameResources = {};
 };
 
 }

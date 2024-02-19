@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 	
-ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<const ISwapchain>&& oldSwapchain) :
+ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain) :
     IBackendObject(std::move(dev)), m_params(std::move(params)), m_imgCreationParams({
         .type = IGPUImage::ET_2D,
         .samples = IGPUImage::ESCF_1_BIT,
@@ -21,7 +21,7 @@ ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCrea
         .viewFormats = m_params.viewFormats
     }), m_oldSwapchain(std::move(oldSwapchain)), m_imageCount(imageCount)
 {
-    assert(params.queueFamilyIndices.size()<=ILogicalDevice::SCreationParams::MaxQueueFamilies);
+    assert(params.queueFamilyIndices.size()<=ILogicalDevice::MaxQueueFamilies);
     assert(imageCount<=ISwapchain::MaxImages);
 
     std::copy(m_params.queueFamilyIndices.begin(),m_params.queueFamilyIndices.end(),m_queueFamilies.data());
