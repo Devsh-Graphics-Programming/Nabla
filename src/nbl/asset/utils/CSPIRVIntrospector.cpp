@@ -426,12 +426,12 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         std::sort(descSet.begin(),descSet.end());
 
     // TODO: test
-    auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t _base_type_id)
+    auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t id, uint32_t base_type_id)
         {
-            const auto& type = comp.get_type(_base_type_id);
+            const auto& type = comp.get_type(base_type_id);
             glslType.baseType = spvcrossType2E_TYPE(type.basetype);
             glslType.elements = type.vecsize;
-            glslType.location = comp.get_decoration(type.self, spv::DecorationLocation);
+            glslType.location = comp.get_decoration(id, spv::DecorationLocation);
 
             return glslType;
         };
@@ -441,29 +441,34 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
                                                                                             // TODO: hash map instead
         CSPIRVIntrospector::CStageIntrospectionData::SInputInterface& res = stageIntroData->m_input.emplace_back();
-        getStageIOtype(res, r.base_type_id);
+        getStageIOtype(res, r.id, r.base_type_id);
     }
+
+    if (shaderStage == IShader::ESS_FRAGMENT)
+        stageIntroData->m_output = FragmentOutputVecT();
+    else
+        stageIntroData->m_output = OutputVecT();
+
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
-            // TODO: hash map instead
-        using OutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface>;
-        using FragmentOutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface>;
-
-        if (params.shader->getStage() == IShader::ESS_FRAGMENT)
+        if (shaderStage == IShader::ESS_FRAGMENT)
         {
             CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
                 std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
-            getStageIOtype(res, r.base_type_id);
+            getStageIOtype(res, r.id, r.base_type_id);
 
             res.colorIndex = comp.get_decoration(r.id, spv::DecorationIndex);
         }
         else
         {
-            CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface res =
+            CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface& res =
                 std::get<OutputVecT>(stageIntroData->m_output).emplace_back();
-            getStageIOtype(res, r.base_type_id);
+
+            getStageIOtype(res, r.id, r.base_type_id);
         }
     }
+
+    auto& asdf = std::get<OutputVecT>(stageIntroData->m_output);
 
     // push constants
     auto* pPushConstantsMutable = reinterpret_cast<CStageIntrospectionData::SPushConstantInfo<true>*>(&stageIntroData->m_pushConstants);
@@ -479,12 +484,12 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         pPushConstantsMutable->type = {};
 
     // convert all Mutable to non-mutable
-    stageIntroData->finalize();
+    stageIntroData->finalize(shaderStage);
 
     return stageIntroData;
 }
 
-void CSPIRVIntrospector::CStageIntrospectionData::finalize()
+void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHADER_STAGE shaderStage)
 {
     auto* const basePtr = m_memPool.data();
     auto addBaseAndConvertStringToImmutable = [basePtr](std::span<const char>& name)->void
@@ -495,7 +500,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize()
     {
         count = reinterpret_cast<const core::based_span<CIntrospectionData::SArrayInfo>&>(count)(basePtr);
     };
-    // TODO: spec constant finalization 
+    // TODO: spec constant finalization
 
     auto addBaseAndConvertTypeToImmutable = [&](SType<true>* type)->void
     {
@@ -554,6 +559,37 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize()
         printExtents(debug,descriptor.count);
         debug << ";\n";
     }
+
+    if (!m_input.empty())
+    {
+        debug << "INPUT VARIABLES:\n";
+        for (auto& inputEntity : m_input)
+            debug << "name: " << " TODO " << "location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
+    }
+    
+
+    // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
+    if (shaderStage == IShader::ESS_FRAGMENT)
+    {
+        auto outputVec = std::get<FragmentOutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+    else
+    {
+        auto outputVec = std::get<OutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+
     printf("%s\n",debug.str().c_str());
 }
 

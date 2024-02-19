@@ -524,7 +524,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return {retval.byte_offset()};
 				}
 				void shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r);
-				void finalize();
+				void finalize(IShader::E_SHADER_STAGE stage);
 
 				//! debug
 				static void printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts);
@@ -687,6 +687,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 	private:
 		core::smart_refctd_ptr<const CStageIntrospectionData> doIntrospection(const CStageIntrospectionData::SParams& params);
 		size_t calcBytesizeForType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const;
+		// TODO: hash map instead
+		using OutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface>;
+		using FragmentOutputVecT = core::vector<CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface>;
 
 		struct KeyHasher
 		{
