@@ -8,21 +8,18 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr)
 {
-    uint32_t qcnt = 0u;
-    uint32_t greatestFamNum = 0u;
-    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
     {
-        greatestFamNum = core::max(greatestFamNum,params.queueParams[i].familyIndex);
-        qcnt += params.queueParams[i].count;
+        uint32_t qcnt = 0u;
+        for (uint32_t i=0; i<MaxQueueFamilies; i++)
+            qcnt += params.queueParams[i].count;
+        m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
     }
 
-    m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-    m_queueFamilyInfos = core::make_refctd_dynamic_array<q_family_info_array_t>(greatestFamNum+1u);
-
-    for (uint32_t i=0; i<params.queueParamsCount; i++)
+    for (uint32_t i=0; i<MaxQueueFamilies; i++)
     {
         const auto& qci = params.queueParams[i];
-        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos->operator[](qci.familyIndex));
+        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos[i]);
+        if (qci.count)
         {
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
             info.supportedStages = stage_flags_t::HOST_BIT;
@@ -31,7 +28,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
             const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
                 (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
 
-            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[qci.familyIndex].queueFlags;
+            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[i].queueFlags;
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
@@ -67,16 +64,11 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
             using access_flags_t = asset::ACCESS_FLAGS;
             info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
         }
-        info.firstQueueIndex = qci.count;
-    }
-    // bothering with an `std::exclusive_scan` is a bit too cumbersome here
-    uint32_t sum = 0u;
-    for (auto i=0u; i<m_queueFamilyInfos->size(); i++)
-    {
-        auto& x = m_queueFamilyInfos->operator[](i).firstQueueIndex;
-        auto tmp = sum+x;
-        const_cast<uint32_t&>(x) = sum;
-        sum = tmp;
+        info.queueCount = qci.count;
+        if (i)
+            info.firstQueueIndex = m_queueFamilyInfos[i-1].firstQueueIndex+m_queueFamilyInfos[i-1].queueCount;
+        else
+            info.firstQueueIndex = 0;
     }
 
     if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL):nullptr)
@@ -92,7 +84,7 @@ const SPhysicalDeviceLimits& ILogicalDevice::getPhysicalDeviceLimits() const
 
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
 {
-    if (queueFamilyIndex>m_queueFamilyInfos->size())
+    if (getQueueCount(queueFamilyIndex)==0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
@@ -113,7 +105,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
 
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
 {
-    if (queueFamilyIndex>m_queueFamilyInfos->size())
+    if (getQueueCount(queueFamilyIndex)==0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;

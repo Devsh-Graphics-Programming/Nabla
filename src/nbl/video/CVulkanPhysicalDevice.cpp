@@ -1826,20 +1826,19 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_createInfo.pEnabledFeatures = nullptr;
         vk_createInfo.flags = static_cast<VkDeviceCreateFlags>(0); // reserved for future use, by Vulkan
 
-        vk_createInfo.queueCreateInfoCount = params.queueParamsCount;
-        core::vector<VkDeviceQueueCreateInfo> queueCreateInfos(vk_createInfo.queueCreateInfoCount);
-        for (uint32_t i=0u; i< params.queueParamsCount; ++i)
+        core::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        for (auto i=0u; i<ILogicalDevice::MaxQueueFamilies; i++)
+        if (const auto& qparams=params.queueParams[i]; qparams.count)
         {
-            const auto& qparams = params.queueParams[i];
-            auto& qci = queueCreateInfos[i];
-                    
+            auto& qci = queueCreateInfos.emplace_back();           
             qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             qci.pNext = nullptr;
             qci.queueCount = qparams.count;
-            qci.queueFamilyIndex = qparams.familyIndex;
+            qci.queueFamilyIndex = i;
             qci.flags = static_cast<VkDeviceQueueCreateFlags>(qparams.flags.value);
             qci.pQueuePriorities = qparams.priorities.data();
         }
+        vk_createInfo.queueCreateInfoCount = queueCreateInfos.size();
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
     
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());
