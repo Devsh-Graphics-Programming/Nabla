@@ -76,21 +76,31 @@ public:
 		}
 	}
 
+	// amount of bindings in the descriptor set layout used
+	uint32_t getLayoutBindingCount() { return m_allocatableRanges.size(); }
+
+	// whether that binding index can be sub-allocated
+	bool isBindingAllocatable(uint32_t binding) { return m_allocatableRanges[binding].reservedSize != 0; }
+
+	AddressAllocator& getBindingAllocator(uint32_t binding) 
+	{ 
+		assert(isBindingAllocatable(binding)); // Check if this binding has an allocator
+		return *m_allocatableRanges[binding].addressAllocator; 
+	}
+
 	// main methods
 
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
 	template<typename... Args>
 	inline void multi_allocate(uint32_t binding, uint32_t count, value_type* outAddresses, const size_type* sizes, const Args&... args)
 	{
-		auto& range = m_allocatableRanges[binding];
-		assert(range.reservedSize); // Check if this binding has an allocator
-		core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(*range.addressAllocator, count, outAddresses, sizes, 1, args...);
+		core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(getBindingAllocator(binding), count, outAddresses, sizes, 1, args...);
 	}
 	inline void multi_deallocate(uint32_t binding, uint32_t count, const size_type* addr, const size_type* sizes)
 	{
 		auto& range = m_allocatableRanges[binding];
 		assert(range.reservedSize); // Check if this binding has an allocator
-		core::address_allocator_traits<AddressAllocator>::multi_free_addr(*range.addressAllocator, count, addr, sizes);
+		core::address_allocator_traits<AddressAllocator>::multi_free_addr(getBindingAllocator(binding), count, addr, sizes);
 	}
 };
 
