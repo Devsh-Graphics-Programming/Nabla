@@ -25,7 +25,6 @@ public:
 
 protected:
 	struct SubAllocDescriptorSetRange {
-		video::IGPUDescriptorSetLayout::SBinding binding;
 		std::shared_ptr<AddressAllocator> addressAllocator;
 		std::shared_ptr<ReservedAllocator> reservedAllocator;
 		size_t reservedSize;
@@ -36,30 +35,63 @@ protected:
 public:
 	// constructors
 	template<typename... Args>
-	inline SubAllocatedDescriptorSet(const std::span<const video::IGPUDescriptorSetLayout::SBinding> bindings,
-		const value_type maxAllocatableAlignment, Args&&... args)
+	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSetLayout* layout, const value_type maxAllocatableAlignment, Args&&... args)
 	{
-		m_allocatableRanges.reserve(bindings.size());
-
-		for (auto& binding : bindings)
+		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
 		{
-			SubAllocDescriptorSetRange range;
-			range.binding = binding;
-			range.reservedSize = 0;
-			// Only bindings with these flags will be allocatable
-			if (binding.createFlags.hasFlags(core::bitflag(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
-				| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
-				| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
+			auto descType = static_cast<asset::IDescriptor::E_TYPE>(descriptorType);
+			auto& redirect = layout->getDescriptorRedirect(descType);
+
+			for (uint32_t i = 0; i < redirect.getBindingCount(); i++)
 			{
-				range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(binding.count), args...);
-				range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
-				range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
-					range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
-					static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(binding.count), std::forward<Args>(args)...
-				));
+				auto binding = redirect.getBinding(i);
+				auto storageIndex = redirect.findBindingStorageIndex(binding);
+
+				auto count = redirect.getCount(storageIndex);
+				auto flags = redirect.getCreateFlags(storageIndex);
+
+				for (uint32_t j = m_allocatableRanges.size(); j < binding.data; j++)
+				{
+					m_allocatableRanges.push_back({});
+				}
+
+				SubAllocDescriptorSetRange range;
+				range.reservedSize = 0;
+				// Only bindings with these flags will be allocatable
+				if (flags.hasFlags(core::bitflag(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
+					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
+					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
+				{
+					range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(count), args...);
+					range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
+					range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
+						range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
+						static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(count), std::forward<Args>(args)...
+					));
+				}
+				m_allocatableRanges.insert(m_allocatableRanges.begin() + binding.data, range);
 			}
-			m_allocatableRanges.push_back(range);
 		}
+
+		// for (auto& binding : bindings)
+		// {
+		// 	SubAllocDescriptorSetRange range;
+		// 	range.binding = binding;
+		// 	range.reservedSize = 0;
+		// 	// Only bindings with these flags will be allocatable
+		// 	if (binding.createFlags.hasFlags(core::bitflag(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
+		// 		| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
+		// 		| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
+		// 	{
+		// 		range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(binding.count), args...);
+		// 		range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
+		// 		range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
+		// 			range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
+		// 			static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(binding.count), std::forward<Args>(args)...
+		// 		));
+		// 	}
+		// 	m_allocatableRanges.push_back(range);
+		// }
 
 	}
 
