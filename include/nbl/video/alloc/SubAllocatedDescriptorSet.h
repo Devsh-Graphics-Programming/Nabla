@@ -72,27 +72,6 @@ public:
 				m_allocatableRanges.insert(m_allocatableRanges.begin() + binding.data, range);
 			}
 		}
-
-		// for (auto& binding : bindings)
-		// {
-		// 	SubAllocDescriptorSetRange range;
-		// 	range.binding = binding;
-		// 	range.reservedSize = 0;
-		// 	// Only bindings with these flags will be allocatable
-		// 	if (binding.createFlags.hasFlags(core::bitflag(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
-		// 		| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
-		// 		| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
-		// 	{
-		// 		range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(binding.count), args...);
-		// 		range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
-		// 		range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
-		// 			range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
-		// 			static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(binding.count), std::forward<Args>(args)...
-		// 		));
-		// 	}
-		// 	m_allocatableRanges.push_back(range);
-		// }
-
 	}
 
 	~SubAllocatedDescriptorSet()
