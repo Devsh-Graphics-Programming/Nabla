@@ -447,7 +447,6 @@ class ISwapchain : public IBackendObject
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain);
         virtual inline ~ISwapchain()
         {
-            while (acquiredImagesAwaitingPresent()) {}
             assert(m_imageExists.load()==0u);
         }
 
