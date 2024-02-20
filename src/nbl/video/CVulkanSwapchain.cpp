@@ -225,8 +225,8 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     if (!IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(waitInfo.semaphore,vulkanDevice))
         return ACQUIRE_IMAGE_RESULT::_ERROR;
 
-    const VkSemaphoreSubmitInfoKHR adaptorInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,
+    const VkSemaphoreSubmitInfo adaptorInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
         .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getImageCount()],
         .value = 0, // value is ignored because the adaptors are binary
@@ -271,7 +271,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
         assert(result);
     }
 
-    core::vector<VkSemaphoreSubmitInfoKHR> signalInfos(info.signalSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+    core::vector<VkSemaphoreSubmitInfo> signalInfos(info.signalSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,nullptr});
     for (auto i=0u; i<info.signalSemaphores.size(); i++)
     {
         signalInfos[i].semaphore = static_cast<CVulkanSemaphore*>(info.signalSemaphores[i].semaphore)->getInternalObject();
@@ -281,13 +281,13 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     }
 
     {
-        VkSubmitInfo2KHR submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,nullptr};
+        VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2,nullptr};
         submit.waitSemaphoreInfoCount = 1u;
         submit.pWaitSemaphoreInfos = &adaptorInfo;
         submit.commandBufferInfoCount = 0u;
         submit.signalSemaphoreInfoCount = info.signalSemaphores.size();
         submit.pSignalSemaphoreInfos = signalInfos.data();
-        const bool result = vk.vkQueueSubmit2KHR(vulkanQueue->getInternalObject(),1u,&submit,VK_NULL_HANDLE)==VK_SUCCESS;
+        const bool result = vk.vkQueueSubmit2(vulkanQueue->getInternalObject(),1u,&submit,VK_NULL_HANDLE)==VK_SUCCESS;
         // If this goes wrong, we are lost without KHR_swapchain_maintenance1 because there's no way to release acquired images without presenting them!
         assert(result);
     }
@@ -305,8 +305,8 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
     const auto vk_device = vulkanDevice->getInternalObject();
 
     // We make the present wait on an empty submit so we can signal our "not-acquired" fence
-    VkSemaphoreSubmitInfoKHR adaptorInfo = {
-        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,
+    VkSemaphoreSubmitInfo adaptorInfo = {
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
         .semaphore =  m_presentAdaptorSemaphores[info.imgIndex],
         .value = 0,// value is ignored because the adaptors are binary
@@ -315,7 +315,7 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
     };
 
     // Optionally the submit ties timeline semaphore waits with itself
-    core::vector<VkSemaphoreSubmitInfoKHR> waitInfos(info.waitSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr});
+    core::vector<VkSemaphoreSubmitInfo> waitInfos(info.waitSemaphores.size(),{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,nullptr});
     for (auto i=0u; i<info.waitSemaphores.size(); i++)
     {
         auto sema = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(info.waitSemaphores[i].semaphore,vulkanDevice);
@@ -329,13 +329,13 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
 
     // Perform the empty submit
     {
-        VkSubmitInfo2KHR submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,nullptr};
+        VkSubmitInfo2 submit = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2,nullptr};
         submit.waitSemaphoreInfoCount = info.waitSemaphores.size();
         submit.pWaitSemaphoreInfos = waitInfos.data();
         submit.commandBufferInfoCount = 0u;
         submit.signalSemaphoreInfoCount = 1u;
         submit.pSignalSemaphoreInfos = &adaptorInfo;
-        if (vk.vkQueueSubmit2KHR(vulkanQueue->getInternalObject(),1u,&submit,m_prePresentFences[info.imgIndex])!=VK_SUCCESS)
+        if (vk.vkQueueSubmit2(vulkanQueue->getInternalObject(),1u,&submit,m_prePresentFences[info.imgIndex])!=VK_SUCCESS)
         {
             // need to recreate because can't signal a Fence from the Host
             vk.vkDestroyFence(vk_device,m_prePresentFences[info.imgIndex],nullptr);
