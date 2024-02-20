@@ -83,8 +83,8 @@ class IFramebuffer
                     return false;
                 };
 
-                // provoke wraparound of -1 on purpose
-                const uint32_t viewMaskMSB = static_cast<uint32_t>(rp->getViewMaskMSB());
+                // upgrade to 32bit on purpose
+                const int32_t viewMaskMSB = rp->getViewMaskMSB();
                 /*
                 * If flags does not include VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT, each element of pAttachments that is used as a color
                 attachment or resolve attachment by renderPass must have been created with a usage value including VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
@@ -105,23 +105,25 @@ class IFramebuffer
                             return true;
                     
                         const auto& viewParams = attachments[i]->getCreationParameters();
+                        const auto& imgParams = viewParams.image->getCreationParameters();
 
                         const auto& subresourceRange = viewParams.subresourceRange;
+                        const int32_t layerCount = static_cast<int32_t>(subresourceRange.layerCount!=ImageViewType::remaining_array_layers ? subresourceRange.layerCount:imgParams.arrayLayers);
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-flags-04535
-                        if (subresourceRange.layerCount<base_t::layers)
+                        if (layerCount<base_t::layers)
                             return true;
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-renderPass-04536
-                        if (subresourceRange.layerCount<=viewMaskMSB)
+                        if (layerCount<=viewMaskMSB)
                             return true;
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00883
-                        if (subresourceRange.levelCount!=1)
+                        const auto levelCount = subresourceRange.levelCount!=ImageViewType::remaining_mip_levels ? subresourceRange.levelCount:imgParams.mipLevels;
+                        if (levelCount!=1)
                             return true;
 
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00884
                         if (viewParams.components!=ImageViewType::SComponentMapping())
                             return true;
 
-                        const auto& imgParams = viewParams.image->getCreationParameters();
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-flags-04533
                         if (imgParams.extent.width<base_t::width)
                             return true;
@@ -169,22 +171,24 @@ class IFramebuffer
                 if (invalidAttachments(rp->getColorAttachmentCount(),rpParams.colorAttachments,base_t::colorAttachments))
                     return false;
 
-                bool retval = true;
-                core::visit_token_terminated_array(rp->getCreationParameters().subpasses,IRenderpass::SCreationParams::SubpassesEnd,[&](const IRenderpass::SCreationParams::SSubpassDescription& desc)->bool
+                for (auto j=0u; j<rp->getSubpassCount(); j++)
                 {
+                    const IRenderpass::SCreationParams::SSubpassDescription& desc = rp->getCreationParameters().subpasses[j];
+                    bool valid = true;
                     core::visit_token_terminated_array(desc.inputAttachments,IRenderpass::SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentRef& ia)->bool
                     {
                             const auto& viewParams = (ia.isColor() ? base_t::colorAttachments[ia.asColor.attachmentIndex]:base_t::depthStencilAttachments[ia.asDepthStencil.attachmentIndex])->getCreationParameters();
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00879
                             if (viewParams.actualUsages().hasFlags(IImage::EUF_INPUT_ATTACHMENT_BIT))
-                                return (retval=false);
+                                return (valid=false);
                             //TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-samples-07009
                             return true;
                     });
-                    return retval;
-                });
+                    if (!valid)
+                        return false;
+                }
 
-                return retval;
+                return true;
             }
         };
 

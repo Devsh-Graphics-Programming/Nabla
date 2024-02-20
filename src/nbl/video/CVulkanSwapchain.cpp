@@ -266,7 +266,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     assert(unacquired(imgIx));
     // Now put the fence into UNSIGNALLED state where it will stay until "just before" the present
     {
-        const bool result = vk.vkResetFences(vk_device,1,m_prePresentFences+imgIx);
+        const bool result = vk.vkResetFences(vk_device,1,m_prePresentFences+imgIx)==VK_SUCCESS;
         // If this goes wrong, we are lost without KHR_swapchain_maintenance1 because there's no way to release acquired images without presenting them!
         assert(result);
     }
