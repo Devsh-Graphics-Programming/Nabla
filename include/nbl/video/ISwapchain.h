@@ -74,7 +74,19 @@ class ISwapchain : public IBackendObject
                     return false;
 
                 if (!imageUsage)
-                    imageUsage = caps.supportedUsageFlags;
+                {
+                    const auto formatUsages = physDev->getImageFormatUsagesOptimalTiling();
+                    // we must be able to at least render to an image with a Graphics Pipeline
+                    core::bitflag<IGPUImage::E_USAGE_FLAGS> extendedUsages = IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT;
+                    for (auto f=0u; f<asset::EF_COUNT; f++)
+                    {
+                        const auto format = static_cast<asset::E_FORMAT>(f);
+                        if (viewFormats.test(format))
+                            extendedUsages |= core::bitflag<IGPUImage::E_USAGE_FLAGS>(formatUsages[format]);
+                    }
+                    // usages need to be trimmed
+                    imageUsage = caps.supportedUsageFlags & extendedUsages;
+                }
                 else if (!caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
 
@@ -150,6 +162,9 @@ class ISwapchain : public IBackendObject
             core::bitflag<ISurface::E_COMPOSITE_ALPHA> compositeAlpha = ISurface::ECA_ALL_BITS;
             uint8_t arrayLayers = 1u;
             core::bitflag<ISurface::E_SURFACE_TRANSFORM_FLAGS> preTransform = ISurface::EST_ALL_BITS;
+            // If you set it to something else then your Swapchain will be created with Mutable Format capability
+            // NOTE: If you do that, then the bitset needs to contain `viewFormats[surfaceFormat.format] = true` which is deduced later
+            std::bitset<asset::E_FORMAT::EF_COUNT> viewFormats = {};
         };
         struct SCreationParams
         {
@@ -252,6 +267,18 @@ class ISwapchain : public IBackendObject
                             val.format = format;
                             if (std::binary_search(formatBegin,formatEnd,val,fullComparator))
                             {
+                                // Check compatibility against all `viewFormats`
+                                bool incompatible = false;
+                                const auto formatClass = asset::getFormatClass(format);
+                                for (uint8_t i=0u; i<asset::EF_COUNT; i++)
+                                if (sharedParams.viewFormats.test(i) && asset::getFormatClass(static_cast<asset::E_FORMAT>(i))!=formatClass)
+                                {
+                                    incompatible = true;
+                                    break;
+                                }
+                                if (incompatible)
+                                    continue;
+
                                 surfaceFormat.format = format;
                                 surfaceFormat.colorSpace = {primary,eotf};
                                 return true;
@@ -265,7 +292,7 @@ class ISwapchain : public IBackendObject
             inline core::bitflag<IGPUImage::E_CREATE_FLAGS> computeImageCreationFlags(const IPhysicalDevice* physDev) const
             {
                 core::bitflag<IGPUImage::E_CREATE_FLAGS> retval = IGPUImage::ECF_NONE;
-                if (viewFormats.count()>1)
+                if (sharedParams.viewFormats.count()>1)
                     retval |= IGPUImage::ECF_MUTABLE_FORMAT_BIT;
                 if (!(physDev->getImageFormatUsagesOptimalTiling()[surfaceFormat.format]<sharedParams.imageUsage))
                     retval |= IGPUImage::ECF_EXTENDED_USAGE_BIT;
@@ -276,9 +303,6 @@ class ISwapchain : public IBackendObject
             // these we can deduce
             ISurface::SFormat surfaceFormat = {};
             SSharedCreationParams sharedParams = {};
-            // If you set it to something else then your Swapchain will be created with Mutable Format capability
-            // NOTE: If you do that, then the bitset needs to contain `viewFormats[surfaceFormat.format] = true`
-            std::bitset<asset::E_FORMAT::EF_COUNT> viewFormats = {};
             std::span<const uint8_t> queueFamilyIndices = {};
         };
 
@@ -289,14 +313,17 @@ class ISwapchain : public IBackendObject
         // The value passed to `preTransform` when creating the swapchain. "pre" refers to the transform happening
         // as an operation before the presentation engine presents the image.
         inline ISurface::E_SURFACE_TRANSFORM_FLAGS getPreTransform() const { return m_params.sharedParams.preTransform.value; }
+        
+        //
+        inline uint64_t getAcquireCount() const {return m_acquireCounter;}
 
         // acquire
         struct SAcquireInfo
         {
             IQueue* queue;
+            std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores = {};
             // If you don't change the default it will 100% block and acquire will not return TIMEOUT or NOT_READY
             uint64_t timeout = std::numeric_limits<uint64_t>::max();
-            std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores = {};
         };
         enum class ACQUIRE_IMAGE_RESULT : uint8_t
         {
@@ -432,8 +459,6 @@ class ISwapchain : public IBackendObject
             const uint32_t ixMask = 0x1u<<ix;
             return (m_imageExists.fetch_or(ixMask)&ixMask)==0;
         }
-
-        inline uint64_t getAcquireCount() const {return m_acquireCounter;}
 
         virtual bool unacquired(const uint8_t imageIndex) const = 0;
         virtual ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) = 0;

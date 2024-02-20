@@ -64,15 +64,16 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
 
         VkSwapchainCreateInfoKHR vk_createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR, &vk_formatListStruct };
         // if only there existed a nice iterator that would let me iterate over set bits 64 faster
-        if (params.viewFormats.any())
+        const auto& viewFormats = params.sharedParams.viewFormats;
+        if (viewFormats.any())
         {
             // structure with a viewFormatCount greater than zero and pViewFormats must have an element equal to imageFormat
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSwapchainCreateInfoKHR.html#VUID-VkSwapchainCreateInfoKHR-flags-03168
-            if (!params.viewFormats.test(params.surfaceFormat.format))
+            if (!viewFormats.test(params.surfaceFormat.format))
                 return nullptr;
 
             for (auto fmt=0; fmt<vk_formatList.size(); fmt++)
-            if (params.viewFormats.test(fmt))
+            if (viewFormats.test(fmt))
             {
                 const auto format = static_cast<asset::E_FORMAT>(fmt);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSwapchainCreateInfoKHR.html#VUID-VkSwapchainCreateInfoKHR-pNext-04099
@@ -384,7 +385,6 @@ core::smart_refctd_ptr<ISwapchain> CVulkanSwapchain::recreate_impl(SSharedCreati
         .surface = core::smart_refctd_ptr(getCreationParameters().surface),
         .surfaceFormat = getCreationParameters().surfaceFormat,
         .sharedParams = std::move(params),
-        .viewFormats = getCreationParameters().viewFormats,
         .queueFamilyIndices = getCreationParameters().queueFamilyIndices
     };
     return create(core::smart_refctd_ptr<const ILogicalDevice>(getOriginDevice()),std::move(fullParams),core::smart_refctd_ptr<CVulkanSwapchain>(this));

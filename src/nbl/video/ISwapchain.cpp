@@ -18,7 +18,7 @@ ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCrea
         .flags = m_params.computeImageCreationFlags(getOriginDevice()->getPhysicalDevice()),
         .usage = m_params.sharedParams.imageUsage,
         // stencil usage remains none because swapchains don't have stencil formats!
-        .viewFormats = m_params.viewFormats
+        .viewFormats = m_params.sharedParams.viewFormats
     }), m_oldSwapchain(std::move(oldSwapchain)), m_imageCount(imageCount)
 {
     assert(params.queueFamilyIndices.size()<=ILogicalDevice::MaxQueueFamilies);
