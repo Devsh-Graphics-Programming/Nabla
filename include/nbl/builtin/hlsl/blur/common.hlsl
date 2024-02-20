@@ -1,11 +1,14 @@
 #pragma once
 
+#ifndef _NBL_BOX_BLUR_COMMONS_
+#define _NBL_BOX_BLUR_COMMONS_
+
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
 
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKGROUP_SIZE = 256u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t PASSES_PER_AXIS = 3u;
-_NBL_STATIC_INLINE_CONSTEXPR uint32_t AXIS_DIM = 3u; // HUH ?
+//_NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKGROUP_SIZE = 256u;
+//_NBL_STATIC_INLINE_CONSTEXPR uint32_t PASSES_PER_AXIS = 3u;
+//_NBL_STATIC_INLINE_CONSTEXPR uint32_t AXIS_DIM = 3u; // HUH ?
 
 enum WrapMode : uint32_t
 {
@@ -50,34 +53,35 @@ struct BoxBlurParams
     {
         return nbl::hlsl::bitfield_extract_unsigned( inputDimensions.w, 22, 3 );
     }
-	nbl::hlsl::float32_t4 nbl_glsl_ext_Blur_getBorderColor()
+	nbl::hlsl::float32_t4 getBorderColor()
 	{
-		using namespace nbl::hlsl;
-
-		float32_t4 borderColor = float32_t4( 1.f, 0.f, 1.f, 1.f );
+		nbl::hlsl::float32_t4 borderColor = nbl::hlsl::float32_t4( 1.f, 0.f, 1.f, 1.f );
 		switch( getBorderColorType() )
 		{
 		case BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
 		case BORDER_COLOR_INT_TRANSPARENT_BLACK:
-			borderColor = float32_t4( 0.f, 0.f, 0.f, 0.f );
+			borderColor = nbl::hlsl::float32_t4( 0.f, 0.f, 0.f, 0.f );
 			break;
 
 		case BORDER_COLOR_FLOAT_OPAQUE_BLACK:
 		case BORDER_COLOR_INT_OPAQUE_BLACK:
-			borderColor = float32_t4( 0.f, 0.f, 0.f, 1.f );
+			borderColor = nbl::hlsl::float32_t4( 0.f, 0.f, 0.f, 1.f );
 			break;
 
 		case BORDER_COLOR_FLOAT_OPAQUE_WHITE:
 		case BORDER_COLOR_INT_OPAQUE_WHITE:
-			borderColor = float32_t4( 1.f, 1.f, 1.f, 1.f );
+			borderColor = nbl::hlsl::float32_t4( 1.f, 1.f, 1.f, 1.f );
 			break;
 		}
 		return borderColor;
 	}
 };
 
-struct BufferAccessor
+//struct BufferAccessor;
+/*
 {
 	nbl::hlsl::float32_t getPaddedData( const nbl::hlsl::uint32_t3 coordinate, const uint32_t channel );
 	void setData( const nbl::hlsl::uint32_t3 coordinate, const uint32_t channel, const nbl::hlsl::float32_t val );
 };
+*/
+#endif

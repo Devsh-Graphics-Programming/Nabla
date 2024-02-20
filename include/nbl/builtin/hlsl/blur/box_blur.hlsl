@@ -8,15 +8,15 @@
 
 
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6144
-uint32_t3 /*nbl::hlsl::glsl::*/gl_WorkGroupSize() { return uint32_t3( WORKGROUP_SIZE, 1, 1 ); }
+static nbl::hlsl::uint32_t3 /*nbl::hlsl::glsl::*/gl_WorkGroupSize() { return uint32_t3( WORKGROUP_SIZE, 1, 1 ); }
 
 uint32_t IndexInSharedMemory( uint32_t i )
 {
-	return ( i * gl_WorkGroupSize().x ) + nbl::hlsl::gl_LocalInvocationIndex();
+	return ( i * gl_WorkGroupSize().x ) + nbl::hlsl::glsl::gl_LocalInvocationIndex();
 }
 
-static const uint32_t ITEMS_PER_THREAD = ( AXIS_DIM + gl_WorkGroupSize().x - 1 ) / gl_WorkGroupSize().x
-static const uint32_t ITEMS_PER_WG = ITEMS_PER_THREAD * gl_WorkGroupSize().x;
+static const uint32_t ITEMS_PER_THREAD = ( AXIS_DIM + WORKGROUP_SIZE - 1 ) / WORKGROUP_SIZE;
+static const uint32_t ITEMS_PER_WG = ITEMS_PER_THREAD * WORKGROUP_SIZE;
 
 static const uint32_t arithmeticSz = nbl::hlsl::workgroup::scratch_size_arithmetic<ITEMS_PER_WG>::value; 
 static const uint32_t broadcastSz = 1u; // According to Broadcast impl note 
@@ -29,11 +29,11 @@ struct ScratchProxy
 {
 	T get( const uint32_t ix )
 	{
-		return bit_cast< T, uint32_t >( scratch[ ix + offset ] )
+		return nbl::hlsl::bit_cast< T, uint32_t >( scratch[ ix + offset ] );
 	}
 	void set( const uint32_t ix, const T value )
 	{
-		scratch[ ix + offset ] = bit_cast< uint32_t, T >( value );
+		scratch[ ix + offset ] = nbl::hlsl::bit_cast< uint32_t, T >( value );
 	}
 
 	void workgroupExecutionAndMemoryBarrier()
@@ -43,7 +43,7 @@ struct ScratchProxy
 };
 
 static ScratchProxy<float32_t, 0> prefixSumsAccessor; 
-static ScratchProxy<float32_t, scanSz> broadcastAccessor;
+static ScratchProxy<float32_t, arithmeticSz> broadcastAccessor;
 
 struct prefix_sum_t
 {
@@ -53,7 +53,7 @@ struct prefix_sum_t
 	{
 		type_t retval = nbl::hlsl::workgroup::inclusive_scan<nbl::hlsl::plus<float32_t>, ITEMS_PER_WG>::template __call<ScratchProxy<float32_t, 0> >( value, prefixSumsAccessor );
 		// we barrier before because we alias the accessors for Binop
-		arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+		prefixSumsAccessor.workgroupExecutionAndMemoryBarrier();
 		return retval;
 	}
 };
@@ -66,35 +66,40 @@ static prefix_sum_t workgroupPrefixSum;
 // This:
 // `#define LOCAL_SPILLAGE ITEMS_PER_THREAD`
 // seems to be a safe lower bound, however, it must be inefficient.
-static const uint32_t SPILLAGE_LOWER_BOUND = ( ITEMS_PER_THREAD / 4 )
+static const uint32_t SPILLAGE_LOWER_BOUND = ( ITEMS_PER_THREAD / 4 );
 
-static const uint32_t IMPL_LOCAL_SPILLAGE = ( ( arithmeticSz - 1 ) / gl_WorkGroupSize().x + 1 )
+static const uint32_t IMPL_LOCAL_SPILLAGE = ( ( arithmeticSz - 1 ) / WORKGROUP_SIZE + 1 );
 
+/*
+template<uint32_t T = ITEMS_PER_THREAD>
 static const uint32_t chooseSpillageSize()
 {
-	if( IMPL_LOCAL_SPILLAGE > ITEMS_PER_THREAD )
+	if( IMPL_LOCAL_SPILLAGE > T )
 	{
-		return ITEMS_PER_THREAD;
+		return T;
 	}
-	else if( IMPL_LOCAL_SPILLAGE < ITEMS_PER_THREAD )
+	else if( IMPL_LOCAL_SPILLAGE < T )
 	{
 		return SPILLAGE_LOWER_BOUND;
 	}
 
 	return IMPL_LOCAL_SPILLAGE;
 }
+*/
 
-static const uint32_t LOCAL_SPILLAGE = chooseSpillageSize();
+static const uint32_t LOCAL_SPILLAGE =
+( IMPL_LOCAL_SPILLAGE > ITEMS_PER_THREAD ) ? ITEMS_PER_THREAD :
+	( ( IMPL_LOCAL_SPILLAGE < ITEMS_PER_THREAD ) ? SPILLAGE_LOWER_BOUND : IMPL_LOCAL_SPILLAGE );
 
 
 nbl::hlsl::uint32_t3 getCoordinates( uint32_t idx, uint32_t direction )
 {
-	nbl::hlsl::uint32_t3 result = nbl::hlsl::gl_WorkGroupID();
+	nbl::hlsl::uint32_t3 result = nbl::hlsl::glsl::gl_WorkGroupID();
 	result[ direction ] = IndexInSharedMemory( idx );
 	return result;
 }
 
-
+//TODO: glsl's mod(x, y) = x - y * floor(x/y). Would prolly need to implement a glsl mod
 void BoxBlur( 
 	const uint32_t ch, 
 	const uint32_t direction, 
@@ -103,8 +108,6 @@ void BoxBlur(
 	const float32_t4 borderColor,
 	BufferAccessor textureAccessor
 ) {
-	using namespace nbl::hlsl;
-
 	float32_t blurred[ ITEMS_PER_THREAD ];
 	for( uint32_t i = 0u; i < ITEMS_PER_THREAD; ++i )
 	{
@@ -121,16 +124,16 @@ void BoxBlur(
 		{
 			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
 			spill[ i ] =  scanResult;
-			previousBlockSum = nbl::hlsl::Broadcast( spill[ i ], broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			previousBlockSum = nbl::hlsl::workgroup::Broadcast( spill[ i ], broadcastAccessor, gl_WorkGroupSize().x - 1u );
 		}
 
 		for( uint32_t i = LOCAL_SPILLAGE; i < ITEMS_PER_THREAD; ++i )
 		{
 			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
-			previousBlockSum = Broadcast( scanResult, broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			previousBlockSum = nbl::hlsl::workgroup::Broadcast( scanResult, broadcastAccessor, gl_WorkGroupSize().x - 1u );
 
 			uint32_t idx = IndexInSharedMemory( i );
-			prefixSumsAccessor.set( idx, nbl::hlsl::bit_cast<uint32_t, float32_t>( scanResult ) );
+			prefixSumsAccessor.set( idx, scanResult );
 		}
 
 		for( uint i = 0u; i < LOCAL_SPILLAGE; ++i )
@@ -157,7 +160,7 @@ void BoxBlur(
 				{
 					float32_t floorRight = prefixSumsAccessor.get( floor( right ) );
 					float32_t ceilRight = prefixSumsAccessor.get( ceil( right ) );
-					result = lerp( floorRight, ceilRight, fract( right ) );
+					result = lerp( floorRight, ceilRight, frac( right ) );
 				}
 				else
 				{
@@ -179,11 +182,11 @@ void BoxBlur(
 					case WRAP_MODE_REPEAT:
 					{
 						float32_t sumLast = prefixSumsAccessor.get( last );
-						float32_t sumModFloorRight = prefixSumsAccessor.get( mod( floor( right ) - AXIS_DIM, AXIS_DIM ) );
-						float32_t sumModCeilRight = prefixSumsAccessor.get( mod( ceil( right ) - AXIS_DIM, AXIS_DIM ) );
+						float32_t sumModFloorRight = prefixSumsAccessor.get( fmod( floor( right ) - AXIS_DIM, AXIS_DIM ) );
+						float32_t sumModCeilRight = prefixSumsAccessor.get( fmod( ceil( right ) - AXIS_DIM, AXIS_DIM ) );
 						const float32_t v_floored = ceil( ( floor( right ) - last ) / AXIS_DIM ) * sumLast + sumModFloorRight;
 						const float32_t v_ceiled = ceil( ( ceil( right ) - last ) / AXIS_DIM ) * sumLast + sumModCeilRight;
-						result = lerp( v_floored, v_ceiled, fract( right ) );
+						result = lerp( v_floored, v_ceiled, frac( right ) );
 					} break;
 
 					case WRAP_MODE_MIRROR:
@@ -193,7 +196,7 @@ void BoxBlur(
 							const uint32_t floored = uint32_t( floor( right ) );
 							const uint32_t d = floored - last; // distance from the right-most boundary, >=0
 
-							if( mod( d, 2 * AXIS_DIM ) == AXIS_DIM )
+							if( fmod( d, 2 * AXIS_DIM ) == AXIS_DIM )
 							{
 								v_floored = ( ( d + AXIS_DIM ) / AXIS_DIM ) * prefixSumsAccessor.get( last );
 							}
@@ -202,9 +205,9 @@ void BoxBlur(
 								const uint32_t period = uint32_t( ceil( float32_t( d ) / AXIS_DIM ) );
 
 								if( ( period & 0x1u ) == 1 )
-									v_floored = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( last - uint32_t( mod( d, AXIS_DIM ) ) );
+									v_floored = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( last - uint32_t( fmod( d, AXIS_DIM ) ) );
 								else
-									v_floored = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( mod( d - 1, AXIS_DIM ) );
+									v_floored = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( fmod( d - 1, AXIS_DIM ) );
 							}
 						}
 
@@ -213,7 +216,7 @@ void BoxBlur(
 							const uint32_t ceiled = uint32_t( ceil( right ) );
 							const uint32_t d = ceiled - last; // distance from the right-most boundary, >=0
 
-							if( mod( d, 2 * AXIS_DIM ) == AXIS_DIM )
+							if( fmod( d, 2 * AXIS_DIM ) == AXIS_DIM )
 							{
 								v_ceiled = ( ( d + AXIS_DIM ) / AXIS_DIM ) * prefixSumsAccessor.get( last );
 							}
@@ -222,20 +225,20 @@ void BoxBlur(
 								const uint32_t period = uint32_t( ceil( float32_t( d ) / AXIS_DIM ) );
 
 								if( ( period & 0x1u ) == 1 )
-									v_ceiled = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( last - uint32_t( mod( d, AXIS_DIM ) ) );
+									v_ceiled = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( last - uint32_t( fmod( d, AXIS_DIM ) ) );
 								else
-									v_ceiled = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( mod( d - 1, AXIS_DIM ) );
+									v_ceiled = period * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( fmod( d - 1, AXIS_DIM ) );
 							}
 						}
 
-						result = lerp( v_floored, v_ceiled, fract( right ) );
+						result = lerp( v_floored, v_ceiled, frac( right ) );
 					} break;
 					}
 				}
 
 				if( left >= 0 )
 				{
-					result -= lerp( prefixSumsAccessor.get( floor( left ) ), prefixSumsAccessor.get( ceil( left ) ), fract( left ) );
+					result -= lerp( prefixSumsAccessor.get( floor( left ) ), prefixSumsAccessor.get( ceil( left ) ), frac( left ) );
 				}
 				else
 				{
@@ -253,9 +256,9 @@ void BoxBlur(
 
 					case WRAP_MODE_REPEAT:
 					{
-						const float32_t v_floored = floor( floor( left ) / AXIS_DIM ) * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( mod( floor( left ), AXIS_DIM ) );
-						const float32_t v_ceiled = floor( ceil( left ) / AXIS_DIM ) * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( mod( ceil( left ), AXIS_DIM ) );
-						result -= lerp( v_floored, v_ceiled, fract( left ) );
+						const float32_t v_floored = floor( floor( left ) / AXIS_DIM ) * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( fmod( floor( left ), AXIS_DIM ) );
+						const float32_t v_ceiled = floor( ceil( left ) / AXIS_DIM ) * prefixSumsAccessor.get( last ) + prefixSumsAccessor.get( fmod( ceil( left ), AXIS_DIM ) );
+						result -= lerp( v_floored, v_ceiled, frac( left ) );
 					} break;
 
 					case WRAP_MODE_MIRROR:
@@ -263,7 +266,7 @@ void BoxBlur(
 						float32_t v_floored;
 						{
 							const uint32_t floored = uint32_t( floor( left ) );
-							if( mod( abs( floored + 1 ), 2 * AXIS_DIM ) == 0 )
+							if( fmod( abs( floored + 1 ), 2 * AXIS_DIM ) == 0 )
 							{
 								v_floored = -( abs( floored + 1 ) / AXIS_DIM ) * prefixSumsAccessor.get( last );
 							}
@@ -272,9 +275,9 @@ void BoxBlur(
 								const uint32_t period = uint32_t( ceil( float32_t( abs( floored + 1 ) ) / AXIS_DIM ) );
 
 								if( ( period & 0x1u ) == 1 )
-									v_floored = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( mod( abs( floored + 1 ) - 1, AXIS_DIM ) );
+									v_floored = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( fmod( abs( floored + 1 ) - 1, AXIS_DIM ) );
 								else
-									v_floored = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - ( prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( mod( floored + 1, AXIS_DIM ) - 1 ) );
+									v_floored = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - ( prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( fmod( floored + 1, AXIS_DIM ) - 1 ) );
 							}
 						}
 
@@ -285,7 +288,7 @@ void BoxBlur(
 							{
 								v_ceiled = 0;
 							}
-							else if( mod( abs( ceiled + 1 ), 2 * AXIS_DIM ) == 0 )
+							else if( fmod( abs( ceiled + 1 ), 2 * AXIS_DIM ) == 0 )
 							{
 								v_ceiled = -( abs( ceiled + 1 ) / AXIS_DIM ) * prefixSumsAccessor.get( last );
 							}
@@ -294,13 +297,13 @@ void BoxBlur(
 								const uint32_t period = uint32_t( ceil( float32_t( abs( ceiled + 1 ) ) / AXIS_DIM ) );
 
 								if( ( period & 0x1u ) == 1 )
-									v_ceiled = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( mod( abs( ceiled + 1 ) - 1, AXIS_DIM ) );
+									v_ceiled = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( fmod( abs( ceiled + 1 ) - 1, AXIS_DIM ) );
 								else
-									v_ceiled = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - ( prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( mod( ceiled + 1, AXIS_DIM ) - 1 ) );
+									v_ceiled = -1 * ( period - 1 ) * prefixSumsAccessor.get( last ) - ( prefixSumsAccessor.get( last ) - prefixSumsAccessor.get( fmod( ceiled + 1, AXIS_DIM ) - 1 ) );
 							}
 						}
 
-						result -= lerp( v_floored, v_ceiled, fract( left ) );
+						result -= lerp( v_floored, v_ceiled, frac( left ) );
 					} break;
 					}
 				}
@@ -311,7 +314,7 @@ void BoxBlur(
 
 		for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
 		{
-			textureAcessor.setData( getCoordinates( i, direction ), ch, blurred[ i ] );
+			textureAccessor.setData( getCoordinates( i, direction ), ch, blurred[ i ] );
 		}
 	}
 }
