@@ -194,6 +194,9 @@ class ISurface : public core::IReferenceCounted
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
+        virtual ui::IWindow* getWindow() = 0;
+        inline const ui::IWindow* getWindow() const {return const_cast<ui::IWindow*>(const_cast<ISurface*>(this)->getWindow());}
+
         // used by some drivers
         virtual const void* getNativeWindowHandle() const = 0;
 };
@@ -203,6 +206,11 @@ template<class Window, class ImmediateBase>
 class CSurface : public ImmediateBase
 {
     public:
+        inline ui::IWindow* getWindow() override final
+        {
+            return m_window.get();
+        }
+
         inline const void* getNativeWindowHandle() const override final
         {
             return m_window->getNativeHandle();
