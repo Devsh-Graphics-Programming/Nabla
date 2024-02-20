@@ -918,9 +918,9 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
     core::vector<VkImageView> attachments;
     {
         attachments.reserve(renderpass->getDepthStencilAttachmentCount()+renderpass->getColorAttachmentCount());
-        auto pushAttachment = [&attachments](const core::smart_refctd_ptr<IGPUImageView>& view) -> void
+        auto pushAttachment = [&attachments](IGPUImageView* const view) -> void
         {
-            attachments.push_back(static_cast<CVulkanImageView*>(view.get())->getInternalObject());
+            attachments.push_back(static_cast<CVulkanImageView*>(view)->getInternalObject());
         };
 
         for (auto i=0u; i<renderpass->getDepthStencilAttachmentCount(); i++)

@@ -633,7 +633,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
             // this validate already checks that Renderpass device creator matches with the images
-            if (!IGPUFramebuffer::validate(params))
+            if (!params.validate())
                 return nullptr;
 
             if (params.width>getPhysicalDeviceLimits().maxFramebufferWidth ||
@@ -645,7 +645,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return nullptr;
 
             // We won't support linear attachments
-            auto anyNonOptimalTiling = [](core::smart_refctd_ptr<IGPUImageView>* const attachments, const uint32_t count)->bool
+            auto anyNonOptimalTiling = [](const IGPUImageView* const* attachments, const uint32_t count)->bool
             {
                 for (auto i=0u; i<count; i++)
                 if (attachments[i]->getCreationParameters().image->getTiling()!=IGPUImage::TILING::OPTIMAL)
