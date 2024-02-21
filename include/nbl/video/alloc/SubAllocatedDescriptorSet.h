@@ -17,7 +17,7 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 public:
 	// address allocator gives offsets
 	// reserved allocator allocates memory to keep the address allocator state inside
-	using AddressAllocator = core::GeneralpurposeAddressAllocator<uint32_t>;
+	using AddressAllocator = core::PoolAddressAllocator<uint32_t>;
 	using ReservedAllocator = core::allocator<uint8_t>;
 	using size_type = typename AddressAllocator::size_type;
 	using value_type = typename AddressAllocator::size_type;
@@ -102,16 +102,27 @@ public:
 	// main methods
 
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
-	template<typename... Args>
-	inline void multi_allocate(uint32_t binding, uint32_t count, value_type* outAddresses, const size_type* sizes, const Args&... args)
+	inline void multi_allocate(uint32_t binding, uint32_t count, value_type* outAddresses)
 	{
-		core::address_allocator_traits<AddressAllocator>::multi_alloc_addr(getBindingAllocator(binding), count, outAddresses, sizes, 1, args...);
+		auto& allocator = getBindingAllocator(binding);
+		for (uint32_t i=0; i<count; i++)
+		{
+			if (outAddresses[i]!=AddressAllocator::invalid_address)
+				continue;
+
+			outAddresses[i] = allocator.alloc_addr(1,1);
+		}
 	}
-	inline void multi_deallocate(uint32_t binding, uint32_t count, const size_type* addr, const size_type* sizes)
+	inline void multi_deallocate(uint32_t binding, uint32_t count, const size_type* addr)
 	{
-		auto& range = m_allocatableRanges[binding];
-		assert(range.reservedSize); // Check if this binding has an allocator
-		core::address_allocator_traits<AddressAllocator>::multi_free_addr(getBindingAllocator(binding), count, addr, sizes);
+		auto& allocator = getBindingAllocator(binding);
+		for (uint32_t i=0; i<count; i++)
+		{
+			if (addr[i]==AddressAllocator::invalid_address)
+				continue;
+
+			allocator.free_addr(addr[i],1);
+		}
 	}
 };
 
