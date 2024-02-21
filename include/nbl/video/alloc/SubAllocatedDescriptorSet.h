@@ -29,7 +29,7 @@ protected:
 		std::shared_ptr<ReservedAllocator> reservedAllocator;
 		size_t reservedSize;
 	};
-	std::vector<SubAllocDescriptorSetRange> m_allocatableRanges = {};
+	std::unordered_map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 
 
 public:
@@ -50,26 +50,20 @@ public:
 				auto count = redirect.getCount(storageIndex);
 				auto flags = redirect.getCreateFlags(storageIndex);
 
-				for (uint32_t j = m_allocatableRanges.size(); j < binding.data; j++)
-				{
-					m_allocatableRanges.push_back({});
-				}
-
-				SubAllocDescriptorSetRange range;
-				range.reservedSize = 0;
 				// Only bindings with these flags will be allocatable
 				if (flags.hasFlags(core::bitflag(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
 					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
 					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
 				{
+					SubAllocDescriptorSetRange range;
 					range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(count), args...);
 					range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
 					range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
 						range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
 						static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(count), std::forward<Args>(args)...
 					));
+					m_allocatableRanges.emplace(binding.data, range);
 				}
-				m_allocatableRanges.insert(m_allocatableRanges.begin() + binding.data, range);
 			}
 		}
 	}
@@ -91,12 +85,16 @@ public:
 	uint32_t getLayoutBindingCount() { return m_allocatableRanges.size(); }
 
 	// whether that binding index can be sub-allocated
-	bool isBindingAllocatable(uint32_t binding) { return m_allocatableRanges[binding].reservedSize != 0; }
+	bool isBindingAllocatable(uint32_t binding) 
+	{ 
+		return m_allocatableRanges.find(binding) != m_allocatableRanges.end(); 
+	}
 
 	AddressAllocator& getBindingAllocator(uint32_t binding) 
 	{ 
-		assert(isBindingAllocatable(binding)); // Check if this binding has an allocator
-		return *m_allocatableRanges[binding].addressAllocator; 
+		auto range = m_allocatableRanges.find(binding);
+		assert(range != m_allocatableRanges.end());// Check if this binding has an allocator
+		return *range->second.addressAllocator; 
 	}
 
 	// main methods
