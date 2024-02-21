@@ -29,13 +29,19 @@ protected:
 		std::shared_ptr<ReservedAllocator> reservedAllocator;
 		size_t reservedSize;
 	};
-	std::unordered_map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
+	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 
+	#ifdef _NBL_DEBUG
+	std::recursive_mutex stAccessVerfier;
+	#endif // _NBL_DEBUG
+
+	constexpr static inline uint32_t MaxDescriptorSetAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
+	constexpr static inline uint32_t MinDescriptorSetAllocationSize = 1u;
 
 public:
 	// constructors
 	template<typename... Args>
-	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSetLayout* layout, const value_type maxAllocatableAlignment, Args&&... args)
+	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSetLayout* layout)
 	{
 		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
 		{
@@ -56,11 +62,12 @@ public:
 					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
 				{
 					SubAllocDescriptorSetRange range;
-					range.reservedSize = AddressAllocator::reserved_size(maxAllocatableAlignment, static_cast<size_type>(count), args...);
+					range.reservedSize = AddressAllocator::reserved_size(MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count), MinDescriptorSetAllocationSize);
 					range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
 					range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
 						range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
-						static_cast<size_type>(0), 0u, maxAllocatableAlignment, static_cast<size_type>(count), std::forward<Args>(args)...
+						static_cast<size_type>(0), 0u, MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count),
+						MinDescriptorSetAllocationSize
 					));
 					m_allocatableRanges.emplace(binding.data, range);
 				}
@@ -75,26 +82,20 @@ public:
 			auto& range = m_allocatableRanges[i];
 			if (range.reservedSize == 0)
 				continue;
-
 			auto ptr = reinterpret_cast<const uint8_t*>(core::address_allocator_traits<AddressAllocator>::getReservedSpacePtr(*range.addressAllocator));
+			range.addressAllocator->~PoolAddressAllocator();
 			range.reservedAllocator->deallocate(const_cast<uint8_t*>(ptr), range.reservedSize);
 		}
 	}
 
-	// amount of bindings in the descriptor set layout used
-	uint32_t getLayoutBindingCount() { return m_allocatableRanges.size(); }
-
 	// whether that binding index can be sub-allocated
-	bool isBindingAllocatable(uint32_t binding) 
-	{ 
-		return m_allocatableRanges.find(binding) != m_allocatableRanges.end(); 
-	}
+	bool isBindingAllocatable(uint32_t binding) { return m_allocatableRanges.find(binding) != m_allocatableRanges.end(); }
 
-	AddressAllocator& getBindingAllocator(uint32_t binding) 
+	AddressAllocator* getBindingAllocator(uint32_t binding) 
 	{ 
 		auto range = m_allocatableRanges.find(binding);
 		assert(range != m_allocatableRanges.end());// Check if this binding has an allocator
-		return *range->second.addressAllocator; 
+		return range->second.addressAllocator.get(); 
 	}
 
 	// main methods
@@ -102,24 +103,34 @@ public:
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
 	inline void multi_allocate(uint32_t binding, uint32_t count, value_type* outAddresses)
 	{
-		auto& allocator = getBindingAllocator(binding);
+		#ifdef _NBL_DEBUG
+		std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+		assert(tLock.owns_lock());
+		#endif // _NBL_DEBUG
+
+		auto allocator = getBindingAllocator(binding);
 		for (uint32_t i=0; i<count; i++)
 		{
 			if (outAddresses[i]!=AddressAllocator::invalid_address)
 				continue;
 
-			outAddresses[i] = allocator.alloc_addr(1,1);
+			outAddresses[i] = allocator->alloc_addr(1,1);
 		}
 	}
 	inline void multi_deallocate(uint32_t binding, uint32_t count, const size_type* addr)
 	{
-		auto& allocator = getBindingAllocator(binding);
+		#ifdef _NBL_DEBUG
+		std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
+		assert(tLock.owns_lock());
+		#endif // _NBL_DEBUG
+
+		auto allocator = getBindingAllocator(binding);
 		for (uint32_t i=0; i<count; i++)
 		{
 			if (addr[i]==AddressAllocator::invalid_address)
 				continue;
 
-			allocator.free_addr(addr[i],1);
+			allocator->free_addr(addr[i],1);
 		}
 	}
 };
