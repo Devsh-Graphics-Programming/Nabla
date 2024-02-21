@@ -3,6 +3,7 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 
 #ifndef __HLSL_VERSION
@@ -22,12 +23,6 @@ constexpr To bit_cast(const From& from)
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
-
-template<typename Unsigned>
-Unsigned bitfield_extract_unsigned( Unsigned val, uint32_t offsetBits, uint32_t numBits )
-{
-    return ( val >> offsetBits ) & ( ( 1 << numBits ) - 1 );
-}
 
 }
 #else
@@ -106,13 +101,6 @@ template<typename T>
 uint16_t countl_zero(T n)
 {
     return impl::clz<sizeof(T)*8>(n);
-}
-
-// TODO: templated "switch" depending on signedness  
-template<typename Unsigned>
-Unsigned bitfield_extract_unsigned( Unsigned val, uint32_t offsetBits, uint32_t numBits )
-{
-    return spirv::bitfieldExtractUnsigned<Unsigned>( val, offsetBits, numBits );
 }
 
 }
