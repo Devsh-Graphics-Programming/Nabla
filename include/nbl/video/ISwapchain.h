@@ -317,6 +317,7 @@ class ISwapchain : public IBackendObject
         //
         inline uint64_t getAcquireCount() const {return m_acquireCounter;}
 
+        using void_refctd_ptr = core::smart_refctd_ptr<core::IReferenceCounted>;
         // acquire
         struct SAcquireInfo
         {
@@ -357,7 +358,12 @@ class ISwapchain : public IBackendObject
                 case ACQUIRE_IMAGE_RESULT::SUBOPTIMAL:
                     m_acquireCounter++;
                     //assert(!unacquired(out_imgIx)); // should happen in the impl anyway
-                    m_frameResources[*out_imgIx] = nullptr;
+                    {
+                        auto semaphoreArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.signalSemaphores.size());
+                        for (auto i=0ull; i<info.signalSemaphores.size(); i++)
+                            semaphoreArray->operator[](i) = void_refctd_ptr(info.signalSemaphores[i].semaphore);
+                        m_frameResources[*out_imgIx] = std::move(semaphoreArray);
+                    }
                     if (m_oldSwapchain && m_acquireCounter>core::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
                         m_oldSwapchain = nullptr;
                     break;
@@ -381,10 +387,11 @@ class ISwapchain : public IBackendObject
             SUBOPTIMAL,
             _ERROR
         };
-        inline PRESENT_RESULT present(SPresentInfo info, core::smart_refctd_ptr<core::IReferenceCounted>&& frameResources=nullptr)
+        // If `FATAL_ERROR` returned then the `frameResources` are not latched until the next acquire of the same image index or swapchain destruction (whichever comes first)
+        inline PRESENT_RESULT present(SPresentInfo info, void_refctd_ptr&& _frameResources=nullptr)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
-                return PRESENT_RESULT::_ERROR;
+                return PRESENT_RESULT::FATAL_ERROR;
 
             auto* threadsafeQ = dynamic_cast<CThreadSafeQueueAdapter*>(info.queue);
             if (threadsafeQ)
@@ -400,7 +407,16 @@ class ISwapchain : public IBackendObject
             // - on the next acquire of the same index
             // - when dropping the swapchain entirely, but need to wait on all previous presents to finish (some manageable UB)
             if (retval!=PRESENT_RESULT::FATAL_ERROR)
+            {
+                auto frameResources = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.waitSemaphores.size()+2);
+                frameResources->operator[](0) = std::move(m_frameResources[info.imgIndex]);
+                frameResources->operator[](1) = std::move(_frameResources);
+                for (auto i=0ull; i<info.waitSemaphores.size(); i++)
+                    frameResources->operator[](i+2) = void_refctd_ptr(info.waitSemaphores[i].semaphore);
                 m_frameResources[info.imgIndex] = std::move(frameResources);
+            }
+            else
+                m_frameResources[info.imgIndex] = nullptr;
             return retval;
         }
 
@@ -486,7 +502,7 @@ class ISwapchain : public IBackendObject
         const uint8_t m_imageCount;
         uint64_t m_acquireCounter = 0;
         // resource to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
-        std::array<core::smart_refctd_ptr<core::IReferenceCounted>,ILogicalDevice::MaxQueueFamilies> m_frameResources = {};
+        std::array<void_refctd_ptr,ILogicalDevice::MaxQueueFamilies> m_frameResources = {};
 };
 
 }

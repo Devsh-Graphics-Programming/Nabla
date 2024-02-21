@@ -372,7 +372,7 @@ auto CVulkanSwapchain::present_impl(const SPresentInfo& info) -> PRESENT_RESULT
             }
             [[fallthrough]];
         case VK_ERROR_DEVICE_LOST:
-            return PRESENT_RESULT::FATAL_ERROR;
+            [[fallthrough]];
         default:
             return PRESENT_RESULT::_ERROR;
     }
