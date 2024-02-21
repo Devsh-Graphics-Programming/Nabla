@@ -35,7 +35,7 @@ protected:
 	std::recursive_mutex stAccessVerfier;
 	#endif // _NBL_DEBUG
 
-	constexpr static inline uint32_t MaxDescriptorSetAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
+	constexpr static inline uint32_t MaxDescriptorSetAllocationAlignment = 1u; 
 	constexpr static inline uint32_t MinDescriptorSetAllocationSize = 1u;
 
 public:
@@ -83,7 +83,7 @@ public:
 			if (range.reservedSize == 0)
 				continue;
 			auto ptr = reinterpret_cast<const uint8_t*>(core::address_allocator_traits<AddressAllocator>::getReservedSpacePtr(*range.addressAllocator));
-			range.addressAllocator->~PoolAddressAllocator();
+			range.addressAllocator = nullptr;
 			range.reservedAllocator->deallocate(const_cast<uint8_t*>(ptr), range.reservedSize);
 		}
 	}
