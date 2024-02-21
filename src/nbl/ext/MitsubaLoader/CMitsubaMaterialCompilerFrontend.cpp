@@ -60,9 +60,10 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
 auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) const -> emission_profile_type
 {
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-
-    const auto key = SContext::emissionProfileCacheKey(*_element);
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(key, types, m_loaderContext->inner, 0u);
+    
+    std::string filename = _element->filename;
+    m_loaderContext->override_->getLoadFilename(filename, m_loaderContext->inner, 0u);
+    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
     if (!viewBundle.getContents().empty())
     {
         auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
@@ -85,24 +86,24 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
     if (_emitter->area.emissionProfile) {
         asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
         auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
-        if (!image) {
+        if (image) {
+            profile.texture = { image, sampler, 1.f };
+            auto inverseTransform = core::transpose(core::concatenateBFollowedByA(transform, _emitter->transform.matrix));
+            profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
+            profile.up = core::normalize(inverseTransform[1]);
+            profile.view = core::normalize(inverseTransform[2]);
+
+            res->emissionProfile = profile;
+            float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
+            if (normalizeEnergy == 0.0f) {
+                res->intensity *= meta->getMaxIntensity();
+            }
+            else if (normalizeEnergy > 0.0f) {
+                res->intensity *= normalizeEnergy * meta->getMaxIntensity() / meta->getIntegral();
+            }
+        }
+        else {
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
-            return nullptr;
-        }
-        profile.texture = { image, sampler, 1.f };
-
-        auto inverseTransform = core::transpose(core::concatenateBFollowedByA(transform, _emitter->transform.matrix));
-        profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
-        profile.up = core::normalize(inverseTransform[1]);
-        profile.view = core::normalize(inverseTransform[2]);
-
-        res->emissionProfile = profile;
-        float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
-        if (normalizeEnergy < 0.0f) {
-            res->intensity *= meta->getMaxIntensity();
-        }
-        else if (normalizeEnergy > 0.0f) {
-            res->intensity *= normalizeEnergy / meta->getIntegral();
         }
     }
     return res;

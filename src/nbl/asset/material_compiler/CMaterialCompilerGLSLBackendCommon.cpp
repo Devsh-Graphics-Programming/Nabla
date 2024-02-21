@@ -1365,7 +1365,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 	for (const IR::INode* root : _ir->roots)
 	{
 		if (root->symbol != IR::INode::ES_ROOT) {
-			os::Printer::log("Material compiler: Non root node added as root; ignoring it", ELL_WARNING);
+			os::Printer::log("Material compiler: Non root node added as root; ignoring it", ELL_ERROR);
 			continue;
 		}
 		oriented_material_t material;
@@ -1538,6 +1538,17 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 
 		_out << "### instr " << i << "\n";
 		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap_prefetch_reg << " )\n";
+	}
+	if (_material.emitter_id != NBL_MC_INVALID_EMITTER_ID) {
+		_out << "####### emitter data\n";
+		auto& emitter = _res.emitterData[_material.emitter_id];
+		auto emissive = core::rgb19e7_to_rgb32f(emitter.emissive);
+		_out << "emissive = " << "(" << emissive.x << "," << emissive.y << "," << emissive.z << ")" << "\n";
+		_out << "emission profile = " << emitter.emissionProfile << "\n";
+		_out << "orientation = ";
+		for (uint32_t i = 0u; i < 6; i++) {
+			_out << emitter.orientation << " \n"[i == 5u];
+		}
 	}
 }
 

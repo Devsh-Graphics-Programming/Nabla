@@ -58,6 +58,9 @@ class CIESProfileParser {
 public:
     CIESProfileParser(char* buf, size_t size) { ss << std::string(buf, size); }
 
+    const char* getErrorMsg() const {
+        return errorMsg;
+    }
     bool parse(CIESProfile& result);
 
 private:
@@ -256,8 +259,10 @@ CIESProfileLoader::loadAsset(io::IReadFile* _file,
     CIESProfileParser parser(data.data(), data.size());
 
     CIESProfile profile;
-    if (!parser.parse(profile))
+    if (!parser.parse(profile)) {
+        os::Printer::log("ERROR: Emission profile parsing error: " + std::string(parser.getErrorMsg()), ELL_ERROR);
         return {};
+    }
 
     auto image = createTexture(profile, TEXTURE_WIDTH, TEXTURE_HEIGHT);
     if (!image)

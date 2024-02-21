@@ -968,31 +968,24 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 {
 	if (!profile)
 		return;
-
-	const auto cacheKey = ctx.emissionProfileCacheKey(*profile);
-
+	
 	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-
-	if (ctx.override_->findCachedAsset(cacheKey, types, ctx.inner, 0u).getContents().empty())
+	auto assetLoaded = ctx.override_->findCachedAsset(profile->filename, types, ctx.inner, 0u);
+	if (assetLoaded.getContents().empty())
 	{
 		auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, ctx.inner.params, 0u, ctx.override_);
-
-	
-		auto contentRange = assetLoaded.getContents();
-		if (contentRange.empty())
+		if (assetLoaded.getContents().empty())
 		{
-			os::Printer::log("[ERROR] Could Not Find Texture: " + cacheKey, ELL_ERROR);
+			os::Printer::log("[ERROR] Could Not Find Emission Profile: " + profile->filename, ELL_ERROR);
 			return;
 		}
-	
-		auto meta = core::make_smart_refctd_ptr<asset::CIESProfileMetadata>(*static_cast<const asset::CIESProfileMetadata*>(assetLoaded.getMetadata()));
-		asset::SAssetBundle viewBundle(std::move(meta), {assetLoaded.getContents().begin()[0]});
-		ctx.override_->insertAssetIntoCache(std::move(viewBundle), cacheKey, ctx.inner, 0u);
+	}
 
+	{
 		ISampler::SParams samplerParams = ctx.emissionProfileSamplerParams(*profile, reinterpret_cast<const asset::CIESProfileMetadata&>(*assetLoaded.getMetadata()));
-		const asset::IAsset::E_TYPE types2[] = { asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
+		const asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
 		const std::string samplerCacheKey = ctx.samplerCacheKey(samplerParams);
-		if (ctx.override_->findCachedAsset(samplerCacheKey, types2, ctx.inner, 0u).getContents().empty())
+		if (ctx.override_->findCachedAsset(samplerCacheKey, types, ctx.inner, 0u).getContents().empty())
 		{
 			SAssetBundle samplerBundle(nullptr, { core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) });
 			ctx.override_->insertAssetIntoCache(std::move(samplerBundle), samplerCacheKey, ctx.inner, 0u);

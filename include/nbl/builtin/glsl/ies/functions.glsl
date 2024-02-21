@@ -6,6 +6,12 @@
 
 #include <nbl/builtin/glsl/math/constants.glsl>
 
+// TODO: implement proper mirroing
+// MIRROR_180_BITS = 0b001, Last Angle is 180, so map V slightly differently
+// MIRROR_90_BITS = 0b010, Last Angle is 90, so map both U and V slightly differently
+// ISOTROPIC_BITS = 0b011, texture to sample is Nx1, pretend v=middle always  
+// FULL_THETA_BIT = 0b100, handle extended domain and rotate by 45 degrees for anisotropic
+
 vec2 nbl_glsl_IES_convert_dir_to_uv(vec3 dir) {
     float sum = dot(vec3(1.0f), abs(dir));        
     vec3 s = dir / sum;    
