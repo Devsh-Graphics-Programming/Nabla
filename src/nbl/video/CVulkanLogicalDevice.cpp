@@ -41,7 +41,17 @@ m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP
         }
     }
 
-    m_dummyDSLayout = createDescriptorSetLayout({});
+    {
+        const VkDescriptorSetLayoutCreateInfo vk_createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .bindingCount = 0,
+            .pBindings = nullptr
+        };
+        const bool success = m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&m_dummyDSLayout)==VK_SUCCESS;
+        assert(success);
+    }
 }
 
 
@@ -569,7 +579,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineL
     {
         if (tmp[i])
             nonNullSetLayoutCount = i;
-        vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>((tmp[i] ? tmp[i]:m_dummyDSLayout).get())->getInternalObject();
+        vk_dsLayouts[i] = tmp[i] ? static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject():m_dummyDSLayout;
     }
     nonNullSetLayoutCount++;
 

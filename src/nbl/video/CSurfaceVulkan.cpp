@@ -119,6 +119,12 @@ bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physica
 		return true;
 	}
 
+ISurfaceVulkan::~ISurfaceVulkan()
+{
+	vkDestroySurfaceKHR(static_cast<video::CVulkanConnection*>(m_api.get())->getInternalObject(),m_vkSurfaceKHR,nullptr);
+}
+
+
 #ifdef _NBL_PLATFORM_WINDOWS_
 core::smart_refctd_ptr<CSurfaceVulkanWin32> CSurfaceVulkanWin32::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowWin32>&& window)
 {

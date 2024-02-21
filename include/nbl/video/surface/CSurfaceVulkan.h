@@ -28,7 +28,7 @@ class NBL_API2 ISurfaceVulkan : public ISurface
 
     protected:
         explicit inline ISurfaceVulkan(core::smart_refctd_ptr<video::IAPIConnection>&& api, VkSurfaceKHR vk_surface) : base_t(std::move(api)), m_vkSurfaceKHR(vk_surface) {}
-        virtual ~ISurfaceVulkan() = default;
+        virtual ~ISurfaceVulkan();
 
         VkSurfaceKHR m_vkSurfaceKHR = VK_NULL_HANDLE;
 };
