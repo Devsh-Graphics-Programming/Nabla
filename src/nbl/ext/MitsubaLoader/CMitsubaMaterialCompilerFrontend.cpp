@@ -95,12 +95,12 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
 
             res->emissionProfile = profile;
             float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
-            if (normalizeEnergy < 0.0f) {
+            if (normalizeEnergy == 0.0f) {
                 res->intensity *= meta->getMaxIntensity();
             }
             else if (normalizeEnergy > 0.0f) {
-                res->intensity *= normalizeEnergy / meta->getIntegral();
-            } 
+                res->intensity *= normalizeEnergy * meta->getMaxIntensity() / meta->getIntegral();
+            }
         }
         else {
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
