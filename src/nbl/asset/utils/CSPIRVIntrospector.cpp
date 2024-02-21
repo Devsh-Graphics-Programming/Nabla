@@ -62,6 +62,27 @@ namespace
         };
         return convert[_imgfmt];
     }
+
+    // TODO: delete when we are done testing
+    std::string_view getBaseTypeNameFromEnum(CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE varType)
+    {
+        constexpr std::string_view typeNames[] = {
+            "UNKNOWN_OR_STRUCT",
+            "U64",
+            "I64",
+            "U32",
+            "I32",
+            "U16",
+            "I16",
+            "U8",
+            "I8",
+            "F64",
+            "F32",
+            "F16"
+        };
+
+        return typeNames[static_cast<uint32_t>(varType)];
+    };
 }//anonymous ns
 
 static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType basetype)
@@ -210,8 +231,18 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             continue;
 
         getTypeStore()->count = addCounts(type.array.size(),type.array.data(),type.array_size_literal.data());
-        auto memberTypeName = comp.get_member_name(entry.selfTypeID, 0);
-        getTypeStore()->typeName = addString(memberTypeName); 
+        if (!entry.isRoot())
+        {
+            const auto& parentType = comp.get_type(entry.parentTypeID);
+            auto memberId = parentType.member_types[0];
+            auto memberBaseType = comp.get_type(memberId).basetype;
+            getTypeStore()->typeName = addString(getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType)));
+        }
+        else
+        {
+            getTypeStore()->typeName = addString("TODO");
+        }
+
         {
             auto typeEnum = VAR_TYPE::UNKNOWN_OR_STRUCT;
             switch (type.basetype)
@@ -527,12 +558,25 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
     addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
     addBaseAndConvertStringToImmutable(m_pushConstants.name);
     std::ostringstream debug = {};
+
+    if(!m_specConstants.empty())
+    {
+        debug << "SPEC CONSTATS:\n";
+
+        for (auto& specConstant : m_specConstants)
+            debug << " name: " << std::string_view(specConstant.name.begin(), specConstant.name.end()) << ' '
+                << "TODO: type "
+                << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
+    }
+
     if (m_pushConstants.type)
     {
         debug << "PUSH CONSTANT BLOCK:\n";
         printType(debug,m_pushConstants.type);
         debug << "} " << m_pushConstants.name.data() << ";\n";
     }
+
+    debug << "DESCRIPTOR SETS:\n";
     
     for (auto set=0; set<DescriptorSetCount; set++)
     for (auto& descriptor : m_descriptorSetBindings[set])
@@ -564,9 +608,8 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
     {
         debug << "INPUT VARIABLES:\n";
         for (auto& inputEntity : m_input)
-            debug << "name: " << " TODO " << "location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
+            debug << "type: " << getBaseTypeNameFromEnum(inputEntity.baseType) << " name: " << "TODO" << " location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
     }
-    
 
     // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
     if (shaderStage == IShader::ESS_FRAGMENT)
@@ -576,7 +619,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
         {
             debug << "OUTPUT VARIABLES:\n";
             for (auto& outputEntity : outputVec)
-                debug << "location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location : " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
         }
     }
     else
@@ -586,7 +629,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
         {
             debug << "OUTPUT VARIABLES:\n";
             for (auto& outputEntity : outputVec)
-                debug << "location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
         }
     }
 
