@@ -169,8 +169,11 @@ class IRenderpass
                     using SColorAttachmentsRef = SRenderAttachmentsRef<SColorAttachmentRef>;
 
 
-                    auto operator<=>(const SSubpassDescription&) const = default;
+                    //
+                    bool operator!=(const SSubpassDescription&) const;
+                    inline bool operator==(const SSubpassDescription& rhs) const {return !((*this)!=rhs);}
 
+                    //
                     bool valid(const SCreationParams& params, const uint32_t depthStencilAttachmentCount, const uint32_t colorAttachmentCount) const;
 
 
@@ -255,16 +258,16 @@ class IRenderpass
 
         inline const SCreationParams& getCreationParameters() const { return m_params; }
 
-        inline uint32_t getDepthStencilAttachmentCount() const { return m_depthStencilAttachments->size(); }
-        inline uint32_t getColorAttachmentCount() const { return m_colorAttachments->size(); }
-        inline uint32_t getDepthStencilLoadOpAttachmentEnd() const { return m_loadOpDepthStencilAttachmentEnd; }
-        inline uint32_t getColorLoadOpAttachmentEnd() const { return m_loadOpColorAttachmentEnd; }
+        inline uint32_t getDepthStencilAttachmentCount() const {return m_depthStencilAttachments ? (m_depthStencilAttachments->size()-1):0;}
+        inline uint32_t getColorAttachmentCount() const {return m_colorAttachments ? (m_colorAttachments->size()-1):0;}
+        inline uint32_t getDepthStencilLoadOpAttachmentEnd() const {return m_loadOpDepthStencilAttachmentEnd;}
+        inline uint32_t getColorLoadOpAttachmentEnd() const {return m_loadOpColorAttachmentEnd;}
 
-        inline uint32_t getSubpassCount() const { return m_subpasses->size(); }
-        inline uint32_t getDependencyCount() const { return m_subpassDependencies->size(); }
+        inline uint32_t getSubpassCount() const {return m_subpasses->size()-1;}
+        inline uint32_t getDependencyCount() const {return m_subpassDependencies ? (m_subpassDependencies->size()-1):0;}
 
-        inline bool hasViewMasks() const { return m_viewMaskMSB>0; }
-        inline int8_t getViewMaskMSB() const { return m_viewMaskMSB; }
+        inline bool hasViewMasks() const {return m_viewMaskMSB>0;}
+        inline int8_t getViewMaskMSB() const {return m_viewMaskMSB;}
 
 
         struct SCreationParamValidationResult final
@@ -367,7 +370,11 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         return retval;
 
     retval.subpassCount = 0xdeadbeefu;
-    auto setRetvalFalse = [&retval]()->bool{retval.subpassCount = 0; return false;};     
+    auto setRetvalFalse = [&retval]()->bool
+    {
+        retval.subpassCount = 0; return false;
+    };
+
     core::visit_token_terminated_array(params.depthStencilAttachments,SCreationParams::DepthStencilAttachmentsEnd,[&params,setRetvalFalse,&retval](const SCreationParams::SDepthStencilAttachmentDescription& attachment)->bool
     {
         if (!attachment.valid())
@@ -499,6 +506,27 @@ inline bool IRenderpass::SCreationParams::SColorAttachmentDescription::valid() c
     return true;
 }
 
+
+inline bool IRenderpass::SCreationParams::SSubpassDescription::operator!=(const SSubpassDescription& other) const
+{
+    if (depthStencilAttachment!=other.depthStencilAttachment)
+        return true;
+    for (auto i=0u; i<MaxColorAttachments; i++)
+    if (colorAttachments[i]!=other.colorAttachments[i])
+        return true;
+    auto tokenTerminatedSequenceUnequal = []<typename T>(const T* lhs, const T* rhs, const T& endToken) -> bool
+    {
+        while ((*lhs)!=endToken && (*rhs)!=endToken)
+        if ((*lhs)!=(*rhs))
+            return true;
+        return (*lhs)!=(*rhs);
+    };
+    if (tokenTerminatedSequenceUnequal(inputAttachments,other.inputAttachments,InputAttachmentsEnd))
+        return true;
+    if (tokenTerminatedSequenceUnequal(preserveAttachments,other.preserveAttachments,PreserveAttachmentsEnd))
+        return true;
+    return viewMask!=other.viewMask || flags!=other.flags;
+}
 
 inline bool IRenderpass::SCreationParams::SSubpassDescription::valid(const SCreationParams& params, const uint32_t depthStencilAttachmentCount, const uint32_t colorAttachmentCount) const
 {

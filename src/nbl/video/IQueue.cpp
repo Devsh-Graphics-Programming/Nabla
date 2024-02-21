@@ -23,7 +23,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
-                    logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
+                    logger->log("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?", system::ILogger::ELL_ERROR);
                     return true;
                 }
             }
@@ -81,7 +81,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
     // mark cmdbufs as done (wrongly but conservatively wrong)
     for (const auto& submit : _submits)
     for (const auto& commandBuffer : submit.commandBuffers)
-        commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->isResettable() ? IGPUCommandBuffer::STATE::EXECUTABLE:IGPUCommandBuffer::STATE::INVALID;
+        commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT) ? IGPUCommandBuffer::STATE::INVALID:IGPUCommandBuffer::STATE::EXECUTABLE;
     return result;
 }
 

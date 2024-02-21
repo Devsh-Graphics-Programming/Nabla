@@ -14,7 +14,7 @@ class ILogicalDevice;
 class CVulkanSwapchain final : public ISwapchain
 {
     public:
-        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params, core::smart_refctd_ptr<CVulkanSwapchain>&& oldSwapchain=nullptr);
 
         core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
@@ -24,31 +24,31 @@ class CVulkanSwapchain final : public ISwapchain
         inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
 
     private:
-        CVulkanSwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, SCreationParams&& params, const uint32_t imageCount, const VkSwapchainKHR swapchain, const VkSemaphore* const _adaptorSemaphores);
+        CVulkanSwapchain(
+            core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice,
+            SCreationParams&& params,
+            const uint32_t imageCount,
+            core::smart_refctd_ptr<CVulkanSwapchain>&& oldSwapchain,
+            const VkSwapchainKHR swapchain,
+            const VkSemaphore* const _adaptorSemaphores,
+            const VkFence* const _prePresentFences
+        );
         ~CVulkanSwapchain();
 
+        bool unacquired(const uint8_t imageIndex) const override;
         ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) override;
-
         PRESENT_RESULT present_impl(const SPresentInfo& info) override;
 
-        inline VkSemaphoreSubmitInfoKHR getAdaptorSemaphore(const bool notNull)
-        {
-            VkSemaphoreSubmitInfoKHR info = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR,nullptr,VK_NULL_HANDLE};
-            if (notNull)
-            {
-                info.semaphore = m_adaptorSemaphores[(m_internalCounter++)%(2*m_imageCount)];
-                // value is ignored because the adaptors are binary
-                info.stageMask = VK_PIPELINE_STAGE_2_NONE;
-                info.deviceIndex = 0u; // TODO: later obtain from swapchain
-            }
-            return info;
-        }
+        core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) override;
 
         const IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
         const VkSwapchainKHR m_vkSwapchainKHR;
         VkImage m_images[ISwapchain::MaxImages];
-        VkSemaphore m_adaptorSemaphores[2*ISwapchain::MaxImages];
-        uint8_t m_internalCounter = 0u;
+        VkSemaphore m_acquireAdaptorSemaphores[ISwapchain::MaxImages];
+        VkFence m_prePresentFences[ISwapchain::MaxImages];
+        VkSemaphore m_presentAdaptorSemaphores[ISwapchain::MaxImages];
+        // nasty way to fight UB of the Vulkan spec
+        bool m_needToWaitIdle = true;
 };
 
 }
