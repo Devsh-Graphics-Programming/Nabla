@@ -234,8 +234,11 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
         if (!entry.isRoot())
         {
             const auto& parentType = comp.get_type(entry.parentTypeID);
-            auto memberId = parentType.member_types[0];
+            auto memberId = parentType.member_types[entry.memberIndex];
             auto memberBaseType = comp.get_type(memberId).basetype;
+
+            auto typeName = getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType));
+
             getTypeStore()->typeName = addString(getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType)));
         }
         else
@@ -417,7 +420,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
         const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
         assert(!type.image.depth);
-        assert(!type.image.sampled);
+        assert(type.image.sampled == 2);
         const bool buffer = type.image.dim==spv::DimBuffer;
         auto* res = stageIntroData->addResource(comp,r,buffer ? IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:IDescriptor::E_TYPE::ET_STORAGE_IMAGE);
         if (!res)
@@ -484,6 +487,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
         if (shaderStage == IShader::ESS_FRAGMENT)
         {
+            // TODO: desn't path here for frag_test1.hlsl, why?
             CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
                 std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
             getStageIOtype(res, r.id, r.base_type_id);
@@ -498,8 +502,6 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
             getStageIOtype(res, r.id, r.base_type_id);
         }
     }
-
-    auto& asdf = std::get<OutputVecT>(stageIntroData->m_output);
 
     // push constants
     auto* pPushConstantsMutable = reinterpret_cast<CStageIntrospectionData::SPushConstantInfo<true>*>(&stageIntroData->m_pushConstants);
