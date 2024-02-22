@@ -385,6 +385,7 @@ class ISwapchain : public IBackendObject
             FATAL_ERROR = -1,
             SUCCESS = 0,
             SUBOPTIMAL,
+            OUT_OF_DATE,
             _ERROR
         };
         // If `FATAL_ERROR` returned then the `frameResources` are not latched until the next acquire of the same image index or swapchain destruction (whichever comes first)
@@ -422,6 +423,10 @@ class ISwapchain : public IBackendObject
 
         inline bool acquiredImagesAwaitingPresent()
         {
+            // this method is often used to determine whether a swapchain can be thrown away or to spin until all presents are ready, so also need to check ancestors
+            if (m_oldSwapchain && m_oldSwapchain->acquiredImagesAwaitingPresent())
+                return true;
+
             for (uint8_t i=0; i<m_imageCount; i++)
             {
                 if (unacquired(i))
@@ -449,7 +454,7 @@ class ISwapchain : public IBackendObject
         };
 
         // utility function
-        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams&& params={})
+        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params={})
         {
             if (!params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1}))
                 return nullptr;
