@@ -256,6 +256,8 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
             case VK_SUBOPTIMAL_KHR:
                 suboptimal = true;
                 break;
+            case VK_ERROR_OUT_OF_DATE_KHR:
+                return ACQUIRE_IMAGE_RESULT::OUT_OF_DATE;
             default:
                 return ACQUIRE_IMAGE_RESULT::_ERROR;
         }
@@ -263,6 +265,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     const auto imgIx = *out_imgIx;
     
     // The previous present on the image MUST have had finished
+    // TODO: why do I crash here? maybe cause I don't wait on the acquired fence!
     assert(unacquired(imgIx));
     // Now put the fence into UNSIGNALLED state where it will stay until "just before" the present
     {

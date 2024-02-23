@@ -37,6 +37,9 @@ class ISwapchain : public IBackendObject
                     return false;
                 if (height<caps.minImageExtent.height || height>caps.maxImageExtent.height)
                     return false;
+                // surface caps might report `minImageExtent=={0,0}` but thats not valid anyway according to Vulkan specification
+                if (width==0 || height==0)
+                    return false;
                 if (hlsl::bitCount(compositeAlpha.value)!=1 || !caps.supportedCompositeAlpha.hasFlags(compositeAlpha))
                     return false;
                 if (arrayLayers==0 || arrayLayers>caps.maxImageArrayLayers)
@@ -147,8 +150,8 @@ class ISwapchain : public IBackendObject
                 // in case of no preferred list
                 if (preTransform.hasFlags(caps.currentTransform))
                     preTransform = caps.currentTransform;
-
-                assert(valid(physDev,surface));
+                
+                // we might deduce invalid, because of 0-sized renderareas
                 return true;
             }
 
@@ -332,6 +335,7 @@ class ISwapchain : public IBackendObject
             TIMEOUT,
             NOT_READY,
             SUBOPTIMAL,
+            OUT_OF_DATE,
             _ERROR // GDI macros getting in the way of just ERROR
         };
         // Even though in Vulkan image acquisition is not a queue operation, we perform a micro-submit to adapt a Timeline Semaphore to work with it 
@@ -454,9 +458,13 @@ class ISwapchain : public IBackendObject
         };
 
         // utility function
+        inline bool deduceRecreationParams(SSharedCreationParams& params) const
+        {
+            return params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1});
+        }
         inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params={})
         {
-            if (!params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1}))
+            if (!deduceRecreationParams(params))
                 return nullptr;
             return recreate_impl(std::move(params));
         }
