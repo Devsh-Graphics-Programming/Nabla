@@ -89,6 +89,8 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
         if (image) {
             profile.texture = { image, sampler, 1.f };
             auto inverseTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
+            inverseTransform[1].w = 0;
+            inverseTransform[2].w = 0;
             profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
             profile.up = core::normalize(inverseTransform[1]);
             profile.view = core::normalize(inverseTransform[2]);
