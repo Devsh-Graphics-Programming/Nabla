@@ -109,7 +109,17 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
-    return false;
+    // merge descriptors
+
+    // can only be success now
+    const auto& pc = stageData->getPushConstants();
+    if (pc.present())
+    {
+        // iterate over all bytes used
+//        m_pushConstantBytes[byte] |= stageData->getParams().shader->getStage();
+    }
+
+    return true;
 }
 
 //
@@ -117,6 +127,28 @@ NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector
 {
     auto& ps = introspection->getPushConstants();
     auto a = ps.type->memberInfoStorage;
+
+    core::vector<SPushConstantRange> tmp; tmp.reserve(MaxPushConstantsSize);
+    // Use Run Length Encode
+    /*SPushConstantRange prev = {
+        .stageFlags = m_pushConstantBytes[0].value,
+        .offset = 0,
+        .size = 0
+    };
+    for ()
+    {
+        if (current != prev)
+        {
+            prev.size = current.offset-prev.offset;
+            if (prev.stageFlags)
+                tmp.push_back(prev);
+            prev = current;
+        }
+    }
+    if (prev.stageFlags)
+        tmp.push_back(prev);*/
+
+    // if to return empty/zero-sized array, albo nullptr
 
     return nullptr;
 }
@@ -512,6 +544,12 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
         pPushConstantsMutable->name = stageIntroData->addString(r.name);
         stageIntroData->shaderMemBlockIntrospection(comp,pPushConstantsMutable,r);
+        // believe it or not you can declare an empty PC block
+        pPushConstantsMutable->size = comp.get_declared_struct_size(comp.get_type(r.type_id));
+        if (pPushConstantsMutable->size != 0)
+            pPushConstantsMutable->offset = comp.type_struct_member_offset(comp.get_type(r.type_id/*TODO: verify if this of base*/), 0);
+        // TODO
+        std::cout << "pPushConstantsMutable->size: " << pPushConstantsMutable->size;
     }
     else
         pPushConstantsMutable->type = {};

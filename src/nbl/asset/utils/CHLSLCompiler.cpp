@@ -257,6 +257,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     };
 
     std::vector<LPCWSTR> arguments = {
+        L"-E", L"main", // FIXME: Przemog Quick fix
         L"-spirv",
         L"-HV", L"202x",
         L"-T", targetProfile.c_str(),

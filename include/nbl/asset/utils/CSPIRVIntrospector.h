@@ -311,6 +311,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				struct SPushConstantInfo : SMemoryBlock<Mutable>
 				{
 					span_t<char,Mutable> name = {};
+					uint8_t offset = 0u;
+					uint8_t size = 0u;
+
 					// believe it or not you can declare an empty PC block
 					inline bool present() const {return SMemoryBlock<Mutable>::type;}
 				};
@@ -651,11 +654,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			auto pc = introspection->getPushConstants();
 
-			
-
 			CPipelineIntrospectionData pplnIntroData;
 			pplnIntroData.createPushConstantRangesFromIntrospection(introspection);
-
 
 			//ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
 			//params.shader = info;
