@@ -67,6 +67,7 @@ protected:
 	};
 	MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler;
 	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
+	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
 
 	#ifdef _NBL_DEBUG
 	std::recursive_mutex stAccessVerfier;
@@ -79,8 +80,9 @@ public:
 
 	// constructors
 	template<typename... Args>
-	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSetLayout* layout)
+	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSet* descriptorSet)
 	{
+		auto layout = descriptorSet->getLayout();
 		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
 		{
 			auto descType = static_cast<asset::IDescriptor::E_TYPE>(descriptorType);
@@ -111,6 +113,7 @@ public:
 				}
 			}
 		}
+		m_descriptorSet = core::smart_refctd_ptr(descriptorSet);
 	}
 
 	~SubAllocatedDescriptorSet()
@@ -161,6 +164,7 @@ public:
 				continue;
 
 			outAddresses[i] = allocator->alloc_addr(1,1);
+			// TODO: should also write something to the descriptor set (or probably leave that to the caller?)
 		}
 	}
 	inline void multi_deallocate(uint32_t binding, size_type count, const size_type* addr)
@@ -174,6 +178,7 @@ public:
 				continue;
 
 			allocator->free_addr(addr[i],1);
+			// TODO: should also write something to the descriptor sets
 		}
 	}
 	//!
@@ -187,7 +192,7 @@ public:
 	inline void multi_deallocate(uint32_t binding, uint32_t count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
 	{
 		if (futureWait.semaphore)
-			multi_deallocate(futureWait, DeferredFreeFunctor(&m_composed, binding, count, addr));
+			multi_deallocate(futureWait, DeferredFreeFunctor(&this, binding, count, addr));
 		else
 			multi_deallocate(binding, count, addr);
 	}
