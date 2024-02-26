@@ -440,6 +440,9 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         hlslOptions
     );
 
+    if (arg_storage)
+        delete[] arg_storage;
+
     if (!compileResult.objectBlob)
     {
         return nullptr;

@@ -75,6 +75,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
+        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
