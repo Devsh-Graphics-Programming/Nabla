@@ -361,7 +361,6 @@ class ISwapchain : public IBackendObject
                 case ACQUIRE_IMAGE_RESULT::SUCCESS: [[fallthrough]];
                 case ACQUIRE_IMAGE_RESULT::SUBOPTIMAL:
                     m_acquireCounter++;
-                    //assert(!unacquired(out_imgIx)); // should happen in the impl anyway
                     {
                         auto semaphoreArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.signalSemaphores.size());
                         for (auto i=0ull; i<info.signalSemaphores.size(); i++)
@@ -495,7 +494,7 @@ class ISwapchain : public IBackendObject
         virtual core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) = 0;
         
         // The user needs to hold onto the old swapchain by themselves as well, because without the `KHR_swapchain_maintenance1` extension:
-        // - Images cannot be "unacquired", so all already acquired images of a swapchain (even if its retired) must be presented
+        // - Images cannot be "de-acquired", so all already acquired images of a swapchain (even if its retired) must be presented
         // - No way to query that the presentation is finished, so we can't destroy a swapchain just because we issued a present on all previously acquired images
         // This means new swapchain should hold onto the old swapchain for `getImageCount()` acquires or until an acquisition error.
         // But we don't handle the acquisition error case because we just presume swapchain will be recreated and eventually there will be one with enough acquisitions.
