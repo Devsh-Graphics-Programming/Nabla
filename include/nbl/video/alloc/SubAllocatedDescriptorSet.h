@@ -23,12 +23,49 @@ public:
 	using value_type = typename AddressAllocator::size_type;
 	static constexpr value_type invalid_value = AddressAllocator::invalid_address;
 
+	class DeferredFreeFunctor
+	{
+	public:
+		inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, value_type* addresses)
+			: m_addresses(addresses, addresses + count), m_binding(binding), m_composed(composed)
+		{
+		}
+
+		// Just does the de-allocation
+		inline void operator()()
+		{
+			// isn't assert already debug-only?
+			#ifdef _NBL_DEBUG
+			assert(m_composed);
+			#endif // _NBL_DEBUG
+			m_composed->multi_deallocate(m_binding, m_addresses.size(), &m_addresses[0]);
+		}
+
+		// Takes count of allocations we want to free up as reference, true is returned if
+		// the amount of allocations freed was >= allocationsToFreeUp
+		// False is returned if there are more allocations to free up
+		inline bool operator()(size_type allocationsToFreeUp)
+		{
+			auto prevCount = m_addresses.size();
+			operator()();
+			auto totalFreed = m_addresses.size() - prevCount;
+
+			// This does the same logic as bool operator()(size_type&) on 
+			// CAsyncSingleBufferSubAllocator
+			return totalFreed >= allocationsToFreeUp;
+		}
+	protected:
+		SubAllocatedDescriptorSet* m_composed;
+		uint32_t m_binding;
+		std::vector<value_type> m_addresses;
+	};
 protected:
 	struct SubAllocDescriptorSetRange {
 		std::shared_ptr<AddressAllocator> addressAllocator;
 		std::shared_ptr<ReservedAllocator> reservedAllocator;
 		size_t reservedSize;
 	};
+	MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler;
 	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 
 	#ifdef _NBL_DEBUG
@@ -39,6 +76,7 @@ protected:
 	constexpr static inline uint32_t MinDescriptorSetAllocationSize = 1u;
 
 public:
+
 	// constructors
 	template<typename... Args>
 	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSetLayout* layout)
@@ -100,16 +138,24 @@ public:
 
 	// main methods
 
-	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
-	inline void multi_allocate(uint32_t binding, uint32_t count, value_type* outAddresses)
+#ifdef _NBL_DEBUG
+	std::unique_lock<std::recursive_mutex> stAccessVerifyDebugGuard()
 	{
-		#ifdef _NBL_DEBUG
 		std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
 		assert(tLock.owns_lock());
-		#endif // _NBL_DEBUG
+		return tLock;
+	}
+#else
+	bool stAccessVerifyDebugGuard() { return false; }
+#endif
+
+	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
+	inline void multi_allocate(uint32_t binding, size_type count, value_type* outAddresses)
+	{
+		auto debugGuard = stAccessVerifyDebugGuard();
 
 		auto allocator = getBindingAllocator(binding);
-		for (uint32_t i=0; i<count; i++)
+		for (size_type i=0; i<count; i++)
 		{
 			if (outAddresses[i]!=AddressAllocator::invalid_address)
 				continue;
@@ -117,21 +163,39 @@ public:
 			outAddresses[i] = allocator->alloc_addr(1,1);
 		}
 	}
-	inline void multi_deallocate(uint32_t binding, uint32_t count, const size_type* addr)
+	inline void multi_deallocate(uint32_t binding, size_type count, const size_type* addr)
 	{
-		#ifdef _NBL_DEBUG
-		std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
-		assert(tLock.owns_lock());
-		#endif // _NBL_DEBUG
+		auto debugGuard = stAccessVerifyDebugGuard();
 
 		auto allocator = getBindingAllocator(binding);
-		for (uint32_t i=0; i<count; i++)
+		for (size_type i=0; i<count; i++)
 		{
 			if (addr[i]==AddressAllocator::invalid_address)
 				continue;
 
 			allocator->free_addr(addr[i],1);
 		}
+	}
+	//!
+	inline void multi_deallocate(const ISemaphore::SWaitInfo& futureWait, DeferredFreeFunctor&& functor) noexcept
+	{
+		auto debugGuard = stAccessVerifyDebugGuard();
+		eventHandler.latch(futureWait,std::move(functor));
+	}
+	// TODO: improve signature of this function in the future
+	template<typename T=core::IReferenceCounted>
+	inline void multi_deallocate(uint32_t binding, uint32_t count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
+	{
+		if (futureWait.semaphore)
+			multi_deallocate(futureWait, DeferredFreeFunctor(&m_composed, binding, count, addr));
+		else
+			multi_deallocate(binding, count, addr);
+	}
+	//! Returns free events still outstanding
+	inline uint32_t cull_frees() noexcept
+	{
+		auto debugGuard = stAccessVerifyDebugGuard();
+		return eventHandler.poll().eventsLeft;
 	}
 };
 
