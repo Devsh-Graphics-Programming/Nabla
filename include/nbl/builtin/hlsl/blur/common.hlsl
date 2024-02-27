@@ -4,7 +4,7 @@
 #define _NBL_BOX_BLUR_COMMONS_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/bit.hlsl>
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 //_NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKGROUP_SIZE = 256u;
 //_NBL_STATIC_INLINE_CONSTEXPR uint32_t PASSES_PER_AXIS = 3u;
@@ -37,21 +37,21 @@ struct BoxBlurParams
 
     uint32_t getDirection()
     {
-        return nbl::hlsl::bitfield_extract_unsigned( inputDimensions.w, 30, 2 );
+		return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 30, 2 );
     }
     uint32_t getChannelCount()
     {
-        return nbl::hlsl::bitfield_extract_unsigned( inputDimensions.w, 27, 3 );
+        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 27, 3 );
     }
 
     uint32_t getWrapMode()
     {
-        return nbl::hlsl::bitfield_extract_unsigned( inputDimensions.w, 25, 2 );
+        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 25, 2 );
     }
 
     uint32_t getBorderColorType()
     {
-        return nbl::hlsl::bitfield_extract_unsigned( inputDimensions.w, 22, 3 );
+        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 22, 3 );
     }
 	nbl::hlsl::float32_t4 getBorderColor()
 	{

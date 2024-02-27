@@ -31,7 +31,7 @@ struct ScratchProxy
 	{
 		return nbl::hlsl::bit_cast< T, uint32_t >( scratch[ ix + offset ] );
 	}
-	void set( const uint32_t ix, const T value )
+	void set( const uint32_t ix, NBL_CONST_REF_ARG(T) value )
 	{
 		scratch[ ix + offset ] = nbl::hlsl::bit_cast< uint32_t, T >( value );
 	}
@@ -42,23 +42,24 @@ struct ScratchProxy
 	}
 };
 
-static ScratchProxy<float32_t, 0> prefixSumsAccessor; 
-static ScratchProxy<float32_t, arithmeticSz> broadcastAccessor;
+ScratchProxy<float32_t, 0> prefixSumsAccessor; 
+ScratchProxy<float32_t, arithmeticSz> broadcastAccessor;
 
 struct prefix_sum_t
 {
-	using type_t = nbl::hlsl::plus<float32_t>::type_t;
-
+	using bin_op_t = nbl::hlsl::plus<float32_t>;
+	using type_t = bin_op_t::type_t;
+	
 	type_t operator()( type_t value )
 	{
-		type_t retval = nbl::hlsl::workgroup::inclusive_scan<nbl::hlsl::plus<float32_t>, ITEMS_PER_WG>::template __call<ScratchProxy<float32_t, 0> >( value, prefixSumsAccessor );
+		type_t retval = nbl::hlsl::workgroup::inclusive_scan<bin_op_t, ITEMS_PER_WG>::template __call<ScratchProxy<float32_t, 0> >( value, prefixSumsAccessor );
 		// we barrier before because we alias the accessors for Binop
 		prefixSumsAccessor.workgroupExecutionAndMemoryBarrier();
 		return retval;
 	}
 };
 
-static prefix_sum_t workgroupPrefixSum;
+//prefix_sum_t workgroupPrefixSum;
 
 
 // Todo: This spillage calculation is hacky! The lower bound of `_NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_` is just an adhoc
@@ -122,15 +123,17 @@ void BoxBlur(
 		float32_t spill[ LOCAL_SPILLAGE ];
 		for( uint32_t i = 0u; i < LOCAL_SPILLAGE; ++i )
 		{
-			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
+			float32_t scanResult = 0;// workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
 			spill[ i ] =  scanResult;
-			previousBlockSum = nbl::hlsl::workgroup::Broadcast( spill[ i ], broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			//previousBlockSum = nbl::hlsl::workgroup::Broadcast( 
+			//	spill[ i ],  broadcastAccessor, gl_WorkGroupSize().x - 1u );
 		}
 
 		for( uint32_t i = LOCAL_SPILLAGE; i < ITEMS_PER_THREAD; ++i )
 		{
-			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
-			previousBlockSum = nbl::hlsl::workgroup::Broadcast( scanResult, broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			float32_t scanResult = 0; // workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
+			//previousBlockSum = nbl::hlsl::workgroup::Broadcast( 
+			//	scanResult, broadcastAccessor, gl_WorkGroupSize().x - 1u );
 
 			uint32_t idx = IndexInSharedMemory( i );
 			prefixSumsAccessor.set( idx, scanResult );

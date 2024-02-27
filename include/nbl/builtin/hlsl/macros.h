@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
 
 #ifdef __HLSL_VERSION 
-#define static_assert(...) _Static_assert(__VA_ARGS__)
+#define static_assert(...) bool nada //_Static_assert(__VA_ARGS__)
 // TODO: switch between enabled and disabled depending on Nabla build config
 #define assert(expr) \
 { \
