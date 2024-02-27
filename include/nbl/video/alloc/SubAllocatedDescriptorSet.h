@@ -89,6 +89,7 @@ protected:
 	};
 	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
+	core::smart_refctd_ptr<video::ILogicalDevice> m_logicalDevice;
 
 	#ifdef _NBL_DEBUG
 	std::recursive_mutex stAccessVerfier;
@@ -100,7 +101,8 @@ protected:
 public:
 
 	// constructors
-	inline SubAllocatedDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& descriptorSet)
+	inline SubAllocatedDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& descriptorSet,
+		core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_logicalDevice(std::move(logicalDevice))
 	{
 		auto layout = descriptorSet->getLayout();
 		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
@@ -174,12 +176,20 @@ public:
 	bool stAccessVerifyDebugGuard() { return false; }
 #endif
 
+	video::IGPUDescriptorSet* getDescriptorSet() { return m_descriptorSet.get(); }
+
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
-	inline void multi_allocate(uint32_t binding, size_type count, value_type* outAddresses)
+	inline void multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses)
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
 		auto allocator = getBindingAllocator(binding);
+
+		std::vector<video::IGPUDescriptorSet::SWriteDescriptorSet> writes;
+		std::vector<video::IGPUDescriptorSet::SDescriptorInfo> infos;
+		writes.reserve(count);
+		infos.reserve(count);
+
 		for (size_type i=0; i<count; i++)
 		{
 			if (outAddresses[i]!=AddressAllocator::invalid_address)
@@ -187,7 +197,25 @@ public:
 
 			outAddresses[i] = allocator->alloc_addr(1,1);
 			// TODO: should also write something to the descriptor set (or probably leave that to the caller?)
+
+			auto& descriptor = descriptors[i];
+			
+			video::IGPUDescriptorSet::SWriteDescriptorSet write;
+			{
+				write.dstSet = m_descriptorSet.get();
+				write.binding = binding;
+				write.arrayElement = outAddresses[i];
+				write.count = 1u;
+				// descriptors could be a const pointer, but the problem is that this pointer in
+				// SWriteDescriptorSet.info isn't const
+				// can we change it?
+				write.info = &descriptor;
+			}
+			infos.push_back(descriptor);
+			writes.push_back(write);
 		}
+
+		m_logicalDevice->updateDescriptorSets(writes, {});
 	}
 	inline void multi_deallocate(uint32_t binding, size_type count, const size_type* addr)
 	{
