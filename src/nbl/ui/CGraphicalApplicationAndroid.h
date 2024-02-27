@@ -4,10 +4,11 @@
 #include "nbl/system/CApplicationAndroid.h"
 #include "nbl/system/CSystemAndroid.h"
 
-#include "nbl/ui/IGraphicalApplicationFramework.h"
 #include "nbl/ui/CWindowManagerAndroid.h"
 
 #ifdef _NBL_PLATFORM_ANDROID_
+#include "nbl/ui/IGraphicalApplicationFramework.h"
+
 #include <jni.h>
 #include <fstream>
 namespace nbl::ui

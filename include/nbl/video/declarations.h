@@ -35,6 +35,7 @@
 #include "nbl/video/utilities/IUtilities.h"
 #include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
 #include "nbl/video/utilities/SPhysicalDeviceFilter.h"
+#include "nbl/video/utilities/ISimpleManagedSurface.h"
 
 //VT
 //#include "nbl/video/CGPUMeshPackerV2.h"
