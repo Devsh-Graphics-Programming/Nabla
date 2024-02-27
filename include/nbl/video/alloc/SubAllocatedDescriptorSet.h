@@ -64,9 +64,10 @@ public:
 		uint32_t m_binding;
 		std::vector<value_type> m_addresses;
 	};
+	using EventHandler = MultiTimelineEventHandlerST<DeferredFreeFunctor>;
 protected:
 	struct SubAllocDescriptorSetRange {
-		MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler = MultiTimelineEventHandlerST<DeferredFreeFunctor>({});
+		EventHandler eventHandler = EventHandler({});
 		std::unique_ptr<AddressAllocator> addressAllocator = nullptr;
 		std::unique_ptr<ReservedAllocator> reservedAllocator = nullptr;
 		size_t reservedSize = 0;
@@ -179,7 +180,7 @@ public:
 	video::IGPUDescriptorSet* getDescriptorSet() { return m_descriptorSet.get(); }
 
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
-	inline void multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses)
+	inline size_type try_multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses)
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
@@ -190,13 +191,18 @@ public:
 		writes.reserve(count);
 		infos.reserve(count);
 
+		size_type unallocatedSize = 0u;
 		for (size_type i=0; i<count; i++)
 		{
 			if (outAddresses[i]!=AddressAllocator::invalid_address)
 				continue;
 
 			outAddresses[i] = allocator->alloc_addr(1,1);
-			// TODO: should also write something to the descriptor set (or probably leave that to the caller?)
+			if (outAddresses[i] == AddressAllocator::invalid_address)
+			{
+				unallocatedSize = count - i;
+				break;
+			}
 
 			auto& descriptor = descriptors[i];
 			
@@ -216,12 +222,56 @@ public:
 		}
 
 		m_logicalDevice->updateDescriptorSets(writes, {});
+		return unallocatedSize;
 	}
+
+	template<class Clock=typename std::chrono::steady_clock>
+	inline size_type multi_allocate(const std::chrono::time_point<Clock>& maxWaitPoint, uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses) noexcept
+	{
+		auto debugGuard = stAccessVerifyDebugGuard();
+
+		auto range = m_allocatableRanges.find(binding);
+		// Check if this binding has an allocator
+		if (range == m_allocatableRanges.end())
+			return count;
+
+		auto& eventHandler = range->second.eventHandler;
+
+		// try allocate once
+		size_type unallocatedSize = try_multi_allocate(binding, count, descriptors, outAddresses);
+		if (!unallocatedSize)
+			return 0u;
+
+		// then try to wait at least once and allocate
+		do
+		{
+			eventHandler.wait(maxWaitPoint, unallocatedSize);
+
+			unallocatedSize = try_multi_allocate(binding, unallocatedSize, &descriptors[count - unallocatedSize], &outAddresses[count - unallocatedSize]);
+			if (!unallocatedSize)
+				return 0u;
+		} while(Clock::now()<maxWaitPoint);
+
+		return unallocatedSize;
+	}
+
+	inline size_type multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses) noexcept
+	{
+		auto range = m_allocatableRanges.find(binding);
+		// Check if this binding has an allocator
+		if (range == m_allocatableRanges.end())
+			return count;
+
+		return multi_allocate(TimelineEventHandlerBase::default_wait(), binding, count, descriptors, outAddresses);
+	}
+
 	inline void multi_deallocate(uint32_t binding, size_type count, const size_type* addr)
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
 		auto allocator = getBindingAllocator(binding);
+		if (!allocator)
+			return;
 		for (size_type i=0; i<count; i++)
 		{
 			if (addr[i]==AddressAllocator::invalid_address)
@@ -231,7 +281,7 @@ public:
 			// TODO: should also write something to the descriptor sets
 		}
 	}
-	//!
+
 	inline void multi_deallocate(uint32_t binding, const ISemaphore::SWaitInfo& futureWait, DeferredFreeFunctor&& functor) noexcept
 	{
 		auto range = m_allocatableRanges.find(binding);
@@ -243,7 +293,7 @@ public:
 		auto debugGuard = stAccessVerifyDebugGuard();
 		eventHandler.latch(futureWait,std::move(functor));
 	}
-	// TODO: improve signature of this function in the future
+
 	inline void multi_deallocate(uint32_t binding, size_type count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
 	{
 		if (futureWait.semaphore)
