@@ -8,6 +8,7 @@
 #include "nbl/video/alloc/IBufferAllocator.h"
 
 #include <type_traits>
+#include <map>
 
 namespace nbl::video
 {
@@ -65,10 +66,10 @@ public:
 	};
 protected:
 	struct SubAllocDescriptorSetRange {
-		MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler;
-		std::unique_ptr<AddressAllocator> addressAllocator;
-		std::unique_ptr<ReservedAllocator> reservedAllocator;
-		size_t reservedSize;
+		MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler = MultiTimelineEventHandlerST<DeferredFreeFunctor>({});
+		std::unique_ptr<AddressAllocator> addressAllocator = nullptr;
+		std::unique_ptr<ReservedAllocator> reservedAllocator = nullptr;
+		size_t reservedSize = 0;
 
 		SubAllocDescriptorSetRange(
 			std::unique_ptr<AddressAllocator>&& inAddressAllocator,
@@ -76,7 +77,15 @@ protected:
 			size_t inReservedSize) :
 			eventHandler({}), addressAllocator(std::move(inAddressAllocator)),
 			reservedAllocator(std::move(inReservedAllocator)), reservedSize(inReservedSize) {}
+		SubAllocDescriptorSetRange() {}
 
+		SubAllocDescriptorSetRange& operator=(SubAllocDescriptorSetRange&& other)
+		{
+			addressAllocator = std::move(other.addressAllocator);
+			reservedAllocator = std::move(other.reservedAllocator);
+			reservedSize = other.reservedSize;
+			return *this;
+		}
 	};
 	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
@@ -119,7 +128,8 @@ public:
 						static_cast<size_type>(0), 0u, MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count),
 						MinDescriptorSetAllocationSize
 					));
-					m_allocatableRanges.emplace(binding.data, SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize));
+
+					m_allocatableRanges[binding.data] = SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize);
 				}
 			}
 		}
