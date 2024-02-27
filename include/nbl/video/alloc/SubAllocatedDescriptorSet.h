@@ -26,7 +26,7 @@ public:
 	class DeferredFreeFunctor
 	{
 	public:
-		inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, value_type* addresses)
+		inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, const value_type* addresses)
 			: m_addresses(addresses, addresses + count), m_binding(binding), m_composed(composed)
 		{
 		}
@@ -38,13 +38,13 @@ public:
 			#ifdef _NBL_DEBUG
 			assert(m_composed);
 			#endif // _NBL_DEBUG
-			m_composed->multi_deallocate(m_binding, m_addresses.size(), &m_addresses[0]);
+			m_composed->multi_deallocate(m_binding, m_addresses.size(), m_addresses.data());
 		}
 
 		// Takes count of allocations we want to free up as reference, true is returned if
 		// the amount of allocations freed was >= allocationsToFreeUp
 		// False is returned if there are more allocations to free up
-		inline bool operator()(size_type allocationsToFreeUp)
+		inline bool operator()(size_type& allocationsToFreeUp)
 		{
 			auto prevCount = m_addresses.size();
 			operator()();
@@ -52,7 +52,11 @@ public:
 
 			// This does the same logic as bool operator()(size_type&) on 
 			// CAsyncSingleBufferSubAllocator
-			return totalFreed >= allocationsToFreeUp;
+			bool freedEverything = totalFreed >= allocationsToFreeUp;
+		
+			if (freedEverything) allocationsToFreeUp = 0u;
+			else allocationsToFreeUp -= totalFreed;
+			return freedEverything;
 		}
 	protected:
 		SubAllocatedDescriptorSet* m_composed;
@@ -61,11 +65,19 @@ public:
 	};
 protected:
 	struct SubAllocDescriptorSetRange {
-		std::shared_ptr<AddressAllocator> addressAllocator;
-		std::shared_ptr<ReservedAllocator> reservedAllocator;
+		MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler;
+		std::unique_ptr<AddressAllocator> addressAllocator;
+		std::unique_ptr<ReservedAllocator> reservedAllocator;
 		size_t reservedSize;
+
+		SubAllocDescriptorSetRange(
+			std::unique_ptr<AddressAllocator>&& inAddressAllocator,
+			std::unique_ptr<ReservedAllocator>&& inReservedAllocator,
+			size_t inReservedSize) :
+			eventHandler({}), addressAllocator(std::move(inAddressAllocator)),
+			reservedAllocator(std::move(inReservedAllocator)), reservedSize(inReservedSize) {}
+
 	};
-	MultiTimelineEventHandlerST<DeferredFreeFunctor> eventHandler;
 	std::map<uint32_t, SubAllocDescriptorSetRange> m_allocatableRanges = {};
 	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_descriptorSet;
 
@@ -79,8 +91,7 @@ protected:
 public:
 
 	// constructors
-	template<typename... Args>
-	inline SubAllocatedDescriptorSet(video::IGPUDescriptorSet* descriptorSet)
+	inline SubAllocatedDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& descriptorSet)
 	{
 		auto layout = descriptorSet->getLayout();
 		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
@@ -101,19 +112,18 @@ public:
 					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT
 					| IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT))
 				{
-					SubAllocDescriptorSetRange range;
-					range.reservedSize = AddressAllocator::reserved_size(MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count), MinDescriptorSetAllocationSize);
-					range.reservedAllocator = std::shared_ptr<ReservedAllocator>(new ReservedAllocator());
-					range.addressAllocator = std::shared_ptr<AddressAllocator>(new AddressAllocator(
-						range.reservedAllocator->allocate(range.reservedSize, _NBL_SIMD_ALIGNMENT),
+					auto reservedSize = AddressAllocator::reserved_size(MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count), MinDescriptorSetAllocationSize);
+					auto reservedAllocator = std::unique_ptr<ReservedAllocator>(new ReservedAllocator());
+					auto addressAllocator = std::unique_ptr<AddressAllocator>(new AddressAllocator(
+						reservedAllocator->allocate(reservedSize, _NBL_SIMD_ALIGNMENT),
 						static_cast<size_type>(0), 0u, MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count),
 						MinDescriptorSetAllocationSize
 					));
-					m_allocatableRanges.emplace(binding.data, range);
+					m_allocatableRanges.emplace(binding.data, SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize));
 				}
 			}
 		}
-		m_descriptorSet = core::smart_refctd_ptr(descriptorSet);
+		m_descriptorSet = std::move(descriptorSet);
 	}
 
 	~SubAllocatedDescriptorSet()
@@ -135,7 +145,9 @@ public:
 	AddressAllocator* getBindingAllocator(uint32_t binding) 
 	{ 
 		auto range = m_allocatableRanges.find(binding);
-		assert(range != m_allocatableRanges.end());// Check if this binding has an allocator
+		// Check if this binding has an allocator
+		if (range == m_allocatableRanges.end())
+			return nullptr;
 		return range->second.addressAllocator.get(); 
 	}
 
@@ -182,17 +194,22 @@ public:
 		}
 	}
 	//!
-	inline void multi_deallocate(const ISemaphore::SWaitInfo& futureWait, DeferredFreeFunctor&& functor) noexcept
+	inline void multi_deallocate(uint32_t binding, const ISemaphore::SWaitInfo& futureWait, DeferredFreeFunctor&& functor) noexcept
 	{
+		auto range = m_allocatableRanges.find(binding);
+		// Check if this binding has an allocator
+		if (range == m_allocatableRanges.end())
+			return;
+
+		auto& eventHandler = range->second.eventHandler;
 		auto debugGuard = stAccessVerifyDebugGuard();
 		eventHandler.latch(futureWait,std::move(functor));
 	}
 	// TODO: improve signature of this function in the future
-	template<typename T=core::IReferenceCounted>
-	inline void multi_deallocate(uint32_t binding, uint32_t count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
+	inline void multi_deallocate(uint32_t binding, size_type count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
 	{
 		if (futureWait.semaphore)
-			multi_deallocate(futureWait, DeferredFreeFunctor(&this, binding, count, addr));
+			multi_deallocate(binding, futureWait, DeferredFreeFunctor(this, binding, count, addr));
 		else
 			multi_deallocate(binding, count, addr);
 	}
@@ -200,7 +217,13 @@ public:
 	inline uint32_t cull_frees() noexcept
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
-		return eventHandler.poll().eventsLeft;
+		uint32_t frees = 0;
+		for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
+		{
+			auto& it = m_allocatableRanges[i];
+			frees += it.eventHandler.poll().eventsLeft;
+		}
+		return frees;
 	}
 };
 
