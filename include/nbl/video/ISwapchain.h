@@ -37,6 +37,9 @@ class ISwapchain : public IBackendObject
                     return false;
                 if (height<caps.minImageExtent.height || height>caps.maxImageExtent.height)
                     return false;
+                // surface caps might report `minImageExtent=={0,0}` but thats not valid anyway according to Vulkan specification
+                if (width==0 || height==0)
+                    return false;
                 if (hlsl::bitCount(compositeAlpha.value)!=1 || !caps.supportedCompositeAlpha.hasFlags(compositeAlpha))
                     return false;
                 if (arrayLayers==0 || arrayLayers>caps.maxImageArrayLayers)
@@ -147,8 +150,8 @@ class ISwapchain : public IBackendObject
                 // in case of no preferred list
                 if (preTransform.hasFlags(caps.currentTransform))
                     preTransform = caps.currentTransform;
-
-                assert(valid(physDev,surface));
+                
+                // we might deduce invalid, because of 0-sized renderareas
                 return true;
             }
 
@@ -332,6 +335,7 @@ class ISwapchain : public IBackendObject
             TIMEOUT,
             NOT_READY,
             SUBOPTIMAL,
+            OUT_OF_DATE,
             _ERROR // GDI macros getting in the way of just ERROR
         };
         // Even though in Vulkan image acquisition is not a queue operation, we perform a micro-submit to adapt a Timeline Semaphore to work with it 
@@ -357,7 +361,6 @@ class ISwapchain : public IBackendObject
                 case ACQUIRE_IMAGE_RESULT::SUCCESS: [[fallthrough]];
                 case ACQUIRE_IMAGE_RESULT::SUBOPTIMAL:
                     m_acquireCounter++;
-                    //assert(!unacquired(out_imgIx)); // should happen in the impl anyway
                     {
                         auto semaphoreArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.signalSemaphores.size());
                         for (auto i=0ull; i<info.signalSemaphores.size(); i++)
@@ -385,6 +388,7 @@ class ISwapchain : public IBackendObject
             FATAL_ERROR = -1,
             SUCCESS = 0,
             SUBOPTIMAL,
+            OUT_OF_DATE,
             _ERROR
         };
         // If `FATAL_ERROR` returned then the `frameResources` are not latched until the next acquire of the same image index or swapchain destruction (whichever comes first)
@@ -422,6 +426,10 @@ class ISwapchain : public IBackendObject
 
         inline bool acquiredImagesAwaitingPresent()
         {
+            // this method is often used to determine whether a swapchain can be thrown away or to spin until all presents are ready, so also need to check ancestors
+            if (m_oldSwapchain && m_oldSwapchain->acquiredImagesAwaitingPresent())
+                return true;
+
             for (uint8_t i=0; i<m_imageCount; i++)
             {
                 if (unacquired(i))
@@ -449,9 +457,13 @@ class ISwapchain : public IBackendObject
         };
 
         // utility function
-        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams&& params={})
+        inline bool deduceRecreationParams(SSharedCreationParams& params) const
         {
-            if (!params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1}))
+            return params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1});
+        }
+        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params={})
+        {
+            if (!deduceRecreationParams(params))
                 return nullptr;
             return recreate_impl(std::move(params));
         }
@@ -482,7 +494,7 @@ class ISwapchain : public IBackendObject
         virtual core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) = 0;
         
         // The user needs to hold onto the old swapchain by themselves as well, because without the `KHR_swapchain_maintenance1` extension:
-        // - Images cannot be "unacquired", so all already acquired images of a swapchain (even if its retired) must be presented
+        // - Images cannot be "de-acquired", so all already acquired images of a swapchain (even if its retired) must be presented
         // - No way to query that the presentation is finished, so we can't destroy a swapchain just because we issued a present on all previously acquired images
         // This means new swapchain should hold onto the old swapchain for `getImageCount()` acquires or until an acquisition error.
         // But we don't handle the acquisition error case because we just presume swapchain will be recreated and eventually there will be one with enough acquisitions.

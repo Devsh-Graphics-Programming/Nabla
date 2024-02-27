@@ -30,8 +30,9 @@ class CVulkanSwapchain final : public ISwapchain
             const uint32_t imageCount,
             core::smart_refctd_ptr<CVulkanSwapchain>&& oldSwapchain,
             const VkSwapchainKHR swapchain,
-            const VkSemaphore* const _adaptorSemaphores,
-            const VkFence* const _prePresentFences
+            const VkSemaphore* const _acquireAdaptorSemaphores,
+            const VkSemaphore* const _prePresentSemaphores,
+            const VkSemaphore* const _presentAdaptorSemaphores
         );
         ~CVulkanSwapchain();
 
@@ -45,8 +46,9 @@ class CVulkanSwapchain final : public ISwapchain
         const VkSwapchainKHR m_vkSwapchainKHR;
         VkImage m_images[ISwapchain::MaxImages];
         VkSemaphore m_acquireAdaptorSemaphores[ISwapchain::MaxImages];
-        VkFence m_prePresentFences[ISwapchain::MaxImages];
+        VkSemaphore m_prePresentSemaphores[ISwapchain::MaxImages];
         VkSemaphore m_presentAdaptorSemaphores[ISwapchain::MaxImages];
+        uint64_t m_perImageAcquireCount[ISwapchain::MaxImages] = { 0 };
         // nasty way to fight UB of the Vulkan spec
         bool m_needToWaitIdle = true;
 };

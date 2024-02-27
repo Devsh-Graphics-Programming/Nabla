@@ -3,7 +3,6 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 
 #ifndef __HLSL_VERSION

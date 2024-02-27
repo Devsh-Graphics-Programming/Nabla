@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 namespace nbl 
 {
@@ -84,7 +85,6 @@ void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
 
-
 namespace impl 
 {
 
@@ -96,7 +96,7 @@ struct bitfieldExtract<T, isSigned, false>
 {
     T operator()( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        static_assert(is_integral<T>::value, "T is not an integral type!" )
+        static_assert( is_integral<T>::value, "T is not an integral type!" );
         return val;
     }
 };
@@ -124,7 +124,8 @@ struct bitfieldExtract<T, false, true>
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>( val, offsetBits, numBits );
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template 
+        ( val, offsetBits, numBits );
 }
 
 #endif
