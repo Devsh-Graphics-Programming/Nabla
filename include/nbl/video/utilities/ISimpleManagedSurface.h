@@ -180,6 +180,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		inline uint64_t getAcquireCount() {return m_acquireCount;}
 		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphore.get();}
 
+	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
+		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
+		virtual inline ~ISimpleManagedSurface() = default;
+
 		// RETURNS: Negative on failure, otherwise its the acquired image's index.
 		inline int8_t acquireNextImage()
 		{
@@ -224,6 +228,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 						assert(false); // shouldn't happen though cause we use uint64_t::max() as the timeout
 						break;
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::OUT_OF_DATE:
+						getSwapchainResources().invalidate();
 						// try again, will re-create swapchain
 						{
 							const int8_t retval = handleOutOfDate();
@@ -241,7 +246,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		// Frame Resources are not optional, shouldn't be null!
 		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores, core::smart_refctd_ptr<core::IReferenceCounted>&& frameResources)
 		{
-			if (getSwapchainResources().getStatus()!=ISwapchainResources::STATUS::USABLE || waitSemaphores.empty() || !frameResources)
+			if (getSwapchainResources().getStatus()!=ISwapchainResources::STATUS::USABLE || !frameResources)
 				return false;
 
 			const ISwapchain::SPresentInfo info = {
@@ -264,18 +269,14 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			return false;
 		}
 
-		// Utility function for more complex Managed Surfaces, it does not increase the `m_acquireCount` but does acquire and present immediately
 		using image_barrier_t = IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>;
-		bool immediateBlit(const image_barrier_t& contents, IQueue* blitQueue=nullptr);
-
-	protected:
-		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
-		virtual inline ~ISimpleManagedSurface() = default;
+		// Utility function for more complex Managed Surfaces, it does not increase the `m_acquireCount` but does acquire and present immediately
+		bool immediateBlit(const image_barrier_t& contents, const IQueue::SSubmitInfo::SSemaphoreInfo& waitBeforeBlit, CThreadSafeQueueAdapter* blitAndPresentQueue);
 
 		virtual ISwapchainResources& getSwapchainResources() = 0;
 
 		// generally used to check that per-swapchain resources can be created (including the swapchain itself)
-		virtual bool init_impl(IQueue* queue, const ISwapchain::SSharedCreationParams& sharedParams) = 0;
+		virtual bool init_impl(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams) = 0;
 
 		// handlers for acquisition exceptions
 		virtual bool handleNotReady() = 0;

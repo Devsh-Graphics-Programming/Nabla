@@ -4,29 +4,43 @@ using namespace nbl;
 using namespace video;
 
 
-bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueue* blitQueue)
+bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, const IQueue::SSubmitInfo::SSemaphoreInfo& waitBeforeBlit, CThreadSafeQueueAdapter* blitAndPresentQueue)
 {
-	if (!contents.image || !m_queue)
+	auto& swapchainResources = getSwapchainResources();
+	if (!contents.image || swapchainResources.getStatus()!=ISwapchainResources::STATUS::USABLE)
 		return false;
 
-	auto device = const_cast<ILogicalDevice*>(m_queue->getOriginDevice());
-	const auto qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
-	if (!blitQueue)
+	auto* swapchain = swapchainResources.getSwapchain();
+	assert(swapchain); // because status is usable
+	auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
+	
+	// check queue provided
 	{
-		// default to using the presentation queue if it can blit
-		if (qFamProps[m_queue->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
-			blitQueue = m_queue;
-		else // just pick first compatible
-		for (uint8_t qFam=0; qFam<ILogicalDevice::MaxQueueFamilies; qFam++)
-		if (device->getQueueCount(qFam) && qFamProps[qFam].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+		const auto qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
+		auto compatibleQueue = [&](const uint8_t qFam)->bool
 		{
-			blitQueue = device->getThreadSafeQueue(qFam,0);
-			break;
+			return qFamProps[qFam].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT) && m_surface->isSupportedForPhysicalDevice(device->getPhysicalDevice(),qFam);
+		};
+		// pick if default wanted
+		if (!blitAndPresentQueue)
+		{
+			for (uint8_t qFam=0; qFam<ILogicalDevice::MaxQueueFamilies; qFam++)
+			{
+				const auto qCount = device->getQueueCount(qFam);
+				if (qCount && qFamProps[qFam].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+				{
+					// pick a different queue than we'd pick for a regular present
+					blitAndPresentQueue = device->getThreadSafeQueue(qFam,0);
+					if (blitAndPresentQueue==m_queue)
+						blitAndPresentQueue = device->getThreadSafeQueue(qFam,qCount-1);
+					break;
+				}
+			}
 		}
-	}
 
-	if (!blitQueue || qFamProps[blitQueue->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
-		return false;
+		if (!blitAndPresentQueue || compatibleQueue(blitAndPresentQueue->getFamilyIndex()))
+			return false;
+	}
 
 	// create a different semaphore so we don't increase the acquire counter in `this`
 	auto semaphore = device->createSemaphore(0);
@@ -36,26 +50,42 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 	// transient commandbuffer and pool to perform the blit
 	core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
 	{
-		auto pool = device->createCommandPool(blitQueue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+		auto pool = device->createCommandPool(blitAndPresentQueue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
 		if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{&cmdbuf,1}) || !cmdbuf)
+			return false;
+
+		if (!cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
 			return false;
 	}
 	
-	const IQueue::SSubmitInfo::SSemaphoreInfo acquired[1] = {
-		{
-			.semaphore=semaphore.get(),
-			.value=1
-		}
+	const IQueue::SSubmitInfo::SSemaphoreInfo acquired = {
+		.semaphore=semaphore.get(),
+		.value=1
 	};
 	// acquire
-	;
+	uint32_t imageIndex;
+	switch (swapchain->acquireNextImage({.queue=blitAndPresentQueue,.signalSemaphores={&acquired,1}},&imageIndex))
+	{
+		case ISwapchain::ACQUIRE_IMAGE_RESULT::SUBOPTIMAL: [[fallthrough]];
+		case ISwapchain::ACQUIRE_IMAGE_RESULT::SUCCESS:
+			break;
+		case ISwapchain::ACQUIRE_IMAGE_RESULT::TIMEOUT: [[fallthrough]];
+		case ISwapchain::ACQUIRE_IMAGE_RESULT::NOT_READY: // don't throw our swapchain away just because of a timeout XD
+			assert(false); // shouldn't happen though cause we use uint64_t::max() as the timeout
+			return false;
+		case ISwapchain::ACQUIRE_IMAGE_RESULT::OUT_OF_DATE:
+			swapchainResources.invalidate();
+			return false;
+		default:
+			swapchainResources.becomeIrrecoverable();
+			return false;
+	}
+	// once image is acquired, WE HAVE TO present it
+	bool retval = true;
 
 	// now record the blit commands
-	auto acquiredImage = getSwapchainResources().getImage(0xffu);
+	auto acquiredImage = swapchainResources.getImage(imageIndex);
 	{
-		if (!cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-			return false;
-
 		const auto blitSrcLayout = IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL;
 		const auto blitDstLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL;
 		IGPUCommandBuffer::SPipelineBarrierDependencyInfo depInfo = {};
@@ -100,8 +130,7 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 			}
 		};
 		depInfo.imgBarriers = preBarriers;
-		if (!cmdbuf->pipelineBarrier(asset::EDF_NONE,depInfo))
-			return false;
+		retval &= cmdbuf->pipelineBarrier(asset::EDF_NONE,depInfo);
 		
 		// TODO: Implement scaling modes other than plain STRETCH, and allow for using subrectangles of the initial contents
 		{
@@ -117,8 +146,7 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 				.dstBaseLayer = 0,
 				.srcMipLevel = 0 // TODO
 			}};
-			if (!cmdbuf->blitImage(contents.image,blitSrcLayout,acquiredImage,blitDstLayout,regions,IGPUSampler::ETF_LINEAR))
-				return false;
+			retval &= cmdbuf->blitImage(contents.image,blitSrcLayout,acquiredImage,blitDstLayout,regions,IGPUSampler::ETF_LINEAR);
 		}
 
 		// barrier after
@@ -148,14 +176,54 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 			}
 		};
 		depInfo.imgBarriers = postBarriers;
-		if (!cmdbuf->pipelineBarrier(asset::EDF_NONE,depInfo))
-			return false;
+		retval &= cmdbuf->pipelineBarrier(asset::EDF_NONE,depInfo);
+
+		retval &= cmdbuf->end();
 	}
 
+	const IQueue::SSubmitInfo::SSemaphoreInfo blitted[1] = {
+		{
+			.semaphore = semaphore.get(),
+			.value = 2,
+			.stageMask = asset::PIPELINE_STAGE_FLAGS::BLIT_BIT
+		}
+	};
 	// submit
+	{
+		const IQueue::SSubmitInfo::SSemaphoreInfo wait[2] = {acquired,waitBeforeBlit};
+		const IQueue::SSubmitInfo::SCommandBufferInfo cmdbufs[1] = {{.cmdbuf=cmdbuf.get()}};
+		IQueue::SSubmitInfo infos[1] = {
+			{
+				.waitSemaphores = wait,
+				.commandBuffers = cmdbufs,
+				.signalSemaphores = blitted
+			}
+		};
+		retval &= blitAndPresentQueue->submit(infos)==IQueue::RESULT::SUCCESS;
+	}
 
-	// present
-	;
-
-	return true;
+	// present			
+	switch (swapchainResources.swapchain->present({.queue=blitAndPresentQueue,.imgIndex=imageIndex,.waitSemaphores=blitted},std::move(cmdbuf)))
+	{
+		case ISwapchain::PRESENT_RESULT::SUBOPTIMAL: [[fallthrough]];
+		case ISwapchain::PRESENT_RESULT::SUCCESS:
+			// all resources can be dropped, the swapchain will hold onto them
+			return retval;
+		case ISwapchain::PRESENT_RESULT::OUT_OF_DATE:
+			swapchainResources.invalidate();
+			break;
+		default:
+			swapchainResources.becomeIrrecoverable();
+			break;
+	}
+	// swapchain won't hold onto anything, so just block till resources not used anymore
+	if (retval) // only if queue has submitted you have anything to wait on
+	{
+		ISemaphore::SWaitInfo infos[1] = {{
+				.semaphore = blitted[0].semaphore,
+				.value = blitted[0].value
+		}};
+		device->blockForSemaphores(infos);
+	}
+	return false;
 }
