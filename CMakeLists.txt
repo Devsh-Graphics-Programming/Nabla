@@ -108,19 +108,25 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_ "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" OFF)
+option(_NBL_JOBS_OVERRIDE_ "Override jobs with safe bias if required to respect currently available memory" OFF)
 
 include(ProcessorCount)
+
 if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	ProcessorCount(_NBL_JOBS_AMOUNT_)
-	if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-		set(_NBL_JOBS_AMOUNT_ 1)
+	if(NOT "$ENV{_NBL_JOBS_AMOUNT_}" STREQUAL "")
+		set(_NBL_JOBS_AMOUNT_ "$ENV{_NBL_JOBS_AMOUNT_}")
+	else()
+		ProcessorCount(_NBL_JOBS_AMOUNT_)
+		if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+			set(_NBL_JOBS_AMOUNT_ 1)
+		endif()
 	endif()
 endif()
 
 cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
 cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
 
-if(NBL_CI_MODE)
+if(_NBL_JOBS_OVERRIDE_)
 	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
 	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
 		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
@@ -129,7 +135,7 @@ if(NBL_CI_MODE)
 	endif()
 endif()
 
-set(_NBL_JOBS_AMOUNT_ "${_NBL_JOBS_AMOUNT_}" CACHE STRING "Max jobs amount for the build to be invoked" FORCE)
+message(STATUS "_NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\"")
 
 math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
 math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
@@ -312,7 +318,7 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 
-option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -336,26 +342,21 @@ set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
 set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
 get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
-				
-option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
-option(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE "Submodules will be updated with --force flag if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, use with caution - if there are any uncommited files in submodules' working tree they will be removed!" OFF)
-option(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE "Sync initialized submodule paths if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, this is useful when any submodule remote path got modified and you want to apply this modification to your local repository. Turning NBL_FORCE_ON_UPDATE_GIT_SUBMODULE implies this option" OFF)
-option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
-option(NBL_CI_GIT_SUBMODULES_SHALLOW "" OFF)
 
-find_package(Git REQUIRED)
+include(submodules/update)
 find_package (Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
 
-NBL_UPDATE_SUBMODULES()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
-
 if(NBL_BUILD_EXAMPLES)
+	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
 	add_subdirectory(examples_tests)
+	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
+add_subdirectory(tools)
 
 if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)

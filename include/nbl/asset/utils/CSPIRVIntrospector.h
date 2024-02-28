@@ -629,7 +629,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
 		{
-			if (info.shader->getStage()!=IShader::ESS_COMPUTE || !info.valid())
+			// TODO: if (info.shader->getStage()!=IShader::ESS_COMPUTE || !info.valid())
+			if (info.shader->getStage() != IShader::ESS_COMPUTE)
 				return nullptr;
 
 			// TODO: 
@@ -642,6 +643,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
 
 			auto introspection = introspect(params);
+			core::smart_refctd_ptr<CPipelineIntrospectionData> pplnIntrospectData = core::make_smart_refctd_ptr<CPipelineIntrospectionData>();
 
 			if (layout)
 			{
@@ -649,17 +651,22 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			}
 			else
 			{
+				pplnIntrospectData->merge(introspection.get());
 
+				auto pcRange = pplnIntrospectData->createPushConstantRangesFromIntrospection(introspection);
+
+				//layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+				//	pcRange, // TODO
+				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(0),
+				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(1),
+				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(2),
+				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(3)
+				//);
 			}
 
-			auto pc = introspection->getPushConstants();
-
-			CPipelineIntrospectionData pplnIntroData;
-			pplnIntroData.createPushConstantRangesFromIntrospection(introspection);
-
-			//ICPUComputePipeline::SCreationParams params = {{.layout = layout.get()}};
-			//params.shader = info;
-			//return ICPUComputePipeline::create(params);
+			ICPUComputePipeline::SCreationParams pplnCreationParams = {{.layout = layout.get()}};
+			params.shader = core::make_smart_refctd_ptr<ICPUShader>(info);
+			return ICPUComputePipeline::create(pplnCreationParams);
 			return nullptr;
 
 			/*core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];

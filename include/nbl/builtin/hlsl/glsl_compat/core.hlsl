@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 namespace nbl 
 {
@@ -18,7 +19,7 @@ namespace glsl
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicAdd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)
@@ -83,6 +84,50 @@ void tess_ctrl_barrier() {
 void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
+
+namespace impl 
+{
+
+template<typename T, bool isSigned, bool isIntegral>
+struct bitfieldExtract {};
+
+template<typename T, bool isSigned>
+struct bitfieldExtract<T, isSigned, false>
+{
+    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        static_assert( is_integral<T>::value, "T is not an integral type!" );
+        return val;
+    }
+};
+
+template<typename T>
+struct bitfieldExtract<T, true, true>
+{
+    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
+    }
+};
+
+template<typename T>
+struct bitfieldExtract<T, false, true>
+{
+    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
+    } 
+};
+
+}
+
+template<typename T>
+T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template 
+        ( val, offsetBits, numBits );
+}
+
 #endif
 
 }

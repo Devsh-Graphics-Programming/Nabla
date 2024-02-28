@@ -34,7 +34,9 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		{".tese.hlsl",IShader::ESS_TESSELLATION_EVALUATION},
 		{".geom.hlsl",IShader::ESS_GEOMETRY},
 		{".frag.hlsl",IShader::ESS_FRAGMENT},
-		{".comp.hlsl",IShader::ESS_COMPUTE}
+		{".comp.hlsl",IShader::ESS_COMPUTE},
+		{".mesh.hlsl",IShader::ESS_MESH},
+		{".task.hlsl",IShader::ESS_TASK},
 	};
 	auto shaderStage = IShader::ESS_UNKNOWN;
 	for (auto& it : typeFromExt) {

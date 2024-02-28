@@ -109,7 +109,32 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
+
     // merge descriptors
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+    {
+        std::ostringstream debug;
+        debug << "ds ID: " << i << std::endl;
+        const auto& bindingInfos = stageData->getDescriptorSetInfo(i);
+        for (const auto& bindingInfo : bindingInfos)
+        {
+            CPipelineIntrospectionData::SDescriptorInfo descInfo;
+            descInfo.binding = bindingInfo.binding;
+            descInfo.type = bindingInfo.type;
+            
+            const auto& foundBinding = m_descriptorSetBindings[i].find(descInfo);
+            if (foundBinding != m_descriptorSetBindings[i].end())
+            {
+                // TODO: validation
+                return false;
+            }
+
+            m_descriptorSetBindings[i].insert(descInfo);
+            debug << "binding ID: " << descInfo.binding << "type: " << static_cast<uint32_t>(descInfo.type) << std::endl;
+        } 
+
+        std::cout << debug.str() << std::endl;
+    }
 
     // can only be success now
     const auto& pc = stageData->getPushConstants();
@@ -154,7 +179,25 @@ NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector
 }
 NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID)
 {
-    return nullptr;
+    std::vector<ICPUDescriptorSetLayout::SBinding> outBindings;
+    outBindings.reserve(m_descriptorSetBindings[setID].size());
+    std::ostringstream debug;
+
+    for (const auto& binding : m_descriptorSetBindings[setID])
+    {
+        auto& outBinding = outBindings.emplace_back();
+
+        outBinding.binding = binding.binding;
+        outBinding.count = binding.count;
+        outBinding.type = binding.type;
+        outBinding.stageFlags = binding.stageMask;
+        // TODO outBinding.createFlags = 
+
+    }
+
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> output = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(outBindings.data(), outBindings.data() + outBindings.size());
+
+    return output;
 }
 NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximatePipelineLayoutFromIntrospection()
 {
@@ -548,8 +591,6 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         pPushConstantsMutable->size = comp.get_declared_struct_size(comp.get_type(r.type_id));
         if (pPushConstantsMutable->size != 0)
             pPushConstantsMutable->offset = comp.type_struct_member_offset(comp.get_type(r.type_id/*TODO: verify if this of base*/), 0);
-        // TODO
-        std::cout << "pPushConstantsMutable->size: " << pPushConstantsMutable->size;
     }
     else
         pPushConstantsMutable->type = {};

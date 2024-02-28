@@ -448,7 +448,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
                     attachmentBlend(0),
                     blitSrc(0),
-                    blitDst(0),
+                    blitDst(0), // TODO: better deduction from render attachment and transfer?
                     transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
                     transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
                     videoDecodeOutput(0),
@@ -461,6 +461,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     hostImageTransfer(0),
                     log2MaxSamples(0)
                 {}
+
+                constexpr explicit operator core::bitflag<asset::IImage::E_USAGE_FLAGS>() const
+                {
+                    using usage_flags_t = asset::IImage::E_USAGE_FLAGS;
+                    core::bitflag<usage_flags_t> retval = usage_flags_t::EUF_NONE;
+                    if (sampledImage)
+                        retval |= usage_flags_t::EUF_SAMPLED_BIT;
+                    if (storageImage)
+                        retval |= usage_flags_t::EUF_STORAGE_BIT;
+                    if (attachment || blitDst) // does also src imply?
+                        retval |= usage_flags_t::EUF_RENDER_ATTACHMENT_BIT;
+                    if (blitSrc || transferSrc)
+                        retval |= usage_flags_t::EUF_TRANSFER_SRC_BIT;
+                    if (blitDst || transferDst)
+                        retval |= usage_flags_t::EUF_TRANSFER_DST_BIT;
+                    return retval;
+                }
 
                 constexpr SUsage operator&(const SUsage& other) const
                 {

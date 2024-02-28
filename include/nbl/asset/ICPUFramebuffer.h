@@ -1,18 +1,17 @@
-#ifndef __NBL_I_CPU_FRAMEBUFFER_H_INCLUDED__
-#define __NBL_I_CPU_FRAMEBUFFER_H_INCLUDED__
+#ifndef _NBL_I_CPU_FRAMEBUFFER_H_INCLUDED_
+#define _NBL_I_CPU_FRAMEBUFFER_H_INCLUDED_
 
 #include "nbl/asset/IFramebuffer.h"
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpass.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
-class ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass, ICPUImageView>
+class ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass,ICPUImageView>
 {
-    using base_t = IFramebuffer<ICPURenderpass, ICPUImageView>;
+    using base_t = IFramebuffer<ICPURenderpass,ICPUImageView>;
 
 public:
     using base_t::base_t;
@@ -49,6 +48,4 @@ private:
 };
 
 }
-}
-
 #endif

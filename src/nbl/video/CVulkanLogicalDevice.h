@@ -91,6 +91,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
     private:
         inline ~CVulkanLogicalDevice()
         {
+            m_devf.vk.vkDestroyDescriptorSetLayout(m_vkdev,m_dummyDSLayout,nullptr);
             m_devf.vk.vkDestroyDevice(m_vkdev,nullptr);
         }
         
@@ -315,7 +316,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
         memory_pool_mt_t m_deferred_op_mempool;
 
-        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
+        VkDescriptorSetLayout m_dummyDSLayout;
 };
 
 }
