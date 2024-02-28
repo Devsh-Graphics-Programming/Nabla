@@ -460,12 +460,18 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         struct SImageBlit
         {
-            IGPUImage::SSubresourceLayers srcSubresource;
-            asset::VkOffset3D srcOffsets[2];
-            IGPUImage::SSubresourceLayers dstSubresource;
-            asset::VkOffset3D dstOffsets[2];
+            asset::VkOffset3D srcMinCoord;
+            asset::VkOffset3D srcMaxCoord;
+            asset::VkOffset3D dstMinCoord;
+            asset::VkOffset3D dstMaxCoord;
+            uint64_t layerCount : 15 = 1u;
+            uint64_t srcBaseLayer : 14 = 0u;
+            uint64_t dstBaseLayer : 14 = 0u;
+            uint64_t srcMipLevel : 5 = 0u;
+            uint64_t dstMipLevel : 5 = 0u;
+            uint64_t aspectMask : 11 = IGPUImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
         };
-        bool blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* const pRegions, const IGPUSampler::E_TEXTURE_FILTER filter);
+        bool blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter);
         struct SImageResolve
         {
             IGPUImage::SSubresourceLayers srcSubresource;
@@ -613,7 +619,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
 
-        virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
+        virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;

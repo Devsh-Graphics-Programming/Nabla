@@ -1259,12 +1259,12 @@ static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
     return true;
 }
 
-bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
+    if (regions.empty() || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
         return false;
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
@@ -1278,18 +1278,17 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
 
     // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
 
-    for (uint32_t i=0u; i<regionCount; ++i)
+    for (auto region : regions)
     {
-        if (pRegions[i].dstSubresource.aspectMask!=pRegions[i].srcSubresource.aspectMask)
+        if (region.layerCount==0 || !region.aspectMask)
             return false;
-        if (pRegions[i].dstSubresource.layerCount!=pRegions[i].srcSubresource.layerCount)
-            return false;
+        // probably validate the offsets, and extents
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBlitImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
-    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regions, filter);
 }
 
 bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions)

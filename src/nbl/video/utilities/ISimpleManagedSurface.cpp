@@ -103,15 +103,21 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 		if (!cmdbuf->pipelineBarrier(asset::EDF_NONE,depInfo))
 			return false;
 		
-		// do the blit
+		// TODO: Implement scaling modes other than plain STRETCH, and allow for using subrectangles of the initial contents
 		{
-			const IGPUCommandBuffer::SImageBlit region = {
-//					.srcSubresource = contents.subresourceRange,
-//					.srcOffsets[2] = ,
-//					.dstSubresource = ,
-//					.dstOffsets =,
-			};
-			if (!cmdbuf->blitImage(contents.image,blitSrcLayout,acquiredImage,blitDstLayout,1,&region,IGPUSampler::ETF_LINEAR))
+			const auto srcExtent = contents.image->getCreationParameters().extent;
+			const auto dstExtent = acquiredImage->getCreationParameters().extent;
+			const IGPUCommandBuffer::SImageBlit regions[1] = {{
+				.srcMinCoord = {0,0,0},
+				.srcMaxCoord = {srcExtent.width,srcExtent.height,1},
+				.dstMinCoord = {0,0,0},
+				.dstMaxCoord = {dstExtent.width,dstExtent.height,1},
+				.layerCount = acquiredImage->getCreationParameters().arrayLayers,
+				.srcBaseLayer = 0, // TODO
+				.dstBaseLayer = 0,
+				.srcMipLevel = 0 // TODO
+			}};
+			if (!cmdbuf->blitImage(contents.image,blitSrcLayout,acquiredImage,blitDstLayout,regions,IGPUSampler::ETF_LINEAR))
 				return false;
 		}
 
