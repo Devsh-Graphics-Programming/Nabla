@@ -277,7 +277,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					// because we won't hold onto the `frameResources` we need to block for `waitSemaphores`
 					{
 						core::vector<ISemaphore::SWaitInfo> waitInfos(waitSemaphores.size());
-						auto outWait = waitInfo.data();
+						auto outWait = waitInfos.data();
 						for (auto wait : waitSemaphores)
 							*(outWait++) = {.semaphore=wait.semaphore,.value=wait.value};
 						const_cast<ILogicalDevice*>(m_queue->getOriginDevice())->blockForSemaphores(waitInfos);
@@ -294,11 +294,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		virtual ISwapchainResources& getSwapchainResources() = 0;
 
-		// generally used to check that per-swapchain resources can be created (including the swapchain itself)
+		// Generally used to check that per-swapchain resources can be created (including the swapchain itself)
 		virtual bool init_impl(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams) = 0;
 
-		// handlers for acquisition exceptions
-		// by default we can't do anything
+		// Handlers for acquisition exceptions, by default we can't do anything about them
 		virtual bool handleNotReady() {return false;}
 		virtual uint8_t handleOutOfDate() {return ISwapchain::MaxImages;}
 
