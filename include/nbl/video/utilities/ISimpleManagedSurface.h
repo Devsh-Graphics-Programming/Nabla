@@ -9,6 +9,7 @@
 namespace nbl::video
 {
 
+// The use of this class is supposed to be externally synchronized
 class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 {
 	public:
@@ -46,7 +47,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		}
 
 		// Just pick the first queue within the first compatible family
-		inline IQueue* pickQueue(ILogicalDevice* device) const
+		inline CThreadSafeQueueAdapter* pickQueue(ILogicalDevice* device) const
 		{
 			return device->getThreadSafeQueue(pickQueueFamily(device),0);
 		}
@@ -72,6 +73,14 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				// If status is `NOT_READY` this might either return nullptr or the old stale swapchain that should be retired
 				inline ISwapchain* getSwapchain() const {return swapchain.get();}
 
+				//
+				inline IGPUImage* getImage(const uint8_t index) const
+				{
+					if (index<images.size())
+						return images[index].get();
+					return nullptr;
+				}
+
 			protected:
 				virtual ~ISwapchainResources()
 				{
@@ -85,6 +94,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					if (status==STATUS::NOT_READY)
 						return;
 					invalidate_impl();
+					std::fill(images.begin(),images.end(),nullptr);
 					status = STATUS::NOT_READY;
 				}
 				// mark the surface & swapchain as hopeless and ready for deletion due to errors
@@ -110,18 +120,38 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				// here you drop your own resources of the base class
 				virtual void invalidate_impl() = 0;
 				
-				// this will notify you of the swapchain being created and when you can start creating per-swapchain and per-image resources
-				virtual bool onCreateSwapchain() = 0;
+				// This will notify you of the swapchain being created and when you can start creating per-swapchain and per-image resources
+				// NOTE: Current class doesn't trigger it because it knows nothing about how and when to create or recreate a swapchain.
+				inline bool onCreateSwapchain()
+				{
+					auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
+					// create images
+					for (auto i=0u; i<swapchain->getImageCount(); i++)
+					{
+						images[i] = swapchain->createImage(i);
+						if (!images[i])
+						{
+							std::fill_n(images.begin(),i,nullptr);
+							return false;
+						}
+					}
+
+					return onCreateSwapchain_impl();
+				}
+				// extra things you might need
+				virtual bool onCreateSwapchain_impl() = 0;
 
 				// As per the above, the swapchain might not be possible to create or recreate right away, so this might be
 				// either nullptr before the first successful acquire or the old to-be-retired swapchain.
 				core::smart_refctd_ptr<ISwapchain> swapchain = {};
+				// Useful for everyone
+				std::array<core::smart_refctd_ptr<IGPUImage>,ISwapchain::MaxImages> images = {};
 				// We start in not-ready, instead of irrecoverable, because we haven't tried to create a swapchain yet
 				STATUS status = STATUS::NOT_READY;
 		};
 		
 		// We need to defer the swapchain creation till the Physical Device is chosen and Queues are created together with the Logical Device
-		inline bool init(IQueue* queue, const ISwapchain::SSharedCreationParams& sharedParams={})
+		inline bool init(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams={})
 		{
 			getSwapchainResources().becomeIrrecoverable();
 			if (!queue)
@@ -144,7 +174,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		}
 
 		//
-		inline IQueue* getAssignedQueue() const {return m_queue;}
+		inline CThreadSafeQueueAdapter* getAssignedQueue() const {return m_queue;}
 
 		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
 		inline uint64_t getAcquireCount() {return m_acquireCount;}
@@ -154,6 +184,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		inline int8_t acquireNextImage()
 		{
 			// Only check upon an acquire, previously acquired images MUST be presented
+			// Window/Surface got closed, but won't actually disappear UNTIL the swapchain gets dropped,
+			// which is outside of our control here as there is a nice chain of lifetimes of:
+			// `ExternalCmdBuf -via usage of-> Swapchain Image -memory provider-> Swapchain -created from-> Window/Surface`
+			// Only when the last user of the swapchain image drops it, will the window die.
 			if (m_cb->isWindowOpen())
 			{
 				using status_t = ISwapchainResources::STATUS;
@@ -230,6 +264,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			return false;
 		}
 
+		// Utility function for more complex Managed Surfaces, it does not increase the `m_acquireCount` but does acquire and present immediately
+		using image_barrier_t = IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>;
+		bool immediateBlit(const image_barrier_t& contents, IQueue* blitQueue=nullptr);
+
 	protected:
 		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
 		virtual inline ~ISimpleManagedSurface() = default;
@@ -247,8 +285,8 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		// persistent and constant for whole lifetime of the object
 		const core::smart_refctd_ptr<ISurface> m_surface;
 		ICallback* const m_cb = nullptr;
-		// might get re-assigned
-		IQueue* m_queue = nullptr;
+		// Use a Threadsafe queue to make sure we can do smooth resize in derived class, might get re-assigned
+		CThreadSafeQueueAdapter* m_queue = nullptr;
 		// created and persistent after first initialization
 		core::smart_refctd_ptr<ISemaphore> m_acquireSemaphore;
 		// You don't want to use `m_swapchainResources.swapchain->getAcquireCount()` because it resets when swapchain gets recreated
