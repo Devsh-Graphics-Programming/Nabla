@@ -122,12 +122,7 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 					// When transitioning the image to VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR or VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, there is no need to delay subsequent processing,
 					// or perform any visibility operations (as vkQueuePresentKHR performs automatic visibility operations).
 					// To achieve this, the dstAccessMask member of the VkImageMemoryBarrier should be set to 0, and the dstStageMask parameter should be set to VK_PIPELINE_STAGE_2_NONE
-					.dep = {
-						.srcStageMask = preBarriers[0].barrier.dep.dstStageMask,
-						.srcAccessMask = preBarriers[0].barrier.dep.dstAccessMask,
-						.dstStageMask = asset::PIPELINE_STAGE_FLAGS::NONE, // Present isn't a stage
-						.dstAccessMask = asset::ACCESS_FLAGS::NONE // it doesn't perform accesses known to VK
-					}
+					.dep = preBarriers[0].barrier.dep.nextBarrier(asset::PIPELINE_STAGE_FLAGS::NONE,asset::ACCESS_FLAGS::NONE)
 				},
 				.image = preBarriers[0].image,
 				.subresourceRange = preBarriers[0].subresourceRange,
@@ -136,12 +131,7 @@ bool ISimpleManagedSurface::immediateBlit(const image_barrier_t& contents, IQueu
 			},
 			{
 				.barrier = {
-					.dep = {
-						.srcStageMask = preBarriers[1].barrier.dep.dstStageMask,
-						.srcAccessMask = preBarriers[1].barrier.dep.dstAccessMask,
-						.dstStageMask = contents.barrier.dep.dstStageMask,
-						.dstAccessMask = contents.barrier.dep.dstAccessMask
-					},
+					.dep = preBarriers[1].barrier.dep.nextBarrier(contents.barrier.dep.dstStageMask,contents.barrier.dep.dstAccessMask),
 					.ownershipOp = IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE,
 					.otherQueueFamilyIndex = contents.barrier.otherQueueFamilyIndex
 				},
