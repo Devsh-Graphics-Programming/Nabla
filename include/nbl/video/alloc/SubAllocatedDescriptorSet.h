@@ -221,6 +221,7 @@ public:
 			writes.push_back(write);
 		}
 
+		// TODO: this goes outside
 		m_logicalDevice->updateDescriptorSets(writes, {});
 		return unallocatedSize;
 	}
@@ -279,6 +280,11 @@ public:
 
 			allocator->free_addr(addr[i],1);
 			// TODO: should also write something to the descriptor sets
+			// basically if nullDescriptor device feature is enabled, you would 
+			// indeed write to the DS, else you'd just drop the refcounted references
+			//
+			// this needs to be done as a IGPUDescriptorSet::nullify(const uint32_t binding, 
+			// std::span<uint32_t> indices) function + a virtual nullify_impl
 		}
 	}
 
