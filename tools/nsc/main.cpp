@@ -129,7 +129,12 @@ public:
 			m_logger->log("nsc.exe was compiled with builtin resources disabled. Force enabling -no-nbl-builtins.", ILogger::ELL_WARNING);
 		}
 #endif
-
+		if (std::find(m_arguments.begin(), m_arguments.end(), "-E") == m_arguments.end())
+		{
+			//Insert '-E main' into arguments if no entry point is specified
+			m_arguments.push_back("-E");
+			m_arguments.push_back("main");
+		}
 		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
