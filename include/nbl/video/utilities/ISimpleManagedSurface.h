@@ -53,7 +53,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			auto physDev = device->getPhysicalDevice();
 			uint8_t qFam = 0u;
 			for (; qFam<ILogicalDevice::MaxQueueFamilies; qFam++)
-			if (device->getQueueCount(qFam) && m_surface->isSupportedForPhysicalDevice(physDev,qFam) && queueFamilyOk(physDev->getQueueFamilyProperties()[qFam]))
+			if (device->getQueueCount(qFam) && m_surface->isSupportedForPhysicalDevice(physDev,qFam) && checkQueueFamilyProps(physDev->getQueueFamilyProperties()[qFam]))
 				break;
 			return qFam;
 		}
@@ -82,6 +82,40 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					return nullptr;
 				}
 
+				// just drop the per-swapchain resources, e.g. Framebuffers with each of the swapchain images, or even pre-recorded commandbuffers
+				inline void invalidate()
+				{
+					if (!images.front())
+						return;
+					invalidate_impl();
+					std::fill(images.begin(),images.end(),nullptr);
+				}
+				
+				// This will notify you of the swapchain being created and when you can start creating per-swapchain and per-image resources
+				// NOTE: Current class doesn't trigger it because it knows nothing about how and when to create or recreate a swapchain.
+				inline bool onCreateSwapchain(const uint8_t qFam, core::smart_refctd_ptr<ISwapchain>&& _swapchain)
+				{
+					swapchain = std::move(_swapchain);
+					auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
+					// create images
+					for (auto i=0u; i<swapchain->getImageCount(); i++)
+					{
+						images[i] = swapchain->createImage(i);
+						if (!images[i])
+						{
+							std::fill_n(images.begin(),i,nullptr);
+							return false;
+						}
+					}
+
+					if (!onCreateSwapchain_impl(qFam))
+					{
+						invalidate();
+						return false;
+					}
+					return true;
+				}
+
 			protected:
 				virtual ~ISwapchainResources()
 				{
@@ -103,39 +137,12 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					while (swapchain->acquiredImagesAwaitingPresent()) {}
 					swapchain = nullptr;
 				}
-
-				// just drop the per-swapchain resources, e.g. Framebuffers with each of the swapchain images, or even pre-recorded commandbuffers
-				inline void invalidate()
-				{
-					if (!images.front())
-						return;
-					invalidate_impl();
-					std::fill(images.begin(),images.end(),nullptr);
-				}
 				
 				// here you drop your own resources of the base class
 				virtual void invalidate_impl() = 0;
-				
-				// This will notify you of the swapchain being created and when you can start creating per-swapchain and per-image resources
-				// NOTE: Current class doesn't trigger it because it knows nothing about how and when to create or recreate a swapchain.
-				inline bool onCreateSwapchain()
-				{
-					auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
-					// create images
-					for (auto i=0u; i<swapchain->getImageCount(); i++)
-					{
-						images[i] = swapchain->createImage(i);
-						if (!images[i])
-						{
-							std::fill_n(images.begin(),i,nullptr);
-							return false;
-						}
-					}
 
-					return onCreateSwapchain_impl();
-				}
 				// extra things you might need
-				virtual bool onCreateSwapchain_impl() = 0;
+				virtual bool onCreateSwapchain_impl(const uint8_t qFam) = 0;
 
 				// We start with a `nullptr` swapchain because some implementations might defer its creation
 				core::smart_refctd_ptr<ISwapchain> swapchain = {};
@@ -164,6 +171,9 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			m_queue = queue;
 			return true;
 		}
+
+		//
+		inline bool irrecoverable() const {return !const_cast<ISimpleManagedSurface*>(this)->getSwapchainResources();}
 
 		//
 		inline CThreadSafeQueueAdapter* getAssignedQueue() const {return m_queue;}
@@ -224,7 +234,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 						break;
 				}
 			}
-			swapchainResources->becomeIrrecoverable();
+			becomeIrrecoverable();
 			return ISwapchain::MaxImages;
 		}
 
@@ -260,7 +270,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 							*(outWait++) = {.semaphore=wait.semaphore,.value=wait.value};
 						const_cast<ILogicalDevice*>(m_queue->getOriginDevice())->blockForSemaphores(waitInfos);
 					}
-					swapchainResources->becomeIrrecoverable();
+					becomeIrrecoverable();
 					break;
 			}
 			return false;
@@ -268,6 +278,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		//
 		virtual ISwapchainResources* getSwapchainResources() = 0;
+		virtual void becomeIrrecoverable() = 0;
 
 		// Generally used to check that per-swapchain resources can be created (including the swapchain itself)
 		virtual bool init_impl(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams) = 0;
