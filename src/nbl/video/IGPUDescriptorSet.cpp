@@ -124,6 +124,29 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     incrementVersion();
 }
 
+void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
+{
+    assert(drop.dstSet == this);
+
+    for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
+    {
+        const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+
+        auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
+        auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+
+        if (dstDescriptors)
+            for (uint32_t i = 0; i < drop.count; i++)
+                dstDescriptors[drop.arrayElement + i] = nullptr;
+
+        if (dstSamplers)
+            for (uint32_t i = 0; i < drop.count; i++)
+                dstSamplers[drop.arrayElement + i] = nullptr;
+    }
+
+    incrementVersion();
+}
+
 bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const
 {
     assert(copy.dstSet == this);

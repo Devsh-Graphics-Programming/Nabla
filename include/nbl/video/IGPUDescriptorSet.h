@@ -45,6 +45,14 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t count;
         };
 
+        struct SDropDescriptorSet
+        {
+            IGPUDescriptorSet* dstSet;
+            uint32_t binding;
+            uint32_t arrayElement;
+            uint32_t count;
+        };
+
         inline uint64_t getVersion() const { return m_version.load(); }
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
@@ -61,6 +69,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
         bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
         void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.

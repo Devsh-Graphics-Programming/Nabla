@@ -285,6 +285,12 @@ public:
 			//
 			// this needs to be done as a IGPUDescriptorSet::nullify(const uint32_t binding, 
 			// std::span<uint32_t> indices) function + a virtual nullify_impl
+			video::IGPUDescriptorSet::SDropDescriptorSet dropDescriptorSet;
+			dropDescriptorSet.dstSet = m_descriptorSet.get();
+			dropDescriptorSet.binding = binding;
+			dropDescriptorSet.arrayElement = i;
+			dropDescriptorSet.count = 1;
+			m_logicalDevice->nullifyDescriptors({ &dropDescriptorSet, 1 });
 		}
 	}
 

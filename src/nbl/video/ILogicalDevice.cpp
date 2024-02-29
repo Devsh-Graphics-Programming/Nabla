@@ -420,6 +420,14 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     return true;
 }
 
+void ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+{
+    for (const auto& drop : dropDescriptors)
+        drop.dstSet->dropDescriptors(drop);
+
+    nullifyDescriptors_impl(dropDescriptors);
+}
+
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
 {
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);

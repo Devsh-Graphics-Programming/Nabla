@@ -717,6 +717,14 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
     m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),vk_copyDescriptorSets.size(),vk_copyDescriptorSets.data());
 }
 
+void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+{
+    if (getEnabledFeatures().nullDescriptor)
+    {
+        // TODO: Write null descriptors here
+    }
+}
+
 
 core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation)
 {
