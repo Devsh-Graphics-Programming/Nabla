@@ -27,7 +27,7 @@ class ISwapchain : public IBackendObject
                 if (!physDev || !surface || !surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps))
                     return false;
 
-                if (!caps.supportedUsageFlags.hasFlags(imageUsage))
+                if (!imageUsage.value || !caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
                 if (minImageCount<caps.minImageCount)
                     return false;
@@ -46,6 +46,18 @@ class ISwapchain : public IBackendObject
                     return false;
                 if (hlsl::bitCount(preTransform.value)!=1 || !caps.supportedTransforms.hasFlags(preTransform))
                     return false;
+                {
+                    const auto& formatUsages = physDev->getImageFormatUsagesOptimalTiling();
+                    core::bitflag<IGPUImage::E_USAGE_FLAGS> possibleUsages = IGPUImage::E_USAGE_FLAGS::EUF_NONE;
+                    for (auto f=0u; f<asset::EF_COUNT; f++)
+                    {
+                        const auto format = static_cast<asset::E_FORMAT>(f);
+                        if (viewFormats.test(format))
+                            possibleUsages |= core::bitflag<IGPUImage::E_USAGE_FLAGS>(formatUsages[format]);
+                    }
+                    if (!possibleUsages.hasFlags(imageUsage))
+                        return false;
+                }
                 return true;
             }
 
@@ -76,21 +88,7 @@ class ISwapchain : public IBackendObject
                 if (!physDev || !surface || !surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps))
                     return false;
 
-                if (!imageUsage)
-                {
-                    const auto formatUsages = physDev->getImageFormatUsagesOptimalTiling();
-                    // we must be able to at least render to an image with a Graphics Pipeline
-                    core::bitflag<IGPUImage::E_USAGE_FLAGS> extendedUsages = IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT;
-                    for (auto f=0u; f<asset::EF_COUNT; f++)
-                    {
-                        const auto format = static_cast<asset::E_FORMAT>(f);
-                        if (viewFormats.test(format))
-                            extendedUsages |= core::bitflag<IGPUImage::E_USAGE_FLAGS>(formatUsages[format]);
-                    }
-                    // usages need to be trimmed
-                    imageUsage = caps.supportedUsageFlags & extendedUsages;
-                }
-                else if (!caps.supportedUsageFlags.hasFlags(imageUsage))
+                if (!imageUsage || !caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
 
                 caps.maxImageCount = core::min<uint32_t>(caps.maxImageCount,MaxImages);
@@ -155,8 +153,20 @@ class ISwapchain : public IBackendObject
                 return true;
             }
 
-            // default means "all supported"
-            core::bitflag<IGPUImage::E_USAGE_FLAGS> imageUsage = IGPUImage::E_USAGE_FLAGS::EUF_NONE;
+            //
+            static inline core::vector<ISurface::SFormat> obtainAvailableSurfaceFormats(const IPhysicalDevice* physDev, const ISurface* surface)
+            {
+                uint32_t availableFormatCount = 0;
+                surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
+
+                core::vector<ISurface::SFormat> availableFormats(availableFormatCount);
+                surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
+
+                return availableFormats;
+            }
+
+            // Required to be not NONE, default to Transfer Dst cause thats the easiest way to copy (blit)
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> imageUsage = IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT|IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT;
             // can also treat as them as bitflags of valid transforms
             uint8_t minImageCount = 0u;
             core::bitflag<ISurface::E_PRESENT_MODE> presentMode = ISurface::EPM_ALL_BITS;
@@ -178,13 +188,7 @@ class ISwapchain : public IBackendObject
                 if (!sharedParams.valid(physDev,surface.get()))
                     return false;
 
-                core::vector<ISurface::SFormat> availableFormats;
-                {
-                    uint32_t availableFormatCount = 0;
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
-                    availableFormats.resize(availableFormatCount);
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
-                }
+                auto availableFormats = SSharedCreationParams::obtainAvailableSurfaceFormats(physDev,surface.get());
                 return std::find(availableFormats.begin(),availableFormats.end(),surfaceFormat)!=availableFormats.end();
             }
 
@@ -216,13 +220,7 @@ class ISwapchain : public IBackendObject
                 std::span<const asset::E_COLOR_PRIMARIES> preferredColorPrimaries=DefaultColorPrimaries
             )
             {
-                core::vector<ISurface::SFormat> availableFormats;
-                {
-                    uint32_t availableFormatCount = 0;
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
-                    availableFormats.resize(availableFormatCount);
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
-                }
+                auto availableFormats = SSharedCreationParams::obtainAvailableSurfaceFormats(physDev,surface.get());
 
                 // override preferred if set to known value already
                 if (surfaceFormat.format!=asset::EF_UNKNOWN)
@@ -270,6 +268,8 @@ class ISwapchain : public IBackendObject
                             val.format = format;
                             if (std::binary_search(formatBegin,formatEnd,val,fullComparator))
                             {
+                                // trim usage
+
                                 // Check compatibility against all `viewFormats`
                                 bool incompatible = false;
                                 const auto formatClass = asset::getFormatClass(format);
