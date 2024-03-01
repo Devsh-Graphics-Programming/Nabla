@@ -4,6 +4,7 @@
 #define _NBL_BOX_BLUR_COMMONS_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 //_NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKGROUP_SIZE = 256u;
