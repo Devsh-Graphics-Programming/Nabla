@@ -50,7 +50,7 @@ struct prefix_sum_t
 	using bin_op_t = nbl::hlsl::plus<float32_t>;
 	using type_t = bin_op_t::type_t;
 	
-	type_t operator()( type_t value )
+	type_t operator()( NBL_CONST_REF_ARG(type_t) value )
 	{
 		type_t retval = nbl::hlsl::workgroup::inclusive_scan<bin_op_t, ITEMS_PER_WG>::template __call<ScratchProxy<float32_t, 0> >( value, prefixSumsAccessor );
 		// we barrier before because we alias the accessors for Binop
@@ -59,8 +59,13 @@ struct prefix_sum_t
 	}
 };
 
-//prefix_sum_t workgroupPrefixSum;
+prefix_sum_t workgroupPrefixSum;
 
+float32_t workgroupBroadcast( NBL_CONST_REF_ARG(float32_t) value, uint32_t index )
+{
+	using accessor_t = ScratchProxy<float32_t, arithmeticSz>;
+	return nbl::hlsl::workgroup::Broadcast<float32_t, accessor_t>( value, broadcastAccessor, index );
+}
 
 // Todo: This spillage calculation is hacky! The lower bound of `_NBL_GLSL_EXT_BLUR_SPILLAGE_LOWER_BOUND_` is just an adhoc
 // thing which happens to work for all images until now but it could very well break for the next image.
@@ -123,17 +128,15 @@ void BoxBlur(
 		float32_t spill[ LOCAL_SPILLAGE ];
 		for( uint32_t i = 0u; i < LOCAL_SPILLAGE; ++i )
 		{
-			float32_t scanResult = 0;// workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
+			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
 			spill[ i ] =  scanResult;
-			//previousBlockSum = nbl::hlsl::workgroup::Broadcast( 
-			//	spill[ i ],  broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			previousBlockSum = workgroupBroadcast( spill[ i ], gl_WorkGroupSize().x - 1u );
 		}
 
 		for( uint32_t i = LOCAL_SPILLAGE; i < ITEMS_PER_THREAD; ++i )
 		{
-			float32_t scanResult = 0; // workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
-			//previousBlockSum = nbl::hlsl::workgroup::Broadcast( 
-			//	scanResult, broadcastAccessor, gl_WorkGroupSize().x - 1u );
+			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
+			previousBlockSum = workgroupBroadcast( scanResult, gl_WorkGroupSize().x - 1u );
 
 			uint32_t idx = IndexInSharedMemory( i );
 			prefixSumsAccessor.set( idx, scanResult );
@@ -314,10 +317,10 @@ void BoxBlur(
 				blurred[ i ] = result / ( 2.f * radius + 1.f );
 			}
 		}
+	}
 
-		for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
-		{
-			textureAccessor.setData( getCoordinates( i, direction ), ch, blurred[ i ] );
-		}
+	for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
+	{
+		textureAccessor.setData( getCoordinates( i, direction ), ch, blurred[ i ] );
 	}
 }
