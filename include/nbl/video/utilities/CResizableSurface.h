@@ -64,11 +64,12 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		inline VkExtent2D getCurrentExtent()
 		{
 			std::unique_lock guard(m_swapchainResourcesMutex);
-			// if got some weird invalid extent, try to recreate and retry once
+			// because someone might skip an acquire when area==0, handle window closing
+			if (m_cb->isWindowOpen())
 			while (true)
 			{
 				auto resources = getSwapchainResources();
-				if (resources)
+				if (resources && resources->getStatus()==ISwapchainResources::STATUS::USABLE)
 				{
 					auto swapchain = resources->getSwapchain();
 					if (swapchain)
@@ -78,9 +79,12 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 							return {params.width,params.height};
 					}
 				}
+				// if got some weird invalid extent, try to recreate and retry once
 				if (!recreateSwapchain())
 					break;
 			}
+			else
+				becomeIrrecoverable();
 			return {0,0};
 		}
 
