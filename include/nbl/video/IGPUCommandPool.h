@@ -46,7 +46,7 @@ class IGPUCommandPool : public IBackendObject
         };
         inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
 
-        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
+        inline uint8_t getQueueFamilyIndex() const { return m_familyIx; }
 
         enum class BUFFER_LEVEL : uint8_t
         {
@@ -153,7 +153,7 @@ class IGPUCommandPool : public IBackendObject
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
 
     protected:
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint32_t _familyIx)
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
             : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
         virtual ~IGPUCommandPool() = default;
 
@@ -449,7 +449,7 @@ class IGPUCommandPool : public IBackendObject
         };
 
         const core::bitflag<CREATE_FLAGS> m_flags;
-        const uint32_t m_familyIx;
+        const uint8_t m_familyIx;
         std::atomic_uint64_t m_resetCount = 0;
         CCommandSegmentListPool m_commandListPool;
 };

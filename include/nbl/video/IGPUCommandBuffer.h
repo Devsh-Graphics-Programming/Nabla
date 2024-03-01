@@ -39,7 +39,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline IGPUCommandPool::BUFFER_LEVEL getLevel() const { return m_level; }
 
         inline IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
-        inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
+        inline uint8_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
         /*
         CommandBuffer Lifecycle Tracking in Nabla:
