@@ -33,15 +33,24 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		};
 
 		//
+		struct SPresentSource
+		{
+			IGPUImage* image;
+			VkRect2D rect;
+		};
+
+		//
 		class NBL_API2 ISwapchainResources : public core::IReferenceCounted, public ISimpleManagedSurface::ISwapchainResources
 		{
 			protected:
 				friend class IResizableSurface;
 
-				// The `cmdbuf` is already begun when given to the callback, and will be ended outside.
 				// Returns what stage the submit signal semaphore should signal from for the presentation to wait on.
-				// User is responsible for transitioning both images' layouts, acquiring ownership etc.
-				virtual asset::PIPELINE_STAGE_FLAGS tripleBufferPresent(IGPUCommandBuffer* cmdbuf, IGPUImage* source, const uint8_t dstIx) = 0;
+				// The `cmdbuf` is already begun when given to the callback, and will be ended outside.
+				// User is responsible for transitioning the image layouts (most notably the swapchain), acquiring ownership etc.
+				// Performance Tip: DO NOT transition the layout of `source` inside this callback, have it already in the correct Layout you need!
+				// However, if `qFamToAcquireSrcFrom!=IQueue::FamilyIgnored`, you need to acquire the ownership of the `source.image`
+				virtual asset::PIPELINE_STAGE_FLAGS tripleBufferPresent(IGPUCommandBuffer* cmdbuf, const SPresentSource& source, const uint8_t dstIx, const uint32_t qFamToAcquireSrcFrom) = 0;
 		};
 
 		//
@@ -51,22 +60,49 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 			return device->getThreadSafeQueue(fam,device->getQueueCount(fam)-1);
 		}
 
+		// This is basically a poll, the extent CAN change between a call to this and `present`
+		inline VkExtent2D getCurrentExtent()
+		{
+			std::unique_lock guard(m_swapchainResourcesMutex);
+			// if got some weird invalid extent, try to recreate and retry once
+			while (true)
+			{
+				auto resources = getSwapchainResources();
+				if (resources)
+				{
+					auto swapchain = resources->getSwapchain();
+					if (swapchain)
+					{
+						const auto& params = swapchain->getCreationParameters().sharedParams;
+						if (params.width>0 && params.height>0)
+							return {params.width,params.height};
+					}
+				}
+				if (!recreateSwapchain())
+					break;
+			}
+			return {0,0};
+		}
+
 		struct SPresentInfo
 		{
-			inline operator bool() const {return source;}
+			inline operator bool() const {return source.image;}
 
-			IGPUImage* source = nullptr;
-			// TODO: add sourceRegion
+			SPresentSource source;
+			uint8_t mostRecentFamilyOwningSource;
 			// only allow waiting for one semaphore, because there's only one source to present!
 			IQueue::SSubmitInfo::SSemaphoreInfo wait;
 			core::IReferenceCounted* frameResources;
 		};		
-		// TODO: explanations
+		// This is a present that you should regularly use from the main rendering thread or something.
+		// Due to the constraints and mutexes on everything, its impossible to split this into a separate acquire and present call so this does both.
+		// So DON'T USE `acquireNextImage` for frame pacing, it was bad Vulkan practice anyway!
 		inline bool present(const SPresentInfo& presentInfo)
 		{
 			std::unique_lock guard(m_swapchainResourcesMutex);
-			// The only thing we want to do under the mutex, is just enqueue a blit and a present, its not a lot
-			return present_impl(presentInfo);
+			// The only thing we want to do under the mutex, is just enqueue a blit and a present, its not a lot.
+			// Only acquire ownership if the Blit&Present queue is different to the current one.
+			return present_impl(presentInfo,getAssignedQueue()->getFamilyIndex()!=presentInfo.mostRecentFamilyOwningSource);
 		}
 
 		// Call this when you want to recreate the swapchain with new extents
@@ -90,9 +126,9 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 			if (current->getSwapchain()==oldSwapchain.get())
 				return true;
 
-			// The blit enqueue operations are fast enough to be done under a mutex, this is safer on some platforms
-			// You need to "race to present" to avoid a flicker
-			return present_impl({.source=m_lastPresentSource,.wait=m_lastPresentWait,.frameResources=nullptr});
+			// The blit enqueue operations are fast enough to be done under a mutex, this is safer on some platforms. You need to "race to present" to avoid a flicker.
+			// Queue family ownership acquire not needed, done by the the very first present when `m_lastPresentSource` wasset.
+			return present_impl({.source=m_lastPresentSource,.wait=m_lastPresentWait,.frameResources=nullptr},false);
 		}
 
 	protected:
@@ -221,7 +257,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		}
 
 		//
-		inline bool present_impl(const SPresentInfo& presentInfo)
+		inline bool present_impl(const SPresentInfo& presentInfo, const bool acquireOwnership)
 		{
 			// irrecoverable or bad input
 			if (!presentInfo || !getSwapchainResources())
@@ -250,7 +286,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 					.stageMask = asset::PIPELINE_STAGE_FLAGS::NONE // presentation engine usage isn't a stage
 				}
 			};
-			m_lastPresentSourceImage = core::smart_refctd_ptr<IGPUImage>(presentInfo.source);
+			m_lastPresentSourceImage = core::smart_refctd_ptr<IGPUImage>(presentInfo.source.image);
 			m_lastPresentSemaphore = core::smart_refctd_ptr<ISemaphore>(presentInfo.wait.semaphore);
 			m_lastPresentSource = presentInfo.source;
 			m_lastPresentWait = presentInfo.wait;
@@ -284,7 +320,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 					.semaphore = m_blitSemaphore.get(),
 					.value = acquireCount,
 					// don't need to predicate with `willBlit` because if `willBlit==false` cmdbuf not properly begun and validation will fail
-					.stageMask = swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source,imageIx)
+					.stageMask = swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source,imageIx,acquireOwnership ? queue->getFamilyIndex():IQueue::FamilyIgnored)
 				}
 			};
 			willBlit &= bool(blitted[1].stageMask.value);
@@ -328,7 +364,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		// No because there can be presents enqueued whose wait semaphores have not signalled yet, meaning there could be images presented in the future.
 		// Unless you like your frames to go backwards in time in a special "rewind glitch" you need to blit the frame that has not been presented yet or is the same as most recently enqueued.
 		IQueue::SSubmitInfo::SSemaphoreInfo m_lastPresentWait = {};
-		decltype(SPresentInfo::source) m_lastPresentSource = {};
+		SPresentSource m_lastPresentSource = {};
 		core::smart_refctd_ptr<ISemaphore> m_lastPresentSemaphore = {};
 		core::smart_refctd_ptr<IGPUImage> m_lastPresentSourceImage = {};
 };
