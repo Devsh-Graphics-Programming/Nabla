@@ -39,13 +39,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		inline const ISurface* getSurface() const {return m_surface.get();}
 
 		//
-		inline uint8_t getMaxFramesInFlight(IPhysicalDevice* physDev) const
-		{
-			ISurface::SCapabilities caps = {};
-			m_surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps);
-			// vkAcquireNextImageKHR should not be called if the number of images that the application has currently acquired is greater than SwapchainImages-MinimumImages
-			return core::min(caps.maxImageCount+1-caps.minImageCount,ISwapchain::MaxImages);
-		}
+		inline uint8_t getMaxFramesInFlight() const {return m_maxFramesInFlight;}
 		
 		// A small utility for the boilerplate
 		inline uint8_t pickQueueFamily(ILogicalDevice* device) const
@@ -80,6 +74,20 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					if (index<images.size())
 						return images[index].get();
 					return nullptr;
+				}
+
+				enum class STATUS : int8_t
+				{
+					IRRECOVERABLE = -1,
+					USABLE = 0,
+					NOT_READY = 1,
+				};
+				//
+				inline STATUS getStatus() const
+				{
+					if (getSwapchain())
+						return getImage(0) ? STATUS::USABLE:STATUS::NOT_READY;
+					return STATUS::IRRECOVERABLE;
 				}
 
 				// just drop the per-swapchain resources, e.g. Framebuffers with each of the swapchain images, or even pre-recorded commandbuffers
@@ -120,7 +128,8 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				virtual ~ISwapchainResources()
 				{
 					// just to get rid of circular refs
-					becomeIrrecoverable();
+					if (swapchain)
+					while (swapchain->acquiredImagesAwaitingPresent()) {}
 				}
 
 				//
@@ -149,27 +158,59 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				// Useful for everyone
 				std::array<core::smart_refctd_ptr<IGPUImage>,ISwapchain::MaxImages> images = {};
 		};
+
+		//
+		inline void deinit()
+		{
+			deinit_impl();
+
+			if (m_acquireSemaphore)
+			{
+				auto device = const_cast<ILogicalDevice*>(m_acquireSemaphore->getOriginDevice());
+				const ISemaphore::SWaitInfo info[1] = {{
+					.semaphore = m_acquireSemaphore.get(), .value = m_acquireCount
+				}};
+				device->blockForSemaphores(info);
+			}
+
+			m_queue = nullptr;
+			m_maxFramesInFlight = 0;
+			m_acquireSemaphore = 0;
+			m_acquireCount = 0;
+		}
 		
 		// We need to defer the swapchain creation till the Physical Device is chosen and Queues are created together with the Logical Device
 		inline bool init(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams={})
 		{
-			if (!queue)
-				return false;
-
-			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
-			// want to keep using the same semaphore throughout the lifetime to not run into sync issues
-			if (!m_acquireSemaphore)
+			deinit();
+			if (queue)
 			{
-				m_acquireSemaphore = device->createSemaphore(0u);
-				if (!m_acquireSemaphore)
-					return false;
+				m_queue = queue;
+
+				auto device = const_cast<ILogicalDevice*>(m_queue->getOriginDevice());
+				auto physDev = device->getPhysicalDevice();
+				if (m_surface->isSupportedForPhysicalDevice(physDev,queue->getFamilyIndex()))
+				{
+					{
+						ISurface::SCapabilities caps = {};
+						m_surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps);
+						// vkAcquireNextImageKHR should not be called if the number of images that the application has currently acquired is greater than SwapchainImages-MinimumImages
+						m_maxFramesInFlight = core::min(caps.maxImageCount+1-caps.minImageCount,ISwapchain::MaxImages);
+					}
+
+					if (m_maxFramesInFlight)
+					{
+						m_acquireSemaphore = device->createSemaphore(0u);
+						if (m_acquireSemaphore)
+						{
+							if (init_impl(sharedParams))
+								return true;
+						}
+					}
+				}
 			}
-
-			if (!init_impl(queue,sharedParams))
-				return false;
-
-			m_queue = queue;
-			return true;
+			deinit();
+			return false;
 		}
 
 		//
@@ -191,17 +232,17 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		// RETURNS: `ISwapchain::MaxImages` on failure, otherwise its the acquired image's index.
 		inline uint8_t acquireNextImage()
 		{
-			auto swapchainResources = getSwapchainResources();
-			if (!swapchainResources)
-				return ISwapchain::MaxImages;
-
 			// Only check upon an acquire, previously acquired images MUST be presented
 			// Window/Surface got closed, but won't actually disappear UNTIL the swapchain gets dropped,
 			// which is outside of our control here as there is a nice chain of lifetimes of:
 			// `ExternalCmdBuf -via usage of-> Swapchain Image -memory provider-> Swapchain -created from-> Window/Surface`
 			// Only when the last user of the swapchain image drops it, will the window die.
-			if (m_cb->isWindowOpen() && swapchainResources->swapchain)
+			if (m_cb->isWindowOpen())
 			{
+				auto swapchainResources = getSwapchainResources();
+				if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE)
+					return ISwapchain::MaxImages;
+
 				const IQueue::SSubmitInfo::SSemaphoreInfo signalInfos[1] = {
 					{
 						.semaphore=m_acquireSemaphore.get(),
@@ -245,7 +286,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores, core::IReferenceCounted* frameResources)
 		{
 			auto swapchainResources = getSwapchainResources();
-			if (!swapchainResources || !swapchainResources->swapchain || !frameResources)
+			if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE || !frameResources)
 				return false;
 
 			const ISwapchain::SPresentInfo info = {
@@ -263,6 +304,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					break;
 				default:
 					// because we won't hold onto the `frameResources` we need to block for `waitSemaphores`
+					if (frameResources)
 					{
 						core::vector<ISemaphore::SWaitInfo> waitInfos(waitSemaphores.size());
 						auto outWait = waitInfos.data();
@@ -280,8 +322,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		virtual ISwapchainResources* getSwapchainResources() = 0;
 		virtual void becomeIrrecoverable() = 0;
 
+		//
+		virtual void deinit_impl() = 0;
+
 		// Generally used to check that per-swapchain resources can be created (including the swapchain itself)
-		virtual bool init_impl(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams) = 0;
+		virtual bool init_impl(const ISwapchain::SSharedCreationParams& sharedParams) = 0;
 
 		//
 		ICallback* const m_cb = nullptr;
@@ -289,8 +334,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 	private:
 		// persistent and constant for whole lifetime of the object
 		const core::smart_refctd_ptr<ISurface> m_surface;
+
 		// Use a Threadsafe queue to make sure we can do smooth resize in derived class, might get re-assigned
 		CThreadSafeQueueAdapter* m_queue = nullptr;
+		//
+		uint8_t m_maxFramesInFlight = 0;
 		// created and persistent after first initialization
 		core::smart_refctd_ptr<ISemaphore> m_acquireSemaphore;
 		// You don't want to use `m_swapchainResources.swapchain->getAcquireCount()` because it resets when swapchain gets recreated

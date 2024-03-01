@@ -275,7 +275,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         //! The counterpart of @see bindBufferMemory for images
-        inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
+        [[deprecated]] inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
         {
             for (auto i=0u; i<count; i++)
             {
@@ -289,6 +289,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return false;
             }
             return bindImageMemory_impl(count,pBindInfos);
+        }
+        inline bool bindImageMemory(const std::span<const SBindImageMemoryInfo> bindInfos)
+        {
+            return bindImageMemory(bindInfos.size(),bindInfos.data());
         }
 
         //! Descriptor Creation
