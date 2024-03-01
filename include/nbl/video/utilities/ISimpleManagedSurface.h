@@ -147,11 +147,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					swapchain = nullptr;
 				}
 				
-				// here you drop your own resources of the base class
-				virtual void invalidate_impl() = 0;
+				// Here you drop your own resources of the base class
+				virtual void invalidate_impl() {}
 
-				// extra things you might need
-				virtual bool onCreateSwapchain_impl(const uint8_t qFam) = 0;
+				// For creating extra per-image or swapchain resources you might need
+				virtual bool onCreateSwapchain_impl(const uint8_t qFam) {return true;}
 
 				// We start with a `nullptr` swapchain because some implementations might defer its creation
 				core::smart_refctd_ptr<ISwapchain> swapchain = {};

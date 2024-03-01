@@ -1273,7 +1273,7 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
         return false;
 
     const auto& dstParams = dstImage->getCreationParameters();
-    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
         return false;
 
     // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
