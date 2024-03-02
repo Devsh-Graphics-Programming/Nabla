@@ -143,5 +143,31 @@ namespace nbl::video
 			return nullptr;
 		}
 	}
+#elif defined(_NBL_PLATFORM_LINUX_)
+	
+	#include <xcb/xcb.h>
+	core::smart_refctd_ptr<CSurfaceVulkanXcb> CSurfaceVulkanXcb::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXCB>&& window)
+	{
+		if(!api || !window)
+			return nullptr;
+
+		auto* handle = window->getNativeHandle();
+		// assert(handle && handle->m_window != XCB_WINDOW_NONE && handle->m_connection != nullptr);
+		VkXcbSurfaceCreateInfoKHR createInfo { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR};
+		createInfo.pNext = nullptr;
+		createInfo.flags = 0;
+		createInfo.connection = *handle->m_connection;
+		createInfo.window = handle->m_window;
+		VkSurfaceKHR vk_surface;
+		if (vkCreateXcbSurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface) == VK_SUCCESS)
+		{
+			auto retval = new this_t(std::move(window), std::move(api), vk_surface);
+			return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+		}
+		return nullptr;
+	}
+
+
 #endif
+
 }

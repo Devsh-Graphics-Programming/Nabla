@@ -17,6 +17,11 @@ struct StringLiteral
         std::copy_n(str, N, value);
     }
 
+    // the size includes the null terminator
+    constexpr size_t size() const {
+        return N;
+    }
+
     char value[N];
 };
 
