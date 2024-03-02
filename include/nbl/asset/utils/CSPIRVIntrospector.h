@@ -648,35 +648,30 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			if (layout)
 			{
 				// TODO: merge CStageIntrospection into CPipelineIntrospection
+				pplnIntrospectData->merge(introspection.get());
 			}
 			else
 			{
 				pplnIntrospectData->merge(introspection.get());
 
-				auto pcRange = pplnIntrospectData->createPushConstantRangesFromIntrospection(introspection);
+				const auto pcRanges = pplnIntrospectData->createPushConstantRangesFromIntrospection(introspection);
+				const std::span<const asset::SPushConstantRange> pcRangesSpan = {
+					pcRanges ? pcRanges->begin() : nullptr,
+					pcRanges ? pcRanges->end() : nullptr
+				};
 
-				//layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-				//	pcRange, // TODO
-				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(0),
-				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(1),
-				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(2),
-				//	pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(3)
-				//);
+				layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+					pcRangesSpan,
+					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(0),
+					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(1),
+					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(2),
+					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(3)
+				);
 			}
 
 			ICPUComputePipeline::SCreationParams pplnCreationParams = {{.layout = layout.get()}};
-			params.shader = core::make_smart_refctd_ptr<ICPUShader>(info);
+			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
 			return ICPUComputePipeline::create(pplnCreationParams);
-			return nullptr;
-
-			/*core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-			for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-				dsLayout[i] = introspection->createApproximateDescriptorSetLayoutFromIntrospection(i, introspections, shaders);
-
-			return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-				(pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
-				std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
-			);*/
 		}
 
 #if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way

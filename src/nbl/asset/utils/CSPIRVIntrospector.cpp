@@ -138,10 +138,18 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 
     // can only be success now
     const auto& pc = stageData->getPushConstants();
+    auto a = pc.size;
     if (pc.present())
     {
+        std::span<core::bitflag<ICPUShader::E_SHADER_STAGE>> pcRangesSpan(
+            &m_pushConstantBytes[pc.offset],
+            &m_pushConstantBytes[pc.offset + pc.size]
+        );
+
         // iterate over all bytes used
-//        m_pushConstantBytes[byte] |= stageData->getParams().shader->getStage();
+        const IShader::E_SHADER_STAGE shaderStage = stageData->getParams().shader->getStage();
+        for (auto it = pcRangesSpan.begin(); it != pcRangesSpan.end(); ++it)
+            *it |= shaderStage;
     }
 
     return true;
@@ -150,32 +158,56 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 //
 NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    auto& ps = introspection->getPushConstants();
-    auto a = ps.type->memberInfoStorage;
+    auto& pc = introspection->getPushConstants();
 
-    core::vector<SPushConstantRange> tmp; tmp.reserve(MaxPushConstantsSize);
-    // Use Run Length Encode
-    /*SPushConstantRange prev = {
+    core::vector<SPushConstantRange> tmp; 
+    tmp.reserve(MaxPushConstantsSize);
+    
+    SPushConstantRange prev = {
         .stageFlags = m_pushConstantBytes[0].value,
         .offset = 0,
         .size = 0
     };
-    for ()
+
+    SPushConstantRange current = {
+        .offset = 0,
+        .size = 0
+    };
+
+    // TODO: test
+    // run-length encode m_pushConstantBytes
+    for (uint32_t currentByteOffset = 1u; currentByteOffset < MaxPushConstantsSize; ++currentByteOffset)
     {
-        if (current != prev)
+        current.stageFlags = m_pushConstantBytes[currentByteOffset].value;
+        current.offset++;
+        current.size++;
+
+        if (current.stageFlags != prev.stageFlags)
         {
-            prev.size = current.offset-prev.offset;
             if (prev.stageFlags)
+            {
+                prev.size = current.offset - prev.offset;
                 tmp.push_back(prev);
+            }
             prev = current;
         }
     }
+
     if (prev.stageFlags)
-        tmp.push_back(prev);*/
+    {
+        prev.size = current.offset - prev.offset;
+        tmp.push_back(prev);
+    }
 
-    // if to return empty/zero-sized array, albo nullptr
+    if(tmp.size() == 0)
+        return nullptr;
 
-    return nullptr;
+    std::ostringstream debug;
+    for (auto it = tmp.begin(); it != tmp.end(); it++)
+        debug << "Stage flags: " << std::bitset<32>(it->stageFlags) << " offset: " << it->offset << " size: " << it->size << std::endl;
+    std::cout << debug.str();
+
+    return core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(tmp);
 }
 NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID)
 {
@@ -394,6 +426,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         return nullptr;
 
     core::smart_refctd_ptr<CStageIntrospectionData> stageIntroData = core::make_smart_refctd_ptr<CStageIntrospectionData>();
+    stageIntroData->m_params = params;
     stageIntroData->m_shaderStage = shaderStage;
 
     comp.set_entry_point(params.entryPoint, stage);
@@ -534,7 +567,6 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     for (auto& descSet : stageIntroData->m_descriptorSetBindings)
         std::sort(descSet.begin(),descSet.end());
 
-    // TODO: test
     auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t id, uint32_t base_type_id)
         {
             const auto& type = comp.get_type(base_type_id);
