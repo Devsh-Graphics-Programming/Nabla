@@ -176,7 +176,7 @@ class ISurface : public core::IReferenceCounted
             VkExtent2D currentExtent = {0u,0u};
             VkExtent2D minImageExtent = {~0u,~0u};
             VkExtent2D maxImageExtent = {0u,0u};
-            uint8_t minImageCount = ~0u;
+            uint8_t minImageCount = 0xffu;
             uint8_t maxImageCount = 0;
             uint8_t maxImageArrayLayers = 0;
             core::bitflag<E_COMPOSITE_ALPHA> supportedCompositeAlpha = ECA_NONE;

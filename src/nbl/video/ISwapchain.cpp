@@ -26,6 +26,12 @@ ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCrea
 
     std::copy(m_params.queueFamilyIndices.begin(),m_params.queueFamilyIndices.end(),m_queueFamilies.data());
     m_params.queueFamilyIndices = {m_queueFamilies.data(),m_params.queueFamilyIndices.size()};
-}
+
+    for (auto i=0; i<m_imageCount; i++)
+    {
+        auto device = core::smart_refctd_ptr<ILogicalDevice>(const_cast<ILogicalDevice*>(getOriginDevice()));
+        m_frameResources[i] = std::make_unique<MultiTimelineEventHandlerST<DeferredFrameResourceDrop>>(std::move(device));
+    }
+} 
 
 }
