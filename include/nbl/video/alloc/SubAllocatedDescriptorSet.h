@@ -180,7 +180,13 @@ public:
 	video::IGPUDescriptorSet* getDescriptorSet() { return m_descriptorSet.get(); }
 
 	//! Warning `outAddresses` needs to be primed with `invalid_value` values, otherwise no allocation happens for elements not equal to `invalid_value`
-	inline size_type try_multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses)
+	inline size_type try_multi_allocate(
+		uint32_t binding, 
+		size_type count, 
+		video::IGPUDescriptorSet::SDescriptorInfo* descriptors, 
+		video::IGPUDescriptorSet::SWriteDescriptorSet* outDescriptorWrites,
+		value_type* outAddresses
+	)
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
@@ -217,17 +223,21 @@ public:
 				// can we change it?
 				write.info = &descriptor;
 			}
-			infos.push_back(descriptor);
-			writes.push_back(write);
+			outDescriptorWrites[i] = write;
 		}
 
-		// TODO: this goes outside
-		m_logicalDevice->updateDescriptorSets(writes, {});
 		return unallocatedSize;
 	}
 
 	template<class Clock=typename std::chrono::steady_clock>
-	inline size_type multi_allocate(const std::chrono::time_point<Clock>& maxWaitPoint, uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses) noexcept
+	inline size_type multi_allocate(
+		const std::chrono::time_point<Clock>& maxWaitPoint, 
+		uint32_t binding, 
+		size_type count, 
+		video::IGPUDescriptorSet::SDescriptorInfo* descriptors, 
+		video::IGPUDescriptorSet::SWriteDescriptorSet* outDescriptorWrites,
+		value_type* outAddresses
+	) noexcept
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
@@ -239,7 +249,7 @@ public:
 		auto& eventHandler = range->second.eventHandler;
 
 		// try allocate once
-		size_type unallocatedSize = try_multi_allocate(binding, count, descriptors, outAddresses);
+		size_type unallocatedSize = try_multi_allocate(binding, count, descriptors, outDescriptorWrites, outAddresses);
 		if (!unallocatedSize)
 			return 0u;
 
@@ -248,7 +258,13 @@ public:
 		{
 			eventHandler.wait(maxWaitPoint, unallocatedSize);
 
-			unallocatedSize = try_multi_allocate(binding, unallocatedSize, &descriptors[count - unallocatedSize], &outAddresses[count - unallocatedSize]);
+			unallocatedSize = try_multi_allocate(
+				binding, 
+				unallocatedSize, 
+				&descriptors[count - unallocatedSize], 
+				&outDescriptorWrites[count - unallocatedSize], 
+				&outAddresses[count - unallocatedSize]
+			);
 			if (!unallocatedSize)
 				return 0u;
 		} while(Clock::now()<maxWaitPoint);
@@ -256,14 +272,20 @@ public:
 		return unallocatedSize;
 	}
 
-	inline size_type multi_allocate(uint32_t binding, size_type count, video::IGPUDescriptorSet::SDescriptorInfo* descriptors, value_type* outAddresses) noexcept
+	inline size_type multi_allocate(
+		uint32_t binding, 
+		size_type count, 
+		video::IGPUDescriptorSet::SDescriptorInfo* descriptors, 
+		video::IGPUDescriptorSet::SWriteDescriptorSet* outDescriptorWrites, 
+		value_type* outAddresses
+	) noexcept
 	{
 		auto range = m_allocatableRanges.find(binding);
 		// Check if this binding has an allocator
 		if (range == m_allocatableRanges.end())
 			return count;
 
-		return multi_allocate(TimelineEventHandlerBase::default_wait(), binding, count, descriptors, outAddresses);
+		return multi_allocate(TimelineEventHandlerBase::default_wait(), binding, count, descriptors, outDescriptorWrites, outAddresses);
 	}
 
 	inline void multi_deallocate(uint32_t binding, size_type count, const size_type* addr)
