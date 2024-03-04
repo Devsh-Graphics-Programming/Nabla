@@ -10,16 +10,11 @@
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6144
 static nbl::hlsl::uint32_t3 /*nbl::hlsl::glsl::*/gl_WorkGroupSize() { return uint32_t3( WORKGROUP_SIZE, 1, 1 ); }
 
-uint32_t IndexInSharedMemory( uint32_t i )
-{
-	return ( i * gl_WorkGroupSize().x ) + nbl::hlsl::glsl::gl_LocalInvocationIndex();
-}
-
 static const uint32_t ITEMS_PER_THREAD = ( AXIS_DIM + WORKGROUP_SIZE - 1 ) / WORKGROUP_SIZE;
 static const uint32_t ITEMS_PER_WG = ITEMS_PER_THREAD * WORKGROUP_SIZE;
 
 static const uint32_t arithmeticSz = nbl::hlsl::workgroup::scratch_size_arithmetic<ITEMS_PER_WG>::value; 
-static const uint32_t broadcastSz = 1u; // According to Broadcast impl note 
+static const uint32_t broadcastSz = nbl::hlsl::workgroup::scratch_size_broadcast;
 static const uint32_t scratchSz = arithmeticSz + broadcastSz;
 
 groupshared uint32_t scratch[ scratchSz ];
@@ -52,7 +47,7 @@ struct prefix_sum_t
 	
 	type_t operator()( NBL_CONST_REF_ARG(type_t) value )
 	{
-		type_t retval = nbl::hlsl::workgroup::inclusive_scan<bin_op_t, ITEMS_PER_WG>::template __call<ScratchProxy<float32_t, 0> >( value, prefixSumsAccessor );
+		type_t retval = nbl::hlsl::workgroup::inclusive_scan<bin_op_t, ITEMS_PER_WG>::template __call<ScratchProxy<type_t, 0> >( value, prefixSumsAccessor );
 		// we barrier before because we alias the accessors for Binop
 		prefixSumsAccessor.workgroupExecutionAndMemoryBarrier();
 		return retval;
@@ -98,17 +93,14 @@ static const uint32_t LOCAL_SPILLAGE =
 	( ( IMPL_LOCAL_SPILLAGE < ITEMS_PER_THREAD ) ? SPILLAGE_LOWER_BOUND : IMPL_LOCAL_SPILLAGE );
 
 
-nbl::hlsl::uint32_t3 getCoordinates( uint32_t idx, uint32_t direction )
+uint32_t DataIndex( uint32_t i ) // ?
 {
-	nbl::hlsl::uint32_t3 result = nbl::hlsl::glsl::gl_WorkGroupID();
-	result[ direction ] = IndexInSharedMemory( idx );
-	return result;
+	return ( i * gl_WorkGroupSize().x ) + nbl::hlsl::glsl::gl_LocalInvocationIndex();
 }
 
 //TODO: glsl's mod(x, y) = x - y * floor(x/y). Would prolly need to implement a glsl mod
 void BoxBlur( 
 	const uint32_t ch, 
-	const uint32_t direction, 
 	const float32_t inRadius, 
 	const uint32_t wrapMode, 
 	const float32_t4 borderColor,
@@ -117,7 +109,7 @@ void BoxBlur(
 	float32_t blurred[ ITEMS_PER_THREAD ];
 	for( uint32_t i = 0u; i < ITEMS_PER_THREAD; ++i )
 	{
-		float32_t val = textureAccessor.getPaddedData( getCoordinates( i, direction ), ch );
+		float32_t val = textureAccessor.get( DataIndex( i ), ch );
 		blurred[ i ] = val;
 	}
 		
@@ -138,20 +130,20 @@ void BoxBlur(
 			float32_t scanResult = workgroupPrefixSum( blurred[ i ] ) + previousBlockSum;
 			previousBlockSum = workgroupBroadcast( scanResult, gl_WorkGroupSize().x - 1u );
 
-			uint32_t idx = IndexInSharedMemory( i );
+			uint32_t idx = DataIndex( i ); // ?
 			prefixSumsAccessor.set( idx, scanResult );
 		}
 
 		for( uint i = 0u; i < LOCAL_SPILLAGE; ++i )
 		{
-			uint32_t idx = IndexInSharedMemory( i );
+			uint32_t idx = DataIndex( i ); // ?
 			prefixSumsAccessor.set( idx, spill[ i ] );
 		}
 		prefixSumsAccessor.workgroupExecutionAndMemoryBarrier();
 
 		for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
 		{
-			uint32_t idx = IndexInSharedMemory( i );
+			uint32_t idx = DataIndex( i );
 
 			if( idx < AXIS_DIM )
 			{
@@ -321,6 +313,6 @@ void BoxBlur(
 
 	for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
 	{
-		textureAccessor.setData( getCoordinates( i, direction ), ch, blurred[ i ] );
+		textureAccessor.set( DataIndex( i ), ch, blurred[ i ] );
 	}
 }

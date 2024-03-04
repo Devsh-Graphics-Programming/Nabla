@@ -32,8 +32,7 @@ enum BorderColor : uint32_t
 struct BoxBlurParams
 {
 	nbl::hlsl::uint32_t4 inputDimensions;
-	nbl::hlsl::uint32_t4 inputStrides;
-	nbl::hlsl::uint32_t4 outputStrides;
+	nbl::hlsl::uint32_t2 chosenAxis;
 	float radius;
 
     uint32_t getDirection()
