@@ -28,8 +28,10 @@ public:
 	{
 	public:
 		inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, const value_type* addresses)
-			: m_addresses(addresses, addresses + count), m_binding(binding), m_composed(composed)
+			: m_addresses(std::move(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<value_type>>(count))), 
+			  m_binding(binding), m_composed(composed)
 		{
+			memcpy(m_addresses->data(), addresses, count * sizeof(value_type));
 		}
 
 		// Just does the de-allocation
@@ -39,7 +41,7 @@ public:
 			#ifdef _NBL_DEBUG
 			assert(m_composed);
 			#endif // _NBL_DEBUG
-			m_composed->multi_deallocate(m_binding, m_addresses.size(), m_addresses.data());
+			m_composed->multi_deallocate(m_binding, m_addresses->size(), m_addresses->data());
 		}
 
 		// Takes count of allocations we want to free up as reference, true is returned if
@@ -47,9 +49,9 @@ public:
 		// False is returned if there are more allocations to free up
 		inline bool operator()(size_type& allocationsToFreeUp)
 		{
-			auto prevCount = m_addresses.size();
+			auto prevCount = m_addresses->size();
 			operator()();
-			auto totalFreed = m_addresses.size() - prevCount;
+			auto totalFreed = m_addresses->size() - prevCount;
 
 			// This does the same logic as bool operator()(size_type&) on 
 			// CAsyncSingleBufferSubAllocator
@@ -60,9 +62,9 @@ public:
 			return freedEverything;
 		}
 	protected:
+		core::smart_refctd_dynamic_array<value_type> m_addresses;
 		SubAllocatedDescriptorSet* m_composed;
 		uint32_t m_binding;
-		std::vector<value_type> m_addresses;
 	};
 	using EventHandler = MultiTimelineEventHandlerST<DeferredFreeFunctor>;
 protected:
