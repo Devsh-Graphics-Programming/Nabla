@@ -10,24 +10,18 @@ IDebugCallback* IPhysicalDevice::getDebugCallback() const
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    for (auto i=0u; i<params.queueParamsCount; i++)
+    for (auto i=0u; i<ILogicalDevice::MaxQueueFamilies; i++)
     {
         const auto& qci = params.queueParams[i];
-        if (qci.familyIndex >= m_initData.qfamProperties->size())
+
+        const auto& qfam = m_initData.qfamProperties->operator[](i);
+        if (qci.count>qfam.queueCount)
             return false;
 
-        const auto& qfam = (*m_initData.qfamProperties)[qci.familyIndex];
-        if (qci.count == 0u)
-            return false;
-        if (qci.count > qfam.queueCount)
-            return false;
-
-        for (uint32_t i = 0u; i < qci.count; ++i)
+        for (uint32_t i=0u; i<qci.count; ++i)
         {
             const float priority = qci.priorities[i];
-            if (priority < 0.f)
-                return false;
-            if (priority > 1.f)
+            if (priority<0.f || priority>1.f)
                 return false;
         }
     }

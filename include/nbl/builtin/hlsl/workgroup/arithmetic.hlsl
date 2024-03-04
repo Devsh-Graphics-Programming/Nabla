@@ -98,7 +98,7 @@ template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class Arithme
 uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
     const uint16_t subgroupIndex = SubgroupContiguousIndex();
-    const uint16_t bitfieldIndex = impl::getDWORD(subgroupIndex);
+    const uint16_t bitfieldIndex = getDWORD(subgroupIndex);
     const uint32_t localBitfield = ballotAccessor.get(bitfieldIndex);
 
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
@@ -111,7 +111,7 @@ uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_
         arithmeticAccessor.set(subgroupIndex,count);
     arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
     count = arithmeticAccessor.get(bitfieldIndex);
-    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
+    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[getDWORD(uint16_t(glsl::gl_SubgroupInvocationID()))])+count);
 }
 }
 

@@ -8,41 +8,62 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr)
 {
-    uint32_t qcnt = 0u;
-    uint32_t greatestFamNum = 0u;
-    for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
     {
-        greatestFamNum = core::max(greatestFamNum,params.queueParams[i].familyIndex);
-        qcnt += params.queueParams[i].count;
+        uint32_t qcnt = 0u;
+        for (uint32_t i=0; i<MaxQueueFamilies; i++)
+            qcnt += params.queueParams[i].count;
+        m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
     }
 
-    m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
-    m_queueFamilyInfos = core::make_refctd_dynamic_array<q_family_info_array_t>(greatestFamNum+1u);
-
-    for (uint32_t i=0; i<params.queueParamsCount; i++)
+    for (uint32_t i=0; i<MaxQueueFamilies; i++)
     {
         const auto& qci = params.queueParams[i];
-        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos->operator[](qci.familyIndex));
+        auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos[i]);
+        if (qci.count)
         {
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+            using access_flags_t = asset::ACCESS_FLAGS;
             info.supportedStages = stage_flags_t::HOST_BIT;
+            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
 
-            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
-            const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
-                (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
+            const auto transferAccesses = access_flags_t::TRANSFER_READ_BIT|access_flags_t::TRANSFER_WRITE_BIT;
 
-            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[qci.familyIndex].queueFlags;
+            core::bitflag<stage_flags_t> computeAndGraphicsStages = transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+            core::bitflag<access_flags_t> computeAndGraphicsAccesses = transferAccesses|access_flags_t::INDIRECT_COMMAND_READ_BIT|access_flags_t::UNIFORM_READ_BIT|access_flags_t::STORAGE_READ_BIT|access_flags_t::STORAGE_WRITE_BIT|access_flags_t::SAMPLED_READ_BIT;
+            if (m_enabledFeatures.deviceGeneratedCommands)
+            {
+                computeAndGraphicsStages |= stage_flags_t::COMMAND_PREPROCESS_BIT;
+                computeAndGraphicsAccesses |= access_flags_t::COMMAND_PREPROCESS_READ_BIT|access_flags_t::COMMAND_PREPROCESS_WRITE_BIT;
+            }
+            if (m_enabledFeatures.conditionalRendering)
+            {
+                computeAndGraphicsStages |= stage_flags_t::CONDITIONAL_RENDERING_BIT;
+                computeAndGraphicsAccesses |= access_flags_t::CONDITIONAL_RENDERING_READ_BIT;
+            }
+
+            const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[i].queueFlags;
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
+                info.supportedAccesses |= computeAndGraphicsAccesses;
                 if (m_enabledFeatures.accelerationStructure)
+                {
                     info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                }
                 if (m_enabledFeatures.rayTracingPipeline)
+                {
                     info.supportedStages |= stage_flags_t::RAY_TRACING_SHADER_BIT;
+                    info.supportedAccesses |= access_flags_t::SHADER_BINDING_TABLE_READ_BIT;
+                }
             }
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
+                info.supportedAccesses |= computeAndGraphicsAccesses|access_flags_t::INDEX_READ_BIT|access_flags_t::VERTEX_ATTRIBUTE_READ_BIT;
+                info.supportedAccesses |= access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT|access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                info.supportedAccesses |= access_flags_t::INPUT_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_WRITE_BIT;
 
                 if (m_enabledFeatures.tessellationShader)
                     info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT|stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
@@ -54,29 +75,32 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
                 //if (m_enabledFeatures.taskShader)
                 //    info.supportedStages |= stage_flags_t::;
                 if (m_enabledFeatures.fragmentDensityMap)
+                {
                     info.supportedStages |= stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT;
+                    info.supportedAccesses |= access_flags_t::FRAGMENT_DENSITY_MAP_READ_BIT;
+                }
                 //if (m_enabledFeatures.????)
                 //    info.supportedStages |= stage_flags_t::SHADING_RATE_ATTACHMENT_BIT;
+                //    info.supportedAccesses |= access_flags_t::SHADING_RATE_ATTACHMENT_READ_BIT;
 
                 info.supportedStages |= stage_flags_t::FRAMEBUFFER_SPACE_BITS;
             }
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            {
                 info.supportedStages |= transferStages;
+                info.supportedAccesses |= transferAccesses;
+                if (m_enabledFeatures.accelerationStructure)
+                {
+                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                }
+            }
         }
-        {
-            using access_flags_t = asset::ACCESS_FLAGS;
-            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
-        }
-        info.firstQueueIndex = qci.count;
-    }
-    // bothering with an `std::exclusive_scan` is a bit too cumbersome here
-    uint32_t sum = 0u;
-    for (auto i=0u; i<m_queueFamilyInfos->size(); i++)
-    {
-        auto& x = m_queueFamilyInfos->operator[](i).firstQueueIndex;
-        auto tmp = sum+x;
-        const_cast<uint32_t&>(x) = sum;
-        sum = tmp;
+        info.queueCount = qci.count;
+        if (i)
+            info.firstQueueIndex = m_queueFamilyInfos[i-1].firstQueueIndex+m_queueFamilyInfos[i-1].queueCount;
+        else
+            info.firstQueueIndex = 0;
     }
 
     if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL):nullptr)
@@ -92,7 +116,7 @@ const SPhysicalDeviceLimits& ILogicalDevice::getPhysicalDeviceLimits() const
 
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
 {
-    if (queueFamilyIndex>m_queueFamilyInfos->size())
+    if (getQueueCount(queueFamilyIndex)==0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
@@ -111,23 +135,23 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     return getSupportedStageMask(queueFamilyIndex).hasFlags(stageMask);
 }
 
-bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const
 {
-    if (queueFamilyIndex>m_queueFamilyInfos->size())
+    if (getQueueCount(queueFamilyIndex)==0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-    return getSupportedAccessMask(queueFamilyIndex).hasFlags(stageMask);
+    if (accessMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
+        accessMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+    else if (accessMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
+        accessMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
+    if (accessMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
+        accessMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+    else if (accessMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
+        accessMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+    return getSupportedAccessMask(queueFamilyIndex).hasFlags(accessMask);
 }
 
 bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const

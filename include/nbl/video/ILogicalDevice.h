@@ -22,22 +22,19 @@ class IPhysicalDevice;
 class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
+        constexpr static inline uint8_t MaxQueueFamilies = 7;
         struct SQueueCreationParams
         {
-            constexpr static inline uint8_t MaxQueuesInFamily = 63;
+            constexpr static inline uint8_t MaxQueuesInFamily = 15;
 
             core::bitflag<IQueue::CREATE_FLAGS> flags = IQueue::CREATE_FLAGS::NONE;
-            uint8_t familyIndex = 0xff;
-            uint8_t count = 0;
+            uint8_t count : 4/*log2(MaxQueuesInFamily+1)*/ = 0;
             std::array<float,MaxQueuesInFamily> priorities = []()->auto{
                 std::array<float,MaxQueuesInFamily> retval;retval.fill(IQueue::DEFAULT_QUEUE_PRIORITY);return retval;
             }();
         };
         struct SCreationParams
         {
-            constexpr static inline uint8_t MaxQueueFamilies = 16;
-
-            uint32_t queueParamsCount;
             std::array<SQueueCreationParams,MaxQueueFamilies> queueParams = {};
             SPhysicalDeviceFeatures featuresToEnable = {};
             core::smart_refctd_ptr<asset::CCompilerSet> compilerSet = nullptr;
@@ -52,15 +49,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         E_API_TYPE getAPIType() const;
 
         //
+        inline uint8_t getQueueCount(const uint32_t _familyIx) const
+        {
+            if (_familyIx<MaxQueueFamilies)
+                return m_queueFamilyInfos[_familyIx].queueCount;
+            return 0u;
+        }
+
         inline IQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
         {
-            return getThreadSafeQueue(_familyIx,_ix)->getUnderlyingQueue();
+            if (auto tsq=getThreadSafeQueue(_familyIx,_ix); tsq)
+                return tsq->getUnderlyingQueue();
+            return nullptr;
         }
 
         // Using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
         inline CThreadSafeQueueAdapter* getThreadSafeQueue(uint32_t _familyIx, uint32_t _ix)
         {
-            const uint32_t offset = m_queueFamilyInfos->operator[](_familyIx).firstQueueIndex;
+            if (getQueueCount(_familyIx)==0)
+                return nullptr;
+            const uint32_t offset = m_queueFamilyInfos[_familyIx].firstQueueIndex;
             return (*m_queues)[offset+_ix];
         }
 
@@ -68,18 +76,18 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! sync validation
         inline core::bitflag<asset::PIPELINE_STAGE_FLAGS> getSupportedStageMask(const uint32_t queueFamilyIndex) const
         {
-            if (queueFamilyIndex>m_queueFamilyInfos->size())
-                return asset::PIPELINE_STAGE_FLAGS::NONE;
-            return m_queueFamilyInfos->operator[](queueFamilyIndex).supportedStages;
+            if (getQueueCount(queueFamilyIndex)!=0)
+                return m_queueFamilyInfos[queueFamilyIndex].supportedStages;
+            return asset::PIPELINE_STAGE_FLAGS::NONE;
         }
         //! Use this to validate instead of `getSupportedStageMask(queueFamilyIndex)&stageMask`, it checks special values
         bool supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const;
         
         inline core::bitflag<asset::ACCESS_FLAGS> getSupportedAccessMask(const uint32_t queueFamilyIndex) const
         {
-            if (queueFamilyIndex>m_queueFamilyInfos->size())
-                return asset::ACCESS_FLAGS::NONE;
-            return m_queueFamilyInfos->operator[](queueFamilyIndex).supportedAccesses;
+            if (getQueueCount(queueFamilyIndex)!=0)
+                return m_queueFamilyInfos[queueFamilyIndex].supportedAccesses;
+            return asset::ACCESS_FLAGS::NONE;
         }
         //! Use this to validate instead of `getSupportedAccessMask(queueFamilyIndex)&accessMask`, it checks special values
         bool supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const;
@@ -267,7 +275,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         //! The counterpart of @see bindBufferMemory for images
-        inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
+        [[deprecated]] inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
         {
             for (auto i=0u; i<count; i++)
             {
@@ -281,6 +289,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return false;
             }
             return bindImageMemory_impl(count,pBindInfos);
+        }
+        inline bool bindImageMemory(const std::span<const SBindImageMemoryInfo> bindInfos)
+        {
+            return bindImageMemory(bindInfos.size(),bindInfos.data());
         }
 
         //! Descriptor Creation
@@ -628,7 +640,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
             // this validate already checks that Renderpass device creator matches with the images
-            if (!IGPUFramebuffer::validate(params))
+            if (!params.validate())
                 return nullptr;
 
             if (params.width>getPhysicalDeviceLimits().maxFramebufferWidth ||
@@ -640,7 +652,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return nullptr;
 
             // We won't support linear attachments
-            auto anyNonOptimalTiling = [](core::smart_refctd_ptr<IGPUImageView>* const attachments, const uint32_t count)->bool
+            auto anyNonOptimalTiling = [](const IGPUImageView* const* attachments, const uint32_t count)->bool
             {
                 for (auto i=0u; i<count; i++)
                 if (attachments[i]->getCreationParameters().image->getTiling()!=IGPUImage::TILING::OPTIMAL)
@@ -741,9 +753,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Commandbuffers
         inline core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(const uint32_t familyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> flags)
         {
-            if (familyIx>=m_queueFamilyInfos->size())
-                return nullptr;
-            return createCommandPool_impl(familyIx,flags);
+            if (getQueueCount(familyIx)!=0)
+                return createCommandPool_impl(familyIx,flags);
+            return nullptr;
         }
 
         // Not implemented stuff:
@@ -919,11 +931,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             core::bitflag<asset::PIPELINE_STAGE_FLAGS> supportedStages = asset::PIPELINE_STAGE_FLAGS::NONE;
             core::bitflag<asset::ACCESS_FLAGS> supportedAccesses = asset::ACCESS_FLAGS::NONE;
+            uint16_t queueCount = 0u;
             // index into flat array of `m_queues`
-            uint32_t firstQueueIndex = 0u;
+            uint16_t firstQueueIndex = 0u;
         };
-        using q_family_info_array_t = core::smart_refctd_dynamic_array<const QueueFamilyInfo>;
-        q_family_info_array_t m_queueFamilyInfos;
+        const std::array<QueueFamilyInfo,MaxQueueFamilies> m_queueFamilyInfos;
         
     private:
         const SPhysicalDeviceLimits& getPhysicalDeviceLimits() const;

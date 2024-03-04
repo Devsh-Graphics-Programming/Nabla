@@ -14,14 +14,14 @@ using namespace nbl::video;
 
 
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params)
-    : ILogicalDevice(std::move(api),physicalDevice,params,rdoc), m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
+: ILogicalDevice(std::move(api),physicalDevice,params,rdoc),
+m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
 {
     // create actual queue objects
-    for (uint32_t i=0u; i<params.queueParamsCount; ++i)
+    for (uint32_t i=0u; i<ILogicalDevice::MaxQueueFamilies; ++i)
     {
         const auto& qci = params.queueParams[i];
-        const uint32_t famIx = qci.familyIndex;
-        const uint32_t offset = m_queueFamilyInfos->operator[](famIx).firstQueueIndex;
+        const uint32_t offset = m_queueFamilyInfos[i].firstQueueIndex;
         const auto flags = qci.flags;
                     
         for (uint32_t j=0u; j<qci.count; ++j)
@@ -29,19 +29,29 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
             const float priority = qci.priorities[j];
                         
             VkQueue q;
-            VkDeviceQueueInfo2 vk_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr };
-            vk_info.queueFamilyIndex = famIx;
+            VkDeviceQueueInfo2 vk_info = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr};
+            vk_info.queueFamilyIndex = i;
             vk_info.queueIndex = j;
             vk_info.flags = 0; // we don't do protected queues yet
-            m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+            m_devf.vk.vkGetDeviceQueue(m_vkdev,i,j,&q);
                         
-            const uint32_t ix = offset + j;
-            auto queue = std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,famIx,flags,priority);
+            const uint32_t ix = offset+j;
+            auto queue = std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,i,flags,priority);
             (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::move(queue));
         }
     }
 
-    m_dummyDSLayout = createDescriptorSetLayout({});
+    {
+        const VkDescriptorSetLayoutCreateInfo vk_createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .bindingCount = 0,
+            .pBindings = nullptr
+        };
+        const bool success = m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&m_dummyDSLayout)==VK_SUCCESS;
+        assert(success);
+    }
 }
 
 
@@ -569,7 +579,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineL
     {
         if (tmp[i])
             nonNullSetLayoutCount = i;
-        vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>((tmp[i] ? tmp[i]:m_dummyDSLayout).get())->getInternalObject();
+        vk_dsLayouts[i] = tmp[i] ? static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject():m_dummyDSLayout;
     }
     nonNullSetLayoutCount++;
 
@@ -926,9 +936,9 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
     core::vector<VkImageView> attachments;
     {
         attachments.reserve(renderpass->getDepthStencilAttachmentCount()+renderpass->getColorAttachmentCount());
-        auto pushAttachment = [&attachments](const core::smart_refctd_ptr<IGPUImageView>& view) -> void
+        auto pushAttachment = [&attachments](IGPUImageView* const view) -> void
         {
-            attachments.push_back(static_cast<CVulkanImageView*>(view.get())->getInternalObject());
+            attachments.push_back(static_cast<CVulkanImageView*>(view)->getInternalObject());
         };
 
         for (auto i=0u; i<renderpass->getDepthStencilAttachmentCount(); i++)
