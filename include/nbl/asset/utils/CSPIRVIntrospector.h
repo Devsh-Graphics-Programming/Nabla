@@ -613,16 +613,15 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			if (params.shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
 				return nullptr;
 
-			// TODO: uncomment and test
 			// TODO: templated find!
-			//auto introspectionData = m_introspectionCache.find(params);
-			//if (introspectionData != m_introspectionCache.end())
-			//	return *introspectionData;
+			auto introspectionData = m_introspectionCache.find(params);
+			if (introspectionData != m_introspectionCache.end())
+				return *introspectionData;
 
 			auto introspection = doIntrospection(params);
 
-			//if (insertToCache)
-			//	m_introspectionCache.insert(introspectionData,introspection);
+			if (insertToCache)
+				m_introspectionCache.insert(introspectionData,introspection);
 
 			return introspection;
 		}
@@ -732,8 +731,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			}
 		};
 
-		//using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>,KeyHasher,KeyEquals>;
-		//ParamsToDataMap m_introspectionCache;
+		using ParamsToDataMap = core::unordered_set<core::smart_refctd_ptr<const CStageIntrospectionData>,KeyHasher,KeyEquals>;
+		ParamsToDataMap m_introspectionCache;
 };
 
 } // nbl::asset
