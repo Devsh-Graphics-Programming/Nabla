@@ -71,18 +71,6 @@ inline matrix<T,M,N> transpose(const matrix<T,N,M>& m)
     return glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
 }
 
-namespace glsl // TODO ?
-{
-
-template<typename T>
-inline T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
-{
-    return glm::bitfieldExtract( val, int32_t( offsetBits ), int32_t( numBits ) );
-}
-
-}
-
-
 #undef NBL_BIT_OP_GLM_PASSTHROUGH
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
 }

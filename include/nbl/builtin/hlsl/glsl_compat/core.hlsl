@@ -127,6 +127,14 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call( val, offsetBits, numBits );
 }
 
+#else
+
+template<typename T>
+inline T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return glm::bitfieldExtract( val, int32_t( offsetBits ), int32_t( numBits ) );
+}
+
 #endif
 
 }
