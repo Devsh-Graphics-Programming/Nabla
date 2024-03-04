@@ -68,9 +68,9 @@ RUN `
 	choco install -y strawberryperl --version 5.28.2.1
 
 RUN `
-	# Download & install Python 3.11.7
+	# Download & install Python 3.11.6
 	`
-	choco install -y python --version 3.11.7
+	choco install -y python --version 3.11.6
 
 RUN `
 	# Donwload debugpy Python module
