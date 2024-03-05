@@ -147,6 +147,7 @@ public:
 
 	inline ~SubAllocatedDescriptorSet()
 	{
+static_assert(false, "should nullify/destroy/poll the event deferred handler to completion, then as we iterate through `m_allocatableRanges` assert that the allocators have no allocations/everything is free");
 		for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
 		{
 			auto& range = m_allocatableRanges[i];
@@ -227,18 +228,20 @@ public:
 
 		// then try to wait at least once and allocate
 		auto& eventHandler = range->second.eventHandler;
-		core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(m_totalDeferredFrees);
-		auto outNulls = nulls.data();
+		core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls;
 		do
 		{
+			// FUTURE TODO: later we could only nullify the descriptors we don't end up reallocating if without robustness features
+			nulls.resize(m_totalDeferredFrees);
+			auto outNulls = nulls.data();
 			eventHandler.wait(maxWaitPoint, unallocatedSize, outNulls);
+			m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls});
 
 			// always call with the same parameters, otherwise this turns into a mess with the non invalid_address gaps
 			unallocatedSize = try_multi_allocate(binding,count,outAddresses);
 			if (!unallocatedSize)
 				break;
 		} while(Clock::now()<maxWaitPoint);
-		m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls});
 
 		return unallocatedSize;
 	}
