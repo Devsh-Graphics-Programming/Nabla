@@ -126,7 +126,12 @@ bool IUtilities::updateImageViaStagingBuffer(
 
             if (!regionsToCopy.empty())
             {
-                cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                bool copied = cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                if( !copied )
+                {
+                    m_logger.log( "Couldn't perform copy.", nbl::system::ILogger::ELL_ERROR );
+                    return false;
+                }
             }
 
             assert(!regionsToCopy.empty() && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");

@@ -132,7 +132,7 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 template<typename T>
 inline T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return glm::bitfieldExtract( val, int32_t( offsetBits ), int32_t( numBits ) );
+    return glm::bitfieldExtract<T>( val, int32_t( offsetBits ), int32_t( numBits ) );
 }
 
 #endif
