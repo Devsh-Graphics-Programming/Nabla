@@ -1,15 +1,16 @@
-#pragma once
-
-#ifndef _NBL_BOX_BLUR_COMMONS_
-#define _NBL_BOX_BLUR_COMMONS_
+#ifndef _NBL_BUILTIN_HLSL_CENTRAL_LIMIT_BLUR_COMMON_INCLUDED_
+#define _NBL_BUILTIN_HLSL_CENTRAL_LIMIT_BLUR_COMMON_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
-//_NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKGROUP_SIZE = 256u;
-//_NBL_STATIC_INLINE_CONSTEXPR uint32_t PASSES_PER_AXIS = 3u;
-//_NBL_STATIC_INLINE_CONSTEXPR uint32_t AXIS_DIM = 3u; // HUH ?
+namespace nbl 
+{
+namespace hlsl
+{
+namespace central_limit_blur
+{
 
 enum WrapMode : uint32_t
 {
@@ -35,24 +36,24 @@ struct BoxBlurParams
 	nbl::hlsl::uint32_t2 chosenAxis;
 	float radius;
 
-    uint32_t getDirection()
-    {
+	uint32_t getDirection()
+	{
 		return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 30, 2 );
-    }
-    uint32_t getChannelCount()
-    {
-        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 27, 3 );
-    }
+	}
+	uint32_t getChannelCount()
+	{
+		return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 27, 3 );
+	}
 
-    uint32_t getWrapMode()
-    {
-        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 25, 2 );
-    }
+	uint32_t getWrapMode()
+	{
+		return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 25, 2 );
+	}
 
-    uint32_t getBorderColorType()
-    {
-        return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 22, 3 );
-    }
+	uint32_t getBorderColorType()
+	{
+		return nbl::hlsl::glsl::bitfieldExtract( inputDimensions.w, 22, 3 );
+	}
 	nbl::hlsl::float32_t4 getBorderColor()
 	{
 		nbl::hlsl::float32_t4 borderColor = nbl::hlsl::float32_t4( 1.f, 0.f, 1.f, 1.f );
@@ -77,6 +78,12 @@ struct BoxBlurParams
 	}
 };
 
+}
+}
+}
+#endif
+
+
 //struct BufferAccessor;
 /*
 {
@@ -84,4 +91,3 @@ struct BoxBlurParams
 	void setData( const nbl::hlsl::uint32_t3 coordinate, const uint32_t channel, const nbl::hlsl::float32_t val );
 };
 */
-#endif
