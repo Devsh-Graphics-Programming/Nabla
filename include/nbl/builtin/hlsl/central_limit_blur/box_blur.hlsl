@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nbl/builtin/hlsl/blur/common.hlsl>
+#include <nbl/builtin/hlsl/central_limit_blur/common.hlsl>
 
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/workgroup/arithmetic.hlsl>
@@ -11,9 +11,8 @@
 static nbl::hlsl::uint32_t3 /*nbl::hlsl::glsl::*/gl_WorkGroupSize() { return uint32_t3( WORKGROUP_SIZE, 1, 1 ); }
 
 static const uint32_t ITEMS_PER_THREAD = ( AXIS_DIM + WORKGROUP_SIZE - 1 ) / WORKGROUP_SIZE;
-static const uint32_t ITEMS_PER_WG = ITEMS_PER_THREAD * WORKGROUP_SIZE;
 
-static const uint32_t arithmeticSz = nbl::hlsl::workgroup::scratch_size_arithmetic<ITEMS_PER_WG>::value; 
+static const uint32_t arithmeticSz = nbl::hlsl::workgroup::scratch_size_arithmetic<ITEMS_PER_THREAD>::value;
 static const uint32_t broadcastSz = nbl::hlsl::workgroup::scratch_size_broadcast;
 static const uint32_t scratchSz = arithmeticSz + broadcastSz;
 
