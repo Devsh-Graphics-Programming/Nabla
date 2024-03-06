@@ -892,6 +892,7 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
             outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
             outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
             outDependency->viewOffset = dep.viewOffset;
+            outDependency++;
         }
     }
 
