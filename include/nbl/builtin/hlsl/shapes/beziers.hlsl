@@ -302,14 +302,13 @@ struct Quadratic
 
             if (arcLen <= accuracyThreshold)
                 return arcLen;
-
+            
+            bool clampToMin = false;
+            bool clampToMax = false;
             const uint32_t iterationThreshold = 32;
             for(uint32_t n = 0; n < iterationThreshold; n++)
             {
                 const float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
-
-                const bool clampToMin = xn <= min;
-                const bool clampToMax = xn >= max;
                 const bool rootIsOutOfBounds = (clampToMin && arcLenDiffAtParamGuess > 0) || (clampToMax && arcLenDiffAtParamGuess < 0);
 
                 if (abs(arcLenDiffAtParamGuess) < accuracyThreshold || rootIsOutOfBounds)
@@ -318,7 +317,9 @@ struct Quadratic
                 float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
                     // x_n+1 = x_n - f(x_n)/f'(x_n)
                 xn -= arcLenDiffAtParamGuess / differentialAtGuess;
-
+                
+                clampToMin = xn <= min;
+                clampToMax = xn >= max;
                 if (clampToMin)
                     xn = min;
                 else if (clampToMax)
