@@ -33,7 +33,7 @@ struct prefix_sum_t
 
 
 //TODO: glsl's mod(x, y) = x - y * floor(x/y). Would prolly need to implement a glsl mod
-template<class TextrueAccessor, class GroupSharedAccessor, uint16_t ITEMS_PER_THREAD, uint16_t InvocationsCount>
+template<class TextrueAccessor, class GroupSharedAccessor, uint16_t ITEMS_PER_THREAD, uint16_t ArithemticWgSize>
 void BoxBlur(
 	uint16_t chIdx,
 	const float32_t radius,
@@ -44,44 +44,42 @@ void BoxBlur(
 ) {
 	for( uint16_t pass = 0u; pass < PASSES_PER_AXIS; ++pass )
 	{
-		float32_t prevBlockSum = 0.f;
-
-		uint32_t idx = workgroup::SubgroupContiguousIndex();
-		for( uint32_t i = 0u; i < ITEMS_PER_THREAD; ++i )
+		uint16_t idx = workgroup::SubgroupContiguousIndex();
+		for( uint16_t i = 0u; i < ITEMS_PER_THREAD; ++i )
 		{
+			// broadcast barrier
 			sharedAccessor.workgroupExecutionAndMemoryBarrier();
 
 			float32_t blurred = texAccessor.get( i, chIdx );
+			// add previous to current but only to the first input cause will propagate anyway
 			if( idx == 0 )
 			{
 				blurred += sharedAccessor.get( glsl::gl_WorkGroupSize().x - 1u );
 			}
+			float32_t sum = prefix_sum_t<ArithemticWgSize>::template __call<GroupSharedAccessor>( blurred, sharedAccessor );
 
-			float32_t sum = prefix_sum_t<InvocationsCount>::template __call<GroupSharedAccessor>( blurred, sharedAccessor ) + prevBlockSum;
-			sharedAccessor.workgroupExecutionAndMemoryBarrier();
-
-			if( idx == glsl::gl_WorkGroupSize().x - 1u )
+			// finish last prefix sum before storing to scratch we overwrite its scratch
+			if( i == ( ITEMS_PER_THREAD - 1 ) )
 			{
-				sharedAccessor.set( idx, sum );
+				sharedAccessor.workgroupExecutionAndMemoryBarrier();
 			}
-		}
+			sharedAccessor.set( idx, sum );
 
-		for( uint32_t i = 0; i < ITEMS_PER_THREAD; ++i )
-		{
-			uint32_t _idx = idx + i;
+			sharedAccessor.workgroupExecutionAndMemoryBarrier();
+			const uint16_t last = uint16_t( glsl::gl_WorkGroupSize().x - 1u ) * ITEMS_PER_THREAD; // TODO: don't hardcode ?
+			uint16_t scanlineIdx = idx + ( i * glsl::gl_WorkGroupSize().x );
 
-			//if( _idx < AXIS_DIM )
+			if( scanlineIdx < last )
 			{
-				float32_t left = float32_t( _idx ) - radius - 1.f;
-				float32_t right = float32_t( _idx ) + radius;
-				const uint32_t last = AXIS_DIM - 1;
-
 				float32_t result = 0.f;
 
-				if( right <= last )
+				float32_t left = float32_t( scanlineIdx ) - radius - 1.f;
+				float32_t right = float32_t( scanlineIdx ) + radius;
+				
+				if( ceil( right ) <= float32_t( last ) )
 				{
-					float32_t floorRight = sharedAccessor.get( floor( right ) );
-					float32_t ceilRight = sharedAccessor.get( ceil( right ) );
+					float32_t floorRight = sharedAccessor.get( floor( right ) % glsl::gl_WorkGroupSize().x );
+					float32_t ceilRight = sharedAccessor.get( ceil( right ) % glsl::gl_WorkGroupSize().x );
 					result = lerp( floorRight, ceilRight, frac( right ) );
 				}
 				else
@@ -90,8 +88,8 @@ void BoxBlur(
 					{
 					case WRAP_MODE_CLAMP_TO_EDGE:
 					{
-						float32_t sumLast = sharedAccessor.get( last );
-						float32_t sumLastMinusOne = sharedAccessor.get( last - 1u );
+						float32_t sumLast = sharedAccessor.get( glsl::gl_WorkGroupSize().x - 1u );
+						float32_t sumLastMinusOne = sharedAccessor.get( glsl::gl_WorkGroupSize().x - 2u );
 						result = ( right - float32_t( last ) ) * ( sumLast - sumLastMinusOne ) + sumLast;
 					} break;
 					/*
@@ -154,14 +152,15 @@ void BoxBlur(
 						}
 
 						result = lerp( v_floored, v_ceiled, frac( right ) );
-					} break;
-					*/
+					} break;*/
 					}
 				}
 
 				if( left >= 0 )
 				{
-					result -= lerp( sharedAccessor.get( floor( left ) ), sharedAccessor.get( ceil( left ) ), frac( left ) );
+					float32_t floorLeft = sharedAccessor.get( floor( left ) % glsl::gl_WorkGroupSize().x );
+					float32_t ceilLeft = sharedAccessor.get( ceil( left ) % glsl::gl_WorkGroupSize().x );
+					result -= lerp( floorLeft, ceilLeft, frac( left ) );
 				}
 				else
 				{
@@ -169,7 +168,7 @@ void BoxBlur(
 					{
 					case WRAP_MODE_CLAMP_TO_EDGE:
 					{
-						result -= ( 1.f - abs( left ) ) * sharedAccessor.get( 0 );
+						result -= ( 1.f - abs( left ) ) * sharedAccessor.get( 0u );
 					} break;
 					/*
 					case WRAP_MODE_CLAMP_TO_BORDER:
@@ -227,13 +226,13 @@ void BoxBlur(
 						}
 
 						result -= lerp( v_floored, v_ceiled, frac( left ) );
-					} break;
-					*/
+					} break;*/
 					}
 				}
 
-				float32_t blurred = result / ( 2.f * radius + 1.f );
-				texAccessor.set( i, chIdx, blurred );
+				float32_t blurredChannel = result / ( 2.f * radius + 1.f );
+				nbl::hlsl::glsl::barrier();
+				texAccessor.set( i, chIdx, blurredChannel );
 			}
 		}
 	}
