@@ -151,8 +151,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const;
 
         
-        //! Sync
-        virtual IQueue::RESULT waitIdle() const = 0;
+        //! Very important function, without it being called at the end of when you use a device, it will leak due to circular reference from resources used in the very last submit to a queue
+        //! Alternatively to get rid of circular refs, you can call `waitIdle` individually on every queue you've ever used
+        IQueue::RESULT waitIdle();
 
         //! Semaphore Stuff
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
@@ -767,10 +768,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc);
         inline virtual ~ILogicalDevice()
         {
+            // There's no point calling `waitIdle` here for two reasons:
+            // - vtable already destroyed, you'll then call undefined function pointer for `waitIdle_impl`
+            // - `waitIdle` must have been called already or a similar operation performed, otherwise you'll have circular references from the per-queue GC and you'll never enter this destructor
             if (m_queues)
             for (uint32_t i=0u; i<m_queues->size(); ++i)
                 delete (*m_queues)[i];
         }
+
+        virtual IQueue::RESULT waitIdle_impl() const = 0;
+
         virtual bool flushMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
         virtual bool invalidateMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
 

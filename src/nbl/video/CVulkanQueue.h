@@ -44,12 +44,6 @@ class CVulkanQueue final : public IQueue
         inline VkQueue getInternalObject() const {return m_vkQueue;}
 
     private:
-        inline ~CVulkanQueue()
-        {
-            // need to ensure all submits end to stop spinning in the Base Class destructor
-            waitIdle_impl();
-        }
-
         RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override;
         RESULT waitIdle_impl() const override;
 

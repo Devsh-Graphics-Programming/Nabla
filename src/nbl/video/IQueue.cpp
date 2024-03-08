@@ -115,10 +115,4 @@ uint32_t IQueue::cullResources()
     return m_submittedResources->poll().eventsLeft;
 }
 
-IQueue::~IQueue()
-{
-    // if you find yourself spinning a lot here, its because the base class hasn't called waitIdle_impl()
-    //while (cullResources()) {} // deleter of `m_submittedResources` calls dtor which will do this
-}
-
 }

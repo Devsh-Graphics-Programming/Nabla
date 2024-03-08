@@ -237,6 +237,17 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
     return true;
 }
 
+
+IQueue::RESULT ILogicalDevice::waitIdle()
+{
+    const auto retval = waitIdle_impl();
+    // Since this is equivalent to calling waitIdle on all queues, just proceed to releasing tracked resources
+    for (auto queue : *m_queues)
+        queue->cullResources();
+    return retval;
+}
+
+
 core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
 {
     if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))

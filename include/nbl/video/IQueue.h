@@ -147,7 +147,7 @@ class IQueue : public core::Interface, public core::Unmovable
 				inline DeferredSubmitResourceDrop& operator=(DeferredSubmitResourceDrop&& other)
 				{
                     m_resources = std::move(other.m_resources);
-                    m_resources = nullptr;
+                    other.m_resources = nullptr;
 					return *this;
 				}
 
@@ -160,8 +160,11 @@ class IQueue : public core::Interface, public core::Unmovable
 
     protected:
         NBL_API2 IQueue(ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority);
-        // WARNING: Due to ordering of destructors, its the Base Class that implements `waitIdle_impl` that needs to call `waitIdle`!
-        NBL_API2 ~IQueue();
+        // As IQueue is logically an integral part of the `ILogicalDevice` the destructor will only run during `~ILogicalDevice` which means `waitIdle` already been called
+        inline ~IQueue()
+        {
+            //while (cullResources()) {} // deleter of `m_submittedResources` calls dtor which will do this
+        }
 
         friend class CThreadSafeQueueAdapter;
         virtual RESULT submit_impl(const std::span<const SSubmitInfo> _submits) = 0;
