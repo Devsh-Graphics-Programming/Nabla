@@ -28,65 +28,88 @@ struct prefix_sum_t
 	}
 };
 
-//static const bool needToSpill = MaxItemCount > WORKGROUP_SIZE;
-//static const uint16_t SPILL_COUNT = ( MaxItemCount - 1 ) / WORKGROUP_SIZE + 1;
+template<class Accessor, uint16_t offset>
+struct ArithmeticProxy
+{
+	Accessor original;
+	float32_t get( const uint32_t ix )
+	{
+		return original.get( ix + offset );
+	}
+	void set( const uint32_t ix, NBL_CONST_REF_ARG(float32_t) value )
+	{
+		original.set( ix + offset, value );
+	}
+
+	void workgroupExecutionAndMemoryBarrier()
+	{
+		nbl::hlsl::glsl::barrier();
+	}
+};
 
 
 //TODO: glsl's mod(x, y) = x - y * floor(x/y). Would prolly need to implement a glsl mod
-template<class TextrueAccessor, class GroupSharedAccessor, uint16_t ITEMS_PER_THREAD, uint16_t ArithemticWgSize>
+template<class TextrueAccessor, class GroupSharedAccessor, class ArithmeticAccessor, uint16_t MAX_ITEMS, uint16_t ARITHMETIC_SIZE>
 void BoxBlur(
+	uint16_t PassesPerAxis,
+	uint16_t ItemsPerThread, // TODO:  template ?
 	uint16_t chIdx,
 	const float32_t radius,
 	const uint32_t wrapMode,
 	const float32_t4 borderColor,
 	NBL_REF_ARG(TextrueAccessor) texAccessor,
-	NBL_REF_ARG(GroupSharedAccessor) sharedAccessor
+	NBL_REF_ARG(GroupSharedAccessor) sharedAccessor,
+	NBL_REF_ARG(ArithmeticAccessor) arithemitcAccessor
 ) {
-	for( uint16_t pass = 0u; pass < PASSES_PER_AXIS; ++pass )
+	for( uint16_t pass = 0u; pass < PassesPerAxis; ++pass )
 	{
-		uint16_t idx = workgroup::SubgroupContiguousIndex();
-		for( uint16_t i = 0u; i < ITEMS_PER_THREAD; ++i )
+		//ArithmeticProxy<GroupSharedAccessor, MAX_ITEMS - 1> arithemitcAccessor = { sharedAccessor };
+		const uint16_t idx = workgroup::SubgroupContiguousIndex();
+		for( uint16_t i = 0u; i < ItemsPerThread; ++i )
 		{
 			// broadcast barrier
-			sharedAccessor.workgroupExecutionAndMemoryBarrier();
+			arithemitcAccessor.workgroupExecutionAndMemoryBarrier();
 
 			float32_t blurred = texAccessor.get( i, chIdx );
 			// add previous to current but only to the first input cause will propagate anyway
 			if( idx == 0 )
 			{
-				blurred += sharedAccessor.get( glsl::gl_WorkGroupSize().x - 1u );
+				blurred += arithemitcAccessor.get( glsl::gl_WorkGroupSize().x - 1u );
 			}
-			float32_t sum = prefix_sum_t<ArithemticWgSize>::template __call<GroupSharedAccessor>( blurred, sharedAccessor );
+			float32_t sum = prefix_sum_t<MAX_ITEMS>::template __call<__decltype( arithemitcAccessor )>( blurred, arithemitcAccessor );
+			arithemitcAccessor.workgroupExecutionAndMemoryBarrier();
 
-			// finish last prefix sum before storing to scratch we overwrite its scratch
-			if( i == ( ITEMS_PER_THREAD - 1 ) )
-			{
-				sharedAccessor.workgroupExecutionAndMemoryBarrier();
-			}
+			//// finish last prefix sum before storing to scratch we overwrite its scratch
+			//if( i == ( ITEMS_PER_THREAD - 1 ) )
+			//{
+			//	arithemitcAccessor.workgroupExecutionAndMemoryBarrier();
+			//}
+			sharedAccessor.workgroupExecutionAndMemoryBarrier();
 			sharedAccessor.set( idx, sum );
 
 			sharedAccessor.workgroupExecutionAndMemoryBarrier();
-			const uint16_t last = uint16_t( glsl::gl_WorkGroupSize().x - 1u ) * ITEMS_PER_THREAD; // TODO: don't hardcode ?
-			uint16_t scanlineIdx = idx + ( i * glsl::gl_WorkGroupSize().x );
+			
+			const uint16_t last = uint16_t( glsl::gl_WorkGroupSize().x );
+			const uint16_t scanlineIdx = idx;
 
-			if( scanlineIdx < last )
+			//if( scanlineIdx < last )
 			{
 				float32_t result = 0.f;
 
 				float32_t left = float32_t( scanlineIdx ) - radius - 1.f;
 				float32_t right = float32_t( scanlineIdx ) + radius;
 				
-				if( ceil( right ) <= float32_t( last ) )
+				if( ceil( right ) < float32_t( last ) )
 				{
-					float32_t floorRight = sharedAccessor.get( floor( right ) % glsl::gl_WorkGroupSize().x );
-					float32_t ceilRight = sharedAccessor.get( ceil( right ) % glsl::gl_WorkGroupSize().x );
+					float32_t floorRight = sharedAccessor.get( uint16_t( floor( right ) ) );
+					float32_t ceilRight = sharedAccessor.get( uint16_t( ceil( right ) ) );
 					result = lerp( floorRight, ceilRight, frac( right ) );
 				}
 				else
 				{
 					switch( wrapMode )
 					{
-					case WRAP_MODE_CLAMP_TO_EDGE:
+					case WRAP_MODE_CLAMP_TO_EDGE: // Only for last ieratrion
 					{
 						float32_t sumLast = sharedAccessor.get( glsl::gl_WorkGroupSize().x - 1u );
 						float32_t sumLastMinusOne = sharedAccessor.get( glsl::gl_WorkGroupSize().x - 2u );
@@ -155,11 +178,11 @@ void BoxBlur(
 					} break;*/
 					}
 				}
-
+				
 				if( left >= 0 )
 				{
-					float32_t floorLeft = sharedAccessor.get( floor( left ) % glsl::gl_WorkGroupSize().x );
-					float32_t ceilLeft = sharedAccessor.get( ceil( left ) % glsl::gl_WorkGroupSize().x );
+					float32_t floorLeft = sharedAccessor.get( uint16_t( floor( left ) ) );
+					float32_t ceilLeft = sharedAccessor.get( uint16_t( ceil( left ) ) );
 					result -= lerp( floorLeft, ceilLeft, frac( left ) );
 				}
 				else
@@ -229,7 +252,7 @@ void BoxBlur(
 					} break;*/
 					}
 				}
-
+				
 				float32_t blurredChannel = result / ( 2.f * radius + 1.f );
 				nbl::hlsl::glsl::barrier();
 				texAccessor.set( i, chIdx, blurredChannel );
