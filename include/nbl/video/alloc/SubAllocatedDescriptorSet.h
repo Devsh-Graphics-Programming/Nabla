@@ -33,6 +33,10 @@ public:
 		{
 			memcpy(m_addresses->data(), addresses, count * sizeof(value_type));
 		}
+		inline DeferredFreeFunctor(DeferredFreeFunctor&& other) 
+		{
+			operator=(std::move(other));
+		}
 
 		//
 		inline auto getWorstCaseCount() const {return m_addresses->size();}
@@ -45,6 +49,28 @@ public:
 			#endif // _NBL_DEBUG
 			outNullify = m_composed->multi_deallocate(outNullify, m_binding, m_addresses->size(), m_addresses->data());
 			m_composed->m_totalDeferredFrees -= getWorstCaseCount();
+		}
+
+		DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
+		DeferredFreeFunctor& operator=(const DeferredFreeFunctor& other) = delete;
+		inline DeferredFreeFunctor& operator=(DeferredFreeFunctor&& other)
+		{
+			m_composed = other.m_composed;
+			m_addresses = other.m_addresses;
+			m_binding = other.m_binding;
+			return *this;
+		}
+
+		// This is needed for the destructor of TimelineEventHandlerST
+		// Don't call this directly
+		// TODO: Find a workaround for this
+		inline void operator()()
+		{
+			core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(m_addresses->size());
+			auto ptr = nulls.data();
+			operator()(ptr);
+			auto size = ptr - nulls.data();
+			m_composed->m_logicalDevice->nullifyDescriptors({nulls.data(),size_type(size)});
 		}
 
 		// Takes count of allocations we want to free up as reference, true is returned if
@@ -147,7 +173,7 @@ public:
 
 	inline ~SubAllocatedDescriptorSet()
 	{
-static_assert(false, "should nullify/destroy/poll the event deferred handler to completion, then as we iterate through `m_allocatableRanges` assert that the allocators have no allocations/everything is free");
+		// TODO: should nullify/destroy/poll the event deferred handler to completion, then as we iterate through `m_allocatableRanges` assert that the allocators have no allocations/everything is free
 		for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
 		{
 			auto& range = m_allocatableRanges[i];
@@ -255,7 +281,7 @@ static_assert(false, "should nullify/destroy/poll the event deferred handler to 
 
 	// Very explicit low level call you'd need to sync and drop descriptors by yourself
 	// Returns: the one-past the last `outNullify` write pointer, this allows you to work out how many descriptors were freed
-	inline void multi_deallocate(IGPUDescriptorSet::SDropDescriptorSet* outNullify, uint32_t binding, size_type count, const size_type* addr)
+	inline IGPUDescriptorSet::SDropDescriptorSet* multi_deallocate(IGPUDescriptorSet::SDropDescriptorSet* outNullify, uint32_t binding, size_type count, const size_type* addr)
 	{
 		auto debugGuard = stAccessVerifyDebugGuard();
 
