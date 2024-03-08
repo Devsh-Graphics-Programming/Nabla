@@ -558,7 +558,7 @@ class ISwapchain : public IBackendObject
         const uint8_t m_imageCount;
         uint64_t m_acquireCounter = 0;
         // Resources to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
-        std::array<std::unique_ptr<MultiTimelineEventHandlerST<DeferredFrameResourceDrop>>,ILogicalDevice::MaxQueueFamilies> m_frameResources;
+        std::array<std::unique_ptr<MultiTimelineEventHandlerST<DeferredFrameResourceDrop>>,MaxImages> m_frameResources;
 };
 
 }
