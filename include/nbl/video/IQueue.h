@@ -108,7 +108,8 @@ class IQueue : public core::Interface, public core::Unmovable
         NBL_API2 virtual RESULT waitIdle();
         // You can call this to force an early check on whether past submits have completed and hasten when the refcount gets dropped.
         // Normally its the next call to `submit` that polls the event timeline for completions.
-        NBL_API2 virtual uint32_t cullResources();
+        // If you want to only check a particular semaphore's timeline, then set `sema` to non nullptr.
+        NBL_API2 virtual uint32_t cullResources(const ISemaphore* sema=nullptr);
 
         // we cannot derive from IBackendObject because we can't derive from IReferenceCounted
         inline const ILogicalDevice* getOriginDevice() const {return m_originDevice;}

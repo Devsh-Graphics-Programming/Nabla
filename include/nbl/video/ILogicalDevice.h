@@ -157,16 +157,26 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Semaphore Stuff
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        // Waits for max timeout amout of time for the semaphores to reach a specific counter value
+        // DOES NOT implicitly trigger Queue-refcount-resource release because of two reasons:
+        // - the events may trigger loads of resource releases causing extra processing, whereas our `timeout` could be quite small
+        // - the event handlers use `waitForSemaphores` themselves so don't want infinite recursion here
         virtual ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
+        // Does implicitly trigger Queue-refcount-resource-release
         inline ISemaphore::WAIT_RESULT blockForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll=true)
         {
             using retval_t = ISemaphore::WAIT_RESULT;
             if (!infos.empty())
             {
                 auto waitStatus = retval_t::TIMEOUT;
-                while (waitStatus== retval_t::TIMEOUT)
+                while (waitStatus==retval_t::TIMEOUT)
+                {
                     waitStatus = waitForSemaphores(infos,waitAll,999999999ull);
+                    for (const auto& info : infos)
+                    for (const auto& queue : *m_queues)
+                        queue->cullResources(info.semaphore);
+                }
                 return waitStatus;
             }
             return retval_t::SUCCESS;

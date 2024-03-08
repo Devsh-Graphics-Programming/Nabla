@@ -59,10 +59,10 @@ class CThreadSafeQueueAdapter final : public IQueue
             return originalQueue->waitIdle();
         }
 
-        inline uint32_t cullResources() override
+        inline uint32_t cullResources(const ISemaphore* sema=nullptr) override
         {
             std::lock_guard g(m);
-            return originalQueue->cullResources();
+            return originalQueue->cullResources(sema);
         }
 
         inline IQueue* getUnderlyingQueue() const

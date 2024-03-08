@@ -110,8 +110,16 @@ auto IQueue::waitIdle() -> RESULT
     return retval;
 }
 
-uint32_t IQueue::cullResources()
+uint32_t IQueue::cullResources(const ISemaphore* sema)
 {
+    if (sema)
+    {
+        const auto& timelines = m_submittedResources->getTimelines();
+        auto found = timelines.find(sema);
+        if (found==timelines.end())
+            return 0;
+        return found->handler->poll().eventsLeft;
+    }
     return m_submittedResources->poll().eventsLeft;
 }
 
