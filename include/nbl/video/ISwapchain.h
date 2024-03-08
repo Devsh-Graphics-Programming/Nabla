@@ -320,7 +320,6 @@ class ISwapchain : public IBackendObject
         //
         inline uint64_t getAcquireCount() const {return m_acquireCounter;}
 
-        using void_refctd_ptr = core::smart_refctd_ptr<core::IReferenceCounted>;
         // acquire
         struct SAcquireInfo
         {
@@ -339,7 +338,7 @@ class ISwapchain : public IBackendObject
             _ERROR // GDI macros getting in the way of just ERROR
         };
         // Even though in Vulkan image acquisition is not a queue operation, we perform a micro-submit to adapt a Timeline Semaphore to work with it 
-        // If we return anything other than `SUCCESS` or `SUBOPTIMAL`, then `info.signalSemaphores` won't get signalled to the requested values!
+        // If we return anything other than `SUCCESS` or `SUBOPTIMAL`, then `info.signalSemaphores` won't get signalled to the requested values or kept alive!
         inline ACQUIRE_IMAGE_RESULT acquireNextImage(SAcquireInfo info, uint32_t* const out_imgIx)
         {
             // Signalling a timeline semaphore on acquire isn't optional, how else will you protect against using an image before its ready!?
@@ -364,10 +363,12 @@ class ISwapchain : public IBackendObject
                     // Now hold onto the signal-on-acquire semaphores for this image index till the acquire actually takes place
                     {
                         const auto& lastSignal = info.signalSemaphores.back();
-                        m_frameResources[*out_imgIx]->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredFrameResourceDrop(info.signalSemaphores));
+                        m_frameResources[*out_imgIx]->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredFrameSemaphoreDrop(info.signalSemaphores));
                     }
                     if (m_oldSwapchain && m_acquireCounter>core::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
                         m_oldSwapchain = nullptr;
+                    // kill a few frame resources
+                    m_frameResources[*out_imgIx]->poll(DeferredFrameSemaphoreDrop::single_poll);
                     break;
                 default:
                     break;
@@ -390,8 +391,8 @@ class ISwapchain : public IBackendObject
             OUT_OF_DATE,
             _ERROR
         };
-        // If `FATAL_ERROR` returned then the `frameResources` are not latched until the next acquire of the same image index or swapchain destruction (whichever comes first)
-        inline PRESENT_RESULT present(SPresentInfo info, void_refctd_ptr&& _frameResources=nullptr)
+        // If `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
+        inline PRESENT_RESULT present(SPresentInfo info)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
                 return PRESENT_RESULT::FATAL_ERROR;
@@ -406,16 +407,13 @@ class ISwapchain : public IBackendObject
             if (threadsafeQ)
                 threadsafeQ->m.unlock();
 
-            // If not FATAL_ERROR then semaphore wait will actually occur in the future and resources should be released, either:
-            // - on the next SIGNALLED acquire of the same index
-            // - when dropping the swapchain entirely, but need to wait on all previous presents to finish (some manageable UB)
+            // kill a few frame resources
+            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
             if (retval!=PRESENT_RESULT::FATAL_ERROR)
             {
                 auto& lastWait = info.waitSemaphores.back();
-                m_frameResources[info.imgIndex]->latch({.semaphore=lastWait.semaphore,.value=lastWait.value},DeferredFrameResourceDrop(info.waitSemaphores,std::move(_frameResources)));
+                m_frameResources[info.imgIndex]->latch({.semaphore=lastWait.semaphore,.value=lastWait.value},DeferredFrameSemaphoreDrop(info.waitSemaphores));
             }
-            // kill a few frame resources
-            m_frameResources[info.imgIndex]->poll();
             return retval;
         }
 
@@ -467,30 +465,34 @@ class ISwapchain : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
         
 		// only public because MultiTimelineEventHandlerST needs to know about it
-		class DeferredFrameResourceDrop final
+		class DeferredFrameSemaphoreDrop final
 		{
-				core::smart_refctd_dynamic_array<void_refctd_ptr> m_frameResources;
+                using sema_refctd_ptr = core::smart_refctd_ptr<ISemaphore>;
+				core::smart_refctd_dynamic_array<sema_refctd_ptr> m_otherSemaphores = nullptr;
 
 			public:
-				inline DeferredFrameResourceDrop(const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> _semaphores, void_refctd_ptr&& _frameResources=nullptr)
+				inline DeferredFrameSemaphoreDrop(const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> _semaphores)
 				{
-                    m_frameResources = core::make_refctd_dynamic_array<decltype(m_frameResources)>(_semaphores.size()+(_frameResources ? 1:0));
-                    for (auto i=0ull; i< _semaphores.size(); i++)
-                        m_frameResources->operator[](i) = void_refctd_ptr(_semaphores[i].semaphore);
-                    if (_frameResources)
-                        m_frameResources->back() = std::move(_frameResources);
+                    const auto otherCount = _semaphores.size()-1;
+                    // first semaphore always serves as the timeline and will be refcounted in the event handler
+                    if (otherCount==0)
+                        return;
+                    m_otherSemaphores = core::make_refctd_dynamic_array<decltype(m_otherSemaphores)>(otherCount);
+
+                    for (auto i=0ull; i<otherCount; i++)
+                        m_otherSemaphores->operator[](i) = sema_refctd_ptr(_semaphores[i].semaphore);
 				}
-                DeferredFrameResourceDrop(const DeferredFrameResourceDrop& other) = delete;
-				inline DeferredFrameResourceDrop(DeferredFrameResourceDrop&& other) : m_frameResources(nullptr)
+                DeferredFrameSemaphoreDrop(const DeferredFrameSemaphoreDrop& other) = delete;
+				inline DeferredFrameSemaphoreDrop(DeferredFrameSemaphoreDrop&& other) : m_otherSemaphores(nullptr)
 				{
 					this->operator=(std::move(other));
 				}
 
-                DeferredFrameResourceDrop& operator=(const DeferredFrameResourceDrop& other) = delete;
-				inline DeferredFrameResourceDrop& operator=(DeferredFrameResourceDrop&& other)
+                DeferredFrameSemaphoreDrop& operator=(const DeferredFrameSemaphoreDrop& other) = delete;
+				inline DeferredFrameSemaphoreDrop& operator=(DeferredFrameSemaphoreDrop&& other)
 				{
-                    m_frameResources = std::move(other.m_frameResources);
-					other.m_frameResources = nullptr;
+                    m_otherSemaphores = std::move(other.m_otherSemaphores);
+					other.m_otherSemaphores = nullptr;
 					return *this;
 				}
 
@@ -502,17 +504,9 @@ class ISwapchain : public IBackendObject
 					return true;
 				}
 
-				struct exhaustive_poll_t {};
-				static inline exhaustive_poll_t exhaustive_poll;
-				inline bool operator()(exhaustive_poll_t _exhaustive_poll)
-				{
-					operator()();
-					return false;
-				}
-
                 inline void operator()()
                 {
-                    m_frameResources = nullptr;
+                    m_otherSemaphores = nullptr;
                 }
 		};
 
@@ -559,7 +553,7 @@ class ISwapchain : public IBackendObject
         const uint8_t m_imageCount;
         uint64_t m_acquireCounter = 0;
         // Resources to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
-        std::array<std::unique_ptr<MultiTimelineEventHandlerST<DeferredFrameResourceDrop>>,MaxImages> m_frameResources;
+        std::array<std::unique_ptr<MultiTimelineEventHandlerST<DeferredFrameSemaphoreDrop>>,MaxImages> m_frameResources;
 };
 
 }

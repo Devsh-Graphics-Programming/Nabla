@@ -125,12 +125,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				}
 
 			protected:
-				virtual ~ISwapchainResources()
-				{
-					// just to get rid of circular refs
-					if (swapchain)
-					while (swapchain->acquiredImagesAwaitingPresent()) {}
-				}
+				virtual ~ISwapchainResources() = default;
 
 				//
 				inline void becomeIrrecoverable()
@@ -138,12 +133,6 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					// Want to nullify things in an order that leads to fastest drops (if possible) and shallowest callstacks when refcounting
 					invalidate();
 
-					// We need to call this method manually to make sure resources latched on swapchain images are dropped and cycles broken, otherwise its
-					// EXTERMELY LIKELY (if you don't reset CommandBuffers) that you'll end up with a circular reference, for example:
-					// `CommandBuffer -> SC Image[i] -> Swapchain -> FrameResource[i] -> CommandBuffer`
-					// and a memory leak of: Swapchain and its Images, CommandBuffer and its pool CommandPool, and any resource used by the CommandBuffer.
-					if (swapchain)
-					while (swapchain->acquiredImagesAwaitingPresent()) {}
 					swapchain = nullptr;
 				}
 				
@@ -283,10 +272,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		virtual uint8_t handleOutOfDate() = 0;
 		
 		// Frame Resources are not optional, shouldn't be null!
-		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores, core::IReferenceCounted* frameResources)
+		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores)
 		{
 			auto swapchainResources = getSwapchainResources();
-			if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE || !frameResources)
+			if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE)
 				return false;
 
 			const ISwapchain::SPresentInfo info = {
@@ -294,7 +283,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				.imgIndex = imageIndex,
 				.waitSemaphores = waitSemaphores
 			};
-			switch (swapchainResources->swapchain->present(info,core::smart_refctd_ptr<core::IReferenceCounted>(frameResources)))
+			switch (swapchainResources->swapchain->present(info))
 			{
 				case ISwapchain::PRESENT_RESULT::SUBOPTIMAL: [[fallthrough]];
 				case ISwapchain::PRESENT_RESULT::SUCCESS:
@@ -303,15 +292,6 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					swapchainResources->invalidate();
 					break;
 				default:
-					// because we won't hold onto the `frameResources` we need to block for `waitSemaphores`
-					if (frameResources)
-					{
-						core::vector<ISemaphore::SWaitInfo> waitInfos(waitSemaphores.size());
-						auto outWait = waitInfos.data();
-						for (auto wait : waitSemaphores)
-							*(outWait++) = {.semaphore=wait.semaphore,.value=wait.value};
-						const_cast<ILogicalDevice*>(m_queue->getOriginDevice())->blockForSemaphores(waitInfos);
-					}
 					becomeIrrecoverable();
 					break;
 			}

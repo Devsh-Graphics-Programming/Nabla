@@ -121,7 +121,6 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		struct SPresentInfo : SCachedPresentInfo
 		{
 			uint32_t mostRecentFamilyOwningSource; // TODO: change to uint8_t
-			core::IReferenceCounted* frameResources;
 		};		
 		// This is a present that you should regularly use from the main rendering thread or something.
 		// Due to the constraints and mutexes on everything, its impossible to split this into a separate acquire and present call so this does both.
@@ -164,7 +163,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 
 			// The triple present enqueue operations are fast enough to be done under a mutex, this is safer on some platforms. You need to "race to present" to avoid a flicker.
 			// Queue family ownership acquire not needed, done by the the very first present when `m_lastPresentSource` wasset.
-			return present_impl({{m_lastPresent},getAssignedQueue()->getFamilyIndex(),nullptr},false);
+			return present_impl({{m_lastPresent},getAssignedQueue()->getFamilyIndex()},false);
 		}
 
 	protected:
@@ -390,13 +389,10 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 				const auto oldVal = m_lastPresent.pPresentSemaphoreWaitValue->exchange(acquireCount);
 				assert(oldVal<acquireCount);
 
-				auto frameResources = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ISwapchain::void_refctd_ptr>>(2);
-				frameResources->front() = core::smart_refctd_ptr<core::IReferenceCounted>(presentInfo.frameResources);
-				frameResources->back() = core::smart_refctd_ptr<IGPUCommandBuffer>(cmdbuf);
-				return ISimpleManagedSurface::present(imageIx,presented,frameResources.get());
+				return ISimpleManagedSurface::present(imageIx,presented);
 			}
 			else
-				return ISimpleManagedSurface::present(imageIx,{waitSemaphores+1,1},presentInfo.frameResources);
+				return ISimpleManagedSurface::present(imageIx,{waitSemaphores+1,1});
 		}
 
 		// Assume it will execute under a mutex
