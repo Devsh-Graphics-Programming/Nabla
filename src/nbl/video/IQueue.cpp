@@ -1,9 +1,16 @@
 #include "nbl/video/IQueue.h"
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/TimelineEventHandlers.h"
 
 namespace nbl::video
 {
+
+IQueue::IQueue(ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority)
+    : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags)
+{
+    m_submittedResources = std::make_unique<MultiTimelineEventHandlerST<DeferredSubmitResourceDrop,false>>(originDevice);
+}
 
 auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 {
@@ -78,11 +85,40 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
     auto result = submit_impl(_submits);
     if (result!=RESULT::SUCCESS)
         return result;
-    // mark cmdbufs as done (wrongly but conservatively wrong)
+    // poll for whatever is done, free up memory ASAP
+    // we poll everything (full GC run) because we would release memory very slowly otherwise
+    m_submittedResources->poll();
+    //
     for (const auto& submit : _submits)
-    for (const auto& commandBuffer : submit.commandBuffers)
-        commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT) ? IGPUCommandBuffer::STATE::INVALID:IGPUCommandBuffer::STATE::EXECUTABLE;
+    {
+        // hold onto the semaphores and commandbuffers until the submit signals the last semaphore
+        const auto& lastSignal = submit.signalSemaphores.back();
+        m_submittedResources->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredSubmitResourceDrop(submit));
+        // Mark cmdbufs as done (wrongly but conservatively wrong)
+        // We can't use `m_submittedResources` to mark them done, because the functor may run "late" in the future, after the cmdbuf has already been validly reset or resubmitted
+        for (const auto& commandBuffer : submit.commandBuffers)
+            commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT) ? IGPUCommandBuffer::STATE::INVALID:IGPUCommandBuffer::STATE::EXECUTABLE;
+    }
     return result;
+}
+
+auto IQueue::waitIdle() -> RESULT
+{
+    const auto retval = waitIdle_impl();
+    // everything will be murdered because every submitted semaphore so far will signal
+    m_submittedResources->abortAll();
+    return retval;
+}
+
+uint32_t IQueue::cullResources()
+{
+    return m_submittedResources->poll().eventsLeft;
+}
+
+IQueue::~IQueue()
+{
+    // if you find yourself spinning a lot here, its because the base class hasn't called waitIdle_impl()
+    //while (cullResources()) {} // deleter of `m_submittedResources` calls dtor which will do this
 }
 
 }

@@ -12,33 +12,13 @@ namespace nbl::video
 */
 class CThreadSafeQueueAdapter final : public IQueue
 {
+        friend class ILogicalDevice; // to access the destructor
         friend class ISwapchain;
-    protected:
-        std::unique_ptr<IQueue> originalQueue = nullptr;
-        mutable std::mutex m;
-
-        inline RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override
-        {
-            IQueue* msvcIsDumb = originalQueue.get();
-            return msvcIsDumb->submit_impl(_submits);
-        }
 
     public:
-        inline CThreadSafeQueueAdapter(ILogicalDevice* originDevice, std::unique_ptr<IQueue>&& original)
-            : IQueue(originDevice, original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(std::move(original)) {}        
+        inline CThreadSafeQueueAdapter(ILogicalDevice* originDevice, IQueue* const original)
+            : IQueue(originDevice,original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(original) {}        
         inline CThreadSafeQueueAdapter() : IQueue(nullptr, 0, CREATE_FLAGS::PROTECTED_BIT, 0.f) {}
-
-        inline RESULT waitIdle() const override
-        {
-            std::lock_guard g(m);
-            return originalQueue->waitIdle();
-        }
-
-        inline RESULT submit(const std::span<const SSubmitInfo> _submits) override
-        {
-            std::lock_guard g(m);
-            return originalQueue->submit(_submits);
-        }
 
         inline bool startCapture() override
         { 
@@ -67,15 +47,56 @@ class CThreadSafeQueueAdapter final : public IQueue
             return originalQueue->endDebugMarker();
         }
 
+        inline RESULT submit(const std::span<const SSubmitInfo> _submits) override
+        {
+            std::lock_guard g(m);
+            return originalQueue->submit(_submits);
+        }
+
+        inline RESULT waitIdle() override
+        {
+            std::lock_guard g(m);
+            return originalQueue->waitIdle();
+        }
+
+        inline uint32_t cullResources() override
+        {
+            std::lock_guard g(m);
+            return originalQueue->cullResources();
+        }
+
         inline IQueue* getUnderlyingQueue() const
         {
-            return originalQueue.get();
+            return originalQueue;
         }
 
         inline const void* getNativeHandle() const
         {
             return originalQueue->getNativeHandle();
         }
+
+    protected:
+        inline ~CThreadSafeQueueAdapter()
+        {
+            delete originalQueue;
+        }
+
+        // These shall never be called, they're here just to stop the class being pure virtual
+        inline RESULT submit_impl(const std::span<const SSubmitInfo> _submits) override
+        {
+            assert(false);
+            return originalQueue->submit_impl(_submits);
+        }
+        inline RESULT waitIdle_impl() const override
+        {
+            assert(false);
+            return originalQueue->waitIdle_impl();
+        }
+
+
+        // used to use unique_ptr here, but it needed `~IQueue` to be public, which requires a custom deleter, etc.
+        IQueue* const originalQueue = nullptr;
+        mutable std::mutex m;
 };
 
 }
