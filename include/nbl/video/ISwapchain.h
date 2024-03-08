@@ -490,7 +490,7 @@ class ISwapchain : public IBackendObject
 				inline DeferredFrameResourceDrop& operator=(DeferredFrameResourceDrop&& other)
 				{
                     m_frameResources = std::move(other.m_frameResources);
-					m_frameResources = nullptr;
+					other.m_frameResources = nullptr;
 					return *this;
 				}
 
