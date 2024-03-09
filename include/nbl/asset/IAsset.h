@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_ASSET_H_INCLUDED_
-#define _NBL_ASSET_I_ASSET_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
+#define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 
@@ -50,11 +51,11 @@ class IAsset : virtual public core::IReferenceCounted
 
 		/**
 			Values of E_TYPE represents an Asset type.
-		
+
 			Types are provided, so known is that the type you're casting to is right, eg.
 			If there is an Asset represeting ICPUBuffer, after calling a function returning
 			a type, it should return you a type associated with it, so
-		
+
 			\code{.cpp}
 			IAsset* asset;
 			if(asset->getType() == ET_BUFFER)
@@ -110,6 +111,12 @@ class IAsset : virtual public core::IReferenceCounted
 		};
 		constexpr static size_t ET_STANDARD_TYPES_COUNT = 23u;
 
+		//! To be implemented by derived classes. Returns a type of an Asset
+		virtual E_TYPE getAssetType() const = 0;
+
+		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
+		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+
 		//! Returns a representaion of an Asset type in decimal system
 		/**
 			Each value is returned from the range 0 to (ET_STANDARD_TYPES_COUNT - 1) to provide
@@ -124,31 +131,31 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Returns reinterpreted Asset for an Asset expecting full pointer type Asset
 		/**
 			assetType is an Asset the rootAsset will be assigned to after
-			interpretation process. So if your full pointer Asset is an 
+			interpretation process. So if your full pointer Asset is an
 			ICPUImage you can attempt to interpate passing rootAsset
-			as it. 
+			as it.
 
 			It will perform assert if the attempt fails.
 		*/
 		template<typename assetType>
-		static assetType* castDown(core::add_const_if_const_t<assetType,IAsset>* rootAsset) // maybe call it something else and not make static?
+		static assetType* castDown(core::add_const_if_const_t<assetType, IAsset>* rootAsset) // maybe call it something else and not make static?
 		{
 			if (!rootAsset)
 				return nullptr;
-			assetType* typedAsset = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
-			#ifdef _NBL_DEBUG
-				assert(typedAsset);
-			#endif
+			assetType* typedAsset = rootAsset->getAssetType() != assetType::AssetType ? nullptr : static_cast<assetType*>(rootAsset);
+#ifdef _NBL_DEBUG
+			assert(typedAsset);
+#endif
 			return typedAsset;
 		}
 		//! Smart pointer variant
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<core::add_const_if_const_t<assetType, IAsset> >& rootAsset)
 		{
 			return core::smart_refctd_ptr<assetType>(castDown<assetType>(rootAsset.get()));
 		}
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >&& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<core::add_const_if_const_t<assetType, IAsset> >&& rootAsset)
 		{
 			if (!castDown<assetType>(rootAsset.get()))
 				return nullptr;
@@ -156,11 +163,11 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		//!
-		inline IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
+		inline IAsset() : isDummyObjectForCacheAliasing{ false }, m_mutability{ EM_MUTABLE } {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**
-			Some containers like std::vector reserves usually more memory than they actually need. 
+			Some containers like std::vector reserves usually more memory than they actually need.
 			Similar behaviour appears here and it is actually necessary to reserve the correct amount of memory when writing to file.
 			The value returned can be greater than memory actually needed and that symbolizes the name "conservative".
 
@@ -170,16 +177,14 @@ class IAsset : virtual public core::IReferenceCounted
 		virtual size_t conservativeSizeEstimate() const = 0; // TODO: this shouldn't be a method of IAsset but BlobSerializable ?
 
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
-        virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
+		virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		// TODO: `_other` should probably be const qualified!
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			assert(getAssetType() == _other->getAssetType());
 
 			if (!canBeRestoredFrom(_other))
 				return false;
-
 			restoreFromDummy_impl(_other, _levelsBelow);
 			isDummyObjectForCacheAliasing = false;
 			return true;
@@ -187,6 +192,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline bool willBeRestoredFrom(const IAsset* _other) const
 		{
+			if (_other == nullptr)
+				return false;
 			assert(getAssetType() == _other->getAssetType());
 
 			if (getMutability() != EM_MUTABLE)
@@ -206,35 +213,100 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
 
-		// TODO: add a null and type check here, delegate rest to an `impl`
-		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
+		bool canBeRestoredFrom(const IAsset* _other) const {
+			if (_other == nullptr)
+				return false;
+			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && canBeRestoredFrom_impl(_other);
+			if (result)
+				visitChildren(_other,
+					[&result](IAsset* thisChild, IAsset* otherChild)
+					{
+						if (thisChild && otherChild)
+							result = thisChild->canBeRestoredFrom(otherChild);
+						return result;
+					});
+			return result;
+		}
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
 		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
 		{
 			if (isADummyObjectForCache())
 				return true;
-
-			return _levelsBelow ? isAnyDependencyDummy_impl(_levelsBelow) : false;
+			bool result = false;
+			if (_levelsBelow) {
+				visitChildren([&result, _levelsBelow](IAsset* thisChild) {
+					if (thisChild)
+						result = thisChild->isAnyDependencyDummy(_levelsBelow - 1u);
+					return !result;
+					});
+				result |= isAnyDependencyDummy_impl(_levelsBelow);
+			}
+			return result;
 		}
 
-    protected:
+		using hash_cache_t = std::unordered_map<IAsset*, size_t>;
+		inline size_t hash(hash_cache_t* temporary_hash_cache = nullptr) const
+		{
+			bool add_to_cache = false;
+			if (temporary_hash_cache)
+			{
+				if (temporary_hash_cache->contains(const_cast<IAsset* const>(this)))
+					return temporary_hash_cache->at(const_cast<IAsset* const>(this));
+				else
+					add_to_cache = true;
+			}
+			size_t value = getAssetType();
+			hash_impl(value);
+			visitChildren(
+				[&value, temporary_hash_cache](IAsset* _child) {
+					if (_child)
+						core::hash_combine(value, _child->hash(temporary_hash_cache));
+					return true;
+				});
+			if (add_to_cache)
+				temporary_hash_cache->insert(std::make_pair(const_cast<IAsset* const>(this), value));
+			return value;
+		}
+
+		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u)
+		{
+			convertToDummyObject_impl(referenceLevelsBelowToConvert);
+			if (referenceLevelsBelowToConvert)
+				visitChildren([referenceLevelsBelowToConvert](IAsset* thisChild) {
+				if (thisChild)
+					thisChild->convertToDummyObject(referenceLevelsBelowToConvert - 1u);
+				return true;
+					});
+		}
+
+		inline bool equals(const IAsset* _other) const
+		{
+			if (_other == nullptr)
+				return false;
+			bool result = getAssetType() == _other->getAssetType() && compatible(_other) && equals_impl(_other);
+			if (result) {
+				visitChildren(_other,
+					[&result](IAsset* thisChild, IAsset* otherChild) {
+						result = thisChild && otherChild ? thisChild->equals(otherChild) : false;
+						return result; //continue only if equal
+					});
+			}
+			return result;
+		}
+
+	protected:
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
 		{
 			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
 		}
 
-		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
-
-		// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
-		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }
-
-        inline void clone_common(IAsset* _clone) const
-        {
-            assert(!isDummyObjectForCacheAliasing);
-            _clone->isDummyObjectForCacheAliasing = false;
-            _clone->m_mutability = EM_MUTABLE;
-        }
+		inline void clone_common(IAsset* _clone) const
+		{
+			assert(!isDummyObjectForCacheAliasing);
+			_clone->isDummyObjectForCacheAliasing = false;
+			_clone->m_mutability = EM_MUTABLE;
+		}
 		inline bool isImmutable_debug()
 		{
 			const bool imm = getMutability() == EM_IMMUTABLE;
@@ -242,10 +314,18 @@ class IAsset : virtual public core::IReferenceCounted
 			return imm;
 		}
 
-	private:
-		friend IAssetManager;
+		virtual bool equals_impl(const IAsset* _other) const { return true; }
 
-	protected:
+		virtual bool canBeRestoredFrom_impl(const IAsset* _other) const { return true; }
+
+		virtual void hash_impl(size_t& seed) const {} //hash members without recursion into other IAsset objects
+
+		virtual void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) {};
+
+		virtual bool compatible(const IAsset* _other) const = 0; //common function between equals and canBeRestoredFrom
+
+		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
+
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
 		E_MUTABILITY m_mutability;
@@ -254,26 +334,29 @@ class IAsset : virtual public core::IReferenceCounted
 		//! but cleans up all other resources which are not assets.
 		/**
 			Dummy object is an object which is converted to GPU object or which is about to be converted to GPU object.
-			Take into account that\b convertToDummyObject(uint32_t referenceLevelsBelowToConvert) itself doesn't perform exactly converting to GPU object\b. 
+			Take into account that\b convertToDummyObject(uint32_t referenceLevelsBelowToConvert) itself doesn't perform exactly converting to GPU object\b.
 
 			@see IAssetManager::convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
 
 			If an Asset is being converted to a GPU object, its resources are no longer needed in RAM memory,
-			so everything it has allocated becomes deleted, but the Asset itself remains untouched, so that is the 
-			pointer for an Asset and the memory allocated for that pointer. It's because it's needed as a key by some 
+			so everything it has allocated becomes deleted, but the Asset itself remains untouched, so that is the
+			pointer for an Asset and the memory allocated for that pointer. It's because it's needed as a key by some
 			functions that find GPU objects. It involves all CPU objects (Assets).
 
 			So an Asset signed as dummy becomes GPU object and deletes some resources in RAM memory.
 
 			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
 		*/
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
 
-        inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
-        {
+		virtual void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) {
+			convertToDummyObject_common(referenceLevelsBelowToConvert);
+		};
+
+		inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
+		{
 			if (canBeConvertedToDummy())
 				isDummyObjectForCacheAliasing = true;
-        }
+		}
 
 		//! Checks if the object is either not dummy or dummy but in some cache for a purpose
 		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
@@ -281,13 +364,43 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-	public:
-		//! To be implemented by derived classes. Returns a type of an Asset
-		virtual E_TYPE getAssetType() const = 0;
+		virtual uint32_t getDependencyCount() const = 0;
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const = 0;
 
-		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
-		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
-};
+
+	private:
+
+
+		template<typename ChildLambda>
+		inline void visitChildren(const IAsset* _other, const ChildLambda& childLambda) const {
+			int dependencyCount = getDependencyCount();
+			assert(dependencyCount == _other->getDependencyCount());
+			for (size_t i = 0; i < dependencyCount; i++)
+				if (!childLambda(getDependency(i).get(), _other->getDependency(i).get()))
+					break;
+		}
+
+		template<typename ChildLambda>
+		inline void visitChildren(const ChildLambda& childLambda) const {
+			int dependencyCount = getDependencyCount();
+			for (size_t i = 0; i < dependencyCount; i++)
+				if (!childLambda(getDependency(i).get()))
+					break;
+		}
+		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow = (~0u)) {
+			restoreFromDummy_impl_impl(_other, _levelsBelow);
+			if (!_levelsBelow)
+				return;
+			visitChildren(_other,
+				[](IAsset* thisChild, IAsset* otherChild) {
+					if (thisChild && otherChild)
+						thisChild->restoreFromDummy_impl(otherChild);
+					return true; // continue
+				});
+		}
+
+		friend IAssetManager;
+	};
 
 }
 
