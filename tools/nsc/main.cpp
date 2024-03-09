@@ -117,7 +117,7 @@ public:
 			{
 			    output_filepath = outputFlagVector[1];
 			}
-			m_arguments.erase(output_flag_pos, output_flag_pos+1);
+			m_arguments.erase(output_flag_pos, output_flag_pos+2);
 		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath);
 		}
@@ -135,6 +135,7 @@ public:
 			m_arguments.push_back("-E");
 			m_arguments.push_back("main");
 		}
+
 		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
