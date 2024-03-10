@@ -119,7 +119,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 	protected:
 		friend class DeferredCommandPoolResetter;
 		inline ICommandPoolCache(core::smart_refctd_ptr<ILogicalDevice>&& device, core::smart_refctd_ptr<IGPUCommandPool>* cache, const uint32_t capacity, void* reserved) :
-			m_cache(cache),	m_reserved(malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u))), m_cmdPoolAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredResets(std::move(device)) {}
+			m_cache(cache),	m_reserved(malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u))), m_cmdPoolAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredResets(device.get()) {}
 		inline virtual ~ICommandPoolCache()
 		{
 			// normally the dtor would do this, but we need all the events to run before we delete the storage they reference

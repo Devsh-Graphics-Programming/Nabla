@@ -264,7 +264,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/ISimpleManagedSurface.cpp
 
 # Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp

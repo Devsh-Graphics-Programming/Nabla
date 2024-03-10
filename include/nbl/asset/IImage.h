@@ -82,7 +82,7 @@ class IImage : public IDescriptor
 			ECF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
 			ECF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
 			//! if you want to be able to create an ImageView with a different format later
-			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
+			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u, // TODO: deduce this anyway
 			//! whether can fashion a cubemap out of the image
 			ECF_CUBE_COMPATIBLE_BIT						= 0x1u << 4u,
 			//! whether can fashion a 2d array texture out of the image
@@ -91,9 +91,9 @@ class IImage : public IDescriptor
 			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT			= 0x1u << 6u,
 			//! whether can view a block compressed texture as uncompressed
 			// (1 block size must equal 1 uncompressed pixel size)
-			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u,
+			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u, // TODO: deduce this anyway
 			//! can create with flags not supported by primary image but by a potential compatible view
-			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
+			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u, // TODO: deduce this anyway
 			//! irrelevant now - no support for planar images
 			ECF_DISJOINT_BIT							= 0x1u << 9u,
 			//! irrelevant now - two `IGPUImage`s backing memory can overlap

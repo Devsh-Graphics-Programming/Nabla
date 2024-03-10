@@ -46,12 +46,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
-        // sync sutff
-        inline IQueue::RESULT waitIdle() const override
-        {
-            return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
-        }
-            
+        // sync stuff
         core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
         ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             
@@ -93,6 +88,12 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         {
             m_devf.vk.vkDestroyDescriptorSetLayout(m_vkdev,m_dummyDSLayout,nullptr);
             m_devf.vk.vkDestroyDevice(m_vkdev,nullptr);
+        }
+
+        // sync stuff
+        inline IQueue::RESULT waitIdle_impl() const override
+        {
+            return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
         }
         
         // memory  stuff

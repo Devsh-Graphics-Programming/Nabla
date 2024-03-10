@@ -36,8 +36,8 @@ m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP
             m_devf.vk.vkGetDeviceQueue(m_vkdev,i,j,&q);
                         
             const uint32_t ix = offset+j;
-            auto queue = std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,i,flags,priority);
-            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::move(queue));
+            auto queue = new CVulkanQueue(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,i,flags,priority);
+            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,queue);
         }
     }
 
@@ -892,6 +892,7 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
             outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
             outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
             outDependency->viewOffset = dep.viewOffset;
+            outDependency++;
         }
     }
 
