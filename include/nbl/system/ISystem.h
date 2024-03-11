@@ -10,10 +10,6 @@
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
 
-#ifdef NBL_EMBED_BUILTIN_RESOURCES
-#include "nbl/builtin/builtinResources.h"
-#endif
-
 namespace nbl::system
 {
 
@@ -148,6 +144,8 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             else
                 m_cachedArchiveFiles.removeObject(dummy,pathAlias);
         }
+
+        void unmountBuiltins();
 
         //
         struct SystemInfo

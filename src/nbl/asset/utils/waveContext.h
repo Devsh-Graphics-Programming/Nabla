@@ -52,6 +52,13 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         hash_token_occurences = 0;
     }
 
+    template <typename ContextT, typename TokenT>
+    bool found_directive(ContextT const& ctx, TokenT const& directive)
+    {
+        hash_token_occurences++;
+        return false;
+    }
+
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
     {
@@ -103,19 +110,33 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             return true;
         }
         
-        if (strcmp(optionStr, "dxc_compile_flags") == 0 && hash_token_occurences == 1) {
+        if (strcmp(optionStr, "dxc_compile_flags") == 0) {
+            if (hash_token_occurences != 1) {
+                m_logger.log("Pre-processor error: Encountered a \"#pragma wave dxc_compile_flags\" but it is not the first preprocessor directive.", system::ILogger::ELL_ERROR);
+                return false;
+            }
             m_dxc_compile_flags_override.clear();
+            std::string arg = "";
             for (auto valueIter = values.begin(); valueIter != values.end(); valueIter++) {
                 std::string compiler_option_s = std::string(valueIter->get_value().c_str());
-                // if this compiler flag is encapsulated in quotation marks, strip them
-                //if (compiler_option_s[0] == '"' && compiler_option_s[compiler_option_s.length() - 1] == '"')
-                //    compiler_option_s = compiler_option_s.substr(1, compiler_option_s.length() - 2);
+                // the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
+                // for dxc_compile_flags just join the strings until it finds a whitespace or end of args
 
-                // if the compiler flag is a separator that is a comma or whitespace, do not add to list of flag overrides 
-                if (compiler_option_s == "," || compiler_option_s == " ")
-                    continue;
-                m_dxc_compile_flags_override.push_back(compiler_option_s);
+                if (compiler_option_s == " ") 
+                {
+                    // push argument and reset
+                    m_dxc_compile_flags_override.push_back(arg);
+                    arg.clear();
+                }
+                else 
+                {
+                    // append string
+                    arg += compiler_option_s;
+                }
             }
+            if(arg.size() > 0)
+                m_dxc_compile_flags_override.push_back(arg);
+        
             return true;
         }
 
@@ -478,6 +499,10 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
             result = includeFinder->getIncludeStandard(ctx.get_current_directory(),file_path);
         else
             result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
+    }
+    else {
+        ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
+        return false;
     }
 
     if (!result)
