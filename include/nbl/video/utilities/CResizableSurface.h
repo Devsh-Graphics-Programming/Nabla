@@ -423,9 +423,11 @@ template<typename SwapchainResources> requires std::is_base_of_v<IResizableSurfa
 class CResizableSurface final : public IResizableSurface
 {
 	public:
-		using this_t = CResizableSurface<SwapchainResources>;		
+		using this_t = CResizableSurface<SwapchainResources>;
+
 		// Factory method so we can fail, requires a `_surface` created from a window and with a callback that inherits from `ICallback` declared just above
-		static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<ISurface>&& _surface)
+		template<typename Surface> requires std::is_base_of_v<CSurface<typename Surface::window_t,typename Surface::immediate_base_t>,Surface>
+		static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<Surface>&& _surface)
 		{
 			if (!_surface)
 				return nullptr;

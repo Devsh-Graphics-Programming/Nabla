@@ -22,10 +22,6 @@ class ISurface : public core::IReferenceCounted
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
         virtual ~ISurface() = default;
 
-        //impl of getSurfaceCapabilitiesForPhysicalDevice() needs this
-        virtual uint32_t getWidth() const = 0;
-        virtual uint32_t getHeight() const = 0;
-
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
     public:
@@ -194,22 +190,25 @@ class ISurface : public core::IReferenceCounted
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
-        virtual ui::IWindow* getWindow() = 0;
-        inline const ui::IWindow* getWindow() const {return const_cast<ui::IWindow*>(const_cast<ISurface*>(this)->getWindow());}
-
         // used by some drivers
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
-// Base for use with Nabla's window wrappers
-template<class Window, class ImmediateBase>
+// Base for use with Nabla's window wrappers, should maybe be called `CSurfaceWindow` instead, but oh well
+template<class Window, class ImmediateBase> requires (std::is_base_of_v<ui::IWindow,Window> && std::is_base_of_v<ISurface,ImmediateBase>)
 class CSurface : public ImmediateBase
 {
+        using this_t = CSurface<Window, ImmediateBase>;
+
     public:
-        inline ui::IWindow* getWindow() override final
+        using window_t = Window;
+        using immediate_base_t = ImmediateBase;
+
+        inline window_t* getWindow()
         {
             return m_window.get();
         }
+        inline const window_t* getWindow() const {return const_cast<window_t*>(const_cast<this_t*>(this)->getWindow());}
 
         inline const void* getNativeWindowHandle() const override final
         {
@@ -218,17 +217,14 @@ class CSurface : public ImmediateBase
 
     protected:
         template<typename... Args>
-        CSurface(core::smart_refctd_ptr<Window>&& window, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_window(std::move(window)) {}
+        CSurface(core::smart_refctd_ptr<window_t>&& window, Args&&... args) : immediate_base_t(std::forward<Args>(args)...), m_window(std::move(window)) {}
         virtual ~CSurface() = default;
 
-        uint32_t getWidth() const override { return m_window->getWidth(); }
-        uint32_t getHeight() const override { return m_window->getHeight(); }
-
-        core::smart_refctd_ptr<Window> m_window;
+        core::smart_refctd_ptr<window_t> m_window;
 };
 
-// Base to make surfaces directly from Native OS window handles
-template<class Window, class ImmediateBase>
+// Base to make surfaces directly from Native OS window handles (TODO: while merging Erfan, template on the handle instead of the Window)
+template<class Window, class ImmediateBase> requires std::is_base_of_v<ISurface,ImmediateBase>
 class CSurfaceNative : public ImmediateBase
 {
     public:

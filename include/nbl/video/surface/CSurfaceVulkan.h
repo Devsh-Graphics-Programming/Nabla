@@ -34,10 +34,10 @@ class NBL_API2 ISurfaceVulkan : public ISurface
 };
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISurfaceVulkan>
+class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32,ISurfaceVulkan>
 {
         using this_t = CSurfaceVulkanWin32;
-        using base_t = CSurface<ui::IWindowWin32, ISurfaceVulkan>;
+        using base_t = CSurface<ui::IWindowWin32,ISurfaceVulkan>;
     public:
         inline CSurfaceVulkanWin32(core::smart_refctd_ptr<ui::IWindowWin32>&& window, core::smart_refctd_ptr<IAPIConnection>&& api, VkSurfaceKHR surf) :
             base_t(std::move(window), std::move(api), surf) {}
