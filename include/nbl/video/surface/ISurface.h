@@ -22,10 +22,6 @@ class ISurface : public core::IReferenceCounted
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
         virtual ~ISurface() = default;
 
-        //impl of getSurfaceCapabilitiesForPhysicalDevice() needs this
-        virtual uint32_t getWidth() const = 0;
-        virtual uint32_t getHeight() const = 0;
-
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
     public:
@@ -207,7 +203,7 @@ class ISurface : public core::IReferenceCounted
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
-        // used by some drivers
+        // Can we Nuke this too and get rid of the extra `CSurface` and `CSurfaceNative` inheritance? 
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
@@ -226,9 +222,6 @@ class CSurface : public ImmediateBase
         CSurface(core::smart_refctd_ptr<Window>&& window, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_window(std::move(window)) {}
         virtual ~CSurface() = default;
 
-        uint32_t getWidth() const override { return m_window->getWidth(); }
-        uint32_t getHeight() const override { return m_window->getHeight(); }
-
         core::smart_refctd_ptr<Window> m_window;
 };
 
@@ -243,7 +236,8 @@ class CSurfaceNative : public ImmediateBase
         }
 
     protected:
-        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ImmediateBase(std::move(api)), m_handle(handle) {}
+        template<typename... Args>
+        CSurfaceNative(typename Window::native_handle_t handle, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_handle(handle) {}
         virtual ~CSurfaceNative() = default;
 
         typename Window::native_handle_t m_handle;

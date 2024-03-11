@@ -143,5 +143,28 @@ namespace nbl::video
 			return nullptr;
 		}
 	}
+	core::smart_refctd_ptr<CSurfaceVulkanWin32Native> CSurfaceVulkanWin32Native::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, ui::IWindowWin32::native_handle_t handle)
+	{
+		if (!api || !handle)
+			return nullptr;
+
+		VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+		createInfo.pNext = nullptr; // pNext must be NULL
+		createInfo.flags = static_cast<VkWin32SurfaceCreateFlagsKHR>(0);
+		createInfo.hinstance = GetModuleHandle(NULL);
+		createInfo.hwnd = static_cast<HWND>(handle);
+
+		VkSurfaceKHR vk_surface;
+		// `vkCreateWin32SurfaceKHR` is taken from `volk` (cause it uses `extern` globals like a n00b)
+		if (vkCreateWin32SurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface) == VK_SUCCESS)
+		{
+			auto retval = new this_t(std::move(api), handle, vk_surface);
+			return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+		}
+		else
+		{
+			return nullptr;
+		}
+	}
 #endif
 }
