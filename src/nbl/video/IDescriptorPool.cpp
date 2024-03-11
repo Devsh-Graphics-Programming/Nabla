@@ -4,8 +4,8 @@
 namespace nbl::video
 {
 
-IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo)
-    : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo)), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger() : nullptr)
+IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreateInfo& createInfo)
+    : IBackendObject(std::move(dev)), m_creationParameters(createInfo), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger():nullptr)
 {
     for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
         m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));

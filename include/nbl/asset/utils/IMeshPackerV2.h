@@ -275,6 +275,7 @@ protected:
     const VirtualAttribConfig m_virtualAttribConfig;
 };
 
+#if 0 // REWRITE
 template <class BufferType, class DescriptorSetType, class MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
 class IMeshPackerV2 : public IMeshPacker<MeshBufferType,MDIStructType>, public IMeshPackerV2Base
 {
@@ -751,7 +752,7 @@ bool IMeshPackerV2<BufferType,DescriptorSetType,MeshBufferType,MDIStructType>::a
 
     return true;
 }
-
+#endif
 }
 }
 

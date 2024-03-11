@@ -86,7 +86,7 @@ class NBL_API2 CFileArchive : public IFileArchive
 				m_fileFlags[i].clear();
 			memset(m_filesBuffer,0,fileCount*SIZEOF_INNER_ARCHIVE_FILE);
 		}
-		inline ~CFileArchive()
+		virtual inline ~CFileArchive()
 		{ 
 			_NBL_ALIGNED_FREE(m_filesBuffer);
 			_NBL_ALIGNED_FREE(m_fileFlags);

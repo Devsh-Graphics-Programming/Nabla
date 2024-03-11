@@ -215,7 +215,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
-			return device->createDescriptorSetLayout(bindings,bindings+DescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings);
 		}
 
 		inline const auto getDescriptorSet() const
@@ -239,7 +239,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				m_allocatorReserved(_allocatorReserved), m_lodTableInfos(std::move(_lodTableInfos)), m_lodInfos(std::move(_lodInfos))
 		{
 			auto layout = createDescriptorSetLayout(device);
-			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
+			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,{&layout.get(),1u});
 			m_ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[DescriptorBindingCount];
@@ -254,7 +254,6 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				device->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);

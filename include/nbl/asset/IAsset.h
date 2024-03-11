@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_H_INCLUDED__
+#ifndef _NBL_ASSET_I_ASSET_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_H_INCLUDED_
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
 
@@ -93,25 +92,23 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_ANIMATION_LIBRARY = 1ull<<8,						//!< asset::ICPUAnimationLibrary
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
-			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
 			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
 			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
 			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
 			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
-			ET_SUB_MESH = 1ull<<16,							    //!< asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<17,								    //!< asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<18,                     //!< asset::ICPUComputePipeline
-			ET_EVENT = 1ull<<19,								//!< asset::ICPUEvent
-			ET_COMMAND_BUFFER = 1ull<<20,						//!< asset::ICPUCommandBuffer
+			ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE = 1ull<<16,	//!< asset::ICPUBottomLevelAccelerationStructure
+			ET_TOP_LEVEL_ACCELERATION_STRUCTURE = 1ull<<17,		//!< asset::ICPUTopLevelAccelerationStructure
+			ET_SUB_MESH = 1ull<<18,							    //!< DEPRECATED asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<19,								    //!< DEPRECATED asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
-			ET_ACCELERATION_STRUCTURE = 1ull<<23,				//!< asset::ICPUAccelerationStructure
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
 			ET_TERMINATING_ZERO = 0
 		};
-		constexpr static size_t ET_STANDARD_TYPES_COUNT = 24u;
+		constexpr static size_t ET_STANDARD_TYPES_COUNT = 23u;
 
 		//! Returns a representaion of an Asset type in decimal system
 		/**
@@ -121,7 +118,7 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		static uint32_t typeFlagToIndex(E_TYPE _type)
 		{
-			return core::findLSB(static_cast<uint64_t>(_type));
+			return hlsl::findLSB(static_cast<uint64_t>(_type));
 		}
 
 		//! Returns reinterpreted Asset for an Asset expecting full pointer type Asset
@@ -175,6 +172,7 @@ class IAsset : virtual public core::IReferenceCounted
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
+		// TODO: `_other` should probably be const qualified!
 		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			assert(getAssetType() == _other->getAssetType());
@@ -208,6 +206,7 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
 
+		// TODO: add a null and type check here, delegate rest to an `impl`
 		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
 		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below

@@ -235,8 +235,7 @@ void IAssetManager::insertBuiltinAssets()
             char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
             bufferAsChar[data->getSize()] = '\0';
 
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
+            auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
 			for (auto& path : paths)
 				addBuiltInToCaches(std::move(shader), path);
 		};
@@ -320,8 +319,8 @@ void IAssetManager::insertBuiltinAssets()
 	constexpr uint32_t pcCount = 1u;
 	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			pcRanges,pcRanges+pcCount,
-			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
+			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
+			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
 	);
 	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
 
@@ -363,7 +362,7 @@ void IAssetManager::insertBuiltinAssets()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT);
+        info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
@@ -446,7 +445,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(std::span<const asset::SPushConstantRange>(),nullptr,std::move(ds1Layout),nullptr,nullptr);
         auto paths =
         {               
             "nbl/builtin/material/lambertian/no_texture/pipeline_layout",

@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_IMAGE_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_IMAGE_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -12,9 +11,7 @@
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/ICPUSampler.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUImage final : public IImage, public IAsset
@@ -34,12 +31,8 @@ class ICPUImage final : public IImage, public IAsset
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
             clone_common(cp.get());
 
-            auto regionsCount = regions->size();
-            if(regionsCount > 0)
-            {
-                cp->regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(regionsCount);
-                std::copy_n(regions->begin(), regionsCount, cp->regions->begin());
-            }
+            if(regions && !regions->empty())
+                cp->regions = core::make_refctd_dynamic_array<decltype(regions)>(*regions);
 
             cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
 
@@ -262,8 +255,7 @@ class ICPUImage final : public IImage, public IAsset
 		};
 };
 
-} // end namespace video
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif
 

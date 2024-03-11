@@ -384,7 +384,8 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             if (!m_pipeline)
                 return nullptr;
 
-            const auto& vtxInputParams = const_cast<const ICPURenderpassIndependentPipeline*>(m_pipeline.get())->getVertexInputParams();
+            const auto& cachedParams = m_pipeline->getCachedCreationParams();
+            const auto& vtxInputParams = cachedParams.vertexInput;
             if (!isAttributeEnabled(attrId))
                 return nullptr;
 
@@ -396,7 +397,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             if (!mappedAttrBuf)
                 return nullptr;
 
-            int64_t ix = vtxInputParams.bindings[bindingNum].inputRate!=EVIR_PER_VERTEX ? baseInstance:baseVertex;
+            int64_t ix = vtxInputParams.bindings[bindingNum].inputRate!=SVertexInputBindingParams::EVIR_PER_VERTEX ? baseInstance:baseVertex;
             ix *= vtxInputParams.bindings[bindingNum].stride;
             ix += (m_vertexBufferBindings[bindingNum].offset + vtxInputParams.attributes[attrId].relativeOffset);
             if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())

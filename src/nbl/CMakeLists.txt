@@ -83,15 +83,13 @@ include(common)
 
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
-option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off until Material Compiler 2
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -182,6 +180,7 @@ set(NBL_UI_SOURCES
 set(NBL_ASSET_SOURCES	
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
@@ -258,11 +257,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
-# Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
-
 # Utilities
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IUtilities.cpp
@@ -270,21 +265,23 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
 
+# Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
 # Vulkan
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeviceMemoryBacked.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
@@ -309,6 +306,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp

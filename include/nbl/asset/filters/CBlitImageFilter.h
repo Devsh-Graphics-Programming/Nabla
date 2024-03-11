@@ -648,7 +648,7 @@ class CBlitImageFilter :
 				std::unique_lock<std::mutex> lock(mutex);
 				for (uint32_t j = 0u; j < VectorizationBoundSTL; ++j)
 				{
-					int32_t firstFree = core::findLSB(indices[j]);
+					int32_t firstFree = hlsl::findLSB(indices[j]);
 					if (firstFree != -1)
 					{
 						indices[j] ^= (0x1u << firstFree); // mark using

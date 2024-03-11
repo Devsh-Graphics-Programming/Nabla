@@ -4,9 +4,17 @@
 
 namespace nbl::video
 {
-IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo intendedNextSubmit)
+const char* SIntendedSubmitInfo::ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
+- No `commandBuffers` or `signalSemaphores` given in respective spans
+- `commandBuffer.back()` is not Resettable
+- `commandBuffer.back()` is not already begun with ONE_TIME_SUBMIT_BIT
+- one of the `commandBuffer`s' Pool's Queue Family Index doesn't match `queue`'s Family
+)===";
+
+#if 0 // TODO: port
+IQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
+    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
+    IQueue* submissionQueue, IGPUFence* submissionFence, IQueue::SSubmitInfo intendedNextSubmit)
 {
     if(!intendedNextSubmit.isValid() || intendedNextSubmit.commandBufferCount <= 0u)
     {
@@ -18,8 +26,8 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     // Use the last command buffer in intendedNextSubmit, it should be in recording state
     auto& cmdbuf = intendedNextSubmit.commandBuffers[intendedNextSubmit.commandBufferCount-1];
 
-    assert(cmdbuf->getState() == IGPUCommandBuffer::ES_RECORDING && cmdbuf->isResettable());
-    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT));
+    assert(cmdbuf->getState() == IGPUCommandBuffer::STATE::RECORDING && cmdbuf->isResettable());
+    assert(cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT));
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
  
@@ -103,7 +111,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
         {
             // but first submit the already buffered up copies and whatever previously recorded into the command buffer
             cmdbuf->end();
-            IGPUQueue::SSubmitInfo submit = intendedNextSubmit;
+            IQueue::SSubmitInfo submit = intendedNextSubmit;
             submit.signalSemaphoreCount = 0u;
             submit.pSignalSemaphores = nullptr;
             assert(submit.isValid());
@@ -118,8 +126,8 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
             m_defaultUploadBuffer->cull_frees();
             // we can reset the fence and commandbuffer because we fully wait for the GPU to finish here
             m_device->resetFences(1u, &submissionFence);
-            cmdbuf->reset(IGPUCommandBuffer::ERF_RELEASE_RESOURCES_BIT);
-            cmdbuf->begin(IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+            cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
             continue;
         }
         else
@@ -160,44 +168,7 @@ IGPUQueue::SSubmitInfo IUtilities::updateImageViaStagingBuffer(
     }
     return intendedNextSubmit;
 }
-
-void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, IGPUFence* submissionFence, IGPUQueue::SSubmitInfo submitInfo
-)
-{
-    if(!submitInfo.isValid())
-    {
-        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
-        assert(false);
-        return;
-    }
-
-    CSubmitInfoPatcher submitInfoPatcher;
-    submitInfoPatcher.patchAndBegin(submitInfo, m_device, submissionQueue->getFamilyIndex());
-    submitInfo = updateImageViaStagingBuffer(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,submissionFence,submitInfo);
-    submitInfoPatcher.end();
-
-    assert(submitInfo.isValid());
-    submissionQueue->submit(1u,&submitInfo,submissionFence);
-}
-
-void IUtilities::updateImageViaStagingBufferAutoSubmit(
-    asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, asset::IImage::E_LAYOUT currentDstImageLayout, const core::SRange<const asset::IImage::SBufferCopy>& regions,
-    IGPUQueue* submissionQueue, const IGPUQueue::SSubmitInfo& submitInfo
-)
-{
-    if(!submitInfo.isValid())
-    {
-        m_logger.log("submitInfo is invalid.", nbl::system::ILogger::ELL_ERROR);
-        assert(false);
-        return;
-    }
-
-    auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-    updateImageViaStagingBufferAutoSubmit(srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions,submissionQueue,fence.get(),submitInfo);
-    m_device->blockForFences(1u,&fence.get());
-}
+#endif
 
 ImageRegionIterator::ImageRegionIterator(
     const core::SRange<const asset::IImage::SBufferCopy>& copyRegions,
@@ -233,9 +204,7 @@ ImageRegionIterator::ImageRegionIterator(
     if (asset::isDepthOrStencilFormat(dstImageFormat))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
 
-    bool queueSupportsCompute = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_COMPUTE_BIT);
-    bool queueSupportsGraphics = queueFamilyProps.queueFlags.hasFlags(IPhysicalDevice::EQF_GRAPHICS_BIT);
-    if ((queueSupportsGraphics || queueSupportsCompute) == false)
+    if (!(queueFamilyProps.queueFlags&(IQueue::FAMILY_FLAGS::COMPUTE_BIT|IQueue::FAMILY_FLAGS::GRAPHICS_BIT)))
         bufferOffsetAlignment = std::lcm(bufferOffsetAlignment, 4u);
     // TODO: Need to have a function to get equivalent format of the specific plane of this format (in aspectMask)
     // if(asset::isPlanarFormat(dstImageFormat->getCreationParameters().format))

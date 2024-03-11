@@ -1,127 +1,20 @@
 #include "nbl/video/CVulkanQueue.h"
 
 #include "nbl/video/CVulkanLogicalDevice.h"
-#include "nbl/video/CVulkanFence.h"
 #include "nbl/video/CVulkanSemaphore.h"
 #include "nbl/video/CVulkanCommandBuffer.h"
 
 namespace nbl::video
 {
 
-bool CVulkanQueue::submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence)
+auto CVulkanQueue::waitIdle_impl() const -> RESULT
 {
-    if (!IGPUQueue::submit(_count, _submits, _fence))
-        return false;
-
-    if(!IGPUQueue::markCommandBuffersAsPending(_count, _submits))
-        return false;
-
-    auto* vk = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable();
-
-    uint32_t waitSemCnt = 0u;
-    uint32_t signalSemCnt = 0u;
-    uint32_t cmdBufCnt = 0u;
-
-    for (uint32_t i = 0u; i < _count; ++i)
-    {
-        const auto& sb = _submits[i];
-        waitSemCnt += sb.waitSemaphoreCount;
-        signalSemCnt += sb.signalSemaphoreCount;
-        cmdBufCnt += sb.commandBufferCount;
-    }
-
-    constexpr uint32_t STACK_MEM_SIZE = 1u<<15;
-    uint8_t stackmem_[STACK_MEM_SIZE]{};
-    uint8_t* mem = stackmem_;
-    uint32_t memSize = STACK_MEM_SIZE;
-
-    const uint32_t submitsSz = sizeof(VkSubmitInfo)*_count;
-    const uint32_t memNeeded = submitsSz + (waitSemCnt + signalSemCnt)*sizeof(VkSemaphore) + cmdBufCnt*sizeof(VkCommandBuffer);
-    if (memNeeded > memSize)
-    {
-        memSize = memNeeded;
-        mem = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(memSize, _NBL_SIMD_ALIGNMENT) );
-    }
-
-    // Todo(achal): FREE ONLY IF _NBL_ALIGNED_MALLOC was called
-    // auto raii_ = core::makeRAIIExiter([mem]{ _NBL_ALIGNED_FREE(mem); });
-
-    VkSubmitInfo* submits = reinterpret_cast<VkSubmitInfo*>(mem);
-    mem += submitsSz;
-
-    VkSemaphore* waitSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += waitSemCnt*sizeof(VkSemaphore);
-    VkSemaphore* signalSemaphores = reinterpret_cast<VkSemaphore*>(mem);
-    mem += signalSemCnt*sizeof(VkSemaphore);
-    VkCommandBuffer* cmdbufs = reinterpret_cast<VkCommandBuffer*>(mem);
-    mem += cmdBufCnt*sizeof(VkCommandBuffer);
-
-    uint32_t waitSemOffset = 0u;
-    uint32_t signalSemOffset = 0u;
-    uint32_t cmdBufOffset = 0u;
-    for (uint32_t i = 0u; i < _count; ++i)
-    {
-        auto& sb = submits[i];
-
-        const SSubmitInfo& _sb = _submits[i];
-#ifdef _NBL_DEBUG
-        for (uint32_t j = 0u; j < _sb.commandBufferCount; ++j)
-            assert(_sb.commandBuffers[j]->getLevel() != CVulkanCommandBuffer::EL_SECONDARY);
-#endif
-
-        sb.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        sb.pNext = nullptr;
-        VkCommandBuffer* commandBuffers = cmdbufs + cmdBufOffset;
-        sb.pCommandBuffers = commandBuffers;
-        sb.commandBufferCount = _sb.commandBufferCount;
-        auto* waits = waitSemaphores + waitSemOffset;
-        sb.pWaitSemaphores = waits;
-        sb.waitSemaphoreCount = _sb.waitSemaphoreCount;
-        auto* signals = signalSemaphores + signalSemOffset;
-        sb.pSignalSemaphores = signals;
-        sb.signalSemaphoreCount = _sb.signalSemaphoreCount;
-
-        for (uint32_t j = 0u; j < sb.waitSemaphoreCount; ++j)
-        {
-            waits[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pWaitSemaphores[j], m_originDevice)->getInternalObject();
-        }
-        for (uint32_t j = 0u; j < sb.signalSemaphoreCount; ++j)
-        {
-            signals[j] = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(_sb.pSignalSemaphores[j], m_originDevice)->getInternalObject();
-        }
-        for (uint32_t j = 0u; j < sb.commandBufferCount; ++j)
-        {
-            commandBuffers[j] = reinterpret_cast<CVulkanCommandBuffer*>(_sb.commandBuffers[j])->getInternalObject();
-        }
-
-        waitSemOffset += sb.waitSemaphoreCount;
-        signalSemOffset += sb.signalSemaphoreCount;
-        cmdBufOffset += sb.commandBufferCount;
-
-        static_assert(sizeof(VkPipelineStageFlags) == sizeof(asset::E_PIPELINE_STAGE_FLAGS));
-        sb.pWaitDstStageMask = reinterpret_cast<const VkPipelineStageFlags*>(_sb.pWaitDstStageMask);
-    }
-
-    VkFence fence = _fence ? IBackendObject::device_compatibility_cast<CVulkanFence*>(_fence, m_originDevice)->getInternalObject() : VK_NULL_HANDLE;
-    auto vkRes = vk->vk.vkQueueSubmit(m_vkQueue, _count, submits, fence);
-    if (vkRes == VK_SUCCESS)
-    {
-        if(!IGPUQueue::markCommandBuffersAsDone(_count, _submits))
-            return false;
-
-        return true;
-    }
-    else
-    {
-        _NBL_DEBUG_BREAK_IF(true);
-    }
-
-    return false;
+    return getResultFrom(static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueWaitIdle(m_vkQueue));
 }
-
+    
 bool CVulkanQueue::startCapture() 
 {
-	if(m_rdoc_api == nullptr)
+	if (!m_rdoc_api)
 		return false;
     m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
 	return true;
@@ -129,10 +22,70 @@ bool CVulkanQueue::startCapture()
 
 bool CVulkanQueue::endCapture()
 {
-	if(m_rdoc_api == nullptr)
+	if (!m_rdoc_api)
 		return false;
     m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
 	return true;
+}
+
+auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submits) -> RESULT
+{
+    auto fillSemaphoreInfo = [this](const std::span<const SSubmitInfo::SSemaphoreInfo> semaphores, VkSemaphoreSubmitInfoKHR* &out) -> uint32_t
+    {
+        auto old = out;
+        for (const auto& in : semaphores)
+        {
+            out->sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
+            out->pNext = nullptr;
+            out->semaphore = IBackendObject::device_compatibility_cast<CVulkanSemaphore*>(in.semaphore,m_originDevice)->getInternalObject();
+            out->value = in.value;
+            out->stageMask = getVkPipelineStageFlagsFromPipelineStageFlags(in.stageMask);
+            out->deviceIndex = 0u; // device groups are a TODO
+            out++;
+        }
+        return static_cast<uint32_t>(std::distance(old,out));
+    };
+
+    uint32_t waitSemCnt = 0u;
+    uint32_t cmdBufCnt = 0u;
+    uint32_t signalSemCnt = 0u;
+    for (const auto& submit : _submits)
+    {
+        waitSemCnt += submit.waitSemaphores.size();
+        cmdBufCnt += submit.commandBuffers.size();
+        signalSemCnt += submit.signalSemaphores.size();
+    }
+
+    // TODO: we need a SVO optimized vector with SoA
+    core::vector<VkSubmitInfo2> submits(_submits.size(),{VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR,/*No interesting extensions*/nullptr,/*No protected stuff yet*/0});
+    core::vector<VkSemaphoreSubmitInfoKHR> waitSemaphores(waitSemCnt);
+    core::vector<VkCommandBufferSubmitInfoKHR> commandBuffers(cmdBufCnt,{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR,nullptr});
+    core::vector<VkSemaphoreSubmitInfoKHR> signalSemaphores(signalSemCnt);
+
+    auto outSubmitInfo = submits.data();
+    auto outWaitSemaphoreInfo = waitSemaphores.data();
+    auto outCommandBufferInfo = commandBuffers.data();
+    auto outSignalSemaphoreInfo = signalSemaphores.data();
+    for (const auto& submit : _submits)
+    {
+        outSubmitInfo->pWaitSemaphoreInfos = outWaitSemaphoreInfo;
+        outSubmitInfo->pCommandBufferInfos = outCommandBufferInfo;
+        outSubmitInfo->pSignalSemaphoreInfos = outSignalSemaphoreInfo;
+
+        for (const auto& commandBuffer : submit.commandBuffers)
+        {
+            outCommandBufferInfo->commandBuffer = IBackendObject::device_compatibility_cast<CVulkanCommandBuffer*>(commandBuffer.cmdbuf,m_originDevice)->getInternalObject();
+            outCommandBufferInfo->deviceMask = 0x1u;
+            outCommandBufferInfo++;
+        }
+
+        outSubmitInfo->waitSemaphoreInfoCount = fillSemaphoreInfo(submit.waitSemaphores,outWaitSemaphoreInfo);
+        outSubmitInfo->commandBufferInfoCount = submit.commandBuffers.size();
+        outSubmitInfo->signalSemaphoreInfoCount = fillSemaphoreInfo(submit.signalSemaphores,outSignalSemaphoreInfo);
+        outSubmitInfo++;
+    }
+    const auto vk_result = static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueSubmit2(m_vkQueue,submits.size(),submits.data(),VK_NULL_HANDLE);
+    return getResultFrom(vk_result);
 }
 
 bool CVulkanQueue::insertDebugMarker(const char* name, const core::vector4df_SIMD& color)
@@ -177,5 +130,6 @@ bool CVulkanQueue::endDebugMarker()
     vkQueueEndDebugUtilsLabelEXT(m_vkQueue);
     return true;
 }
+
 
 }

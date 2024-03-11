@@ -154,6 +154,7 @@ class IMeshPackerBase : public virtual core::IReferenceCounted
 
 };
 
+#if 0 // REWRITE
 template <typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
 class IMeshPacker : public IMeshPackerBase
 {
@@ -628,7 +629,7 @@ protected:
     };
 
 };
-
+#endif
 }
 }
 

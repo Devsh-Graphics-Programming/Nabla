@@ -31,8 +31,7 @@ namespace jit
 {
     struct device_capabilities
     {
-        NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + std::to_string(features.shaderFloat64) + R"===(;
-        NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = )===" + std::to_string(features.shaderDrawParameters) + R"===(;
+        NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + std::to_string(limits.shaderFloat64) + R"===(;
         NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic = )===" + std::to_string(limits.shaderSubgroupArithmetic) + R"===(;
         NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock = )===" + std::to_string(features.fragmentShaderPixelInterlock) + R"===(;
 
