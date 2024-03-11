@@ -11,6 +11,10 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
+#include "glm/glm/glm.hpp"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/property_pool/transfer.hlsl"
+
 namespace nbl::video
 {
 
@@ -21,8 +25,8 @@ class NBL_API2 IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        static inline constexpr auto invalid = PropertyAddressAllocator::invalid_address;
-
+        static inline constexpr uint64_t invalid = 0; 
+        using value_type = PropertyAddressAllocator::size_type;
 		//
         virtual const asset::SBufferRange<IGPUBuffer>& getPropertyMemoryBlock(uint32_t ix) const =0;
 
@@ -34,19 +38,19 @@ class NBL_API2 IPropertyPool : public core::IReferenceCounted
         inline bool isContiguous() const {return m_indexToAddr;}
 
         //
-        inline uint32_t getAllocated() const
+        inline value_type getAllocated() const
         {
             return indexAllocator.get_allocated_size();
         }
 
         //
-        inline uint32_t getFree() const
+        inline value_type getFree() const
         {
             return indexAllocator.get_free_size();
         }
 
         //
-        inline uint32_t getCapacity() const
+        inline value_type getCapacity() const
         {
             // special case allows us to use `get_total_size`, because the pool allocator has no added offsets
             return indexAllocator.get_total_size();
@@ -217,8 +221,8 @@ class NBL_API2 IPropertyPool : public core::IReferenceCounted
         static bool validateBlocks(const ILogicalDevice* device, const uint32_t propertyCount, const size_t* propertySizes, const uint32_t capacity, const asset::SBufferRange<IGPUBuffer>* _memoryBlocks);
 
         PropertyAddressAllocator indexAllocator;
-        uint32_t* m_indexToAddr;
-        uint32_t* m_addrToIndex;
+        uint64_t* m_indexToAddr;
+        uint64_t* m_addrToIndex;
 };
 
 

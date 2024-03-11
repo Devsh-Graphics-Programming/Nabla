@@ -12,17 +12,12 @@
 #include "nbl/video/utilities/IDescriptorSetCache.h"
 #include "nbl/video/utilities/IPropertyPool.h"
 
+#include "glm/glm/glm.hpp"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/property_pool/transfer.hlsl"
 
 namespace nbl::video
 {
-
-#if 0 // TODO: port
-#define int int32_t
-#define uint uint32_t
-#include "nbl/builtin/glsl/property_pool/transfer.glsl"
-#undef uint
-#undef int
-static_assert(NBL_BUILTIN_PROPERTY_POOL_INVALID==IPropertyPool::invalid);
 
 // property pool factory is externally synchronized
 // TODO: could rename to CSparseStreamingSystem/CSparseStreamingHandler
@@ -37,18 +32,9 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		//
 		inline ILogicalDevice* getDevice() {return m_device.get();}
 
-		//
-		inline const uint32_t getMaxPropertiesPerTransferDispatch() {return m_maxPropertiesPerPass;}
-
-		//
-		inline uint32_t getMaxScratchSize() const {return sizeof(nbl_glsl_property_pool_transfer_t)*m_maxPropertiesPerPass;}
-
         //
 		inline IGPUComputePipeline* getPipeline() {return m_pipeline.get();}
 		inline const IGPUComputePipeline* getPipeline() const {return m_pipeline.get();}
-
-        //
-		inline const IGPUDescriptorSetLayout* getCanonicalLayout() const { return m_dsCache->getCanonicalLayout(); }
 
         //
 		struct TransferRequest
@@ -57,10 +43,11 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			enum E_FLAG : uint16_t
 			{
 				EF_NONE=0,
-				EF_DOWNLOAD=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_DOWNLOAD,
+				// this wasn't used anywhere in the hlsl
+				EF_DOWNLOAD=1,
 				// this flag will make the `srcAddresses ? srcAddresses[0]:0` be used as the source address for all reads, effectively "filling" with uniform value
-				EF_FILL=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL,
-				EF_BIT_COUNT=NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_BIT_COUNT
+				EF_FILL=2,
+				EF_BIT_COUNT=3
 			};
 			//
 			static inline constexpr uint32_t invalid_offset = ~0u;
@@ -71,9 +58,6 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 				memblock = pool->getPropertyMemoryBlock(propertyID);
 				elementSize = pool->getPropertySize(propertyID);
 			}
-
-			//
-			inline bool isDownload() const {return flags&EF_DOWNLOAD;}
 
 			//
 			inline uint32_t getSourceElementCount() const
@@ -87,21 +71,22 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			asset::SBufferRange<IGPUBuffer> memblock = {};
 			E_FLAG flags = EF_NONE;
 			uint16_t elementSize = 0u;
-			uint32_t elementCount = 0u;
+			uint64_t elementCount = 0u;
 			// the source or destination buffer depending on the transfer type
 			asset::SBufferBinding<video::IGPUBuffer> buffer = {};
 			// can be invalid, if invalid, treated like an implicit {0,1,2,3,...} iota view
-			uint32_t srcAddressesOffset = IPropertyPool::invalid;
-			uint32_t dstAddressesOffset = IPropertyPool::invalid;
+			uint64_t srcAddressesOffset = IPropertyPool::invalid;
+			uint64_t dstAddressesOffset = IPropertyPool::invalid;
 		};
 		// Fence must be not pending yet, `cmdbuf` must be already in recording state.
 		[[nodiscard]] bool transferProperties(
-			IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence,
+			IGPUCommandBuffer* const cmdbuf, //IGPUFence* const fence,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
 			const TransferRequest* const requestsBegin, const TransferRequest* const requestsEnd,
 			system::logger_opt_ptr logger, const uint32_t baseDWORD=0u, const uint32_t endDWORD=~0ull
 		);
 
+#if 0 // TODO: Up streaming requests
 		//
 		struct UpStreamingRequest
 		{
@@ -190,7 +175,10 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 			system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint=std::chrono::steady_clock::now()+std::chrono::microseconds(500u)
 		);
-
+#endif
+		
+// TODO: freeing properties
+#if 0
 		// utility to help you fill out the tail move scatter request after the free, properly, returns if you actually need to transfer anything
 		static inline bool freeProperties(IPropertyPool* pool, UpStreamingRequest* requests, const uint32_t* indicesBegin, const uint32_t* indicesEnd, uint32_t* srcAddresses, uint32_t* dstAddresses)
 		{
@@ -211,34 +199,21 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			}
 			return false;
 		}
+#endif
 
     protected:
 		~CPropertyPoolHandler() {}
 
-		static inline constexpr auto MaxPropertiesPerDispatch = NBL_BUILTIN_PROPERTY_POOL_MAX_PROPERTIES_PER_DISPATCH;
+		static inline constexpr auto MaxPropertiesPerDispatch = nbl::hlsl::property_pools::MaxPropertiesPerDispatch;
 		static inline constexpr auto DescriptorCacheSize = 128u;
 
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipeline;
-		// TODO: investigate using Push Descriptors for this
-		class TransferDescriptorSetCache : public IDescriptorSetCache
-		{
-			public:
-				using IDescriptorSetCache::IDescriptorSetCache;
 
-				//
-				uint32_t acquireSet(
-					CPropertyPoolHandler* handler, const asset::SBufferBinding<video::IGPUBuffer>& scratch, const asset::SBufferBinding<video::IGPUBuffer>& addresses,
-					const TransferRequest* requests, const uint32_t propertyCount
-				);
-		};
-		core::smart_refctd_ptr<TransferDescriptorSetCache> m_dsCache;
-
-		uint16_t m_maxPropertiesPerPass;
 		uint32_t m_alignment;
 };
-#endif
 
 }
+
 #endif

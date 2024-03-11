@@ -254,6 +254,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			return true;
 		}
 		
+#if 0 // TODO: upstreaming cpropertypoolhandler
 		//
 		struct UpstreamRequestBase : RequestBase
 		{
@@ -497,6 +498,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				waitSemaphoreCount,semaphoresToWaitBeforeOverwrite,stagesToWaitForPerSemaphore,request.logger,maxWaitPoint
 			);
 		}
+#endif
 
 
 		 
