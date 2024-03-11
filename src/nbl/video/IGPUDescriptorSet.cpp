@@ -134,6 +134,8 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
 
         auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
         auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+		assert(dstDescriptors);
+		assert(dstSamplers);
 
         if (dstDescriptors)
             for (uint32_t i = 0; i < drop.count; i++)
@@ -143,8 +145,12 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
             for (uint32_t i = 0; i < drop.count; i++)
                 dstSamplers[drop.arrayElement + i] = nullptr;
     }
-
-    incrementVersion();
+	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
+	// so, only if we do the path that writes descriptors, do we want to increment version
+    if (getOriginDevice()->getEnabledFeatures().nullDescriptor)
+    {
+        incrementVersion();
+    }
 }
 
 bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const

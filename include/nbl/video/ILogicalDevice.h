@@ -633,7 +633,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         // should this be joined together with the existing updateDescriptorSets?
-        void nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors);
+        bool nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors, asset::IDescriptor::E_TYPE descriptorType);
 
         //! Renderpasses and Framebuffers
         core::smart_refctd_ptr<IGPURenderpass> createRenderpass(const IGPURenderpass::SCreationParams& params);
@@ -853,7 +853,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         // Drops refcounted references of the descriptors in these indices for the descriptor lifetime tracking 
         // If the nullDescriptor device feature is enabled, this would also write a null descriptor to the descriptor set
-        virtual void nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors) = 0;
+        virtual void nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors, asset::IDescriptor::E_TYPE descriptorType) = 0;
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;

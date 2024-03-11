@@ -66,11 +66,12 @@ public:
 		// TODO: Find a workaround for this
 		inline void operator()()
 		{
-			core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(m_addresses->size());
-			auto ptr = nulls.data();
-			operator()(ptr);
-			auto size = ptr - nulls.data();
-			m_composed->m_logicalDevice->nullifyDescriptors({nulls.data(),size_type(size)});
+			assert(false); // This should not be called, timeline needs to be drained before destructor
+			// core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(m_addresses->size());
+			// auto ptr = nulls.data();
+			// operator()(ptr);
+			// auto size = ptr - nulls.data();
+			// m_composed->m_logicalDevice->nullifyDescriptors({nulls.data(),size_type(size)});
 		}
 
 		// Takes count of allocations we want to free up as reference, true is returned if
@@ -102,13 +103,17 @@ protected:
 		std::unique_ptr<AddressAllocator> addressAllocator = nullptr;
 		std::unique_ptr<ReservedAllocator> reservedAllocator = nullptr;
 		size_t reservedSize = 0;
+		asset::IDescriptor::E_TYPE descriptorType = asset::IDescriptor::E_TYPE::ET_COUNT;
 
 		SubAllocDescriptorSetRange(
 			std::unique_ptr<AddressAllocator>&& inAddressAllocator,
 			std::unique_ptr<ReservedAllocator>&& inReservedAllocator,
-			size_t inReservedSize) :
+			size_t inReservedSize,
+			asset::IDescriptor::E_TYPE inDescriptorType) :
 			eventHandler({}), addressAllocator(std::move(inAddressAllocator)),
-			reservedAllocator(std::move(inReservedAllocator)), reservedSize(inReservedSize) {}
+			reservedAllocator(std::move(inReservedAllocator)), 
+			reservedSize(inReservedSize),
+			descriptorType(inDescriptorType) {}
 		SubAllocDescriptorSetRange() {}
 
 		SubAllocDescriptorSetRange& operator=(SubAllocDescriptorSetRange&& other)
@@ -116,6 +121,13 @@ protected:
 			addressAllocator = std::move(other.addressAllocator);
 			reservedAllocator = std::move(other.reservedAllocator);
 			reservedSize = other.reservedSize;
+			descriptorType = other.descriptorType;
+
+			// Nullify other
+			other.addressAllocator = nullptr;
+			other.reservedAllocator = nullptr;
+			other.reservedSize = 0u;
+			other.descriptorType = asset::IDescriptor::E_TYPE::ET_COUNT;
 			return *this;
 		}
 	};
@@ -164,7 +176,7 @@ public:
 						MinDescriptorSetAllocationSize
 					));
 
-					m_allocatableRanges[binding.data] = SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize);
+					m_allocatableRanges[binding.data] = SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize, descType);
 				}
 			}
 		}
@@ -261,7 +273,7 @@ public:
 			nulls.resize(m_totalDeferredFrees);
 			auto outNulls = nulls.data();
 			eventHandler.wait(maxWaitPoint, unallocatedSize, outNulls);
-			m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls});
+			m_logicalDevice->nullifyDescriptors({ nulls.data(),outNulls }, range->second.descriptorType);
 
 			// always call with the same parameters, otherwise this turns into a mess with the non invalid_address gaps
 			unallocatedSize = try_multi_allocate(binding,count,outAddresses);
@@ -325,7 +337,9 @@ public:
 		{
 			core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(count);
 			auto actualEnd = multi_deallocate(nulls.data(), binding, count, addr);
-			m_logicalDevice->nullifyDescriptors({nulls.data(),actualEnd});
+			// This is checked to be valid above
+			auto range = m_allocatableRanges.find(binding);
+			m_logicalDevice->nullifyDescriptors({nulls.data(),actualEnd}, range->second.descriptorType);
 		}
 	}
 
@@ -340,8 +354,9 @@ public:
 		{
 			auto& it = m_allocatableRanges[i];
 			frees += it.eventHandler.poll(outNulls).eventsLeft;
+			// TODO: this could be optimized to be put outside the loop
+			m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls}, it.descriptorType);
 		}
-		m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls});
 		return frees;
 	}
 };

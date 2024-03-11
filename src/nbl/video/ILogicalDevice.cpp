@@ -444,12 +444,19 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     return true;
 }
 
-void ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors, asset::IDescriptor::E_TYPE descriptorType)
 {
     for (const auto& drop : dropDescriptors)
-        drop.dstSet->dropDescriptors(drop);
+    {
+        auto ds = drop.dstSet;
+        if (!ds || !ds->wasCreatedBy(this))
+            return false;
 
-    nullifyDescriptors_impl(dropDescriptors);
+        ds->dropDescriptors(drop);
+    }
+
+    nullifyDescriptors_impl(dropDescriptors, descriptorType);
+    return true;
 }
 
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
