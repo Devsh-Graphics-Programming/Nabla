@@ -27,7 +27,7 @@ class ISwapchain : public IBackendObject
                 if (!physDev || !surface || !surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps))
                     return false;
 
-                if (!caps.supportedUsageFlags.hasFlags(imageUsage))
+                if (!imageUsage.value || !caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
                 if (minImageCount<caps.minImageCount)
                     return false;
@@ -46,6 +46,18 @@ class ISwapchain : public IBackendObject
                     return false;
                 if (hlsl::bitCount(preTransform.value)!=1 || !caps.supportedTransforms.hasFlags(preTransform))
                     return false;
+                {
+                    const auto& formatUsages = physDev->getImageFormatUsagesOptimalTiling();
+                    core::bitflag<IGPUImage::E_USAGE_FLAGS> possibleUsages = IGPUImage::E_USAGE_FLAGS::EUF_NONE;
+                    for (auto f=0u; f<asset::EF_COUNT; f++)
+                    {
+                        const auto format = static_cast<asset::E_FORMAT>(f);
+                        if (viewFormats.test(format))
+                            possibleUsages |= core::bitflag<IGPUImage::E_USAGE_FLAGS>(formatUsages[format]);
+                    }
+                    if (!possibleUsages.hasFlags(imageUsage))
+                        return false;
+                }
                 return true;
             }
 
@@ -76,21 +88,7 @@ class ISwapchain : public IBackendObject
                 if (!physDev || !surface || !surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps))
                     return false;
 
-                if (!imageUsage)
-                {
-                    const auto formatUsages = physDev->getImageFormatUsagesOptimalTiling();
-                    // we must be able to at least render to an image with a Graphics Pipeline
-                    core::bitflag<IGPUImage::E_USAGE_FLAGS> extendedUsages = IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT;
-                    for (auto f=0u; f<asset::EF_COUNT; f++)
-                    {
-                        const auto format = static_cast<asset::E_FORMAT>(f);
-                        if (viewFormats.test(format))
-                            extendedUsages |= core::bitflag<IGPUImage::E_USAGE_FLAGS>(formatUsages[format]);
-                    }
-                    // usages need to be trimmed
-                    imageUsage = caps.supportedUsageFlags & extendedUsages;
-                }
-                else if (!caps.supportedUsageFlags.hasFlags(imageUsage))
+                if (!imageUsage || !caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
 
                 caps.maxImageCount = core::min<uint32_t>(caps.maxImageCount,MaxImages);
@@ -155,8 +153,20 @@ class ISwapchain : public IBackendObject
                 return true;
             }
 
-            // default means "all supported"
-            core::bitflag<IGPUImage::E_USAGE_FLAGS> imageUsage = IGPUImage::E_USAGE_FLAGS::EUF_NONE;
+            //
+            static inline core::vector<ISurface::SFormat> obtainAvailableSurfaceFormats(const IPhysicalDevice* physDev, const ISurface* surface)
+            {
+                uint32_t availableFormatCount = 0;
+                surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
+
+                core::vector<ISurface::SFormat> availableFormats(availableFormatCount);
+                surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
+
+                return availableFormats;
+            }
+
+            // Required to be not NONE, default to Transfer Dst cause thats the easiest way to copy (blit)
+            core::bitflag<IGPUImage::E_USAGE_FLAGS> imageUsage = IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT|IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT;
             // can also treat as them as bitflags of valid transforms
             uint8_t minImageCount = 0u;
             core::bitflag<ISurface::E_PRESENT_MODE> presentMode = ISurface::EPM_ALL_BITS;
@@ -178,13 +188,7 @@ class ISwapchain : public IBackendObject
                 if (!sharedParams.valid(physDev,surface.get()))
                     return false;
 
-                core::vector<ISurface::SFormat> availableFormats;
-                {
-                    uint32_t availableFormatCount = 0;
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
-                    availableFormats.resize(availableFormatCount);
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
-                }
+                auto availableFormats = SSharedCreationParams::obtainAvailableSurfaceFormats(physDev,surface.get());
                 return std::find(availableFormats.begin(),availableFormats.end(),surfaceFormat)!=availableFormats.end();
             }
 
@@ -216,13 +220,7 @@ class ISwapchain : public IBackendObject
                 std::span<const asset::E_COLOR_PRIMARIES> preferredColorPrimaries=DefaultColorPrimaries
             )
             {
-                core::vector<ISurface::SFormat> availableFormats;
-                {
-                    uint32_t availableFormatCount = 0;
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,nullptr);
-                    availableFormats.resize(availableFormatCount);
-                    surface->getAvailableFormatsForPhysicalDevice(physDev,availableFormatCount,availableFormats.data());
-                }
+                auto availableFormats = SSharedCreationParams::obtainAvailableSurfaceFormats(physDev,surface.get());
 
                 // override preferred if set to known value already
                 if (surfaceFormat.format!=asset::EF_UNKNOWN)
@@ -270,6 +268,8 @@ class ISwapchain : public IBackendObject
                             val.format = format;
                             if (std::binary_search(formatBegin,formatEnd,val,fullComparator))
                             {
+                                // trim usage
+
                                 // Check compatibility against all `viewFormats`
                                 bool incompatible = false;
                                 const auto formatClass = asset::getFormatClass(format);
@@ -320,7 +320,6 @@ class ISwapchain : public IBackendObject
         //
         inline uint64_t getAcquireCount() const {return m_acquireCounter;}
 
-        using void_refctd_ptr = core::smart_refctd_ptr<core::IReferenceCounted>;
         // acquire
         struct SAcquireInfo
         {
@@ -339,7 +338,7 @@ class ISwapchain : public IBackendObject
             _ERROR // GDI macros getting in the way of just ERROR
         };
         // Even though in Vulkan image acquisition is not a queue operation, we perform a micro-submit to adapt a Timeline Semaphore to work with it 
-        // If we return anything other than `SUCCESS` or `SUBOPTIMAL`, then `info.signalSemaphores` won't get signalled to the requested values!
+        // If we return anything other than `SUCCESS` or `SUBOPTIMAL`, then `info.signalSemaphores` won't get signalled to the requested values or kept alive!
         inline ACQUIRE_IMAGE_RESULT acquireNextImage(SAcquireInfo info, uint32_t* const out_imgIx)
         {
             // Signalling a timeline semaphore on acquire isn't optional, how else will you protect against using an image before its ready!?
@@ -361,14 +360,15 @@ class ISwapchain : public IBackendObject
                 case ACQUIRE_IMAGE_RESULT::SUCCESS: [[fallthrough]];
                 case ACQUIRE_IMAGE_RESULT::SUBOPTIMAL:
                     m_acquireCounter++;
+                    // Now hold onto the signal-on-acquire semaphores for this image index till the acquire actually takes place
                     {
-                        auto semaphoreArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.signalSemaphores.size());
-                        for (auto i=0ull; i<info.signalSemaphores.size(); i++)
-                            semaphoreArray->operator[](i) = void_refctd_ptr(info.signalSemaphores[i].semaphore);
-                        m_frameResources[*out_imgIx] = std::move(semaphoreArray);
+                        const auto& lastSignal = info.signalSemaphores.back();
+                        m_frameResources[*out_imgIx]->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredFrameSemaphoreDrop(info.signalSemaphores));
                     }
                     if (m_oldSwapchain && m_acquireCounter>core::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
                         m_oldSwapchain = nullptr;
+                    // kill a few frame resources
+                    m_frameResources[*out_imgIx]->poll(DeferredFrameSemaphoreDrop::single_poll);
                     break;
                 default:
                     break;
@@ -391,8 +391,8 @@ class ISwapchain : public IBackendObject
             OUT_OF_DATE,
             _ERROR
         };
-        // If `FATAL_ERROR` returned then the `frameResources` are not latched until the next acquire of the same image index or swapchain destruction (whichever comes first)
-        inline PRESENT_RESULT present(SPresentInfo info, void_refctd_ptr&& _frameResources=nullptr)
+        // If `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
+        inline PRESENT_RESULT present(SPresentInfo info)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
                 return PRESENT_RESULT::FATAL_ERROR;
@@ -407,20 +407,13 @@ class ISwapchain : public IBackendObject
             if (threadsafeQ)
                 threadsafeQ->m.unlock();
 
-            // If not FATAL_ERROR then semaphore wait will actually occur in the future and resources should be released, either:
-            // - on the next acquire of the same index
-            // - when dropping the swapchain entirely, but need to wait on all previous presents to finish (some manageable UB)
+            // kill a few frame resources
+            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
             if (retval!=PRESENT_RESULT::FATAL_ERROR)
             {
-                auto frameResources = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<void_refctd_ptr>>(info.waitSemaphores.size()+2);
-                frameResources->operator[](0) = std::move(m_frameResources[info.imgIndex]);
-                frameResources->operator[](1) = std::move(_frameResources);
-                for (auto i=0ull; i<info.waitSemaphores.size(); i++)
-                    frameResources->operator[](i+2) = void_refctd_ptr(info.waitSemaphores[i].semaphore);
-                m_frameResources[info.imgIndex] = std::move(frameResources);
+                auto& lastWait = info.waitSemaphores.back();
+                m_frameResources[info.imgIndex]->latch({.semaphore=lastWait.semaphore,.value=lastWait.value},DeferredFrameSemaphoreDrop(info.waitSemaphores));
             }
-            else
-                m_frameResources[info.imgIndex] = nullptr;
             return retval;
         }
 
@@ -433,7 +426,7 @@ class ISwapchain : public IBackendObject
             for (uint8_t i=0; i<m_imageCount; i++)
             {
                 if (unacquired(i))
-                    m_frameResources[i] = nullptr;
+                    m_frameResources[i]->abortAll();
                 else
                     return true;
             }
@@ -470,6 +463,52 @@ class ISwapchain : public IBackendObject
 
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
+        
+		// only public because MultiTimelineEventHandlerST needs to know about it
+		class DeferredFrameSemaphoreDrop final
+		{
+                using sema_refctd_ptr = core::smart_refctd_ptr<ISemaphore>;
+				core::smart_refctd_dynamic_array<sema_refctd_ptr> m_otherSemaphores = nullptr;
+
+			public:
+				inline DeferredFrameSemaphoreDrop(const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> _semaphores)
+				{
+                    const auto otherCount = _semaphores.size()-1;
+                    // first semaphore always serves as the timeline and will be refcounted in the event handler
+                    if (otherCount==0)
+                        return;
+                    m_otherSemaphores = core::make_refctd_dynamic_array<decltype(m_otherSemaphores)>(otherCount);
+
+                    for (auto i=0ull; i<otherCount; i++)
+                        m_otherSemaphores->operator[](i) = sema_refctd_ptr(_semaphores[i].semaphore);
+				}
+                DeferredFrameSemaphoreDrop(const DeferredFrameSemaphoreDrop& other) = delete;
+				inline DeferredFrameSemaphoreDrop(DeferredFrameSemaphoreDrop&& other) : m_otherSemaphores(nullptr)
+				{
+					this->operator=(std::move(other));
+				}
+
+                DeferredFrameSemaphoreDrop& operator=(const DeferredFrameSemaphoreDrop& other) = delete;
+				inline DeferredFrameSemaphoreDrop& operator=(DeferredFrameSemaphoreDrop&& other)
+				{
+                    m_otherSemaphores = std::move(other.m_otherSemaphores);
+					other.m_otherSemaphores = nullptr;
+					return *this;
+				}
+
+				struct single_poll_t {};
+				static inline single_poll_t single_poll;
+				inline bool operator()(single_poll_t _single_poll)
+				{
+					operator()();
+					return true;
+				}
+
+                inline void operator()()
+                {
+                    m_otherSemaphores = nullptr;
+                }
+		};
 
     protected:
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain);
@@ -513,8 +552,8 @@ class ISwapchain : public IBackendObject
         std::array<uint8_t,ILogicalDevice::MaxQueueFamilies> m_queueFamilies;
         const uint8_t m_imageCount;
         uint64_t m_acquireCounter = 0;
-        // resource to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
-        std::array<void_refctd_ptr,ILogicalDevice::MaxQueueFamilies> m_frameResources = {};
+        // Resources to hold onto until a frame is done rendering (between; just before presenting, and next acquire of the same image index)
+        std::array<std::unique_ptr<MultiTimelineEventHandlerST<DeferredFrameSemaphoreDrop>>,MaxImages> m_frameResources;
 };
 
 }

@@ -29,12 +29,12 @@ public:
 
 		auto argc = argv.size();
 
-#ifndef NBL_DEBUG
-		std::string str = argv[0];
-		for (auto i=1; i<argc; i++)
-			str += "\n"+argv[i];
-		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
-#endif
+//#ifndef NBL_DEBUG
+//		std::string str = argv[0];
+//		for (auto i=1; i<argc; i++)
+//			str += "\n"+argv[i];
+//		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
+//#endif
 
 		// expect the first argument to be nsc.exe
 		// second argument should be input: filename of a shader to compile
@@ -83,36 +83,41 @@ public:
 			});
 		};
 		
-		auto output_flag_pos = findOutputFlag("-Fc");
-		
+		auto output_flag_pos_fc = findOutputFlag("-Fc");
+		auto output_flag_pos_fo = findOutputFlag("-Fo");
+		if (output_flag_pos_fc != m_arguments.end() && output_flag_pos_fo != m_arguments.end()) {
+			m_logger->log("Invalid arguments. Passed both -Fo and -Fc.", ILogger::ELL_ERROR);
+			return false;
+		}
+		auto output_flag_pos = output_flag_pos_fc != m_arguments.end() ? output_flag_pos_fc : output_flag_pos_fo;
 		if (output_flag_pos == m_arguments.end()) 
 		{
-			m_logger->log("Missing arguments. Expecting `-Fc {filename}`.", ILogger::ELL_ERROR);
+			m_logger->log("Missing arguments. Expecting `-Fc {filename}` or `-Fo {filename}`.", ILogger::ELL_ERROR);
 			return false;
 		}
 		else
 		{
 			// we need to assume -Fc may be passed with output file name quoted together with "", so we split it (DXC does it)
-			const auto& outpufFlag = *output_flag_pos;
-			auto outputFlagVector = split(outpufFlag, ' ');
+			const auto& outputFlag = *output_flag_pos;
+			auto outputFlagVector = split(outputFlag, ' ');
 		
-			if(outpufFlag == "-Fc")
+			if(outputFlag == "-Fc" || outputFlag == "-Fo")
 			{
 			    if (output_flag_pos + 1 != m_arguments.end()) 
 			    {
-				output_filepath = *(output_flag_pos + 1);
+					output_filepath = *(output_flag_pos + 1);
 			    }
 			    else 
 			    {
-				m_logger->log("Incorrect arguments. Expecting filename after -Fc.", ILogger::ELL_ERROR);
-				return false;
+					m_logger->log("Incorrect arguments. Expecting filename after %s.", ILogger::ELL_ERROR, outputFlag);
+					return false;
 			    }
 			}
 			else
 			{
 			    output_filepath = outputFlagVector[1];
 			}
-			m_arguments.erase(output_flag_pos, output_flag_pos+1);
+			m_arguments.erase(output_flag_pos, output_flag_pos+2);
 		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath);
 		}
@@ -124,6 +129,12 @@ public:
 			m_logger->log("nsc.exe was compiled with builtin resources disabled. Force enabling -no-nbl-builtins.", ILogger::ELL_WARNING);
 		}
 #endif
+		if (std::find(m_arguments.begin(), m_arguments.end(), "-E") == m_arguments.end())
+		{
+			//Insert '-E main' into arguments if no entry point is specified
+			m_arguments.push_back("-E");
+			m_arguments.push_back("main");
+		}
 
 		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)

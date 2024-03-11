@@ -151,21 +151,32 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const;
 
         
-        //! Sync
-        virtual IQueue::RESULT waitIdle() const = 0;
+        //! Very important function, without it being called at the end of when you use a device, it will leak due to circular reference from resources used in the very last submit to a queue
+        //! Alternatively to get rid of circular refs, you can call `waitIdle` individually on every queue you've ever used
+        IQueue::RESULT waitIdle();
 
         //! Semaphore Stuff
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        // Waits for max timeout amout of time for the semaphores to reach a specific counter value
+        // DOES NOT implicitly trigger Queue-refcount-resource release because of two reasons:
+        // - the events may trigger loads of resource releases causing extra processing, whereas our `timeout` could be quite small
+        // - the event handlers use `waitForSemaphores` themselves so don't want infinite recursion here
         virtual ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) = 0;
         // Forever waiting variant if you're confident that the fence will eventually be signalled
+        // Does implicitly trigger Queue-refcount-resource-release
         inline ISemaphore::WAIT_RESULT blockForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll=true)
         {
             using retval_t = ISemaphore::WAIT_RESULT;
             if (!infos.empty())
             {
                 auto waitStatus = retval_t::TIMEOUT;
-                while (waitStatus== retval_t::TIMEOUT)
+                while (waitStatus==retval_t::TIMEOUT)
+                {
                     waitStatus = waitForSemaphores(infos,waitAll,999999999ull);
+                    for (const auto& info : infos)
+                    for (const auto& queue : *m_queues)
+                        queue->cullResources(info.semaphore);
+                }
                 return waitStatus;
             }
             return retval_t::SUCCESS;
@@ -275,7 +286,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IDeviceMemoryBacked::SMemoryBinding binding = {};
         };
         //! The counterpart of @see bindBufferMemory for images
-        inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
+        [[deprecated]] inline bool bindImageMemory(uint32_t count, const SBindImageMemoryInfo* pBindInfos)
         {
             for (auto i=0u; i<count; i++)
             {
@@ -289,6 +300,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return false;
             }
             return bindImageMemory_impl(count,pBindInfos);
+        }
+        inline bool bindImageMemory(const std::span<const SBindImageMemoryInfo> bindInfos)
+        {
+            return bindImageMemory(bindInfos.size(),bindInfos.data());
         }
 
         //! Descriptor Creation
@@ -763,10 +778,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc);
         inline virtual ~ILogicalDevice()
         {
+            // There's no point calling `waitIdle` here for two reasons:
+            // - vtable already destroyed, you'll then call undefined function pointer for `waitIdle_impl`
+            // - `waitIdle` must have been called already or a similar operation performed, otherwise you'll have circular references from the per-queue GC and you'll never enter this destructor
             if (m_queues)
             for (uint32_t i=0u; i<m_queues->size(); ++i)
                 delete (*m_queues)[i];
         }
+
+        virtual IQueue::RESULT waitIdle_impl() const = 0;
+
         virtual bool flushMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
         virtual bool invalidateMappedMemoryRanges_impl(const std::span<const MappedMemoryRange> ranges) = 0;
 

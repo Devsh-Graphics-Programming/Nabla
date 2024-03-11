@@ -16,70 +16,132 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		class ICallback : public ISimpleManagedSurface::ICallback
 		{
 			protected:
-				friend class IResizableSurface;
-				// `recreator` owns the `ISurface`, which refcounts the `IWindow` which refcounts the callback, so fumb pointer to avoid cycles 
-				inline void setSwapchainRecreator(IResizableSurface* recreator) {m_recreator = recreator;}
-
 				// remember to call this when overriding it further down!
 				inline virtual bool onWindowResized_impl(uint32_t w, uint32_t h) override
 				{
-					m_recreator->explicitRecreateSwapchain(w,h);
+					if (m_recreator)
+						m_recreator->explicitRecreateSwapchain(w,h);
 					return true;
 				}
 
-				IResizableSurface* m_recreator;
+			private:
+				friend class IResizableSurface;
+				// `recreator` owns the `ISurface`, which refcounts the `IWindow` which refcounts the callback, so fumb pointer to avoid cycles 
+				inline void setSwapchainRecreator(IResizableSurface* recreator) { m_recreator = recreator; }
+
+				IResizableSurface* m_recreator = nullptr;
+		};
+
+		//
+		struct SPresentSource
+		{
+			IGPUImage* image;
+			VkRect2D rect;
 		};
 
 		//
 		class NBL_API2 ISwapchainResources : public core::IReferenceCounted, public ISimpleManagedSurface::ISwapchainResources
 		{
 			protected:
-				// remember to call in the derived class on all of these
-				virtual inline void invalidate_impl() override
-				{
-					std::fill(cmdbufs.begin(),cmdbufs.end(),nullptr);
-				}
-				virtual inline bool onCreateSwapchain_impl(const uint8_t qFam) override
-				{
-					auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
-
-					// transient commandbuffer and pool to perform the blits or copies to SC images
-					auto pool = device->createCommandPool(qFam,IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-					if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{cmdbufs.data(),swapchain->getImageCount()}))
-						return false;
-				
-					return true;
-				}
-
-				// The `cmdbuf` is already begun when given to the callback, and will be ended inside
-				// Returns what stage the submit signal semaphore should signal from for the presentation to wait on 
-				virtual asset::PIPELINE_STAGE_FLAGS tripleBufferPresent(IGPUCommandBuffer* cmdbuf, IGPUImage* source) = 0;
-
-			private:
 				friend class IResizableSurface;
 
-				std::array<core::smart_refctd_ptr<IGPUCommandBuffer>,ISwapchain::MaxImages> cmdbufs = {};
+				// Returns what Pipeline Stages will be used for performing the `tripleBufferPresent`
+				// We use this to set the waitStage for the Semaphore Wait, but only when ownership does not need to be acquired.
+				virtual core::bitflag<asset::PIPELINE_STAGE_FLAGS> getTripleBufferPresentStages() const = 0;
+
+				// Returns what if the commands to present `source` into `dstIx` Swapchain Image were successfully recorded to `cmdbuf` and can be submitted
+				// The `cmdbuf` is already begun when given to the callback, and will be ended outside.
+				// User is responsible for transitioning the image layouts (most notably the swapchain), acquiring ownership etc.
+				// Performance Tip: DO NOT transition the layout of `source` inside this callback, have it already in the correct Layout you need!
+				// However, if `qFamToAcquireSrcFrom!=IQueue::FamilyIgnored`, you need to acquire the ownership of the `source.image`
+				virtual bool tripleBufferPresent(IGPUCommandBuffer* cmdbuf, const SPresentSource& source, const uint8_t dstIx, const uint32_t qFamToAcquireSrcFrom) = 0;
 		};
 
-		struct SPresentInfo
+		//
+		inline CThreadSafeQueueAdapter* pickQueue(ILogicalDevice* device) const override final
 		{
-			inline operator bool() const {return source;}
+			const auto fam = pickQueueFamily(device);
+			return device->getThreadSafeQueue(fam,device->getQueueCount(fam)-1);
+		}
 
-			IGPUImage* source = nullptr;
-			// TODO: add sourceRegion
-			IQueue::SSubmitInfo::SSemaphoreInfo wait;
-			core::IReferenceCounted* frameResources;
-		};		
-		// TODO: explanations
-		inline bool present(const SPresentInfo& presentInfo)
+		// This is basically a poll, the extent CAN change between a call to this and `present`
+		inline VkExtent2D getCurrentExtent()
 		{
 			std::unique_lock guard(m_swapchainResourcesMutex);
-			// The only thing we want to do under the mutex, is just enqueue a blit and a present, its not a lot
-			return present_impl(presentInfo);
+			// because someone might skip an acquire when area==0, handle window closing
+			if (m_cb->isWindowOpen())
+			while (true)
+			{
+				auto resources = getSwapchainResources();
+				if (resources && resources->getStatus()==ISwapchainResources::STATUS::USABLE)
+				{
+					auto swapchain = resources->getSwapchain();
+					if (swapchain)
+					{
+						const auto& params = swapchain->getCreationParameters().sharedParams;
+						if (params.width>0 && params.height>0)
+							return {params.width,params.height};
+					}
+				}
+				// if got some weird invalid extent, try to recreate and retry once
+				if (!recreateSwapchain())
+					break;
+			}
+			else
+				becomeIrrecoverable();
+			return {0,0};
+		}
+
+		//
+		inline ISemaphore* getPresentSemaphore() {return m_presentSemaphore.get();}
+
+		// We need to prevent a spontaneous Triple Buffer Present during a resize between when:
+		// - we check the semaphore value we need to wait on before rendering to the `SPresentSource::image`
+		// - and the present from `SPresentSource::image
+		// This is so that the value we would need to wait on, does not change.
+		// Ofcourse if the target addresses of the atomic counters of wait values differ, no lock needed!
+		inline std::unique_lock<std::mutex> pseudoAcquire(std::atomic_uint64_t* pPresentSemaphoreWaitValue)
+		{
+			if (pPresentSemaphoreWaitValue!=m_lastPresent.pPresentSemaphoreWaitValue)
+				return {}; // no lock
+			return std::unique_lock<std::mutex>(m_swapchainResourcesMutex);
+		}
+
+		struct SCachedPresentInfo
+		{
+			inline operator bool() const {return source.image && waitSemaphore && waitValue && pPresentSemaphoreWaitValue;}
+
+			SPresentSource source = {};
+			// only allow waiting for one semaphore, because there's only one source to present!
+			ISemaphore* waitSemaphore = nullptr;
+			uint64_t waitValue = 0;
+			// what value will be signalled by the enqueued Triple Buffer Presents so far
+			std::atomic_uint64_t* pPresentSemaphoreWaitValue = nullptr;
+		};
+		struct SPresentInfo : SCachedPresentInfo
+		{
+			uint32_t mostRecentFamilyOwningSource; // TODO: change to uint8_t
+		};		
+		// This is a present that you should regularly use from the main rendering thread or something.
+		// Due to the constraints and mutexes on everything, its impossible to split this into a separate acquire and present call so this does both.
+		// So CAN'T USE `acquireNextImage` for frame pacing, it was bad Vulkan practice anyway!
+		inline bool present(std::unique_lock<std::mutex>&& acquireLock, const SPresentInfo& presentInfo)
+		{
+			std::unique_lock<std::mutex> guard;
+			if (acquireLock)
+				guard = std::move(acquireLock);
+			else
+			{
+				guard = std::unique_lock<std::mutex>(m_swapchainResourcesMutex);
+				assert(presentInfo.pPresentSemaphoreWaitValue!=m_lastPresent.pPresentSemaphoreWaitValue);
+			}
+			// The only thing we want to do under the mutex, is just enqueue a triple buffer present and a swapchain present, its not a lot.
+			// Only acquire ownership if the Present queue is different to the current one.
+			return present_impl(presentInfo,getAssignedQueue()->getFamilyIndex()!=presentInfo.mostRecentFamilyOwningSource);
 		}
 
 		// Call this when you want to recreate the swapchain with new extents
-		inline bool explicitRecreateSwapchain(const uint32_t w, const uint32_t h, CThreadSafeQueueAdapter* blitAndPresentQueue=nullptr)
+		inline bool explicitRecreateSwapchain(const uint32_t w, const uint32_t h)
 		{
 			// recreate the swapchain under a mutex
 			std::unique_lock guard(m_swapchainResourcesMutex);
@@ -99,46 +161,75 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 			if (current->getSwapchain()==oldSwapchain.get())
 				return true;
 
-			// The blit enqueue operations are fast enough to be done under a mutex, this is safer on some platforms
-			// You need to "race to present" to avoid a flicker
-			return present({.source=m_lastPresentSource,.wait=m_lastPresentWait,.frameResources=nullptr});
+			// The triple present enqueue operations are fast enough to be done under a mutex, this is safer on some platforms. You need to "race to present" to avoid a flicker.
+			// Queue family ownership acquire not needed, done by the the very first present when `m_lastPresentSource` wasset.
+			return present_impl({{m_lastPresent},getAssignedQueue()->getFamilyIndex()},false);
 		}
 
 	protected:
-		inline IResizableSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : ISimpleManagedSurface(std::move(_surface),_cb)
-		{
-			_cb->setSwapchainRecreator(this);
-		}
+		using ISimpleManagedSurface::ISimpleManagedSurface;
 		virtual inline ~IResizableSurface()
 		{
 			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(nullptr);
 		}
 
 		//
-		inline CThreadSafeQueueAdapter* pickQueue(ILogicalDevice* device) const override final
+		inline void deinit_impl() override final
 		{
-			const auto fam = pickQueueFamily(device);
-			return device->getThreadSafeQueue(fam,device->getQueueCount(fam)-1);
+			// stop any calls into explicit resizes
+			std::unique_lock guard(m_swapchainResourcesMutex);
+			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(nullptr);
+
+			m_lastPresent.source = {};
+			m_lastPresentSourceImage = nullptr;
+			m_lastPresent.waitSemaphore = nullptr;
+			m_lastPresent.waitValue = 0;
+			m_lastPresentSemaphore = nullptr;
+
+			if (m_presentSemaphore)
+			{
+				auto device = const_cast<ILogicalDevice*>(m_presentSemaphore->getOriginDevice());
+				const ISemaphore::SWaitInfo info[1] = {{
+					.semaphore = m_presentSemaphore.get(),.value=getAcquireCount()
+				}};
+				device->blockForSemaphores(info);
+			}
+
+			std::fill(m_cmdbufs.begin(),m_cmdbufs.end(),nullptr);
+			m_lastPresent.pPresentSemaphoreWaitValue = {};
+			m_presentSemaphore = nullptr;
 		}
 
 		//
-		inline bool init_impl(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams) override final
+		inline bool init_impl(const ISwapchain::SSharedCreationParams& sharedParams) override final
 		{
-			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
+			// swapchain callback already deinitialized, so no mutex needed here
 
-			// want to keep using the same semaphore throughout the lifetime to not run into sync issues
-			if (!m_blitSemaphore)
-			{
-				m_blitSemaphore = device->createSemaphore(0u);
-				if (!m_blitSemaphore)
-					return false;
-			}
+			auto queue = getAssignedQueue();
+			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
 
 			m_sharedParams = sharedParams;
 			if (!m_sharedParams.deduce(device->getPhysicalDevice(),getSurface()))
 				return false;
 
-			return createSwapchainResources();
+			// want to keep using the same semaphore throughout the lifetime to not run into sync issues
+			if (!m_presentSemaphore)
+			{
+				m_presentSemaphore = device->createSemaphore(0u);
+				if (!m_presentSemaphore)
+					return false;
+			}
+
+			// transient commandbuffer and pool to perform the blits or other copies to SC images
+			auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+			if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{m_cmdbufs.data(),getMaxFramesInFlight()}))
+				return false;
+
+			if (!createSwapchainResources())
+				return false;
+			
+			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(this);
+			return true;
 		}
 
 		//
@@ -203,125 +294,105 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		}
 
 		//
-		inline bool present_impl(const SPresentInfo& presentInfo)
+		inline bool present_impl(const SPresentInfo& presentInfo, const bool acquireOwnership)
 		{
-			if (!presentInfo)
+			// irrecoverable or bad input
+			if (!presentInfo || !getSwapchainResources())
 				return false;
 
 			// delayed init of our swapchain
-			if (!getSwapchainResources() && !recreateSwapchain())
+			if (getSwapchainResources()->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain())
 				return false;
+
+			// now pointer won't change until we get out from under the lock
+			auto swapchainResources = static_cast<ISwapchainResources*>(getSwapchainResources());
+			assert(swapchainResources);
 			
 			const uint8_t imageIx = acquireNextImage();
 			if (imageIx==ISwapchain::MaxImages)
 				return false;
 
 			// now that an image is acquired, we HAVE TO present
+			m_lastPresentSourceImage = core::smart_refctd_ptr<IGPUImage>(presentInfo.source.image);
+			m_lastPresentSemaphore = core::smart_refctd_ptr<ISemaphore>(presentInfo.waitSemaphore);
+			m_lastPresent = presentInfo;
+			// in case of failure, most we can do is just not submit an invalidated commandbuffer with the triple buffer present
 			bool willBlit = true;
+
 			const auto acquireCount = getAcquireCount();
 			const IQueue::SSubmitInfo::SSemaphoreInfo waitSemaphores[2] = {
-				presentInfo.wait,
+				{
+					.semaphore = presentInfo.waitSemaphore,
+					.value = presentInfo.waitValue,
+					// If we need to Acquire Ownership of the Triple Buffer Source we need a Happens-Before between the Semaphore wait and the Acquire Ownership
+					// https://github.com/KhronosGroup/Vulkan-Docs/issues/2319
+					// else we need to know what stage starts reading from the Triple Buffer Source
+					.stageMask = acquireOwnership ? asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS:swapchainResources->getTripleBufferPresentStages()
+				},
 				{
 					.semaphore = getAcquireSemaphore(),
 					.value = acquireCount,
-					.stageMask = asset::PIPELINE_STAGE_FLAGS::NONE // presentation engine usage isn't a stage
+					// There 99% surely probably be a Layout Transition of the acquired image away from PRESENT_SRC,
+					// so need an ALL->NONE dependency between acquire and semaphore wait
+					// https://github.com/KhronosGroup/Vulkan-Docs/issues/2319
+					.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS
 				}
 			};
-			m_lastPresentSourceImage = core::smart_refctd_ptr<IGPUImage>(presentInfo.source);
-			m_lastPresentSource = presentInfo.source;
-			m_lastPresentWait = presentInfo.wait;
-
-			// now pointer won't change until we get out from under the lock
-			auto swapchainResources = static_cast<ISwapchainResources*>(getSwapchainResources());
-			assert(swapchainResources);
 			
 			//
 			auto queue = getAssignedQueue();
 			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
 			
 			// need to wait before resetting a commandbuffer
-			const auto scImageCount = swapchainResources->getSwapchain()->getImageCount();
-			if (acquireCount>scImageCount)
+			const auto maxFramesInFlight = getMaxFramesInFlight();
+			if (acquireCount>maxFramesInFlight)
 			{
 				const ISemaphore::SWaitInfo cmdbufDonePending[1] = {
 					{ 
-						.semaphore = m_blitSemaphore.get(),
-						.value = acquireCount-scImageCount
+						.semaphore = m_presentSemaphore.get(),
+						.value = acquireCount-maxFramesInFlight
 					}
 				};
 				device->blockForSemaphores(cmdbufDonePending);
 			}
 
-			const auto cmdBufIx = acquireCount%swapchainResources->getSwapchain()->getImageCount();
-			auto cmdbuf = swapchainResources->cmdbufs[cmdBufIx].get();
+
+			// Maybe tie the cmbufs to the Managed Surface instead?
+			const auto cmdBufIx = acquireCount%maxFramesInFlight;
+			auto cmdbuf = m_cmdbufs[cmdBufIx].get();
 
 			willBlit &= cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-			// now enqueue the mini-blit
-			const IQueue::SSubmitInfo::SSemaphoreInfo blitted[1] = {
-				{
-					.semaphore = m_blitSemaphore.get(),
-					.value = acquireCount,
-					.stageMask = swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source)
-				}
-			};
-			willBlit &= bool(blitted[1].stageMask.value);
+			willBlit &= swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source,imageIx,acquireOwnership ? queue->getFamilyIndex():IQueue::FamilyIgnored);
 			willBlit &= cmdbuf->end();
 			
 			const IQueue::SSubmitInfo::SCommandBufferInfo commandBuffers[1] = {{.cmdbuf=cmdbuf}};
+			// now enqueue the Triple Buffer Present
+			const IQueue::SSubmitInfo::SSemaphoreInfo presented[1] = {{
+				.semaphore = m_presentSemaphore.get(),
+				.value = acquireCount,
+				// There 99% surely probably be a Layout Transition of the acquired image to PRESENT_SRC,
+				// so need a NONE->ALL dependency between that and semaphore signal
+				// https://github.com/KhronosGroup/Vulkan-Docs/issues/2319
+				.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS
+			}};
 			const IQueue::SSubmitInfo submitInfos[1] = {{
 				.waitSemaphores = waitSemaphores,
 				.commandBuffers = commandBuffers,
-				.signalSemaphores = blitted
+				.signalSemaphores = presented
 			}};
 			willBlit &= queue->submit(submitInfos)==IQueue::RESULT::SUCCESS;
-#if 0
-					const IQueue::SSubmitInfo::SSemaphoreInfo readyToPresent[1] = {{
-						.semaphore = presentSemaphore,
-						.value = presentValue,
-						.stageMask = raceToPresent_impl(lastSource,cmdbuf)
-					}};
-					const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores = {&wait,1};
 
-					bool willBlit = false;
-					// successful blit command enqueue if we have to wait on something
-					if (readyToPresent->stageMask && cmdbuf->end())
-					{
-						const IQueue::SSubmitInfo::SCommandBufferInfo commandBuffers[1] = {{
-							.cmdbuf=cmdbuf
-						}};
-						const IQueue::SSubmitInfo submits[1] = {{
-							.waitSemaphores = waitSemaphores,
-							.commandBuffers = commandBuffers,
-							.signalSemaphores = readyToPresent
-						}};
-						willBlit = queue->submit(submits)==IQueue::RESULT::SUCCESS;
-					}
-					
-					// need to present either way
-					if (willBlit)
-					{
-						switch (swapchain->present({.queue=queue,.imgIndex=acquiredIx,.waitSemaphores=readyToPresent},core::smart_refctd_ptr<core::IReferenceCounted>(cmdbuf)))
-						{
-							case ISwapchain::PRESENT_RESULT::SUBOPTIMAL: [[fallthrough]];
-							case ISwapchain::PRESENT_RESULT::SUCCESS:
-								// all resources can be dropped, the swapchain will hold onto them
-								return true;
-							case ISwapchain::PRESENT_RESULT::OUT_OF_DATE:
-								invalidate();
-								break;
-							default:
-								becomeIrrecoverable();
-								break;
-						}
-						// now in a weird situation where we have pending blit work on the GPU but no present and refcounting to keep the submitted cmdbuf and semaphores alive
-						const ISemaphore::SWaitInfo infos[1] = {{.semaphore=presentSemaphore,.value=presentValue}};
-						const_cast<ILogicalDevice*>(queue->getOriginDevice())->blockForSemaphores(infos);
-					}
-					else
-						swapchain->present({.queue=queue,.imgIndex=acquiredIx,.waitSemaphores=waitSemaphores});
-					return false;
-#endif
-			return ISimpleManagedSurface::present(imageIx,blitted,presentInfo.frameResources);
+			// handle two cases of present
+			if (willBlit)
+			{
+				// let the others know we've enqueued another TBP
+				const auto oldVal = m_lastPresent.pPresentSemaphoreWaitValue->exchange(acquireCount);
+				assert(oldVal<acquireCount);
+
+				return ISimpleManagedSurface::present(imageIx,presented);
+			}
+			else
+				return ISimpleManagedSurface::present(imageIx,{waitSemaphores+1,1});
 		}
 
 		// Assume it will execute under a mutex
@@ -331,15 +402,20 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		ISwapchain::SSharedCreationParams m_sharedParams = {};
 
 	private:
-		core::smart_refctd_ptr<ISemaphore> m_blitSemaphore;
-		// used to protect access to swapchain resources during acquire, present and immediateBlit
+		// Have to use a second semaphore to make acquire-present pairs independent of each other, also because there can be no ordering ensured between present->acquire
+		core::smart_refctd_ptr<ISemaphore> m_presentSemaphore;
+		// Command Buffers for blitting/copying the Triple Buffers to Swapchain Images
+		std::array<core::smart_refctd_ptr<IGPUCommandBuffer>,ISwapchain::MaxImages> m_cmdbufs = {};
+
+		// used to protect access to swapchain resources during present and recreateExplicit
 		std::mutex m_swapchainResourcesMutex;
 		// Why do we delay the swapchain recreate present until the rendering of the most recent present source is done? Couldn't we present whatever latest Triple Buffer is done?
 		// No because there can be presents enqueued whose wait semaphores have not signalled yet, meaning there could be images presented in the future.
 		// Unless you like your frames to go backwards in time in a special "rewind glitch" you need to blit the frame that has not been presented yet or is the same as most recently enqueued.
-		decltype(SPresentInfo::source) m_lastPresentSource = {};
+		SCachedPresentInfo m_lastPresent = {};
+		// extras for lifetime preservation till next immediate spontaneous triple buffer present
+		core::smart_refctd_ptr<ISemaphore> m_lastPresentSemaphore = {};
 		core::smart_refctd_ptr<IGPUImage> m_lastPresentSourceImage = {};
-		IQueue::SSubmitInfo::SSemaphoreInfo m_lastPresentWait = {};
 };
 
 // The use of this class is supposed to be externally synchronized
@@ -347,9 +423,11 @@ template<typename SwapchainResources> requires std::is_base_of_v<IResizableSurfa
 class CResizableSurface final : public IResizableSurface
 {
 	public:
-		using this_t = CResizableSurface<SwapchainResources>;		
+		using this_t = CResizableSurface<SwapchainResources>;
+
 		// Factory method so we can fail, requires a `_surface` created from a window and with a callback that inherits from `ICallback` declared just above
-		static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<ISurface>&& _surface)
+		template<typename Surface> requires std::is_base_of_v<CSurface<typename Surface::window_t,typename Surface::immediate_base_t>,Surface>
+		static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<Surface>&& _surface)
 		{
 			if (!_surface)
 				return nullptr;

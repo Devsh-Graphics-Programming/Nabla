@@ -8,6 +8,9 @@ namespace nbl::video
 
 class IGPUCommandBuffer;
 
+template<typename Functor,bool RefcountTheDevice>
+class MultiTimelineEventHandlerST;
+
 class IQueue : public core::Interface, public core::Unmovable
 {
     public:
@@ -70,7 +73,7 @@ class IQueue : public core::Interface, public core::Unmovable
             DEVICE_LOST,
             OTHER_ERROR
         };
-        //
+        // We actually make our Queue Abstraction keep track of Commandbuffers and Semaphores used in a submit until its done
         struct SSubmitInfo
         {
             struct SSemaphoreInfo
@@ -94,34 +97,82 @@ class IQueue : public core::Interface, public core::Unmovable
 
             inline bool valid() const
             {
-                // any two being empty is wrong
-                if (commandBuffers.empty() && signalSemaphores.empty()) // wait and do nothing
-                    return false;
-                if (waitSemaphores.empty() && signalSemaphores.empty()) // work without sync
-                    return false;
-                if (waitSemaphores.empty() && commandBuffers.empty()) // signal without doing work first
+                // need at least one semaphore to keep the submit resources alive
+                if (signalSemaphores.empty())
                     return false;
                 return true;
             }
         };
-        virtual RESULT submit(const std::span<const SSubmitInfo> _submits);
-        //
-        virtual RESULT waitIdle() const = 0;
+        NBL_API2 virtual RESULT submit(const std::span<const SSubmitInfo> _submits);
+        // Wait idle also makes sure all past submits drop their resources
+        NBL_API2 virtual RESULT waitIdle();
+        // You can call this to force an early check on whether past submits have completed and hasten when the refcount gets dropped.
+        // Normally its the next call to `submit` that polls the event timeline for completions.
+        // If you want to only check a particular semaphore's timeline, then set `sema` to non nullptr.
+        NBL_API2 virtual uint32_t cullResources(const ISemaphore* sema=nullptr);
 
         // we cannot derive from IBackendObject because we can't derive from IReferenceCounted
         inline const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
         inline bool wasCreatedBy(const ILogicalDevice* device) const {return device==m_originDevice;}
         // Vulkan: const VkQueue*
         virtual const void* getNativeHandle() const = 0;
+        
+		// only public because MultiTimelineEventHandlerST needs to know about it
+		class DeferredSubmitResourceDrop final
+		{
+                using smart_ptr = core::smart_refctd_ptr<IBackendObject>;
+				core::smart_refctd_dynamic_array<smart_ptr> m_resources;
+
+			public:
+				inline DeferredSubmitResourceDrop(const SSubmitInfo& info)
+				{
+                    // We could actually not hold any signal semaphore because you're expected to use the signal result somewhere else.
+                    // However it's possible to you might only wait on one from the set and then drop the rest (UB) 
+                    m_resources = core::make_refctd_dynamic_array<decltype(m_resources)>(info.signalSemaphores.size()-1+info.commandBuffers.size()+info.waitSemaphores.size());
+                    auto outRes = m_resources->data();
+                    for (const auto& sema : info.waitSemaphores)
+                        *(outRes++) = smart_ptr(sema.semaphore);
+                    for (const auto& cb : info.commandBuffers)
+                        *(outRes++) = smart_ptr(cb.cmdbuf);
+                    // We don't hold the last signal semaphore, because the timeline does as an Event trigger.
+                    for (auto i=0u; i<info.signalSemaphores.size()-1; i++)
+                        *(outRes++) = smart_ptr(info.signalSemaphores[i].semaphore);
+				}
+                DeferredSubmitResourceDrop(const DeferredSubmitResourceDrop& other) = delete;
+				inline DeferredSubmitResourceDrop(DeferredSubmitResourceDrop&& other) : m_resources(nullptr)
+				{
+					this->operator=(std::move(other));
+				}
+
+                DeferredSubmitResourceDrop& operator=(const DeferredSubmitResourceDrop& other) = delete;
+				inline DeferredSubmitResourceDrop& operator=(DeferredSubmitResourceDrop&& other)
+				{
+                    m_resources = std::move(other.m_resources);
+                    other.m_resources = nullptr;
+					return *this;
+				}
+
+                // always exhaustive poll, because we need to get rid of resources ASAP
+                inline void operator()()
+                {
+                    m_resources = nullptr;
+                }
+		};
 
     protected:
-        //! `flags` takes bits from E_CREATE_FLAGS
-        inline IQueue(const ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority)
-            : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags) {}
+        NBL_API2 IQueue(ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority);
+        // As IQueue is logically an integral part of the `ILogicalDevice` the destructor will only run during `~ILogicalDevice` which means `waitIdle` already been called
+        inline ~IQueue()
+        {
+            //while (cullResources()) {} // deleter of `m_submittedResources` calls dtor which will do this
+        }
 
         friend class CThreadSafeQueueAdapter;
         virtual RESULT submit_impl(const std::span<const SSubmitInfo> _submits) = 0;
+        virtual RESULT waitIdle_impl() const = 0;
 
+        // Refcounts all resources used by Pending Submits, gets occasionally cleared out
+        std::unique_ptr<MultiTimelineEventHandlerST<DeferredSubmitResourceDrop,false>> m_submittedResources;
         const ILogicalDevice* m_originDevice;
         const uint32_t m_familyIndex;
         const float m_priority;
