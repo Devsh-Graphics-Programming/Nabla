@@ -90,7 +90,7 @@ private:
 };
 
 double CIESProfile::sample(double vAngle, double hAngle) const {
-    vAngle = fmod(vAngle, vAngles.back()); // warp angle
+    if (vAngle > vAngles.back()) return 0.0;
     hAngle = hAngles.back() == 0.0
                  ? 0.0
                  : fmod(hAngle,
