@@ -127,6 +127,9 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		// So CAN'T USE `acquireNextImage` for frame pacing, it was bad Vulkan practice anyway!
 		inline bool present(std::unique_lock<std::mutex>&& acquireLock, const SPresentInfo& presentInfo)
 		{
+			if (!presentInfo)
+				return false;
+
 			std::unique_lock<std::mutex> guard;
 			if (acquireLock)
 				guard = std::move(acquireLock);
@@ -136,8 +139,11 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 				assert(presentInfo.pPresentSemaphoreWaitValue!=m_lastPresent.pPresentSemaphoreWaitValue);
 			}
 			// The only thing we want to do under the mutex, is just enqueue a triple buffer present and a swapchain present, its not a lot.
-			// Only acquire ownership if the Present queue is different to the current one.
-			return present_impl(presentInfo,getAssignedQueue()->getFamilyIndex()!=presentInfo.mostRecentFamilyOwningSource);
+			// Only acquire ownership if the Present queue is different to the current one and not concurrent sharing
+			bool needFamilyOwnershipTransfer = getAssignedQueue()->getFamilyIndex()!=presentInfo.mostRecentFamilyOwningSource;
+			if (presentInfo.source.image->getCachedCreationParams().isConcurrentSharing()) // in reality should also return false if the assigned queue is NOT in the Concurrent Sharing Set
+				needFamilyOwnershipTransfer = false;
+			return present_impl(presentInfo,needFamilyOwnershipTransfer);
 		}
 
 		// Call this when you want to recreate the swapchain with new extents
@@ -163,13 +169,15 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 
 			// The triple present enqueue operations are fast enough to be done under a mutex, this is safer on some platforms. You need to "race to present" to avoid a flicker.
 			// Queue family ownership acquire not needed, done by the the very first present when `m_lastPresentSource` wasset.
-			return present_impl({{m_lastPresent},getAssignedQueue()->getFamilyIndex()},false);
+			return present_impl({m_lastPresent},false);
 		}
 
 	protected:
 		using ISimpleManagedSurface::ISimpleManagedSurface;
 		virtual inline ~IResizableSurface()
 		{
+			// stop any calls into explicit resizes
+			std::unique_lock guard(m_swapchainResourcesMutex);
 			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(nullptr);
 		}
 
@@ -294,7 +302,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		}
 
 		//
-		inline bool present_impl(const SPresentInfo& presentInfo, const bool acquireOwnership)
+		inline bool present_impl(const SCachedPresentInfo& presentInfo, const bool acquireOwnership)
 		{
 			// irrecoverable or bad input
 			if (!presentInfo || !getSwapchainResources())
