@@ -124,27 +124,25 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     incrementVersion();
 }
 
-void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
+void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop, const asset::IDescriptor::E_TYPE type)
 {
     assert(drop.dstSet == this);
 
-    for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-    {
-        const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+	auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
+	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+	assert(dstDescriptors);
+    // Samplers are only used in the combined image sampler descriptors
+    if (type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
+	    assert(dstSamplers); 
 
-        auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
-        auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
-		assert(dstDescriptors);
-		assert(dstSamplers);
+	if (dstDescriptors)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstDescriptors[drop.arrayElement + i] = nullptr;
 
-        if (dstDescriptors)
-            for (uint32_t i = 0; i < drop.count; i++)
-                dstDescriptors[drop.arrayElement + i] = nullptr;
+	if (dstSamplers)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstSamplers[drop.arrayElement + i] = nullptr;
 
-        if (dstSamplers)
-            for (uint32_t i = 0; i < drop.count; i++)
-                dstSamplers[drop.arrayElement + i] = nullptr;
-    }
 	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
 	// so, only if we do the path that writes descriptors, do we want to increment version
     if (getOriginDevice()->getEnabledFeatures().nullDescriptor)

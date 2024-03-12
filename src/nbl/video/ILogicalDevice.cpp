@@ -452,7 +452,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
-        ds->dropDescriptors(drop);
+        ds->dropDescriptors(drop, descriptorType);
     }
 
     nullifyDescriptors_impl(dropDescriptors, descriptorType);

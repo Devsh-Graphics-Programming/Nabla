@@ -69,7 +69,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
         bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
         void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
-        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
+        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop, const asset::IDescriptor::E_TYPE type);
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.

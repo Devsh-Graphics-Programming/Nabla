@@ -99,18 +99,19 @@ public:
 	using EventHandler = MultiTimelineEventHandlerST<DeferredFreeFunctor>;
 protected:
 	struct SubAllocDescriptorSetRange {
-		EventHandler eventHandler = EventHandler({});
+		std::unique_ptr<EventHandler> eventHandler = nullptr;
 		std::unique_ptr<AddressAllocator> addressAllocator = nullptr;
 		std::unique_ptr<ReservedAllocator> reservedAllocator = nullptr;
 		size_t reservedSize = 0;
 		asset::IDescriptor::E_TYPE descriptorType = asset::IDescriptor::E_TYPE::ET_COUNT;
 
 		SubAllocDescriptorSetRange(
+			std::unique_ptr<EventHandler>&& inEventHandler,
 			std::unique_ptr<AddressAllocator>&& inAddressAllocator,
 			std::unique_ptr<ReservedAllocator>&& inReservedAllocator,
 			size_t inReservedSize,
 			asset::IDescriptor::E_TYPE inDescriptorType) :
-			eventHandler({}), addressAllocator(std::move(inAddressAllocator)),
+			eventHandler(std::move(inEventHandler)), addressAllocator(std::move(inAddressAllocator)),
 			reservedAllocator(std::move(inReservedAllocator)), 
 			reservedSize(inReservedSize),
 			descriptorType(inDescriptorType) {}
@@ -118,12 +119,14 @@ protected:
 
 		SubAllocDescriptorSetRange& operator=(SubAllocDescriptorSetRange&& other)
 		{
+			eventHandler = std::move(other.eventHandler);
 			addressAllocator = std::move(other.addressAllocator);
 			reservedAllocator = std::move(other.reservedAllocator);
 			reservedSize = other.reservedSize;
 			descriptorType = other.descriptorType;
 
 			// Nullify other
+			other.eventHandler = nullptr;
 			other.addressAllocator = nullptr;
 			other.reservedAllocator = nullptr;
 			other.reservedSize = 0u;
@@ -147,7 +150,7 @@ public:
 
 	// constructors
 	inline SubAllocatedDescriptorSet(core::smart_refctd_ptr<video::IGPUDescriptorSet>&& descriptorSet,
-		core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_logicalDevice(std::move(logicalDevice))
+		core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice)
 	{
 		auto layout = descriptorSet->getLayout();
 		for (uint32_t descriptorType = 0; descriptorType < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); descriptorType++)
@@ -175,12 +178,15 @@ public:
 						static_cast<size_type>(0), 0u, MaxDescriptorSetAllocationAlignment, static_cast<size_type>(count),
 						MinDescriptorSetAllocationSize
 					));
+					auto eventHandler = std::unique_ptr<EventHandler>(new EventHandler(core::smart_refctd_ptr<ILogicalDevice>(logicalDevice)));
 
-					m_allocatableRanges[binding.data] = SubAllocDescriptorSetRange(std::move(addressAllocator), std::move(reservedAllocator), reservedSize, descType);
+					m_allocatableRanges[binding.data] = SubAllocDescriptorSetRange(std::move(eventHandler), std::move(addressAllocator), std::move(reservedAllocator), reservedSize, descType);
+					assert(m_allocatableRanges[binding.data].eventHandler->getLogicalDevice());
 				}
 			}
 		}
 		m_descriptorSet = std::move(descriptorSet);
+		m_logicalDevice = std::move(logicalDevice);
 	}
 
 	inline ~SubAllocatedDescriptorSet()
@@ -272,7 +278,7 @@ public:
 			// FUTURE TODO: later we could only nullify the descriptors we don't end up reallocating if without robustness features
 			nulls.resize(m_totalDeferredFrees);
 			auto outNulls = nulls.data();
-			eventHandler.wait(maxWaitPoint, unallocatedSize, outNulls);
+			eventHandler->wait(maxWaitPoint, unallocatedSize, outNulls);
 			m_logicalDevice->nullifyDescriptors({ nulls.data(),outNulls }, range->second.descriptorType);
 
 			// always call with the same parameters, otherwise this turns into a mess with the non invalid_address gaps
@@ -299,17 +305,19 @@ public:
 
 		auto allocator = getBindingAllocator(binding);
 		if (allocator)
-		for (size_type i=0; i<count; i++)
 		{
-			if (addr[i]==AddressAllocator::invalid_address)
-				continue;
+			for (size_type i = 0; i < count; i++)
+			{
+				if (addr[i] == AddressAllocator::invalid_address)
+					continue;
 
-			allocator->free_addr(addr[i],1);
-			outNullify->dstSet = m_descriptorSet.get();
-			outNullify->binding = binding;
-			outNullify->arrayElement = i;
-			outNullify->count = 1;
-			outNullify++;
+				allocator->free_addr(addr[i], 1);
+				outNullify->dstSet = m_descriptorSet.get();
+				outNullify->binding = binding;
+				outNullify->arrayElement = i;
+				outNullify->count = 1;
+				outNullify++;
+			}
 		}
 		return outNullify;
 	}
@@ -325,7 +333,7 @@ public:
 		auto& eventHandler = range->second.eventHandler;
 		auto debugGuard = stAccessVerifyDebugGuard();
 		m_totalDeferredFrees += functor.getWorstCaseCount();
-		eventHandler.latch(futureWait,std::move(functor));
+		eventHandler->latch(futureWait,std::move(functor));
 	}
 
 	// defers based on the conservative estimation if `futureWait` needs to be waited on, if doesn't will call nullify descriiptors internally immediately
@@ -353,7 +361,7 @@ public:
 		for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
 		{
 			auto& it = m_allocatableRanges[i];
-			frees += it.eventHandler.poll(outNulls).eventsLeft;
+			frees += it.eventHandler->poll(outNulls).eventsLeft;
 			// TODO: this could be optimized to be put outside the loop
 			m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls}, it.descriptorType);
 		}
