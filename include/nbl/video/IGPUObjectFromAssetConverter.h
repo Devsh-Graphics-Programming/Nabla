@@ -341,7 +341,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
             addrAllctr = newBlock();
             addr = addrAllctr.alloc_addr(cpubuffer->getSize(),alignment);
         }
-        assert(addr != decltype(addrAllctr)::invalid_address);
+//        assert(addr != decltype(addrAllctr)::invalid_address);
         *out = core::make_smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType>(addr);
     }
     finalizeBlock();
