@@ -391,7 +391,7 @@ class ISwapchain : public IBackendObject
             OUT_OF_DATE,
             _ERROR
         };
-        // If `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
+        // If something else than `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
         inline PRESENT_RESULT present(SPresentInfo info)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
@@ -407,13 +407,13 @@ class ISwapchain : public IBackendObject
             if (threadsafeQ)
                 threadsafeQ->m.unlock();
 
-            // kill a few frame resources
-            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
-            if (retval!=PRESENT_RESULT::FATAL_ERROR)
+            if (retval!=PRESENT_RESULT::FATAL_ERROR && !info.waitSemaphores.empty())
             {
                 auto& lastWait = info.waitSemaphores.back();
                 m_frameResources[info.imgIndex]->latch({.semaphore=lastWait.semaphore,.value=lastWait.value},DeferredFrameSemaphoreDrop(info.waitSemaphores));
             }
+            // kill a few frame resources
+            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
             return retval;
         }
 
