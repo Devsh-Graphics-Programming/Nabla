@@ -731,70 +731,72 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDes
 {
     if (getEnabledFeatures().nullDescriptor)
     {
-		core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
-		core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(69u,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
-
-        size_t maxSize = 0;
-        for (auto i = 0; i < drops.size(); i++)
-        {
-            const auto& write = drops[i];
-            maxSize = core::max(maxSize, write.count);
-        }
-        size_t descriptorSize;
-        switch (asset::IDescriptor::GetTypeCategory(descriptorType))
-        {
-			case asset::IDescriptor::EC_BUFFER:
-                descriptorSize = sizeof(VkDescriptorBufferInfo);
-                break;
-			case asset::IDescriptor::EC_IMAGE:
-                descriptorSize = sizeof(VkDescriptorImageInfo);
-                break;
-			case asset::IDescriptor::EC_BUFFER_VIEW:
-                descriptorSize = sizeof(VkBufferView);
-                break;
-			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-                descriptorSize = sizeof(VkAccelerationStructureKHR);
-                break;
-        }
-
-        core::vector<uint8_t> nullDescriptors(maxSize * descriptorSize, 0u);
-
-		{
-			auto outWrite = vk_writeDescriptorSets.data();
-			auto outWriteAS = vk_writeDescriptorSetAS.data();
-
-			for (auto i=0; i<drops.size(); i++)
-			{
-				const auto& write = drops[i];
-
-				outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
-				outWrite->dstBinding = write.binding;
-				outWrite->dstArrayElement = write.arrayElement;
-				outWrite->descriptorType = getVkDescriptorTypeFromDescriptorType(descriptorType);
-				outWrite->descriptorCount = write.count;
-				switch (asset::IDescriptor::GetTypeCategory(descriptorType))
-				{
-					case asset::IDescriptor::EC_BUFFER:
-						outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
-						break;
-					case asset::IDescriptor::EC_IMAGE:
-						outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
-						break;
-					case asset::IDescriptor::EC_BUFFER_VIEW:
-						outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
-						break;
-					case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-						outWriteAS->accelerationStructureCount = write.count;
-						outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
-						break;
-					default:
-						assert(!"Invalid code path.");
-				}
-				outWrite++;
-			}
-		}
-		m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),0,nullptr);
+        return
     }
+
+	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
+	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(69u,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+
+	size_t maxSize = 0;
+	for (auto i = 0; i < drops.size(); i++)
+	{
+		const auto& write = drops[i];
+		maxSize = core::max(maxSize, write.count);
+	}
+	size_t descriptorSize;
+	switch (asset::IDescriptor::GetTypeCategory(descriptorType))
+	{
+        case asset::IDescriptor::EC_BUFFER:
+			descriptorSize = sizeof(VkDescriptorBufferInfo);
+			break;
+        case asset::IDescriptor::EC_IMAGE:
+			descriptorSize = sizeof(VkDescriptorImageInfo);
+			break;
+        case asset::IDescriptor::EC_BUFFER_VIEW:
+			descriptorSize = sizeof(VkBufferView);
+			break;
+        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+			descriptorSize = sizeof(VkAccelerationStructureKHR);
+			break;
+	}
+
+	core::vector<uint8_t> nullDescriptors(maxSize * descriptorSize, 0u);
+
+	{
+		auto outWrite = vk_writeDescriptorSets.data();
+		auto outWriteAS = vk_writeDescriptorSetAS.data();
+
+		for (auto i=0; i<drops.size(); i++)
+		{
+			const auto& write = drops[i];
+
+			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
+			outWrite->dstBinding = write.binding;
+			outWrite->dstArrayElement = write.arrayElement;
+			outWrite->descriptorType = getVkDescriptorTypeFromDescriptorType(descriptorType);
+			outWrite->descriptorCount = write.count;
+			switch (asset::IDescriptor::GetTypeCategory(descriptorType))
+			{
+				case asset::IDescriptor::EC_BUFFER:
+					outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
+					break;
+				case asset::IDescriptor::EC_IMAGE:
+					outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
+					break;
+				case asset::IDescriptor::EC_BUFFER_VIEW:
+					outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
+					break;
+				case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+					outWriteAS->accelerationStructureCount = write.count;
+					outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
+					break;
+				default:
+					assert(!"Invalid code path.");
+			}
+			outWrite++;
+		}
+	}
+	m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),0,nullptr);
 }
 
 

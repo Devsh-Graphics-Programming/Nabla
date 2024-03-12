@@ -130,10 +130,6 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
 
 	auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
 	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
-	assert(dstDescriptors);
-    // Samplers are only used in the combined image sampler descriptors
-    if (type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
-	    assert(dstSamplers); 
 
 	if (dstDescriptors)
 		for (uint32_t i = 0; i < drop.count; i++)

@@ -191,12 +191,17 @@ public:
 
 	inline ~SubAllocatedDescriptorSet()
 	{
-		// TODO: should nullify/destroy/poll the event deferred handler to completion, then as we iterate through `m_allocatableRanges` assert that the allocators have no allocations/everything is free
+		uint32_t remainingFrees;
+		do {
+			remainingFrees = cull_frees();
+		} while (remainingFrees > 0);
+
 		for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
 		{
 			auto& range = m_allocatableRanges[i];
 			if (range.reservedSize == 0)
 				continue;
+			assert(range.eventHandler->getTimelines().size() == 0);
 			auto ptr = reinterpret_cast<const uint8_t*>(core::address_allocator_traits<AddressAllocator>::getReservedSpacePtr(*range.addressAllocator));
 			range.addressAllocator = nullptr;
 			range.reservedAllocator->deallocate(const_cast<uint8_t*>(ptr), range.reservedSize);
