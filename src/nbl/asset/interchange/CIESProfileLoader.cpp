@@ -217,15 +217,6 @@ double CIESProfile::getIntegral() const {
          if (i != 0 && hAngles[i - 1] > hAngles[i])
              return false; // Angles should be sorted
      }
-     if (hAngles[0] != 0.0) {
-         errorMsg = "First angle must be 0 in type C";
-         return false;
-     } 
-     if (hAngles[hSize - 1] != 0.0 && hAngles[hSize - 1] != 90.0 &&
-         hAngles[hSize - 1] != 180.0 && hAngles[hSize - 1] != 360.0) {
-         errorMsg = "Last angle must be 0, 90, 180 or 360 in type C";
-         return false;
-     }
 
      double factor = ballastFactor * candelaMultiplier;
      for (int i = 0; i < hSize; i++) {
