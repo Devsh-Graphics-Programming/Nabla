@@ -284,7 +284,7 @@ public:
 			nulls.resize(m_totalDeferredFrees);
 			auto outNulls = nulls.data();
 			eventHandler->wait(maxWaitPoint, unallocatedSize, outNulls);
-			m_logicalDevice->nullifyDescriptors({ nulls.data(),outNulls }, range->second.descriptorType);
+			m_logicalDevice->nullifyDescriptors({ nulls.data(),outNulls });
 
 			// always call with the same parameters, otherwise this turns into a mess with the non invalid_address gaps
 			unallocatedSize = try_multi_allocate(binding,count,outAddresses);
@@ -352,7 +352,7 @@ public:
 			auto actualEnd = multi_deallocate(nulls.data(), binding, count, addr);
 			// This is checked to be valid above
 			auto range = m_allocatableRanges.find(binding);
-			m_logicalDevice->nullifyDescriptors({nulls.data(),actualEnd}, range->second.descriptorType);
+			m_logicalDevice->nullifyDescriptors({nulls.data(),actualEnd});
 		}
 	}
 
@@ -367,9 +367,8 @@ public:
 		{
 			auto& it = m_allocatableRanges[i];
 			frees += it.eventHandler->poll(outNulls).eventsLeft;
-			// TODO: this could be optimized to be put outside the loop
-			m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls}, it.descriptorType);
 		}
+		m_logicalDevice->nullifyDescriptors({nulls.data(),outNulls});
 		return frees;
 	}
 };

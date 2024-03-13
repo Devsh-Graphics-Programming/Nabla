@@ -124,11 +124,13 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     incrementVersion();
 }
 
-void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop, const asset::IDescriptor::E_TYPE type)
+void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
 {
     assert(drop.dstSet == this);
 
-	auto* dstDescriptors = drop.dstSet->getDescriptors(type, drop.binding);
+    const auto descriptorType = getBindingType(drop.binding);
+
+	auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, drop.binding);
 	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
 
 	if (dstDescriptors)

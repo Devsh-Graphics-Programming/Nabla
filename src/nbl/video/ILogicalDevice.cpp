@@ -444,18 +444,22 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     return true;
 }
 
-bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors, asset::IDescriptor::E_TYPE descriptorType)
+bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
 {
     for (const auto& drop : dropDescriptors)
     {
         auto ds = drop.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
-
-        ds->dropDescriptors(drop, descriptorType);
     }
 
-    nullifyDescriptors_impl(dropDescriptors, descriptorType);
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        ds->dropDescriptors(drop);
+    }
+
+    nullifyDescriptors_impl(dropDescriptors);
     return true;
 }
 

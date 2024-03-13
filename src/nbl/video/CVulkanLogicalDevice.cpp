@@ -727,11 +727,11 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
     m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),vk_copyDescriptorSets.size(),vk_copyDescriptorSets.data());
 }
 
-void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> drops, asset::IDescriptor::E_TYPE descriptorType)
+void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> drops)
 {
     if (getEnabledFeatures().nullDescriptor)
     {
-        return
+        return;
     }
 
 	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
@@ -741,26 +741,27 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDes
 	for (auto i = 0; i < drops.size(); i++)
 	{
 		const auto& write = drops[i];
-		maxSize = core::max(maxSize, write.count);
-	}
-	size_t descriptorSize;
-	switch (asset::IDescriptor::GetTypeCategory(descriptorType))
-	{
-        case asset::IDescriptor::EC_BUFFER:
-			descriptorSize = sizeof(VkDescriptorBufferInfo);
-			break;
-        case asset::IDescriptor::EC_IMAGE:
-			descriptorSize = sizeof(VkDescriptorImageInfo);
-			break;
-        case asset::IDescriptor::EC_BUFFER_VIEW:
-			descriptorSize = sizeof(VkBufferView);
-			break;
-        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-			descriptorSize = sizeof(VkAccelerationStructureKHR);
-			break;
+        auto descriptorType = write.dstSet->getBindingType(write.binding);
+		size_t descriptorSize;
+		switch (asset::IDescriptor::GetTypeCategory(descriptorType))
+		{
+			case asset::IDescriptor::EC_BUFFER:
+				descriptorSize = sizeof(VkDescriptorBufferInfo);
+				break;
+			case asset::IDescriptor::EC_IMAGE:
+				descriptorSize = sizeof(VkDescriptorImageInfo);
+				break;
+			case asset::IDescriptor::EC_BUFFER_VIEW:
+				descriptorSize = sizeof(VkBufferView);
+				break;
+			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+				descriptorSize = sizeof(VkAccelerationStructureKHR);
+				break;
+		}
+		maxSize = core::max(maxSize, write.count * descriptorSize);
 	}
 
-	core::vector<uint8_t> nullDescriptors(maxSize * descriptorSize, 0u);
+	core::vector<uint8_t> nullDescriptors(maxSize, 0u);
 
 	{
 		auto outWrite = vk_writeDescriptorSets.data();
@@ -769,6 +770,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDes
 		for (auto i=0; i<drops.size(); i++)
 		{
 			const auto& write = drops[i];
+			auto descriptorType = write.dstSet->getBindingType(write.binding);
 
 			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
 			outWrite->dstBinding = write.binding;

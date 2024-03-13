@@ -57,6 +57,20 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
 
+        // why is this private? nothing it uses is private
+        // small utility
+        inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
+        {
+            for (auto t=0u; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
+            {
+                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+                const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
+                if (bindingRedirect.getStorageOffset(redirect_t::binding_number_t{binding}).data!=redirect_t::Invalid)
+                    return type;
+            }
+            return asset::IDescriptor::E_TYPE::ET_COUNT;
+        }
+
 	protected:
         IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets&& offsets);
         virtual ~IGPUDescriptorSet();
@@ -69,7 +83,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
         bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
         void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
-        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop, const asset::IDescriptor::E_TYPE type);
+        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
@@ -84,18 +98,6 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
                 return nullptr;
 
             return descriptors+localOffset;
-        }
-        // small utility
-        inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
-        {
-            for (auto t=0u; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
-            {
-                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-                const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
-                if (bindingRedirect.getStorageOffset(redirect_t::binding_number_t{binding}).data!=redirect_t::Invalid)
-                    return type;
-            }
-            return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
