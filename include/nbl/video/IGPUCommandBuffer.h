@@ -301,7 +301,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
         //! dynamic state
-        inline bool setScissor(const uint32_t first, const std::span<const VkRect2D> scissors)
+        inline bool setScissor(const std::span<const VkRect2D> scissors, const uint32_t first=0)
         {
             const uint32_t count = scissors.size();
             if(invalidDynamic(first,count))
@@ -321,9 +321,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         }
         [[deprecated]] inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
         {
-            return setScissor(first,{pScissors,count});
+            return setScissor({pScissors,count},first);
         }
-        inline bool setViewport(const uint32_t first, const std::span<const asset::SViewport> viewports)
+        inline bool setViewport(const std::span<const asset::SViewport> viewports, const uint32_t first=0)
         {
             const uint32_t count = viewports.size();
             if (invalidDynamic(first,count))
@@ -333,7 +333,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         }
         [[deprecated]] inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
         {
-            return setViewport(first,{pViewports,count});
+            return setViewport({pViewports,count},first);
         }
         bool setLineWidth(const float width);
         inline bool setDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
