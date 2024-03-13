@@ -19,11 +19,11 @@ class IFramebuffer
             using attachment_ptr_t = std::conditional_t<Creation,ImageViewType*const *,core::smart_refctd_ptr<ImageViewType>*>;
 
             core::smart_refctd_ptr<renderpass_t> renderpass;
-            attachment_ptr_t depthStencilAttachments;
-            attachment_ptr_t colorAttachments;
+            attachment_ptr_t depthStencilAttachments = nullptr;
+            attachment_ptr_t colorAttachments = nullptr;
             uint32_t width;
             uint32_t height;
-            uint32_t layers;
+            uint32_t layers = 1;
         };
         struct SCreationParams : SCreationParamsBase<true>
         {
