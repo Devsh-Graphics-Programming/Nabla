@@ -23,21 +23,6 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
     public:
         inline size_t conservativeSizeEstimate() const override final {return sizeof(PipelineNonAssetBase)+sizeof(ICPUShader*)*MaxShaderStageCount;}
 
-        inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override final
-	    {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-		    if (referenceLevelsBelowToConvert)
-		    {
-                //intentionally parent is not converted
-                --referenceLevelsBelowToConvert;
-                PipelineNonAssetBase::m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-                for (auto i=0; i<MaxShaderStageCount; i++)
-                if (m_stages[i].shader)
-                    m_stages[i].shader->convertToDummyObject(referenceLevelsBelowToConvert);
-		    }
-	    }
-
         inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
         {
             core::smart_refctd_ptr<ICPUPipelineLayout> layout;

@@ -101,9 +101,9 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		virtual void hash_impl(size_t& seed) const override {
 			core::hash_combine(seed, params.flags);
 			core::hash_combine(seed, params.format);
-			core::hash_combine(seed, params.components);
+			//core::hash_combine(seed, params.components);
 			core::hash_combine(seed, params.viewType);
-			core::hash_combine(seed, params.subresourceRange);
+			//core::hash_combine(seed, params.subresourceRange);
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

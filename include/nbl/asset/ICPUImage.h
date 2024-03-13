@@ -255,6 +255,3 @@ class ICPUImage final : public IImage, public IAsset
 } // end namespace nbl::asset
 
 #endif
-
-
-#endif

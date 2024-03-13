@@ -51,14 +51,13 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         {
             std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>, DESCRIPTOR_SET_COUNT> dsLayouts;
             for (size_t i = 0ull; i < dsLayouts.size(); ++i)
-                dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_descSetLayouts[i]->clone(_depth-1u)) : m_descSetLayouts[i];
+                dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_descSetLayouts[i]->clone(_depth - 1u)) : m_descSetLayouts[i];
 
             auto cp = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-                nullptr, nullptr, 
+                std::span<const asset::SPushConstantRange>{m_pushConstantRanges->begin(), m_pushConstantRanges->end()},
                 std::move(dsLayouts[0]), std::move(dsLayouts[1]), std::move(dsLayouts[2]), std::move(dsLayouts[3])
             );
             clone_common(cp.get());
-            cp->m_pushConstantRanges = m_pushConstantRanges;
 
             return cp;
         }

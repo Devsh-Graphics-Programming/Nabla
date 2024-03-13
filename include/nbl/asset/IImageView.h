@@ -236,7 +236,7 @@ class IImageView : public IDescriptor
 			// If image was created with the VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT flag, ... or must be an uncompressed format
 			if (blockTexelViewCompatible && !isBlockCompressionFormat(_params.format))
 			{
-				// In this case, the resulting image view’s texel dimensions equal the dimensions of the selected mip level divided by the compressed texel block size and rounded up.
+				// In this case, the resulting image viewï¿½s texel dimensions equal the dimensions of the selected mip level divided by the compressed texel block size and rounded up.
 				mipExtent = _params.image->getTexelBlockInfo().convertTexelsToBlocks(mipExtent);
 				if (subresourceRange.layerCount==remaining_array_layers)
 					actualLayerCount = 1;
