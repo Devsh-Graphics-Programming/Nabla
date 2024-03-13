@@ -34,6 +34,23 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
 		}
 
+		//
+		inline bool init(CThreadSafeQueueAdapter* queue, std::unique_ptr<SwapchainResources>&& scResources, const ISwapchain::SSharedCreationParams& sharedParams={})
+		{
+			if (!scResources || !base_init(queue))
+				return init_fail();
+
+			m_sharedParams = sharedParams;
+			if (!m_sharedParams.deduce(queue->getOriginDevice()->getPhysicalDevice(),getSurface()))
+				return init_fail();
+
+			m_swapchainResources = std::move(scResources);
+			return true;
+		}
+		
+		// Can be public because we don't need to worry about mutexes unlike the Smooth Resize class
+		inline ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
+
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
 		inline uint8_t acquireNextImage()
 		{
@@ -56,25 +73,17 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		{
 			becomeIrrecoverable();
 		}
-		inline bool init_impl(const ISwapchain::SSharedCreationParams& sharedParams) override final
-		{
-			m_sharedParams = sharedParams;
-			if (!m_sharedParams.deduce(getAssignedQueue()->getOriginDevice()->getPhysicalDevice(),getSurface()))
-				return false;
-
-			m_swapchainResources = std::make_unique<SwapchainResources>();
-			return getSwapchainResources();
-		}
 
 		//
-		inline ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
 		inline void becomeIrrecoverable() override {m_swapchainResources = nullptr;}
 
 		//
 		inline bool recreateSwapchain()
 		{
+			assert(m_swapchainResources);
 			// dont assign straight to `m_swapchainResources` because of complex refcounting and cycles
 			core::smart_refctd_ptr<ISwapchain> newSwapchain;
+			// TODO: This block of code could be rolled up into `ISimpleManagedSurface::ISwapchainResources` eventually
 			{
 				auto* surface = getSurface();
 				auto device = const_cast<ILogicalDevice*>(getAssignedQueue()->getOriginDevice());
@@ -114,7 +123,6 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 			if (newSwapchain)
 			{
 				m_swapchainResources->invalidate();
-				m_swapchainResources = std::make_unique<SwapchainResources>();
 				return m_swapchainResources->onCreateSwapchain(getAssignedQueue()->getFamilyIndex(),std::move(newSwapchain));
 			}
 			else

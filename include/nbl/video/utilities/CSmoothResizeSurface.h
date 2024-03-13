@@ -26,9 +26,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 
 			private:
 				friend class ISmoothResizeSurface;
-				// `recreator` owns the `ISurface`, which refcounts the `IWindow` which refcounts the callback, so fumb pointer to avoid cycles 
-				inline void setSwapchainRecreator(ISmoothResizeSurface* recreator) { m_recreator = recreator; }
-
+				// `recreator` owns the `ISurface`, which refcounts the `IWindow` which refcounts the callback, so dumb pointer to avoid cycles 
 				ISmoothResizeSurface* m_recreator = nullptr;
 		};
 
@@ -173,12 +171,13 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		}
 
 	protected:
+		inline void setSwapchainRecreator() {static_cast<ICallback*>(m_cb)->m_recreator=this;}
+
 		using ISimpleManagedSurface::ISimpleManagedSurface;
 		virtual inline ~ISmoothResizeSurface()
 		{
 			// stop any calls into explicit resizes
-			std::unique_lock guard(m_swapchainResourcesMutex);
-			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(nullptr);
+			deinit_impl();
 		}
 
 		//
@@ -186,7 +185,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		{
 			// stop any calls into explicit resizes
 			std::unique_lock guard(m_swapchainResourcesMutex);
-			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(nullptr);
+			static_cast<ICallback*>(m_cb)->m_recreator = nullptr;
 
 			m_lastPresent.source = {};
 			m_lastPresentSourceImage = nullptr;
@@ -206,38 +205,6 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			std::fill(m_cmdbufs.begin(),m_cmdbufs.end(),nullptr);
 			m_lastPresent.pPresentSemaphoreWaitValue = {};
 			m_presentSemaphore = nullptr;
-		}
-
-		//
-		inline bool init_impl(const ISwapchain::SSharedCreationParams& sharedParams) override final
-		{
-			// swapchain callback already deinitialized, so no mutex needed here
-
-			auto queue = getAssignedQueue();
-			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
-
-			m_sharedParams = sharedParams;
-			if (!m_sharedParams.deduce(device->getPhysicalDevice(),getSurface()))
-				return false;
-
-			// want to keep using the same semaphore throughout the lifetime to not run into sync issues
-			if (!m_presentSemaphore)
-			{
-				m_presentSemaphore = device->createSemaphore(0u);
-				if (!m_presentSemaphore)
-					return false;
-			}
-
-			// transient commandbuffer and pool to perform the blits or other copies to SC images
-			auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-			if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{m_cmdbufs.data(),getMaxFramesInFlight()}))
-				return false;
-
-			if (!createSwapchainResources())
-				return false;
-			
-			static_cast<ICallback*>(m_cb)->setSwapchainRecreator(this);
-			return true;
 		}
 
 		//
@@ -285,7 +252,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			if (newSwapchain)
 			{
 				swapchainResources->invalidate();
-				return createSwapchainResources()->onCreateSwapchain(getAssignedQueue()->getFamilyIndex(),std::move(newSwapchain));
+				return swapchainResources->onCreateSwapchain(getAssignedQueue()->getFamilyIndex(),std::move(newSwapchain));
 			}
 			else
 			{
@@ -403,18 +370,16 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 				return ISimpleManagedSurface::present(imageIx,{waitSemaphores+1,1});
 		}
 
-		// Assume it will execute under a mutex
-		virtual ISwapchainResources* createSwapchainResources() = 0;
-
 		// Because the surface can start minimized (extent={0,0}) we might not be able to create the swapchain right away, so store creation parameters until we can create it.
 		ISwapchain::SSharedCreationParams m_sharedParams = {};
 
-	private:
+	protected:
 		// Have to use a second semaphore to make acquire-present pairs independent of each other, also because there can be no ordering ensured between present->acquire
 		core::smart_refctd_ptr<ISemaphore> m_presentSemaphore;
 		// Command Buffers for blitting/copying the Triple Buffers to Swapchain Images
 		std::array<core::smart_refctd_ptr<IGPUCommandBuffer>,ISwapchain::MaxImages> m_cmdbufs = {};
 
+	private:
 		// used to protect access to swapchain resources during present and recreateExplicit
 		std::mutex m_swapchainResourcesMutex;
 		// Why do we delay the swapchain recreate present until the rendering of the most recent present source is done? Couldn't we present whatever latest Triple Buffer is done?
@@ -451,24 +416,51 @@ class CSmoothResizeSurface final : public ISmoothResizeSurface
 			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
 		}
 
+		//
+		inline bool init(CThreadSafeQueueAdapter* queue, std::unique_ptr<SwapchainResources>&& scResources, const ISwapchain::SSharedCreationParams& sharedParams={})
+		{
+			// swapchain callback already deinitialized, so no mutex needed here
+			if (!scResources || !base_init(queue))
+				return init_fail();
+
+			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
+
+			m_sharedParams = sharedParams;
+			if (!m_sharedParams.deduce(device->getPhysicalDevice(),getSurface()))
+				return init_fail();
+
+			// want to keep using the same semaphore throughout the lifetime to not run into sync issues
+			if (!m_presentSemaphore)
+			{
+				m_presentSemaphore = device->createSemaphore(0u);
+				if (!m_presentSemaphore)
+					return init_fail();
+			}
+
+			// transient commandbuffer and pool to perform the blits or other copies to SC images
+			auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+			if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{m_cmdbufs.data(),getMaxFramesInFlight()}))
+				return init_fail();
+
+			m_swapchainResources = std::move(scResources);
+			
+			setSwapchainRecreator();
+			return true;
+		}
+
 	protected:
 		using ISmoothResizeSurface::ISmoothResizeSurface;
 
 		inline bool checkQueueFamilyProps(const IPhysicalDevice::SQueueFamilyProperties& props) const override {return props.queueFlags.hasFlags(SwapchainResources::RequiredQueueFlags);}
 
-		// All of the below are called under a mutex
-		inline ISwapchainResources* createSwapchainResources() override
-		{
-			m_swapchainResources = core::make_smart_refctd_ptr<SwapchainResources>();
-			return m_swapchainResources.get();
-		}
+		// All of the below are called from under a mutex
 		inline ISimpleManagedSurface::ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
 		inline void becomeIrrecoverable() override {m_swapchainResources = nullptr;}
 
 	private:
 		// As per the above, the swapchain might not be possible to create or recreate right away, so this might be
 		// either nullptr before the first successful acquire or the old to-be-retired swapchain.
-		core::smart_refctd_ptr<SwapchainResources> m_swapchainResources = {};
+		std::unique_ptr<SwapchainResources> m_swapchainResources = {};
 };
 
 }
