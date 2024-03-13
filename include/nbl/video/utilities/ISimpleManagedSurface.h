@@ -5,6 +5,8 @@
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#include "nbl/video/CVulkanSwapchain.h"
+
 
 namespace nbl::video
 {
