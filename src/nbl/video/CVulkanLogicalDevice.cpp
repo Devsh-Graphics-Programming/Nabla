@@ -956,18 +956,21 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     }
 
     core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
+    core::vector<VkMemoryBarrier2> barriers(validation.dependencyCount,{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,nullptr});
     {
         auto outDependency = dependencies.data();
+        auto outBarrier = barriers.data();
         auto getSubpassIndex = [](const uint32_t ix)->uint32_t{return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL;};
         for (uint32_t i=0u; i<validation.dependencyCount; i++)
         {
             const auto& dep = params.dependencies[i];
+            outBarrier->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
+            outBarrier->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
+            outBarrier->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
+            outBarrier->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
+            outDependency->pNext = outBarrier++;
             outDependency->srcSubpass = getSubpassIndex(dep.srcSubpass);
             outDependency->dstSubpass = getSubpassIndex(dep.dstSubpass);
-            outDependency->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
-            outDependency->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
-            outDependency->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
-            outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
             outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
             outDependency->viewOffset = dep.viewOffset;
             outDependency++;
