@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_CPU_IMAGE_H_INCLUDED_
-#define _NBL_ASSET_I_CPU_IMAGE_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
 
 #include "nbl/core/declarations.h"
 
@@ -39,17 +40,7 @@ class ICPUImage final : public IImage, public IAsset
             return cp;
         }
 
-        inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			if (buffer)
-				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-
-			if (canBeConvertedToDummy())
-				regions = nullptr;
-        }
+       
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
@@ -202,31 +193,37 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+    protected:
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImage*>(_other);
 			if (info != other->info)
 				return false;
 			if (m_creationParams != other->m_creationParams)
 				return false;
-			if (!buffer->canBeRestoredFrom(other->buffer.get()))
-				return false;
-
 			return true;
 		}
 
-    protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		virtual uint32_t getDependencyCount() const override { return 1; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override 
+		{
+			return !index ? buffer : nullptr;
+		}
+
+		inline void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
+		{
+			convertToDummyObject_common(referenceLevelsBelowToConvert);
+			if (canBeConvertedToDummy())
+				regions = nullptr;
+		}
+
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImage*>(_other);
-
 			const bool restorable = willBeRestoredFrom(_other);
-
 			if (restorable)
 				std::swap(regions, other->regions);
-
-			if (_levelsBelow)
-				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
@@ -260,3 +257,4 @@ class ICPUImage final : public IImage, public IAsset
 #endif
 
 
+#endif

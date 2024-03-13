@@ -13,8 +13,8 @@ namespace nbl
 namespace asset
 {
 
-class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
-{
+	class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+	{
 	public:
 		using base_t = IAnimationLibrary<ICPUBuffer>;
 
@@ -41,7 +41,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 		inline const Keyframe& getKeyframe(uint32_t keyframeOffset) const
 		{
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_keyframeStorageBinding.buffer->getPointer());
-			return reinterpret_cast<const Keyframe*>(ptr+m_keyframeStorageBinding.offset)[keyframeOffset];
+			return reinterpret_cast<const Keyframe*>(ptr + m_keyframeStorageBinding.offset)[keyframeOffset];
 		}
 		inline Keyframe& getKeyframe(uint32_t keyframeOffset)
 		{
@@ -52,7 +52,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 		inline const timestamp_t& getTimestamp(uint32_t keyframeOffset) const
 		{
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_timestampStorageBinding.buffer->getPointer());
-			return reinterpret_cast<const timestamp_t*>(ptr+m_timestampStorageBinding.offset)[keyframeOffset];
+			return reinterpret_cast<const timestamp_t*>(ptr + m_timestampStorageBinding.offset)[keyframeOffset];
 		}
 		inline timestamp_t& getTimestamp(uint32_t keyframeOffset)
 		{
@@ -64,7 +64,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 		inline const Animation& getAnimation(uint32_t animationOffset) const
 		{
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_animationStorageRange.buffer->getPointer());
-			return reinterpret_cast<const Animation*>(ptr+m_animationStorageRange.offset)[animationOffset];
+			return reinterpret_cast<const Animation*>(ptr + m_animationStorageRange.offset)[animationOffset];
 		}
 		inline Animation& getAnimation(uint32_t animationOffset)
 		{
@@ -76,7 +76,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 		template<typename NameIterator, typename OffsetIterator>
 		inline void addAnimationNames(NameIterator nameBegin, NameIterator nameEnd, OffsetIterator offsetBegin)
 		{
-			base_t::addAnimationNames(nameBegin,nameEnd,offsetBegin);
+			base_t::addAnimationNames(nameBegin, nameEnd, offsetBegin);
 		}
 		inline void clearAnimationNames()
 		{
@@ -96,28 +96,16 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
-			SBufferBinding<ICPUBuffer> _keyframeStorageBinding = {m_keyframeStorageBinding.offset,_depth>0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_keyframeStorageBinding.buffer->clone(_depth-1u)):m_keyframeStorageBinding.buffer};
-			SBufferBinding<ICPUBuffer> _timestampStorageBinding = {m_timestampStorageBinding.offset,_depth>0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_timestampStorageBinding.buffer->clone(_depth-1u)):m_timestampStorageBinding.buffer};
+			SBufferBinding<ICPUBuffer> _keyframeStorageBinding = { m_keyframeStorageBinding.offset,_depth > 0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_keyframeStorageBinding.buffer->clone(_depth - 1u)) : m_keyframeStorageBinding.buffer };
+			SBufferBinding<ICPUBuffer> _timestampStorageBinding = { m_timestampStorageBinding.offset,_depth > 0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_timestampStorageBinding.buffer->clone(_depth - 1u)) : m_timestampStorageBinding.buffer };
 
-			SBufferRange<ICPUBuffer> _animationStorageRange = {m_animationStorageRange.offset,m_animationStorageRange.size,_depth>0u&&m_animationStorageRange.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_animationStorageRange.buffer->clone(_depth-1u)):core::smart_refctd_ptr(m_animationStorageRange.buffer)};
+			SBufferRange<ICPUBuffer> _animationStorageRange = { m_animationStorageRange.offset,m_animationStorageRange.size,_depth > 0u && m_animationStorageRange.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_animationStorageRange.buffer->clone(_depth - 1u)) : core::smart_refctd_ptr(m_animationStorageRange.buffer) };
 
- 			auto cp = core::make_smart_refctd_ptr<ICPUAnimationLibrary>(std::move(_keyframeStorageBinding),std::move(_timestampStorageBinding),m_keyframeCount,std::move(_animationStorageRange));
+			auto cp = core::make_smart_refctd_ptr<ICPUAnimationLibrary>(std::move(_keyframeStorageBinding), std::move(_timestampStorageBinding), m_keyframeCount, std::move(_animationStorageRange));
 			clone_common(cp.get());
 			cp->setAnimationNames(this);
 
 			return cp;
-		}
-
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-				m_keyframeStorageBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_timestampStorageBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_animationStorageRange.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			}
 		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_ANIMATION_LIBRARY;
@@ -125,72 +113,49 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 		virtual size_t conservativeSizeEstimate() const override
 		{
-			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>)*2ull;
+			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>) * 2ull;
 			estimate += sizeof(SBufferRange<ICPUBuffer>);
 			estimate += sizeof(uint32_t);
 			estimate += m_stringPool.size();
-			estimate += m_nameToAnimation.size()*sizeof(std::pair<uint32_t,uint32_t>);
+			estimate += m_nameToAnimation.size() * sizeof(std::pair<uint32_t, uint32_t>);
 			// do we add other things to the size estimate?
 			return estimate;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUAnimationLibrary*>(_other);
-			if (m_keyframeCount != other->m_keyframeCount)
-				return false;
-
-            if (m_keyframeStorageBinding.offset != other->m_keyframeStorageBinding.offset)
-                return false;
-            if (m_keyframeStorageBinding.buffer->canBeRestoredFrom(other->m_keyframeStorageBinding.buffer.get()))
-                return false;
-            if (m_timestampStorageBinding.offset != other->m_timestampStorageBinding.offset)
-                return false;
-            if (m_timestampStorageBinding.buffer->canBeRestoredFrom(other->m_timestampStorageBinding.buffer.get()))
-                return false;
-
-            if (m_animationStorageRange.offset != other->m_animationStorageRange.offset)
-                return false;
-            if (m_animationStorageRange.size != other->m_animationStorageRange.size)
-                return false;
-            if ((!m_animationStorageRange.buffer) != (!other->m_animationStorageRange.buffer))
-                return false;
-            if (m_animationStorageRange.buffer && !m_animationStorageRange.buffer->canBeRestoredFrom(other->m_animationStorageRange.buffer.get()))
-                return false;
-
-			return true;
-		}
-
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUAnimationLibrary*>(_other);
 
-			if (_levelsBelow)
+		virtual uint32_t getDependencyCount() const override { return 3; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			switch (index)
 			{
-				--_levelsBelow;
-				
-                if (m_keyframeStorageBinding.buffer)
-                    restoreFromDummy_impl_call(m_keyframeStorageBinding.buffer.get(),other->m_keyframeStorageBinding.buffer.get(),_levelsBelow);
-                if (m_timestampStorageBinding.buffer)
-                    restoreFromDummy_impl_call(m_timestampStorageBinding.buffer.get(),other->m_timestampStorageBinding.buffer.get(),_levelsBelow);
-
-                if (m_animationStorageRange.buffer)
-                    restoreFromDummy_impl_call(m_animationStorageRange.buffer.get(),other->m_animationStorageRange.buffer.get(),_levelsBelow);
+			case 0:
+				return m_keyframeStorageBinding.buffer;
+			case 1:
+				return	m_timestampStorageBinding.buffer;
+			case 2:
+				return	m_animationStorageRange.buffer;
+			default:
+				return nullptr;
 			}
 		}
 
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			if (m_keyframeStorageBinding.buffer && m_keyframeStorageBinding.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-			if (m_timestampStorageBinding.buffer && m_timestampStorageBinding.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-
-			return m_animationStorageRange.buffer && m_animationStorageRange.buffer->isAnyDependencyDummy(_levelsBelow);
+		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override {
+			return false;
 		}
-};
+
+		bool compatible(const IAsset* _other) const override {
+			auto other = static_cast<const ICPUAnimationLibrary*>(_other);
+			if (m_keyframeCount != other->m_keyframeCount ||
+				m_keyframeStorageBinding.offset != other->m_keyframeStorageBinding.offset ||
+				m_timestampStorageBinding.offset != other->m_timestampStorageBinding.offset ||
+				m_animationStorageRange.offset != other->m_animationStorageRange.offset ||
+				m_animationStorageRange.size != other->m_animationStorageRange.size ||
+				(!m_animationStorageRange.buffer) != (!other->m_animationStorageRange.buffer))
+				return false;
+			return true;
+		}
+	};
 
 }
 }

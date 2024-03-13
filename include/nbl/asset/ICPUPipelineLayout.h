@@ -1,16 +1,17 @@
-// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED_
-#define _NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED_
 
+#ifndef __NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/IPipelineLayout.h"
 
-
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 //! CPU Version of Pipeline Layout
@@ -21,14 +22,10 @@ namespace nbl::asset
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
 	public:
-        static inline constexpr uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
-        static inline constexpr uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUDescriptorSetLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUDescriptorSetLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
 
-        inline ICPUPipelineLayout(
-            const std::span<const asset::SPushConstantRange> _pcRanges,
-            core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout3
-        ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
+		using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
@@ -52,37 +49,35 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>,DESCRIPTOR_SET_COUNT> dsLayouts;
+            std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>, DESCRIPTOR_SET_COUNT> dsLayouts;
             for (size_t i = 0ull; i < dsLayouts.size(); ++i)
                 dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_descSetLayouts[i]->clone(_depth-1u)) : m_descSetLayouts[i];
 
             auto cp = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-                std::span<const asset::SPushConstantRange>{m_pushConstantRanges->begin(),m_pushConstantRanges->end()},
-                std::move(dsLayouts[0]),std::move(dsLayouts[1]),std::move(dsLayouts[2]),std::move(dsLayouts[3])
+                nullptr, nullptr, 
+                std::move(dsLayouts[0]), std::move(dsLayouts[1]), std::move(dsLayouts[2]), std::move(dsLayouts[3])
             );
             clone_common(cp.get());
+            cp->m_pushConstantRanges = m_pushConstantRanges;
 
             return cp;
         }
 
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        inline E_TYPE getAssetType() const override { return AssetType; }
+
+
+protected:
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
-			        if (it->get())
-				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-
             if (canBeConvertedToDummy())
 			    m_pushConstantRanges = nullptr;
 		}
 
-        static inline constexpr auto AssetType = ET_PIPELINE_LAYOUT;
-        inline E_TYPE getAssetType() const override { return AssetType; }
-
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool compatible(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUPipelineLayout*>(_other);
 
@@ -98,14 +93,18 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             {
                 if ((!m_descSetLayouts[i]) != (!other->m_descSetLayouts[i]))
                     return false;
-                if (!m_descSetLayouts[i]->canBeRestoredFrom(other->m_descSetLayouts[i].get()))
-                    return false;
             }
             return true;
         }
 
-    protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        virtual uint32_t getDependencyCount() const override { return DESCRIPTOR_SET_COUNT; }
+
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+
+            return index < getDependencyCount() ? m_descSetLayouts[index] : nullptr;
+        }
+
+        void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUPipelineLayout*>(_other);
 
@@ -113,12 +112,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
             if (restorable)
                 std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
-            if (_levelsBelow)
-            {
-                --_levelsBelow;
-                for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
-                    restoreFromDummy_impl_call(m_descSetLayouts[i].get(), other->m_descSetLayouts[i].get(), _levelsBelow);
-            }
         }
 
         bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
@@ -134,4 +127,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 };
 
 }
+}
+
 #endif

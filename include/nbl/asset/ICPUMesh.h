@@ -75,33 +75,11 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 #endif
 		}
 
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			for (auto mesh : getMeshBuffers())
-				mesh->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
-
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline size_t conservativeSizeEstimate() const override { return m_meshBuffers.size()*sizeof(void*); }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUMesh*>(_other);
-			auto myMBs = getMeshBuffers();
-			auto otherMBs = other->getMeshBuffers();
-			if (myMBs.size()!=otherMBs.size())
-				return false;
-			for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-			if (!(*myIt)->canBeRestoredFrom(*theirIt))
-				return false;
-
-			return true;
-		}
 		
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
@@ -123,18 +101,20 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
         }
 
 	private:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		bool compatible(const IAsset* _other) const override
 		{
-			auto* other = static_cast<ICPUMesh*>(_other);
+			auto other = static_cast<const ICPUMesh*>(_other);
+			auto myMBs = getMeshBuffers();
+			auto otherMBs = other->getMeshBuffers();
+			if (myMBs.size()!=otherMBs.size())
+				return false;
+			return true;
+		}
 
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				auto myMBs = getMeshBuffers();
-				auto otherMBs = other->getMeshBuffers();
-				for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-					restoreFromDummy_impl_call(*myIt,*theirIt,_levelsBelow);
-			}
+		virtual uint32_t getDependencyCount() const override { return m_meshBuffers.size(); }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			return index < getDependencyCount() ?  m_meshBuffers[index] : nullptr;
 		}
 
 		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override

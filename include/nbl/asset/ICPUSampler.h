@@ -65,30 +65,27 @@ class ICPUSampler : public ISampler, public IAsset
         {
             auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
             clone_common(cp.get());
-
             return cp;
         }
 
 		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override 
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-        }
-
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+protected:
+
+		bool compatible(const IAsset* _other) const override
 		{
 			return true;
 		}
 
-protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			
+		virtual uint32_t getDependencyCount() const override { return 0; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			return nullptr;
 		}
+
 };
 
 }

@@ -58,14 +58,6 @@ class ICPUShader : public IAsset, public IShader
 			return cp;
 		}
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-			convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
-
 		const ICPUBuffer* getContent() const { return m_code.get(); };
 
 		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
@@ -90,8 +82,15 @@ class ICPUShader : public IAsset, public IShader
 			m_filepathHint = std::move(filepathHint);
 			return true;
 		}
+	protected:
+		virtual uint32_t getDependencyCount() const override { return 1; }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override
+		{
+			return index == 0 ? m_code : nullptr;
+		}
+
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_contentType != other->m_contentType)
@@ -100,29 +99,7 @@ class ICPUShader : public IAsset, public IShader
 				return false;
 			if (getStage() != other->getStage())
 				return false;
-			if (!m_code->canBeRestoredFrom(other->m_code.get()))
-				return false;
-
 			return true;
-		}
-
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUShader*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-
-				restoreFromDummy_impl_call(m_code.get(), other->m_code.get(), _levelsBelow);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			return m_code->isAnyDependencyDummy(_levelsBelow);
 		}
 
 		const core::smart_refctd_ptr<ICPUBuffer> m_code;

@@ -1,17 +1,18 @@
-#ifndef _NBL_I_CPU_FRAMEBUFFER_H_INCLUDED_
-#define _NBL_I_CPU_FRAMEBUFFER_H_INCLUDED_
+#ifndef __NBL_I_CPU_FRAMEBUFFER_H_INCLUDED__
+#define __NBL_I_CPU_FRAMEBUFFER_H_INCLUDED__
 
 #include "nbl/asset/IFramebuffer.h"
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPURenderpass.h"
 
-namespace nbl::asset
+namespace nbl {
+namespace asset
 {
 
-class ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass,ICPUImageView>
+class ICPUFramebuffer final : public IAsset, public IFramebuffer<ICPURenderpass, ICPUImageView>
 {
-    using base_t = IFramebuffer<ICPURenderpass,ICPUImageView>;
+    using base_t = IFramebuffer<ICPURenderpass, ICPUImageView>;
 
 public:
     using base_t::base_t;
@@ -36,16 +37,21 @@ public:
     }
 
 private:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    bool compatible(const IAsset* _other) const override
     {
-        // TODO
+        return false; // TODO
     }
 
-    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-    {
-        // TODO
+    virtual uint32_t getDependencyCount() const override { return 0; }
+
+    virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+
+        return nullptr;
     }
+
 };
 
 }
+}
+
 #endif

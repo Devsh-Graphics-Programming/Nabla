@@ -19,10 +19,6 @@ public:
         // TODO
         return nullptr;
     }
-    bool canBeRestoredFrom(const IAsset* _other) const override
-    {
-        return false; // TODO
-    }
     E_TYPE getAssetType() const override
     {
         return ET_RENDERPASS;
@@ -31,14 +27,19 @@ public:
     ~ICPURenderpass() = default;
 
 private:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    bool compatible(const IAsset* _other) const override
     {
-        // TODO
+        return false; // TODO
     }
-    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-    {
-        // TODO
+
+    virtual uint32_t getDependencyCount() const override { return 0; }
+
+    virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+
+        return nullptr;
     }
+
+
 };
 
 }

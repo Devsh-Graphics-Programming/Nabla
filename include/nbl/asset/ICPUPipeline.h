@@ -65,27 +65,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
             return core::smart_refctd_ptr<this_t>(cp,core::dont_grab);
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override final
-        {
-            auto* other = static_cast<const this_t*>(_other);
-            if (!PipelineNonAssetBase::m_layout->canBeRestoredFrom(other->m_layout.get()))
-                return false;
-            for (auto i=0; i<MaxShaderStageCount; i++)
-            {
-                const auto& stage = m_stages[i];
-                const auto& otherStage = other->m_stages[i];
-                if (stage.shader)
-                {
-                    if (!stage.shader->canBeRestoredFrom(otherStage.shader.get()))
-                        return false;
-                    if (!stage.info.equalAllButShader(otherStage.info))
-                        return false;
-                }
-                else if (otherStage.shader)
-                    return false;
-            }
-            return canBeRestoredFrom_impl(this);
-        }
+     
 
         // extras for this class
         ICPUPipelineLayout* getLayout() 
@@ -157,27 +137,44 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         using PipelineNonAssetBase::PipelineNonAssetBase;
         virtual ~ICPUPipeline() = default;
 
-        inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override final
-        {
-            auto* other = static_cast<this_t*>(_other);
+        virtual uint32_t getDependencyCount() const override { return MaxShaderStageCount + 1; }
 
-            if (_levelsBelow)
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override
+        {
+            if (index == 0)
+                return PipelineNonAssetBase::m_layout;
+            else if (index < getDependencyCount()) 
+                return m_stages[index - 1].shader;
+            else
+                return nullptr;
+        }
+
+        virtual void hash_impl(size_t& seed) const override {
+            for (size_t i = 0; i < MaxShaderStageCount; i++)
             {
-                --_levelsBelow;
-                restoreFromDummy_impl_call(PipelineNonAssetBase::m_layout.get(),other->m_layout.get(),_levelsBelow);
-                for (auto i=0; i<MaxShaderStageCount; i++)
-                if (m_stages[i].shader)
-                    restoreFromDummy_impl_call(m_stages[i].shader.get(),other->m_stages[i].shader.get(),_levelsBelow);
+                core::hash_combine(seed, m_stages[i].info.entryPoint);
+                core::hash_combine(seed, m_stages[i].info.entries);
+                core::hash_combine(seed, m_stages[i].info.requiredSubgroupSize);
+                core::hash_combine(seed, m_stages[i].info.requireFullSubgroups);
             }
         }
 
-        inline bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override final
+        bool compatible(const IAsset* _other) const override final
         {
-            --_levelsBelow;
-            for (auto i=0; i<MaxShaderStageCount; i++)
-            if (m_stages[i].shader && m_stages[i].shader->isAnyDependencyDummy())
-                return true;
-            return PipelineNonAssetBase::m_layout->isAnyDependencyDummy(_levelsBelow);
+            auto* other = static_cast<const this_t*>(_other);
+            for (auto i = 0; i < MaxShaderStageCount; i++)
+            {
+                const auto& stage = m_stages[i];
+                const auto& otherStage = other->m_stages[i];
+                if (stage.shader)
+                {
+                    if (!stage.info.equalAllButShader(otherStage.info))
+                        return false;
+                }
+                else if (otherStage.shader)
+                    return false;
+            }
+            return true;
         }
 
         virtual this_t* clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout) const = 0;
