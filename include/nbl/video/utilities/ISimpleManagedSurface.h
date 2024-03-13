@@ -271,7 +271,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		// nice little callback
 		virtual uint8_t handleOutOfDate() = 0;
 		
-		// Frame Resources are not optional, shouldn't be null!
+		//
 		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores)
 		{
 			auto swapchainResources = getSwapchainResources();

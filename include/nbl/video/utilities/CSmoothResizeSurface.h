@@ -1,5 +1,5 @@
-#ifndef _NBL_VIDEO_C_RESIZABLE_SURFACE_H_INCLUDED_
-#define _NBL_VIDEO_C_RESIZABLE_SURFACE_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_SMOOTH_RESIZE_SURFACE_H_INCLUDED_
+#define _NBL_VIDEO_C_SMOOTH_RESIZE_SURFACE_H_INCLUDED_
 
 
 #include "nbl/video/utilities/ISimpleManagedSurface.h"
@@ -9,7 +9,7 @@ namespace nbl::video
 {
 
 // For this whole thing to work, you CAN ONLY ACQUIRE ONE IMAGE AT A TIME BEFORE CALLING PRESENT!
-class NBL_API2 IResizableSurface : public ISimpleManagedSurface
+class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 {
 	public:
 		// Simple callback to facilitate detection of window being closed
@@ -25,11 +25,11 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 				}
 
 			private:
-				friend class IResizableSurface;
+				friend class ISmoothResizeSurface;
 				// `recreator` owns the `ISurface`, which refcounts the `IWindow` which refcounts the callback, so fumb pointer to avoid cycles 
-				inline void setSwapchainRecreator(IResizableSurface* recreator) { m_recreator = recreator; }
+				inline void setSwapchainRecreator(ISmoothResizeSurface* recreator) { m_recreator = recreator; }
 
-				IResizableSurface* m_recreator = nullptr;
+				ISmoothResizeSurface* m_recreator = nullptr;
 		};
 
 		//
@@ -43,7 +43,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 		class NBL_API2 ISwapchainResources : public core::IReferenceCounted, public ISimpleManagedSurface::ISwapchainResources
 		{
 			protected:
-				friend class IResizableSurface;
+				friend class ISmoothResizeSurface;
 
 				// Returns what Pipeline Stages will be used for performing the `tripleBufferPresent`
 				// We use this to set the waitStage for the Semaphore Wait, but only when ownership does not need to be acquired.
@@ -174,7 +174,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 
 	protected:
 		using ISimpleManagedSurface::ISimpleManagedSurface;
-		virtual inline ~IResizableSurface()
+		virtual inline ~ISmoothResizeSurface()
 		{
 			// stop any calls into explicit resizes
 			std::unique_lock guard(m_swapchainResourcesMutex);
@@ -247,7 +247,7 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 			auto device = const_cast<ILogicalDevice*>(getAssignedQueue()->getOriginDevice());
 
 			auto swapchainResources = getSwapchainResources();
-			// dont assign straight to `m_swapchainResources` because of complex refcounting and cycles
+			// dont assign straight to `m_swapchainResources` because of complex refcounting
 			core::smart_refctd_ptr<ISwapchain> newSwapchain;
 			{
 				m_sharedParams.width = w;
@@ -427,11 +427,11 @@ class NBL_API2 IResizableSurface : public ISimpleManagedSurface
 };
 
 // The use of this class is supposed to be externally synchronized
-template<typename SwapchainResources> requires std::is_base_of_v<IResizableSurface::ISwapchainResources,SwapchainResources>
-class CResizableSurface final : public IResizableSurface
+template<typename SwapchainResources> requires std::is_base_of_v<ISmoothResizeSurface::ISwapchainResources,SwapchainResources>
+class CSmoothResizeSurface final : public ISmoothResizeSurface
 {
 	public:
-		using this_t = CResizableSurface<SwapchainResources>;
+		using this_t = CSmoothResizeSurface<SwapchainResources>;
 
 		// Factory method so we can fail, requires a `_surface` created from a window and with a callback that inherits from `ICallback` declared just above
 		template<typename Surface> requires std::is_base_of_v<CSurface<typename Surface::window_t,typename Surface::immediate_base_t>,Surface>
@@ -452,7 +452,7 @@ class CResizableSurface final : public IResizableSurface
 		}
 
 	protected:
-		using IResizableSurface::IResizableSurface;
+		using ISmoothResizeSurface::ISmoothResizeSurface;
 
 		inline bool checkQueueFamilyProps(const IPhysicalDevice::SQueueFamilyProperties& props) const override {return props.queueFlags.hasFlags(SwapchainResources::RequiredQueueFlags);}
 
