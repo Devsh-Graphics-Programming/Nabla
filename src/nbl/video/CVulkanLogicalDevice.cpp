@@ -745,18 +745,18 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDes
 		size_t descriptorSize;
 		switch (asset::IDescriptor::GetTypeCategory(descriptorType))
 		{
-			case asset::IDescriptor::EC_BUFFER:
-				descriptorSize = sizeof(VkDescriptorBufferInfo);
-				break;
-			case asset::IDescriptor::EC_IMAGE:
-				descriptorSize = sizeof(VkDescriptorImageInfo);
-				break;
-			case asset::IDescriptor::EC_BUFFER_VIEW:
-				descriptorSize = sizeof(VkBufferView);
-				break;
-			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-				descriptorSize = sizeof(VkAccelerationStructureKHR);
-				break;
+		case asset::IDescriptor::EC_BUFFER:
+			descriptorSize = sizeof(VkDescriptorBufferInfo);
+			break;
+		case asset::IDescriptor::EC_IMAGE:
+			descriptorSize = sizeof(VkDescriptorImageInfo);
+			break;
+		case asset::IDescriptor::EC_BUFFER_VIEW:
+			descriptorSize = sizeof(VkBufferView);
+			break;
+		case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+			descriptorSize = sizeof(VkAccelerationStructureKHR);
+			break;
 		}
 		maxSize = core::max(maxSize, write.count * descriptorSize);
 	}
@@ -779,21 +779,21 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const std::span<const IGPUDes
 			outWrite->descriptorCount = write.count;
 			switch (asset::IDescriptor::GetTypeCategory(descriptorType))
 			{
-				case asset::IDescriptor::EC_BUFFER:
-					outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
-					break;
-				case asset::IDescriptor::EC_IMAGE:
-					outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
-					break;
-				case asset::IDescriptor::EC_BUFFER_VIEW:
-					outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
-					break;
-				case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-					outWriteAS->accelerationStructureCount = write.count;
-					outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
-					break;
-				default:
-					assert(!"Invalid code path.");
+			case asset::IDescriptor::EC_BUFFER:
+				outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_IMAGE:
+				outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_BUFFER_VIEW:
+				outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+				outWriteAS->accelerationStructureCount = write.count;
+				outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
+				break;
+            default:
+                assert(!"Invalid code path.");
 			}
 			outWrite++;
 		}
