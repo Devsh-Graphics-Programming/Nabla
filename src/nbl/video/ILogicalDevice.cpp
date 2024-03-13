@@ -451,6 +451,9 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         auto ds = drop.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
+        // (no binding)
+        if (ds->getBindingType(drop.binding) == asset::IDescriptor::E_TYPE::ET_COUNT)
+            return false;
     }
 
     for (const auto& drop : dropDescriptors)
