@@ -3,10 +3,12 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
+#include <algorithm>
+#include <cmath>
 #include "nbl/core/util/bitflag.h"
 
 namespace nbl::hlsl
@@ -39,9 +41,10 @@ inline auto HLSL_ID(const T bitpattern) \
 NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
+NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
 
 template<typename T>
-inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
+inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
@@ -79,6 +82,24 @@ inline T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 
 #undef NBL_BIT_OP_GLM_PASSTHROUGH
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
+
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
+NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+
+template<typename T>
+inline T rsqrt(T x)
+{
+    return 1.0f / std::sqrt(x);
+}
+
+
 }
 #endif
 
