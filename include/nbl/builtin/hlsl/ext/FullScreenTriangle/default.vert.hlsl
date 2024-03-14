@@ -1,17 +1,12 @@
 // Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/ext/FullScreenTriangle/SVertexAttributes.hlsl>
 //#include <nbl/builtin/glsl/utils/surface_transform.glsl>
 
-namespace nbl
-{
-namespace hlsl
-{
-namespace ext
-{
-namespace FullScreenTriangle
-{
+using namespace ::nbl::hlsl;
+using namespace ::nbl::hlsl::ext::FullScreenTriangle;
 
 const static float32_t2 pos[3] = {
     float32_t2(-1.0,-1.0),
@@ -33,16 +28,11 @@ layout (push_constant) uniform pushConstants
 
 VertexAttributes main()
 {
-    using namespace nbl::hlsl::glsl;
+    using namespace ::nbl::hlsl::glsl;
 
     VertexAttributes retval;
-//    vec2 pos = nbl_glsl_surface_transform_applyToNDC(u_pushConstants.swapchainTransform, pos[gl_VertexIndex]);
-    spirv::Position = vec4(pos[gl_VertexIndex()], 0.f, 1.f);
+    //    vec2 pos = nbl_glsl_surface_transform_applyToNDC(u_pushConstants.swapchainTransform, pos[gl_VertexIndex]);
+    spirv::Position = float32_t4(pos[gl_VertexIndex()], 0.f, 1.f);
     retval.uv = tc[gl_VertexIndex()];
     return retval;
-}
-
-}
-}
-}
 }
