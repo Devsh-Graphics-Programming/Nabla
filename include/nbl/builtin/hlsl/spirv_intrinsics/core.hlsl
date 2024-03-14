@@ -18,9 +18,21 @@ namespace hlsl
 #ifdef __HLSL_VERSION
 namespace spirv
 {
+//! General
 [[vk::ext_builtin_input(spv::BuiltInHelperInvocation)]]
 static const bool HelperInvocation;
 
+//! Vertex Inputs
+[[vk::ext_builtin_input(spv::BuiltInVertexIndex)]]
+static const uint32_t VertexIndex;
+[[vk::ext_builtin_input(spv::BuiltInInstanceIndex)]]
+static const uint32_t InstanceIndex;
+
+//! Vertex and friends
+[[vk::ext_builtin_output(spv::BuiltInPosition)]]
+static float32_t4 Position;
+
+//! Compute Shader Builtins
 [[vk::ext_builtin_input(spv::BuiltInNumWorkgroups)]]
 static const uint32_t3 NumWorkGroups;
 // TODO: Doesn't work, find out why and file issue on DXC!

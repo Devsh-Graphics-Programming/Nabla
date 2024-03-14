@@ -58,10 +58,18 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 }
 
 /**
+ * For Vertex Shaders
+ */
+ // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `&` :(
+//void gl_Position() {spirv::}
+uint32_t gl_VertexIndex() {return spirv::VertexIndex;}
+uint32_t gl_InstanceIndex() {return spirv::InstanceIndex;}
+
+/**
  * For Compute Shaders
  */
 
-// TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
+// TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `const&` :(
 uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
 // TODO: DXC BUG prevents us from defining this!
 uint32_t3 gl_WorkGroupSize();

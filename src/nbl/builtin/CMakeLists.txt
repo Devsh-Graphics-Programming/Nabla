@@ -15,7 +15,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/fragment_impl.g
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/uv.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/color.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/no_uv_color.frag")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "specialized_shader/fullscreentriangle.vert")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/lambertian/singletexture/specialized_shader.vert")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/lambertian/singletexture/specialized_shader.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/debug/vertex_color/specialized_shader.vert")
@@ -299,5 +298,8 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/broadcast.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/scratch_size.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/shared_scan.hlsl")
+#Extensions
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/SVertexAttributes.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/default.vert.hlsl")
 
 ADD_CUSTOM_BUILTIN_RESOURCES(nblBuiltinResourceData NBL_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl/builtin" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src" "STATIC" "INTERNAL")
