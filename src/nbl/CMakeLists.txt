@@ -193,6 +193,8 @@ set(NBL_ASSET_SOURCES
 
 # IES profile loaders
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CIESProfileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CIESProfileParser.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CIESProfile.cpp
 
 # Image writers
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageWriter.cpp
