@@ -102,7 +102,7 @@ struct bitfieldExtract {};
 template<typename T, bool isSigned>
 struct bitfieldExtract<T, isSigned, false>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         static_assert( is_integral<T>::value, "T is not an integral type!" );
         return val;
@@ -112,7 +112,7 @@ struct bitfieldExtract<T, isSigned, false>
 template<typename T>
 struct bitfieldExtract<T, true, true>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
     }
@@ -121,7 +121,7 @@ struct bitfieldExtract<T, true, true>
 template<typename T>
 struct bitfieldExtract<T, false, true>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
     } 
@@ -132,8 +132,7 @@ struct bitfieldExtract<T, false, true>
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template 
-        ( val, offsetBits, numBits );
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
 }
 
 #endif
