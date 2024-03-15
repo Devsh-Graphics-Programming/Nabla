@@ -966,11 +966,11 @@ endfunction()
 # @_BS_TARGET_@ is a builtin resource target
 
 function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
-	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	add_dependencies(${_TARGET_} ${_BS_TARGET_})
+	target_link_libraries(${_TARGET_} PUBLIC ${_BS_TARGET_})
 	
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	target_include_directories(${_TARGET_} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)
