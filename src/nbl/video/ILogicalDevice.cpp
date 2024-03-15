@@ -625,6 +625,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
         [this](const IGPUShader::SSpecInfo& info)->bool
         {
+            if (!info.shader)
+                return false;
             return info.shader->wasCreatedBy(this);
         }
     );

@@ -38,7 +38,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		};
 
 		//
-		class NBL_API2 ISwapchainResources : public core::IReferenceCounted, public ISimpleManagedSurface::ISwapchainResources
+		class NBL_API2 ISwapchainResources : public ISimpleManagedSurface::ISwapchainResources
 		{
 			protected:
 				friend class ISmoothResizeSurface;

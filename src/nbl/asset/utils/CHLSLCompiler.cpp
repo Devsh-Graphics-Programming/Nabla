@@ -396,6 +396,11 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
         arguments = {};
         for (size_t i = 0; i < RequiredArgumentCount; i++)
             arguments.push_back(RequiredArguments[i]);
+        arguments.push_back(L"-HV");
+        arguments.push_back(L"202x");
+        // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
+        arguments.push_back(L"-E");
+        arguments.push_back(L"main");
         // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
         // This is how we can get more optimizer options.
         // 

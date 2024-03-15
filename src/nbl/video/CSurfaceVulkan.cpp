@@ -111,8 +111,8 @@ bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physica
 		capabilities.minImageExtent = vk_surfaceCapabilities.surfaceCapabilities.minImageExtent;
 		capabilities.maxImageExtent = vk_surfaceCapabilities.surfaceCapabilities.maxImageExtent;
 		capabilities.maxImageArrayLayers = vk_surfaceCapabilities.surfaceCapabilities.maxImageArrayLayers;
-		capabilities.supportedTransforms = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.supportedTransforms);
-		capabilities.currentTransform = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.currentTransform);
+		capabilities.supportedTransforms = static_cast<hlsl::SurfaceTransform::FLAG_BITS>(vk_surfaceCapabilities.surfaceCapabilities.supportedTransforms);
+		capabilities.currentTransform = static_cast<hlsl::SurfaceTransform::FLAG_BITS>(vk_surfaceCapabilities.surfaceCapabilities.currentTransform);
 		capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(vk_surfaceCapabilities.surfaceCapabilities.supportedCompositeAlpha);
 		capabilities.supportedUsageFlags = getImageUsageFlagsFromVkImageUsageFlags(vk_surfaceCapabilities.surfaceCapabilities.supportedUsageFlags);
 
