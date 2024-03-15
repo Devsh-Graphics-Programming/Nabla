@@ -58,10 +58,18 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 }
 
 /**
+ * For Vertex Shaders
+ */
+ // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `&` :(
+//void gl_Position() {spirv::}
+uint32_t gl_VertexIndex() {return spirv::VertexIndex;}
+uint32_t gl_InstanceIndex() {return spirv::InstanceIndex;}
+
+/**
  * For Compute Shaders
  */
 
-// TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
+// TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `const&` :(
 uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
 // TODO: DXC BUG prevents us from defining this!
 uint32_t3 gl_WorkGroupSize();
@@ -98,7 +106,7 @@ struct bitfieldExtract {};
 template<typename T, bool isSigned>
 struct bitfieldExtract<T, isSigned, false>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         static_assert( is_integral<T>::value, "T is not an integral type!" );
         return val;
@@ -108,7 +116,7 @@ struct bitfieldExtract<T, isSigned, false>
 template<typename T>
 struct bitfieldExtract<T, true, true>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
     }
@@ -117,7 +125,7 @@ struct bitfieldExtract<T, true, true>
 template<typename T>
 struct bitfieldExtract<T, false, true>
 {
-    T operator()( T val, uint32_t offsetBits, uint32_t numBits )
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
         return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
     } 
@@ -128,8 +136,7 @@ struct bitfieldExtract<T, false, true>
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template 
-        ( val, offsetBits, numBits );
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
 }
 
 #endif

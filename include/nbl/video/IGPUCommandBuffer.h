@@ -301,30 +301,39 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
         //! dynamic state
-        inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
+        inline bool setScissor(const std::span<const VkRect2D> scissors, const uint32_t first=0)
         {
+            const uint32_t count = scissors.size();
             if(invalidDynamic(first,count))
                 return false;
 
-            for (auto i=0u; i<count; i++)
+            for (const auto& scissor : scissors)
             {
-                const auto& scissor = pScissors[i];
                 if (scissor.offset.x<0 || scissor.offset.y<0)
                     return false;
-                if (pScissors[i].extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
+                if (scissor.extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
                     return false;
-                if (pScissors[i].extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
+                if (scissor.extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
                     return false;
             }
 
-            return setScissor_impl(first,count,pScissors);
+            return setScissor_impl(first,count,scissors.data());
         }
-        inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+        [[deprecated]] inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
         {
+            return setScissor({pScissors,count},first);
+        }
+        inline bool setViewport(const std::span<const asset::SViewport> viewports, const uint32_t first=0)
+        {
+            const uint32_t count = viewports.size();
             if (invalidDynamic(first,count))
                 return false;
 
-            return setViewport_impl(first,count,pViewports);
+            return setViewport_impl(first,count,viewports.data());
+        }
+        [[deprecated]] inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+        {
+            return setViewport({pViewports,count},first);
         }
         bool setLineWidth(const float width);
         inline bool setDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)

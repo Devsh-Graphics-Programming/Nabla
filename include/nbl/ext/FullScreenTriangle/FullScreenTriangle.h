@@ -1,21 +1,16 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_EXT_FULL_SCREEN_TRIANGLE_FULL_SCREEN_TRIANGLE_INCLUDED_
 #define _NBL_EXT_FULL_SCREEN_TRIANGLE_FULL_SCREEN_TRIANGLE_INCLUDED_
 
 #include "nabla.h"
 
-namespace nbl
+namespace nbl::ext::FullScreenTriangle
 {
-	namespace ext
-	{
-		namespace FullScreenTriangle
-		{
-			using NBL_PROTO_PIPELINE = std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>, asset::SVertexInputParams, asset::SPrimitiveAssemblyParams, asset::SBlendParams, nbl::asset::SRasterizationParams, asset::SPushConstantRange>;
 
-			inline NBL_PROTO_PIPELINE createProtoPipeline(video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams, uint32_t pushConstantOffset)
+#if 0
+			inline NBL_PROTO_PIPELINE createProtoPipeline(, uint32_t pushConstantOffset)
 			{
 				if (!cpu2gpuParams.assetManager)
 					assert(false);
@@ -117,9 +112,6 @@ namespace nbl
 
 				return commandBuffer->draw(VERTEX_COUNT, INSTANCE_COUNT, 0, 0);
 			}
-		}
-	}
-}
-
 #endif
-
+}
+#endif

@@ -44,9 +44,9 @@ class IQueue : public core::Interface, public core::Unmovable
         inline core::bitflag<CREATE_FLAGS> getFlags() const { return m_flags; }
         inline uint32_t getFamilyIndex() const { return m_familyIndex; }
         inline float getPriority() const { return m_priority; }
-
+#if 0
         // When dealing with external/foreign queues treat `other` as nullptr
-        inline bool needsOwnershipTransfer(const IQueue* other) const
+        inline bool needsOwnershipTransfer(const IQueue* other) const // TODO: move into IDeviceMemoryBacked
         {
             if (!other)
                 return true;
@@ -57,7 +57,7 @@ class IQueue : public core::Interface, public core::Unmovable
             // TODO: take into account concurrent sharing indices, but then we'll need to remember the concurrent sharing family indices
             return true;
         }
-
+#endif
 
         // for renderdoc and friends
         virtual bool startCapture() = 0;

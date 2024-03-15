@@ -455,6 +455,28 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     return true;
 }
 
+bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+{
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        if (!ds || !ds->wasCreatedBy(this))
+            return false;
+        // (no binding)
+        if (ds->getBindingType(drop.binding) == asset::IDescriptor::E_TYPE::ET_COUNT)
+            return false;
+    }
+
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        ds->dropDescriptors(drop);
+    }
+
+    nullifyDescriptors_impl(dropDescriptors);
+    return true;
+}
+
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
 {
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
@@ -603,6 +625,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
         [this](const IGPUShader::SSpecInfo& info)->bool
         {
+            if (!info.shader)
+                return false;
             return info.shader->wasCreatedBy(this);
         }
     );

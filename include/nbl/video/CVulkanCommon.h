@@ -853,6 +853,7 @@ inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFla
     if ((logLevelMask & system::ILogger::ELL_ERROR).value)
     {
         sev |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        type |= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
     }
 
     return result;

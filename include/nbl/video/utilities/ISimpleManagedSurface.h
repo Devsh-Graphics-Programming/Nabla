@@ -5,6 +5,8 @@
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/ILogicalDevice.h"
 
+#include "nbl/video/CVulkanSwapchain.h"
+
 
 namespace nbl::video
 {
@@ -103,12 +105,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				// NOTE: Current class doesn't trigger it because it knows nothing about how and when to create or recreate a swapchain.
 				inline bool onCreateSwapchain(const uint8_t qFam, core::smart_refctd_ptr<ISwapchain>&& _swapchain)
 				{
-					swapchain = std::move(_swapchain);
-					auto device = const_cast<ILogicalDevice*>(swapchain->getOriginDevice());
+					auto device = const_cast<ILogicalDevice*>(_swapchain->getOriginDevice());
 					// create images
-					for (auto i=0u; i<swapchain->getImageCount(); i++)
+					for (auto i=0u; i<_swapchain->getImageCount(); i++)
 					{
-						images[i] = swapchain->createImage(i);
+						images[i] = _swapchain->createImage(i);
 						if (!images[i])
 						{
 							std::fill_n(images.begin(),i,nullptr);
@@ -116,6 +117,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 						}
 					}
 
+					swapchain = std::move(_swapchain);
 					if (!onCreateSwapchain_impl(qFam))
 					{
 						invalidate();
@@ -167,9 +169,26 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			m_acquireSemaphore = 0;
 			m_acquireCount = 0;
 		}
+
+		//
+		inline bool irrecoverable() const {return !const_cast<ISimpleManagedSurface*>(this)->getSwapchainResources();}
+
+		//
+		inline CThreadSafeQueueAdapter* getAssignedQueue() const {return m_queue;}
+
+		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
+		inline uint64_t getAcquireCount() {return m_acquireCount;}
+		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphore.get();}
+
+	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
+		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
+		virtual inline ~ISimpleManagedSurface() = default;
+		
+		virtual inline bool checkQueueFamilyProps(const IPhysicalDevice::SQueueFamilyProperties& props) const {return true;}
 		
 		// We need to defer the swapchain creation till the Physical Device is chosen and Queues are created together with the Logical Device
-		inline bool init(CThreadSafeQueueAdapter* queue, const ISwapchain::SSharedCreationParams& sharedParams={})
+		// Generally you should have a regular `init` in the final derived class to call this
+		inline bool base_init(CThreadSafeQueueAdapter* queue)
 		{
 			deinit();
 			if (queue)
@@ -191,32 +210,19 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					{
 						m_acquireSemaphore = device->createSemaphore(0u);
 						if (m_acquireSemaphore)
-						{
-							if (init_impl(sharedParams))
-								return true;
-						}
+							return true;
 					}
 				}
 			}
+			return init_fail();
+		}
+
+		// just a simple convenience wrapper
+		inline bool init_fail()
+		{
 			deinit();
 			return false;
 		}
-
-		//
-		inline bool irrecoverable() const {return !const_cast<ISimpleManagedSurface*>(this)->getSwapchainResources();}
-
-		//
-		inline CThreadSafeQueueAdapter* getAssignedQueue() const {return m_queue;}
-
-		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
-		inline uint64_t getAcquireCount() {return m_acquireCount;}
-		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphore.get();}
-
-	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
-		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
-		virtual inline ~ISimpleManagedSurface() = default;
-		
-		virtual inline bool checkQueueFamilyProps(const IPhysicalDevice::SQueueFamilyProperties& props) const {return true;}
 
 		// RETURNS: `ISwapchain::MaxImages` on failure, otherwise its the acquired image's index.
 		inline uint8_t acquireNextImage()
@@ -271,7 +277,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		// nice little callback
 		virtual uint8_t handleOutOfDate() = 0;
 		
-		// Frame Resources are not optional, shouldn't be null!
+		//
 		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores)
 		{
 			auto swapchainResources = getSwapchainResources();
@@ -304,9 +310,6 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		//
 		virtual void deinit_impl() = 0;
-
-		// Generally used to check that per-swapchain resources can be created (including the swapchain itself)
-		virtual bool init_impl(const ISwapchain::SSharedCreationParams& sharedParams) = 0;
 
 		//
 		ICallback* const m_cb = nullptr;

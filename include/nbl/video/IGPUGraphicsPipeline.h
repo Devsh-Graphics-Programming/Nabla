@@ -46,7 +46,7 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                     const auto dataSize = info.valid();
                     if (dataSize<0)
                         return false;
-                    const auto count = info.entries->size();
+                    const size_t count = info.entries ? info.entries->size():0x80000000ull;
                     if (count>0x7fffffff)
                         return {};
                     retval += {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
