@@ -601,6 +601,9 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
+template<class T>
+NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
 
 template<typename T,bool=is_scalar<T>::value>
 struct scalar_type
@@ -625,6 +628,9 @@ struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
 };
+
+template<typename T>
+using scalar_type_t = typename scalar_type<T>::type;
 
 
 template<uint16_t bytesize>

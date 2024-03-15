@@ -16,6 +16,9 @@ namespace glsl
 {
 
 #ifdef __HLSL_VERSION
+/**
+* Generic SPIR-V
+*/
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
@@ -56,6 +59,16 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 {
     return spirv::atomicCompSwap<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, spv::DecorationRelaxedPrecision, value, comparator);
 }
+
+/**
+ * GLSL extended math
+ */
+template<typename SquareMatrix> // NBL_REQUIRES() extents are square
+SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
+{
+    return spirv::matrixInverse(mat);
+}
+
 
 /**
  * For Vertex Shaders

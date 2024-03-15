@@ -334,11 +334,12 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
 {
+    const bool hasStencil = asset::isDepthOrStencilFormat(params.format) && !asset::isDepthOnlyFormat(params.format);
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
     vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
 
     std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
-    VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, &vk_stencilUsage };
+    VkImageFormatListCreateInfo vk_formatListStruct = {VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,hasStencil ? &vk_stencilUsage:nullptr};
     vk_formatListStruct.viewFormatCount = 0u;
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())

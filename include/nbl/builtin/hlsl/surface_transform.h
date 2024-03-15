@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 namespace nbl
 {
@@ -28,7 +29,7 @@ enum class FLAG_BITS : uint16_t
 };
 
 // define everything else in terms of this
-float32_t2x2 transformMatrix(const FLAG_BITS transform)
+inline float32_t2x2 transformMatrix(const FLAG_BITS transform)
 {
     switch (transform)
     {
@@ -65,7 +66,7 @@ float32_t2x2 transformMatrix(const FLAG_BITS transform)
 
 //! [width,height] might switch to [height, width] in orientations such as 90°CW
 //! Usecase: Find out how big the viewport has to be after or before a tranform is applied
-uint16_t2 transformedExtents(const FLAG_BITS transform, const uint16_t2 screenSize)
+inline uint16_t2 transformedExtents(const FLAG_BITS transform, const uint16_t2 screenSize)
 {
     switch (transform)
     {
@@ -82,10 +83,10 @@ uint16_t2 transformedExtents(const FLAG_BITS transform, const uint16_t2 screenSi
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
-float transformedAspectRatio(const FLAG_BITS transform, const uint16_t2 screenSize)
+inline float transformedAspectRatio(const FLAG_BITS transform, const uint16_t2 screenSize)
 {
     const uint16_t2 newExtents = transformedExtents(transform,screenSize);
     return float(newExtents[1])/float(newExtents[0]);
@@ -98,7 +99,7 @@ float transformedAspectRatio(const FLAG_BITS transform, const uint16_t2 screenSi
 //! Warnings: 
 //! - You don't need to consider this using in your raytracing shaders if you apply the forward transformation to your projection matrix.
 //! - Be aware that almost always you'd want to do a single transform in your rendering pipeline.
-uint16_t2 applyInverseToScreenSpaceCoordinate(const FLAG_BITS transform, const uint16_t2 coord, const uint16_t2 screenSize)
+inline uint16_t2 applyInverseToScreenSpaceCoordinate(const FLAG_BITS transform, const uint16_t2 coord, const uint16_t2 screenSize)
 {
     // TODO: use inverse(transformMatrix(transform)) somehow
     const uint16_t2 lastTexel = screenSize - uint16_t2(1,1);
@@ -123,14 +124,14 @@ uint16_t2 applyInverseToScreenSpaceCoordinate(const FLAG_BITS transform, const u
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
 //! Use this function to apply the swapchain tranformation to the screenspace coordinate `coord` 
 //! Usecase = [Scatter]:
 //!   When directly writing to your swapchain using `imageStore` in order to match the orientation of the device relative to it's natural orientation. 
 //! Warning: Be aware that almost always you'd want to do a single transform in your rendering pipeline.
-uint16_t2 applyToScreenSpaceCoordinate(const FLAG_BITS transform, const uint16_t2 coord, const uint16_t2 screenSize)
+inline uint16_t2 applyToScreenSpaceCoordinate(const FLAG_BITS transform, const uint16_t2 coord, const uint16_t2 screenSize)
 {
     // TODO: use transformMatrix(transform) somehow
     const uint16_t2 lastTexel = screenSize - uint16_t2(1, 1);
@@ -155,14 +156,14 @@ uint16_t2 applyToScreenSpaceCoordinate(const FLAG_BITS transform, const uint16_t
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
 //! Same as `applyToScreenSpaceCoordinate` but const NDC space
 //! If rendering to the swapchain, you may use this function to transform the NDC coordinates directly
 //! to be fed into gl_Position in vertex shading
 //! Warning: Be aware that almost always you'd want to do a single transform in your rendering pipeline.
-float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
+inline float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 {
     return mul(transformMatrix(transform),ndc);
 }
@@ -173,6 +174,7 @@ float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 template<typename TwoColumns>
 TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 {
+    using namespace glsl; // IN HLSL mode, C++ doens't need this to access `inverse`
     return mul(inverse(transformMatrix(transform)),dDx_dDy);
 }
 

@@ -171,14 +171,25 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		}
 
 	protected:
-		inline void setSwapchainRecreator() {static_cast<ICallback*>(m_cb)->m_recreator=this;}
-
-		using ISimpleManagedSurface::ISimpleManagedSurface;
+		inline ISmoothResizeSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : ISimpleManagedSurface(std::move(_surface),_cb)
+		{
+			auto api = getSurface()->getAPIConnection();
+			auto dcb = api->getDebugCallback();
+			if (api->getEnabledFeatures().synchronizationValidation && dcb)
+			{
+				auto logger = dcb->getLogger();
+				if (logger)
+					logger->log("You're about to get a ton of False Positive Synchronization Errors from the Validation Layer due it Ignoring Queue Family Ownership Transfers (https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/7024)",system::ILogger::ELL_WARNING);
+			}
+		}
 		virtual inline ~ISmoothResizeSurface()
 		{
 			// stop any calls into explicit resizes
 			deinit_impl();
 		}
+		
+		//
+		inline void setSwapchainRecreator() {static_cast<ICallback*>(m_cb)->m_recreator=this;}
 
 		//
 		inline void deinit_impl() override final
@@ -372,8 +383,6 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 
 		// Because the surface can start minimized (extent={0,0}) we might not be able to create the swapchain right away, so store creation parameters until we can create it.
 		ISwapchain::SSharedCreationParams m_sharedParams = {};
-
-	protected:
 		// Have to use a second semaphore to make acquire-present pairs independent of each other, also because there can be no ordering ensured between present->acquire
 		core::smart_refctd_ptr<ISemaphore> m_presentSemaphore;
 		// Command Buffers for blitting/copying the Triple Buffers to Swapchain Images
