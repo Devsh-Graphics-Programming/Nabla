@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 namespace nbl
 {
@@ -82,7 +83,7 @@ inline uint16_t2 transformedExtents(const FLAG_BITS transform, const uint16_t2 s
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
 inline float transformedAspectRatio(const FLAG_BITS transform, const uint16_t2 screenSize)
@@ -123,7 +124,7 @@ inline uint16_t2 applyInverseToScreenSpaceCoordinate(const FLAG_BITS transform, 
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
 //! Use this function to apply the swapchain tranformation to the screenspace coordinate `coord` 
@@ -155,7 +156,7 @@ inline uint16_t2 applyToScreenSpaceCoordinate(const FLAG_BITS transform, const u
         default:
             break;
     }
-    return uint16_t2(0);
+    return uint16_t2(0,0);
 }
 
 //! Same as `applyToScreenSpaceCoordinate` but const NDC space
@@ -173,6 +174,7 @@ inline float32_t2 applyToNDC(const FLAG_BITS transform, const float32_t2 ndc)
 template<typename TwoColumns>
 TwoColumns applyToDerivatives(const FLAG_BITS transform, TwoColumns dDx_dDy)
 {
+    using namespace glsl; // IN HLSL mode, C++ doens't need this to access `inverse`
     return mul(inverse(transformMatrix(transform)),dDx_dDy);
 }
 

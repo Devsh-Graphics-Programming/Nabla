@@ -7,7 +7,7 @@
 
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
-//#include "spirv/unified1/spirv.hpp" TODO: also GLSL.450.std for the extended instruction set
+#include "spirv/unified1/GLSL.std.450.h"
 #endif
 
 
@@ -47,6 +47,7 @@ static const uint32_t3 GlobalInvocationId;
 [[vk::ext_builtin_input(spv::BuiltInLocalInvocationIndex)]]
 static const uint32_t LocalInvocationIndex;
 
+//! General Operations
 template<typename T>
 T atomicAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 template<>
@@ -124,6 +125,10 @@ template<>
 uint32_t atomicCompSwap([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, uint32_t value, uint32_t comparator);
 
 
+//! Std 450 Extended set operations
+template<typename SquareMatrix>
+[[vk::ext_instruction(GLSLstd450MatrixInverse)]]
+SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
