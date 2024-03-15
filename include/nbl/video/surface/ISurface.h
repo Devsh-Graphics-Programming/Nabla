@@ -83,6 +83,8 @@ class ISurface : public core::IReferenceCounted
             hlsl::SurfaceTransform::FLAG_BITS currentTransform = hlsl::SurfaceTransform::FLAG_BITS::NONE;
         };
 
+        inline IAPIConnection* getAPIConnection() const { return m_api.get(); }
+
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
         virtual bool isSupportedForPhysicalDevice(const IPhysicalDevice* dev, const uint32_t _queueFamIx) const = 0;
