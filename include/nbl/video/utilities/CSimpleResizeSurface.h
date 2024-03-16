@@ -65,18 +65,6 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 			return ISimpleManagedSurface::present(imageIndex,waitSemaphores);
 		}
 
-	protected:
-		using ISimpleManagedSurface::ISimpleManagedSurface;
-
-		//
-		inline void deinit_impl() override final
-		{
-			becomeIrrecoverable();
-		}
-
-		//
-		inline void becomeIrrecoverable() override {m_swapchainResources = nullptr;}
-
 		//
 		inline bool recreateSwapchain()
 		{
@@ -136,6 +124,18 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 
 			return false;
 		}
+
+	protected:
+		using ISimpleManagedSurface::ISimpleManagedSurface;
+
+		//
+		inline void deinit_impl() override final
+		{
+			becomeIrrecoverable();
+		}
+
+		//
+		inline void becomeIrrecoverable() override { m_swapchainResources = nullptr; }
 
 		// gets called when OUT_OF_DATE upon an acquire
 		inline uint8_t handleOutOfDate() override final
