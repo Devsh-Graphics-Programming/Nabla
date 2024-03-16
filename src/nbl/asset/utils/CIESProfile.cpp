@@ -5,8 +5,8 @@ using namespace asset;
 
 const double& CIESProfile::getIntegral() const 
 {
-    size_t numHSamples = 2 * getHoriSize();
-    size_t numVSamples = 2 * getVertSize();
+    size_t numHSamples = 2 * getHoriAngles().size();
+    size_t numVSamples = 2 * getVertAngles().size();
     double dTheta = core::PI<double>() / numVSamples;
     double dPhi = 2 * core::PI<double>() / numHSamples;
     double dThetaInAngle = MAX_VANGLE / numVSamples;

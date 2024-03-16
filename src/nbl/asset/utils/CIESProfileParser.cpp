@@ -115,7 +115,7 @@ bool CIESProfileParser::parse(CIESProfile& result) {
         for (int i = (int)hAngles.size() - 2; i >= 0; i--) {
             result.addHoriAngle(360.0 - hAngles[i]);
             for (int j = 0; j < vSize; j++)
-                result.setValue(result.getHoriSize() - 1, j, result.getValue(i, j));
+                result.setValue(result.getHoriAngles().size() - 1, j, result.getValue(i, j));
         }
     }
 

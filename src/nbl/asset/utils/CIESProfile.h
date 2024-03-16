@@ -15,13 +15,16 @@ namespace nbl
         class CIESProfile 
         {
             public:
+                using IES_STORAGE_FORMAT = double;
+
                 _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_WIDTH = 1024;
                 _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_HEIGHT = 1024;
 
-                _NBL_STATIC_INLINE_CONSTEXPR double MAX_VANGLE = 180.0;
-                _NBL_STATIC_INLINE_CONSTEXPR double MAX_HANGLE = 360.0;
+                _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_VANGLE = 180.0;
+                _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_HANGLE = 360.0;
 
-                enum PhotometricType : uint32_t {
+                enum PhotometricType : uint32_t 
+                {
                     TYPE_NONE,
                     TYPE_C,
                     TYPE_B,
@@ -34,42 +37,44 @@ namespace nbl
 
                 ~CIESProfile() = default;
 
-                core::vector<double>& getHoriAngles() { return hAngles; }
-                const core::vector<double>& getHoriAngles() const { return hAngles; }
-                core::vector<double>& getVertAngles() { return vAngles; }
-                const core::vector<double>& getVertAngles() const { return vAngles; }
-                const size_t& getHoriSize() const { return hAngles.size(); }
-                const size_t& getVertSize() const { return vAngles.size(); }
-                double getValue(size_t i, size_t j) const { return data[getVertSize() * i + j]; }
-                double getMaxValue() const { return *std::max_element(std::begin(data), std::end(data)); }
+                core::vector<IES_STORAGE_FORMAT>& getHoriAngles() { return hAngles; }
+                const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
+                core::vector<IES_STORAGE_FORMAT>& getVertAngles() { return vAngles; }
+                const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
+                core::vector<IES_STORAGE_FORMAT>& getData() { return data; }
+                const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
 
-                void addHoriAngle(double hAngle) 
+                IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[getVertAngles().size() * i + j]; }
+                IES_STORAGE_FORMAT getMaxValue() const { return *std::max_element(std::begin(data), std::end(data)); }
+
+                void addHoriAngle(IES_STORAGE_FORMAT hAngle)
                 {
                     hAngles.push_back(hAngle);
-                    data.resize(getHoriSize() * getVertSize());
+                    data.resize(getHoriAngles().size() * getVertAngles().size());
                 }
 
-                void setValue(size_t i, size_t j, double val) { data[getVertSize() * i + j] = val; }
+                void setValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[getVertAngles().size() * i + j] = val; }
                 
-                const double& sample(double vAngle, double hAngle) const;
-                const double& getIntegral() const;
+                const IES_STORAGE_FORMAT& sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
+                const IES_STORAGE_FORMAT& getIntegral() const;
 
                 //! Candlepower distribution curve plot as ICPUImageView
                 /*
                     Creates 2D texture of CDC with width & height extent, zAngleDegreeRotation may be
                     used to rotate normalized direction vector obtained from octahdronUVToDir utility with
                 */
+
                 core::smart_refctd_ptr<asset::ICPUImageView> createCDCTexture(const float& zAngleDegreeRotation = 0.f, const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
                 // TODO for @Hazard, I would move it into separate file, we may use this abstraction somewhere too
                 static inline std::pair<float, float> sphericalDirToAngles(const core::vectorSIMDf& dir);
                 static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v, const float& zAngleDegrees);
-
+                
                 PhotometricType type;
-                core::vector<double> hAngles;
-                core::vector<double> vAngles;
-                core::vector<double> data;
+                core::vector<IES_STORAGE_FORMAT> hAngles;
+                core::vector<IES_STORAGE_FORMAT> vAngles;
+                core::vector<IES_STORAGE_FORMAT> data;
         };
     }
 }
