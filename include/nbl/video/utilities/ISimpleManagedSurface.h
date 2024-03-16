@@ -160,19 +160,14 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		{
 			deinit_impl();
 
-			if (m_acquireSemaphore)
-			{
-				auto device = const_cast<ILogicalDevice*>(m_acquireSemaphore->getOriginDevice());
-				const ISemaphore::SWaitInfo info[1] = {{
-					.semaphore = m_acquireSemaphore.get(), .value = m_acquireCount
-				}};
-				device->blockForSemaphores(info);
-			}
+			// I'm going to be lazy and do this instead of blocking on each  of `m_acquireSemaphores`
+			if (m_queue)
+				m_queue->waitIdle();
 
 			m_queue = nullptr;
 			m_maxFramesInFlight = 0;
-			m_acquireSemaphore = 0;
 			m_acquireCount = 0;
+			std::fill(m_acquireSemaphores.begin(),m_acquireSemaphores.end(),nullptr);
 		}
 
 		//
@@ -183,7 +178,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
 		inline uint64_t getAcquireCount() {return m_acquireCount;}
-		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphore.get();}
+		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphores[m_acquireCount%m_maxFramesInFlight].get(); }
 
 	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
 		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
@@ -211,15 +206,15 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 						m_maxFramesInFlight = core::min(caps.maxImageCount+1-caps.minImageCount,ISwapchain::MaxImages);
 					}
 
-					if (m_maxFramesInFlight)
+					for (uint8_t i=0u; i<m_maxFramesInFlight; i++)
 					{
-						m_acquireSemaphore = device->createSemaphore(0u);
-						if (m_acquireSemaphore)
-							return true;
+						m_acquireSemaphores[i] = device->createSemaphore(0u);
+						if (!m_acquireSemaphores[i])
+							return init_fail();
 					}
 				}
 			}
-			return init_fail();
+			return true;
 		}
 
 		// just a simple convenience wrapper
@@ -243,10 +238,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE)
 					return ISwapchain::MaxImages;
 
+				const auto nextAcquireSignal = m_acquireCount+1;
 				const IQueue::SSubmitInfo::SSemaphoreInfo signalInfos[1] = {
 					{
-						.semaphore=m_acquireSemaphore.get(),
-						.value=m_acquireCount+1
+						.semaphore=m_acquireSemaphores[nextAcquireSignal%m_maxFramesInFlight].get(),
+						.value=nextAcquireSignal
 					}
 				};
 
@@ -257,7 +253,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::SUBOPTIMAL: [[fallthrough]];
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::SUCCESS:
 						// the semaphore will only get signalled upon a successful acquire
-						m_acquireCount++;
+						m_acquireCount = nextAcquireSignal;
 						return static_cast<uint8_t>(imageIndex);
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::TIMEOUT: [[fallthrough]];
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::NOT_READY: // don't throw our swapchain away just because of a timeout XD
@@ -327,8 +323,9 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		CThreadSafeQueueAdapter* m_queue = nullptr;
 		//
 		uint8_t m_maxFramesInFlight = 0;
-		// created and persistent after first initialization
-		core::smart_refctd_ptr<ISemaphore> m_acquireSemaphore;
+		// Created and persistent after first initialization, Note that we need one swapchain per Frame In Fligth because Acquires can't wait or synchronize with anything
+		// The only rule is that you can only have `m_maxFramesInFlight` pending acquires to wait with an infinte timeout, so thats about as far as they synchronize.
+		std::array<core::smart_refctd_ptr<ISemaphore>,ISwapchain::MaxImages> m_acquireSemaphores;
 		// You don't want to use `m_swapchainResources.swapchain->getAcquireCount()` because it resets when swapchain gets recreated
 		uint64_t m_acquireCount = 0;
 };
