@@ -67,6 +67,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				friend class ISimpleManagedSurface;
 
 			public:
+				//
+				virtual inline std::span<const asset::E_FORMAT> getPreferredFormats() const {return ISwapchain::SCreationParams::DefaultPreferredFormats;}
+				virtual inline std::span<const asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION> getPreferredEOTFs() const {return ISwapchain::SCreationParams::DefaultEOTFs;}
+				virtual inline std::span<const asset::E_COLOR_PRIMARIES> getPreferredColorPrimaries() const {return ISwapchain::SCreationParams::DefaultColorPrimaries;}
+
 				// If `init` not called yet this might return nullptr, or the old stale swapchain that should be retired
 				inline ISwapchain* getSwapchain() const {return swapchain.get();}
 
