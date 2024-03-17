@@ -117,6 +117,9 @@ protected:
 			descriptorType(inDescriptorType) {}
 		SubAllocDescriptorSetRange() {}
 
+		SubAllocDescriptorSetRange(const SubAllocDescriptorSetRange& other) = delete;
+		SubAllocDescriptorSetRange& operator=(const SubAllocDescriptorSetRange& other) = delete;
+
 		SubAllocDescriptorSetRange& operator=(SubAllocDescriptorSetRange&& other)
 		{
 			eventHandler = std::move(other.eventHandler);
