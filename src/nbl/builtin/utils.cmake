@@ -172,6 +172,10 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		if(NBL_STATIC_BUILD AND _LIB_TYPE_ STREQUAL SHARED)
 			message(FATAL_ERROR "Nabla must be built as dynamic library in order to combine this tool with SHARED setup!")
 		endif()
+		
+		if(NOT _NBL_INTERNAL_BR_CREATION_)
+			target_link_libraries(${_TARGET_NAME_} Nabla)
+		endif()
 	endif()
 	
 	if(NOT DEFINED _NABLA_INCLUDE_DIRECTORIES_) # TODO, validate by populating generator expressions if any and checking whether a path to the BuildConfigOptions.h exists per config
