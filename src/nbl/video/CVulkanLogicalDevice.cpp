@@ -644,7 +644,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
     // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of
     // VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
     core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(params.writes.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
-    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
 
     core::vector<VkDescriptorBufferInfo> vk_bufferInfos(params.bufferCount);
     core::vector<VkDescriptorImageInfo> vk_imageInfos(params.imageCount);
@@ -740,7 +740,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
     }
 
 	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
-	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
 
 	size_t maxSize = core::max(
         core::max(params.bufferCount * sizeof(VkDescriptorBufferInfo), params.imageCount * sizeof(VkDescriptorImageInfo)), 

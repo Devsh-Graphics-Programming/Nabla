@@ -422,6 +422,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
@@ -479,6 +480,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
