@@ -54,7 +54,7 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
 		inline uint8_t acquireNextImage()
 		{
-			if (m_swapchainResources && m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain())
+			if (!m_swapchainResources || m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain())
 				return ISwapchain::MaxImages;
 			return ISimpleManagedSurface::acquireNextImage();
 		}
@@ -64,18 +64,6 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		{
 			return ISimpleManagedSurface::present(imageIndex,waitSemaphores);
 		}
-
-	protected:
-		using ISimpleManagedSurface::ISimpleManagedSurface;
-
-		//
-		inline void deinit_impl() override final
-		{
-			becomeIrrecoverable();
-		}
-
-		//
-		inline void becomeIrrecoverable() override {m_swapchainResources = nullptr;}
 
 		//
 		inline bool recreateSwapchain()
@@ -112,7 +100,13 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 							.sharedParams = m_sharedParams
 							// we're not going to support concurrent sharing in this simple class
 						};
-						if (params.deduceFormat(device->getPhysicalDevice()))
+						const bool success = params.deduceFormat(
+							device->getPhysicalDevice(),
+							m_swapchainResources->getPreferredFormats(),
+							m_swapchainResources->getPreferredEOTFs(),
+							m_swapchainResources->getPreferredColorPrimaries()
+						);
+						if (success)
 							newSwapchain = CVulkanSwapchain::create(core::smart_refctd_ptr<const ILogicalDevice>(device),std::move(params));
 					}
 				}
@@ -130,6 +124,18 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 
 			return false;
 		}
+
+	protected:
+		using ISimpleManagedSurface::ISimpleManagedSurface;
+
+		//
+		inline void deinit_impl() override final
+		{
+			becomeIrrecoverable();
+		}
+
+		//
+		inline void becomeIrrecoverable() override { m_swapchainResources = nullptr; }
 
 		// gets called when OUT_OF_DATE upon an acquire
 		inline uint8_t handleOutOfDate() override final
