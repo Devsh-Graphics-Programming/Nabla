@@ -865,6 +865,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t bufferViewCount = 0u;
             uint32_t imageCount = 0u;
             uint32_t accelerationStructureCount = 0u;
+            uint32_t accelerationStructureWriteCount = 0u;
         };
         virtual void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) = 0;
 
@@ -875,6 +876,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t bufferViewCount = 0u;
             uint32_t imageCount = 0u;
             uint32_t accelerationStructureCount = 0u;
+            uint32_t accelerationStructureWriteCount = 0u;
         };
         virtual void nullifyDescriptors_impl(const SDropDescriptorSetsParams& params) = 0;
 
