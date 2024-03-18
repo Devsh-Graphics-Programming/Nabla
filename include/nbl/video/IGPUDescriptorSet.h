@@ -57,7 +57,6 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
 
-        // why is this private? nothing it uses is private
         // small utility
         inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
         {
