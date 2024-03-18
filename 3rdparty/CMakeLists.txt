@@ -63,8 +63,8 @@ set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
 
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
