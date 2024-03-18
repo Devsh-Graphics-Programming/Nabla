@@ -44,6 +44,7 @@ struct ProtoPipeline final
 			video::IGPUPipelineLayout* layout,
 			video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
+			asset::SBlendParams blendParams = {},
 			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT
 		)
 		{
@@ -69,9 +70,9 @@ struct ProtoPipeline final
 				params[0].layout = layout;
 				params[0].shaders = shaders;
 				params[0].cached = {
-					.vertexInput = inputParams,
-					.primitiveAssembly = assemblyParams,
-					.rasterization = rasterParams,
+					.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
+					.primitiveAssembly = {},
+					.rasterization = DefaultRasterParams,
 					.blend = blendParams,
 					.subpassIx = subpassIx
 				};
@@ -85,13 +86,8 @@ struct ProtoPipeline final
 
 
 		core::smart_refctd_ptr<video::IGPUShader> m_vxShader;
-		// The Full Screen Triangle doesn't use any HW vertex input state
-		constexpr static inline asset::SVertexInputParams inputParams = {};
 		// The default is correct for us
-		constexpr static inline asset::SPrimitiveAssemblyParams assemblyParams = {};
-		// Default is no blending, also ok.
-		constexpr static inline asset::SBlendParams blendParams = {};
-		constexpr static inline asset::SRasterizationParams rasterParams = {
+		constexpr static inline asset::SRasterizationParams DefaultRasterParams = {
 			.faceCullingMode = asset::EFCM_NONE,
 			.depthWriteEnable = false,
 			.depthCompareOp = asset::ECO_ALWAYS

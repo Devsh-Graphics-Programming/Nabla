@@ -599,7 +599,9 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
 
 bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
-    const auto* renderpass = info.framebuffer->getCreationParameters().renderpass.get();
+    const auto* renderpass = info.compatibleRenderpass.get();
+    if (!renderpass)
+        renderpass = info.framebuffer->getCreationParameters().renderpass.get();
     const auto depthStencilAttachmentCount = renderpass->getDepthStencilAttachmentCount();
     const auto colorAttachmentCount = renderpass->getColorAttachmentCount();
     IGPUCommandPool::StackAllocation<VkClearValue> vk_clearValues(m_cmdpool,depthStencilAttachmentCount+colorAttachmentCount);

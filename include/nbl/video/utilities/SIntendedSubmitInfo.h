@@ -70,9 +70,10 @@ struct SIntendedSubmitInfo final
             cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
             cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
         }
-
-
-        //! The last CommandBuffer will be used to record the copy commands    
+  
+        //! SFrontHalf contains the data needed for a submit without signal semaphores, for the purpose of blocking function
+        //! SFrontHalf also holds the queue and has functions to patch the command buffers 
+        //! The last CommandBuffer will be used to record the copy commands  
         struct SFrontHalf final
         {
             //! Need a valid queue and all the command buffers except the last one should be in `EXECUTABLE` state.

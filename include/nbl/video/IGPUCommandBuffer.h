@@ -400,6 +400,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
+            core::smart_refctd_ptr<IGPURenderpass> compatibleRenderpass = nullptr;
             IGPUFramebuffer* framebuffer = nullptr;
             const SClearColorValue* colorClearValues = nullptr;
             const SClearDepthStencilValue* depthStencilClearValues = nullptr;
