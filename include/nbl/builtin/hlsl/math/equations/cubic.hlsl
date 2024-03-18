@@ -12,15 +12,6 @@
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
 
-#ifndef NBL_NOT_A_NUMBER
-#ifdef __cplusplus
-#define NBL_NOT_A_NUMBER() nbl::core::nan<float_t>()
-#else
-// https://learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-float-rules#honored-ieee-754-rules
-#define NBL_NOT_A_NUMBER() 0.0/0.0
-#endif
-#endif //NBL_NOT_A_NUMBER
-
 namespace nbl
 {
 namespace hlsl
@@ -60,7 +51,8 @@ namespace equations
             float_t  A, B, C;
             float_t  sq_A, p, q;
             float_t  cb_p, D;
-            float_t3 s = float_t3(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
+            const float_t NaN = bit_cast<float_t>(numeric_limits<float_t>::quiet_NaN);
+            float_t3 s = float_t3(NaN, NaN, NaN);
             uint32_t rootCount = 0;
 
             /* normal form: x^3 + Ax^2 + Bx + C = 0 */
