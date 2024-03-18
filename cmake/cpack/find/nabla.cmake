@@ -1,5 +1,5 @@
 function(NBL_GEN_FIND_NABLA_COMPONENT_CODE_IMPL _COMPOMENT_ _SPATH_)
-string(APPEND NBL_FIND_NABLA_IMPL "set(_COMPOMENT_ ${_COMPOMENT_})\nset(_SPATH_ ${_SPATH_})\n\nset(NBL_ROOT_PATH ${NBL_ROOT_PATH})\n\n")
+string(APPEND NBL_FIND_NABLA_IMPL "set(_COMPOMENT_ ${_COMPOMENT_})\nset(_SPATH_ ${_SPATH_})\nset(NBL_ROOT_PATH ${NBL_ROOT_PATH})\nset(NBL_STATIC_BUILD ${NBL_STATIC_BUILD})\n\n")
 string(APPEND NBL_FIND_NABLA_IMPL
 [=[
 if(CMAKE_INSTALL_CONFIG_NAME MATCHES "^([Dd][Ee][Bb][Uu][Gg])$")
@@ -12,20 +12,34 @@ else()
 	message(FATAL_ERROR "Internal error, requested \"${CMAKE_INSTALL_CONFIG_NAME}\" configuration is invalid!")
 endif()
 
+string(TOUPPER "${_COMPOMENT_}" _Cu_)
+string(TOLOWER "${_COMPOMENT_}" _Cl_)
+
 string(TOUPPER "${CMAKE_INSTALL_CONFIG_NAME}" _NBL_CONFIG_)
-set(_NBL_PACKAGE_ Nabla${_COMPOMENT_})
+string(TOLOWER "${CMAKE_INSTALL_CONFIG_NAME}" _NBL_CONFIG_L_)
+
+if(NBL_STATIC_BUILD)
+	set(NBL_LIBRARY_TYPE STATIC)
+else()
+	set(NBL_LIBRARY_TYPE DYNAMIC)
+endif()
+
+string(TOUPPER "${NBL_LIBRARY_TYPE}" _LTu_)
+string(TOLOWER "${NBL_LIBRARY_TYPE}" _LTl_)
+
+set(_NBL_PACKAGE_ nabla-${_Cl_}-${_LTl_}-${_NBL_CONFIG_L_})
+set(_NBL_COMPLETE_P_CONFIG_ nabla-${_LTl_}-${_NBL_CONFIG_L_})
 
 set(NBL_CMAKE_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/${NBL_CONFIG_PREFIX_PATH}/cmake")
-set(NBL_CMAKE_COMPOMENT_OUTPUT_DIRECTORY "${NBL_CMAKE_OUTPUT_DIRECTORY}/component")
+set(NBL_CMAKE_COMPOMENT_OUTPUT_DIRECTORY "${NBL_CMAKE_OUTPUT_DIRECTORY}/compoment")
 
 string(REPLACE "${CMAKE_INSTALL_PREFIX}" "" NBL_CMAKE_INSTALL_MANIFEST_CONTENT "${CMAKE_INSTALL_MANIFEST_FILES}")
 list(REMOVE_DUPLICATES NBL_CMAKE_INSTALL_MANIFEST_CONTENT)
 
 set(_NBL_PREFIX_ "${CMAKE_INSTALL_PREFIX}/${NBL_CONFIG_PREFIX_PATH}")
-string(TOUPPER "${_COMPOMENT_}" _Cu_)
-string(TOLOWER "${_COMPOMENT_}" _Cl_)
 
 set(NBL_CMAKE_COMPOMENT_OUTPUT_FILE "${NBL_CMAKE_COMPOMENT_OUTPUT_DIRECTORY}/${_NBL_PACKAGE_}Config.cmake")
+set(NBL_CMAKE_CONFIG_OUTPUT_FILE "${NBL_CMAKE_OUTPUT_DIRECTORY}/${_NBL_COMPLETE_P_CONFIG_}Config.cmake")
 
 cmake_path(RELATIVE_PATH CMAKE_INSTALL_PREFIX BASE_DIRECTORY "${NBL_CMAKE_COMPOMENT_OUTPUT_DIRECTORY}" OUTPUT_VARIABLE _NBL_REL_TO_PREFIX_)
 
@@ -36,11 +50,11 @@ foreach(_MANIFEST_INSTALL_REL_FILE_ IN LISTS NBL_CMAKE_INSTALL_MANIFEST_CONTENT)
 		set(_X_ "${_NBL_REL_TO_PREFIX_}/${_MANIFEST_INSTALL_REL_FILE_}")
 		cmake_path(NORMAL_PATH _X_ OUTPUT_VARIABLE _X_)
 		
-		list(APPEND NABLA_INSTALL_${_Cu_}_${_NBL_CONFIG_} "${_X_}")
+		list(APPEND NABLA_INSTALL_${_Cu_}_${_LTu_}_${_NBL_CONFIG_} "${_X_}")
 	endif()
 endforeach()
 
-set(_NBL_PROXY_ NABLA_INSTALL_${_Cu_}_${_NBL_CONFIG_})
+set(_NBL_PROXY_ NABLA_INSTALL_${_Cu_}_${_LTu_}_${_NBL_CONFIG_})
 
 string(APPEND NBL_MANIFEST_IMPL "set(${_NBL_PROXY_}\n\t${${_NBL_PROXY_}}\n)")
 string(REPLACE ";" "\n\t" NBL_MANIFEST_IMPL "${NBL_MANIFEST_IMPL}")
@@ -49,32 +63,30 @@ file(WRITE "${NBL_CMAKE_COMPOMENT_OUTPUT_FILE}" "${NBL_MANIFEST_IMPL_CONF}")
 
 # the reason behind this weird looking thing is you cannot nest bracket arguments https://cmake.org/cmake/help/latest/manual/cmake-language.7.html#bracket-argument
 # some variables need evaluation but some not and must be literals, to make this code read-able & work we do a small workaround
+
+# Compoment
 configure_file("${NBL_ROOT_PATH}/cmake/cpack/find/compoment/template.cmake" "${NBL_CMAKE_COMPOMENT_OUTPUT_FILE}.tmp" @ONLY)
 file(READ "${NBL_CMAKE_COMPOMENT_OUTPUT_FILE}.tmp" _NBL_COMPOMENT_INCLUDE_LIST_TRANFORM_)
 file(REMOVE "${NBL_CMAKE_COMPOMENT_OUTPUT_FILE}.tmp")
 file(APPEND "${NBL_CMAKE_COMPOMENT_OUTPUT_FILE}" "\n${_NBL_COMPOMENT_INCLUDE_LIST_TRANFORM_}")
 
 # Config
+if(NOT EXISTS "${NBL_CMAKE_CONFIG_OUTPUT_FILE}")
+	file(READ "${NBL_ROOT_PATH}/cmake/cpack/find/licence/template.cmake" _NBL_LICENCE_)
+	file(APPEND "${NBL_CMAKE_CONFIG_OUTPUT_FILE}" "${_NBL_LICENCE_}")
+endif()
 
+configure_file("${NBL_ROOT_PATH}/cmake/cpack/find/config/template.cmake" "${NBL_CMAKE_CONFIG_OUTPUT_FILE}.tmp" @ONLY)
+file(READ "${NBL_CMAKE_CONFIG_OUTPUT_FILE}.tmp" _NBL_CONFIG_FILE_CONTENT_)
+file(REMOVE "${NBL_CMAKE_CONFIG_OUTPUT_FILE}.tmp")
+file(APPEND "${NBL_CMAKE_CONFIG_OUTPUT_FILE}" "\n\n${_NBL_CONFIG_FILE_CONTENT_}")
 ]=]
 )
 
 install(CODE "${NBL_FIND_NABLA_IMPL}" COMPONENT ${_COMPOMENT_})
 endfunction()
 
-function(NBL_GEN_FIND_NABLA_CONFIG_CODE_IMPL)
-string(APPEND NBL_FIND_NABLA_IMPL
-[=[
-
-]=]
-
-install(CODE "${NBL_FIND_NABLA_IMPL}" ALL_COMPONENTS)
-endfunction()
-
-# Generate component configurations
+# Generate compoment configurations
 NBL_GEN_FIND_NABLA_COMPONENT_CODE_IMPL(Headers include)
 NBL_GEN_FIND_NABLA_COMPONENT_CODE_IMPL(Libraries lib)
 NBL_GEN_FIND_NABLA_COMPONENT_CODE_IMPL(Runtimes runtime)
-
-# Generate config file
-NBL_GEN_FIND_NABLA_CONFIG_CODE_IMPL()

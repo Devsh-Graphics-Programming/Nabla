@@ -87,7 +87,7 @@ ARG APACHE_ZOOKEEPER_INSTALL_DIRECTORY
 RUN `
 	# Download Apache ZooKeeper
 	`
-	curl -SL --output zookeeper.zip https://dlcdn.apache.org/zookeeper/zookeeper-3.8.3/apache-zookeeper-3.8.3-bin.tar.gz `
+	curl -SL --output zookeeper.zip https://dlcdn.apache.org/zookeeper/stable/apache-zookeeper-3.8.4-bin.tar.gz `
 	`
 	# Create install directory
 	`
@@ -101,7 +101,7 @@ RUN `
 	`
     && del /q zookeeper.zip `
 	`
-	&& setx PATH "%PATH%;%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%\apache-zookeeper-3.8.3-bin\bin" /M
+	&& setx PATH "%PATH%;%APACHE_ZOOKEEPER_INSTALL_DIRECTORY%\apache-zookeeper-3.8.4-bin\bin" /M
 
 RUN `
 	# Download kazoo 2.8.0 Python (more recent versions doesn't work well with Windows) module
