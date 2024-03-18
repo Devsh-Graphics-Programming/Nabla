@@ -283,7 +283,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // descriptor sets
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
         void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) override;
-        void nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors) override;
+        void nullifyDescriptors_impl(const SDropDescriptorSetsParams& params) override;
 
         // renderpasses and framebuffers
         core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) override;

@@ -865,12 +865,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t bufferViewCount = 0u;
             uint32_t imageCount = 0u;
             uint32_t accelerationStructureCount = 0u;
+            uint32_t accelerationStructureWriteCount = 0u;
         };
         virtual void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) = 0;
 
-        // Drops refcounted references of the descriptors in these indices for the descriptor lifetime tracking 
-        // If the nullDescriptor device feature is enabled, this would also write a null descriptor to the descriptor set
-        virtual void nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors) = 0;
+        struct SDropDescriptorSetsParams
+        {
+            std::span<const IGPUDescriptorSet::SDropDescriptorSet> drops;
+            uint32_t bufferCount = 0u;
+            uint32_t bufferViewCount = 0u;
+            uint32_t imageCount = 0u;
+            uint32_t accelerationStructureCount = 0u;
+            uint32_t accelerationStructureWriteCount = 0u;
+        };
+        virtual void nullifyDescriptors_impl(const SDropDescriptorSetsParams& params) = 0;
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;

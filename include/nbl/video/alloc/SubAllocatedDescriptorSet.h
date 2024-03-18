@@ -58,6 +58,11 @@ public:
 			m_composed = other.m_composed;
 			m_addresses = other.m_addresses;
 			m_binding = other.m_binding;
+
+			// Nullifying other
+			other.m_composed = nullptr;
+			other.m_addresses = nullptr;
+			other.m_binding = 0;
 			return *this;
 		}
 
@@ -116,6 +121,9 @@ protected:
 			reservedSize(inReservedSize),
 			descriptorType(inDescriptorType) {}
 		SubAllocDescriptorSetRange() {}
+
+		SubAllocDescriptorSetRange(const SubAllocDescriptorSetRange& other) = delete;
+		SubAllocDescriptorSetRange& operator=(const SubAllocDescriptorSetRange& other) = delete;
 
 		SubAllocDescriptorSetRange& operator=(SubAllocDescriptorSetRange&& other)
 		{

@@ -422,6 +422,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
@@ -457,13 +458,36 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
 
 bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
 {
+    SDropDescriptorSetsParams params = {.drops=dropDescriptors};
     for (const auto& drop : dropDescriptors)
     {
         auto ds = drop.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
+
+        auto bindingType = ds->getBindingType(drop.binding);
+        auto writeCount = drop.count;
+        switch (asset::IDescriptor::GetTypeCategory(bindingType))
+        {
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                return false;
+        }
+
         // (no binding)
-        if (ds->getBindingType(drop.binding) == asset::IDescriptor::E_TYPE::ET_COUNT)
+        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
             return false;
     }
 
@@ -473,7 +497,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         ds->dropDescriptors(drop);
     }
 
-    nullifyDescriptors_impl(dropDescriptors);
+    nullifyDescriptors_impl(params);
     return true;
 }
 
