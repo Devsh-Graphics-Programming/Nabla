@@ -1005,11 +1005,14 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (renderArea.extent.width==0u || renderArea.extent.height==0u)
         return false;
 
-    const auto& params = info.framebuffer->getCreationParameters();
-    if (renderArea.offset.x+renderArea.extent.width>params.width || renderArea.offset.y+renderArea.extent.height>params.height)
+    const auto& framebufferParams = info.framebuffer->getCreationParameters();
+    if (renderArea.offset.x+renderArea.extent.width>framebufferParams.width || renderArea.offset.y+renderArea.extent.height>framebufferParams.height)
         return false;
 
-    const auto rp = params.renderpass;
+    auto rp = info.compatibleRenderpass; // TODO: Check for compatibility
+    if (!rp)
+        rp = framebufferParams.renderpass;
+
     if (rp->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
         return false;
     if (rp->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
@@ -1020,7 +1023,7 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
 
     if (!beginRenderPass_impl(info, contents))
         return false;
-    m_cachedInheritanceInfo.renderpass = params.renderpass;
+    m_cachedInheritanceInfo.renderpass = rp;
     m_cachedInheritanceInfo.subpass = 0;
     m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
     return true;

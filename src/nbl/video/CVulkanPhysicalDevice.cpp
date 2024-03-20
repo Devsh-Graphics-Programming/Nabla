@@ -420,12 +420,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
         properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
         properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
-        if (!vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative)
-            return nullptr;
+        properties.limits.shaderStorageBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative;
         properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
         properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
-        if (!vulkan12Properties.robustBufferAccessUpdateAfterBind)
-            return nullptr;
+        properties.limits.robustBufferAccessUpdateAfterBind                       = vulkan12Properties.robustBufferAccessUpdateAfterBind;
         properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
         properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
         properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;

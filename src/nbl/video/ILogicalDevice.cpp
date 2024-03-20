@@ -422,6 +422,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
@@ -452,6 +453,51 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
 
     updateDescriptorSets_impl(params);
 
+    return true;
+}
+
+bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+{
+    SDropDescriptorSetsParams params = {.drops=dropDescriptors};
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        if (!ds || !ds->wasCreatedBy(this))
+            return false;
+
+        auto bindingType = ds->getBindingType(drop.binding);
+        auto writeCount = drop.count;
+        switch (asset::IDescriptor::GetTypeCategory(bindingType))
+        {
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                return false;
+        }
+
+        // (no binding)
+        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
+            return false;
+    }
+
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        ds->dropDescriptors(drop);
+    }
+
+    nullifyDescriptors_impl(params);
     return true;
 }
 
@@ -603,6 +649,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
         [this](const IGPUShader::SSpecInfo& info)->bool
         {
+            if (!info.shader)
+                return false;
             return info.shader->wasCreatedBy(this);
         }
     );
@@ -664,7 +712,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             {
                 const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
                     return false;
                 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853

@@ -7,6 +7,7 @@
 #include "nbl/asset/format/EFormat.h"
 
 #include "nbl/video/IAPIConnection.h"
+#include "nbl/builtin/hlsl/surface_transform.h"
 
 #define VK_NO_PROTOTYPES
 #include "vulkan/vulkan.h"
@@ -21,10 +22,6 @@ class ISurface : public core::IReferenceCounted
     protected:
         ISurface(core::smart_refctd_ptr<IAPIConnection>&& api) : m_api(std::move(api)) {}
         virtual ~ISurface() = default;
-
-        //impl of getSurfaceCapabilitiesForPhysicalDevice() needs this
-        virtual uint32_t getWidth() const = 0;
-        virtual uint32_t getHeight() const = 0;
 
         core::smart_refctd_ptr<IAPIConnection> m_api;
 
@@ -48,7 +45,8 @@ class ISurface : public core::IReferenceCounted
             asset::E_FORMAT format = asset::EF_UNKNOWN;
             SColorSpace colorSpace = {};
         };
-        // TODO: move these structs and enums to HLSL header!
+
+        // TODO: move these enums to HLSL header!
         enum E_PRESENT_MODE : uint8_t
         {
             EPM_NONE = 0x0,
@@ -59,105 +57,6 @@ class ISurface : public core::IReferenceCounted
             EPM_ALL_BITS = 0x7u,
             EPM_UNKNOWN = 0
         };
-
-        enum E_SURFACE_TRANSFORM_FLAGS : uint16_t
-        {
-            EST_NONE = 0x0,
-            EST_IDENTITY_BIT = 0x0001,
-            EST_ROTATE_90_BIT = 0x0002,
-            EST_ROTATE_180_BIT = 0x0004,
-            EST_ROTATE_270_BIT = 0x0008,
-            EST_HORIZONTAL_MIRROR_BIT = 0x0010,
-            EST_HORIZONTAL_MIRROR_ROTATE_90_BIT = 0x0020,
-            EST_HORIZONTAL_MIRROR_ROTATE_180_BIT = 0x0040,
-            EST_HORIZONTAL_MIRROR_ROTATE_270_BIT = 0x0080,
-            EST_INHERIT_BIT = 0x0100,
-            EST_ALL_BITS = 0x01FF
-        };
-
-        // A matrix that can be pre-multiplied to the projection matrix in order to apply the
-        // surface transform.
-        static inline core::matrix4SIMD getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)
-        {
-            const float sin90 = 1.0, cos90 = 0.0,
-                sin180 = 0.0, cos180 = -1.0,
-                sin270 = -1.0, cos270 = 0.0;
-
-            switch (transform)
-            {
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_90_BIT:
-                return core::matrix4SIMD(
-                    cos90, -sin90, 0.0, 0.0,
-                    sin90, cos90, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_180_BIT:
-                return core::matrix4SIMD(
-                    cos180, -sin180, 0.0, 0.0,
-                    sin180, cos180, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_270_BIT:
-                return core::matrix4SIMD(
-                    cos270, -sin270, 0.0, 0.0,
-                    sin270, cos270, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_BIT:
-                return core::matrix4SIMD(
-                    -1.0, 0.0, 0.0, 0.0,
-                    0.0, 1.0, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            // The same matricies as the rotation ones above, but with the horizontal mirror matrix
-            // (directly above this) pre-multiplied
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_90_BIT:
-                return core::matrix4SIMD(
-                    -cos90, sin90, 0.0, 0.0,
-                    sin90, cos90, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT:
-                return core::matrix4SIMD(
-                    -cos180, sin180, 0.0, 0.0,
-                    sin180, cos180, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_270_BIT:
-                return core::matrix4SIMD(
-                    -cos270, sin270, 0.0, 0.0,
-                    sin270, cos270, 0.0, 0.0,
-                    0.0, 0.0, 1.0, 0.0,
-                    0.0, 0.0, 0.0, 1.0
-                );
-            default:
-                return core::matrix4SIMD();
-            }
-        }
-
-        static inline float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)
-        {
-            switch (transform)
-            {
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_90_BIT:
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_270_BIT:
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_90_BIT:
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_270_BIT:
-                return float(h) / w;
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_ROTATE_180_BIT:
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_BIT:
-            case ISurface::E_SURFACE_TRANSFORM_FLAGS::EST_HORIZONTAL_MIRROR_ROTATE_180_BIT:
-                return float(w) / h;
-            default:
-                return float(w) / h;
-            }
-        }
 
         enum E_COMPOSITE_ALPHA : uint8_t
         {
@@ -180,9 +79,11 @@ class ISurface : public core::IReferenceCounted
             uint8_t maxImageCount = 0;
             uint8_t maxImageArrayLayers = 0;
             core::bitflag<E_COMPOSITE_ALPHA> supportedCompositeAlpha = ECA_NONE;
-            core::bitflag<E_SURFACE_TRANSFORM_FLAGS> supportedTransforms = EST_NONE;
-            E_SURFACE_TRANSFORM_FLAGS currentTransform = EST_NONE;
+            core::bitflag<hlsl::SurfaceTransform::FLAG_BITS> supportedTransforms = hlsl::SurfaceTransform::FLAG_BITS::NONE;
+            hlsl::SurfaceTransform::FLAG_BITS currentTransform = hlsl::SurfaceTransform::FLAG_BITS::NONE;
         };
+
+        inline IAPIConnection* getAPIConnection() const { return m_api.get(); }
 
         inline E_API_TYPE getAPIType() const { return m_api->getAPIType(); }
 
@@ -194,22 +95,25 @@ class ISurface : public core::IReferenceCounted
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
-        virtual ui::IWindow* getWindow() = 0;
-        inline const ui::IWindow* getWindow() const {return const_cast<ui::IWindow*>(const_cast<ISurface*>(this)->getWindow());}
-
-        // used by some drivers
+        // Can we Nuke this too and get rid of the extra `CSurface` and `CSurfaceNative` inheritance? 
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
-// Base for use with Nabla's window wrappers
-template<class Window, class ImmediateBase>
+// Base for use with Nabla's window wrappers, should maybe be called `CSurfaceWindow` instead, but oh well
+template<class Window, class ImmediateBase> requires (std::is_base_of_v<ui::IWindow,Window> && std::is_base_of_v<ISurface,ImmediateBase>)
 class CSurface : public ImmediateBase
 {
+        using this_t = CSurface<Window, ImmediateBase>;
+
     public:
-        inline ui::IWindow* getWindow() override final
+        using window_t = Window;
+        using immediate_base_t = ImmediateBase;
+
+        inline window_t* getWindow()
         {
             return m_window.get();
         }
+        inline const window_t* getWindow() const {return const_cast<window_t*>(const_cast<this_t*>(this)->getWindow());}
 
         inline const void* getNativeWindowHandle() const override final
         {
@@ -218,17 +122,14 @@ class CSurface : public ImmediateBase
 
     protected:
         template<typename... Args>
-        CSurface(core::smart_refctd_ptr<Window>&& window, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_window(std::move(window)) {}
+        CSurface(core::smart_refctd_ptr<window_t>&& window, Args&&... args) : immediate_base_t(std::forward<Args>(args)...), m_window(std::move(window)) {}
         virtual ~CSurface() = default;
 
-        uint32_t getWidth() const override { return m_window->getWidth(); }
-        uint32_t getHeight() const override { return m_window->getHeight(); }
-
-        core::smart_refctd_ptr<Window> m_window;
+        core::smart_refctd_ptr<window_t> m_window;
 };
 
-// Base to make surfaces directly from Native OS window handles
-template<class Window, class ImmediateBase>
+// Base to make surfaces directly from Native OS window handles (TODO: while merging Erfan, template on the handle instead of the Window)
+template<class Window, class ImmediateBase> requires std::is_base_of_v<ISurface,ImmediateBase>
 class CSurfaceNative : public ImmediateBase
 {
     public:
@@ -238,7 +139,8 @@ class CSurfaceNative : public ImmediateBase
         }
 
     protected:
-        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ImmediateBase(std::move(api)), m_handle(handle) {}
+        template<typename... Args>
+        CSurfaceNative(typename Window::native_handle_t handle, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_handle(handle) {}
         virtual ~CSurfaceNative() = default;
 
         typename Window::native_handle_t m_handle;

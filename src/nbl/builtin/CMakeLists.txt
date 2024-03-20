@@ -15,7 +15,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/fragment_impl.g
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/uv.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/color.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "shader/loader/gltf/no_uv_color.frag")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "specialized_shader/fullscreentriangle.vert")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/lambertian/singletexture/specialized_shader.vert")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/lambertian/singletexture/specialized_shader.frag")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "material/debug/vertex_color/specialized_shader.vert")
@@ -146,7 +145,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shared_arithmetic_po
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shared_shuffle_portability.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/subgroup/shuffle_portability.glsl")
 # utilities
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/indirect_commands.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/common.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/culling.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/compressed_normal_matrix_t.glsl")
@@ -154,9 +152,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/normal_decode.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/normal_encode.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/transform.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/morton.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/surface_transform_transformedDerivatives.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/surface_transform.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/utils/surface_transform_e.h")
 # virtual texturing
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/virtual_texturing/descriptors.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/virtual_texturing/extensions.glsl")
@@ -230,7 +225,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/normalizat
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/descriptors.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/shared_normalization.glsl")
 
-
 # HLSL
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/macros.h")
 #spirv intrinsics
@@ -264,13 +258,16 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/mpl.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/member_test_macros.hlsl")
 #device capability
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/device_capabilities_traits.hlsl")
-#extra math
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/impl.hlsl")
+#linear algebra
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/linalg/fast_affine.hlsl")
 # TODO: rename `equations` to `polynomials` probably
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/geometry.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/equations/quadratic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/equations/cubic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/equations/quartic.hlsl")
+#extra math
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/gauss_legendre.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/quadrature/gauss_legendre/impl.hlsl")
 #acceleration structures
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/acceleration_structures.hlsl")
 #colorspace
@@ -287,11 +284,16 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/circle.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/ellipse.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/line.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/beziers.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/util.hlsl")
+
+
 #subgroup
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/basic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability_impl.hlsl")
+#shared header between C++ and HLSL
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/surface_transform.h")
 #workgroup
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/arithmetic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/basic.hlsl")
@@ -299,6 +301,9 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/broadcast.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/scratch_size.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/shared_scan.hlsl")
+#Extensions
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/SVertexAttributes.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/default.vert.hlsl")
 
 #blur
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/central_limit_blur/box_blur.hlsl")

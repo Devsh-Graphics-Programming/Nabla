@@ -73,15 +73,15 @@ class ISwapchain : public IBackendObject
                 ISurface::ECA_POST_MULTIPLIED_BIT,
                 ISurface::ECA_INHERIT_BIT
             };
-            constexpr static inline ISurface::E_SURFACE_TRANSFORM_FLAGS DefaultPreferredTransforms[] = {
-                ISurface::EST_IDENTITY_BIT
+            constexpr static inline hlsl::SurfaceTransform::FLAG_BITS DefaultPreferredTransforms[] = {
+                hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT
                 // nothing else will work out the box without us explicitly having to handle it
             };
             inline bool deduce(
                 const IPhysicalDevice* physDev, const ISurface* surface,
                 std::span<const ISurface::E_PRESENT_MODE> preferredPresentModes=DefaultPreferredPresentModes,
                 std::span<const ISurface::E_COMPOSITE_ALPHA> preferredCompositeAlphas=DefaultPreferredCompositeAlphas,
-                std::span<const ISurface::E_SURFACE_TRANSFORM_FLAGS> preferredTransforms=DefaultPreferredTransforms
+                std::span<const hlsl::SurfaceTransform::FLAG_BITS> preferredTransforms=DefaultPreferredTransforms
             )
             {
                 ISurface::SCapabilities caps;
@@ -174,7 +174,7 @@ class ISwapchain : public IBackendObject
             uint16_t height = 0u;
             core::bitflag<ISurface::E_COMPOSITE_ALPHA> compositeAlpha = ISurface::ECA_ALL_BITS;
             uint8_t arrayLayers = 1u;
-            core::bitflag<ISurface::E_SURFACE_TRANSFORM_FLAGS> preTransform = ISurface::EST_ALL_BITS;
+            core::bitflag<hlsl::SurfaceTransform::FLAG_BITS> preTransform = hlsl::SurfaceTransform::FLAG_BITS::ALL_BITS;
             // If you set it to something else then your Swapchain will be created with Mutable Format capability
             // NOTE: If you do that, then the bitset needs to contain `viewFormats[surfaceFormat.format] = true` which is deduced later
             std::bitset<asset::E_FORMAT::EF_COUNT> viewFormats = {};
@@ -315,7 +315,7 @@ class ISwapchain : public IBackendObject
 
         // The value passed to `preTransform` when creating the swapchain. "pre" refers to the transform happening
         // as an operation before the presentation engine presents the image.
-        inline ISurface::E_SURFACE_TRANSFORM_FLAGS getPreTransform() const { return m_params.sharedParams.preTransform.value; }
+        inline hlsl::SurfaceTransform::FLAG_BITS getPreTransform() const { return m_params.sharedParams.preTransform.value; }
         
         //
         inline uint64_t getAcquireCount() const {return m_acquireCounter;}
@@ -391,7 +391,7 @@ class ISwapchain : public IBackendObject
             OUT_OF_DATE,
             _ERROR
         };
-        // If `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
+        // If something else than `FATAL_ERROR` returned then the `waitSemaphores` are kept alive by the swapchain until the next acquire of the same image index or swapchain destruction (whichever comes first)
         inline PRESENT_RESULT present(SPresentInfo info)
         {
             if (!info.queue || info.imgIndex>=m_imageCount)
@@ -407,13 +407,13 @@ class ISwapchain : public IBackendObject
             if (threadsafeQ)
                 threadsafeQ->m.unlock();
 
-            // kill a few frame resources
-            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
-            if (retval!=PRESENT_RESULT::FATAL_ERROR)
+            if (retval!=PRESENT_RESULT::FATAL_ERROR && !info.waitSemaphores.empty())
             {
                 auto& lastWait = info.waitSemaphores.back();
                 m_frameResources[info.imgIndex]->latch({.semaphore=lastWait.semaphore,.value=lastWait.value},DeferredFrameSemaphoreDrop(info.waitSemaphores));
             }
+            // kill a few frame resources
+            m_frameResources[info.imgIndex]->poll(DeferredFrameSemaphoreDrop::single_poll);
             return retval;
         }
 

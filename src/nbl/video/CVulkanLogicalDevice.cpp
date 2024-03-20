@@ -334,11 +334,12 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
 {
+    const bool hasStencil = asset::isDepthOrStencilFormat(params.format) && !asset::isDepthOnlyFormat(params.format);
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
     vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
 
     std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
-    VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, &vk_stencilUsage };
+    VkImageFormatListCreateInfo vk_formatListStruct = {VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,hasStencil ? &vk_stencilUsage:nullptr};
     vk_formatListStruct.viewFormatCount = 0u;
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())
@@ -635,12 +636,15 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
     return nullptr;
 }
 
+// a lot of empirical research went into defining this constant
+constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
+
 void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
 {
     // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of
     // VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
     core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(params.writes.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
-    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(69u,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
 
     core::vector<VkDescriptorBufferInfo> vk_bufferInfos(params.bufferCount);
     core::vector<VkDescriptorImageInfo> vk_imageInfos(params.imageCount);
@@ -725,6 +729,63 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
     }
 
     m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),vk_copyDescriptorSets.size(),vk_copyDescriptorSets.data());
+}
+
+void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsParams& params)
+{
+    const auto& drops = params.drops;
+    if (getEnabledFeatures().nullDescriptor)
+    {
+        return;
+    }
+
+	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
+	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+
+	size_t maxSize = core::max(
+        core::max(params.bufferCount * sizeof(VkDescriptorBufferInfo), params.imageCount * sizeof(VkDescriptorImageInfo)), 
+        core::max(params.bufferViewCount * sizeof(VkBufferView), params.accelerationStructureCount * sizeof(VkAccelerationStructureKHR))
+    );
+
+	core::vector<uint8_t> nullDescriptors(maxSize, 0u);
+
+	{
+		auto outWrite = vk_writeDescriptorSets.data();
+		auto outWriteAS = vk_writeDescriptorSetAS.data();
+
+		for (auto i=0; i<drops.size(); i++)
+		{
+			const auto& write = drops[i];
+			auto descriptorType = write.dstSet->getBindingType(write.binding);
+
+			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
+			outWrite->dstBinding = write.binding;
+			outWrite->dstArrayElement = write.arrayElement;
+			outWrite->descriptorType = getVkDescriptorTypeFromDescriptorType(descriptorType);
+			outWrite->descriptorCount = write.count;
+			switch (asset::IDescriptor::GetTypeCategory(descriptorType))
+			{
+			case asset::IDescriptor::EC_BUFFER:
+				outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_IMAGE:
+				outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_BUFFER_VIEW:
+				outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+				outWriteAS->accelerationStructureCount = write.count;
+				outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
+				outWrite->pNext = outWriteAS++;
+				break;
+            default:
+                assert(!"Invalid code path.");
+			}
+			outWrite++;
+		}
+	}
+	m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),0,nullptr);
 }
 
 
@@ -878,18 +939,21 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     }
 
     core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
+    core::vector<VkMemoryBarrier2> barriers(validation.dependencyCount,{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,nullptr});
     {
         auto outDependency = dependencies.data();
+        auto outBarrier = barriers.data();
         auto getSubpassIndex = [](const uint32_t ix)->uint32_t{return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL;};
         for (uint32_t i=0u; i<validation.dependencyCount; i++)
         {
             const auto& dep = params.dependencies[i];
+            outBarrier->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
+            outBarrier->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
+            outBarrier->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
+            outBarrier->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
+            outDependency->pNext = outBarrier++;
             outDependency->srcSubpass = getSubpassIndex(dep.srcSubpass);
             outDependency->dstSubpass = getSubpassIndex(dep.dstSubpass);
-            outDependency->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
-            outDependency->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
-            outDependency->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
-            outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
             outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
             outDependency->viewOffset = dep.viewOffset;
             outDependency++;

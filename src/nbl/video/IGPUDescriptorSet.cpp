@@ -124,6 +124,31 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     incrementVersion();
 }
 
+void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
+{
+    assert(drop.dstSet == this);
+
+    const auto descriptorType = getBindingType(drop.binding);
+
+	auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, drop.binding);
+	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+
+	if (dstDescriptors)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstDescriptors[drop.arrayElement + i] = nullptr;
+
+	if (dstSamplers)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstSamplers[drop.arrayElement + i] = nullptr;
+
+	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
+	// so, only if we do the path that writes descriptors, do we want to increment version
+    if (getOriginDevice()->getEnabledFeatures().nullDescriptor)
+    {
+        incrementVersion();
+    }
+}
+
 bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const
 {
     assert(copy.dstSet == this);

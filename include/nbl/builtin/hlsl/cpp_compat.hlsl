@@ -33,8 +33,8 @@ using add_pointer = std::add_pointer<T>;
 
 // We need variadic macro in order to handle multi parameter templates because the 
 // preprocessor parses the template parameters as different macro parameters.
-#define NBL_REF_ARG(...) typename nbl::hlsl::add_reference<__VA_ARGS__>::type
-#define NBL_CONST_REF_ARG(...) typename nbl::hlsl::add_reference<std::add_const_t<__VA_ARGS__>>::type
+#define NBL_REF_ARG(...) typename nbl::hlsl::add_reference<__VA_ARGS__ >::type
+#define NBL_CONST_REF_ARG(...) typename nbl::hlsl::add_reference<std::add_const_t<__VA_ARGS__ >>::type
 
 #else
 
