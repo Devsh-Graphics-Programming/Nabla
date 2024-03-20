@@ -118,7 +118,7 @@ class CAsyncSingleBufferSubAllocator
         // perfect forward ctor to `CSingleBufferSubAllocator`
         template<typename... Args>
         inline CAsyncSingleBufferSubAllocator(Args&&... args) : m_composed(std::forward<Args>(args)...),
-            deferredFrees(core::smart_refctd_ptr<ILogicalDevice>(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice()))) {}
+            deferredFrees(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice())) {}
         virtual ~CAsyncSingleBufferSubAllocator() {}
 
 

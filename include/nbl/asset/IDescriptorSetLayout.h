@@ -118,6 +118,12 @@ public:
 			return m_stageFlags[index.data];
 		}
 
+		inline core::bitflag<typename SBinding::E_CREATE_FLAGS> getCreateFlags(const storage_range_index_t index) const
+		{
+			assert(index.data < m_count);
+			return m_createFlags[index.data];
+		}
+
 		inline uint32_t getCount(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);

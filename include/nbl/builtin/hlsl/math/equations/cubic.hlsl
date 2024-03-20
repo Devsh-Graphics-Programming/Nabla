@@ -5,19 +5,12 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_EQUATIONS_CUBIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_EQUATIONS_CUBIC_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+
 // TODO: Later include from correct hlsl header
 #ifndef nbl_hlsl_FLT_EPSILON
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
-
-#ifndef NBL_NOT_A_NUMBER
-#ifdef __cplusplus
-#define NBL_NOT_A_NUMBER() nbl::core::nan<float_t>()
-#else
-// https://learn.microsoft.com/en-us/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-float-rules#honored-ieee-754-rules
-#define NBL_NOT_A_NUMBER() 0.0/0.0
-#endif
-#endif //NBL_NOT_A_NUMBER
 
 namespace nbl
 {
@@ -27,15 +20,17 @@ namespace math
 {
 namespace equations
 {
-    //TODO: use numeric_limits<float_t>::PI
-	NBL_CONSTEXPR double PI_DOUBLE = 3.14159265358979323846;
     
     template<typename float_t>
     struct Cubic
     {
-        using float2_t = vector<float_t, 2>;
-        using float3_t = vector<float_t, 3>;
+        using float_t2 = vector<float_t, 2>;
+        using float_t3 = vector<float_t, 3>;
 
+        //TODO: use numeric_limits<float_t>::PI
+        NBL_CONSTEXPR_STATIC_INLINE float_t PI_DOUBLE = 3.14159265358979323846;
+
+        // TODO: a, b, c, d instead for better understanding
         float_t c[4];
 
         static Cubic construct(float_t a, float_t b, float_t c, float_t d)
@@ -49,14 +44,16 @@ namespace equations
         }
 
         // Originally from: https://github.com/erich666/GraphicsGems/blob/master/gems/Roots3And4.c
-        float3_t computeRoots() {
+        float_t3 computeRoots() NBL_CONST_MEMBER_FUNC
+        {
             int     i;
-            double  sub;
-            double  A, B, C;
-            double  sq_A, p, q;
-            double  cb_p, D;
-            float3_t s = float3_t(NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER(), NBL_NOT_A_NUMBER());
-            uint rootCount = 0;
+            float_t  sub;
+            float_t  A, B, C;
+            float_t  sq_A, p, q;
+            float_t  cb_p, D;
+            const float_t NaN = bit_cast<float_t>(numeric_limits<float_t>::quiet_NaN);
+            float_t3 s = float_t3(NaN, NaN, NaN);
+            uint32_t rootCount = 0;
 
             /* normal form: x^3 + Ax^2 + Bx + C = 0 */
 
@@ -84,15 +81,15 @@ namespace equations
                 }
                 else /* one single and one double solution */
                 {
-                    double u = cbrt(-q);
+                    float_t u = cbrt(-q);
                     s[rootCount++] = 2 * u;
                     s[rootCount++] = -u;
                 }
             }
             else if (D < 0) /* Casus irreducibilis: three real solutions */
             {
-                double phi = 1.0 / 3 * acos(-q / sqrt(-cb_p));
-                double t = 2 * sqrt(-p);
+                float_t phi = 1.0 / 3 * acos(-q / sqrt(-cb_p));
+                float_t t = 2 * sqrt(-p);
 
                 s[rootCount++] = t * cos(phi);
                 s[rootCount++] = -t * cos(phi + PI_DOUBLE / 3);
@@ -100,9 +97,9 @@ namespace equations
             }
             else /* one real solution */
             {
-                double sqrt_D = sqrt(D);
-                double u = cbrt(sqrt_D - q);
-                double v = -cbrt(sqrt_D + q);
+                float_t sqrt_D = sqrt(D);
+                float_t u = cbrt(sqrt_D - q);
+                float_t v = -cbrt(sqrt_D + q);
 
                 s[rootCount++] = u + v;
             }

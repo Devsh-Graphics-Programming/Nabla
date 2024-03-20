@@ -15,9 +15,12 @@ namespace nbl::asset
 
 struct SViewport
 {
-    float x, y;
+    float x = 0.f;
+    float y = 0.f;
     float width, height;
-    float minDepth, maxDepth;
+    // Reverse-Z is our framework default
+    float minDepth = 1.f;
+    float maxDepth = 0.f;
 };
 
 

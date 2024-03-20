@@ -197,7 +197,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! This method lets you wrap any other function following the "submit on overflow" pattern with the final submission
         //! to `intendedSubmit.queue` happening automatically, no need for the user to handle the submit at the end.
         //! WARNING: Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
-        //!  of the `updateBufferRangeViaStagingBufferAutoSubmit` function above.
+        //!  like the `updateBufferRangeViaStagingBufferAutoSubmit` function below.
         //! Parameters:
         //! - `intendedSubmit`: more lax than regular `SIntendedSubmitInfo::valid()`, only needs a valid queue and at least one semaphore to use as scratch and signal.
         //!     if you don't have a commandbuffer usable as scratch as the last one, we'll patch internally.

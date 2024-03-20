@@ -599,7 +599,9 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
 
 bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
-    const auto* renderpass = info.framebuffer->getCreationParameters().renderpass.get();
+    const auto* renderpass = info.compatibleRenderpass.get();
+    if (!renderpass)
+        renderpass = info.framebuffer->getCreationParameters().renderpass.get();
     const auto depthStencilAttachmentCount = renderpass->getDepthStencilAttachmentCount();
     const auto colorAttachmentCount = renderpass->getColorAttachmentCount();
     IGPUCommandPool::StackAllocation<VkClearValue> vk_clearValues(m_cmdpool,depthStencilAttachmentCount+colorAttachmentCount);
@@ -729,39 +731,32 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
     return true;
 }
 
-bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
     VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
 
-    constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
-    VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
-    assert(regionCount <= MAX_BLIT_REGION_COUNT);
-
-    for (uint32_t i = 0u; i < regionCount; ++i)
+    core::vector<VkImageBlit> vk_blitRegions(regions.size());
+    auto outRegionIt = vk_blitRegions.data();
+    for (auto region : regions)
     {
-        vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
-        vk_blitRegions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
-        vk_blitRegions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
-        vk_blitRegions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+        outRegionIt->srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
+        outRegionIt->srcSubresource.mipLevel = region.srcMipLevel;
+        outRegionIt->srcSubresource.baseArrayLayer = region.srcBaseLayer;
+        outRegionIt->srcSubresource.layerCount = region.layerCount;
 
-        // Todo(achal): Remove `static_cast`s
-        vk_blitRegions[i].srcOffsets[0] = { static_cast<int32_t>(pRegions[i].srcOffsets[0].x), static_cast<int32_t>(pRegions[i].srcOffsets[0].y), static_cast<int32_t>(pRegions[i].srcOffsets[0].z) };
-        vk_blitRegions[i].srcOffsets[1] = { static_cast<int32_t>(pRegions[i].srcOffsets[1].x), static_cast<int32_t>(pRegions[i].srcOffsets[1].y), static_cast<int32_t>(pRegions[i].srcOffsets[1].z) };
+        memcpy(outRegionIt->srcOffsets,&region.srcMinCoord,sizeof(VkOffset3D)*2);
 
-        vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
-        vk_blitRegions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
-        vk_blitRegions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
-        vk_blitRegions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
-
-        // Todo(achal): Remove `static_cast`s
-        vk_blitRegions[i].dstOffsets[0] = { static_cast<int32_t>(pRegions[i].dstOffsets[0].x), static_cast<int32_t>(pRegions[i].dstOffsets[0].y), static_cast<int32_t>(pRegions[i].dstOffsets[0].z) };
-        vk_blitRegions[i].dstOffsets[1] = { static_cast<int32_t>(pRegions[i].dstOffsets[1].x), static_cast<int32_t>(pRegions[i].dstOffsets[1].y), static_cast<int32_t>(pRegions[i].dstOffsets[1].z) };
+        outRegionIt->dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
+        outRegionIt->dstSubresource.mipLevel = region.dstMipLevel;
+        outRegionIt->dstSubresource.baseArrayLayer = region.dstBaseLayer;
+        outRegionIt->dstSubresource.layerCount = region.layerCount;
+        
+        memcpy(outRegionIt->dstOffsets,&region.dstMinCoord,sizeof(VkOffset3D)*2);
+        outRegionIt++;
     }
 
-    getFunctionTable().vkCmdBlitImage(m_cmdbuf, vk_srcImage, getVkImageLayoutFromImageLayout(srcImageLayout),
-        vk_dstImage, getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_blitRegions,
-        static_cast<VkFilter>(filter));
+    getFunctionTable().vkCmdBlitImage(m_cmdbuf,vk_srcImage,getVkImageLayoutFromImageLayout(srcImageLayout),vk_dstImage,getVkImageLayoutFromImageLayout(dstImageLayout),regions.size(),vk_blitRegions.data(),static_cast<VkFilter>(filter));
 
     return true;
 }

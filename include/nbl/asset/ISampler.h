@@ -75,25 +75,25 @@ class ISampler : public virtual core::IReferenceCounted
 		{
 			struct {
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapU : 3;
+				uint32_t TextureWrapU : 3 = ETC_REPEAT;
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapV : 3;
+				uint32_t TextureWrapV : 3 = ETC_REPEAT;
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapW : 3;
+				uint32_t TextureWrapW : 3 = ETC_REPEAT;
 				//! Values taken from E_TEXTURE_BORDER_COLOR
-				uint32_t BorderColor : 3;
+				uint32_t BorderColor : 3 = ETBC_FLOAT_OPAQUE_BLACK;
 				//! Values taken from E_TEXTURE_FILTER
-				uint32_t MinFilter : 1;
+				uint32_t MinFilter : 1 = ETF_LINEAR;
 				//! Values taken from E_TEXTURE_FILTER
-				uint32_t MaxFilter : 1;
+				uint32_t MaxFilter : 1 = ETF_LINEAR;
 				//! Values taken from E_SAMPLER_MIPMAP_MODE
-				uint32_t MipmapMode : 1;
+				uint32_t MipmapMode : 1 = ESMM_LINEAR;
 				//! Encoded as power of two (so that if you need 16, Anisotropy should be 4); max value is 5
-				uint32_t AnisotropicFilter : 3;
+				uint32_t AnisotropicFilter : 3 = 3;
 				//! Boolean, compare ref to texture
-				uint32_t CompareEnable : 1;
+				uint32_t CompareEnable : 1 = false;
 				//! Values taken from E_COMPARE_OP
-				uint32_t CompareFunc : 3;
+				uint32_t CompareFunc : 3 = ECO_GREATER;
 			};
 			float LodBias = 0.f;
 			float MinLod = -1000.f;

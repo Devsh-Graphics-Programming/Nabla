@@ -61,6 +61,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			L"-fvk-use-scalar-layout",
 			L"-Wno-c++11-extensions",
 			L"-Wno-c++1z-extensions",
+			L"-Wno-c++14-extensions",
 			L"-Wno-gnu-static-float-init",
 			L"-fspv-target-env=vulkan1.3"
 		};
