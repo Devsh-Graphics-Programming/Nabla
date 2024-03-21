@@ -145,7 +145,8 @@ class CFileArchive : public IFileArchive
 				new (file, &m_fileFlags[found->ID]) CInnerArchiveFile<Allocator>(
 					m_fileFlags+found->ID,
 					getDefaultAbsolutePath()/found->pathRelativeToArchive,
-					flags, 
+					flags,
+					fileBuffer.initialModified,
 					fileBuffer.buffer,
 					fileBuffer.size,
 					Allocator(fileBuffer.allocatorState) // no archive uses stateful allocators yet
@@ -161,6 +162,8 @@ class CFileArchive : public IFileArchive
 			void* buffer;
 			size_t size;
 			void* allocatorState;
+			// TODO: Implement this !!!
+			IFileBase::time_point_t initialModified = std::chrono::utc_clock::now();
 		};
 		virtual file_buffer_t getFileBuffer(const SFileList::found_t& found) = 0;
 
