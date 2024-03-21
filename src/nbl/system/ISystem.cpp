@@ -303,7 +303,10 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
         return false;
     else if (flags&IFile::ECF_COHERENT)
         return true;
-    return flushMapping_impl(file,offset,size);
+
+    const bool retval = flushMapping_impl(file,offset,size);
+    file->setLastWriteTime();
+    return retval;
 }
 
 void  ISystem::unmountBuiltins() {

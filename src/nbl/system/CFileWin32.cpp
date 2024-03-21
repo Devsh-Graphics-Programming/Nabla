@@ -43,7 +43,8 @@ inline auto CFileWin32::getLastWriteTime() const -> time_point_t
 
 	using namespace std::chrono;
 	auto const duration = time_point<file_clock>::duration{ ull.QuadPart };
-	return clock_cast<time_point_t::clock>(time_point<file_clock>{ duration });
+	const_cast<CFileWin32*>(this)->setLastWriteTime(clock_cast<time_point_t::clock>(time_point<file_clock>{ duration }));
+	return m_modified.load();
 }
 
 inline size_t CFileWin32::getSize() const

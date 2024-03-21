@@ -1,13 +1,16 @@
 #ifndef _NBL_SYSTEM_I_FILE_BASE_H_INCLUDED_
 #define _NBL_SYSTEM_I_FILE_BASE_H_INCLUDED_
 
+
+#include "nbl/core/atomic.h"
 #include "nbl/core/decl/smart_refctd_ptr.h"
 #include "nbl/core/util/bitflag.h"
+
+#include "nbl/system/path.h"
 
 #include <filesystem>
 #include <type_traits>
 
-#include "nbl/system/path.h"
 
 namespace nbl::system
 {
@@ -40,7 +43,11 @@ class IFileBase : public core::IReferenceCounted
 
 		//!
 		using time_point_t = std::chrono::utc_clock::time_point;
-		virtual inline time_point_t getLastWriteTime() const; 
+		virtual inline time_point_t getLastWriteTime() const;
+		inline void setLastWriteTime(time_point_t tp=time_point_t::clock::now())
+		{
+			core::atomic_fetch_max(&m_modified,time_point_t::clock::now());
+		}
 
 		//
 		inline E_CREATE_FLAGS getFlags() const { return m_flags.value; }
@@ -90,7 +97,7 @@ inline auto IFileBase::getLastWriteTime() const -> time_point_t
 {
 	// in theory should check if file is `coherent & (unlocked_someone_else_can_write | writemapped)`
 	if (m_flags.hasFlags(ECF_WRITE|ECF_COHERENT))
-		return std::chrono::utc_clock::now();
+		const_cast<IFileBase*>(this)->setLastWriteTime();
 	return m_modified.load();
 }
 
