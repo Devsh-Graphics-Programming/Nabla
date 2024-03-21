@@ -132,6 +132,86 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 	out[3] += v4;
 }
 
+constexpr std::array<uint64_t, 4> XXHash_256(const uint8_t* input, const size_t len)
+{
+#define _rotl(x,r) ((x << r) | (x >> (64 - r)))
+    constexpr uint64_t PRIME = 11400714819323198393ULL;
+
+    uint64_t out[4] = { 0,0,0,0 }; // must be initialized to 0s
+
+    const uint8_t* p = input;
+    const uint8_t* const bEnd = p + len;
+
+    uint64_t v1 = len * PRIME;
+    uint64_t v2 = v1;
+    uint64_t v3 = v1;
+    uint64_t v4 = v1;
+
+    const size_t big_loop_step = 4 * 4 * sizeof(uint64_t);
+    const size_t small_loop_step = 4 * sizeof(uint64_t);
+    // Set the big loop limit early enough, so the well-mixing small loop can be executed twice after it
+    const uint8_t* const big_loop_limit = bEnd - big_loop_step - 2 * small_loop_step;
+    const uint8_t* const small_loop_limit = bEnd - small_loop_step;
+
+    constexpr auto getU64 = [](const uint8_t* in)
+        {
+            uint64_t u64 = 0;
+
+            for (int i = 0; i < 8; ++i)
+                u64 |= static_cast<uint64_t>(in[i]) << (i * 8);
+            return u64;
+        };
+
+    while (p < big_loop_limit)
+    {
+        v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+        v1 += v2 *= PRIME;
+        v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+        v2 += v3 *= PRIME;
+        v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+        v3 += v4 *= PRIME;
+        v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+        v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+        v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+        v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+        v4 += v1 *= PRIME;
+    }
+
+    while (p < small_loop_limit)
+    {
+        v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+        v2 += v1 *= PRIME;
+        v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+        v3 += v2 *= PRIME;
+        v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+        v4 += v3 *= PRIME;
+        v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+        v1 += v4 *= PRIME;
+    }
+#undef _rotl
+
+    size_t leftOverBytes = bEnd - p;
+
+    for (size_t i = 0; i < leftOverBytes; ++i)
+        out[i / 8] |= (static_cast<uint64_t>(p[i]) << ((i % 8) * 8));
+
+    out[0] += v1;
+    out[1] += v2;
+    out[2] += v3;
+    out[3] += v4;
+
+    return { out[0],out[1],out[2],out[3] };
+}
+
 
 }
 
