@@ -139,8 +139,17 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
 
     m_recordingFlags = flags;
     m_state = STATE::RECORDING;
-    m_cachedInheritanceInfo = inheritanceInfo ? (*inheritanceInfo):SInheritanceInfo{};
-    return begin_impl(flags, inheritanceInfo);
+    if (inheritanceInfo)
+    {
+        if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+            return false;
+        if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
+            return false;
+        m_cachedInheritanceInfo = *inheritanceInfo;
+    }
+    else
+        m_cachedInheritanceInfo = {};
+    return begin_impl(flags,inheritanceInfo);
 }
 
 bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
@@ -674,6 +683,9 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
 
 bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
 {
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
@@ -990,7 +1002,7 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 }
 
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
+bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
         return false;
@@ -1009,23 +1021,27 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (renderArea.offset.x+renderArea.extent.width>framebufferParams.width || renderArea.offset.y+renderArea.extent.height>framebufferParams.height)
         return false;
 
-    auto rp = info.compatibleRenderpass; // TODO: Check for compatibility
-    if (!rp)
-        rp = framebufferParams.renderpass;
+    if (info.renderpass)
+    {
+        if (!framebufferParams.renderpass->compatible(info.renderpass))
+            return false;
+    }
+    else
+        info.renderpass = framebufferParams.renderpass.get();
 
-    if (rp->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
+    if (info.renderpass->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
         return false;
-    if (rp->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
-        return false;
-
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
+    if (info.renderpass->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
         return false;
 
-    if (!beginRenderPass_impl(info, contents))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(info.renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
         return false;
-    m_cachedInheritanceInfo.renderpass = rp;
+
+    if (!beginRenderPass_impl(info,contents))
+        return false;
+    m_cachedInheritanceInfo.renderpass = info.renderpass;
     m_cachedInheritanceInfo.subpass = 0;
-    m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
+    m_cachedInheritanceInfo.framebuffer = info.framebuffer;
     return true;
 }
 

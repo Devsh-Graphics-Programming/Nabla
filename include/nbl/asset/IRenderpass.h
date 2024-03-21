@@ -32,6 +32,7 @@ class IRenderpass
         {
                 template<typename op_t>
                 using Op = op_t;
+
             public:
                 template<typename op_t>
                 struct DepthStencilOp final
@@ -54,12 +55,17 @@ class IRenderpass
                 // can be reused as different types in the subpasses. Except of course not being able to use
                 // a depth/stencil attachment in place of a colour one, so we trivially satisfy:
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-pDepthStencilAttachment-04440
-                template<typename Layout, template<typename> class op_t>
-                struct SAttachmentDescription
+                struct SAttachmentDescriptionBase
                 {
                     E_FORMAT format = EF_UNKNOWN;
                     IImage::E_SAMPLE_COUNT_FLAGS samples : 6 = IImage::ESCF_1_BIT;
                     uint8_t mayAlias : 1 = false;
+
+                    auto operator<=>(const SAttachmentDescriptionBase&) const = default;
+                };
+                template<typename Layout, template<typename> class op_t>
+                struct SAttachmentDescription : SAttachmentDescriptionBase
+                {
                     op_t<LOAD_OP> loadOp = {};
                     op_t<STORE_OP> storeOp = {};
                     Layout initialLayout = {};
@@ -136,11 +142,18 @@ class IRenderpass
 
                         inline bool isColor() const {return aspectMask==IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;}
 
+                        inline bool used() const
+                        {
+                            return isColor() ? asColor.used():asDepthStencil.used();
+                        }
+
                         bool valid(const SCreationParams& params, const uint32_t depthStencilAttachmentCount, const uint32_t colorAttachmentCount) const;
                     };
                     template<class attachment_ref_t>
                     struct SRenderAttachmentsRef
                     {
+                        constexpr static inline bool IsDepthStencil = attachment_ref_t::IsDepthStencil;
+
                         attachment_ref_t render = {};
                         attachment_ref_t resolve = {};
 
@@ -160,6 +173,8 @@ class IRenderpass
                         };
                         struct ResolveMode
                         {
+                            auto operator<=>(const ResolveMode&) const = default;
+
                             RESOLVE_MODE depth : 4 = RESOLVE_MODE::NONE;
                             RESOLVE_MODE stencil : 4 = RESOLVE_MODE::NONE;
                         } resolveMode;
@@ -192,6 +207,12 @@ class IRenderpass
                         inline bool operator!=(const SPreserveAttachmentRef& other) const
                         {
                             return color!=other.color || index!=other.index;
+                        }
+
+                        // for sorting
+                        inline bool operator<(const SPreserveAttachmentRef& other) const
+                        {
+                            return *reinterpret_cast<const uint32_t*>(this)<reinterpret_cast<const uint32_t&>(other);
                         }
 
                         uint32_t color : 1;
@@ -330,6 +351,9 @@ class IRenderpass
             return false;
         }
 
+        //
+        bool compatible(const IRenderpass* other) const;
+
     protected:
         IRenderpass(const SCreationParams& params, const SCreationParamValidationResult& counts);
         virtual ~IRenderpass() {}
@@ -353,6 +377,117 @@ class IRenderpass
         uint32_t m_loadOpDepthStencilAttachmentEnd = ~0u;
         uint32_t m_loadOpColorAttachmentEnd = ~0u;
 };
+
+inline bool IRenderpass::compatible(const IRenderpass* other) const
+{
+    // If you find yourself spending a lot of time here in your profile, go ahead and implement a precomputed hash and store it in the renderpass
+    if (this==other)
+        return true;
+
+    // assumes the attachment is used
+    auto getAttachment = [](const SCreationParams& params, const bool isColor, uint32_t index) -> SCreationParams::SAttachmentDescriptionBase
+    {
+            if (isColor)
+                return params.colorAttachments[index];
+        else
+            return params.depthStencilAttachments[index];
+    };
+    auto refIncompatible = [&]<typename T>(const T& lhs, const T& rhs) -> bool
+    {
+        // "Two attachment references are compatible if they have matching format and sample count, or are both VK_ATTACHMENT_UNUSED or the pointer that would contain the reference is NULL."
+        const bool used = lhs.used();
+        if (used!=rhs.used())
+            return true;
+        else if (used)
+        {
+            constexpr bool IsColor = !T::IsDepthStencil;
+            return getAttachment(m_params,IsColor,lhs.attachmentIndex)!=getAttachment(other->m_params,IsColor,rhs.attachmentIndex);
+        }
+        return false;
+    };
+
+    // As an additional special case, if two render passes have a single subpass, the resolve attachment reference and depth/stencil resolve mode compatibility requirements are ignored.
+    const bool checkResolve = m_params.subpasses[1]!=SCreationParams::SubpassesEnd || other->m_params.subpasses[1]!=SCreationParams::SubpassesEnd;
+    auto renderIncompatible = [refIncompatible,checkResolve]<typename RenderAttachmentsRef>(const RenderAttachmentsRef& lhs, const RenderAttachmentsRef& rhs) -> bool
+    {
+        if (refIncompatible(lhs.render,rhs.render))
+            return true;
+        if (checkResolve)
+        {
+            if (refIncompatible(lhs.resolve,rhs.resolve))
+                return true;
+            if constexpr (RenderAttachmentsRef::IsDepthStencil)
+            {
+                if (lhs.resolveMode!=rhs.resolveMode)
+                    return true;
+            }
+        }
+        return false;
+    };
+
+    auto getInputAttachment = [getAttachment](const SCreationParams& params, const SCreationParams::SSubpassDescription::SInputAttachmentRef& ref) -> SCreationParams::SAttachmentDescriptionBase
+    {
+        static_assert(offsetof(SCreationParams::SSubpassDescription::SDepthStencilAttachmentRef,attachmentIndex)==offsetof(SCreationParams::SSubpassDescription::SColorAttachmentRef,attachmentIndex));
+        return getAttachment(params,ref.isColor(),ref.asColor.attachmentIndex);
+    };
+
+    // Two render passes are compatible if their corresponding color, input, resolve, and depth/stencil attachment references are compatible and if they are otherwise identical except for:
+    // - Initial and final image layout in attachment descriptions
+    // - Load and store operations in attachment descriptions
+    // - Image layout in attachment references
+    auto otherSubpassIt = other->m_params.subpasses;
+    for (auto subpassIt=m_params.subpasses; *subpassIt!=SCreationParams::SubpassesEnd; otherSubpassIt++,subpassIt++)
+    {
+        if (*otherSubpassIt==SCreationParams::SubpassesEnd)
+            return false;
+
+        // "Two arrays of attachment references are compatible if all corresponding pairs of attachments are compatible."
+        // Implicitly satisfied with our API for color and depth attachments:
+        // "If the arrays are of different lengths, attachment references not present in the smaller array are treated as VK_ATTACHMENT_UNUSED"
+        if (renderIncompatible(subpassIt->depthStencilAttachment,otherSubpassIt->depthStencilAttachment))
+            return false;
+        for (uint8_t i=0; i<SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+        if (renderIncompatible(subpassIt->colorAttachments[i],otherSubpassIt->colorAttachments[i]))
+            return false;
+
+        // "If the arrays are of different lengths, attachment references not present in the smaller array are treated as VK_ATTACHMENT_UNUSED"
+        // Actually need to check for input attachments
+        auto otherInputIt = otherSubpassIt->inputAttachments;
+        constexpr SCreationParams::SSubpassDescription::SInputAttachmentRef InputEnd = {};
+        for (auto inputIt=subpassIt->inputAttachments; *inputIt!=InputEnd || *otherInputIt!=InputEnd; )
+        {
+            const bool lUsed = *inputIt!=InputEnd && inputIt->used();
+            const bool rUsed = *otherInputIt!=InputEnd && otherInputIt->used();
+            if (lUsed!=rUsed)
+                return false;
+            else if (lUsed && getInputAttachment(m_params,*inputIt)!=getInputAttachment(other->m_params,*otherInputIt))
+                return false;
+
+            if (*inputIt!=InputEnd)
+                inputIt++;
+            if (*otherInputIt!=InputEnd)
+                otherInputIt++;
+        }
+#if 0 // spec says nothing about having to match Preserve Attachments
+        // To implement properly, the preserve attachments would need to be sorted
+        auto otherPreserveIt = otherSubpassIt->preserveAttachments;
+        constexpr auto PreserveEnd = SCreationParams::SSubpassDescription::PreserveAttachmentsEnd;
+        for (auto preserveIt=subpassIt->preserveAttachments; *preserveIt!=PreserveEnd; otherPreserveIt++,preserveIt++)
+        {
+            if (*otherPreserveIt==PreserveEnd)
+                return false;
+            if (*preserveIt!=*otherPreserveIt)
+                return false;
+        }
+        if (*otherPreserveIt!=PreserveEnd)
+            return false;
+#endif
+    }
+    if (*otherSubpassIt!=SCreationParams::SubpassesEnd)
+        return false;
+
+    return true;
+}
 
 inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreationParams(const SCreationParams& params)
 {
