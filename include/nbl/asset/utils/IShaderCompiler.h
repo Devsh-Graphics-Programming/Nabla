@@ -20,8 +20,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 {
 	public:
 		//string to be replaced with all "#" except those in "#include"
-		static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
-		static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
+		static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_"; // TODO: remove/move to GLSL Compiler
+		static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER; // TODO: remove/move to GLSL Compiler
 
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
@@ -30,6 +30,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
+					core::streaming_xx256hash hash = {}; // TODO: implement this! especially using the `IFile::getPrecomputedHash()`
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
@@ -102,6 +103,150 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				core::smart_refctd_ptr<CFileSystemIncludeLoader> m_defaultFileSystemLoader;
 		};
 
+		class CCache final
+		{
+			public:
+				using hash_t = core::streaming_xx256hash;
+
+				struct SEntry
+				{
+					struct SDependency
+					{
+						// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
+						inline SDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, const std::string_view& _contents, const hash_t& compileOptionsHash) :
+							requestingSourceDir(_requestingSourceDir), identifier(_identifier), contents(_contents), hash(compileOptionsHash)
+						{
+							assert(!_contents.empty());
+							const auto reqDirStr = requestingSourceDir.make_preferred().string();
+							hash.append(reqDirStr.data(),reqDirStr.size());
+							hash.append(identifier.data(),identifier.size());
+							hash.append(_contents.data(),_contents.size());
+						}
+
+						inline SDependency(SDependency&&) = default;
+						inline SDependency& operator=(SDependency&&) = default;
+
+						inline bool operator==(const SDependency& other) const
+						{
+							return hash==other.hash && identifier==identifier && contents==contents;
+						}
+
+						// path or identifier
+						system::path requestingSourceDir;
+						std::string identifier;
+						// file contents
+						std::string contents;
+						// hash of the contents
+						hash_t hash;
+						// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
+						bool standardInclude;
+					};
+
+					using dependency_container_t = core::smart_refctd_dynamic_array<const SDependency>;
+					template<typename Container>
+					inline SEntry(const Container& _dependencies) : dependencies(core::make_refctd_dynamic_array<dependency_container_t>(_dependencies))
+					{
+						// we must at last have the "main" file as a dependency
+						assert(dependencies && dependencies->size()>0);
+						// the main file is not an include
+						assert(!dependencies->front().standardInclude);
+					}
+
+					inline SEntry(SEntry&&) = default;
+					inline SEntry& operator=(SEntry&&) = default;
+
+					// default Equality operator
+					inline bool operator==(const SEntry& other)
+					{
+						if (dependencies->size()!=other.dependencies->size())
+							return false;
+						for (auto i=0; i!=dependencies->size(); i++)
+						if (dependencies->operator[](i)!=other.dependencies->operator[](i))
+							return false;
+						return true;
+					}
+
+					// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
+					// Obviously the first dependency is the main source file itself! AND ITS HASH MUST INCLUDE THE COMPILE OPTIONS!
+					dependency_container_t dependencies;
+					//
+					core::smart_refctd_ptr<asset::ICPUShader> value;
+				};
+
+				inline void insert(SEntry&& entry)
+				{
+					return m_container.insert(std::move(entry));
+				}
+
+				// can move to .cpp and have it not inline
+				inline asset::ICPUShader* find(const SEntry::SDependency& mainFile, CIncludeFinder* finder) const
+				{
+					auto foundRange = m_container.equal_range(mainFile);
+					for (auto found=foundRange.first; found=foundRange.second; found++)
+					{
+						bool allDependenciesMatch = true;
+						// go through all dependencies
+						for (auto i=1; i!=found->dependencies->size(); i++)
+						{
+							const auto& dependency = found->dependencies->operator[](i);
+
+							IIncludeLoader::found_t header;
+							if (dependency.standardInclude)
+								header = finder->getIncludeStandard(dependency.requestingSourceDir,dependency.identifier);
+							else
+								header = finder->getIncludeRelative(dependency.requestingSourceDir,dependency.identifier);
+
+							if (hash_t::value_type(header.hash)!=hash_t::value_type(dependency.hash) || header.contents!=dependency.contents)
+							{
+								allDependenciesMatch = false;
+								break;
+							}
+						}
+						if (allDependenciesMatch)
+							return found->value;
+					}
+					return nullptr;
+				}
+
+				// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
+
+			private:
+				// we only do lookups based on first element
+				struct Hash
+				{
+					inline size_t operator(const SEntry::SDependency& mainFile) const noexcept
+					{
+						return std::hash(hash_t::value_type(mainFile.hash));
+					}
+					inline size_t operator(const SEntry& entry) const noexcept
+					{
+						return operator()(*entry.dependencies->begin());
+					}
+				};
+				struct KeyEqual
+				{
+					// used for insertions
+					inline bool operator()(const SEntry& lhs, const SEntry& rhs)
+					{
+						return rhs==lhs;
+					}
+					// used to look-up (only by first/main file)
+					inline bool operator()(const SEntry::SDependency& lhs, const SEntry::SDependency& rhs)
+					{
+						return lhs==rhs;
+					}
+					inline bool operator()(const SEntry& lhs, const SEntry::SDependency& rhs)
+					{
+						return lhs.dependencies->front()==rhs;
+					}
+					inline bool operator()(const SEntry::SDependency& lhs, const SEntry& rhs)
+					{
+						return lhs==rhs.dependencies->front();
+					}
+				};
+				core::unordered_multiset<SEntry,Hash,KeyEqual> m_container;
+		};
+
 		enum class E_SPIRV_VERSION : uint32_t
 		{
 			ESV_1_0 = 0x010000u,
@@ -117,6 +262,20 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		struct SPreprocessorOptions
 		{
+			inline CCache::hash_t hash() const
+			{
+				core::streaming_xx256hash retval = {};
+				// we don't hash the `sourceIdentifier` on purpose, gets hashed later
+
+				core::vector<SMacroDefinition> sortedExtraDefines(extraDefines);
+				// Sort them by identifier so the hash is not order-sensitive!
+				std::sort(sortedExtraDefines.begin(),sortedExtraDefines.end(),[](const SMacroDefinition& lhs, const SMacroDefinition& rhs){return lhs.identifier<rhs.identifier;});
+				for (const auto& defines : sortedExtraDefines)
+					retval.append(defines.data(),defines.size());
+
+				return retval;
+			}
+
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
@@ -157,32 +316,64 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		*/
 		struct SCompilerOptions
 		{
-			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
-			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
-			const ISPIRVOptimizer* spirvOptimizer = nullptr;
-			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
-			SPreprocessorOptions preprocessorOptions = {};
+			inline CCache::hash_t hash() const
+			{
+				auto retval = preprocessorOptions.hash();
+				// do not hash the parameters that can be deduced/changed later like `stage`
+				retval.append(&targetSpirvVersion,sizeof(targetSpirvVersion));
+				retval.append(&debugInfoFlags,sizeof(debugInfoFlags));
+				extra_hash_impl(retval);
+				return retval;
+			}
+			virtual void extra_hash_impl(CCache::hash_t&) const = 0; // TODO: implement in other compilers
 
-			void setCommonData(const SCompilerOptions& opt)
+			inline void setCommonData(const SCompilerOptions& opt)
 			{
 				(*this) = opt;
 			}
 
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
+
+			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
+			CCache* cache = nullptr;
+			const ISPIRVOptimizer* spirvOptimizer = nullptr;
+			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+			SPreprocessorOptions preprocessorOptions = {};
 		};
 
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
+		{
+			core::vector<CCache::SEntry::SDependency> dependencies;
+			if (options.cache)
+			{
+				const auto& mainDep = dependencies.emplace_back(code,options.hash());
+				auto found = options.cache->find(mainDep);
+				if (found)
+					return core::smart_refctd_ptr<ICPUShader>(found);
+			}
+			auto retval = compileToSPIRV_impl(code,options,dependencies);
+			if (options.cache)
+				options.cache->insert(CCache::SEntry(dependencies));
+			return retval;
+		}
 
-		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const = 0;
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
+		{
+			if (!code)
+				return nullptr;
+			return compileToSPIRV({code,strlen(code)},options);
+		}
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options) const
 		{
 			size_t fileSize = sourceFile->getSize();
-			std::string code(fileSize, '\0');
+			std::string code(fileSize,'\0');
 
 			system::IFile::success_t success;
 			sourceFile->read(success, code.data(), 0, fileSize);
 			if (success)
-				return compileToSPIRV(code.c_str(), options);
+				return compileToSPIRV(code,options);
 			else
 				return nullptr;
 		}
@@ -280,6 +471,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 		}
 
+		// TODO: push this crap into CGLSLCompiler, HLSL doesn't use it
 		static std::string escapeFilename(std::string&& code);
 
 		static void disableAllDirectivesExceptIncludes(std::string& _code);
@@ -289,17 +481,22 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		static std::string encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier);
 
 		static uint32_t encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions);
+		// end of TODO
 
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
 
 		CIncludeFinder* getDefaultIncludeFinder() { return m_defaultIncludeFinder.get(); }
 
 		const CIncludeFinder* getDefaultIncludeFinder() const { return m_defaultIncludeFinder.get(); }
-	protected:
 
+	protected:
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
+		// `mainDep` passed just so it doesn't have to be recomputed
+		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, CCache::SEntry::SDependency&& mainDep) const = 0;
+
 		core::smart_refctd_ptr<system::ISystem> m_system;
+
 	private:
 		core::smart_refctd_ptr<CIncludeFinder> m_defaultIncludeFinder;
 };

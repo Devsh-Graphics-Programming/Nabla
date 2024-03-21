@@ -59,7 +59,7 @@ namespace nbl::core
 @param[in] len Size in bytes of data pointed by `input`.
 @param[out] out Pointer to 8byte memory to which result will be written.
 */
-inline void XXHash_256(const void* input, size_t len, uint64_t* out)
+inline void XXHash_256(const void* input, size_t len, uint64_t* out) // TODO: maybe take xx256 hash from the lz4 lib?
 {
 	//**************************************
 	// Macros
@@ -132,6 +132,50 @@ inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 	out[3] += v4;
 }
 
+// TODO: a streaming/combining version of the `xxHash256`
+struct streaming_xx256hash
+{
+    public:
+        // builder pattern
+        inline streaming_xx256hash& append(const void* data, const size_t size)
+        {
+            // handle continuity at the front
+            if (leftOverByteCount)
+            {
+                auto* dst = reinterpret_cast<uint8_t*>(&leftOverBytes)+leftOverByteCount;
+                const auto fillCount = sizeof(state)-leftOverByteCount;
+                if (fillCount>size)
+                {
+                    std::copy_n(data,size,dst);
+                    return;
+                }
+                else
+                    std::copy_n(data,fillCount,dst);
+                data += fillCount;
+            }
+
+            // TODO: xx256Hash unrolled loops
+
+            // TODO: don't handle current left-over bytes, save them
+            leftOverByteCount = 0x45u;
+
+            return *this;
+        }
+
+        using value_type = hlsl::uint64_t4;
+        explicit inline operator value_type() const
+        {
+            // TODO: handle left over bytes, return hash value as if we called xx256Hash on whole input at once
+        }
+
+
+    private:
+        hlsl::uint64_t4 state = hlsl::uint64_t4(0,0,0,0);
+        hlsl::uint64_t4 leftOverBytes;
+        uint8_t leftOverByteCount = 0;
+};
+
+// TODO: std::hash<streaming_xx256hash::value_type> specialization
 
 }
 
