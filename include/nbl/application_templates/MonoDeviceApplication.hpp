@@ -69,8 +69,9 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 				if (noQueues)
 					return logFail("Failed to compute queue creation parameters for a Logical Device!");
 				
-				params.featuresToEnable = getRequiredDeviceFeatures(); // .union(getPreferredDeviceFeatures().intersect(m_physicalDevice->getFeatures()))
-				
+				const auto supportedPreferredFormats = getPreferredDeviceFeatures().intersectWith(m_physicalDevice->getFeatures());
+				params.featuresToEnable = getRequiredDeviceFeatures().unionWith(supportedPreferredFormats);
+
 				m_device = m_physicalDevice->createLogicalDevice(std::move(params));
 				if (!m_device)
 					return logFail("Failed to create a Logical Device!");
