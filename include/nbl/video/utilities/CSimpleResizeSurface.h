@@ -24,12 +24,9 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 				return nullptr;
 
 			auto _window = _surface->getWindow();
-			if (!_window)
-				return nullptr;
-
-			auto cb = dynamic_cast<ICallback*>(_window->getEventCallback());
-			if (!cb)
-				return nullptr;
+			ICallback* cb = nullptr;
+			if (_window)
+				cb = dynamic_cast<ICallback*>(_window->getEventCallback());
 
 			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
 		}
@@ -54,8 +51,15 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
 		inline uint8_t acquireNextImage()
 		{
-			if (!m_swapchainResources || m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain())
+			if (!isWindowOpen())
+			{
+				becomeIrrecoverable();
+				return ISwapchain::MaxImages; 
+			}
+			
+			if (!m_swapchainResources || (m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain()))
 				return ISwapchain::MaxImages;
+
 			return ISimpleManagedSurface::acquireNextImage();
 		}
 

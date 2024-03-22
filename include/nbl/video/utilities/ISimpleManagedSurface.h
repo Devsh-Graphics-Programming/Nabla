@@ -232,7 +232,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 			// which is outside of our control here as there is a nice chain of lifetimes of:
 			// `ExternalCmdBuf -via usage of-> Swapchain Image -memory provider-> Swapchain -created from-> Window/Surface`
 			// Only when the last user of the swapchain image drops it, will the window die.
-			if (m_cb->isWindowOpen())
+			if (isWindowOpen())
 			{
 				auto swapchainResources = getSwapchainResources();
 				if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE)
@@ -311,6 +311,13 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		//
 		virtual void deinit_impl() = 0;
+
+		// to trigger `becomeIrrecoverable` if window got closwd
+		inline bool isWindowOpen()
+		{
+			if (!m_cb) return true; // native hwnd has no callbacks set -> user's responsibility to not acquire on window close corresponding to the Surface HWND
+			return m_cb->isWindowOpen();
+		}
 
 		//
 		ICallback* const m_cb = nullptr;
