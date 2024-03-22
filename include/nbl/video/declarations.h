@@ -37,6 +37,7 @@
 #include "nbl/video/utilities/SPhysicalDeviceFilter.h"
 #include "nbl/video/utilities/CSimpleResizeSurface.h"
 #include "nbl/video/utilities/CSmoothResizeSurface.h"
+#include "nbl/video/utilities/CDefaultSwapchainFramebuffers.h"
 
 //VT
 //#include "nbl/video/CGPUMeshPackerV2.h"

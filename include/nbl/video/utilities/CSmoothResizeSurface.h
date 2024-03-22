@@ -252,7 +252,13 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 							.sharedParams = m_sharedParams
 							// we're not going to support concurrent sharing in this simple class
 						};
-						if (params.deduceFormat(device->getPhysicalDevice()))
+						const bool success = params.deduceFormat(
+							device->getPhysicalDevice(),
+							swapchainResources->getPreferredFormats(),
+							swapchainResources->getPreferredEOTFs(),
+							swapchainResources->getPreferredColorPrimaries()
+						);
+						if (success)
 							newSwapchain = CVulkanSwapchain::create(core::smart_refctd_ptr<const ILogicalDevice>(device),std::move(params));
 					}
 				}

@@ -156,6 +156,10 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
 	)
 	
+	set_target_properties(${_TARGET_NAME_} PROPERTIES
+        DISABLE_PRECOMPILE_HEADERS ON
+    )
+	
 	if(_LIB_TYPE_ STREQUAL SHARED)
 		target_compile_definitions(${_TARGET_NAME_} 
 			PRIVATE __NBL_BUILDING_TARGET__
@@ -170,7 +174,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		endif()
 		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
-			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
+			target_link_libraries(${_TARGET_NAME_} Nabla)
 		endif()
 	endif()
 	

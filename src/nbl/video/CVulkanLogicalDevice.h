@@ -59,17 +59,16 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // descriptor creation
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
-
-        // pipeline cache creation!
-        core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) override
+        
+        inline core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const std::span<const uint8_t> initialData, const bool notThreadsafe=false) override
         {
-            VkPipelineCacheCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr};
-            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT:0;
-            createInfo.initialDataSize = initialData->getSize();
-            createInfo.pInitialData = initialData->getPointer();
+            VkPipelineCacheCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr };
+            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT : 0;
+            createInfo.initialDataSize = initialData.size();
+            createInfo.pInitialData = initialData.data();
             VkPipelineCache vk_pipelineCache;
-            if (m_devf.vk.vkCreatePipelineCache(m_vkdev,&createInfo,nullptr,&vk_pipelineCache)==VK_SUCCESS)
-                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),vk_pipelineCache);
+            if (m_devf.vk.vkCreatePipelineCache(m_vkdev, &createInfo, nullptr, &vk_pipelineCache) == VK_SUCCESS)
+                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_pipelineCache);
             return nullptr;
         }
 
@@ -283,7 +282,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // descriptor sets
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
         void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) override;
-        void nullifyDescriptors_impl(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors) override;
+        void nullifyDescriptors_impl(const SDropDescriptorSetsParams& params) override;
 
         // renderpasses and framebuffers
         core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) override;

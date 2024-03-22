@@ -95,7 +95,7 @@ class ISurface : public core::IReferenceCounted
 
         virtual bool getSurfaceCapabilitiesForPhysicalDevice(const IPhysicalDevice* physicalDevice, ISurface::SCapabilities& capabilities) const = 0;
 
-        // used by some drivers
+        // Can we Nuke this too and get rid of the extra `CSurface` and `CSurfaceNative` inheritance? 
         virtual const void* getNativeWindowHandle() const = 0;
 };
 
@@ -139,7 +139,8 @@ class CSurfaceNative : public ImmediateBase
         }
 
     protected:
-        CSurfaceNative(core::smart_refctd_ptr<IAPIConnection>&& api, typename Window::native_handle_t handle) : ImmediateBase(std::move(api)), m_handle(handle) {}
+        template<typename... Args>
+        CSurfaceNative(typename Window::native_handle_t handle, Args&&... args) : ImmediateBase(std::forward<Args>(args)...), m_handle(handle) {}
         virtual ~CSurfaceNative() = default;
 
         typename Window::native_handle_t m_handle;

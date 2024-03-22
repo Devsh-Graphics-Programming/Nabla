@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/ext/FullScreenTriangle/SVertexAttributes.hlsl>
-//#include <nbl/builtin/glsl/utils/surface_transform.glsl>
+#include <nbl/builtin/hlsl/surface_transform.h>
 
 using namespace ::nbl::hlsl;
 using namespace ::nbl::hlsl::ext::FullScreenTriangle;
@@ -19,20 +19,18 @@ const static float32_t2 tc[3] = {
     float32_t2(2.0,0.0)
 };
 
-/*
-layout (push_constant) uniform pushConstants
-{
-	layout (offset = 0) uint swapchainTransform;
-} u_pushConstants;
-*/
+[[vk::constant_id(0)]] const uint32_t SwapchainTransform = 0;
 
-VertexAttributes main()
+
+SVertexAttributes main()
 {
     using namespace ::nbl::hlsl::glsl;
 
-    VertexAttributes retval;
-    //    vec2 pos = nbl_glsl_surface_transform_applyToNDC(u_pushConstants.swapchainTransform, pos[gl_VertexIndex]);
-    spirv::Position = float32_t4(pos[gl_VertexIndex()], 0.f, 1.f);
+    spirv::Position.xy = SurfaceTransform::applyToNDC((SurfaceTransform::FLAG_BITS)SwapchainTransform,pos[gl_VertexIndex()]);
+    spirv::Position.z = 0.f;
+    spirv::Position.w = 1.f;
+
+    SVertexAttributes retval;
     retval.uv = tc[gl_VertexIndex()];
     return retval;
 }

@@ -13,7 +13,7 @@ namespace ext
 namespace FullScreenTriangle
 {
 
-struct VertexAttributes
+struct SVertexAttributes
 {
     [[vk::location(0)]] float32_t2 uv : TEXCOORD0;
 };

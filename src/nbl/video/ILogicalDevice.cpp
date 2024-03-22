@@ -422,6 +422,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
@@ -457,13 +458,36 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
 
 bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
 {
+    SDropDescriptorSetsParams params = {.drops=dropDescriptors};
     for (const auto& drop : dropDescriptors)
     {
         auto ds = drop.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
+
+        auto bindingType = ds->getBindingType(drop.binding);
+        auto writeCount = drop.count;
+        switch (asset::IDescriptor::GetTypeCategory(bindingType))
+        {
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                return false;
+        }
+
         // (no binding)
-        if (ds->getBindingType(drop.binding) == asset::IDescriptor::E_TYPE::ET_COUNT)
+        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
             return false;
     }
 
@@ -473,7 +497,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         ds->dropDescriptors(drop);
     }
 
-    nullifyDescriptors_impl(dropDescriptors);
+    nullifyDescriptors_impl(params);
     return true;
 }
 
@@ -615,6 +639,20 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     return createRenderpass_impl(params,std::move(validation));
 }
 
+asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
+{
+    const auto& props = m_physicalDevice->getProperties();
+    asset::ICPUPipelineCache::SCacheKey key = {.deviceAndDriverUUID="Nabla_v0.0.0_Vulkan_"}; // TODO: append version to Nabla
+    {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (size_t i=0; i<sizeof(props.pipelineCacheUUID); i++)
+            ss << std::hex << std::setw(2) << static_cast<uint32_t>(props.pipelineCacheUUID[i]);
+        key.deviceAndDriverUUID += ss.str();
+    }
+    return key;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
@@ -688,7 +726,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             {
                 const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
                     return false;
                 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
