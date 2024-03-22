@@ -49,16 +49,16 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		inline ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
 
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
-		inline uint8_t acquireNextImage()
+		inline SAcquireResult acquireNextImage()
 		{
 			if (!isWindowOpen())
 			{
 				becomeIrrecoverable();
-				return ISwapchain::MaxImages; 
+				return {};
 			}
 			
 			if (!m_swapchainResources || (m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain()))
-				return ISwapchain::MaxImages;
+				return {};
 
 			return ISimpleManagedSurface::acquireNextImage();
 		}
@@ -142,12 +142,12 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		inline void becomeIrrecoverable() override { m_swapchainResources = nullptr; }
 
 		// gets called when OUT_OF_DATE upon an acquire
-		inline uint8_t handleOutOfDate() override final
+		inline SAcquireResult handleOutOfDate() override final
 		{
 			// recreate swapchain and try to acquire again
 			if (recreateSwapchain())
 				return ISimpleManagedSurface::acquireNextImage();
-			return ISwapchain::MaxImages;
+			return {};
 		}
 
 	private:
