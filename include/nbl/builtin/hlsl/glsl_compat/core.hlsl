@@ -106,6 +106,10 @@ void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
 
+void memoryBarrierBuffer() {
+    spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
+}
+
 namespace impl 
 {
 
