@@ -46,18 +46,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		// IAsset implementations
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t)+sizeof(m_layout)+sizeof(ICPUShader::SSpecInfo)*5; }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-			if (referenceLevelsBelowToConvert)
-			{
-                //intentionally parent is not converted
-                --referenceLevelsBelowToConvert;
-				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
-				for (auto& shader : m_shaders)
-                if (shader)
-					shader->convertToDummyObject(referenceLevelsBelowToConvert);
-			}
-		}
 
         core::smart_refctd_ptr<IAsset> clone(const uint32_t _depth = ~0u) const override
         {
@@ -79,24 +67,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
-			if (memcmp(&m_cachedParams,&other->m_cachedParams,sizeof(m_cachedParams))!=0)
-				return false;
-
-			for (uint32_t i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; ++i)
-			{
-				if (m_infos[i].equalAllButShader(other->m_infos[i]))
-					return false;
-				if (m_shaders[i] && !m_shaders[i]->canBeRestoredFrom(other->m_shaders[i].get()))
-					return false;
-			}
-			if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
-				return false;
-
-			return true;
-		}
 
 		//
 		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
@@ -165,30 +135,40 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			: base_t(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		bool compatible(const IAsset* _other) const override
 		{
-			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
+			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
+			if (memcmp(&m_cachedParams, &other->m_cachedParams, sizeof(m_cachedParams)) != 0)
+				return false;
 
-			if (_levelsBelow)
+			for (uint32_t i = 0u; i < GRAPHICS_SHADER_STAGE_COUNT; ++i)
 			{
-				--_levelsBelow;
-
-				restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
-				for (uint32_t i=0u; i<GRAPHICS_SHADER_STAGE_COUNT; ++i)
-				if (m_shaders[i])
-					restoreFromDummy_impl_call(m_shaders[i].get(), other->m_shaders[i].get(), _levelsBelow);
+				if (m_infos[i].equalAllButShader(other->m_infos[i]))
+					return false;
 			}
+			return true;
+
+		}
+		virtual uint32_t getDependencyCount() const override { return GRAPHICS_SHADER_STAGE_COUNT + 1; }
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override
+		{
+			if (index == 0)
+				return m_layout;
+			else if (index < getDependencyCount())
+				return m_shaders[index - 1];
+			else 
+				return nullptr;
 		}
 
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			if (m_layout->isAnyDependencyDummy(_levelsBelow))
-				return true;
-			for (auto& shader : m_shaders)
-			if (shader && shader->isAnyDependencyDummy(_levelsBelow))
-				return true;
-			return false;
+		virtual void hash_impl(size_t& seed) const override {
+			for (size_t i = 0; i < GRAPHICS_SHADER_STAGE_COUNT; i++)
+			{
+				core::hash_combine(seed, m_infos[i].entryPoint);
+				core::hash_combine(seed, m_infos[i].entries);
+				core::hash_combine(seed, m_infos[i].requiredSubgroupSize);
+				core::hash_combine(seed, m_infos[i].requireFullSubgroups);
+			}
 		}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
