@@ -7,6 +7,7 @@
 # 3 - list of paths to resource files
 
 import sys, os
+from datetime import datetime, timezone
 
 if  len(sys.argv) < 4 :
     print(sys.argv[0] + " - Incorrect argument count")
@@ -24,6 +25,8 @@ else:
     
     outp.write(f"""
     #include "{correspondingHeaderFile}"
+    #include "nbl/core/xxHash256.h"
+    
     namespace {resourcesNamespace}
     {{
     
@@ -37,6 +40,7 @@ else:
     for z in resourcePaths:
         itemData = z.split(',')
         x = itemData[0].rstrip()
+        inputBuiltinResource = cmakeSourceDir+'/'+x
         
         outp.write(f"""
         template<> const SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>()
@@ -45,7 +49,7 @@ else:
         """)
             
         try:
-            with open(cmakeSourceDir+'/'+x, "rb") as f:
+            with open(inputBuiltinResource, "rb") as f:
                 index = 0
                 byte = f.read(1)
                 while byte != b"":
@@ -64,10 +68,21 @@ else:
             Error: BuiltinResources - file with the following path not found: {x}
             """)
             
+        modificationDateT = datetime.fromtimestamp(os.path.getmtime(inputBuiltinResource), timezone.utc) # since the Unix epoch (00:00:00 UTC on 1 January 1970).
+            
         outp.write(f"""
         }};
         
-        static constexpr SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = 69, .modified = {{}} }};    
+        static constexpr SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = nbl::core::XXHash_256(data, sizeof(data)), 
+        .modified = {{
+            .tm_sec = {modificationDateT.second},
+            .tm_min = {modificationDateT.minute},
+            .tm_hour = {modificationDateT.hour},
+            .tm_mday = {modificationDateT.day},
+            .tm_mon = {modificationDateT.month - 1},
+            .tm_year = {modificationDateT.year - 1900},
+            .tm_isdst = 0}} 
+        }};    
         
         return builtinFile;
         }}

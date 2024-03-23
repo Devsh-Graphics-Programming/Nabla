@@ -41,6 +41,7 @@ else:
 #include <unordered_map>
 #include <utility>
 #include <chrono>
+#include <array>
 #include <nbl/core/string/StringLiteral.h>
     """)
     
@@ -69,7 +70,7 @@ namespace {resourcesNamespace}
     {{
         const uint8_t* contents = nullptr;
         size_t size = 0u;
-        uint64_t xx256Hash = 69u;
+        std::array<uint64_t, 4> xx256Hash;
         std::tm modified = {{ // Absolute time since 1970 in UTC+0
             .tm_sec = 6,
             .tm_min = 9,
