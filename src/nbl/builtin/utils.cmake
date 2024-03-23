@@ -156,6 +156,18 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
 	)
 	
+	set(_BR_CONSTEXPR_STEPS_ 696969696969)
+	
+	if(MSVC)
+		list(APPEND _BR_COMPILE_OPTIONS_ /constexpr:steps${_BR_CONSTEXPR_STEPS_})
+	else()
+		list(APPEND _BR_COMPILE_OPTIONS_ -fconstexpr-steps=${_BR_CONSTEXPR_STEPS_})
+	endif()
+	
+	target_compile_options(${_TARGET_NAME_} PRIVATE
+		${_BR_COMPILE_OPTIONS_}
+	)
+	
 	set_target_properties(${_TARGET_NAME_} PROPERTIES
         DISABLE_PRECOMPILE_HEADERS ON
     )
