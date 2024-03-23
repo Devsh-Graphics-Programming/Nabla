@@ -293,8 +293,12 @@ class CElementBSDF : public IElement
 			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
 
-		CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
+		inline CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
 		{
+		}
+		inline CElementBSDF(const CElementBSDF& other) : IElement(other)
+		{
+			operator=(other);
 		}
 		virtual ~CElementBSDF()
 		{
