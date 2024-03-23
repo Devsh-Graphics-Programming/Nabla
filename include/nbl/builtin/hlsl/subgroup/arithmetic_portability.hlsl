@@ -4,11 +4,12 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
-#ifndef NBL_GL_KHR_shader_subgroup_arithmetic
-#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
-#endif
 
+#include "nbl/builtin/hlsl/device_capabilities_traits.hlsl"
+
+#include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
+
 
 namespace nbl
 {
@@ -17,47 +18,12 @@ namespace hlsl
 namespace subgroup
 {
 
-template<typename T, class Binop>
-struct reduction
-{
-    T operator()(const T x)
-    {
-    #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        native::reduction<T, Binop> reduce;
-        return reduce(x);
-    #else
-        return portability::reduction<T, Binop>(x);
-    #endif
-    }
-};
-
-template<typename T, class Binop>
-struct exclusive_scan
-{
-    T operator()(const T x)
-    {
-    #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        native::exclusive_scan<T, Binop> scan;
-        return scan(x);
-    #else
-        return portability::exclusive_scan<T, Binop>(x);
-    #endif
-    }
-};
-
-template<typename T, class Binop>
-struct inclusive_scan
-{
-    T operator()(const T x)
-    {
-    #ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-        native::inclusive_scan<T, Binop> scan;
-        return scan(x);
-    #else
-        return portability::inclusive_scan<T, Binop>(x);
-    #endif
-    }
-};
+template<class Binop, class device_capabilities=void>
+struct reduction : impl::reduction<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+template<class Binop, class device_capabilities=void>
+struct inclusive_scan : impl::inclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+template<class Binop, class device_capabilities=void>
+struct exclusive_scan : impl::exclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
 
 }
 }

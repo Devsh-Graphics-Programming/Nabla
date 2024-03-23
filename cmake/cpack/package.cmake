@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" NBL_SYSTEM_PROCESSOR)
+
 if(NBL_STATIC_BUILD)
-	set(CPACK_PACKAGE_NAME "nabla-s")
+	set(CPACK_PACKAGE_NAME "nabla-${NBL_SYSTEM_PROCESSOR}-mt-s")
 else()
-	set(CPACK_PACKAGE_NAME "nabla-d")
+	set(CPACK_PACKAGE_NAME "nabla-${NBL_SYSTEM_PROCESSOR}-md-d")
 endif()
 
 list(APPEND CPACK_COMPONENTS_ALL Headers Libraries Runtimes)
@@ -45,10 +47,10 @@ else()
 endif()
 
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+set(CPACK_ARCHIVE_COMPONENT_INSTALL OFF)
 
 if(WIN32)
 	set(CPACK_GENERATOR "ZIP")
-	set(CPACK_ARCHIVE_COMPONENT_INSTALL ON)
 endif() # TODO: Linux, Android, MacOS. Android and MacOS will have non-archive generators but GUI installers. Linux will use 7Z
 
 set(CPACK_COMPONENT_HEADERS_DISPLAY_NAME "Headers")

@@ -11,7 +11,6 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -213,19 +212,13 @@ template<bool val>
 struct bool_constant : integral_constant<bool, val> {};
 
 struct true_type : bool_constant<true> {};
-struct false_type : bool_constant<true> {};
+struct false_type : bool_constant<false> {};
 
 template<bool C, class T, class F>
 struct conditional : type_identity<T> {};
 
 template<class T, class F>
 struct conditional<false, T, F>  : type_identity<F> {};
-
-template<bool C, typename T, T A, T B>
-struct conditional_value
-{
-    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
-};
 
 template<class A, class B>
 struct is_same : bool_constant<false> {};
@@ -487,6 +480,9 @@ using integral_constant = std::integral_constant<T, val>;
 template<bool val>
 using bool_constant = std::bool_constant<val>;
 
+using true_type   = std::true_type;
+using false_type  = std::false_type;
+
 template <bool C, class T, class F>
 using conditional  = std::conditional<C, T, F>;
 
@@ -588,6 +584,11 @@ using make_unsigned = std::make_unsigned<T>;
 #endif
 
 // Overlapping definitions
+template<bool C, typename T, T A, T B>
+struct conditional_value
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
+};
 
 template<class T>
 struct is_vector : bool_constant<false> {};
@@ -601,22 +602,60 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
-template<typename V>
+template<class T>
+NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
+
+template<typename T,bool=is_scalar<T>::value>
 struct scalar_type
 {
     using type = void;
 };
 
+template<typename T>
+struct scalar_type<T,true>
+{
+    using type = T;
+};
+
 template<typename T, uint16_t N>
-struct scalar_type<vector<T,N> >
+struct scalar_type<vector<T,N>,false>
 {
     using type = T;
 };
 
 template<typename T, uint16_t N, uint16_t M>
-struct scalar_type<matrix<T,N,M> >
+struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
+};
+
+template<typename T>
+using scalar_type_t = typename scalar_type<T>::type;
+
+
+template<uint16_t bytesize>
+struct unsigned_integer_of_size
+{
+    using type = void;
+};
+
+template<>
+struct unsigned_integer_of_size<2>
+{
+    using type = uint16_t;
+};
+
+template<>
+struct unsigned_integer_of_size<4>
+{
+    using type = uint32_t;
+};
+
+template<>
+struct unsigned_integer_of_size<8>
+{
+    using type = uint64_t;
 };
 
 }
@@ -630,8 +669,10 @@ struct scalar_type<matrix<T,N,M> >
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
-#define NBL_REGISTER_OBJ_TYPE(T, A) namespace nbl { namespace hlsl { \
-    namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; } \ 
+// Found a bug in Boost.Wave, try to avoid multi-line macros https://github.com/boostorg/wave/issues/195
+#define NBL_IMPL_SPECIALIZE_TYPE_ID(T) namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }
+
+#define NBL_REGISTER_OBJ_TYPE(T,A) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(T) \
     template<> struct alignment_of<T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<const T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<typename impl::add_lvalue_reference<T>::type> : integral_constant<uint32_t,A> {}; \
@@ -639,7 +680,7 @@ struct scalar_type<matrix<T,N,M> >
 }}
 
 // TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
-#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { template<> struct typeid_t<__decltype(fn)> : integral_constant<uint32_t,__COUNTER__> {}; }}
+#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(__decltype(fn)) }}
 // TODO: ideally we'd like to call NBL_REGISTER_FUN_TYPE under the hood, but we can't right now. Also we have a bigger problem, the passing of the function identifier as the second template parameter doesn't work :(
 /*
 template<> \

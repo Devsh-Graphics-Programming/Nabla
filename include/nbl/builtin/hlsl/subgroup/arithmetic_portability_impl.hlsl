@@ -4,11 +4,17 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
+
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
-#include "nbl/builtin/hlsl/binops.hlsl"
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
+
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 
+#include "nbl/builtin/hlsl/functional.hlsl"
+
+
+// TODO: If you ever get errors from trying this stuff on a vector, its because `minimum` and `maximum` functionals are not implemented with `mix`
+// TODO: split into two files
 namespace nbl
 {
 namespace hlsl
@@ -16,332 +22,123 @@ namespace hlsl
 namespace subgroup
 {
 
-#ifdef NBL_GL_KHR_shader_subgroup_arithmetic
-namespace native
+namespace impl
 {
-
-template<typename T, class Binop>
+template<class Binop, bool native> // might need a 3rd default param `typename T=typename Binop::type_t`
 struct reduction;
-template<typename T, class Binop>
-struct exclusive_scan;
-template<typename T, class Binop>
+template<class Binop, bool native>
 struct inclusive_scan;
+template<class Binop, bool native>
+struct exclusive_scan;
 
-// *** AND ***
-template<typename T>
-struct reduction<T, binops::bitwise_and<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupAnd<T>(x);
-    }
-};
+// native
+template<class Binop>
+struct reduction<Binop, true>;
+template<class Binop>
+struct inclusive_scan<Binop, true>;
+template<class Binop>
+struct exclusive_scan<Binop, true>;
 
-template<typename T>
-struct inclusive_scan<T, binops::bitwise_and<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupInclusiveAnd<T>(x);
-    }
-};
+// portability
+template<class Binop>
+struct reduction<Binop, false>;
+template<class Binop>
+struct inclusive_scan<Binop, false>;
+template<class Binop>
+struct exclusive_scan<Binop, false>;
 
-template<typename T>
-struct exclusive_scan<T, binops::bitwise_and<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupExclusiveAnd<T>(x);
-    }
-};
+// specialize native
 
-// *** OR ***
-template<typename T>
-struct reduction<T, binops::bitwise_or<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupOr<T>(x);
-    }
-};
-
-template<typename T>
-struct inclusive_scan<T, binops::bitwise_or<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupInclusiveOr<T>(x);
-    }
-};
-
-template<typename T>
-struct exclusive_scan<T, binops::bitwise_or<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupExclusiveOr<T>(x);
-    }
-};
-
-// *** XOR ***
-template<typename T>
-struct reduction<T, binops::bitwise_xor<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupXor<T>(x);
-    }
-};
-
-template<typename T>
-struct inclusive_scan<T, binops::bitwise_xor<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupInclusiveXor<T>(x);
-    }
-};
-
-template<typename T>
-struct exclusive_scan<T, binops::bitwise_xor<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupExclusiveXor<T>(x);
-    }
-};
-
-// *** ADD ***
-template<typename T>
-struct reduction<T, binops::add<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupAdd<T>(x);
-    }
-};
-template<typename T>
-struct inclusive_scan<T, binops::add<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupInclusiveAdd<T>(x);
-    }
-};
-template<typename T>
-struct exclusive_scan<T, binops::add<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupExclusiveAdd<T>(x);
-    }
-};
-
-// *** MUL ***
-template<typename T>
-struct reduction<T, binops::mul<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupMul<T>(x);
-    }
-};
-template<typename T>
-struct exclusive_scan<T, binops::mul<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupInclusiveMul<T>(x);
-    }
-};
-template<typename T>
-struct inclusive_scan<T, binops::mul<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupExclusiveMul<T>(x);
-    }
-};
-
-// *** MIN ***
-template<typename T>
-struct reduction<T, binops::min<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupMin<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<int, binops::min<int> >
-{
-    int operator()(const int x)
-    {
-        return glsl::subgroupInclusiveMin<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<uint, binops::min<uint> >
-{
-    uint operator()(const uint x)
-    {
-        return glsl::subgroupInclusiveMin<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<uint, binops::min<float> >
-{
-    float operator()(const float x)
-    {
-        return glsl::subgroupInclusiveMin<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<int, binops::min<int> >
-{
-    int operator()(const int x)
-    {
-        return glsl::subgroupExclusiveMin<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<uint, binops::min<uint> >
-{
-    uint operator()(const uint x)
-    {
-        return glsl::subgroupExclusiveMin<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<uint, binops::min<float> >
-{
-    float operator()(const float x)
-    {
-        return glsl::subgroupExclusiveMin<T>(x);
-    }
-};
-
-// *** MAX ***
-template<typename T>
-struct reduction<T, binops::max<T> >
-{
-    T operator()(const T x)
-    {
-        return glsl::subgroupMax<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<int, binops::max<int> >
-{
-    int operator()(const int x)
-    {
-        return glsl::subgroupInclusiveMax<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<uint, binops::max<uint> >
-{
-    uint operator()(const uint x)
-    {
-        return glsl::subgroupInclusiveMax<T>(x);
-    }
-};
-
-template<>
-struct inclusive_scan<uint, binops::max<float> >
-{
-    float operator()(const float x)
-    {
-        return glsl::subgroupInclusiveMax<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<int, binops::max<int> >
-{
-    int operator()(const int x)
-    {
-        return glsl::subgroupExclusiveMax<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<uint, binops::max<uint> >
-{
-    uint operator()(const uint x)
-    {
-        return glsl::subgroupExclusiveMax<T>(x);
-    }
-};
-
-template<>
-struct exclusive_scan<uint, binops::max<float> >
-{
-    float operator()(const float x)
-    {
-        return glsl::subgroupExclusiveMax<T>(x);
-    }
-};
-
+#define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<BINOP<T>,true> \
+{ \
+    using type_t = T; \
+ \
+    type_t operator()(NBL_CONST_REF_ARG(type_t) v) {return glsl::subgroup##SUBGROUP_OP<type_t>(v);} \
 }
-#else
-namespace portability
-{
-    
+
+#define SPECIALIZE_ALL(BINOP,SUBGROUP_OP) SPECIALIZE(reduction,BINOP,SUBGROUP_OP); \
+    SPECIALIZE(inclusive_scan,BINOP,Inclusive##SUBGROUP_OP); \
+    SPECIALIZE(exclusive_scan,BINOP,Exclusive##SUBGROUP_OP);
+
+SPECIALIZE_ALL(bit_and,And);
+SPECIALIZE_ALL(bit_or,Or);
+SPECIALIZE_ALL(bit_xor,Xor);
+
+SPECIALIZE_ALL(plus,Add);
+SPECIALIZE_ALL(multiplies,Mul);
+
+SPECIALIZE_ALL(minimum,Min);
+SPECIALIZE_ALL(maximum,Max);
+
+#undef SPECIALIZE_ALL
+#undef SPECIALIZE
+
+// specialize portability
+
 // WARNING
 // THIS PORTABILITY IMPLEMENTATION USES SHUFFLE OPS
 // Shuffles where you attempt to read an invactive lane, return garbage, 
 // which means that our portability reductions and prefix sums will also return garbage/UB/UV
 // Always use the native subgroup_arithmetic extensions if supported
     
-template<typename T, class Binop>
-T inclusive_scan(T value)
+template<class Binop>
+struct inclusive_scan<Binop, false>
 {
-    Binop op;
-    const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-    const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
-    
-    uint rhs = glsl::subgroupShuffleUp<T>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-    value = op(value, subgroupInvocation < 1u ? Binop::identity() : rhs);
-    
-    [[unroll(5)]]
-    for (uint step=2u; step <= halfSubgroupSize; step <<= 1u)
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(type_t value)
     {
-        rhs = glsl::subgroupShuffleUp<T>(value, step);
-        value = op(value, subgroupInvocation < step ? Binop::identity() : rhs);
+        return __call(value);
     }
-    return value;
+
+    static type_t __call(type_t value)
+    {
+        Binop op;
+        const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
+    
+        type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+        value = op(value, subgroupInvocation<1u ? Binop::identity:rhs);
+    
+        [[unroll(nbl::hlsl::subgroup::MinSubgroupSizeLog2-1)]]
+        for (uint step=2u; step<=halfSubgroupSize; step <<= 1u)
+        {
+            rhs = glsl::subgroupShuffleUp<type_t>(value, step);
+            value = op(value, subgroupInvocation<step ? Binop::identity:rhs);
+        }
+        return value;
+    }
+};
+
+template<class Binop>
+struct exclusive_scan<Binop, false>
+{
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(type_t value)
+    {
+        value = inclusive_scan<Binop,false>::__call(value);
+        // can't risk getting short-circuited, need to store to a var
+        type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
+        // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
+        return bool(glsl::gl_SubgroupInvocationID()) ? left:Binop::identity;
+    }
+};
+
+template<class Binop>
+struct reduction<Binop, false>
+{
+    using type_t = typename Binop::type_t;
+
+    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
+    {
+        // take the last subgroup invocation's value for the reduction
+        return BroadcastLast<type_t>(inclusive_scan<Binop,false>::__call(value));
+    }
+};
+
 }
 
-template<typename T, class Binop>
-T exclusive_scan(T value)
-{
-    const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-    value = inclusive_scan<T, Binop>(value);
-    // store value to smem so we can shuffle it
-    uint left = glsl::subgroupShuffleUp<T>(value, 1);
-    value = subgroupInvocation >= 1 ? left : Binop::identity(); // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-    // return it
-    return value;
-}
-
-template<typename T, class Binop>
-T reduction(T value)
-{
-    value = inclusive_scan<T, Binop>(value);
-    value = glsl::subgroupBroadcast<T>(value, LastSubgroupInvocation()); // take the last subgroup invocation's value for the reduction
-    return value;
-}
-}
-#endif
 }
 }
 }

@@ -12,7 +12,7 @@
 
 namespace nbl::scene
 {
-
+# if 0 // REDO
 class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 {
 	public:
@@ -22,8 +22,6 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 
 		static void enablePreferredFeatures(const video::SPhysicalDeviceFeatures& availableFeatures, video::SPhysicalDeviceFeatures& featuresToEnable)
 		{
-			featuresToEnable.multiDrawIndirect = availableFeatures.multiDrawIndirect;
-			featuresToEnable.drawIndirectCount = availableFeatures.drawIndirectCount;
 		}
 
 		//
@@ -42,7 +40,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		};
 
 		//
-		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IGPUQueue* queue)
+		static core::smart_refctd_ptr<video::IGPUBuffer> createDispatchIndirectBuffer(video::IUtilities* utils, video::IQueue* queue)
 		{
 			DispatchIndirectParams contents;
 			auto setWorkgroups = [](asset::DispatchIndirectCommand_t& cmd)
@@ -113,15 +111,15 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		// you only need to call this on startup, the culling system cleans up after itself (resets to 0)
 		inline void clearScratch(
 			video::IGPUCommandBuffer* cmdbuf,
-			const asset::SBufferRange<video::IGPUBuffer>& lodDrawCallCounts,
+			const asset::SBufferBinding<video::IGPUBuffer>& lodDrawCallCounts,
 			const asset::SBufferRange<video::IGPUBuffer>& prefixSumScratch
 		)
 		{
-			cmdbuf->fillBuffer(lodDrawCallCounts.buffer.get(),lodDrawCallCounts.offset,sizeof(uint32_t),0u);
+			cmdbuf->fillBuffer({lodDrawCallCounts.offset,sizeof(uint32_t),lodDrawCallCounts.buffer},0u);
 			// if we allow for more than 2^31 theoretical pool allocator entries AND SSBOs bigger than 2GB we might have to change this logic
 			static_assert(video::CScanner::Parameters::MaxScanLevels<=7u,"Max Scan Scheduling Hierarchy Tree Height has increased, logic needs update");
 			const uint32_t schedulerSizeBound = core::min(sizeof(uint32_t)<<20u,prefixSumScratch.size);
-			cmdbuf->fillBuffer(prefixSumScratch.buffer.get(),prefixSumScratch.offset,schedulerSizeBound,0u);
+			cmdbuf->fillBuffer({prefixSumScratch.offset,schedulerSizeBound,prefixSumScratch.buffer},0u);
 		}
 
 		// Per-View Per-Instance buffer should hold at least an MVP matrix
@@ -160,8 +158,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline constexpr auto InputDescriptorBindingCount = 8u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createInputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
-			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
+			withMDICounts &= device->getPhysicalDevice()->getLimits().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[InputDescriptorBindingCount];
 			for (auto i=0u; i<InputDescriptorBindingCount; i++)
@@ -182,8 +179,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		static inline constexpr auto OutputDescriptorBindingCount = 4u;
 		static inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createOutputDescriptorSetLayout(video::ILogicalDevice* device, bool withMDICounts=false)
 		{
-			withMDICounts &= device->getEnabledFeatures().multiDrawIndirect;
-			withMDICounts &= device->getEnabledFeatures().drawIndirectCount;
+			withMDICounts &= device->getPhysicalDevice()->getLimits().drawIndirectCount;
 
 			video::IGPUDescriptorSetLayout::SBinding bindings[OutputDescriptorBindingCount];
 			for (auto i=0u; i<OutputDescriptorBindingCount; i++)
@@ -317,6 +313,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		};
 		void processInstancesAndFillIndirectDraws(const Params& params, const uint32_t directInstanceCullInstanceCount=0u)
 		{
+			assert(false);
+#if 0 // TODO: redo
 			auto cmdbuf = params.cmdbuf;
 			const auto queueFamilyIndex = cmdbuf->getPool()->getQueueFamilyIndex();
 			const asset::SBufferRange<video::IGPUBuffer> indirectRange = {
@@ -350,11 +348,11 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				setBarrierBuffer(barriers[0],params.drawCalls,indirectAccessMask,wAccessMask);
 				setBarrierBuffer(barriers[1],params.perViewPerInstance,asset::EAF_SHADER_READ_BIT,wAccessMask);
 				setBarrierBuffer(barriers[2],params.perInstanceRedirectAttribs,asset::EAF_VERTEX_ATTRIBUTE_READ_BIT,wAccessMask);
-				cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT,asset::EPSF_COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT,asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,asset::EDF_NONE,0u,nullptr,3u,barriers,0u,nullptr);
 			}
 			setBarrierBuffer(barriers[0],indirectRange,indirectAccessMask,indirectAccessMask);
 			
-			const auto internalStageFlags = core::bitflag(asset::EPSF_DRAW_INDIRECT_BIT)|asset::EPSF_COMPUTE_SHADER_BIT;
+			const auto internalStageFlags = core::bitflag(asset::PIPELINE_STAGE_FLAGS::DRAW_INDIRECT_BIT)|asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 			cmdbuf->bindComputePipeline(m_instanceCullAndLoDSelect.get());
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE,m_instanceCullAndLoDSelectLayout.get(),0u,4u,&params.lodLibraryDS.get());
 			if (params.indirectInstanceCull)
@@ -375,7 +373,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				setBarrierBuffer(barriers[3],params.scratchBufferRanges.pvsInstanceDraws,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[4],params.scratchBufferRanges.lodDrawCallCounts,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[5],params.perViewPerInstance,wAccessMask,asset::EAF_SHADER_READ_BIT);
-				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr, MaxBufferBarriers,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,internalStageFlags,asset::EDF_NONE,0u,nullptr, MaxBufferBarriers,barriers,0u,nullptr);
 			}
 
 			cmdbuf->bindComputePipeline(m_instanceDrawCountPrefixSum.get());
@@ -425,10 +423,8 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				setBarrierBuffer(barriers[1],params.scratchBufferRanges.lodDrawCallCounts,wAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[2],params.scratchBufferRanges.prefixSumScratch,rwAccessMask,rwAccessMask);
 				setBarrierBuffer(barriers[3],params.perInstanceRedirectAttribs,wAccessMask,asset::EAF_VERTEX_ATTRIBUTE_READ_BIT);
-				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::EPSF_VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
+				cmdbuf->pipelineBarrier(internalStageFlags,internalStageFlags|asset::PIPELINE_STAGE_FLAGS::VERTEX_INPUT_BIT,asset::EDF_NONE,0u,nullptr,4u,barriers,0u,nullptr);
 			}
-
-#			if 0
 			// drawcall compaction
 			if (params.transientOutputDS->getLayout()->getTotalBindingCount()==OutputDescriptorBindingCount)
 			{
@@ -596,7 +592,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 		const uint32_t m_workgroupSize;
 };
 
-
+#endif
 } // end namespace nbl::scene
 
 #endif

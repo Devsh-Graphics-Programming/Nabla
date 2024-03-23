@@ -1,10 +1,11 @@
-#ifndef NBL_EXT_IMGUI_UI_H
-#define NBL_EXT_IMGUI_UI_H
-
+#ifndef _NBL_EXT_IMGUI_UI_H_
+#define _NBL_EXT_IMGUI_UI_H_
 
 namespace nbl::ext::imgui
 {
-	class UI final : public core::IReferenceCounted{
+#if 0
+class UI final : public core::IReferenceCounted
+{
 	public:
 
 		UI(
@@ -151,7 +152,8 @@ namespace nbl::ext::imgui
 		};
 		std::vector<Subscriber> m_subscribers{};
 
-	};
 };
+#endif
+}
 
 #endif	// NBL_EXT_IMGUI_UI_H

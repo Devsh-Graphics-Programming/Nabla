@@ -52,7 +52,7 @@ inline smart_refctd_ptr<I_REFERENCE_COUNTED>& smart_refctd_ptr<I_REFERENCE_COUNT
 	return *this;
 }
 template<class I_REFERENCE_COUNTED>
-template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value,int>>
+template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
 inline smart_refctd_ptr<I_REFERENCE_COUNTED>& smart_refctd_ptr<I_REFERENCE_COUNTED>::operator=(const smart_refctd_ptr<U>& other) noexcept
 {
 	if (other.ptr)
@@ -73,8 +73,7 @@ inline smart_refctd_ptr<I_REFERENCE_COUNTED>& smart_refctd_ptr<I_REFERENCE_COUNT
     return *this;
 }
 template<class I_REFERENCE_COUNTED>
-//those std::enable_if_t's most likely not needed, but just to be sure (i put them to trigger SFINAE to be sure call to non-templated ctor is always generated in case of same type)
-template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value,int>>
+template<class U> requires (!std::is_same_v<U,I_REFERENCE_COUNTED>)
 inline smart_refctd_ptr<I_REFERENCE_COUNTED>& smart_refctd_ptr<I_REFERENCE_COUNTED>::operator=(smart_refctd_ptr<U>&& other) noexcept
 {
 	if (ptr) // should only happen if constexpr (is convertible)
@@ -109,7 +108,7 @@ inline smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&& sm
 }
 
 template< class U, class T >
-inline smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>&& smart_ptr)
+inline smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>& smart_ptr)
 {
 	return smart_refctd_ptr_static_cast<U,T>(std::move(smart_ptr));
 }
@@ -129,7 +128,7 @@ inline smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&& s
 }
 
 template< class U, class T >
-inline smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr)
+inline smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>& smart_ptr)
 {
 	return smart_refctd_ptr_dynamic_cast<U,T>(std::move(smart_ptr));
 }

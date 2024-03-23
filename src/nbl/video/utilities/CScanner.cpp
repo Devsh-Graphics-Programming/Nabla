@@ -3,6 +3,7 @@
 using namespace nbl;
 using namespace video;
 
+#if 0 // TODO: port
 core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
@@ -45,6 +46,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 	return asset::CGLSLCompiler::createOverridenCopy(
 		cpushader.get(),
 		"#define _NBL_GLSL_WORKGROUP_SIZE_ %d\n#define _NBL_GLSL_WORKGROUP_SIZE_LOG2_ %d\n#define _NBL_GLSL_SCAN_TYPE_ %d\n#define _NBL_GLSL_SCAN_STORAGE_TYPE_ %s\n#define _NBL_GLSL_SCAN_BIN_OP_ %d\n",
-		m_workgroupSize,core::findMSB(m_workgroupSize),uint32_t(scanType),storageType,uint32_t(op)
+		m_workgroupSize,hlsl::findMSB(m_workgroupSize),uint32_t(scanType),storageType,uint32_t(op)
 	);
 }
+#endif

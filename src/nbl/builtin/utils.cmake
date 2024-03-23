@@ -14,11 +14,17 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 		endforeach()
 	endif()
 	
+	list(FIND ${_BUNDLE_NAME_} "${_LBR_PATH_}" _NBL_FOUND_)
+	
+	if(NOT "${_NBL_FOUND_}" STREQUAL "-1")
+		message(FATAL_ERROR "Duplicated \"${_LBR_PATH_}\" builtin resource list-request detected to \"${_BUNDLE_NAME_}\", remove the entry!")
+	endif()
+	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
-	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}} PARENT_SCOPE) # override
+	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	
 	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_}${_OPTIONAL_ALIASES_}")
-	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_} PARENT_SCOPE) # override
+	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_}) # override
 	
 	unset(_OPTIONAL_ALIASES_)
 	unset(_ALIAS_ARGS_)
@@ -114,7 +120,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
-			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")
@@ -150,6 +156,10 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
 	)
 	
+	set_target_properties(${_TARGET_NAME_} PROPERTIES
+        DISABLE_PRECOMPILE_HEADERS ON
+    )
+	
 	if(_LIB_TYPE_ STREQUAL SHARED)
 		target_compile_definitions(${_TARGET_NAME_} 
 			PRIVATE __NBL_BUILDING_TARGET__
@@ -164,7 +174,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		endif()
 		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
-			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
+			target_link_libraries(${_TARGET_NAME_} Nabla)
 		endif()
 	endif()
 	
@@ -187,6 +197,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
+	
 	set(NBL_BUILTIN_RESOURCES_HEADERS
 		"${NBL_BUILTIN_RESOURCES_HEADER}"
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
@@ -217,4 +228,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_SOURCE_DIRECTORY _OUTPUT_SOURCE_DIRECTORY_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_HEADERS NBL_BUILTIN_RESOURCES_HEADERS)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY _OUTPUT_INCLUDE_SEARCH_DIRECTORY_)
+	
+	if(MSVC AND NBL_SANITIZE_ADDRESS)
+		set_property(TARGET ${_TARGET_NAME_} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+	endif()
 endfunction()

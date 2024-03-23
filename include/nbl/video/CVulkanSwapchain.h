@@ -1,5 +1,5 @@
-#ifndef _NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED_
-#define _NBL_C_VULKAN_SWAPCHAIN_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_VULKAN_SWAPCHAIN_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_SWAPCHAIN_H_INCLUDED_
 
 #include "nbl/video/ISwapchain.h"
 
@@ -10,38 +10,47 @@ namespace nbl::video
 {
 
 class ILogicalDevice;
-class CThreadSafeGPUQueueAdapter;
 
 class CVulkanSwapchain final : public ISwapchain
 {
-public:
-    CVulkanSwapchain(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, SCreationParams&& params, 
-        IGPUImage::SCreationParams&& imgCreationParams, IDeviceMemoryBacked::SDeviceMemoryRequirements&& imgMemRequirements, uint32_t imageCount,
-        VkSwapchainKHR swapchain)
-        : ISwapchain(std::move(logicalDevice), std::move(params), std::move(imgCreationParams), imageCount),
-        m_vkSwapchainKHR(swapchain), m_imgMemRequirements(std::move(imgMemRequirements))
-    {}
+    public:
+        NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params, core::smart_refctd_ptr<CVulkanSwapchain>&& oldSwapchain=nullptr);
 
-    NBL_API2 static core::smart_refctd_ptr<CVulkanSwapchain> create(const core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, ISwapchain::SCreationParams&& params);
+        core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
 
-    ~CVulkanSwapchain();
+        void setObjectDebugName(const char* label) const override;
 
-    inline const void* getNativeHandle() const {return &m_vkSwapchainKHR;}
-    inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
+        inline const void* getNativeHandle() const {return &m_vkSwapchainKHR;}
+        inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
 
-    E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) override;
+    private:
+        CVulkanSwapchain(
+            core::smart_refctd_ptr<const ILogicalDevice>&& logicalDevice,
+            SCreationParams&& params,
+            const uint32_t imageCount,
+            core::smart_refctd_ptr<CVulkanSwapchain>&& oldSwapchain,
+            const VkSwapchainKHR swapchain,
+            const VkSemaphore* const _acquireAdaptorSemaphores,
+            const VkSemaphore* const _prePresentSemaphores,
+            const VkSemaphore* const _presentAdaptorSemaphores
+        );
+        ~CVulkanSwapchain();
 
-    E_PRESENT_RESULT present(IGPUQueue* queue, const SPresentInfo& info) override;
+        bool unacquired(const uint8_t imageIndex) const override;
+        ACQUIRE_IMAGE_RESULT acquireNextImage_impl(const SAcquireInfo& info, uint32_t* const out_imgIx) override;
+        PRESENT_RESULT present_impl(const SPresentInfo& info) override;
 
-    E_PRESENT_RESULT present(CThreadSafeGPUQueueAdapter* queue, const SPresentInfo& info);
+        core::smart_refctd_ptr<ISwapchain> recreate_impl(SSharedCreationParams&& params) override;
 
-    core::smart_refctd_ptr<IGPUImage> createImage(const uint32_t imageIndex) override;
-
-    void setObjectDebugName(const char* label) const override;
-
-private:
-    VkSwapchainKHR m_vkSwapchainKHR;
-    IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
+        const IDeviceMemoryBacked::SDeviceMemoryRequirements m_imgMemRequirements;
+        const VkSwapchainKHR m_vkSwapchainKHR;
+        VkImage m_images[ISwapchain::MaxImages];
+        VkSemaphore m_acquireAdaptorSemaphores[ISwapchain::MaxImages];
+        VkSemaphore m_prePresentSemaphores[ISwapchain::MaxImages];
+        VkSemaphore m_presentAdaptorSemaphores[ISwapchain::MaxImages];
+        uint64_t m_perImageAcquireCount[ISwapchain::MaxImages] = { 0 };
+        // nasty way to fight UB of the Vulkan spec
+        bool m_needToWaitIdle = true;
 };
 
 }

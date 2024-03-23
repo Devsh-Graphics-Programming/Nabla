@@ -9,9 +9,7 @@
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulator) 
@@ -34,7 +32,7 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
 											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX}};
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}};
 
 	// Create indices
 	{
@@ -56,7 +54,7 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 
 	// Create vertices
 	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(24u*vertexSize);
-	vertices->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
+	vertices->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
 	const core::vector3d<int8_t> normals[6] =
@@ -238,7 +236,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 			{0u,EF_R32G32_SFLOAT,offsetof(ArrowVertex,uv)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ArrowVertex,normal)}
 		},
-		{vertexSize,EVIR_PER_VERTEX} 
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
 	};
 
 	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
@@ -261,7 +259,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 											{0u,EF_R8G8B8A8_UNORM,offsetof(SphereVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(SphereVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(SphereVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 
 	if (polyCountX < 2)
 		polyCountX = 2;
@@ -462,7 +460,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CylinderVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(CylinderVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(CylinderVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 
     const size_t vtxCnt = 2u*tesselation;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt*sizeof(CylinderVertex));
@@ -594,7 +592,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 			{0u,EF_R8G8B8A8_UNORM,offsetof(ConeVertex,color)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ConeVertex,normal)}
 		},
-		{vertexSize,EVIR_PER_VERTEX}
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}
 	};
 
 	vtxBuf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
@@ -617,7 +615,7 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 											{0u,EF_R8G8B8A8_UNORM,offsetof(RectangleVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(RectangleVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(RectangleVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 	// Create indices
 	retval.indexCount = 6;
 	retval.indexType = asset::EIT_16BIT;
@@ -669,7 +667,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 											{0u,EF_R8G8B8A8_UNORM,offsetof(DiskVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(DiskVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(DiskVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 	retval.assemblyParams.primitiveType = EPT_TRIANGLE_FAN; // without indices
 	retval.indexType = EIT_UNKNOWN;
 
@@ -1692,7 +1690,7 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
 			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
 		},
-		{vertexSize,EVIR_PER_VERTEX} 
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
 	};
 
 	auto vertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(IcosphereData.getInterleavedVertexSize());
@@ -1712,6 +1710,5 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 }
 
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 

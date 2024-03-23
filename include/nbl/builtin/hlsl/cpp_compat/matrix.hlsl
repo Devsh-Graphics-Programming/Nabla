@@ -3,10 +3,11 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
-#ifndef __HLSL_VERSION
-namespace nbl::hlsl
+namespace nbl
 {
-
+namespace hlsl
+{
+#ifndef __HLSL_VERSION
 template<typename T, uint16_t N, uint16_t M>
 struct matrix final : private glm::mat<N,M,T>
 {
@@ -14,10 +15,9 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::Base;
     using Base::operator[];
 
-    template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M) && X <= N && Y <= M>>
-    explicit matrix(matrix<T, X, Y> const& m) : Base(m)
-    {
-    }
+    // For assigning to same dimension use implicit ctor, and even then only allow for dimension truncation
+    template<uint16_t X, uint16_t Y> requires ((X!=N || Y!=M) && X>=N && Y>=M)
+    explicit matrix(matrix<T,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,T> const&>(m)) {}
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}
@@ -31,11 +31,6 @@ struct matrix final : private glm::mat<N,M,T>
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
 
-    inline friend matrix inverse(matrix const& m) 
-    {
-        return matrix(glm::inverse(reinterpret_cast<Base const&>(m)));
-    }
-    
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
     {
@@ -49,18 +44,14 @@ struct matrix final : private glm::mat<N,M,T>
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
     }
-
-    inline friend matrix transpose(matrix const& m)
-    {
-        return glm::transpose(reinterpret_cast<Base const&>(m));
-    }
 };
+#endif
 
 
 #define NBL_TYPEDEF_MATRICES_FOR_ROW(T, R) \
-using T ## R ## x4 = matrix<T, R, 4>; \
-using T ## R ## x3 = matrix<T, R, 3>; \
-using T ## R ## x2 = matrix<T, R, 2>; 
+typedef matrix<T, R, 4> T ## R ## x4; \
+typedef matrix<T, R, 3> T ## R ## x3; \
+typedef matrix<T, R, 2> T ## R ## x2; 
 
 #define NBL_TYPEDEF_MATRICES_FOR_SCALAR(T) \
     NBL_TYPEDEF_MATRICES_FOR_ROW(T, 4) \
@@ -80,8 +71,7 @@ NBL_TYPEDEF_MATRICES_FOR_SCALAR(float64_t);
 
 #undef NBL_TYPEDEF_MATRICES_FOR_ROW
 #undef NBL_TYPEDEF_MATRICES_FOR_SCALAR
-
 }
-#endif
+}
 
 #endif

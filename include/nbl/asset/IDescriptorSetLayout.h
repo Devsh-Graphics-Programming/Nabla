@@ -8,7 +8,6 @@
 #include "nbl/core/declarations.h"
 #include "nbl/core/SRange.h"
 
-#include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/IShader.h"
 
 
@@ -37,7 +36,7 @@ namespace nbl::asset
 */
 
 template<typename SamplerType>
-class IDescriptorSetLayout : public virtual core::IReferenceCounted
+class IDescriptorSetLayout : public virtual core::IReferenceCounted  // TODO: try to remove this inheritance and see what happens
 {
 public:
 	using sampler_type = SamplerType;
@@ -117,6 +116,12 @@ public:
 		{
 			assert(index.data < m_count);
 			return m_stageFlags[index.data];
+		}
+
+		inline core::bitflag<typename SBinding::E_CREATE_FLAGS> getCreateFlags(const storage_range_index_t index) const
+		{
+			assert(index.data < m_count);
+			return m_createFlags[index.data];
 		}
 
 		inline uint32_t getCount(const storage_range_index_t index) const
@@ -278,8 +283,9 @@ public:
 		{
 			bindings[i].binding = i;
 			bindings[i].type = type;
-			bindings[i].count = counts ? counts[i]:1u;
+			bindings[i].createFlags = SBinding::E_CREATE_FLAGS::ECF_NONE;
 			bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL;
+			bindings[i].count = counts ? counts[i]:1u;
 			bindings[i].samplers = nullptr;
 		}
 	}
@@ -344,22 +350,22 @@ public:
 	}
 
 protected:
-	IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end)
+	IDescriptorSetLayout(const std::span<const SBinding> _bindings)
 	{
 		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_descriptors[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_immutableSamplers;
 		core::vector<typename CBindingRedirect::SBuildInfo> buildInfo_mutableSamplers;
 
-		for (auto b = _begin; b != _end; ++b)
+		for (const auto& b : _bindings)
 		{
-			buildInfo_descriptors[static_cast<uint32_t>(b->type)].emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+			buildInfo_descriptors[static_cast<uint32_t>(b.type)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 
-			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
+			if (b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
 			{
-				if (b->samplers)
-					buildInfo_immutableSamplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+				if (b.samplers)
+					buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 				else
-					buildInfo_mutableSamplers.emplace_back(b->binding, b->createFlags, b->stageFlags, b->count);
+					buildInfo_mutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 			}
 		}
 
@@ -372,15 +378,15 @@ protected:
 		const uint32_t immutableSamplerCount = m_immutableSamplerRedirect.getTotalCount();
 		m_samplers = immutableSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>>>(immutableSamplerCount) : nullptr;
 
-		for (auto b = _begin; b != _end; ++b)
+		for (const auto& b : _bindings)
 		{
-			if (b->type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b->samplers)
+			if (b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b.samplers)
 			{
-				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b->binding)).data;
+				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
 
 				auto* dst = m_samplers->begin() + localOffset;
-				std::copy_n(b->samplers, b->count, dst);
+				std::copy_n(b.samplers, b.count, dst);
 			}
 		}
 	}

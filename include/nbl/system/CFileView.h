@@ -11,27 +11,27 @@ namespace nbl::system
 class IFileView : public IFile
 {
 	public:
-		size_t getSize() const override final
+		inline size_t getSize() const override final
 		{
 			return m_size;
 		}
 
 	protected:
-		IFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, size_t fileSize) :
-			IFile(std::move(_name),_flags), m_buffer(buffer), m_size(fileSize) {}
+		inline IFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified, void* buffer, size_t fileSize) :
+			IFile(std::move(_name),_flags,_initialModified), m_buffer(buffer), m_size(fileSize) {}
 
-		const void* getMappedPointer_impl() const override final
+		inline const void* getMappedPointer_impl() const override final
 		{
 			return m_buffer;
 		}
-		void* getMappedPointer_impl() override final
+		inline void* getMappedPointer_impl() override final
 		{
 			return m_buffer;
 		}
 
 		//
-		void* m_buffer;
-		size_t m_size;
+		void* const m_buffer;
+		const size_t m_size;
 };
 
 template<typename allocator_t>
@@ -42,21 +42,27 @@ class CFileView : public IFileView
 
 	public:
 		// constructor for making a file with memory already allocated by the allocator
-		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, allocator_t&& _allocator={}) :
-			IFileView(std::move(_name),_flags,buffer,fileSize), allocator(std::move(_allocator)) {}
+		inline CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified, void* buffer, const size_t fileSize, allocator_t&& _allocator={}) :
+			IFileView(std::move(_name),_flags,_initialModified,buffer,fileSize), allocator(std::move(_allocator)) {}
 
 		// 
-		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize, allocator_t&& _allocator={})
+		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified, size_t fileSize, allocator_t&& _allocator={})
 		{
 			auto mem = reintepret_cast<std::byte*>(_allocator.alloc(fileSize));
 			if (!mem)
 				return nullptr;
-			auto retval = new CFileView(std::move(_name),_flags,mem,fileSize,std::move(_allocator));
+			auto retval = new CFileView(std::move(_name),_flags,_initialModified,mem,fileSize,std::move(_allocator));
 			return core::smart_refctd_ptr(retval,core::dont_grab);
 		}
 
+		// 
+		static inline core::smart_refctd_ptr<CFileView<allocator_t>> create(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, size_t fileSize, allocator_t&& _allocator={})
+		{
+			return create(std::move(_name),_flags,std::chrono::utc_clock::now(),fileSize,_allocator);
+		}
+
 	protected:
-		~CFileView()
+		inline ~CFileView()
 		{
 			if (m_buffer)
 				allocator.dealloc(m_buffer, m_size);
@@ -74,11 +80,11 @@ template<>
 class CFileView<CNullAllocator> : public IFileView
 {
 	public:
-		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize) :
-			IFileView(std::move(_name),_flags,buffer,fileSize) {}
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified, void* buffer, const size_t fileSize) :
+			IFileView(std::move(_name),_flags,_initialModified,buffer,fileSize) {}
 		// the `_allocator` parameter is useless and unused but its necessary to have a uniform constructor signature across all specializations (saves us headaches in `CFileArchive`)
-		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, void* buffer, const size_t fileSize, CNullAllocator&& _allocator) :
-			CFileView(std::move(_name),_flags,buffer,fileSize) {}
+		CFileView(path&& _name, const core::bitflag<E_CREATE_FLAGS> _flags, const time_point_t _initialModified, void* buffer, const size_t fileSize, CNullAllocator&& _allocator) :
+			CFileView(std::move(_name),_flags,_initialModified,buffer,fileSize) {}
 
 	protected:
 		~CFileView() = default;
