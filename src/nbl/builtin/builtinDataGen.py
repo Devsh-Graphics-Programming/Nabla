@@ -6,7 +6,7 @@
 # 2 - cmake source dir
 # 3 - list of paths to resource files
 
-import sys, os
+import sys, os, subprocess, json
 from datetime import datetime, timezone
 
 if  len(sys.argv) < 4 :
@@ -17,6 +17,9 @@ else:
     resourcesFile  = sys.argv[3]
     resourcesNamespace = sys.argv[4]
     correspondingHeaderFile = sys.argv[5]
+    xxHash256Exe = sys.argv[6]
+    
+    forceConstexprHash = True if not xxHash256Exe else False
 
     file = open(resourcesFile, 'r')
     resourcePaths = file.readlines()
@@ -69,11 +72,30 @@ else:
             """)
             
         modificationDateT = datetime.fromtimestamp(os.path.getmtime(inputBuiltinResource), timezone.utc) # since the Unix epoch (00:00:00 UTC on 1 January 1970).
+        
+        cppHashInitS = ""        
+        
+        if forceConstexprHash:
+            cppHashInitS = "nbl::core::XXHash_256(data, sizeof(data))"
+        else:
+            jsonContent = subprocess.run([xxHash256Exe, "--file", inputBuiltinResource], capture_output=True, text=True, shell=True)
+            hashArray = []
+        
+            if jsonContent.returncode == 0:
+                try:
+                    jOutput = json.loads(jsonContent.stdout)
+                    hashArray = [int(x) for x in jOutput.get("u64hash", [])]
+                except ValueError as e:
+                    print("Failed to parse JSON or convert hash elements to integers. Error:", e)
+            else:
+                print("Failed to execute the command. Error:", jsonContent.stderr)
+                
+            cppHashInitS = f"{{ {hashArray[0]},{hashArray[1]},{hashArray[2]},{hashArray[3]} }}"
             
         outp.write(f"""
         }};
         
-        static constexpr SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = nbl::core::XXHash_256(data, sizeof(data)), 
+        static constexpr SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = {cppHashInitS}, 
         .modified = {{
             .tm_sec = {modificationDateT.second},
             .tm_min = {modificationDateT.minute},
