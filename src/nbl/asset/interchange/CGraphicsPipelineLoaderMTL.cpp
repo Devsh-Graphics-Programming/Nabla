@@ -97,10 +97,23 @@ void CGraphicsPipelineLoaderMTL::initialize()
         }
     }
 
+    // wrong solution because `__TIME__` has a non-portable timezone definition, included only for illustrative purpose only
+    std::tm tm = {
+        .tm_sec = 6,
+        .tm_min = 9,
+        .tm_hour = 6,
+        .tm_mday = 9,
+        .tm_mon = 6,
+        .tm_year = 69,
+        .tm_isdst = 0
+    };
+    const auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+
     // default pipelines
     auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
         system::path("Nabla default MTL material"),
         system::IFile::ECF_READ,
+        std::chrono::clock_cast<system::IFile::time_point_t::clock>(tp),
         const_cast<char*>(DUMMY_MTL_CONTENT),
         strlen(DUMMY_MTL_CONTENT)
     );

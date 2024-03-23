@@ -639,6 +639,20 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     return createRenderpass_impl(params,std::move(validation));
 }
 
+asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
+{
+    const auto& props = m_physicalDevice->getProperties();
+    asset::ICPUPipelineCache::SCacheKey key = {.deviceAndDriverUUID="Nabla_v0.0.0_Vulkan_"}; // TODO: append version to Nabla
+    {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (size_t i=0; i<sizeof(props.pipelineCacheUUID); i++)
+            ss << std::hex << std::setw(2) << static_cast<uint32_t>(props.pipelineCacheUUID[i]);
+        key.deviceAndDriverUUID += ss.str();
+    }
+    return key;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,

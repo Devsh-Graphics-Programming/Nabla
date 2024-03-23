@@ -40,8 +40,13 @@ class ICPUPipelineCache final : public IAsset
 
 		using entries_map_t = core::map<SCacheKey,SCacheVal>;
 
+		// ctor
 		explicit ICPUPipelineCache(entries_map_t&& _entries) : m_cache(std::move(_entries)) {}
 
+		//
+		const auto& getEntries() const {return m_cache;}
+
+		// `IAsset` methods
 		size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 		{

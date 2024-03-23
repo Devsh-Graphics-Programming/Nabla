@@ -687,8 +687,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
 
         //! Pipelines
+        asset::ICPUPipelineCache::SCacheKey getPipelineCacheKey() const;
+
         // Create a pipeline cache object
-        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const std::span<const uint8_t> initialData, const bool notThreadsafe=false) = 0;
+        // utility
+        inline core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUPipelineCache* cpuCache, const bool notThreadsafe=false)
+        {
+            std::span<uint8_t> initialData = {};
+            if (cpuCache)
+            {
+                const auto& entries = cpuCache->getEntries();
+                auto found = entries.find(getPipelineCacheKey());
+                if (found!=entries.end())
+                {
+                    initialData = {found->second.bin->data(),found->second.bin->size()};
+                }
+            }
+            return createPipelineCache(initialData,notThreadsafe);
+        }
 
         inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
         {
@@ -882,7 +899,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
-        
+
         template<typename CreationParams, typename ExtraLambda>
         inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
         {
