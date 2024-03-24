@@ -3,10 +3,10 @@
 using namespace nbl;
 using namespace asset;
 
-const double& CIESProfile::getIntegral() const 
+const CIESProfile::IES_STORAGE_FORMAT& CIESProfile::getIntegral() const
 {
-    size_t numHSamples = 2 * getHoriAngles().size();
-    size_t numVSamples = 2 * getVertAngles().size();
+    size_t numHSamples = 2 * hAngles.size();
+    size_t numVSamples = 2 * vAngles.size();
     double dTheta = core::PI<double>() / numVSamples;
     double dPhi = 2 * core::PI<double>() / numHSamples;
     double dThetaInAngle = MAX_VANGLE / numVSamples;
@@ -14,13 +14,14 @@ const double& CIESProfile::getIntegral() const
     double res = 0;
     for (size_t i = 0; i < numVSamples; i++) {
         for (size_t j = 0; j < numHSamples; j++) {
-            res += dPhi * dTheta * sin(dTheta * i) * sample(i * dThetaInAngle, j * dPhiInAngle);
+            auto val = dPhi * dTheta * std::sin(dTheta * i) * sample(i * dThetaInAngle, j * dPhiInAngle);
+            res += val;
         }
     }
     return res;
 }
 
-const double& CIESProfile::sample(double vAngle, double hAngle) const {
+const CIESProfile::IES_STORAGE_FORMAT& CIESProfile::sample(double vAngle, double hAngle) const {
     if (vAngle > vAngles.back()) return 0.0;
     hAngle = hAngles.back() == 0.0
         ? 0.0
@@ -53,7 +54,7 @@ const double& CIESProfile::sample(double vAngle, double hAngle) const {
     return s0 * (1.0 - u) + s1 * u;
 }
 
-inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const float& v, const float& zAngleDegrees)
+inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const float& v)
 {
     core::vectorSIMDf pos = core::vectorSIMDf(2 * (u - 0.5), 2 * (v - 0.5), 0.0);
     float abs_x = core::abs(pos.x), abs_y = core::abs(pos.y);
@@ -62,23 +63,6 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
         pos.x = core::sign(pos.x) * (1.0 - abs_y);
         pos.y = core::sign(pos.y) * (1.0 - abs_x);
     }
-
-    // rotate position vector around Z-axis with "zAngleDegrees"
-    auto rotateAroundZ = [&]() -> void
-    {
-        const auto& zAngleRadians = zAngleDegrees * (core::PI<float>() / 180.0f);
-        const auto& cosineAngle = std::cos(zAngleRadians);
-        const auto& sineAngle = std::sin(zAngleRadians);
- 
-        pos = core::vectorSIMDf(
-            cosineAngle * pos.x - cosineAngle * pos.y,
-            sineAngle * pos.x + sineAngle * pos.y,
-            pos.z
-        );
-    };
-
-    if(zAngleDegrees != 0.f)
-        rotateAroundZ();
 
     return core::normalize(pos);
 }
@@ -90,7 +74,7 @@ inline std::pair<float, float> CIESProfile::sphericalDirToAngles(const core::vec
     return { theta, phi < 0 ? phi + 2 * core::PI<float>() : phi };
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const float& zAngleDegreeRotation, const size_t& width, const size_t& height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const size_t& width, const size_t& height) const
 {
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -124,18 +108,26 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
     double vertInv = 1.0 / height;
     double horiInv = 1.0 / width;
     char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
-    for (size_t i = 0; i < height; i++) {
-        for (size_t j = 0; j < width; j++) {
-            auto dir = octahdronUVToDir(j * vertInv, i * horiInv, zAngleDegreeRotation);
-            auto [theta, phi] = sphericalDirToAngles(dir);
-            double I = sample(core::degrees(theta), core::degrees(phi));
-            uint16_t value = static_cast<uint16_t>(
-                std::clamp(I * maxValueRecip * 65535.0, 0.0, 65535.0));
-            *reinterpret_cast<uint16_t*>(
-                bufferPtr + i * bufferRowLength * texelBytesz + j * texelBytesz) =
-                value;
+    
+    integral = 0;
+
+    const double dTheta = core::PI<double>() / height;
+    const double dPhi = 2 * core::PI<double>() / width;
+
+    for (size_t i = 0; i < height; i++)
+        for (size_t j = 0; j < width; j++) 
+        {
+            const auto dir = octahdronUVToDir(((float)j + 0.5) * vertInv, ((float)i + 0.5) * horiInv);
+            const auto [theta, phi] = sphericalDirToAngles(dir);
+            const auto& intensity = sample(core::degrees(theta), core::degrees(phi));
+            const auto& value = intensity * maxValueRecip;
+
+            auto integrationV = dPhi * dTheta * std::sin(theta) * intensity;
+            integral += integrationV;
+
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * 65535.0, 0.0, 65535.0));
+            *reinterpret_cast<uint16_t*>(bufferPtr + i * bufferRowLength * texelBytesz + j * texelBytesz) = encodeV;
         }
-    }
 
     if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
         return {};

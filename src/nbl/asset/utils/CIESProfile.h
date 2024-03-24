@@ -32,31 +32,17 @@ namespace nbl
                 };
 
                 CIESProfile() = default;
-                CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
-                    : type(type), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
-
                 ~CIESProfile() = default;
 
-                core::vector<IES_STORAGE_FORMAT>& getHoriAngles() { return hAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
-                core::vector<IES_STORAGE_FORMAT>& getVertAngles() { return vAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
-                core::vector<IES_STORAGE_FORMAT>& getData() { return data; }
                 const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
 
-                IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[getVertAngles().size() * i + j]; }
-                IES_STORAGE_FORMAT getMaxValue() const { return *std::max_element(std::begin(data), std::end(data)); }
+                IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
+                IES_STORAGE_FORMAT getMaxValue() const { return maxValue; }
 
-                void addHoriAngle(IES_STORAGE_FORMAT hAngle)
-                {
-                    hAngles.push_back(hAngle);
-                    data.resize(getHoriAngles().size() * getVertAngles().size());
-                }
-
-                void setValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[getVertAngles().size() * i + j] = val; }
-                
-                const IES_STORAGE_FORMAT& sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
                 const IES_STORAGE_FORMAT& getIntegral() const;
+                const IES_STORAGE_FORMAT& getIntegralFromGrid() const { return integral; }
 
                 //! Candlepower distribution curve plot as ICPUImageView
                 /*
@@ -64,17 +50,34 @@ namespace nbl
                     used to rotate normalized direction vector obtained from octahdronUVToDir utility with
                 */
 
-                core::smart_refctd_ptr<asset::ICPUImageView> createCDCTexture(const float& zAngleDegreeRotation = 0.f, const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createCDCTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
+                CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
+                    : type(type), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
+
                 // TODO for @Hazard, I would move it into separate file, we may use this abstraction somewhere too
                 static inline std::pair<float, float> sphericalDirToAngles(const core::vectorSIMDf& dir);
-                static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v, const float& zAngleDegrees);
+                static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v);
                 
+                void addHoriAngle(IES_STORAGE_FORMAT hAngle)
+                {
+                    hAngles.push_back(hAngle);
+                    data.resize(getHoriAngles().size() * vAngles.size());
+                }
+
+                void setValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[vAngles.size() * i + j] = val; }
+
+                const IES_STORAGE_FORMAT& sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
+
                 PhotometricType type;
                 core::vector<IES_STORAGE_FORMAT> hAngles;
                 core::vector<IES_STORAGE_FORMAT> vAngles;
                 core::vector<IES_STORAGE_FORMAT> data;
+                IES_STORAGE_FORMAT maxValue = {};
+                mutable IES_STORAGE_FORMAT integral = {};
+
+                friend class CIESProfileParser;
         };
     }
 }

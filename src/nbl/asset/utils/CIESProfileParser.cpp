@@ -80,7 +80,7 @@ bool CIESProfileParser::parse(CIESProfile& result) {
         return false;
 
     result = CIESProfile(type, hSize, vSize);
-    auto& vAngles = result.getVertAngles();
+    auto& vAngles = result.vAngles;
     for (int i = 0; i < vSize; i++) {
         vAngles[i] = getDouble("vertical angle truncated");
     }
@@ -97,7 +97,7 @@ bool CIESProfileParser::parse(CIESProfile& result) {
         return false;
     }
 
-    auto& hAngles = result.getHoriAngles();
+    auto& hAngles = result.hAngles;
     for (int i = 0; i < hSize; i++) {
         hAngles[i] = getDouble("horizontal angle truncated");
         if (i != 0 && hAngles[i - 1] > hAngles[i])
@@ -115,9 +115,11 @@ bool CIESProfileParser::parse(CIESProfile& result) {
         for (int i = (int)hAngles.size() - 2; i >= 0; i--) {
             result.addHoriAngle(360.0 - hAngles[i]);
             for (int j = 0; j < vSize; j++)
-                result.setValue(result.getHoriAngles().size() - 1, j, result.getValue(i, j));
+                result.setValue(result.hAngles.size() - 1, j, result.getValue(i, j));
         }
     }
+
+    result.maxValue = *std::max_element(std::begin(result.data), std::end(result.data));
 
     return !error;
 }
