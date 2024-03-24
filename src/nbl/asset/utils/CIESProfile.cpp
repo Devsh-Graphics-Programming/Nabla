@@ -67,7 +67,7 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
     return core::normalize(pos);
 }
 
-inline std::pair<float, float> CIESProfile::sphericalDirToAngles(const core::vectorSIMDf& dir)
+inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
 {
     float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
     float phi = std::atan2(dir.y, dir.x);
@@ -118,7 +118,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
         for (size_t j = 0; j < width; j++) 
         {
             const auto dir = octahdronUVToDir(((float)j + 0.5) * vertInv, ((float)i + 0.5) * horiInv);
-            const auto [theta, phi] = sphericalDirToAngles(dir);
+            const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto& intensity = sample(core::degrees(theta), core::degrees(phi));
             const auto& value = intensity * maxValueRecip;
 

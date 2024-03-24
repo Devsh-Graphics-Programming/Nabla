@@ -57,7 +57,7 @@ namespace nbl
                     : type(type), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
 
                 // TODO for @Hazard, I would move it into separate file, we may use this abstraction somewhere too
-                static inline std::pair<float, float> sphericalDirToAngles(const core::vectorSIMDf& dir);
+                static inline std::pair<float, float> sphericalDirToRadians(const core::vectorSIMDf& dir);
                 static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v);
                 
                 void addHoriAngle(IES_STORAGE_FORMAT hAngle)
