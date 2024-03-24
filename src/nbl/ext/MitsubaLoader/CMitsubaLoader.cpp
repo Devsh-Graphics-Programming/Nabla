@@ -1131,34 +1131,46 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf, const CElementEmitter* emitter, core::matrix4SIMD tform) -> SContext::bsdf_type
 {
 	if (!bsdf)
-		return { nullptr,nullptr };
+	{
+		static auto blackBSDF = []() -> auto
+		{
+			CElementBSDF retval("nullptr BSDF");
+			retval.type = CElementBSDF::Type::DIFFUSE,
+			retval.diffuse.reflectance = 0.f;
+			retval.diffuse.alpha = 0.f;
+			return retval;
+		}();
+		bsdf = &blackBSDF;
+	}
 
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found == ctx.instrStreamCache.end())
 		found = ctx.instrStreamCache.insert({ bsdf,genBSDFtreeTraversal(ctx, bsdf) }).first;
 	auto compiled_bsdf = found->second;
 
-	asset::material_compiler::IR::INode* frontRootNode = nullptr;
-	asset::material_compiler::IR::INode* backRootNode = nullptr;
-	if (compiled_bsdf.front) {
-		frontRootNode = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
-
-		// TODO cache 
-		if (emitter->type == CElementEmitter::AREA) {
-			cacheEmissionProfile(ctx, emitter->area.emissionProfile);
-			frontRootNode->children[1] = ctx.frontend.createEmitterNode(ctx.ir.get(), emitter, tform);
-		}
-		frontRootNode->children[0] = compiled_bsdf.front;
-		ctx.ir->addRootNode(frontRootNode);
+	// TODO cache the IR Node
+	CMitsubaMaterialCompilerFrontend::EmitterNode* emitterIRNode = nullptr;
+	if (emitter->type == CElementEmitter::AREA)
+	{
+		cacheEmissionProfile(ctx,emitter->area.emissionProfile);
+		emitterIRNode = ctx.frontend.createEmitterNode(ctx.ir.get(),emitter,tform);
 	}
 
-	if (compiled_bsdf.back) {
-		backRootNode = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
-		backRootNode->children[0] = compiled_bsdf.back;
-		ctx.ir->addRootNode(backRootNode);
-	}
+	// A new root node gets made for every {bsdf,emitter} combo
+	using node_t = asset::material_compiler::IR::INode;
+	auto createNewRootNode = [&ctx,emitterIRNode](node_t* realBxDFRoot) -> node_t*
+	{
+		// TODO: cache the combo!
+		auto newRoot = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
+		if (emitterIRNode)
+			newRoot->children = node_t::createChildrenArray(realBxDFRoot,emitterIRNode);
+		else
+			newRoot->children = node_t::createChildrenArray(realBxDFRoot);
+		ctx.ir->addRootNode(newRoot);
+		return newRoot;
+	};
 
-	return { frontRootNode, backRootNode };
+	return { createNewRootNode(compiled_bsdf.front), createNewRootNode(compiled_bsdf.back)};
 }
 
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type

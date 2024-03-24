@@ -1371,7 +1371,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 		oriented_material_t material;
 		auto* node = static_cast<const IR::CRootNode*>(root);
 		material = compileBSDFRootNode(node->children[0]);
-		if (node->children[1]) {
+		if (node->children.count>1) {
 			material.emitter_id = getOrCreateEmitter(static_cast<const IR::CEmitterNode*>(node->children[1]));
 		}
 		else {
