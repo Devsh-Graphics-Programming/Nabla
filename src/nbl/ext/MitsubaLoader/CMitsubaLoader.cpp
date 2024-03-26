@@ -1158,19 +1158,19 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 
 	// A new root node gets made for every {bsdf,emitter} combo
 	using node_t = asset::material_compiler::IR::INode;
-	auto createNewRootNode = [&ctx,emitterIRNode](node_t* realBxDFRoot) -> node_t*
+	auto createNewRootNode = [&ctx,emitterIRNode](node_t* realBxDFRoot, node_t* emitter=nullptr) -> node_t*
 	{
 		// TODO: cache the combo!
 		auto newRoot = ctx.ir->allocNode<asset::material_compiler::IR::CRootNode>();
-		if (emitterIRNode)
-			newRoot->children = node_t::createChildrenArray(realBxDFRoot,emitterIRNode);
+		if (emitter)
+			newRoot->children = node_t::createChildrenArray(realBxDFRoot,emitter);
 		else
 			newRoot->children = node_t::createChildrenArray(realBxDFRoot);
 		ctx.ir->addRootNode(newRoot);
 		return newRoot;
 	};
 
-	return { createNewRootNode(compiled_bsdf.front), createNewRootNode(compiled_bsdf.back)};
+	return { createNewRootNode(compiled_bsdf.front,emitterIRNode), createNewRootNode(compiled_bsdf.back)};
 }
 
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
