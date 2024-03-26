@@ -44,6 +44,12 @@ struct SIntendedSubmitInfo final
             };
         }
 
+        inline void advanceScratchSemaphoreValue()
+        {
+            auto& scratchSemaphore = signalSemaphores.front();
+            scratchSemaphore.value++;
+        }
+
         // One thing you might notice is that this results in a few implicit Memory and Execution Dependencies
         // So there's a little bit of non-deterministic behaviour we won't fight (will not insert a barrier every time you "could-have" overflown)
         inline void overflowSubmit()
@@ -59,7 +65,8 @@ struct SIntendedSubmitInfo final
             frontHalf.queue->submit({&submit,1});
             // We wait (stall) on the immediately preceeding submission timeline semaphore signal value and increase it for the next signaller
             {
-                const ISemaphore::SWaitInfo info = {scratchSemaphore.semaphore,scratchSemaphore.value++};
+                const ISemaphore::SWaitInfo info = getScratchSemaphoreNextWait();
+                advanceScratchSemaphoreValue();
                 const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
             }
             // we've already waited on the Host for the semaphores, no use waiting twice
@@ -70,7 +77,7 @@ struct SIntendedSubmitInfo final
             cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
             cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
         }
-  
+
         //! SFrontHalf contains the data needed for a submit without signal semaphores, for the purpose of blocking function
         //! SFrontHalf also holds the queue and has functions to patch the command buffers 
         //! The last CommandBuffer will be used to record the copy commands  

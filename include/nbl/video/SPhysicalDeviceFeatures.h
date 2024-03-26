@@ -1844,111 +1844,232 @@ struct SPhysicalDeviceFeatures
     
     /* Nabla */
     // No Nabla Specific Features for now
-				
+    
+    inline bool operator==(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        return memcmp(this, &_rhs, sizeof(SPhysicalDeviceFeatures)) == 0u;
+    }
+
     inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
     {
+        const auto& intersection = intersectWith(_rhs);
+        return intersection == *this;
+    }
+
+    inline SPhysicalDeviceFeatures unionWith(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        SPhysicalDeviceFeatures res = *this;
+             
         // VK 1.0 core
-        if (robustBufferAccess && !_rhs.robustBufferAccess) return false;
+        res.robustBufferAccess |= _rhs.robustBufferAccess;
 
-        if (geometryShader && !_rhs.geometryShader) return false;
-        if (tessellationShader && !_rhs.tessellationShader) return false;
+        res.geometryShader |= _rhs.geometryShader;
+        res.tessellationShader |= _rhs.tessellationShader;
 
-        if (depthBounds && !_rhs.depthBounds) return false;
-        if (wideLines && !_rhs.wideLines) return false;
-        if (largePoints && !_rhs.largePoints) return false;
+        res.depthBounds |= _rhs.depthBounds;
+        res.wideLines |= _rhs.wideLines;
+        res.largePoints |= _rhs.largePoints;
 
-        if (pipelineStatisticsQuery && !_rhs.pipelineStatisticsQuery) return false;
+        res.pipelineStatisticsQuery |= _rhs.pipelineStatisticsQuery;
 
-        if (shaderCullDistance && !_rhs.shaderCullDistance) return false;
+        res.shaderCullDistance |= _rhs.shaderCullDistance;
 
-        if (shaderResourceResidency && !_rhs.shaderResourceResidency) return false;
-        if (shaderResourceMinLod && !_rhs.shaderResourceMinLod) return false;
+        res.shaderResourceResidency |= _rhs.shaderResourceResidency;
+        res.shaderResourceMinLod |= _rhs.shaderResourceMinLod;
 
         // Vk 1.1 everything is either a Limit or Required
 
         // Vk 1.2
-        if (bufferDeviceAddressMultiDevice && !_rhs.bufferDeviceAddressMultiDevice) return false;
+        res.bufferDeviceAddressMultiDevice |= _rhs.bufferDeviceAddressMultiDevice;
 
         // Vk 1.3
-        if (robustImageAccess && !_rhs.robustImageAccess) return false;
+        res.robustImageAccess |= _rhs.robustImageAccess;
 
         // Nabla Core Extensions
-        if (robustBufferAccess2 && !_rhs.robustBufferAccess2) return false;
-        if (robustImageAccess2 && !_rhs.robustImageAccess2) return false;
+        res.robustBufferAccess2 |= _rhs.robustBufferAccess2;
+        res.robustImageAccess2 |= _rhs.robustImageAccess2;
 
-        if (nullDescriptor && !_rhs.nullDescriptor) return false;
+        res.nullDescriptor |= _rhs.nullDescriptor;
 
         // Extensions
-        if (!_rhs.swapchainMode.hasFlags(swapchainMode)) return false;
+        res.swapchainMode |= _rhs.swapchainMode;
 
-        if (shaderInfoAMD && !_rhs.shaderInfoAMD) return false;
+        res.shaderInfoAMD |= _rhs.shaderInfoAMD;
 
-        if (conditionalRendering && !_rhs.conditionalRendering) return false;
-        if (inheritedConditionalRendering && !_rhs.inheritedConditionalRendering) return false;
+        res.conditionalRendering |= _rhs.conditionalRendering;
+        res.inheritedConditionalRendering |= _rhs.inheritedConditionalRendering;
 
-        if (geometryShaderPassthrough && !_rhs.geometryShaderPassthrough) return false;
+        res.geometryShaderPassthrough |= _rhs.geometryShaderPassthrough;
 
-        if (hdrMetadata && !_rhs.hdrMetadata) return false;
+        res.hdrMetadata |= _rhs.hdrMetadata;
 
-        if (performanceCounterQueryPools && !_rhs.performanceCounterQueryPools) return false;
-        if (performanceCounterMultipleQueryPools && !_rhs.performanceCounterMultipleQueryPools) return false;
+        res.performanceCounterQueryPools |= _rhs.performanceCounterQueryPools;
+        res.performanceCounterMultipleQueryPools |= _rhs.performanceCounterMultipleQueryPools;
 
-        if (mixedAttachmentSamples && !_rhs.mixedAttachmentSamples) return false;
+        res.mixedAttachmentSamples |= _rhs.mixedAttachmentSamples;
 
 
-        if (accelerationStructure && !_rhs.accelerationStructure) return false;
-        if (accelerationStructureIndirectBuild && !_rhs.accelerationStructureIndirectBuild) return false;
-        if (accelerationStructureHostCommands && !_rhs.accelerationStructureHostCommands) return false;
+        res.accelerationStructure |= _rhs.accelerationStructure;
+        res.accelerationStructureIndirectBuild |= _rhs.accelerationStructureIndirectBuild;
+        res.accelerationStructureHostCommands |= _rhs.accelerationStructureHostCommands;
 
-        if (rayTracingPipeline && !_rhs.rayTracingPipeline) return false;
+        res.rayTracingPipeline |= _rhs.rayTracingPipeline;
 
-        if (rayTraversalPrimitiveCulling && !_rhs.rayTraversalPrimitiveCulling) return false;
+        res.rayTraversalPrimitiveCulling |= _rhs.rayTraversalPrimitiveCulling;
 
-        if (rayQuery && !_rhs.rayQuery) return false;
+        res.rayQuery |= _rhs.rayQuery;
 
-        if (representativeFragmentTest && !_rhs.representativeFragmentTest) return false;
+        res.representativeFragmentTest |= _rhs.representativeFragmentTest;
 
-        if (bufferMarkerAMD && !_rhs.bufferMarkerAMD) return false;
+        res.bufferMarkerAMD |= _rhs.bufferMarkerAMD;
 
-        if (fragmentDensityMap && !_rhs.fragmentDensityMap) return false;
-        if (fragmentDensityMapDynamic && !_rhs.fragmentDensityMapDynamic) return false;
-        if (fragmentDensityMapNonSubsampledImages && !_rhs.fragmentDensityMapNonSubsampledImages) return false;
+        res.fragmentDensityMap |= _rhs.fragmentDensityMap;
+        res.fragmentDensityMapDynamic |= _rhs.fragmentDensityMapDynamic;
+        res.fragmentDensityMapNonSubsampledImages |= _rhs.fragmentDensityMapNonSubsampledImages;
 
-        if (deviceCoherentMemory && !_rhs.deviceCoherentMemory) return false;
+        res.deviceCoherentMemory |= _rhs.deviceCoherentMemory;
 
-        if (memoryPriority && !_rhs.memoryPriority) return false;
+        res.memoryPriority |= _rhs.memoryPriority;
 
-        if (fragmentShaderSampleInterlock && !_rhs.fragmentShaderSampleInterlock) return false;
-        if (fragmentShaderPixelInterlock && !_rhs.fragmentShaderPixelInterlock) return false;
-        if (fragmentShaderShadingRateInterlock && !_rhs.fragmentShaderShadingRateInterlock) return false;
+        res.fragmentShaderSampleInterlock |= _rhs.fragmentShaderSampleInterlock;
+        res.fragmentShaderPixelInterlock |= _rhs.fragmentShaderPixelInterlock;
+        res.fragmentShaderShadingRateInterlock |= _rhs.fragmentShaderShadingRateInterlock;
 
-        if (rectangularLines && !_rhs.rectangularLines) return false;
-        if (bresenhamLines && !_rhs.bresenhamLines) return false;
-        if (smoothLines && !_rhs.smoothLines) return false;
-        if (stippledRectangularLines && !_rhs.stippledRectangularLines) return false;
-        if (stippledBresenhamLines && !_rhs.stippledBresenhamLines) return false;
-        if (stippledSmoothLines && !_rhs.stippledSmoothLines) return false;
+        res.rectangularLines |= _rhs.rectangularLines;
+        res.bresenhamLines |= _rhs.bresenhamLines;
+        res.smoothLines |= _rhs.smoothLines;
+        res.stippledRectangularLines |= _rhs.stippledRectangularLines;
+        res.stippledBresenhamLines |= _rhs.stippledBresenhamLines;
+        res.stippledSmoothLines |= _rhs.stippledSmoothLines;
 
-        if (indexTypeUint8 && !_rhs.indexTypeUint8) return false;
+        res.indexTypeUint8 |= _rhs.indexTypeUint8;
 
-        if (deferredHostOperations && !_rhs.deferredHostOperations) return false;
+        res.deferredHostOperations |= _rhs.deferredHostOperations;
 
-        if (pipelineExecutableInfo && !_rhs.pipelineExecutableInfo) return false;
+        res.pipelineExecutableInfo |= _rhs.pipelineExecutableInfo;
 
-        if (deviceGeneratedCommands && !_rhs.deviceGeneratedCommands) return false;
+        res.deviceGeneratedCommands |= _rhs.deviceGeneratedCommands;
 
-        if (rayTracingMotionBlur && !_rhs.rayTracingMotionBlur) return false;
-        if (rayTracingMotionBlurPipelineTraceRaysIndirect && !_rhs.rayTracingMotionBlurPipelineTraceRaysIndirect) return false;
+        res.rayTracingMotionBlur |= _rhs.rayTracingMotionBlur;
+        res.rayTracingMotionBlurPipelineTraceRaysIndirect |= _rhs.rayTracingMotionBlurPipelineTraceRaysIndirect;
 
-        if (fragmentDensityMapDeferred && !_rhs.fragmentDensityMapDeferred) return false;
+        res.fragmentDensityMapDeferred |= _rhs.fragmentDensityMapDeferred;
 
-        if (rasterizationOrderColorAttachmentAccess && !_rhs.rasterizationOrderColorAttachmentAccess) return false;
-        if (rasterizationOrderDepthAttachmentAccess && !_rhs.rasterizationOrderDepthAttachmentAccess) return false;
-        if (rasterizationOrderStencilAttachmentAccess && !_rhs.rasterizationOrderStencilAttachmentAccess) return false;
+        res.rasterizationOrderColorAttachmentAccess |= _rhs.rasterizationOrderColorAttachmentAccess;
+        res.rasterizationOrderDepthAttachmentAccess |= _rhs.rasterizationOrderDepthAttachmentAccess;
+        res.rasterizationOrderStencilAttachmentAccess |= _rhs.rasterizationOrderStencilAttachmentAccess;
 
-        if (cooperativeMatrixRobustBufferAccess && !_rhs.cooperativeMatrixRobustBufferAccess) return false;
+        res.cooperativeMatrixRobustBufferAccess |= _rhs.cooperativeMatrixRobustBufferAccess;
 
-        return true;
+        return res;
+    }
+
+    inline SPhysicalDeviceFeatures intersectWith(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        SPhysicalDeviceFeatures res = *this;
+
+        // VK 1.0 core
+        res.robustBufferAccess &= _rhs.robustBufferAccess;
+
+        res.geometryShader &= _rhs.geometryShader;
+        res.tessellationShader &= _rhs.tessellationShader;
+
+        res.depthBounds &= _rhs.depthBounds;
+        res.wideLines &= _rhs.wideLines;
+        res.largePoints &= _rhs.largePoints;
+
+        res.pipelineStatisticsQuery &= _rhs.pipelineStatisticsQuery;
+
+        res.shaderCullDistance &= _rhs.shaderCullDistance;
+
+        res.shaderResourceResidency &= _rhs.shaderResourceResidency;
+        res.shaderResourceMinLod &= _rhs.shaderResourceMinLod;
+
+        // Vk 1.1 everything is either a Limit or Required
+
+        // Vk 1.2
+        res.bufferDeviceAddressMultiDevice &= _rhs.bufferDeviceAddressMultiDevice;
+
+        // Vk 1.3
+        res.robustImageAccess &= _rhs.robustImageAccess;
+
+        // Nabla Core Extensions
+        res.robustBufferAccess2 &= _rhs.robustBufferAccess2;
+        res.robustImageAccess2 &= _rhs.robustImageAccess2;
+
+        res.nullDescriptor &= _rhs.nullDescriptor;
+
+        // Extensions
+        res.swapchainMode &= _rhs.swapchainMode;
+
+        res.shaderInfoAMD &= _rhs.shaderInfoAMD;
+
+        res.conditionalRendering &= _rhs.conditionalRendering;
+        res.inheritedConditionalRendering &= _rhs.inheritedConditionalRendering;
+
+        res.geometryShaderPassthrough &= _rhs.geometryShaderPassthrough;
+
+        res.hdrMetadata &= _rhs.hdrMetadata;
+
+        res.performanceCounterQueryPools &= _rhs.performanceCounterQueryPools;
+        res.performanceCounterMultipleQueryPools &= _rhs.performanceCounterMultipleQueryPools;
+
+        res.mixedAttachmentSamples &= _rhs.mixedAttachmentSamples;
+
+
+        res.accelerationStructure &= _rhs.accelerationStructure;
+        res.accelerationStructureIndirectBuild &= _rhs.accelerationStructureIndirectBuild;
+        res.accelerationStructureHostCommands &= _rhs.accelerationStructureHostCommands;
+
+        res.rayTracingPipeline &= _rhs.rayTracingPipeline;
+
+        res.rayTraversalPrimitiveCulling &= _rhs.rayTraversalPrimitiveCulling;
+
+        res.rayQuery &= _rhs.rayQuery;
+
+        res.representativeFragmentTest &= _rhs.representativeFragmentTest;
+
+        res.bufferMarkerAMD &= _rhs.bufferMarkerAMD;
+
+        res.fragmentDensityMap &= _rhs.fragmentDensityMap;
+        res.fragmentDensityMapDynamic &= _rhs.fragmentDensityMapDynamic;
+        res.fragmentDensityMapNonSubsampledImages &= _rhs.fragmentDensityMapNonSubsampledImages;
+
+        res.deviceCoherentMemory &= _rhs.deviceCoherentMemory;
+
+        res.memoryPriority &= _rhs.memoryPriority;
+
+        res.fragmentShaderSampleInterlock &= _rhs.fragmentShaderSampleInterlock;
+        res.fragmentShaderPixelInterlock &= _rhs.fragmentShaderPixelInterlock;
+        res.fragmentShaderShadingRateInterlock &= _rhs.fragmentShaderShadingRateInterlock;
+
+        res.rectangularLines &= _rhs.rectangularLines;
+        res.bresenhamLines &= _rhs.bresenhamLines;
+        res.smoothLines &= _rhs.smoothLines;
+        res.stippledRectangularLines &= _rhs.stippledRectangularLines;
+        res.stippledBresenhamLines &= _rhs.stippledBresenhamLines;
+        res.stippledSmoothLines &= _rhs.stippledSmoothLines;
+
+        res.indexTypeUint8 &= _rhs.indexTypeUint8;
+
+        res.deferredHostOperations &= _rhs.deferredHostOperations;
+
+        res.pipelineExecutableInfo &= _rhs.pipelineExecutableInfo;
+
+        res.deviceGeneratedCommands &= _rhs.deviceGeneratedCommands;
+
+        res.rayTracingMotionBlur &= _rhs.rayTracingMotionBlur;
+        res.rayTracingMotionBlurPipelineTraceRaysIndirect &= _rhs.rayTracingMotionBlurPipelineTraceRaysIndirect;
+
+        res.fragmentDensityMapDeferred &= _rhs.fragmentDensityMapDeferred;
+
+        res.rasterizationOrderColorAttachmentAccess &= _rhs.rasterizationOrderColorAttachmentAccess;
+        res.rasterizationOrderDepthAttachmentAccess &= _rhs.rasterizationOrderDepthAttachmentAccess;
+        res.rasterizationOrderStencilAttachmentAccess &= _rhs.rasterizationOrderStencilAttachmentAccess;
+
+        res.cooperativeMatrixRobustBufferAccess &= _rhs.cooperativeMatrixRobustBufferAccess;
+
+        return res;
     }
 };
 

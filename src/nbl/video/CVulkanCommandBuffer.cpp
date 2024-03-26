@@ -24,13 +24,13 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
     if (inheritanceInfo)
     {
-        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get())->getInternalObject();
+        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass)->getInternalObject();
         vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
         // From the spec:
         // Specifying the exact framebuffer that the secondary command buffer will be
         // executed with may result in better performance at command buffer execution time.
         if (inheritanceInfo->framebuffer)
-            vk_inheritanceInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get())->getInternalObject();
+            vk_inheritanceInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer)->getInternalObject();
         vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
         vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
         vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0
@@ -615,17 +615,14 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
 
 bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
-    const auto* renderpass = info.compatibleRenderpass.get();
-    if (!renderpass)
-        renderpass = info.framebuffer->getCreationParameters().renderpass.get();
-    const auto depthStencilAttachmentCount = renderpass->getDepthStencilAttachmentCount();
-    const auto colorAttachmentCount = renderpass->getColorAttachmentCount();
+    const auto depthStencilAttachmentCount = info.renderpass->getDepthStencilAttachmentCount();
+    const auto colorAttachmentCount = info.renderpass->getColorAttachmentCount();
     IGPUCommandPool::StackAllocation<VkClearValue> vk_clearValues(m_cmdpool,depthStencilAttachmentCount+colorAttachmentCount);
     if (!vk_clearValues)
         return false;
 
     // We can just speculatively copy, its probably more performant in most circumstances.
-    // We just check the pointers so you can use nullptr if yoru renderpass wont clear any attachment
+    // We just check the pointers so you can use nullptr if your renderpass won't clear any attachment
     if (info.depthStencilClearValues)
     for (auto i=0u; i<depthStencilAttachmentCount; i++)
     //if (renderpass->getCreationParameters().depthStencilAttachments[i].loadOp.stencil==IGPURenderpass::LOAD_OP::CLEAR) or depth
@@ -641,7 +638,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
     const VkRenderPassBeginInfo vk_beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = nullptr, // DeviceGroupRpassBeginInfo, SampleLocations?
-        .renderPass = static_cast<const CVulkanRenderpass*>(renderpass)->getInternalObject(),
+        .renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject(),
         .framebuffer = static_cast<const CVulkanFramebuffer*>(info.framebuffer)->getInternalObject(),
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed

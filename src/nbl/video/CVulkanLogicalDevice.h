@@ -59,17 +59,16 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // descriptor creation
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
-
-        // pipeline cache creation!
-        core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) override
+        
+        inline core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const std::span<const uint8_t> initialData, const bool notThreadsafe=false) override
         {
-            VkPipelineCacheCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr};
-            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT:0;
-            createInfo.initialDataSize = initialData->getSize();
-            createInfo.pInitialData = initialData->getPointer();
+            VkPipelineCacheCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr };
+            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT : 0;
+            createInfo.initialDataSize = initialData.size();
+            createInfo.pInitialData = initialData.data();
             VkPipelineCache vk_pipelineCache;
-            if (m_devf.vk.vkCreatePipelineCache(m_vkdev,&createInfo,nullptr,&vk_pipelineCache)==VK_SUCCESS)
-                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),vk_pipelineCache);
+            if (m_devf.vk.vkCreatePipelineCache(m_vkdev, &createInfo, nullptr, &vk_pipelineCache) == VK_SUCCESS)
+                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_pipelineCache);
             return nullptr;
         }
 

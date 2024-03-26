@@ -178,7 +178,17 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
 		inline uint64_t getAcquireCount() {return m_acquireCount;}
-		inline ISemaphore* getAcquireSemaphore() {return m_acquireSemaphores[m_acquireCount%m_maxFramesInFlight].get(); }
+		inline ISemaphore* getAcquireSemaphore(const uint8_t ix) {return ix<m_maxFramesInFlight ? m_acquireSemaphores[ix].get():nullptr;}
+
+		// What `acquireNextImage` returns
+		struct SAcquireResult
+		{
+			explicit inline operator bool() const {return semaphore && imageIndex!=ISwapchain::MaxImages;}
+
+			ISemaphore* semaphore = nullptr;
+			uint64_t acquireCount = 0;
+			uint8_t imageIndex = ISwapchain::MaxImages;
+		};
 
 	protected: // some of the methods need to stay protected in this base class because they need to be performed under a Mutex for smooth resize variants
 		inline ISimpleManagedSurface(core::smart_refctd_ptr<ISurface>&& _surface, ICallback* _cb) : m_surface(std::move(_surface)), m_cb(_cb) {}
@@ -225,24 +235,28 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		}
 
 		// RETURNS: `ISwapchain::MaxImages` on failure, otherwise its the acquired image's index.
-		inline uint8_t acquireNextImage()
+		inline SAcquireResult acquireNextImage()
 		{
 			// Only check upon an acquire, previously acquired images MUST be presented
 			// Window/Surface got closed, but won't actually disappear UNTIL the swapchain gets dropped,
 			// which is outside of our control here as there is a nice chain of lifetimes of:
 			// `ExternalCmdBuf -via usage of-> Swapchain Image -memory provider-> Swapchain -created from-> Window/Surface`
 			// Only when the last user of the swapchain image drops it, will the window die.
-			if (m_cb->isWindowOpen())
+			if (isWindowOpen())
 			{
 				auto swapchainResources = getSwapchainResources();
 				if (!swapchainResources || swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE)
-					return ISwapchain::MaxImages;
-
+					return {};
+				
 				const auto nextAcquireSignal = m_acquireCount+1;
+				SAcquireResult retval = {
+					.semaphore = m_acquireSemaphores[nextAcquireSignal%m_maxFramesInFlight].get(),
+					.acquireCount = nextAcquireSignal
+				};
 				const IQueue::SSubmitInfo::SSemaphoreInfo signalInfos[1] = {
 					{
-						.semaphore=m_acquireSemaphores[nextAcquireSignal%m_maxFramesInFlight].get(),
-						.value=nextAcquireSignal
+						.semaphore = retval.semaphore,
+						.value = nextAcquireSignal
 					}
 				};
 
@@ -254,7 +268,8 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::SUCCESS:
 						// the semaphore will only get signalled upon a successful acquire
 						m_acquireCount = nextAcquireSignal;
-						return static_cast<uint8_t>(imageIndex);
+						retval.imageIndex = imageIndex;
+						return retval;
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::TIMEOUT: [[fallthrough]];
 					case ISwapchain::ACQUIRE_IMAGE_RESULT::NOT_READY: // don't throw our swapchain away just because of a timeout XD
 						assert(false); // shouldn't happen though cause we use uint64_t::max() as the timeout
@@ -263,8 +278,8 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 						swapchainResources->invalidate();
 						// try again, will re-create swapchain
 						{
-							const auto retval = handleOutOfDate();
-							if (retval!=ISwapchain::MaxImages)
+							retval = handleOutOfDate();
+							if (bool(retval))
 								return retval;
 						}
 					default:
@@ -272,11 +287,11 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				}
 			}
 			becomeIrrecoverable();
-			return ISwapchain::MaxImages;
+			return {};
 		}
 
 		// nice little callback
-		virtual uint8_t handleOutOfDate() = 0;
+		virtual SAcquireResult handleOutOfDate() = 0;
 		
 		//
 		inline bool present(const uint8_t imageIndex, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> waitSemaphores)
@@ -311,6 +326,13 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		//
 		virtual void deinit_impl() = 0;
+
+		// to trigger `becomeIrrecoverable` if window got closwd
+		inline bool isWindowOpen()
+		{
+			if (!m_cb) return true; // native hwnd has no callbacks set -> user's responsibility to not acquire on window close corresponding to the Surface HWND
+			return m_cb->isWindowOpen();
+		}
 
 		//
 		ICallback* const m_cb = nullptr;
