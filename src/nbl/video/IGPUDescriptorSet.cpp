@@ -72,6 +72,15 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
 
         for (uint32_t i=0; i<write.count; ++i)
         {
+            if (asset::IDescriptor::GetTypeCategory(descriptorType) != write.info[i].desc->getTypeCategory())
+            {
+                if (debugName)
+                    m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+                else
+                    m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
+                return asset::IDescriptor::E_TYPE::ET_COUNT;
+            }
             auto* sampler = write.info[i].info.image.sampler.get();
             if (!sampler || !sampler->isCompatibleDevicewise(write.dstSet))
             {
