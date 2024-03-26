@@ -45,9 +45,25 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
 template<typename vk_barrier_t, typename ResourceBarrier>
 void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamilyIndex, const bool concurrentSharing=false)
 {
+    auto getVkQueueIndexFrom = [](const uint32_t nblIx)->uint32_t
+    {
+        switch (nblIx)
+        {
+            case IQueue::FamilyIgnored:
+                return VK_QUEUE_FAMILY_IGNORED;
+            case IQueue::FamilyExternal:
+                return VK_QUEUE_FAMILY_EXTERNAL;
+            case IQueue::FamilyForeign:
+                return VK_QUEUE_FAMILY_FOREIGN_EXT;
+            default:
+                break;
+        }
+        return nblIx;
+    };
+
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-04088
     if (concurrentSharing)
-        selfQueueFamilyIndex = IQueue::FamilyIgnored;
+        selfQueueFamilyIndex = getVkQueueIndexFrom(IQueue::FamilyIgnored);
     if constexpr (!std::is_same_v<vk_barrier_t,VkMemoryBarrier2>)
     {
         out.srcQueueFamilyIndex = selfQueueFamilyIndex;
