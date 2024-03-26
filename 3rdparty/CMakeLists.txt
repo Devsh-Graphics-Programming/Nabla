@@ -141,7 +141,6 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-
 # libjpeg-turbo
 option(WITH_SIMD "libjpeg-turbo" ON)
 option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
@@ -300,6 +299,8 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)

@@ -25,7 +25,7 @@ class @NBL_BR_API@ CArchive final : public nbl::system::CFileArchive
 		file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SFileList::found_t& found) override
 		{
 				auto resource = get_resource_runtime(found->pathRelativeToArchive.string());
-				return {const_cast<uint8_t*>(resource.first),resource.second,nullptr};
+				return {const_cast<uint8_t*>(resource.contents),resource.size,nullptr};
 		}			
 };
 }
