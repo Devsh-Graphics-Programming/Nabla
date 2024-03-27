@@ -110,7 +110,7 @@ bool CIESProfileParser::parse(CIESProfile& result) {
             result.setValue(i, j, factor * getDouble("intensity value truncated"));
         }
     }
-
+    /*
     if (hAngles.back() == 180.0) {
         for (int i = (int)hAngles.size() - 2; i >= 0; i--) {
             result.addHoriAngle(360.0 - hAngles[i]);
@@ -118,6 +118,13 @@ bool CIESProfileParser::parse(CIESProfile& result) {
                 result.setValue(result.hAngles.size() - 1, j, result.getValue(i, j));
         }
     }
+    */
+
+    // to interprete angles pairs starting with (0, phi) for proper computations we shift the angles
+    result.hAOffset = result.hAngles[0];
+    if (result.hAOffset != 0)
+        for (auto& hAngle : result.hAngles)
+            hAngle = std::fmod((hAngle - result.hAOffset + 360), 360);
 
     result.maxValue = *std::max_element(std::begin(result.data), std::end(result.data));
 

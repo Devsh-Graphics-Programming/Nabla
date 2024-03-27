@@ -70,8 +70,8 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
 inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
 {
     float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
-    float phi = std::atan2(dir.y, dir.x);
-    return { theta, phi < 0 ? phi + 2 * core::PI<float>() : phi };
+    float phi = std::abs(std::atan2(dir.y, dir.x));
+    return { theta, phi };
 }
 
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const size_t& width, const size_t& height) const

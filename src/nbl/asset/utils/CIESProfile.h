@@ -35,7 +35,9 @@ namespace nbl
                 ~CIESProfile() = default;
 
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
+                const IES_STORAGE_FORMAT& getHAnglesOffset() const { return hAOffset; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
+                const IES_STORAGE_FORMAT& getVAnglesOffset() const { return vAOffset; }
                 const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
 
                 IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
@@ -71,8 +73,10 @@ namespace nbl
                 const IES_STORAGE_FORMAT& sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
 
                 PhotometricType type;
-                core::vector<IES_STORAGE_FORMAT> hAngles;
-                core::vector<IES_STORAGE_FORMAT> vAngles;
+                core::vector<IES_STORAGE_FORMAT> hAngles;   //! horizontal angles, represents "theta" spherical coordinate angle (in degrees) compoment with physics convention
+                IES_STORAGE_FORMAT hAOffset = {};           //! real hAngle value read from IES file is hAngles[x] + hAOffset
+                core::vector<IES_STORAGE_FORMAT> vAngles;   //! vertical angles, represents "phi" spherical coordinate angle (in degrees) compoment with physics convention
+                IES_STORAGE_FORMAT vAOffset = {};           //! real vAngle value read from IES file is vAngles[x] + vAOffset
                 core::vector<IES_STORAGE_FORMAT> data;
                 IES_STORAGE_FORMAT maxValue = {};
                 mutable IES_STORAGE_FORMAT integral = {};
