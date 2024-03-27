@@ -10,37 +10,14 @@
 #include "nbl/asset/IAssetManager.h"
 
 #include "nbl/asset/interchange/IAssetLoader.h"
-
-#include <sstream>
+#include "nbl/asset/utils/CIESProfileParser.h"
+#include "nbl/asset/metadata/CIESProfileMetadata.h"
 
 namespace nbl {
 namespace asset {
 
-class CIESProfileMetadata final : public asset::IAssetMetadata {
-public:
-    CIESProfileMetadata(double maxIntensity, double integral)
-        : IAssetMetadata(), maxIntensity(maxIntensity), integral(integral) {}
-
-    CIESProfileMetadata(const CIESProfileMetadata& other) : CIESProfileMetadata(other.maxIntensity, other.integral) {}
-
-    _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CIESProfileLoader";
-    const char* getLoaderName() const override { return LoaderName; }
-    
-    double getMaxIntensity() const { return maxIntensity; }
-    double getIntegral() const { return integral; }
-
-private:
-    double maxIntensity;
-    double integral;
-};
-
-class CIESProfile;
-
 class CIESProfileLoader final : public asset::IAssetLoader {
 public:
-  _NBL_STATIC_INLINE_CONSTEXPR size_t TEXTURE_WIDTH = 1024;
-  _NBL_STATIC_INLINE_CONSTEXPR size_t TEXTURE_HEIGHT = 1024;
-
   //! Check if the file might be loaded by this class
   /** Check might look into the file.
   \param file File handle to check.
@@ -73,10 +50,6 @@ public:
           const asset::IAssetLoader::SAssetLoadParams& _params,
           asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr,
           uint32_t _hierarchyLevel = 0u) override;
-
-private:
-    core::smart_refctd_ptr<asset::ICPUImage>
-        createTexture(const CIESProfile& profile, size_t width, size_t height);
 };
 
 } // namespace asset
