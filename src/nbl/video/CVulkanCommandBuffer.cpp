@@ -24,13 +24,13 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
     if (inheritanceInfo)
     {
-        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass.get())->getInternalObject();
+        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass)->getInternalObject();
         vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
         // From the spec:
         // Specifying the exact framebuffer that the secondary command buffer will be
         // executed with may result in better performance at command buffer execution time.
         if (inheritanceInfo->framebuffer)
-            vk_inheritanceInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer.get())->getInternalObject();
+            vk_inheritanceInfo.framebuffer = static_cast<const CVulkanFramebuffer*>(inheritanceInfo->framebuffer)->getInternalObject();
         vk_inheritanceInfo.occlusionQueryEnable = inheritanceInfo->occlusionQueryEnable;
         vk_inheritanceInfo.queryFlags = static_cast<VkQueryControlFlags>(inheritanceInfo->queryFlags.value);
         vk_inheritanceInfo.pipelineStatistics = static_cast<VkQueryPipelineStatisticFlags>(0u); // must be 0
@@ -599,15 +599,14 @@ bool CVulkanCommandBuffer::dispatchIndirect_impl(const asset::SBufferBinding<con
 
 bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
 {
-    const auto* renderpass = info.framebuffer->getCreationParameters().renderpass.get();
-    const auto depthStencilAttachmentCount = renderpass->getDepthStencilAttachmentCount();
-    const auto colorAttachmentCount = renderpass->getColorAttachmentCount();
+    const auto depthStencilAttachmentCount = info.renderpass->getDepthStencilAttachmentCount();
+    const auto colorAttachmentCount = info.renderpass->getColorAttachmentCount();
     IGPUCommandPool::StackAllocation<VkClearValue> vk_clearValues(m_cmdpool,depthStencilAttachmentCount+colorAttachmentCount);
     if (!vk_clearValues)
         return false;
 
     // We can just speculatively copy, its probably more performant in most circumstances.
-    // We just check the pointers so you can use nullptr if yoru renderpass wont clear any attachment
+    // We just check the pointers so you can use nullptr if your renderpass won't clear any attachment
     if (info.depthStencilClearValues)
     for (auto i=0u; i<depthStencilAttachmentCount; i++)
     //if (renderpass->getCreationParameters().depthStencilAttachments[i].loadOp.stencil==IGPURenderpass::LOAD_OP::CLEAR) or depth
@@ -623,7 +622,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
     const VkRenderPassBeginInfo vk_beginInfo = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .pNext = nullptr, // DeviceGroupRpassBeginInfo, SampleLocations?
-        .renderPass = static_cast<const CVulkanRenderpass*>(renderpass)->getInternalObject(),
+        .renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject(),
         .framebuffer = static_cast<const CVulkanFramebuffer*>(info.framebuffer)->getInternalObject(),
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed
@@ -729,39 +728,32 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
     return true;
 }
 
-bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
     VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
 
-    constexpr uint32_t MAX_BLIT_REGION_COUNT = 100u;
-    VkImageBlit vk_blitRegions[MAX_BLIT_REGION_COUNT];
-    assert(regionCount <= MAX_BLIT_REGION_COUNT);
-
-    for (uint32_t i = 0u; i < regionCount; ++i)
+    core::vector<VkImageBlit> vk_blitRegions(regions.size());
+    auto outRegionIt = vk_blitRegions.data();
+    for (auto region : regions)
     {
-        vk_blitRegions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].srcSubresource.aspectMask.value);
-        vk_blitRegions[i].srcSubresource.mipLevel = pRegions[i].srcSubresource.mipLevel;
-        vk_blitRegions[i].srcSubresource.baseArrayLayer = pRegions[i].srcSubresource.baseArrayLayer;
-        vk_blitRegions[i].srcSubresource.layerCount = pRegions[i].srcSubresource.layerCount;
+        outRegionIt->srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
+        outRegionIt->srcSubresource.mipLevel = region.srcMipLevel;
+        outRegionIt->srcSubresource.baseArrayLayer = region.srcBaseLayer;
+        outRegionIt->srcSubresource.layerCount = region.layerCount;
 
-        // Todo(achal): Remove `static_cast`s
-        vk_blitRegions[i].srcOffsets[0] = { static_cast<int32_t>(pRegions[i].srcOffsets[0].x), static_cast<int32_t>(pRegions[i].srcOffsets[0].y), static_cast<int32_t>(pRegions[i].srcOffsets[0].z) };
-        vk_blitRegions[i].srcOffsets[1] = { static_cast<int32_t>(pRegions[i].srcOffsets[1].x), static_cast<int32_t>(pRegions[i].srcOffsets[1].y), static_cast<int32_t>(pRegions[i].srcOffsets[1].z) };
+        memcpy(outRegionIt->srcOffsets,&region.srcMinCoord,sizeof(VkOffset3D)*2);
 
-        vk_blitRegions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(pRegions[i].dstSubresource.aspectMask.value);
-        vk_blitRegions[i].dstSubresource.mipLevel = pRegions[i].dstSubresource.mipLevel;
-        vk_blitRegions[i].dstSubresource.baseArrayLayer = pRegions[i].dstSubresource.baseArrayLayer;
-        vk_blitRegions[i].dstSubresource.layerCount = pRegions[i].dstSubresource.layerCount;
-
-        // Todo(achal): Remove `static_cast`s
-        vk_blitRegions[i].dstOffsets[0] = { static_cast<int32_t>(pRegions[i].dstOffsets[0].x), static_cast<int32_t>(pRegions[i].dstOffsets[0].y), static_cast<int32_t>(pRegions[i].dstOffsets[0].z) };
-        vk_blitRegions[i].dstOffsets[1] = { static_cast<int32_t>(pRegions[i].dstOffsets[1].x), static_cast<int32_t>(pRegions[i].dstOffsets[1].y), static_cast<int32_t>(pRegions[i].dstOffsets[1].z) };
+        outRegionIt->dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
+        outRegionIt->dstSubresource.mipLevel = region.dstMipLevel;
+        outRegionIt->dstSubresource.baseArrayLayer = region.dstBaseLayer;
+        outRegionIt->dstSubresource.layerCount = region.layerCount;
+        
+        memcpy(outRegionIt->dstOffsets,&region.dstMinCoord,sizeof(VkOffset3D)*2);
+        outRegionIt++;
     }
 
-    getFunctionTable().vkCmdBlitImage(m_cmdbuf, vk_srcImage, getVkImageLayoutFromImageLayout(srcImageLayout),
-        vk_dstImage, getVkImageLayoutFromImageLayout(dstImageLayout), regionCount, vk_blitRegions,
-        static_cast<VkFilter>(filter));
+    getFunctionTable().vkCmdBlitImage(m_cmdbuf,vk_srcImage,getVkImageLayoutFromImageLayout(srcImageLayout),vk_dstImage,getVkImageLayoutFromImageLayout(dstImageLayout),regions.size(),vk_blitRegions.data(),static_cast<VkFilter>(filter));
 
     return true;
 }

@@ -39,7 +39,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline IGPUCommandPool::BUFFER_LEVEL getLevel() const { return m_level; }
 
         inline IGPUCommandPool* getPool() const { return m_cmdpool.get(); }
-        inline uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
+        inline uint8_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
         /*
         CommandBuffer Lifecycle Tracking in Nabla:
@@ -98,10 +98,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             bool occlusionQueryEnable = false;
             core::bitflag<QUERY_CONTROL_FLAGS> queryFlags = QUERY_CONTROL_FLAGS::NONE;
             // the rest are only used if you begin with the `EU_RENDER_PASS_CONTINUE_BIT` flag
-            core::smart_refctd_ptr<const IGPURenderpass> renderpass = nullptr;
+            const IGPURenderpass* renderpass = nullptr;
             uint32_t subpass = IGPURenderpass::SCreationParams::SSubpassDependency::External;
             // optional metadata
-            core::smart_refctd_ptr<const IGPUFramebuffer> framebuffer = nullptr;
+            const IGPUFramebuffer* framebuffer = nullptr;
         };
         bool begin(const core::bitflag<USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr);
         inline SInheritanceInfo getCachedInheritanceInfo() const { return m_cachedInheritanceInfo; }
@@ -301,30 +301,39 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool bindIndexBuffer(const asset::SBufferBinding<const IGPUBuffer>& binding, const asset::E_INDEX_TYPE indexType);
 
         //! dynamic state
-        inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
+        inline bool setScissor(const std::span<const VkRect2D> scissors, const uint32_t first=0)
         {
+            const uint32_t count = scissors.size();
             if(invalidDynamic(first,count))
                 return false;
 
-            for (auto i=0u; i<count; i++)
+            for (const auto& scissor : scissors)
             {
-                const auto& scissor = pScissors[i];
                 if (scissor.offset.x<0 || scissor.offset.y<0)
                     return false;
-                if (pScissors[i].extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
+                if (scissor.extent.width>std::numeric_limits<int32_t>::max()-scissor.offset.x)
                     return false;
-                if (pScissors[i].extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
+                if (scissor.extent.height>std::numeric_limits<int32_t>::max()-scissor.offset.y)
                     return false;
             }
 
-            return setScissor_impl(first,count,pScissors);
+            return setScissor_impl(first,count,scissors.data());
         }
-        inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+        [[deprecated]] inline bool setScissor(const uint32_t first, const uint32_t count, const VkRect2D* const pScissors)
         {
+            return setScissor({pScissors,count},first);
+        }
+        inline bool setViewport(const std::span<const asset::SViewport> viewports, const uint32_t first=0)
+        {
+            const uint32_t count = viewports.size();
             if (invalidDynamic(first,count))
                 return false;
 
-            return setViewport_impl(first,count,pViewports);
+            return setViewport_impl(first,count,viewports.data());
+        }
+        [[deprecated]] inline bool setViewport(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports)
+        {
+            return setViewport({pViewports,count},first);
         }
         bool setLineWidth(const float width);
         inline bool setDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
@@ -391,6 +400,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
+            // if you leave it null, will get deduced from `framebuffer`'s creation renderpass
+            IGPURenderpass* renderpass = nullptr;
             IGPUFramebuffer* framebuffer = nullptr;
             const SClearColorValue* colorClearValues = nullptr;
             const SClearDepthStencilValue* depthStencilClearValues = nullptr;
@@ -402,7 +413,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             SECONDARY_COMMAND_BUFFERS = 1
             // TODO: VK_EXT_nested_command_buffer
         };
-        bool beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents);
+        bool beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents);
         bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
 
@@ -460,12 +471,18 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         struct SImageBlit
         {
-            IGPUImage::SSubresourceLayers srcSubresource;
-            asset::VkOffset3D srcOffsets[2];
-            IGPUImage::SSubresourceLayers dstSubresource;
-            asset::VkOffset3D dstOffsets[2];
+            asset::VkOffset3D srcMinCoord;
+            asset::VkOffset3D srcMaxCoord;
+            asset::VkOffset3D dstMinCoord;
+            asset::VkOffset3D dstMaxCoord;
+            uint64_t layerCount : 15 = 1u;
+            uint64_t srcBaseLayer : 14 = 0u;
+            uint64_t dstBaseLayer : 14 = 0u;
+            uint64_t srcMipLevel : 5 = 0u;
+            uint64_t dstMipLevel : 5 = 0u;
+            uint64_t aspectMask : 11 = IGPUImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
         };
-        bool blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* const pRegions, const IGPUSampler::E_TEXTURE_FILTER filter);
+        bool blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter);
         struct SImageResolve
         {
             IGPUImage::SSubresourceLayers srcSubresource;
@@ -613,7 +630,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
         virtual bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) = 0;
 
-        virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
+        virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;

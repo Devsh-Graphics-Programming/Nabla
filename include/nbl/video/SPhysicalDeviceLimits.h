@@ -233,10 +233,10 @@ struct SPhysicalDeviceLimits
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = 1u<<20u;
     bool shaderUniformBufferArrayNonUniformIndexingNative = false;
     bool shaderSampledImageArrayNonUniformIndexingNative = false;
-    //bool shaderStorageBufferArrayNonUniformIndexingNative = true;
+    bool shaderStorageBufferArrayNonUniformIndexingNative = false;
     bool shaderStorageImageArrayNonUniformIndexingNative = false;
     bool shaderInputAttachmentArrayNonUniformIndexingNative = false;
-    //bool robustBufferAccessUpdateAfterBind = true;
+    bool robustBufferAccessUpdateAfterBind = false;
     bool quadDivergentImplicitLod = false;
     uint32_t maxPerStageDescriptorUpdateAfterBindSamplers = 500000u;
     uint32_t maxPerStageDescriptorUpdateAfterBindUBOs = 15u;
@@ -804,8 +804,10 @@ struct SPhysicalDeviceLimits
         if (maxUpdateAfterBindDescriptorsInAllPools > _rhs.maxUpdateAfterBindDescriptorsInAllPools) return false;
         if (shaderUniformBufferArrayNonUniformIndexingNative && !_rhs.shaderUniformBufferArrayNonUniformIndexingNative) return false;
         if (shaderSampledImageArrayNonUniformIndexingNative && !_rhs.shaderSampledImageArrayNonUniformIndexingNative) return false;
+        if (shaderStorageBufferArrayNonUniformIndexingNative && !_rhs.shaderStorageBufferArrayNonUniformIndexingNative) return false;
         if (shaderStorageImageArrayNonUniformIndexingNative && !_rhs.shaderStorageImageArrayNonUniformIndexingNative) return false;
         if (shaderInputAttachmentArrayNonUniformIndexingNative && !_rhs.shaderInputAttachmentArrayNonUniformIndexingNative) return false;
+        if (robustBufferAccessUpdateAfterBind && !_rhs.robustBufferAccessUpdateAfterBind) return false;
         if (quadDivergentImplicitLod && !_rhs.quadDivergentImplicitLod) return false;
 
         if (maxPerStageDescriptorUpdateAfterBindSamplers > _rhs.maxPerStageDescriptorUpdateAfterBindSamplers) return false;

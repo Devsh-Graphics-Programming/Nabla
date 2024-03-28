@@ -139,8 +139,17 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
 
     m_recordingFlags = flags;
     m_state = STATE::RECORDING;
-    m_cachedInheritanceInfo = inheritanceInfo ? (*inheritanceInfo):SInheritanceInfo{};
-    return begin_impl(flags, inheritanceInfo);
+    if (inheritanceInfo)
+    {
+        if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+            return false;
+        if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
+            return false;
+        m_cachedInheritanceInfo = *inheritanceInfo;
+    }
+    else
+        m_cachedInheritanceInfo = {};
+    return begin_impl(flags,inheritanceInfo);
 }
 
 bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
@@ -674,6 +683,9 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
 
 bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
 {
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
@@ -990,7 +1002,7 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 }
 
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
+bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
         return false;
@@ -1005,24 +1017,31 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (renderArea.extent.width==0u || renderArea.extent.height==0u)
         return false;
 
-    const auto& params = info.framebuffer->getCreationParameters();
-    if (renderArea.offset.x+renderArea.extent.width>params.width || renderArea.offset.y+renderArea.extent.height>params.height)
+    const auto& framebufferParams = info.framebuffer->getCreationParameters();
+    if (renderArea.offset.x+renderArea.extent.width>framebufferParams.width || renderArea.offset.y+renderArea.extent.height>framebufferParams.height)
         return false;
 
-    const auto rp = params.renderpass;
-    if (rp->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
+    if (info.renderpass)
+    {
+        if (!framebufferParams.renderpass->compatible(info.renderpass))
+            return false;
+    }
+    else
+        info.renderpass = framebufferParams.renderpass.get();
+
+    if (info.renderpass->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
         return false;
-    if (rp->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
+    if (info.renderpass->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(info.renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
         return false;
 
-    if (!beginRenderPass_impl(info, contents))
+    if (!beginRenderPass_impl(info,contents))
         return false;
-    m_cachedInheritanceInfo.renderpass = params.renderpass;
+    m_cachedInheritanceInfo.renderpass = info.renderpass;
     m_cachedInheritanceInfo.subpass = 0;
-    m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
+    m_cachedInheritanceInfo.framebuffer = info.framebuffer;
     return true;
 }
 
@@ -1259,12 +1278,12 @@ static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
     return true;
 }
 
-bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
+    if (regions.empty() || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
         return false;
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
@@ -1273,23 +1292,22 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
         return false;
 
     const auto& dstParams = dstImage->getCreationParameters();
-    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
         return false;
 
     // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
 
-    for (uint32_t i=0u; i<regionCount; ++i)
+    for (auto region : regions)
     {
-        if (pRegions[i].dstSubresource.aspectMask!=pRegions[i].srcSubresource.aspectMask)
+        if (region.layerCount==0 || !region.aspectMask)
             return false;
-        if (pRegions[i].dstSubresource.layerCount!=pRegions[i].srcSubresource.layerCount)
-            return false;
+        // probably validate the offsets, and extents
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBlitImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
-    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regions, filter);
 }
 
 bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions)

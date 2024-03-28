@@ -34,16 +34,30 @@ class NBL_API2 ISurfaceVulkan : public ISurface
 };
 
 #ifdef _NBL_PLATFORM_WINDOWS_
-class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32, ISurfaceVulkan>
+class NBL_API2 CSurfaceVulkanWin32 final : public CSurface<ui::IWindowWin32,ISurfaceVulkan>
 {
         using this_t = CSurfaceVulkanWin32;
-        using base_t = CSurface<ui::IWindowWin32, ISurfaceVulkan>;
+        using base_t = CSurface<ui::IWindowWin32,ISurfaceVulkan>;
     public:
         inline CSurfaceVulkanWin32(core::smart_refctd_ptr<ui::IWindowWin32>&& window, core::smart_refctd_ptr<IAPIConnection>&& api, VkSurfaceKHR surf) :
             base_t(std::move(window), std::move(api), surf) {}
         
         static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowWin32>&& window);
 };
+
+class NBL_API2 CSurfaceVulkanWin32Native final : public CSurfaceNative<ui::IWindowWin32, ISurfaceVulkan>
+{
+        using this_t = CSurfaceVulkanWin32Native;
+        using base_t = CSurfaceNative<ui::IWindowWin32, ISurfaceVulkan>;
+    public:
+        inline CSurfaceVulkanWin32Native(core::smart_refctd_ptr<IAPIConnection>&& api, typename ui::IWindowWin32::native_handle_t handle, VkSurfaceKHR surf) :
+            base_t(handle, std::move(api), surf)
+        {
+        }
+        
+        static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, ui::IWindowWin32::native_handle_t handle);
+};
+
 #elif defined _NBL_PLATFORM_LINUX_
 // TODO: later, not this week
 #elif defined _NBL_PLATFORM_ANDROID_

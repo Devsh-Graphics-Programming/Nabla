@@ -22,24 +22,48 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
         if (qci.count)
         {
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+            using access_flags_t = asset::ACCESS_FLAGS;
             info.supportedStages = stage_flags_t::HOST_BIT;
+            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
 
-            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|(m_enabledFeatures.accelerationStructure ? stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT:stage_flags_t::NONE)|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
-            const core::bitflag<stage_flags_t> computeAndGraphicsStages = (m_enabledFeatures.deviceGeneratedCommands ? stage_flags_t::COMMAND_PREPROCESS_BIT:stage_flags_t::NONE)|
-                (m_enabledFeatures.conditionalRendering ? stage_flags_t::CONDITIONAL_RENDERING_BIT:stage_flags_t::NONE)|transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
+            const auto transferAccesses = access_flags_t::TRANSFER_READ_BIT|access_flags_t::TRANSFER_WRITE_BIT;
+
+            core::bitflag<stage_flags_t> computeAndGraphicsStages = transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+            core::bitflag<access_flags_t> computeAndGraphicsAccesses = transferAccesses|access_flags_t::INDIRECT_COMMAND_READ_BIT|access_flags_t::UNIFORM_READ_BIT|access_flags_t::STORAGE_READ_BIT|access_flags_t::STORAGE_WRITE_BIT|access_flags_t::SAMPLED_READ_BIT;
+            if (m_enabledFeatures.deviceGeneratedCommands)
+            {
+                computeAndGraphicsStages |= stage_flags_t::COMMAND_PREPROCESS_BIT;
+                computeAndGraphicsAccesses |= access_flags_t::COMMAND_PREPROCESS_READ_BIT|access_flags_t::COMMAND_PREPROCESS_WRITE_BIT;
+            }
+            if (m_enabledFeatures.conditionalRendering)
+            {
+                computeAndGraphicsStages |= stage_flags_t::CONDITIONAL_RENDERING_BIT;
+                computeAndGraphicsAccesses |= access_flags_t::CONDITIONAL_RENDERING_READ_BIT;
+            }
 
             const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[i].queueFlags;
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
+                info.supportedAccesses |= computeAndGraphicsAccesses;
                 if (m_enabledFeatures.accelerationStructure)
+                {
                     info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                }
                 if (m_enabledFeatures.rayTracingPipeline)
+                {
                     info.supportedStages |= stage_flags_t::RAY_TRACING_SHADER_BIT;
+                    info.supportedAccesses |= access_flags_t::SHADER_BINDING_TABLE_READ_BIT;
+                }
             }
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
             {
                 info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
+                info.supportedAccesses |= computeAndGraphicsAccesses|access_flags_t::INDEX_READ_BIT|access_flags_t::VERTEX_ATTRIBUTE_READ_BIT;
+                info.supportedAccesses |= access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT|access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                info.supportedAccesses |= access_flags_t::INPUT_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_WRITE_BIT;
 
                 if (m_enabledFeatures.tessellationShader)
                     info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT|stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
@@ -51,18 +75,26 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
                 //if (m_enabledFeatures.taskShader)
                 //    info.supportedStages |= stage_flags_t::;
                 if (m_enabledFeatures.fragmentDensityMap)
+                {
                     info.supportedStages |= stage_flags_t::FRAGMENT_DENSITY_PROCESS_BIT;
+                    info.supportedAccesses |= access_flags_t::FRAGMENT_DENSITY_MAP_READ_BIT;
+                }
                 //if (m_enabledFeatures.????)
                 //    info.supportedStages |= stage_flags_t::SHADING_RATE_ATTACHMENT_BIT;
+                //    info.supportedAccesses |= access_flags_t::SHADING_RATE_ATTACHMENT_READ_BIT;
 
                 info.supportedStages |= stage_flags_t::FRAMEBUFFER_SPACE_BITS;
             }
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            {
                 info.supportedStages |= transferStages;
-        }
-        {
-            using access_flags_t = asset::ACCESS_FLAGS;
-            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
+                info.supportedAccesses |= transferAccesses;
+                if (m_enabledFeatures.accelerationStructure)
+                {
+                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                }
+            }
         }
         info.queueCount = qci.count;
         if (i)
@@ -103,7 +135,7 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     return getSupportedStageMask(queueFamilyIndex).hasFlags(stageMask);
 }
 
-bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> stageMask) const
+bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const
 {
     if (getQueueCount(queueFamilyIndex)==0)
         return false;
@@ -111,15 +143,15 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
     // strip special values
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
-    if (stageMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
-        stageMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
-    else if (stageMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
-        stageMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-    return getSupportedAccessMask(queueFamilyIndex).hasFlags(stageMask);
+    if (accessMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
+        accessMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+    else if (accessMask.hasFlags(asset::ACCESS_FLAGS::SHADER_READ_BITS) && shaderCapableFamily)
+        accessMask ^= asset::ACCESS_FLAGS::SHADER_READ_BITS;
+    if (accessMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_WRITE_BITS))
+        accessMask ^= asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+    else if (accessMask.hasFlags(asset::ACCESS_FLAGS::SHADER_WRITE_BITS) && shaderCapableFamily)
+        accessMask ^= asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
+    return getSupportedAccessMask(queueFamilyIndex).hasFlags(accessMask);
 }
 
 bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const
@@ -204,6 +236,17 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
 
     return true;
 }
+
+
+IQueue::RESULT ILogicalDevice::waitIdle()
+{
+    const auto retval = waitIdle_impl();
+    // Since this is equivalent to calling waitIdle on all queues, just proceed to releasing tracked resources
+    for (auto queue : *m_queues)
+        queue->cullResources();
+    return retval;
+}
+
 
 core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
 {
@@ -379,6 +422,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 break;
             case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
                 params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
                 return false;
@@ -409,6 +453,51 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
 
     updateDescriptorSets_impl(params);
 
+    return true;
+}
+
+bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
+{
+    SDropDescriptorSetsParams params = {.drops=dropDescriptors};
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        if (!ds || !ds->wasCreatedBy(this))
+            return false;
+
+        auto bindingType = ds->getBindingType(drop.binding);
+        auto writeCount = drop.count;
+        switch (asset::IDescriptor::GetTypeCategory(bindingType))
+        {
+            case asset::IDescriptor::EC_BUFFER:
+                params.bufferCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_IMAGE:
+                params.imageCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_BUFFER_VIEW:
+                params.bufferViewCount += writeCount;
+                break;
+            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+                params.accelerationStructureCount += writeCount;
+                params.accelerationStructureWriteCount++;
+                break;
+            default: // validation failed
+                return false;
+        }
+
+        // (no binding)
+        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
+            return false;
+    }
+
+    for (const auto& drop : dropDescriptors)
+    {
+        auto ds = drop.dstSet;
+        ds->dropDescriptors(drop);
+    }
+
+    nullifyDescriptors_impl(params);
     return true;
 }
 
@@ -550,6 +639,20 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     return createRenderpass_impl(params,std::move(validation));
 }
 
+asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
+{
+    const auto& props = m_physicalDevice->getProperties();
+    asset::ICPUPipelineCache::SCacheKey key = {.deviceAndDriverUUID="Nabla_v0.0.0_Vulkan_"}; // TODO: append version to Nabla
+    {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (size_t i=0; i<sizeof(props.pipelineCacheUUID); i++)
+            ss << std::hex << std::setw(2) << static_cast<uint32_t>(props.pipelineCacheUUID[i]);
+        key.deviceAndDriverUUID += ss.str();
+    }
+    return key;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
@@ -560,6 +663,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
         [this](const IGPUShader::SSpecInfo& info)->bool
         {
+            if (!info.shader)
+                return false;
             return info.shader->wasCreatedBy(this);
         }
     );
@@ -621,7 +726,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             {
                 const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
                     return false;
                 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853

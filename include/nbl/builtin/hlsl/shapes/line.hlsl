@@ -51,12 +51,12 @@ namespace shapes
             return ret;
         }
 
-        float_t2 evaluate(float_t t)
+        float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
         {
             return t * (P1 - P0) + P0;
         }
 
-        float_t getLength()
+        float_t getLength() NBL_CONST_MEMBER_FUNC
         {
             return length(P1 - P0);
         }
@@ -64,7 +64,7 @@ namespace shapes
         NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxCandidates = 1u;
         using Candidates = vector<float_t, MaxCandidates>;
 
-        Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos)
+        Candidates getClosestCandidates(NBL_CONST_REF_ARG(float_t2) pos) NBL_CONST_MEMBER_FUNC
         {
             Candidates ret;
             float_t2 p0p1 = P1 - P0;
@@ -73,7 +73,7 @@ namespace shapes
             return ret;
         }
 
-        float_t2x2 getLocalCoordinateSpace(float_t t)
+        float_t2x2 getLocalCoordinateSpace(float_t t) NBL_CONST_MEMBER_FUNC
         {
             float_t2 d = normalize(P1 - P0);
             return float_t2x2(d.x, d.y, -d.y, d.x);

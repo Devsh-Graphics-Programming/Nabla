@@ -111,8 +111,8 @@ bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physica
 		capabilities.minImageExtent = vk_surfaceCapabilities.surfaceCapabilities.minImageExtent;
 		capabilities.maxImageExtent = vk_surfaceCapabilities.surfaceCapabilities.maxImageExtent;
 		capabilities.maxImageArrayLayers = vk_surfaceCapabilities.surfaceCapabilities.maxImageArrayLayers;
-		capabilities.supportedTransforms = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.supportedTransforms);
-		capabilities.currentTransform = static_cast<ISurface::E_SURFACE_TRANSFORM_FLAGS>(vk_surfaceCapabilities.surfaceCapabilities.currentTransform);
+		capabilities.supportedTransforms = static_cast<hlsl::SurfaceTransform::FLAG_BITS>(vk_surfaceCapabilities.surfaceCapabilities.supportedTransforms);
+		capabilities.currentTransform = static_cast<hlsl::SurfaceTransform::FLAG_BITS>(vk_surfaceCapabilities.surfaceCapabilities.currentTransform);
 		capabilities.supportedCompositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(vk_surfaceCapabilities.surfaceCapabilities.supportedCompositeAlpha);
 		capabilities.supportedUsageFlags = getImageUsageFlagsFromVkImageUsageFlags(vk_surfaceCapabilities.surfaceCapabilities.supportedUsageFlags);
 
@@ -131,19 +131,38 @@ core::smart_refctd_ptr<CSurfaceVulkanWin32> CSurfaceVulkanWin32::create(core::sm
 	if (!api || !window)
 		return nullptr;
 
-	VkWin32SurfaceCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+	VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 	createInfo.pNext = nullptr; // pNext must be NULL
 	createInfo.flags = static_cast<VkWin32SurfaceCreateFlagsKHR>(0);
 	createInfo.hinstance = GetModuleHandle(NULL);
 	createInfo.hwnd = static_cast<HWND>(window->getNativeHandle());
+		
+	VkSurfaceKHR vk_surface;
+	// `vkCreateWin32SurfaceKHR` is taken from `volk` (cause it uses `extern` globals like a n00b)
+	VkResult vkRes = vkCreateWin32SurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface);
+	if (vkRes != VK_SUCCESS)
+		return nullptr;
+	auto retval = new this_t(std::move(window), std::move(api), vk_surface);
+	return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+}
+core::smart_refctd_ptr<CSurfaceVulkanWin32Native> CSurfaceVulkanWin32Native::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, ui::IWindowWin32::native_handle_t handle)
+{
+	if (!api || !handle)
+		return nullptr;
+
+	VkWin32SurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+	createInfo.pNext = nullptr; // pNext must be NULL
+	createInfo.flags = static_cast<VkWin32SurfaceCreateFlagsKHR>(0);
+	createInfo.hinstance = GetModuleHandle(NULL);
+	createInfo.hwnd = static_cast<HWND>(handle);
 
 	VkSurfaceKHR vk_surface;
 	// `vkCreateWin32SurfaceKHR` is taken from `volk` (cause it uses `extern` globals like a n00b)
-	if (vkCreateWin32SurfaceKHR(api->getInternalObject(),&createInfo,nullptr,&vk_surface)!=VK_SUCCESS)
+	VkResult vkRes = vkCreateWin32SurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface);
+	if (vkRes != VK_SUCCESS)
 		return nullptr;
-
-	auto retval = new this_t(std::move(window),std::move(api),vk_surface);
-	return core::smart_refctd_ptr<this_t>(retval,core::dont_grab);
+	auto retval = new this_t(std::move(api), handle, vk_surface);
+	return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
 }
 #endif
 }

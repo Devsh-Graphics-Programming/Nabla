@@ -10,13 +10,44 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License
 
 include(ProcessorCount)
 set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
-# TODO: REDO THIS WHOLE THING AS FUNCTIONS
-# https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
+	if(NOT TARGET Nabla)
+		message(FATAL_ERROR "Internal error, Nabla target must be defined!")
+	endif()
+	
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+		
+		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+			_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+		)
+	endif()
+	
+	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+		_DXC_DLL_="${DXC_DLL}"
+	)
+endfunction()
+
+function(nbl_handle_runtime_lib_properties _TARGET_)
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+endfunction()
 
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
@@ -40,27 +71,18 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		)
 		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-			
-			if(WIN32 AND MSVC)				
-				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-			endif()
-		else()
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
 		
 		if(WIN32 AND MSVC)
+			if(NBL_DYNAMIC_MSVC_RUNTIME)
+				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
+			endif()
+			
 			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
 		endif()
 	endif()
 	
-	if(WIN32 AND MSVC)
-		target_compile_definitions(${EXECUTABLE_NAME} PUBLIC 
-			_DXC_DLL_="${DXC_DLL}"
-		)
-	endif()
+	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
 
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
 	
@@ -255,31 +277,13 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		)
 	endif()
 	
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		if(WIN32 AND MSVC)
-			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-			
-			target_compile_definitions(${LIB_NAME} PUBLIC 
-				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-			)
-		endif()
-	endif()
-
-	if(WIN32 AND MSVC)
-		target_compile_definitions(${LIB_NAME} PUBLIC 
-			_DXC_DLL_="${DXC_DLL}"
-		)
-	endif()
-	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+	
+	nbl_handle_dll_definitions(${LIB_NAME} PUBLIC)
+	nbl_handle_runtime_lib_properties(${LIB_NAME})
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -962,11 +966,11 @@ endfunction()
 # @_BS_TARGET_@ is a builtin resource target
 
 function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
-	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	add_dependencies(${_TARGET_} ${_BS_TARGET_})
+	target_link_libraries(${_TARGET_} PUBLIC ${_BS_TARGET_})
 	
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	target_include_directories(${_TARGET_} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)

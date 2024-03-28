@@ -7,7 +7,7 @@
 namespace nbl::video
 {
 
-auto CVulkanQueue::waitIdle() const -> RESULT
+auto CVulkanQueue::waitIdle_impl() const -> RESULT
 {
     return getResultFrom(static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueWaitIdle(m_vkQueue));
 }
