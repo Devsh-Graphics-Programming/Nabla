@@ -117,7 +117,7 @@ struct bitfieldExtract<T, isSigned, false>
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        static_assert( is_integral<T>::value, "T is not an integral type!" );
+        bool nada;
         return val;
     }
 };
@@ -146,6 +146,14 @@ template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
+}
+
+#else
+
+template<typename T>
+inline T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return glm::bitfieldExtract<T>( val, int32_t( offsetBits ), int32_t( numBits ) );
 }
 
 #endif
