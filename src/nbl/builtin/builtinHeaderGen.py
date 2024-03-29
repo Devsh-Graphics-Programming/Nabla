@@ -36,12 +36,10 @@ else:
 #endif // __INTELLISENSE__
 
 #include <stdlib.h>
-#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <chrono>
-#include <array>
+#include <nbl/system/SBuiltinFile.h>
 #include <nbl/core/string/StringLiteral.h>
     """)
     
@@ -61,34 +59,15 @@ else:
         #endif
     #endif
         """)
-        
+    
     outp.write(f"""
-namespace {resourcesNamespace}
+    namespace {resourcesNamespace}
 {{
-    
-    struct SBuiltinFile
-    {{
-        const uint8_t* contents = nullptr;
-        size_t size = 0u;
-        std::array<uint64_t, 4> xx256Hash;
-        std::tm modified = {{ // Absolute time since 1970 in UTC+0
-            .tm_sec = 6,
-            .tm_min = 9,
-            .tm_hour = 6,
-            .tm_mday = 9,
-            .tm_mon = 6,
-            .tm_year = 9,
-            .tm_isdst = 0
-        }};
-    }};
-    """)
-    
-    outp.write(f"""
     {NBL_BR_API}
-    const SBuiltinFile& get_resource_runtime(const std::string& filename);
+    const nbl::system::SBuiltinFile& get_resource_runtime(const std::string& filename);
 
     template<nbl::core::StringLiteral Path>
-    const SBuiltinFile& get_resource();
+    const nbl::system::SBuiltinFile& get_resource();
     """)
         
     # Iterating through input list
@@ -98,14 +77,14 @@ namespace {resourcesNamespace}
         
         outp.write(f"""
         template<> {NBL_BR_API}
-        const SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>();
+        const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>();
         """)
         
         if len(itemData) > 1:
             for i in range(1, len(itemData)):
                 outp.write(f"""
                 template<> {NBL_BR_API}
-                const SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{itemData[i].rstrip()}")>();
+                const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{itemData[i].rstrip()}")>();
                 """)
 
     outp.write(f"""

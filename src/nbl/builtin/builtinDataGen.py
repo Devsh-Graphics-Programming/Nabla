@@ -33,10 +33,10 @@ else:
     namespace {resourcesNamespace}
     {{
     
-    static constexpr SBuiltinFile DUMMY_BUILTIN_FILE = {{ .contents = nullptr, .size = 0, .xx256Hash = 69, .modified = {{}} }};
+    static constexpr nbl::system::SBuiltinFile DUMMY_BUILTIN_FILE = {{ .contents = nullptr, .size = 0, .xx256Hash = 69, .modified = {{}} }};
     
     template<nbl::core::StringLiteral Path>
-    const SBuiltinFile& get_resource();
+    const nbl::system::SBuiltinFile& get_resource();
     """)
      
     # writing binary data of all files
@@ -46,7 +46,7 @@ else:
         inputBuiltinResource = cmakeSourceDir+'/'+x
         
         outp.write(f"""
-        template<> const SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>()
+        template<> const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>()
         {{
         static constexpr uint8_t data[] = {{
         """)
@@ -95,7 +95,7 @@ else:
         outp.write(f"""
         }};
         
-        static constexpr SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = {cppHashInitS}, 
+        static constexpr nbl::system::SBuiltinFile builtinFile = {{ .contents = data, .size = sizeof(data), .xx256Hash = {cppHashInitS}, 
         .modified = {{
             .tm_sec = {modificationDateT.second},
             .tm_min = {modificationDateT.minute},
@@ -113,14 +113,14 @@ else:
         if len(itemData) > 1:
             for i in range(1, len(itemData)):
                 outp.write(f"""
-                template<> const SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{itemData[i].rstrip()}")>()
+                template<> const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{itemData[i].rstrip()}")>()
                 {{
                     return get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>();
                 }}
                 """)
     
     outp.write(f"""
-    const SBuiltinFile& get_resource_runtime(const std::string& filename) {{
+    const nbl::system::SBuiltinFile& get_resource_runtime(const std::string& filename) {{
     static std::unordered_map<std::string, int> resourcesByFilename( {{
     """)
 
