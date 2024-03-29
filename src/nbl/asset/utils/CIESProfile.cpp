@@ -21,14 +21,91 @@ const CIESProfile::IES_STORAGE_FORMAT& CIESProfile::getIntegral() const
     return res;
 }
 
-const CIESProfile::IES_STORAGE_FORMAT& CIESProfile::sample(double vAngle, double hAngle) const {
-    if (vAngle > vAngles.back()) return 0.0;
-    hAngle = hAngles.back() == 0.0
-        ? 0.0
-        : fmod(hAngle,
-            hAngles.back()); // when last horizontal angle is zero
+enum QUADRANT : uint8_t
+{
+    Q_1,    //! angle in range [0, 90)
+    Q_2,    //! angle in range [90, 180)
+    Q_3,    //! angle in range [180, 270)
+    Q_4,    //! angle in range [270, 360)
+    Q_SIZE
+};
 
-    // it's symmetric across all planes
+const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const 
+{
+    assert(vAngle >= 0.0 && vAngle <= 180.0);
+    assert(hAngle >= 0.0 && hAngle <= 360.0);
+
+    auto getQuadrant = [](const float& _angle) -> QUADRANT
+    {
+        for (uint8_t i = 0; i < Q_SIZE; ++i)
+        {
+            const auto lb = i * 90;
+            if (_angle >= lb && _angle < lb + 90)
+                return static_cast<QUADRANT>(i);
+        }
+        assert(false);
+    };
+
+    auto wrapHAngle = [&](const auto& _hAngle) -> IES_STORAGE_FORMAT
+    {
+        const auto quadrant = getQuadrant(_hAngle);
+
+        switch (symmetry)
+        {
+            case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap
+            {
+                switch (quadrant)
+                {
+                    case Q_2: //! eg. 91 -> 89
+                        return 90 - (_hAngle - 90);
+                    case Q_3: //! eg. 269 -> 89
+                        return (_hAngle - 180);
+                    case Q_4: //! eg. 271 -> 89
+                        return 90 - (_hAngle - 270);
+                    default:
+                        return _hAngle;
+                }
+            }
+            case HALF_SYMETRIC: //! phi MIRROR wrap
+            {
+                switch (quadrant)
+                {
+                    case Q_3: //! eg. maps 181 -> 179
+                        return 180 - (_hAngle - 180);
+                    case Q_4: //! eg. maps 359 -> 1
+                        return (360 - _hAngle) + 0;
+                    default:
+                        return _hAngle;
+                }
+                break;
+            }
+            case OTHER_HALF_SYMMETRIC: //! HALF_SYMETRIC case with shifted range about 90 degrees
+            {
+                switch (quadrant)
+                {
+                    case Q_1: //! eg. maps 89 -> 91
+                        return 180 - _hAngle;
+                    case Q_3: //! eg. maps 269 -> 271
+                        return (270 - _hAngle) + 270;
+                    //case Q_3: //! eg. maps 271 -> 269
+                    //	return 270 - (_hAngle - 270);
+                    default:
+                        return _hAngle;
+                }
+                break;
+            }
+            default:
+                return _hAngle;
+        }
+    };
+
+    if (vAngle > vAngles.back())
+        return 0.0;
+
+    if (hAngles.size() < 2)
+        hAngle = hAngles.front();
+    
+    hAngle = wrapHAngle(hAngle);
 
     // bilinear interpolation
     auto lb = [](const core::vector<double>& angles, double angle) -> int {

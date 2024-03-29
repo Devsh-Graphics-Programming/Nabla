@@ -23,21 +23,35 @@ namespace nbl
                 _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_VANGLE = 180.0;
                 _NBL_STATIC_INLINE_CONSTEXPR IES_STORAGE_FORMAT MAX_HANGLE = 360.0;
 
-                enum PhotometricType : uint32_t 
+                enum Version : uint8_t
+                {
+                    V_1995,
+                    V_2002,
+                    V_SIZE
+                };
+
+                enum PhotometricType : uint8_t 
                 {
                     TYPE_NONE,
                     TYPE_C,
                     TYPE_B,
-                    TYPE_A,
+                    TYPE_A
+                };
+
+                enum LuminairePlanesSymmetry : uint8_t
+                {
+                    ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally symmetric in all planes
+                    QUAD_SYMETRIC,              //! The luminaire is assumed to be symmetric in each quadrant
+                    HALF_SYMETRIC,              //! The luminaire is assumed to be symmetric about the 0 to 180 degree plane
+                    OTHER_HALF_SYMMETRIC,       //! HALF_SYMETRIC case for legacy V_1995 version where horizontal angles are in range [90, 270]
+                    NO_LATERAL_SYMMET           //! The luminaire is assumed to exhibit no lateral symmet
                 };
 
                 CIESProfile() = default;
                 ~CIESProfile() = default;
 
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
-                const IES_STORAGE_FORMAT& getHAnglesOffset() const { return hAOffset; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
-                const IES_STORAGE_FORMAT& getVAnglesOffset() const { return vAOffset; }
                 const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
 
                 IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
@@ -46,17 +60,11 @@ namespace nbl
                 const IES_STORAGE_FORMAT& getIntegral() const;
                 const IES_STORAGE_FORMAT& getIntegralFromGrid() const { return integral; }
 
-                //! Candlepower distribution curve plot as ICPUImageView
-                /*
-                    Creates 2D texture of CDC with width & height extent, zAngleDegreeRotation may be
-                    used to rotate normalized direction vector obtained from octahdronUVToDir utility with
-                */
-
                 core::smart_refctd_ptr<asset::ICPUImageView> createCDCTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
-                    : type(type), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
+                    : type(type), version(V_SIZE), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
 
                 // TODO for @Hazard, I would move it into separate file, we may use this abstraction somewhere too
                 static inline std::pair<float, float> sphericalDirToRadians(const core::vectorSIMDf& dir);
@@ -70,14 +78,14 @@ namespace nbl
 
                 void setValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[vAngles.size() * i + j] = val; }
 
-                const IES_STORAGE_FORMAT& sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
+                const IES_STORAGE_FORMAT sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
 
                 PhotometricType type;
-                core::vector<IES_STORAGE_FORMAT> hAngles;   //! horizontal angles, represents "theta" spherical coordinate angle (in degrees) compoment with physics convention
-                IES_STORAGE_FORMAT hAOffset = {};           //! real hAngle value read from IES file is hAngles[x] + hAOffset
-                core::vector<IES_STORAGE_FORMAT> vAngles;   //! vertical angles, represents "phi" spherical coordinate angle (in degrees) compoment with physics convention
-                IES_STORAGE_FORMAT vAOffset = {};           //! real vAngle value read from IES file is vAngles[x] + vAOffset
-                core::vector<IES_STORAGE_FORMAT> data;
+                Version version;
+                LuminairePlanesSymmetry symmetry;
+                core::vector<IES_STORAGE_FORMAT> hAngles;   //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention
+                core::vector<IES_STORAGE_FORMAT> vAngles;   //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
+                core::vector<IES_STORAGE_FORMAT> data;      //! Candela values
                 IES_STORAGE_FORMAT maxValue = {};
                 mutable IES_STORAGE_FORMAT integral = {};
 

@@ -25,11 +25,28 @@ double CIESProfileParser::getDouble(const char* errorMsg)
     return -1.0;
 }
 
-bool CIESProfileParser::parse(CIESProfile& result) {
+bool CIESProfileParser::parse(CIESProfile& result) 
+{
     // skip metadata
     std::string line;
 
-    while (std::getline(ss, line)) {
+    std::getline(ss, line);
+    if (line.back() == '\r')
+        line.pop_back();
+
+    CIESProfile::Version iesVersion;
+    if (line == "IESNA:LM-63-1995")
+        iesVersion = CIESProfile::V_1995;
+    else if (line == "IESNA:LM-63-2002")
+        iesVersion = CIESProfile::V_2002;
+    else
+    {
+        errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
+        return false;
+    }
+
+    while (std::getline(ss, line)) 
+    {
         if (line.back() == '\r')
             line.pop_back();
         if (line == "TILT=INCLUDE" || line == "TILT=NONE")
@@ -71,29 +88,31 @@ bool CIESProfileParser::parse(CIESProfile& result) {
 
     int unitsType = getInt("unitsType truncated");
     double width = getDouble("width truncated"),
-        length = getDouble("length truncated"),
-        height = getDouble("height truncated");
-    double ballastFactor = getDouble("ballastFactor truncated");
-    double reserved = getDouble("reserved truncated");
-    double inputWatts = getDouble("inputWatts truncated");
+    length = getDouble("length truncated"),
+    height = getDouble("height truncated"),
+    ballastFactor = getDouble("ballastFactor truncated"),
+    reserved = getDouble("reserved truncated"),
+    inputWatts = getDouble("inputWatts truncated");
+
     if (error)
         return false;
 
     result = CIESProfile(type, hSize, vSize);
+    result.version = iesVersion;
     auto& vAngles = result.vAngles;
     for (int i = 0; i < vSize; i++) {
         vAngles[i] = getDouble("vertical angle truncated");
     }
     if (!std::is_sorted(vAngles.begin(), vAngles.end())) {
-        errorMsg = "Angles should be sorted";
+        errorMsg = "Vertical angles should be sorted";
         return false;
     }
     if (vAngles[0] != 0.0 && vAngles[0] != 90.0) {
-        errorMsg = "First angle must be 0 or 90 in type C";
+        errorMsg = "First vertical angle must be 0 or 90 in type C";
         return false;
     }
     if (vAngles[vSize - 1] != 90.0 && vAngles[vSize - 1] != 180.0) {
-        errorMsg = "Last angle must be 90 or 180 in type C";
+        errorMsg = "Last vertical angle must be 90 or 180 in type C";
         return false;
     }
 
@@ -104,28 +123,33 @@ bool CIESProfileParser::parse(CIESProfile& result) {
             return false; // Angles should be sorted
     }
 
-    double factor = ballastFactor * candelaMultiplier;
-    for (int i = 0; i < hSize; i++) {
-        for (int j = 0; j < vSize; j++) {
+    // validate horizontal angles
+    {
+        const auto& firstHAngle = hAngles.front();
+        const auto& lastHAngle = hAngles.back();
+
+        if (lastHAngle == 0)
+            result.symmetry = CIESProfile::ISOTROPIC;
+        else if (lastHAngle == 90)
+            result.symmetry = CIESProfile::QUAD_SYMETRIC;
+        else if (lastHAngle == 180)
+            result.symmetry = CIESProfile::HALF_SYMETRIC;
+        else if (lastHAngle == 360)
+            result.symmetry = CIESProfile::NO_LATERAL_SYMMET;
+        else
+        {
+            if (firstHAngle == 90 && lastHAngle == 270 && result.version == CIESProfile::V_1995)
+                result.symmetry = CIESProfile::OTHER_HALF_SYMMETRIC;
+            else
+                return false;
+        }
+    }
+
+    const double factor = ballastFactor * candelaMultiplier;
+    for (int i = 0; i < hSize; i++)
+        for (int j = 0; j < vSize; j++)
             result.setValue(i, j, factor * getDouble("intensity value truncated"));
-        }
-    }
-    /*
-    if (hAngles.back() == 180.0) {
-        for (int i = (int)hAngles.size() - 2; i >= 0; i--) {
-            result.addHoriAngle(360.0 - hAngles[i]);
-            for (int j = 0; j < vSize; j++)
-                result.setValue(result.hAngles.size() - 1, j, result.getValue(i, j));
-        }
-    }
-    */
-
-    // to interprete angles pairs starting with (0, phi) for proper computations we shift the angles
-    result.hAOffset = result.hAngles[0];
-    if (result.hAOffset != 0)
-        for (auto& hAngle : result.hAngles)
-            hAngle = std::fmod((hAngle - result.hAOffset + 360), 360);
-
+    
     result.maxValue = *std::max_element(std::begin(result.data), std::end(result.data));
 
     return !error;
