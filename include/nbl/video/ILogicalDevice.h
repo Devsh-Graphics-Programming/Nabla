@@ -620,7 +620,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             {
                 if (layout)
                 {
-                    const auto setCount = setCounts ? *(setCountsIt++):1u;
+                    const auto setCount = setCounts ? *(setCountsIt):1u;
                     createInfo.maxSets += setCount;
                     for (uint32_t t=0; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                     {
