@@ -135,7 +135,7 @@ class BasicMultiQueueApplication : public virtual MonoDeviceApplication
 			uint8_t fallbackUsers = 0;
 			const SQueueIndex fallbackQueue = {
 				queueAllocator.allocateFamily({
-						.requiredFlags = (isComputeOnly() ? queue_flags_t::GRAPHICS_BIT:queue_flags_t::NONE)|queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,
+						.requiredFlags = (isComputeOnly() ? queue_flags_t::NONE : queue_flags_t::GRAPHICS_BIT) | queue_flags_t::COMPUTE_BIT | queue_flags_t::TRANSFER_BIT,
 						.disallowedFlags = queue_flags_t::NONE,
 						.queueCount = 1,
 						.maxImageTransferGranularity = {1,1,1}

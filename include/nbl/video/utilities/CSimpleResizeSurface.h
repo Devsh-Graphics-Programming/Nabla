@@ -24,12 +24,9 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 				return nullptr;
 
 			auto _window = _surface->getWindow();
-			if (!_window)
-				return nullptr;
-
-			auto cb = dynamic_cast<ICallback*>(_window->getEventCallback());
-			if (!cb)
-				return nullptr;
+			ICallback* cb = nullptr;
+			if (_window)
+				cb = dynamic_cast<ICallback*>(_window->getEventCallback());
 
 			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
 		}
@@ -52,10 +49,17 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		inline ISwapchainResources* getSwapchainResources() override {return m_swapchainResources.get();}
 
 		// need to see if the swapchain is invalidated (e.g. because we're starting from 0-area old Swapchain) and try to recreate the swapchain
-		inline uint8_t acquireNextImage()
+		inline SAcquireResult acquireNextImage()
 		{
-			if (!m_swapchainResources || m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain())
-				return ISwapchain::MaxImages;
+			if (!isWindowOpen())
+			{
+				becomeIrrecoverable();
+				return {};
+			}
+			
+			if (!m_swapchainResources || (m_swapchainResources->getStatus()!=ISwapchainResources::STATUS::USABLE && !recreateSwapchain()))
+				return {};
+
 			return ISimpleManagedSurface::acquireNextImage();
 		}
 
@@ -138,12 +142,12 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 		inline void becomeIrrecoverable() override { m_swapchainResources = nullptr; }
 
 		// gets called when OUT_OF_DATE upon an acquire
-		inline uint8_t handleOutOfDate() override final
+		inline SAcquireResult handleOutOfDate() override final
 		{
 			// recreate swapchain and try to acquire again
 			if (recreateSwapchain())
 				return ISimpleManagedSurface::acquireNextImage();
-			return ISwapchain::MaxImages;
+			return {};
 		}
 
 	private:

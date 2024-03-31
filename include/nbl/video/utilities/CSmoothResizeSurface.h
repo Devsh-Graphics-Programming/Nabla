@@ -279,7 +279,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		}
 
 		// handlers for acquisition exceptions (will get called under mutexes)
-		inline uint8_t handleOutOfDate() override final
+		inline SAcquireResult handleOutOfDate() override final
 		{
 			// try again, will re-create swapchain
 			return ISimpleManagedSurface::acquireNextImage();
@@ -300,8 +300,8 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			auto swapchainResources = static_cast<ISwapchainResources*>(getSwapchainResources());
 			assert(swapchainResources);
 			
-			const uint8_t imageIx = acquireNextImage();
-			if (imageIx==ISwapchain::MaxImages)
+			const auto acquire = acquireNextImage();
+			if (!acquire)
 				return false;
 
 			// now that an image is acquired, we HAVE TO present
@@ -311,7 +311,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			// in case of failure, most we can do is just not submit an invalidated commandbuffer with the triple buffer present
 			bool willBlit = true;
 
-			const auto acquireCount = getAcquireCount();
+			const auto acquireCount = acquire.acquireCount;
 			const IQueue::SSubmitInfo::SSemaphoreInfo waitSemaphores[2] = {
 				{
 					.semaphore = presentInfo.waitSemaphore,
@@ -322,8 +322,8 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 					.stageMask = acquireOwnership ? asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS:swapchainResources->getTripleBufferPresentStages()
 				},
 				{
-					.semaphore = getAcquireSemaphore(),
-					.value = acquireCount,
+					.semaphore = acquire.semaphore,
+					.value = acquire.acquireCount,
 					// There 99% surely probably be a Layout Transition of the acquired image away from PRESENT_SRC,
 					// so need an ALL->NONE dependency between acquire and semaphore wait
 					// https://github.com/KhronosGroup/Vulkan-Docs/issues/2319
@@ -354,7 +354,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			auto cmdbuf = m_cmdbufs[cmdBufIx].get();
 
 			willBlit &= cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-			willBlit &= swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source,imageIx,acquireOwnership ? queue->getFamilyIndex():IQueue::FamilyIgnored);
+			willBlit &= swapchainResources->tripleBufferPresent(cmdbuf,presentInfo.source,acquire.imageIndex,acquireOwnership ? queue->getFamilyIndex():IQueue::FamilyIgnored);
 			willBlit &= cmdbuf->end();
 			
 			const IQueue::SSubmitInfo::SCommandBufferInfo commandBuffers[1] = {{.cmdbuf=cmdbuf}};
@@ -381,10 +381,10 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 				const auto oldVal = m_lastPresent.pPresentSemaphoreWaitValue->exchange(acquireCount);
 				assert(oldVal<acquireCount);
 
-				return ISimpleManagedSurface::present(imageIx,presented);
+				return ISimpleManagedSurface::present(acquire.imageIndex,presented);
 			}
 			else
-				return ISimpleManagedSurface::present(imageIx,{waitSemaphores+1,1});
+				return ISimpleManagedSurface::present(acquire.imageIndex,{waitSemaphores+1,1});
 		}
 
 		// Because the surface can start minimized (extent={0,0}) we might not be able to create the swapchain right away, so store creation parameters until we can create it.

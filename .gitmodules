@@ -90,3 +90,6 @@
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
 	url = git@github.com:boostorg/boost.git
+[submodule "3rdparty/argparse"]
+	path = 3rdparty/argparse
+	url = git@github.com:p-ranav/argparse.git
