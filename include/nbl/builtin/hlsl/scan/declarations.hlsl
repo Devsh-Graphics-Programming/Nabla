@@ -24,7 +24,7 @@ namespace scan
 		uint32_t lastElement[NBL_BUILTIN_MAX_SCAN_LEVELS/2+1];
 		uint32_t topLevel;
 		uint32_t temporaryStorageOffset[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
-	}
+	};
     
 	Parameters_t getParameters();
 

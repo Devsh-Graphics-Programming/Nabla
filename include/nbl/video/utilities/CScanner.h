@@ -141,7 +141,7 @@ prefix sum with subgroup sized workgroups at peak Bandwidth efficiency in about 
 
 Console devs get to bring a gun to a knife fight...
 **/
-#if 0 // legacy & port to HLSL
+#if 1 // legacy & port to HLSL
 class CScanner final : public core::IReferenceCounted
 {
 	public:		
@@ -267,15 +267,14 @@ class CScanner final : public core::IReferenceCounted
 		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : m_device(std::move(device)), m_workgroupSize(workgroupSize)
 		{
 			assert(core::isPoT(m_workgroupSize));
-
-			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
+			const asset::SPushConstantRange pc_range[] = {asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants)};
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
 				{ 0u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
 				{ 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
 			};
 
-			m_ds_layout = m_device->createDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-			m_pipeline_layout = m_device->createPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
+			m_ds_layout = m_device->createDescriptorSetLayout(bindings);
+			m_pipeline_layout = m_device->createPipelineLayout({ pc_range }, core::smart_refctd_ptr(m_ds_layout));
 		}
 
 		//
@@ -298,7 +297,7 @@ class CScanner final : public core::IReferenceCounted
 			return m_shaders[scanType][dataType][op].get();
 		}
 		//
-		inline IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		inline IGPUShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
 		{
 			if (!m_specialized_shaders[scanType][dataType][op])
 			{
@@ -306,11 +305,9 @@ class CScanner final : public core::IReferenceCounted
 				cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
 				cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
-				auto gpushader = m_device->createShader(std::move(cpuShader));
+				auto gpushader = m_device->createShader(cpuShader.get());
 
-				m_specialized_shaders[scanType][dataType][op] = m_device->createSpecializedShader(
-					gpushader.get(),{nullptr,nullptr,"main"});
-				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/hlsl/scan/direct.hlsl"
+				m_specialized_shaders[scanType][dataType][op] = gpushader;
 			}
 			return m_specialized_shaders[scanType][dataType][op].get();
 		}
@@ -319,11 +316,18 @@ class CScanner final : public core::IReferenceCounted
 		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
 		{
 			// ondemand
-			if (!m_pipelines[scanType][dataType][op])
-				m_pipelines[scanType][dataType][op] = m_device->createComputePipeline(
-					nullptr,core::smart_refctd_ptr(m_pipeline_layout),
-					core::smart_refctd_ptr<IGPUSpecializedShader>(getDefaultSpecializedShader(scanType,dataType,op))
+			if (!m_pipelines[scanType][dataType][op]) {
+				IGPUComputePipeline::SCreationParams params = {};
+				params.layout = m_pipeline_layout.get();
+				// Theoretically a blob of SPIR-V can contain multiple named entry points and one has to be chosen, in practice most compilers only support outputting one (and glslang used to require it be called "main")
+				params.shader.entryPoint = "main";
+				params.shader.shader = getDefaultSpecializedShader(scanType, dataType, op);
+
+				m_device->createComputePipelines(
+					nullptr, { &params,1 },
+					& m_pipelines[scanType][dataType][op]
 				);
+			}
 			return m_pipelines[scanType][dataType][op].get();
 		}
 
@@ -349,12 +353,7 @@ class CScanner final : public core::IReferenceCounted
 			video::IGPUDescriptorSet::SWriteDescriptorSet writes[2];
 			for (auto i=0u; i<2u; i++)
 			{
-				writes[i].dstSet = set;
-				writes[i].binding = i;
-				writes[i].arrayElement = 0u;
-				writes[i].count = 1u;
-				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
-				writes[i].info = infos+i;
+				writes[i] = { .dstSet = set,.binding = i,.arrayElement = 0u,.count = 1u,.info = infos+i };
 			}
 
 			device->updateDescriptorSets(2, writes, 0u, nullptr);
@@ -370,17 +369,13 @@ class CScanner final : public core::IReferenceCounted
 			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
 			if (srcBufferBarrierCount)
 			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
-				info.bufBarrierCount = srcBufferBarrierCount;
-				info.bufBarriers = srcBufferBarriers;
+				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = { .bufBarriers = { srcBufferBarriers, 1} };
 				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
 			}
 			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
 			if (srcBufferBarrierCount)
 			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
-				info.bufBarrierCount = dstBufferBarrierCount;
-				info.bufBarriers = dstBufferBarriers;
+				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = { .bufBarriers = { dstBufferBarriers, 1} };
 				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
 			}
 		}
@@ -400,7 +395,7 @@ class CScanner final : public core::IReferenceCounted
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
 		core::smart_refctd_ptr<IGPUPipelineLayout> m_pipeline_layout;
 		core::smart_refctd_ptr<asset::ICPUShader> m_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
-		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
+		core::smart_refctd_ptr < IGPUShader > m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
 		const uint32_t m_workgroupSize;
 };
