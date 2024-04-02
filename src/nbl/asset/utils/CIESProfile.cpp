@@ -39,21 +39,22 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
         return 0.0;
 
     // bilinear interpolation
-    auto lb = [](const core::vector<double>& angles, double angle) -> int {
-        int idx = std::upper_bound(std::begin(angles), std::end(angles), angle) -
-            std::begin(angles);
-        return std::max(idx - 1, 0);
-        };
-    auto ub = [](const core::vector<double>& angles, double angle) -> int {
-        int idx = std::upper_bound(std::begin(angles), std::end(angles), angle) -
-            std::begin(angles);
-        return std::min(idx, (int)angles.size() - 1);
-        };
+    auto lb = [](const core::vector<double>& angles, double angle) -> size_t
+    {
+        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
+        return (size_t)std::max((int64_t)idx - 1, (int64_t)0);
+    };
 
-    int j0 = lb(vAngles, vAngle);
-    int j1 = ub(vAngles, vAngle);
-    int i0 = symmetry == ISOTROPIC ? 0 : lb(hAngles, hAngle);
-    int i1 = symmetry == ISOTROPIC ? 0 : ub(hAngles, hAngle);
+    auto ub = [](const core::vector<double>& angles, double angle) -> size_t
+    {
+        const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
+        return std::min<size_t>(idx, angles.size() - 1);
+    };
+
+    const size_t j0 = lb(vAngles, vAngle);
+    const size_t j1 = ub(vAngles, vAngle);
+    const size_t i0 = symmetry == ISOTROPIC ? 0 : lb(hAngles, hAngle);
+    const size_t i1 = symmetry == ISOTROPIC ? 0 : ub(hAngles, hAngle);
 
     double uResp = i1 == i0 ? 1.0 : 1.0 / (hAngles[i1] - hAngles[i0]);
     double vResp = j1 == j0 ? 1.0 : 1.0 / (vAngles[j1] - vAngles[j0]);
