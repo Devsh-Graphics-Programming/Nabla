@@ -43,13 +43,14 @@ namespace nbl
                     ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally symmetric in all planes
                     QUAD_SYMETRIC,              //! The luminaire is assumed to be symmetric in each quadrant
                     HALF_SYMETRIC,              //! The luminaire is assumed to be symmetric about the 0 to 180 degree plane
-                    OTHER_HALF_SYMMETRIC,       //! HALF_SYMETRIC case for legacy V_1995 version where horizontal angles are in range [90, 270]
+                    OTHER_HALF_SYMMETRIC,       //! HALF_SYMETRIC case for legacy V_1995 version where horizontal angles are in range [90, 270], in that case the parser patches horizontal angles to be HALF_SYMETRIC
                     NO_LATERAL_SYMMET           //! The luminaire is assumed to exhibit no lateral symmet
                 };
 
                 CIESProfile() = default;
                 ~CIESProfile() = default;
 
+                const IES_STORAGE_FORMAT& getHAnglesOffset() const { return hAnglesOffset; }
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
@@ -57,7 +58,6 @@ namespace nbl
                 IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
                 IES_STORAGE_FORMAT getMaxValue() const { return maxValue; }
 
-                const IES_STORAGE_FORMAT& getIntegral() const;
                 const IES_STORAGE_FORMAT& getIntegralFromGrid() const { return integral; }
 
                 core::smart_refctd_ptr<asset::ICPUImageView> createCDCTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
@@ -84,6 +84,7 @@ namespace nbl
                 Version version;
                 LuminairePlanesSymmetry symmetry;
                 core::vector<IES_STORAGE_FORMAT> hAngles;   //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention
+                IES_STORAGE_FORMAT hAnglesOffset;           //! The real horizontal angle provided by IES data is (hAngles[index] + hAnglesOffset) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
                 core::vector<IES_STORAGE_FORMAT> vAngles;   //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
                 core::vector<IES_STORAGE_FORMAT> data;      //! Candela values
                 IES_STORAGE_FORMAT maxValue = {};

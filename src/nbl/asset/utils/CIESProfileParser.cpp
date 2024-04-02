@@ -125,7 +125,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
 
     // validate horizontal angles
     {
-        const auto& firstHAngle = hAngles.front();
+        const auto& firstHAngle = result.hAnglesOffset = hAngles.front();
         const auto& lastHAngle = hAngles.back();
 
         if (lastHAngle == 0)
@@ -139,7 +139,12 @@ bool CIESProfileParser::parse(CIESProfile& result)
         else
         {
             if (firstHAngle == 90 && lastHAngle == 270 && result.version == CIESProfile::V_1995)
+            {
                 result.symmetry = CIESProfile::OTHER_HALF_SYMMETRIC;
+
+                for (auto& angle : hAngles)
+                    angle -= firstHAngle; // patch the profile to HALF_SYMETRIC by shifting [90,270] range to [0, 180]
+            }
             else
                 return false;
         }

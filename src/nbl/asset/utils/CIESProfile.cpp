@@ -3,109 +3,41 @@
 using namespace nbl;
 using namespace asset;
 
-const CIESProfile::IES_STORAGE_FORMAT& CIESProfile::getIntegral() const
+const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT theta, IES_STORAGE_FORMAT phi) const 
 {
-    size_t numHSamples = 2 * hAngles.size();
-    size_t numVSamples = 2 * vAngles.size();
-    double dTheta = core::PI<double>() / numVSamples;
-    double dPhi = 2 * core::PI<double>() / numHSamples;
-    double dThetaInAngle = MAX_VANGLE / numVSamples;
-    double dPhiInAngle = MAX_HANGLE / numHSamples;
-    double res = 0;
-    for (size_t i = 0; i < numVSamples; i++) {
-        for (size_t j = 0; j < numHSamples; j++) {
-            auto val = dPhi * dTheta * std::sin(dTheta * i) * sample(i * dThetaInAngle, j * dPhiInAngle);
-            res += val;
-        }
-    }
-    return res;
-}
-
-enum QUADRANT : uint8_t
-{
-    Q_1,    //! angle in range [0, 90)
-    Q_2,    //! angle in range [90, 180)
-    Q_3,    //! angle in range [180, 270)
-    Q_4,    //! angle in range [270, 360)
-    Q_SIZE
-};
-
-const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const 
-{
-    assert(vAngle >= 0.0 && vAngle <= 180.0);
-    assert(hAngle >= 0.0 && hAngle <= 360.0);
-
-    auto getQuadrant = [](const float& _angle) -> QUADRANT
+    auto wrapPhi = [&](const IES_STORAGE_FORMAT& _phi) -> IES_STORAGE_FORMAT
     {
-        for (uint8_t i = 0; i < Q_SIZE; ++i)
-        {
-            const auto lb = i * 90;
-            if (_angle >= lb && _angle < lb + 90)
-                return static_cast<QUADRANT>(i);
-        }
-        assert(false);
-    };
-
-    auto wrapHAngle = [&](const auto& _hAngle) -> IES_STORAGE_FORMAT
-    {
-        const auto quadrant = getQuadrant(_hAngle);
+        constexpr auto M_HALF_PI =core::HALF_PI<double>();
 
         switch (symmetry)
         {
-            case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap
+            case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
             {
-                switch (quadrant)
-                {
-                    case Q_2: //! eg. 91 -> 89
-                        return 90 - (_hAngle - 90);
-                    case Q_3: //! eg. 269 -> 89
-                        return (_hAngle - 180);
-                    case Q_4: //! eg. 271 -> 89
-                        return 90 - (_hAngle - 270);
-                    default:
-                        return _hAngle;
-                }
+                float wrapPhi = abs(_phi); //! first MIRROR
+
+                if (wrapPhi > M_HALF_PI) //! then REPEAT
+                    wrapPhi = std::clamp<IES_STORAGE_FORMAT>(M_HALF_PI - (wrapPhi - M_HALF_PI), 0, M_HALF_PI);
+
+                return wrapPhi; //! eg. maps (in degrees) 91,269,271 -> 89 and 179,181,359 -> 1
             }
-            case HALF_SYMETRIC: //! phi MIRROR wrap
-            {
-                switch (quadrant)
-                {
-                    case Q_3: //! eg. maps 181 -> 179
-                        return 180 - (_hAngle - 180);
-                    case Q_4: //! eg. maps 359 -> 1
-                        return (360 - _hAngle) + 0;
-                    default:
-                        return _hAngle;
-                }
-                break;
-            }
-            case OTHER_HALF_SYMMETRIC: //! HALF_SYMETRIC case with shifted range about 90 degrees
-            {
-                switch (quadrant)
-                {
-                    case Q_1: //! eg. maps 89 -> 91
-                        return 180 - _hAngle;
-                    case Q_3: //! eg. maps 269 -> 271
-                        return (270 - _hAngle) + 270;
-                    //case Q_3: //! eg. maps 271 -> 269
-                    //	return 270 - (_hAngle - 270);
-                    default:
-                        return _hAngle;
-                }
-                break;
-            }
+            case HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
+            case OTHER_HALF_SYMMETRIC:
+                return abs(_phi); //! eg. maps (in degress) 181 -> 179 or 359 -> 1
             default:
-                return _hAngle;
+                return _phi;
         }
     };
+
+    const float vAngle = core::degrees(theta), hAngle = core::degrees(wrapPhi(phi));
+
+    assert(vAngle >= 0.0 && vAngle <= 180.0);
+    assert(hAngle >= 0.0 && hAngle <= 360.0);
 
     if (vAngle > vAngles.back())
         return 0.0;
 
     if (hAngles.size() < 2)
-        hAngle = hAngles.front();
-    
-    hAngle = wrapHAngle(hAngle);
+        return hAngles.front();
 
     // bilinear interpolation
     auto lb = [](const core::vector<double>& angles, double angle) -> int {
@@ -118,16 +50,21 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT vAn
             std::begin(angles);
         return std::min(idx, (int)angles.size() - 1);
         };
+
     int j0 = lb(vAngles, vAngle);
     int j1 = ub(vAngles, vAngle);
     int i0 = lb(hAngles, hAngle);
     int i1 = ub(hAngles, hAngle);
+
     double uResp = i1 == i0 ? 1.0 : 1.0 / (hAngles[i1] - hAngles[i0]);
     double vResp = j1 == j0 ? 1.0 : 1.0 / (vAngles[j1] - vAngles[j0]);
+
     double u = (hAngle - hAngles[i0]) * uResp;
     double v = (vAngle - vAngles[j0]) * vResp;
+
     double s0 = getValue(i0, j0) * (1.0 - v) + getValue(i0, j1) * (v);
     double s1 = getValue(i1, j0) * (1.0 - v) + getValue(i1, j1) * (v);
+
     return s0 * (1.0 - u) + s1 * u;
 }
 
@@ -144,10 +81,18 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
     return core::normalize(pos);
 }
 
+//! Returns spherical coordinates with physics convention in radians
+/*
+    https://en.wikipedia.org/wiki/Spherical_coordinate_system#/media/File:3D_Spherical.svg
+    Retval.first is "theta" polar angle in range [0, PI] & Retval.second "phi" is azimuthal angle
+    in range [-PI, PI] range
+*/
+
 inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
 {
-    float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
-    float phi = std::abs(std::atan2(dir.y, dir.x));
+    const float theta = std::acos(std::clamp<float>(dir.z, -1.f, 1.f));
+    const float phi = std::atan2(dir.y, dir.x);
+
     return { theta, phi };
 }
 
@@ -196,7 +141,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
         {
             const auto dir = octahdronUVToDir(((float)j + 0.5) * vertInv, ((float)i + 0.5) * horiInv);
             const auto [theta, phi] = sphericalDirToRadians(dir);
-            const auto& intensity = sample(core::degrees(theta), core::degrees(phi));
+            const auto& intensity = sample(theta, phi);
             const auto& value = intensity * maxValueRecip;
 
             auto integrationV = dPhi * dTheta * std::sin(theta) * intensity;
