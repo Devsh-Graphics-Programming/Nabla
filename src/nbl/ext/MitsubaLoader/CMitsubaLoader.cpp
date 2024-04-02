@@ -1202,6 +1202,7 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 						cachePropertyTexture(bsdf->dielectric.alphaV);
 					break;
 				case CElementBSDF::CONDUCTOR:
+				case CElementBSDF::ROUGHCONDUCTOR:
 					cachePropertyTexture(bsdf->conductor.alphaU);
 					if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
 						cachePropertyTexture(bsdf->conductor.alphaV);
