@@ -54,6 +54,7 @@ namespace nbl
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
+                const auto getSymmetry() const { return symmetry; }
 
                 IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
                 IES_STORAGE_FORMAT getMaxValue() const { return maxValue; }
