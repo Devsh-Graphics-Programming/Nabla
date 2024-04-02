@@ -23,41 +23,48 @@ std::pair<const CElementTexture*,float> CMitsubaMaterialCompilerFrontend::unwind
 
 auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic) const -> tex_ass_type
 {
-    float scale = 1.f;
-    std::tie(_element, scale) = unwindTextureScale(_element);
+    tex_ass_type retval = {};
+
+    float& scale = std::get<float>(retval);
+    std::tie(_element,scale) = unwindTextureScale(_element);
     if (!_element)
     {
         os::Printer::log("[ERROR] Could Not Find Texture, dangling reference after scale unroll, substituting 64x64 Magenta or Flat Error Texture.", ELL_ERROR);
         return getErrorTexture(semantic);
     }
 
-    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
-    if (!viewBundle.getContents().empty())
+    // get sampler (this can't really fail)
+    std::get<core::smart_refctd_ptr<asset::ICPUSampler>>(retval) = m_loaderContext->getSampler(SContext::computeSamplerParameters(_element->bitmap));
+
     {
-        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
-
-        auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
-        if (found!=m_loaderContext->derivMapCache.end())
+        const asset::IAsset::E_TYPE types[2] = { asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+        const auto key = SContext::imageViewCacheKey(_element->bitmap,semantic);
+        auto viewBundle = m_loaderContext->override_->findCachedAsset(key,types,m_loaderContext->inner,0u);
+        if (viewBundle.getContents().empty())
         {
-            const float normalizationFactor = found->second;
-            scale *= normalizationFactor;
+            os::Printer::log("[ERROR] Could Not Load Texture from path \""+std::string(_element->bitmap.filename.svalue)+"\", substituting 64x64 Magenta or Flat Error Texture.",ELL_ERROR);
+            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(getErrorTexture(semantic));
         }
+        else
+        {
+            auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
-        types[0] = asset::IAsset::ET_SAMPLER;
-        const std::string samplerKey = m_loaderContext->samplerCacheKey(SContext::computeSamplerParameters(_element->bitmap));
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-        assert(!samplerBundle.getContents().empty());
-        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
+            auto found = m_loaderContext->derivMapCache.find(view->getCreationParameters().image);
+            if (found!=m_loaderContext->derivMapCache.end())
+            {
+                const float normalizationFactor = found->second;
+                scale *= normalizationFactor;
+            }
 
-        return {view, sampler, scale};
+            std::get<core::smart_refctd_ptr<asset::ICPUImageView>>(retval) = std::move(view);
+        }
     }
-    return { nullptr, nullptr, scale };
+
+    return retval;
 }
 
 
-auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) const -> emission_profile_type
+auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) -> emission_profile_type
 {
     asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
     
@@ -67,14 +74,9 @@ auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmission
     if (!viewBundle.getContents().empty())
     {
         auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
-        types[0] = asset::IAsset::ET_SAMPLER;
-        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
-        const std::string samplerKey = m_loaderContext->samplerCacheKey(m_loaderContext->emissionProfileSamplerParams(*_element, meta));
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-        assert(!samplerBundle.getContents().empty());
-        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
-        return { view, sampler, &meta };
+        const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
+        return { view, m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
     }
     return { nullptr, nullptr, nullptr };
 }
@@ -232,7 +234,11 @@ CMitsubaMaterialCompilerFrontend::tex_ass_type CMitsubaMaterialCompilerFrontend:
             else
                 dst = src.value.fvalue;
         };
-        auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) -> void
+        auto getSpectrumOrTexture = [this](
+            const CElementTexture::SpectrumOrTexture& src,
+            IR::INode::SParameter<IR::INode::color_t>& dst,
+            const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY
+        ) -> void
         {
             if (src.value.type == SPropertyElementData::INVALID)
             {
@@ -449,27 +455,6 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
 {
     using namespace asset;
     using namespace material_compiler;
-
-    auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
-    {
-        if (src.value.type == SPropertyElementData::INVALID)
-        {
-            IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            dst = std::move(tex);
-        }
-        else dst = src.value.fvalue;
-    };
-    auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst)
-    {
-        if (src.value.type == SPropertyElementData::INVALID)
-        {
-            IR::INode::STextureSource tex;
-            std::tie(tex.image, tex.sampler, tex.scale) = getTexture(src.texture);
-            dst = std::move(tex);
-        }
-        else dst = src.value.vvalue;
-    };
 
     struct SNode
     {

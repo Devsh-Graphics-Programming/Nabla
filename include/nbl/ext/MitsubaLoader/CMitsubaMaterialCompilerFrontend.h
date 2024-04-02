@@ -55,7 +55,7 @@ class CMitsubaMaterialCompilerFrontend
 
         tex_ass_type getTexture(const CElementTexture* _element, const E_IMAGE_VIEW_SEMANTIC semantic=EIVS_IDENTITIY) const;
 
-        emission_profile_type getEmissionProfile(const CElementEmissionProfile* _element) const;
+        emission_profile_type getEmissionProfile(const CElementEmissionProfile* _element);
 
         tex_ass_type getErrorTexture(const E_IMAGE_VIEW_SEMANTIC semantic) const;
 

@@ -980,17 +980,6 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 			return;
 		}
 	}
-
-	{
-		ISampler::SParams samplerParams = ctx.emissionProfileSamplerParams(*profile, reinterpret_cast<const asset::CIESProfileMetadata&>(*assetLoaded.getMetadata()));
-		const asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SAMPLER, asset::IAsset::ET_TERMINATING_ZERO };
-		const std::string samplerCacheKey = ctx.samplerCacheKey(samplerParams);
-		if (ctx.override_->findCachedAsset(samplerCacheKey, types, ctx.inner, 0u).getContents().empty())
-		{
-			SAssetBundle samplerBundle(nullptr, { core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) });
-			ctx.override_->insertAssetIntoCache(std::move(samplerBundle), samplerCacheKey, ctx.inner, 0u);
-		}
-	}
 }
 
 void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic)
@@ -1102,19 +1091,6 @@ void CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const 
 
 						asset::SAssetBundle viewBundle(nullptr,{ICPUImageView::create(std::move(viewParams))});
 						ctx.override_->insertAssetIntoCache(std::move(viewBundle),cacheKey,ctx.inner,hierarchyLevel);
-					}
-				}
-
-
-				// create sampler if not found in cache
-				{
-					const std::string samplerCacheKey = ctx.samplerCacheKey(samplerParams);
-					const asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_SAMPLER,asset::IAsset::ET_TERMINATING_ZERO};
-					// not found in cache
-					if (ctx.override_->findCachedAsset(samplerCacheKey,types,ctx.inner,hierarchyLevel).getContents().empty())
-					{
-						SAssetBundle samplerBundle(nullptr,{core::make_smart_refctd_ptr<ICPUSampler>(samplerParams)});
-						ctx.override_->insertAssetIntoCache(std::move(samplerBundle),samplerCacheKey,ctx.inner,hierarchyLevel);
 					}
 				}
 			}
@@ -1413,8 +1389,7 @@ SContext::SContext(
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CMitsubaMetadata* _metadata
 ) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), meta(_metadata),
-	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
-	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
+	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
 		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages

@@ -21,8 +21,9 @@ namespace ext
 namespace MitsubaLoader
 {
 
-	struct SContext
-	{
+struct SContext
+{
+	public:
 		SContext(
 			const asset::IGeometryCreator* _geomCreator,
 			const asset::IMeshManipulator* _manipulator,
@@ -104,9 +105,18 @@ namespace MitsubaLoader
 			return key;
 		}
 
-		static auto emissionProfileSamplerParams(const CElementEmissionProfile& profile, const asset::CIESProfileMetadata& meta) {
-			asset::ISampler::SParams res = { asset::ISampler::ETC_REPEAT, asset::ISampler::ETC_REPEAT, asset::ISampler::ETC_REPEAT, asset::ISampler::ETBC_INT_OPAQUE_BLACK, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, asset::ISampler::ETF_LINEAR, 0u, false, asset::ECO_ALWAYS };
-			return res;
+		static asset::ISampler::SParams emissionProfileSamplerParams(const CElementEmissionProfile* profile, const asset::CIESProfileMetadata& meta)
+		{
+			return {
+				asset::ISampler::ETC_REPEAT,
+				asset::ISampler::ETC_REPEAT,
+				asset::ISampler::ETC_REPEAT,
+				asset::ISampler::ETBC_INT_OPAQUE_BLACK,
+				asset::ISampler::ETF_LINEAR,
+				asset::ISampler::ETF_LINEAR,
+				asset::ISampler::ETF_LINEAR,
+				0u, false, asset::ECO_ALWAYS
+			};
 		}
 
 		static auto computeSamplerParameters(const CElementTexture::Bitmap& bitmap)
@@ -160,33 +170,20 @@ namespace MitsubaLoader
 			params.MinLod = 0.f;
 			return params;
 		}
-		// TODO: commonalize this to all loaders
-		static std::string samplerCacheKey(const std::string& base, const asset::ICPUSampler::SParams& samplerParams)
+
+		inline core::smart_refctd_ptr<asset::ICPUSampler> getSampler(const asset::ICPUSampler::SParams& params) const
 		{
-			std::string samplerCacheKey = base;
-
-			if (samplerParams.MinFilter==asset::ISampler::ETF_LINEAR)
-				samplerCacheKey += "?trilinear";
-			else
-				samplerCacheKey += "?nearest";
-
-			static const char* wrapModeName[] =
+			const std::string samplerKey = samplerCacheKey(params);
+			const asset::IAsset::E_TYPE types[2] = {asset::IAsset::ET_SAMPLER,asset::IAsset::ET_TERMINATING_ZERO};
+			auto samplerBundle = override_->findCachedAsset(samplerKey,types,inner,0u);
+			if (samplerBundle.getContents().empty())
 			{
-				"?repeat",
-				"?clamp_to_edge",
-				"?clamp_to_border",
-				"?mirror",
-				"?mirror_clamp_to_edge",
-				"?mirror_clamp_to_border"
-			};
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapU];
-			samplerCacheKey += wrapModeName[samplerParams.TextureWrapV];
-
-			return samplerCacheKey;
-		}
-		std::string samplerCacheKey(const asset::ICPUSampler::SParams& samplerParams) const
-		{
-			return samplerCacheKey(samplerCacheKeyBase,samplerParams);
+				auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+				override_->insertAssetIntoCache(asset::SAssetBundle(nullptr,{sampler}),samplerKey,inner,0);
+				return sampler;
+			}
+			else
+				return core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 		}
 
 		//index of root node in IR
@@ -251,8 +248,32 @@ namespace MitsubaLoader
 		asset::material_compiler::CMaterialCompilerGLSLRasterBackend::SContext backend_ctx;
 		asset::material_compiler::CMaterialCompilerGLSLRasterBackend backend;
 
-		const std::string samplerCacheKeyBase;
-	};
+	private:
+		// TODO: commonalize this to all loaders
+		static std::string samplerCacheKey(const asset::ICPUSampler::SParams& samplerParams)
+		{
+			std::string samplerCacheKey = "__Sampler";
+
+			if (samplerParams.MinFilter==asset::ISampler::ETF_LINEAR)
+				samplerCacheKey += "?trilinear";
+			else
+				samplerCacheKey += "?nearest";
+
+			static const char* wrapModeName[] =
+			{
+				"?repeat",
+				"?clamp_to_edge",
+				"?clamp_to_border",
+				"?mirror",
+				"?mirror_clamp_to_edge",
+				"?mirror_clamp_to_border"
+			};
+			samplerCacheKey += wrapModeName[samplerParams.TextureWrapU];
+			samplerCacheKey += wrapModeName[samplerParams.TextureWrapV];
+
+			return samplerCacheKey;
+		}
+};
 
 }}}
 

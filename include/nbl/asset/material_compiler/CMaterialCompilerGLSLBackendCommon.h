@@ -715,7 +715,7 @@ public:
 						{
 							success = false;
 							// TODO: remvoe when using Nabla's ILogger from `master` branch
-							printf("Material Compiler GLSL: Failed to commit Texture \"%s\" to Virtual Texture address {%d,%d,%d}!",cm.texNameHint.c_str(),cm.addr.pgTab_x,cm.addr.pgTab_y,cm.addr.pgTab_layer);
+							printf("Material Compiler GLSL: Failed to commit Texture \"%s\" to Virtual Texture address {%ju,%ju,%ju}!",cm.texNameHint.c_str(),cm.addr.pgTab_x,cm.addr.pgTab_y,cm.addr.pgTab_layer);
 							os::Printer::log("",ELL_ERROR);
 						}
 					}
