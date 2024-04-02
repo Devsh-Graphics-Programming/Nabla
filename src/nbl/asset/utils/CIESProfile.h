@@ -40,7 +40,7 @@ namespace nbl
 
                 enum LuminairePlanesSymmetry : uint8_t
                 {
-                    ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally symmetric in all planes
+                    ISOTROPIC,                  //! Only one horizontal angle present and a luminaire is assumed to be laterally axial symmetric
                     QUAD_SYMETRIC,              //! The luminaire is assumed to be symmetric in each quadrant
                     HALF_SYMETRIC,              //! The luminaire is assumed to be symmetric about the 0 to 180 degree plane
                     OTHER_HALF_SYMMETRIC,       //! HALF_SYMETRIC case for legacy V_1995 version where horizontal angles are in range [90, 270], in that case the parser patches horizontal angles to be HALF_SYMETRIC

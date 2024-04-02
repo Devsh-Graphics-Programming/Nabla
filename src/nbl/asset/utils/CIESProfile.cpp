@@ -11,6 +11,8 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
 
         switch (symmetry)
         {
+            case ISOTROPIC: //! axial symmetry
+                return 0.0;
             case QUAD_SYMETRIC: //! phi MIRROR_REPEAT wrap onto [0, 90] degrees range
             {
                 float wrapPhi = abs(_phi); //! first MIRROR
@@ -36,9 +38,6 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
     if (vAngle > vAngles.back())
         return 0.0;
 
-    if (hAngles.size() < 2)
-        return hAngles.front();
-
     // bilinear interpolation
     auto lb = [](const core::vector<double>& angles, double angle) -> int {
         int idx = std::upper_bound(std::begin(angles), std::end(angles), angle) -
@@ -53,8 +52,8 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
 
     int j0 = lb(vAngles, vAngle);
     int j1 = ub(vAngles, vAngle);
-    int i0 = lb(hAngles, hAngle);
-    int i1 = ub(hAngles, hAngle);
+    int i0 = symmetry == ISOTROPIC ? 0 : lb(hAngles, hAngle);
+    int i1 = symmetry == ISOTROPIC ? 0 : ub(hAngles, hAngle);
 
     double uResp = i1 == i0 ? 1.0 : 1.0 / (hAngles[i1] - hAngles[i0]);
     double vResp = j1 == j0 ? 1.0 : 1.0 / (vAngles[j1] - vAngles[j0]);
