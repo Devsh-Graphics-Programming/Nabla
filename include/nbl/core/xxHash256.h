@@ -7,9 +7,96 @@
 
 #include <cstdint>
 #include <cstring>
+#include <array>
 
 namespace nbl::core
 {
+constexpr std::array<uint64_t, 4> XXHash_256(const uint8_t* input, const size_t len)
+{
+#define _rotl(x,r) ((x << r) | (x >> (64 - r)))
+    constexpr uint64_t PRIME = 11400714819323198393ULL;
+
+    uint64_t out[4] = { 0,0,0,0 }; // must be initialized to 0s
+
+    const uint8_t* p = input;
+    const uint8_t* const bEnd = p + len;
+
+    uint64_t v1 = len * PRIME;
+    uint64_t v2 = v1;
+    uint64_t v3 = v1;
+    uint64_t v4 = v1;
+
+    constexpr size_t small_loop_step = 4 * sizeof(uint64_t);
+    if (len >= small_loop_step)
+    {
+        const uint8_t* const small_loop_limit = bEnd - small_loop_step;
+
+        constexpr auto getU64 = [](const uint8_t* in)
+        {
+            uint64_t u64 = 0;
+
+            for (int i = 0; i < 8; ++i)
+                u64 |= static_cast<uint64_t>(in[i]) << (i * 8);
+            return u64;
+        };
+
+        const size_t big_loop_step = 4 * 4 * sizeof(uint64_t);
+        // Set the big loop limit early enough, so the well-mixing small loop can be executed twice after it
+        const size_t big_loop_req_len = big_loop_step + 2 * small_loop_step;
+        if (len >= big_loop_req_len)
+        {
+            const uint8_t* const big_loop_limit = bEnd - big_loop_req_len;
+            while (p < big_loop_limit)
+            {
+                v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+                v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+                v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+                v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+                v1 += v2 *= PRIME;
+                v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+                v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+                v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+                v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+                v2 += v3 *= PRIME;
+                v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+                v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+                v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+                v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+                v3 += v4 *= PRIME;
+                v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+                v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+                v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+                v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+                v4 += v1 *= PRIME;
+            }
+        }
+
+        while (p < small_loop_limit)
+        {
+            v1 = _rotl(v1, 29) + getU64(p); p += sizeof(uint64_t);
+            v2 += v1 *= PRIME;
+            v2 = _rotl(v2, 31) + getU64(p); p += sizeof(uint64_t);
+            v3 += v2 *= PRIME;
+            v3 = _rotl(v3, 33) + getU64(p); p += sizeof(uint64_t);
+            v4 += v3 *= PRIME;
+            v4 = _rotl(v4, 35) + getU64(p); p += sizeof(uint64_t);
+            v1 += v4 *= PRIME;
+        }
+    }
+#undef _rotl
+
+    size_t leftOverBytes = bEnd - p;
+
+    for (size_t i = 0; i < leftOverBytes; ++i)
+        out[i / 8] |= (static_cast<uint64_t>(p[i]) << ((i % 8) * 8));
+
+    out[0] += v1;
+    out[1] += v2;
+    out[2] += v3;
+    out[3] += v4;
+
+    return { out[0],out[1],out[2],out[3] };
+}
 
 /*
    xxHash256 - A fast checksum algorithm
@@ -59,124 +146,13 @@ namespace nbl::core
 @param[in] len Size in bytes of data pointed by `input`.
 @param[out] out Pointer to 8byte memory to which result will be written.
 */
-inline void XXHash_256(const void* input, size_t len, uint64_t* out) // TODO: maybe take xx256 hash from the lz4 lib?
+
+inline void XXHash_256(const void* input, size_t len, uint64_t* out)
 {
-	//**************************************
-	// Macros
-	//**************************************
-	#define _rotl(x,r) ((x << r) | (x >> (64 - r)))
-
-	//**************************************
-	// Constants
-	//**************************************
-    const uint64_t PRIME = 11400714819323198393ULL;
-
-    const uint8_t* p = (uint8_t*)input;
-    const uint8_t* const bEnd = p + len;
-    uint64_t v1 = len * PRIME;
-    uint64_t v2 = v1;
-    uint64_t v3 = v1;
-    uint64_t v4 = v1;
-
-    const size_t big_loop_step = 4 * 4 * sizeof(uint64_t);
-    const size_t small_loop_step = 4 * sizeof(uint64_t);
-    // Set the big loop limit early enough, so the well-mixing small loop can be executed twice after it
-    const uint8_t* const big_loop_limit   = bEnd - big_loop_step - 2 * small_loop_step;
-    const uint8_t* const small_loop_limit = bEnd - small_loop_step;
-
-    while (p < big_loop_limit)
-    {
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v1 += v2 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 += v3 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 += v4 *= PRIME;
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 += v1 *= PRIME;
-    }
-
-    while (p < small_loop_limit)
-    {
-        v1 = _rotl(v1, 29) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v2 += v1 *= PRIME;
-        v2 = _rotl(v2, 31) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v3 += v2 *= PRIME;
-        v3 = _rotl(v3, 33) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v4 += v3 *= PRIME;
-        v4 = _rotl(v4, 35) + (*(uint64_t*)p); p+=sizeof(uint64_t);
-        v1 += v4 *= PRIME;
-    }
-#undef _rotl
-    size_t leftOverBytes = bEnd - p;
-    memcpy(out, p, leftOverBytes);
-    for (uint8_t* leftOverZeroP = reinterpret_cast<uint8_t*>(out)+leftOverBytes; leftOverZeroP<reinterpret_cast<uint8_t*>(out+4); leftOverZeroP++)
-        *leftOverZeroP = 0;
-
-
-    out[0] += v1;
-    out[1] += v2;
-    out[2] += v3;
-	out[3] += v4;
+    const auto hash = XXHash_256(reinterpret_cast<const uint8_t*>(input), len);
+    for (uint8_t i = 0; i < hash.size(); ++i)
+        out[i] = hash[i];
+}
 }
 
-// TODO: a streaming/combining version of the `xxHash256`
-struct streaming_xx256hash
-{
-    public:
-        // builder pattern
-        inline streaming_xx256hash& append(const void* data, const size_t size)
-        {
-            // handle continuity at the front
-            if (leftOverByteCount)
-            {
-                auto* dst = reinterpret_cast<uint8_t*>(&leftOverBytes)+leftOverByteCount;
-                const auto fillCount = sizeof(state)-leftOverByteCount;
-                if (fillCount>size)
-                {
-                    std::copy_n(data,size,dst);
-                    return;
-                }
-                else
-                    std::copy_n(data,fillCount,dst);
-                data += fillCount;
-            }
-
-            // TODO: xx256Hash unrolled loops
-
-            // TODO: don't handle current left-over bytes, save them
-            leftOverByteCount = 0x45u;
-
-            return *this;
-        }
-
-        using value_type = hlsl::uint64_t4;
-        explicit inline operator value_type() const
-        {
-            // TODO: handle left over bytes, return hash value as if we called xx256Hash on whole input at once
-        }
-
-
-    private:
-        hlsl::uint64_t4 state = hlsl::uint64_t4(0,0,0,0);
-        hlsl::uint64_t4 leftOverBytes;
-        uint8_t leftOverByteCount = 0;
-};
-
-// TODO: std::hash<streaming_xx256hash::value_type> specialization
-
-}
-
-#endif
+#endif // __NBL_CORE_XXHASH256_H_INCLUDED__

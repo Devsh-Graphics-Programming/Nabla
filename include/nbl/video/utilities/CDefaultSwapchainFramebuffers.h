@@ -22,13 +22,15 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 			// If we create the framebuffers by default, we also need to default the renderpass (except dependencies)
 			const IGPURenderpass::SCreationParams::SColorAttachmentDescription colorAttachments[] = {
 				{{
-					.format = format,
-					.samples = IGPUImage::ESCF_1_BIT,
-					.mayAlias = false,
-					.loadOp = IGPURenderpass::LOAD_OP::CLEAR,
-					.storeOp = IGPURenderpass::STORE_OP::STORE,
-					.initialLayout = IGPUImage::LAYOUT::UNDEFINED, // because we clear we don't care about contents
-					.finalLayout = IGPUImage::LAYOUT::PRESENT_SRC // transition to presentation right away so we can skip a barrier
+					{
+						.format = format,
+						.samples = IGPUImage::ESCF_1_BIT,
+						.mayAlias = false
+					},
+					/*.loadOp = */IGPURenderpass::LOAD_OP::CLEAR,
+					/*.storeOp = */IGPURenderpass::STORE_OP::STORE,
+					/*.initialLayout = */IGPUImage::LAYOUT::UNDEFINED, // because we clear we don't care about contents
+					/*.finalLayout = */ IGPUImage::LAYOUT::PRESENT_SRC // transition to presentation right away so we can skip a barrier
 				}},
 				IGPURenderpass::SCreationParams::ColorAttachmentsEnd
 			};

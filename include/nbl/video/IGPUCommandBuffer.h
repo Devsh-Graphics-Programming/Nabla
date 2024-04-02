@@ -98,10 +98,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             bool occlusionQueryEnable = false;
             core::bitflag<QUERY_CONTROL_FLAGS> queryFlags = QUERY_CONTROL_FLAGS::NONE;
             // the rest are only used if you begin with the `EU_RENDER_PASS_CONTINUE_BIT` flag
-            core::smart_refctd_ptr<const IGPURenderpass> renderpass = nullptr;
+            const IGPURenderpass* renderpass = nullptr;
             uint32_t subpass = IGPURenderpass::SCreationParams::SSubpassDependency::External;
             // optional metadata
-            core::smart_refctd_ptr<const IGPUFramebuffer> framebuffer = nullptr;
+            const IGPUFramebuffer* framebuffer = nullptr;
         };
         bool begin(const core::bitflag<USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr);
         inline SInheritanceInfo getCachedInheritanceInfo() const { return m_cachedInheritanceInfo; }
@@ -400,7 +400,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Begin/End RenderPasses
         struct SRenderpassBeginInfo
         {
-            core::smart_refctd_ptr<IGPURenderpass> compatibleRenderpass = nullptr;
+            // if you leave it null, will get deduced from `framebuffer`'s creation renderpass
+            IGPURenderpass* renderpass = nullptr;
             IGPUFramebuffer* framebuffer = nullptr;
             const SClearColorValue* colorClearValues = nullptr;
             const SClearDepthStencilValue* depthStencilClearValues = nullptr;
@@ -412,7 +413,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             SECONDARY_COMMAND_BUFFERS = 1
             // TODO: VK_EXT_nested_command_buffer
         };
-        bool beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents);
+        bool beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents);
         bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
 

@@ -487,10 +487,11 @@ class IGPUCommandPool::CDrawIndirectCountCmd final : public IFixedSizeCommand<CD
 class IGPUCommandPool::CBeginRenderPassCmd final : public IFixedSizeCommand<CBeginRenderPassCmd>
 {
     public:
-        inline CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
-            : m_framebuffer(std::move(framebuffer)) {}
+        inline CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
+            : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer)) {}
 
     private:
+        core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
         core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
 };
 
