@@ -8,6 +8,7 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
     auto wrapPhi = [&](const IES_STORAGE_FORMAT& _phi) -> IES_STORAGE_FORMAT
     {
         constexpr auto M_HALF_PI =core::HALF_PI<double>();
+        constexpr auto M_TWICE_PI = core::PI<double>() * 2.0;
 
         switch (symmetry)
         {
@@ -25,8 +26,15 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
             case HALF_SYMETRIC: //! phi MIRROR wrap onto [0, 180] degrees range
             case OTHER_HALF_SYMMETRIC:
                 return abs(_phi); //! eg. maps (in degress) 181 -> 179 or 359 -> 1
+            case NO_LATERAL_SYMMET: //! plot onto whole (in degress) [0, 360] range
+            {
+                if (_phi < 0)
+                    return _phi + M_TWICE_PI;
+                else
+                    return _phi;
+            }
             default:
-                return _phi;
+                assert(false);
         }
     };
 
