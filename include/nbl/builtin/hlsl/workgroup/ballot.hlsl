@@ -32,6 +32,38 @@ uint16_t BallotDWORDCount(const uint16_t itemCount)
 // this silly thing exists only because we can't make the above `constexpr`
 template<uint16_t ItemCount>
 struct ballot_dword_count : integral_constant<uint16_t,((ItemCount+31)>>5)> {};
+
+// Specialize on subgroup size
+template<bool SubgroupSizeSmallerThanUint32>
+struct ballot
+{
+    template<class Accessor>
+    static void __call(const uint32_t4 subgroupBallot, const uint16_t subgroupInvocation, NBL_REF_ARG(Accessor) accessor)
+    {
+        if (glsl::subgroupElect())
+        {
+            const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
+            const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+            const uint16_t shift = (subgroupID<<SubgroupSizeLog2)&uint16_t(0x31u);
+            accessor.atomicOr(subgroupID>>(5-SubgroupSizeLog2),subgroupBallot[0]<<shift);
+        }
+    }
+};
+template<>
+struct ballot<false>
+{
+    template<class Accessor>
+    static void __call(const uint32_t4 subgroupBallot, const uint16_t subgroupInvocation, NBL_REF_ARG(Accessor) accessor)
+    {
+        const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
+        const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+        const uint16_t destIx = subgroupID<<(SubgroupSizeLog2-5);
+
+        const uint16_t UsefulComponents = uint16_t(0x1u)<<(SubgroupSizeLog2-5);
+        if (subgroupInvocation<UsefulComponents)
+            accessor.set(destIx+subgroupInvocation,subgroupBallot[subgroupInvocation]);
+    }
+};
 }
 
 /**
@@ -51,24 +83,18 @@ struct ballot_dword_count : integral_constant<uint16_t,((ItemCount+31)>>5)> {};
  * by calling the getDWORD function.
  * 
  * TODO: try do it with 64bit ints instead? (requires modified/adapted accessor)
+ * NOTE: Until we can detect exact signatures of functions, do everything as uint32_t.
  */
 template<class Accessor>
 void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
 {
     const uint32_t4 bitfield = glsl::subgroupBallot(value);
-
     const uint16_t subgroupInvocation = uint16_t(glsl::gl_SubgroupInvocationID());
-    uint16_t destIx = subgroupInvocation;
 
-    const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
-    if (SubgroupSizeLog2>=5)
-        destIx += uint16_t(glsl::gl_SubgroupID())<<(SubgroupSizeLog2-5);
+    if (glsl::gl_SubgroupSizeLog2()<4)
+        impl::ballot<true>::template __call<Accessor>(bitfield,subgroupInvocation,accessor);
     else
-        destIx += uint16_t(glsl::gl_SubgroupID())>>(5-SubgroupSizeLog2);
-
-    const uint16_t UsefulComponents = impl::getDWORD(uint16_t(glsl::gl_SubgroupSize()));
-    if (subgroupInvocation<UsefulComponents)
-        accessor.set(destIx,bitfield[subgroupInvocation]);
+        impl::ballot<false>::template __call<Accessor>(bitfield,subgroupInvocation,accessor);
 }
 
 template<class Accessor>
