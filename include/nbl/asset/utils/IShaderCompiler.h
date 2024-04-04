@@ -311,13 +311,37 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return true;
 				}
 
+				struct SMacroData {
+					std::string identifier;
+					std::string definition;
+					JS_OBJ(identifier, definition);
+				};
+
+				struct SPreprocessorData {
+					std::string sourceIdentifier;
+					std::vector<SMacroData> extraDefines;
+
+					JS_OBJECT(JS_MEMBER(sourceIdentifier),
+						JS_MEMBER(extraDefines));
+				};
+
+				struct SCompilerData {
+					IShader::E_SHADER_STAGE stage;
+					E_SPIRV_VERSION targetSpirvVersion;
+					std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
+					core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
+				};
+
 				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
 				// Obviously the first dependency is the main source file itself! AND ITS HASH MUST INCLUDE THE COMPILE OPTIONS!
 				dependency_container_t dependencies;
 				// We delay loading the shader at runtime until someone tries to compile it
-				std::optional<core::smart_refctd_ptr<asset::ICPUShader>> value;
+				std::optional<core::smart_refctd_ptr<asset::ICPUShader>> value = {};
 				system::path mainFilePath;
-				asset::IShaderCompiler::SCompilerOptions compilerOptions;
+				SPreprocessorData preprocessorData;
+				SCompilerData compilerData;
+				hash_t compilerOptionsHash;
+				system::path shaderStorePath = "";
 			};
 
 			inline void insert(SEntry&& entry)
@@ -361,6 +385,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// we only do lookups based on main file path + compiler options
 			struct Hash
 			{
+				/*
 				inline size_t operator()(const SEntry& entry) const noexcept
 				{
 					std::vector<char> hashable = entry.compilerOptions.getHashable();
@@ -369,21 +394,24 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					hashableString += pathString;
 					return std::hash<std::string>{}(hashableString);
 				}
+				*/
 			};
 			struct KeyEqual
 			{
+				/*
 				// used for insertions
 				inline bool operator()(const SEntry& lhs, const SEntry& rhs) const
 				{
 					return lhs.mainFilePath == rhs.mainFilePath && lhs.compilerOptions == rhs.compilerOptions;
 				}
+				*/
 			};
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const
 		{
-			core::vector<CCache::SEntry::SDependency> dependencies;
+			/*core::vector<CCache::SEntry::SDependency> dependencies;
 			if (options.cache)
 			{
 				const auto& mainDep = dependencies.emplace_back(code,options.hash());
@@ -394,7 +422,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			auto retval = compileToSPIRV_impl(code,options,dependencies);
 			if (options.cache)
 				options.cache->insert(CCache::SEntry(dependencies));
-			return retval;
+			return retval;*/
+			return nullptr;
 		}
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const
@@ -542,6 +571,123 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IShaderCompiler::E_DEBUG_INFO_FLAGS)
 
+}
+
+// JSON loading and storing logic for all necessary structs
+namespace JS
+{
+	using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
+	using SCompilerData = SEntry::SCompilerData;
+
+	template<>
+	struct TypeHandler<nbl::asset::IShader::E_SHADER_STAGE>
+	{
+		static inline Error to(nbl::asset::IShader::E_SHADER_STAGE& to_type, ParseContext& context)
+		{
+			uint32_t aux;
+			auto retVal = TypeHandler<uint32_t>::to(aux, context);
+			to_type = static_cast<nbl::asset::IShader::E_SHADER_STAGE>(aux);
+			return retVal;
+		}
+
+		static inline void from(const nbl::asset::IShader::E_SHADER_STAGE& from_type, Token& token, Serializer& serializer)
+		{
+			return TypeHandler<uint32_t>::from(static_cast<uint32_t>(from_type), token, serializer);
+		}
+	};
+
+	template<>
+	struct TypeHandler<nbl::asset::IShaderCompiler::E_SPIRV_VERSION>
+	{
+		static inline Error to(nbl::asset::IShaderCompiler::E_SPIRV_VERSION& to_type, ParseContext& context)
+		{
+			uint32_t aux;
+			auto retVal = TypeHandler<uint32_t>::to(aux, context);
+			to_type = static_cast<nbl::asset::IShaderCompiler::E_SPIRV_VERSION>(aux);
+			return retVal;
+		}
+
+		static inline void from(const nbl::asset::IShaderCompiler::E_SPIRV_VERSION& from_type, Token& token, Serializer& serializer)
+		{
+			return TypeHandler<uint32_t>::from(static_cast<uint32_t>(from_type), token, serializer);
+		}
+	};
+
+	template<>
+	struct TypeHandler<nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>>
+	{
+		static inline Error to(nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>& to_type, ParseContext& context)
+		{
+			uint8_t aux;
+			auto retVal = TypeHandler<uint8_t>::to(aux, context);
+			to_type = nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>(aux);
+			return retVal;
+		}
+
+		static inline void from(const nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>& from_type, Token& token, Serializer& serializer)
+		{
+			return TypeHandler<uint8_t>::from(static_cast<uint8_t>(from_type.value), token, serializer);
+		}
+	};
+
+	template<>
+	struct TypeHandler<nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS>
+	{
+		static inline Error to(nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS& to_type, ParseContext& context)
+		{
+			uint8_t aux;
+			auto retVal = TypeHandler<uint8_t>::to(aux, context);
+			to_type = static_cast<nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
+			return retVal;
+		}
+
+		static inline void from(const nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS& from_type, Token& token, Serializer& serializer)
+		{
+			return TypeHandler<uint8_t>::from(static_cast<uint8_t>(from_type), token, serializer);
+		}
+	};
+}
+
+JS_OBJECT_EXTERNAL(nbl::asset::IShaderCompiler::CCache::SEntry::SCompilerData, JS_MEMBER(stage), JS_MEMBER(targetSpirvVersion), JS_MEMBER(optimizerPasses), JS_MEMBER(debugInfoFlags));
+
+namespace JS
+{
+	template<>
+	struct TypeHandler<nbl::system::path>
+	{
+		static inline Error to(nbl::system::path& to_type, ParseContext& context)
+		{
+			std::string aux;
+			auto retVal = TypeHandler<std::string>::to(aux, context);
+			to_type = std::move(aux);
+			return retVal;
+		}
+
+		static inline void from(const nbl::system::path& from_type, Token& token, Serializer& serializer)
+		{
+			std::string aux = from_type.string();
+			return TypeHandler<std::string>::from(aux, token, serializer);
+		}
+	};
+
+	template<unsigned int N>
+	struct TypeHandler<std::array<uint64_t, N>>
+	{
+		static inline Error to(std::array<uint64_t, N>& to_type, ParseContext& context)
+		{
+			std::vector<uint64_t> aux(N);
+			auto retVal = TypeHandler<std::vector<uint64_t>>::to(aux, context);
+			std::move(aux.begin(), aux.end(), to_type.begin());
+			return retVal;
+		}
+
+		static inline void from(const std::array<uint64_t, N>& from_type, Token& token, Serializer& serializer)
+		{
+			std::vector<uint64_t> aux(N);
+			std::copy_n(from_type.begin(), N, aux.begin());
+			return TypeHandler<std::vector<uint64_t>>::from(aux, token, serializer);
+		}
+	};
 }
 
 #endif
