@@ -4,6 +4,9 @@
 
 include(../cmake/common.cmake)
 
+# json_struct
+add_subdirectory(json_struct json_struct EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -350,6 +353,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				json_struct
 				glslang
 				OGLCompiler 
 				OSDependent

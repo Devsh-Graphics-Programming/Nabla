@@ -93,3 +93,6 @@
 [submodule "3rdparty/argparse"]
 	path = 3rdparty/argparse
 	url = git@github.com:p-ranav/argparse.git
+[submodule "3rdparty/json_struct"]
+	path = 3rdparty/json_struct
+	url = https://github.com/jorgen/json_struct
