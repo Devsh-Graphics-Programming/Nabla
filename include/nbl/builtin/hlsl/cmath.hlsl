@@ -153,7 +153,7 @@ T copysign(T x, T sign_)
 template<class T>
 T nan()
 {
-    return nbl::core::nan<T>()
+    return nbl::core::nan<T>();
 }
 // TODO:
 // nextafter	Next representable value (function) 
