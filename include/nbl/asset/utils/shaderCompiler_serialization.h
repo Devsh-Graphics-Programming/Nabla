@@ -4,8 +4,7 @@
 // -------------------------------------------- JSON loading and storing logic for all necessary structs -----------------------------------------------------------
 namespace JS
 {
-	using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
-	using SCompilerData = SEntry::SCompilerData;
+	using SCompilerData = nbl::asset::IShaderCompiler::CCache::SEntry::SCompilerData;
 
 	template<>
 	struct TypeHandler<nbl::asset::IShader::E_SHADER_STAGE>
@@ -118,8 +117,7 @@ JS_OBJECT_EXTERNAL(nbl::asset::IShaderCompiler::CCache::SEntry::SCompilerData, J
 JS_OBJECT_EXTERNAL(nbl::asset::IShaderCompiler::CCache::SEntry::SDependency, JS_MEMBER(requestingSourceDir), JS_MEMBER(identifier), JS_MEMBER(contents), JS_MEMBER(hash), JS_MEMBER(standardInclude));
 
 namespace JS {
-	using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
-	using SDependency = SEntry::SDependency;
+	using SDependency = nbl::asset::IShaderCompiler::CCache::SEntry::SDependency;
 	using dependency_container_t = core::smart_refctd_dynamic_array<const SDependency>;
 	template<>
 	struct TypeHandler<dependency_container_t>

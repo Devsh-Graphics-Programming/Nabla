@@ -217,6 +217,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					hash_t hash;
 					// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 					bool standardInclude;
+					std::chrono::utc_clock::duration lastWriteTime;
 				};
 
 				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
@@ -311,6 +312,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 				system::path mainFilePath;
 				hash_t mainFileHash;
+				std::chrono::utc_clock::duration lastWriteTime;
 				SCompilerData compilerData;
 				hash_t compilerDataHash;
 				system::path shaderStorePath = "";
@@ -363,26 +365,24 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// we only do lookups based on main file path + compiler options
 			struct Hash
 			{
-				/*
 				inline size_t operator()(const SEntry& entry) const noexcept
 				{
-					std::vector<char> hashable = entry.compilerOptions.getHashable();
+					std::vector<char> hashable = entry.compilerData.getHashable();
 					std::string hashableString(hashable.begin(), hashable.end());
 					auto pathString = entry.mainFilePath.string();
 					hashableString += pathString;
 					return std::hash<std::string>{}(hashableString);
 				}
-				*/
+				
 			};
 			struct KeyEqual
 			{
-				/*
 				// used for insertions
 				inline bool operator()(const SEntry& lhs, const SEntry& rhs) const
 				{
-					return lhs.mainFilePath == rhs.mainFilePath && lhs.compilerOptions == rhs.compilerOptions;
+					return lhs.mainFilePath == rhs.mainFilePath && lhs.mainFileHash == rhs.mainFileHash && lhs.compilerDataHash == rhs.compilerDataHash && lhs.compilerData == rhs.compilerData;
 				}
-				*/
+				
 			};
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
 		};
