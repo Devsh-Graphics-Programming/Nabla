@@ -123,32 +123,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		struct SPreprocessorOptions
 		{
 
-			inline bool operator==(const SPreprocessorOptions& other) const {
-				if(sourceIdentifier != other.sourceIdentifier) return false;
-				if (extraDefines.size() != other.extraDefines.size()) return false;
-				for (auto definesIt = extraDefines.begin(), otherDefinesIt = other.extraDefines.begin(); definesIt != extraDefines.end(); definesIt++, otherDefinesIt++) {
-					if (definesIt->identifier != otherDefinesIt->identifier || definesIt->definition != otherDefinesIt->definition) return false;
-				}
-				return true;
-			}
-
-			// We don't need to hash the preprocessor on its own but in conjunction with the compiler options. We return data to perform the hash on from SCompilerOptions
-			inline std::vector<char> getHashable() const
-			{
-				std::vector<char> hashable;
-				hashable.insert(hashable.end(), sourceIdentifier.data()[0], sourceIdentifier.data()[sourceIdentifier.size()]);
-				core::vector<SMacroDefinition> sortedExtraDefines;
-				sortedExtraDefines.assign(extraDefines.begin(), extraDefines.end());
-				// Sort them by identifier so the hash is not order-sensitive!
-				std::sort(sortedExtraDefines.begin(),sortedExtraDefines.end(),[](const SMacroDefinition& lhs, const SMacroDefinition& rhs){return lhs.identifier<rhs.identifier;});
-				for (const auto& defines : sortedExtraDefines) {
-					hashable.insert(hashable.end(), defines.identifier.data()[0], defines.identifier.data()[defines.identifier.size()]);
-					hashable.insert(hashable.end(), defines.definition.data()[0], defines.definition.data()[defines.definition.size()]);
-				}
-
-				return hashable;
-			}
-
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
@@ -189,48 +163,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		*/
 		struct SCompilerOptions
 		{
-			inline bool operator==(const SCompilerOptions& other) const {
-				if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorOptions != other.preprocessorOptions) return false;
-				if (spirvOptimizer) {
-					if (!other.spirvOptimizer) return false;
-					auto passes = spirvOptimizer->getPasses();
-					auto otherPasses = other.spirvOptimizer->getPasses();
-					if (passes.size() != otherPasses.size()) return false;
-					for (auto passesIt = passes.begin(), otherPassesIt = otherPasses.begin(); passesIt != passes.end(); passesIt++, otherPassesIt++) {
-						if (*passesIt != *otherPassesIt) return false;
-					}
-				}
-				else {
-					if (other.spirvOptimizer) return false;
-				}
-				return true;
-			}
-
-			inline std::vector<char> getHashable() const {
-				std::vector<char> hashable = extraHashable_impl();
-				std::vector<char> preprocHashable = preprocessorOptions.getHashable();
-				hashable.insert(hashable.end(), preprocHashable.data()[0], preprocHashable.data()[preprocHashable.size()]);
-				auto stageString = std::to_string(stage);
-				hashable.insert(hashable.end(), stageString.data()[0], stageString.data()[stageString.size()]);
-				auto versionString = std::to_string(static_cast<uint32_t>(targetSpirvVersion));
-				hashable.insert(hashable.end(), versionString.data()[0], versionString.data()[versionString.size()]);
-				auto debugString = std::to_string(static_cast<uint8_t>(debugInfoFlags.value));
-				hashable.insert(hashable.end(), debugString.data()[0], debugString.data()[debugString.size()]);
-				if (spirvOptimizer != nullptr) {
-					auto passes = spirvOptimizer->getPasses();
-					for (auto passesIt = passes.begin(); passesIt != passes.end(); passesIt++) {
-						auto passString = std::to_string(*passesIt);
-						hashable.insert(hashable.end(), passString.data()[0], passString.data()[passString.size()]);
-					}
-				}
-				return hashable;
-			}
-
-			virtual std::vector<char> extraHashable_impl() const {
-				return {};
-			}; 
-
-
 			inline void setCommonData(const SCompilerOptions& opt)
 			{
 				(*this) = opt;
@@ -287,6 +219,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					bool standardInclude;
 				};
 
+				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
 				using dependency_container_t = core::smart_refctd_dynamic_array<const SDependency>;
 				template<typename Container>
 				inline SEntry(const Container& _dependencies) : dependencies(core::make_refctd_dynamic_array<dependency_container_t>(_dependencies))
@@ -300,17 +233,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				inline SEntry(SEntry&&) = default;
 				inline SEntry& operator=(SEntry&&) = default;
 
-				// default Equality operator
-				inline bool operator==(const SEntry& other)
-				{
-					if (dependencies->size() != other.dependencies->size())
-						return false;
-					for (auto i = 0; i != dependencies->size(); i++)
-						if (dependencies->operator[](i) != other.dependencies->operator[](i))
-							return false;
-					return true;
-				}
-
 				struct SMacroData {
 					std::string identifier;
 					std::string definition;
@@ -318,6 +240,33 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				};
 
 				struct SPreprocessorData {
+
+					inline bool operator==(const SPreprocessorData& other) const {
+						if (sourceIdentifier != other.sourceIdentifier) return false;
+						if (extraDefines.size() != other.extraDefines.size()) return false;
+						for (auto definesIt = extraDefines.begin(), otherDefinesIt = other.extraDefines.begin(); definesIt != extraDefines.end(); definesIt++, otherDefinesIt++) {
+							if (definesIt->identifier != otherDefinesIt->identifier || definesIt->definition != otherDefinesIt->definition) return false;
+						}
+						return true;
+					}
+
+					// We don't need to hash the preprocessor on its own but in conjunction with the compiler options. We return data to perform the hash on from SCompilerOptions
+					inline std::vector<char> getHashable() const
+					{
+						std::vector<char> hashable;
+						hashable.insert(hashable.end(), sourceIdentifier.data()[0], sourceIdentifier.data()[sourceIdentifier.size()]);
+						core::vector<SMacroData> sortedExtraDefines;
+						sortedExtraDefines.assign(extraDefines.begin(), extraDefines.end());
+						// Sort them by identifier so the hash is not order-sensitive!
+						std::sort(sortedExtraDefines.begin(), sortedExtraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
+						for (const auto& defines : sortedExtraDefines) {
+							hashable.insert(hashable.end(), defines.identifier.data()[0], defines.identifier.data()[defines.identifier.size()]);
+							hashable.insert(hashable.end(), defines.definition.data()[0], defines.definition.data()[defines.definition.size()]);
+						}
+
+						return hashable;
+					}
+
 					std::string sourceIdentifier;
 					std::vector<SMacroData> extraDefines;
 
@@ -326,22 +275,51 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				};
 
 				struct SCompilerData {
+
+					inline bool operator==(const SCompilerData& other) const {
+						if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorData != other.preprocessorData) return false;
+						if (optimizerPasses.size() != other.optimizerPasses.size()) return false;
+						for (auto passesIt = optimizerPasses.begin(), otherPassesIt = other.optimizerPasses.begin(); passesIt != optimizerPasses.end(); passesIt++, otherPassesIt++) {
+							if (*passesIt != *otherPassesIt) return false;
+						}
+						return true;
+					}
+
+					inline std::vector<char> getHashable() const {
+						std::vector<char> hashable = preprocessorData.getHashable();
+						auto stageString = std::to_string(stage);
+						hashable.insert(hashable.end(), stageString.data()[0], stageString.data()[stageString.size()]);
+						auto versionString = std::to_string(static_cast<uint32_t>(targetSpirvVersion));
+						hashable.insert(hashable.end(), versionString.data()[0], versionString.data()[versionString.size()]);
+						auto debugString = std::to_string(static_cast<uint8_t>(debugInfoFlags.value));
+						hashable.insert(hashable.end(), debugString.data()[0], debugString.data()[debugString.size()]);
+						for (auto pass : optimizerPasses) {
+							auto passString = std::to_string(pass);
+							hashable.insert(hashable.end(), passString.data()[0], passString.data()[passString.size()]);
+						}
+						return hashable;
+					}
+
 					IShader::E_SHADER_STAGE stage;
 					E_SPIRV_VERSION targetSpirvVersion;
 					std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
 					core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
+					SPreprocessorData preprocessorData;
 				};
 
-				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
-				// Obviously the first dependency is the main source file itself! AND ITS HASH MUST INCLUDE THE COMPILE OPTIONS!
-				dependency_container_t dependencies;
 				// We delay loading the shader at runtime until someone tries to compile it
-				std::optional<core::smart_refctd_ptr<asset::ICPUShader>> value = {};
+				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 				system::path mainFilePath;
-				SPreprocessorData preprocessorData;
+				hash_t mainFileHash;
 				SCompilerData compilerData;
-				hash_t compilerOptionsHash;
+				hash_t compilerDataHash;
 				system::path shaderStorePath = "";
+				// Having all dependencies stored in the Cache at runtime probably blows up memory usage. For now the Cache only loads 
+				// dependencies from disk when it needs to compare those, then unloads them. Future revision could probably add 
+				// the option to keep dependencies loaded for a bit faster lookup if necessary, + an option to unload dependencies 
+				// whenever memory usage becomes too big
+				system::path dependenciesPath = "";
+				dependency_container_t dependencies;
 			};
 
 			inline void insert(SEntry&& entry)
@@ -571,123 +549,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IShaderCompiler::E_DEBUG_INFO_FLAGS)
 
-}
-
-// JSON loading and storing logic for all necessary structs
-namespace JS
-{
-	using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
-	using SCompilerData = SEntry::SCompilerData;
-
-	template<>
-	struct TypeHandler<nbl::asset::IShader::E_SHADER_STAGE>
-	{
-		static inline Error to(nbl::asset::IShader::E_SHADER_STAGE& to_type, ParseContext& context)
-		{
-			uint32_t aux;
-			auto retVal = TypeHandler<uint32_t>::to(aux, context);
-			to_type = static_cast<nbl::asset::IShader::E_SHADER_STAGE>(aux);
-			return retVal;
-		}
-
-		static inline void from(const nbl::asset::IShader::E_SHADER_STAGE& from_type, Token& token, Serializer& serializer)
-		{
-			return TypeHandler<uint32_t>::from(static_cast<uint32_t>(from_type), token, serializer);
-		}
-	};
-
-	template<>
-	struct TypeHandler<nbl::asset::IShaderCompiler::E_SPIRV_VERSION>
-	{
-		static inline Error to(nbl::asset::IShaderCompiler::E_SPIRV_VERSION& to_type, ParseContext& context)
-		{
-			uint32_t aux;
-			auto retVal = TypeHandler<uint32_t>::to(aux, context);
-			to_type = static_cast<nbl::asset::IShaderCompiler::E_SPIRV_VERSION>(aux);
-			return retVal;
-		}
-
-		static inline void from(const nbl::asset::IShaderCompiler::E_SPIRV_VERSION& from_type, Token& token, Serializer& serializer)
-		{
-			return TypeHandler<uint32_t>::from(static_cast<uint32_t>(from_type), token, serializer);
-		}
-	};
-
-	template<>
-	struct TypeHandler<nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>>
-	{
-		static inline Error to(nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>& to_type, ParseContext& context)
-		{
-			uint8_t aux;
-			auto retVal = TypeHandler<uint8_t>::to(aux, context);
-			to_type = nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>(aux);
-			return retVal;
-		}
-
-		static inline void from(const nbl::core::bitflag<nbl::asset::IShaderCompiler::E_DEBUG_INFO_FLAGS>& from_type, Token& token, Serializer& serializer)
-		{
-			return TypeHandler<uint8_t>::from(static_cast<uint8_t>(from_type.value), token, serializer);
-		}
-	};
-
-	template<>
-	struct TypeHandler<nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS>
-	{
-		static inline Error to(nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS& to_type, ParseContext& context)
-		{
-			uint8_t aux;
-			auto retVal = TypeHandler<uint8_t>::to(aux, context);
-			to_type = static_cast<nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
-			return retVal;
-		}
-
-		static inline void from(const nbl::asset::ISPIRVOptimizer::E_OPTIMIZER_PASS& from_type, Token& token, Serializer& serializer)
-		{
-			return TypeHandler<uint8_t>::from(static_cast<uint8_t>(from_type), token, serializer);
-		}
-	};
-}
-
-JS_OBJECT_EXTERNAL(nbl::asset::IShaderCompiler::CCache::SEntry::SCompilerData, JS_MEMBER(stage), JS_MEMBER(targetSpirvVersion), JS_MEMBER(optimizerPasses), JS_MEMBER(debugInfoFlags));
-
-namespace JS
-{
-	template<>
-	struct TypeHandler<nbl::system::path>
-	{
-		static inline Error to(nbl::system::path& to_type, ParseContext& context)
-		{
-			std::string aux;
-			auto retVal = TypeHandler<std::string>::to(aux, context);
-			to_type = std::move(aux);
-			return retVal;
-		}
-
-		static inline void from(const nbl::system::path& from_type, Token& token, Serializer& serializer)
-		{
-			std::string aux = from_type.string();
-			return TypeHandler<std::string>::from(aux, token, serializer);
-		}
-	};
-
-	template<unsigned int N>
-	struct TypeHandler<std::array<uint64_t, N>>
-	{
-		static inline Error to(std::array<uint64_t, N>& to_type, ParseContext& context)
-		{
-			std::vector<uint64_t> aux(N);
-			auto retVal = TypeHandler<std::vector<uint64_t>>::to(aux, context);
-			std::move(aux.begin(), aux.end(), to_type.begin());
-			return retVal;
-		}
-
-		static inline void from(const std::array<uint64_t, N>& from_type, Token& token, Serializer& serializer)
-		{
-			std::vector<uint64_t> aux(N);
-			std::copy_n(from_type.begin(), N, aux.begin());
-			return TypeHandler<std::vector<uint64_t>>::from(aux, token, serializer);
-		}
-	};
 }
 
 #endif
