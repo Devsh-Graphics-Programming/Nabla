@@ -86,30 +86,45 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
     if (_emitter->area.emissionProfile) {
         asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
         auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
-        if (image) {
+
+        auto fillProfile = [&]() -> void
+        {
             profile.texture = { image, sampler, 1.f };
             auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
+            
             // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
             worldSpaceIESTransform[1].w = 0;
             worldSpaceIESTransform[2].w = 0;
-            profile.right_hand = core::determinant(worldSpaceIESTransform) >= 0.0f;
+
+            _NBL_STATIC_INLINE_CONSTEXPR float THRESHOLD = std::numeric_limits<float>::epsilon();
+            const auto det = core::determinant(worldSpaceIESTransform);
+
+            if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
+            {
+                os::Printer::log("ERROR: Emission profile rejected because determinant of transformation matrix does not exceed the minimum threshold and is too close or equal 0", ELL_ERROR);
+                return; // exit the lambda
+            }
+
+            profile.right_hand = core::sign(det) > 0.0f;
             profile.up = core::normalize(worldSpaceIESTransform[1]);
             profile.view = core::normalize(worldSpaceIESTransform[2]);
 
             const auto maxIntesity = meta->profile.getMaxValue();
             res->emissionProfile = profile;
-            float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
-            if (normalizeEnergy == 0.0f) {
+            const float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
+
+            if (normalizeEnergy == 0.0f)
                 res->intensity *= maxIntesity;
-            }
             else if (normalizeEnergy > 0.0f) {
                 const auto integral = meta->profile.getIntegralFromGrid();
                 res->intensity *= normalizeEnergy * maxIntesity / integral;
             }
-        }
-        else {
+        };
+
+        if (image) 
+            fillProfile();
+        else
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
-        }
     }
     return res;
 }
