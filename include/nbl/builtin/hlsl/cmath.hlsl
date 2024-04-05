@@ -37,6 +37,8 @@ T fn(T x, NBL_REF_ARG(out_type) y) { \
     return ret; \
 }
 
+
+
 // Trigonometric functions
 NBL_ALIAS_UNARY_FUNCTION(cos)
 NBL_ALIAS_UNARY_FUNCTION(sin)
@@ -84,13 +86,27 @@ NBL_ALIAS_UNARY_FUNCTION2(logb,log)
 template<class T> 
 T expm1(T x) 
 { 
+    //wrong
+    // for better implementation, missing function for evaluate_polynomial
+    // https://www.boost.org/doc/libs/1_83_0/boost/math/special_functions/expm1.hpp
+
+    //or use std::expm1f, std::expm1l depending on size of T
     return INTRINSIC_NAMESPACE(exp)(x) - T(1); 
 }
 
 template<class T> 
 T log1p(T x) 
 { 
-    return INTRINSIC_NAMESPACE(log)(x + T(1)); 
+    // https://www.boost.org/doc/libs/1_83_0/boost/math/special_functions/log1p.hpp
+    /*if (x < T(-1))
+         "log1p(x) requires x > -1, but got x = %1%.
+    if (x == T(-1))
+        return -inf */
+    T u = T(1) + x;
+    if (u == T(1))
+        return x;
+    else
+        return INTRINSIC_NAMESPACE(log)(u) * (x / (u - T(1)));
 }
 
 template<class T>
@@ -99,7 +115,7 @@ int32_t ilogb(T x)
     using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
     const int32_t shift = (impl::num_base<T>::float_digits-1);
     const uint_type mask = ~(((uint_type(1) << shift) - 1) | (uint_type(1)<<(sizeof(T)*8-1)));
-    int32_t bits = (bit_cast<uint_type, T>(x) & mask) >> shift;
+    int32_t bits = (std::bit_cast<uint_type, T>(x) & mask) >> shift; //nbl::hlsl::bit_cast sucks
     return bits + impl::num_base<T>::min_exponent - 2;
 }
 
@@ -249,6 +265,7 @@ T fdim(T x, T y)
 #undef NBL_ALIAS_UNARY_FUNCTION2
 #undef NBL_ALIAS_UNARY_FUNCTION
 #undef INTRINSIC_NAMESPACE
+#undef NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM
 
 
 }

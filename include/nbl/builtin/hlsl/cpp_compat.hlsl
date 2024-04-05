@@ -12,6 +12,8 @@
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 #define NBL_CONST_MEMBER_FUNC const
+#define NBL_ADDRESS_OF(x) &x
+#define NBL_LANG_SELECT(x, y) x
 
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
 template<typename... Args> \
@@ -42,6 +44,8 @@ using add_pointer = std::add_pointer<T>;
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONST_MEMBER_FUNC 
+#define NBL_ADDRESS_OF(x) x
+#define NBL_LANG_SELECT(x, y) y
 
 namespace nbl
 {
