@@ -19,8 +19,7 @@ namespace MitsubaLoader
 
 struct CElementEmissionProfile : public IElement {
 
-	CElementEmissionProfile(const char* id) : IElement(id), normalizeEnergy(1.0f) {
-	}
+	CElementEmissionProfile(const char* id) : IElement(id), normalizeEnergy(1.0f), flatten(0.0) /*no blending by default*/ {}
 	CElementEmissionProfile() : IElement(""), normalizeEnergy(1.0f) {}
 	CElementEmissionProfile(const CElementEmissionProfile& other) : IElement("")
 	{
@@ -58,7 +57,7 @@ struct CElementEmissionProfile : public IElement {
 	std::string getLogName() const override { return "emissionprofile "; }
 
 	std::string filename;
-	float normalizeEnergy;
+	float normalizeEnergy, flatten;
 };
 
 }

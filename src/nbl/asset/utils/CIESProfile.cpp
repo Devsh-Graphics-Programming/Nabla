@@ -104,7 +104,7 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
     return { theta, phi };
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const size_t& width, const size_t& height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
 {
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -115,7 +115,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
     imgInfo.arrayLayers = 1u;
     imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
     imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-    imgInfo.format = asset::EF_R16_UNORM;
+    imgInfo.format = IES_TEXTURE_STORAGE_FORMAT;
     auto outImg = asset::ICPUImage::create(std::move(imgInfo));
 
     asset::ICPUImage::SBufferCopy region;
@@ -140,6 +140,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
     char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
     
     integral = 0;
+    size_t nonZeroEmissionDomainSize = 0;
 
     const double dTheta = core::PI<double>() / height;
     const double dPhi = 2 * core::PI<double>() / width;
@@ -152,12 +153,17 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createCDCTexture(const
             const auto& intensity = sample(theta, phi);
             const auto& value = intensity * maxValueRecip;
 
-            auto integrationV = dPhi * dTheta * std::sin(theta) * intensity;
+            const auto integrationV = dPhi * dTheta * std::sin(theta) * intensity;
             integral += integrationV;
 
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * 65535.0, 0.0, 65535.0));
+            if (integrationV != 0.0)
+                ++nonZeroEmissionDomainSize;
+
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * UI16_MAX_D, 0.0, UI16_MAX_D));
             *reinterpret_cast<uint16_t*>(bufferPtr + i * bufferRowLength * texelBytesz + j * texelBytesz) = encodeV;
         }
+
+    avgEmmision = integral / static_cast<decltype(integral)>(nonZeroEmissionDomainSize);
 
     if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
         return {};

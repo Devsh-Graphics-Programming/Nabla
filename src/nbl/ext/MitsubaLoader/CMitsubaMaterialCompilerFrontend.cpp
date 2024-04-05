@@ -89,7 +89,21 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
 
         auto fillProfile = [&]() -> void
         {
-            profile.texture = { image, sampler, 1.f };
+            if (_emitter->area.emissionProfile->flatten > 0)
+            {
+                auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(image->clone()); // TODO: check if its already a copy
+                if (!meta->flattenIESTexture(clone, _emitter->area.emissionProfile->flatten))
+                {
+                    os::Printer::log("ERROR: Emission profile rejected because flatten operation on the IES texture failed!", ELL_ERROR);
+                    return; // exit the lambda
+                }
+;
+                profile.texture = { clone, sampler, 1.f };
+            }
+            else
+                profile.texture = { image, sampler, 1.f };
+
+
             auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
             
             // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
@@ -121,7 +135,7 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
             }
         };
 
-        if (image) 
+        if (image)
             fillProfile();
         else
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);

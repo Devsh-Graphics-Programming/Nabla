@@ -30,7 +30,7 @@ CIESProfileLoader::loadAsset(io::IReadFile* _file,
     if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_LOAD_METADATA_ONLY)
         cpuImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d", loadContex, _hierarchyLevel).first; // note: we could also pass empty content, but this would require adjusting IAssetLoader source to not attempt to use all loaders to find the asset
     else
-        cpuImageView = profile.createCDCTexture();
+        cpuImageView = profile.createIESTexture();
 
     return asset::SAssetBundle(std::move(meta), { core::smart_refctd_ptr(cpuImageView) });
 }
