@@ -88,20 +88,23 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
         auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
         if (image) {
             profile.texture = { image, sampler, 1.f };
-            auto inverseTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
-            inverseTransform[1].w = 0;
-            inverseTransform[2].w = 0;
-            profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
-            profile.up = core::normalize(inverseTransform[1]);
-            profile.view = core::normalize(inverseTransform[2]);
+            auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
+            // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
+            worldSpaceIESTransform[1].w = 0;
+            worldSpaceIESTransform[2].w = 0;
+            profile.right_hand = core::determinant(worldSpaceIESTransform) >= 0.0f;
+            profile.up = core::normalize(worldSpaceIESTransform[1]);
+            profile.view = core::normalize(worldSpaceIESTransform[2]);
 
+            const auto maxIntesity = meta->profile.getMaxValue();
             res->emissionProfile = profile;
             float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
             if (normalizeEnergy == 0.0f) {
-                res->intensity *= meta->getMaxIntensity();
+                res->intensity *= maxIntesity;
             }
             else if (normalizeEnergy > 0.0f) {
-                res->intensity *= normalizeEnergy * meta->getMaxIntensity() / meta->getIntegral();
+                const auto integral = meta->profile.getIntegralFromGrid();
+                res->intensity *= normalizeEnergy * maxIntesity / integral;
             }
         }
         else {
