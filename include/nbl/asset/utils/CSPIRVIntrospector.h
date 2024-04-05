@@ -381,13 +381,17 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint32_t index;
 					};
 
-					inline bool isArray() const {return count.empty();}
+					inline bool isArray() const {return !count.empty();}
+					inline bool isRunTimeSized() const {return isArray() ? count[0].value == 0 : false;}
 
 					//! Note: for SSBOs and UBOs it's the block name
 					span_t<char,Mutable> name = {};
 					span_t<SArrayInfo,Mutable> count = {};
 					uint8_t restrict_ : 1 = false;
 					uint8_t aliased : 1 = false;
+
+					uint32_t inBindingCount;
+					
 					//
 					union
 					{
@@ -449,7 +453,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return std::get<core::vector<SOutputInterface>>(m_output);
 				}
 				inline const SPushConstantInfo<>& getPushConstants() { return m_pushConstants; }
-				inline const core::vector<SDescriptorVarInfo<>>& getDescriptorSetBinding(uint32_t dsID) { return m_descriptorSetBindings[dsID]; }
 
 				inline const auto& getPushConstants() const {return m_pushConstants;}
 
@@ -548,8 +551,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//!
 				SPushConstantInfo<> m_pushConstants = {};
 				//! Each vector is sorted by `binding`
-				constexpr static inline uint8_t DescriptorSetCount = 4;
-				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[DescriptorSetCount];
+				constexpr static inline uint8_t DESCRIPTOR_SET_COUNT = 4;
+				core::vector<SDescriptorVarInfo<>> m_descriptorSetBindings[DESCRIPTOR_SET_COUNT];
 				// The idea is that we construct with based_span (so we can add `.data()` when accessing)
 				// then just convert from `SMemoryBlock<true>` to `SMemoryBlock<false>`
 				// in-place when filling in the `descriptorSetBinding` vector which we pass to ctor
@@ -572,6 +575,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				inline CPipelineIntrospectionData()
 				{
 					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::ESS_UNKNOWN);
+					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), -1);
 				}
 
 				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
@@ -580,7 +584,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//
 				NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection);
 				NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID);
-				NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection();
+				NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection);
 
 			protected:
 				// ESS_UNKNOWN on a byte means its not declared in any shader merged so far
@@ -598,6 +602,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 				};
 				core::unordered_set<SDescriptorInfo,Hash,KeyEqual> m_descriptorSetBindings[4];
+				std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> m_highestBindingNumbers;
 		};
 
 		// 
@@ -626,13 +631,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			return introspection;
 		}
 		
+		//! creates pipeline for a single ICPUShader
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
 		{
-			// TODO: if (info.shader->getStage()!=IShader::ESS_COMPUTE || !info.valid())
-			if (info.shader->getStage() != IShader::ESS_COMPUTE)
+			if (info.shader->getStage()!=IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
 				return nullptr;
 
-			// TODO: 
+			// TODO:
 			// 1. find or perform introspection using `info`
 			// 2. if `layout` then just check for compatiblity
 			// 3. if `!layout` then create `CPipelineIntrospectionData` from the stage introspection and create a Layout
@@ -642,34 +647,24 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
 
 			auto introspection = introspect(params);
+
 			core::smart_refctd_ptr<CPipelineIntrospectionData> pplnIntrospectData = core::make_smart_refctd_ptr<CPipelineIntrospectionData>();
+			if (!pplnIntrospectData->merge(introspection.get()))
+				return nullptr;
 
 			if (layout)
 			{
-				// TODO: merge CStageIntrospection into CPipelineIntrospection
-				pplnIntrospectData->merge(introspection.get());
+				//if (introspection->getPushConstants())
+				//	return nullptr;
 			}
 			else
 			{
-				pplnIntrospectData->merge(introspection.get());
-
-				const auto pcRanges = pplnIntrospectData->createPushConstantRangesFromIntrospection(introspection);
-				const std::span<const asset::SPushConstantRange> pcRangesSpan = {
-					pcRanges ? pcRanges->begin() : nullptr,
-					pcRanges ? pcRanges->end() : nullptr
-				};
-
-				layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-					pcRangesSpan,
-					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(0),
-					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(1),
-					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(2),
-					pplnIntrospectData->createApproximateDescriptorSetLayoutFromIntrospection(3)
-				);
+				layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
 			}
 
 			ICPUComputePipeline::SCreationParams pplnCreationParams = {{.layout = layout.get()}};
 			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+			params.entryPoint = info.entryPoint;
 			return ICPUComputePipeline::create(pplnCreationParams);
 		}
 

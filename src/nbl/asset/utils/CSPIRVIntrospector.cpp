@@ -109,33 +109,93 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
+    // copy m_highestBindingNumers so it is not changed on merge failure
+    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+        for (const auto& stageIntroBindingInfo : introBindingInfos)
+            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
+    }
 
-    // merge descriptors
-    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+    // validate if descriptors are compatible
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         std::ostringstream debug;
         debug << "ds ID: " << i << std::endl;
+
+        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+        for (const auto& stageIntroBindingInfo : introBindingInfos)
+        {
+            CPipelineIntrospectionData::SDescriptorInfo descInfo;
+            descInfo.binding = stageIntroBindingInfo.binding;
+            descInfo.type = stageIntroBindingInfo.type;
+            descInfo.stageMask = stageData->m_shaderStage;
+            // TODO:
+            auto asdf = stageIntroBindingInfo.count;
+            if (stageIntroBindingInfo.isArray())
+            {
+                if (stageIntroBindingInfo.isRunTimeSized())
+                {
+                    descInfo.count = 0u;
+                    descInfo.stride = 1u;
+                }
+                else
+                {
+                    auto multiply = [](uint32_t val, const SArrayInfo& arrInfo) {return val * arrInfo.value;};
+                    descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiply);
+                }
+            }
+            else
+            {
+                descInfo.count = 1u;
+                descInfo.stride = 0u;
+            }
+
+            //if (descInfo.type == IDescriptor::E_TYPE::ET_STORAGE_BUFFER)
+            //    descInfo.stride = stageIntroBindingInfo.storageBuffer.getRuntimeSize(descInfo.count);
+            //if(descInfo.type == IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)
+
+            if (descInfo.isRuntimeSized())
+            {
+                if (stageIntroBindingInfo.count.front().isRuntimeSized() && stageIntroBindingInfo.binding < highestBindingsTmp[i])
+                    return false;
+            }
+
+            const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
+            if (pplnIntroDataFoundBinding != m_descriptorSetBindings[i].end())
+            {
+                // validate descriptr bindings
+                if (pplnIntroDataFoundBinding->type == stageIntroBindingInfo.type)
+                    return false;
+                // TODO: better count validation
+                if (pplnIntroDataFoundBinding->count == stageIntroBindingInfo.count[0].value)
+                    return false;
+                // TODO: stride?
+            }
+
+            debug << "binding ID: " << descInfo.binding << "type: " << static_cast<uint32_t>(descInfo.type) << std::endl;
+        }
+
+        std::cout << debug.str() << std::endl;
+    }
+    m_highestBindingNumbers = highestBindingsTmp;
+
+    // insert all bindings
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
         const auto& bindingInfos = stageData->getDescriptorSetInfo(i);
         for (const auto& bindingInfo : bindingInfos)
         {
             CPipelineIntrospectionData::SDescriptorInfo descInfo;
             descInfo.binding = bindingInfo.binding;
             descInfo.type = bindingInfo.type;
-            
-            const auto& foundBinding = m_descriptorSetBindings[i].find(descInfo);
-            if (foundBinding != m_descriptorSetBindings[i].end())
-            {
-                // TODO: validation
-                return false;
-            }
 
-            m_descriptorSetBindings[i].insert(descInfo);
-            debug << "binding ID: " << descInfo.binding << "type: " << static_cast<uint32_t>(descInfo.type) << std::endl;
-        } 
-
-        std::cout << debug.str() << std::endl;
+            m_descriptorSetBindings->insert(std::move(descInfo));
+        }
     }
 
+    // TODO: possible push constants validation
     // can only be success now
     const auto& pc = stageData->getPushConstants();
     auto a = pc.size;
@@ -213,7 +273,6 @@ NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPi
 {
     std::vector<ICPUDescriptorSetLayout::SBinding> outBindings;
     outBindings.reserve(m_descriptorSetBindings[setID].size());
-    std::ostringstream debug;
 
     for (const auto& binding : m_descriptorSetBindings[setID])
     {
@@ -223,17 +282,35 @@ NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPi
         outBinding.count = binding.count;
         outBinding.type = binding.type;
         outBinding.stageFlags = binding.stageMask;
-        // TODO outBinding.createFlags = 
+        outBinding.createFlags = ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
+        // TODO: outBinding.stageFlags = 
 
+        outBindings.push_back(outBinding);
     }
 
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> output = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(outBindings.data(), outBindings.data() + outBindings.size());
+    if (outBindings.empty())
+        return nullptr;
 
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> output = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(outBindings.data(), outBindings.data() + outBindings.size());
     return output;
 }
-NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximatePipelineLayoutFromIntrospection()
+
+NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximatePipelineLayoutFromIntrospection(
+    core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    return nullptr;
+    const auto pcRanges = createPushConstantRangesFromIntrospection(introspection);
+    const std::span<const asset::SPushConstantRange> pcRangesSpan = {
+        pcRanges ? pcRanges->begin() : nullptr,
+        pcRanges ? pcRanges->end() : nullptr
+    };
+
+    return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+        pcRangesSpan,
+        createApproximateDescriptorSetLayoutFromIntrospection(0),
+        createApproximateDescriptorSetLayoutFromIntrospection(1),
+        createApproximateDescriptorSetLayoutFromIntrospection(2),
+        createApproximateDescriptorSetLayoutFromIntrospection(3)
+    );
 }
 
 CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVIntrospector::CStageIntrospectionData::addResource(
@@ -243,19 +320,22 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
 )
 {
     const uint32_t descSet = comp.get_decoration(r.id,spv::DecorationDescriptorSet);
-    if (descSet>DescriptorSetCount)
+    if (descSet> DESCRIPTOR_SET_COUNT)
         return nullptr; // TODO: log fail
 
+    auto a = comp.get_name(r.id);
     const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
     const auto arrDim = type.array.size();
     // assuming only 1D arrays because i don't know how desc set layout binding is constructed when it's let's say 2D array (e.g. uniform sampler2D smplr[4][5]; is it even legal?)
     if (arrDim>1)
         return nullptr; // TODO: log fail
 
+
     CStageIntrospectionData::SDescriptorVarInfo<true> res = {
         {
             .binding = comp.get_decoration(r.id,spv::DecorationBinding),
-            .type = restype
+            .type = restype//,
+            //.descCount = 1
         },
         /*.name = */addString(r.name),
         /*.count = */addCounts(arrDim,type.array.data(),type.array_size_literal.data())
@@ -565,7 +645,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     //for (const spirv_cross::Resource& r : resources.separate_images) {}
     //for (const spirv_cross::Resource& r : resources.separate_samplers) {}
     for (auto& descSet : stageIntroData->m_descriptorSetBindings)
-        std::sort(descSet.begin(),descSet.end());
+        std::sort(descSet.begin(), descSet.end());
 
     auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t id, uint32_t base_type_id)
         {
@@ -691,7 +771,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
 
     debug << "DESCRIPTOR SETS:\n";
     
-    for (auto set=0; set<DescriptorSetCount; set++)
+    for (auto set=0; set< DESCRIPTOR_SET_COUNT; set++)
     for (auto& descriptor : m_descriptorSetBindings[set])
     {
         addBaseAndConvertStringToImmutable(descriptor.name);
