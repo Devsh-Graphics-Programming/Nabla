@@ -1,11 +1,10 @@
 // Copyright (C) 2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_CMATH_INCLUDED_
-#define _NBL_BUILTIN_HLSL_CMATH_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
+#define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/limits.hlsl>
-
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <cmath>
@@ -16,13 +15,15 @@ namespace nbl
 namespace hlsl
 {
 
-
-#ifdef __cplusplus
-#define INTRINSIC_NAMESPACE(x) std::x
+#ifndef __HLSL_VERSION
+    #define NBL_ADDRESS_OF(x) &x
+    #define NBL_LANG_SELECT(x, y) x
+    #define INTRINSIC_NAMESPACE(x) std::x
 #else
-#define INTRINSIC_NAMESPACE(x) x
+    #define INTRINSIC_NAMESPACE(x) x
+    #define NBL_ADDRESS_OF(x) x
+    #define NBL_LANG_SELECT(x, y) y
 #endif
-
 #define NBL_ALIAS_BINARY_FUNCTION2(name,impl) template<class T> T name(T x, T y) { return INTRINSIC_NAMESPACE(impl)(x, y); }
 #define NBL_ALIAS_BINARY_FUNCTION(fn) NBL_ALIAS_BINARY_FUNCTION2(fn,fn)
 #define NBL_ALIAS_UNARY_FUNCTION2(name,impl)  template<class T> T name(T x) { return INTRINSIC_NAMESPACE(impl)(x); }
@@ -115,7 +116,7 @@ int32_t ilogb(T x)
     using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
     const int32_t shift = (impl::num_base<T>::float_digits-1);
     const uint_type mask = ~(((uint_type(1) << shift) - 1) | (uint_type(1)<<(sizeof(T)*8-1)));
-    int32_t bits = (std::bit_cast<uint_type, T>(x) & mask) >> shift; //nbl::hlsl::bit_cast sucks
+    int32_t bits = (std::bit_cast<uint_type, T>(x) & mask) >> shift; //nbl::hlsl::bit_cast sucks as it pulls the ambiguous one from intrinsics.h
     return bits + impl::num_base<T>::min_exponent - 2;
 }
 
@@ -141,12 +142,21 @@ T hypot(T x, T y)
 template<class T>
 T copysign(T x, T sign_)
 {
-    return sign_ < T(0) ? -x : x;
+    using uint_type = uint32_t; //typename nbl::hlsl::numeric_limits<T>::uint_type;
+    constexpr uint_type m = (1u << 31);
+    const uint_type a = std::bit_cast<uint_type, T>(sign_) & m;
+    const uint_type b = std::bit_cast<uint_type, T>(x) & (m-1);
+    return std::bit_cast<T, uint_type>(a ^ b);
 }
 
+// Generate quiet NaN (function)
+template<class T>
+T nan()
+{
+    return nbl::core::nan<T>()
+}
 // TODO:
-// nan	Generate quiet NaN (function)
-// nextafter	Next representable value (function)
+// nextafter	Next representable value (function) 
 // nexttoward	Next representable value toward precise value (function)
 
 // Error and gamma functions
@@ -266,7 +276,8 @@ T fdim(T x, T y)
 #undef NBL_ALIAS_UNARY_FUNCTION
 #undef INTRINSIC_NAMESPACE
 #undef NBL_ALIAS_FUNCTION_WITH_OUTPUT_PARAM
-
+#undef NBL_ADDRESS_OF
+#undef NBL_LANG_SELECT
 
 }
 }
