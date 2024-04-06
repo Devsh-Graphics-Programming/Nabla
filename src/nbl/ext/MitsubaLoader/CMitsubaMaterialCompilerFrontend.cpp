@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/asset/utils/CIESProfile.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
@@ -86,13 +87,13 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
     if (_emitter->area.emissionProfile) {
         asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
         auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
-
+        
         auto fillProfile = [&]() -> void
         {
             if (_emitter->area.emissionProfile->flatten > 0)
             {
                 auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(image->clone()); // TODO: check if its already a copy
-                if (!meta->flattenIESTexture(clone, _emitter->area.emissionProfile->flatten))
+                if (!asset::CIESProfile::flattenIESTexture(meta->profile.getAvgEmmision(), clone, _emitter->area.emissionProfile->flatten))
                 {
                     os::Printer::log("ERROR: Emission profile rejected because flatten operation on the IES texture failed!", ELL_ERROR);
                     return; // exit the lambda

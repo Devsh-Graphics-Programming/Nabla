@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_C_IES_PROFILE_H_INCLUDED__
 #define __NBL_ASSET_C_IES_PROFILE_H_INCLUDED__
 
+#include "nbl/asset/metadata/CIESProfileMetadata.h"
 #include "nbl/core/Types.h"
 #include <sstream>
 
@@ -68,6 +69,10 @@ namespace nbl
                 template<class ExecutionPolicy>
                 core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
                 core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                
+                template<class ExecutionPolicy>
+                static bool flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0);
+                static bool flattenIESTexture(const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0);
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)

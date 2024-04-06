@@ -131,7 +131,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     auto outImg = asset::ICPUImage::create(std::move(imgInfo));
 
     asset::ICPUImage::SBufferCopy region;
-    const size_t texelBytesz = asset::getTexelOrBlockBytesize(imgInfo.format);
+    constexpr auto texelBytesz = asset::getTexelOrBlockBytesize<IES_TEXTURE_STORAGE_FORMAT>();
     const size_t bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, texelBytesz);
     region.bufferRowLength = bufferRowLength;
     region.imageExtent = imgInfo.extent;
@@ -233,4 +233,68 @@ template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESText
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
 {
     return createIESTexture(std::execution::seq, width, height); 
+}
+
+template<class ExecutionPolicy>
+bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
+{
+    if constexpr (policy._Parallelize)
+        static_assert(false, "meh it appears that filters with par policy are broken on this branch, use seq policy till fixed");
+
+    const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
+
+    if (!inFlattenDomain)
+        return false;
+
+    auto outIES = inoutIES->getCreationParameters().image;
+
+    const auto& creationParams = outIES->getCreationParameters();
+    const bool validFormat = creationParams.format == CIESProfile::IES_TEXTURE_STORAGE_FORMAT;
+
+    if (!validFormat)
+        return false;
+
+    if (flatten > 0.0) // skip if 0 because its just copying texels
+    {
+        CFillImageFilter::state_type state;
+        state.outImage = outIES.get();
+        state.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        state.subresource.baseArrayLayer = 0u;
+        state.subresource.layerCount = 1u;
+        state.outRange.extent = creationParams.extent;
+
+        const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outIES->getBuffer()->getPointer());
+        const IImageFilter::IState::ColorValue::ReadMemoryInfo rInfo(creationParams.format, outIES->getBuffer()->getPointer());
+
+        auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
+        {
+            state.fillValue.readMemory(rInfo, blockArrayOffset);
+
+            const auto decodeV = (IES_STORAGE_FORMAT)(*state.fillValue.asUShort) / CIESProfile::UI16_MAX_D;
+            const auto blendV = decodeV * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * CIESProfile::UI16_MAX_D, 0.0, CIESProfile::UI16_MAX_D));
+            
+            *state.fillValue.asUShort = encodeV;
+            state.fillValue.writeMemory(wInfo, blockArrayOffset);
+        };
+
+        CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
+        const auto& regions = outIES->getRegions(state.subresource.mipLevel);
+
+        if (regions.size() != 1u)
+            return false; // protects from overlapping issue - we could use flatten filter here first then forward its output bellow instead of returning false
+
+        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outIES.get(), fill, regions.begin(), regions.end(), clip);
+    }
+
+    return true;
+}
+
+//! Explicit instantiations
+template bool CIESProfile::flattenIESTexture(const std::execution::sequenced_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
+// template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
+
+bool CIESProfile::flattenIESTexture(const IES_STORAGE_FORMAT& avgEmission, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
+{
+    return flattenIESTexture(std::execution::seq, avgEmission, inoutIES, flatten);
 }
