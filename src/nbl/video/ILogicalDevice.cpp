@@ -680,6 +680,8 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
 
         const auto& rasterParams = ci.cached.rasterization;
+        if (rasterParams.alphaToOneEnable && !features.alphaToOne)
+            return false;
         if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
             return false;
 

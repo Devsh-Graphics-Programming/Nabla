@@ -133,7 +133,7 @@ struct SPhysicalDeviceLimits
     //core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = NoMSor4Samples;
     //core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = NoMSor4Samples;
     //core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = NoMSor4Samples;
-    constexpr static inline uint8_t MinMaxColorAttachments = 8u;
+    constexpr static inline uint8_t MinMaxColorAttachments = 8u; // ROADMAP 2024 and wide reports
     uint8_t maxColorAttachments = MinMaxColorAttachments;
 
     // [DO NOT EXPOSE] because it might be different for every texture format and usage
@@ -145,7 +145,7 @@ struct SPhysicalDeviceLimits
 
     uint8_t maxSampleMaskWords = 1u;
 
-    // [REQUIRE] good device support
+    // [REQUIRE] ROADMAP 2024 and good device support
     //bool timestampComputeAndGraphics = true;
     float timestampPeriodInNanoSeconds = 83.334f; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
 
@@ -162,8 +162,8 @@ struct SPhysicalDeviceLimits
     // old intels can't do this
     bool strictLines = false;
 
-    // [REQUIRE] good device support
-    //bool standardSampleLocations = true;
+    // Had to roll back from requiring, ROADMAP 2022 but some of our targets missing
+    bool standardSampleLocations = false;
 
     uint16_t optimalBufferCopyOffsetAlignment = 0x1u<<8u;
     uint16_t optimalBufferCopyRowPitchAlignment = 0x1u<<7u;
@@ -217,7 +217,9 @@ struct SPhysicalDeviceLimits
     bool shaderDenormFlushToZeroFloat16 = false;
     bool shaderDenormFlushToZeroFloat32 = false;
     bool shaderDenormFlushToZeroFloat64 = false;
+    // ROADMAP2024 but no good support yet
     bool shaderRoundingModeRTEFloat16 = false;
+    // ROADMAP2024 but no good support yet
     bool shaderRoundingModeRTEFloat32 = false;
     bool shaderRoundingModeRTEFloat64 = false;
     bool shaderRoundingModeRTZFloat16 = false;
@@ -231,10 +233,10 @@ struct SPhysicalDeviceLimits
     //      The whole 512k descriptor limits, runtime desc arrays, etc.will come later
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = 1u<<20u;
     bool shaderUniformBufferArrayNonUniformIndexingNative = false;
-    bool shaderSampledImageArrayNonUniformIndexingNative = false;
+    bool shaderSampledImageArrayNonUniformIndexingNative = false; // promotion candidate
     bool shaderStorageBufferArrayNonUniformIndexingNative = false;
-    bool shaderStorageImageArrayNonUniformIndexingNative = false;
-    bool shaderInputAttachmentArrayNonUniformIndexingNative = false;
+    bool shaderStorageImageArrayNonUniformIndexingNative = false; // promotion candidate
+    bool shaderInputAttachmentArrayNonUniformIndexingNative = false; // promotion candidate
     bool robustBufferAccessUpdateAfterBind = false;
     bool quadDivergentImplicitLod = false;
     uint32_t maxPerStageDescriptorUpdateAfterBindSamplers = 500000u;
@@ -765,6 +767,8 @@ struct SPhysicalDeviceLimits
         if (lineWidthGranularity < _rhs.lineWidthGranularity) return false;
 
         if (strictLines && !_rhs.strictLines) return false;
+
+        if (standardSampleLocations && !_rhs.standardSampleLocations) return false;
 
         if (optimalBufferCopyOffsetAlignment < _rhs.optimalBufferCopyOffsetAlignment) return false;
         if (optimalBufferCopyRowPitchAlignment < _rhs.optimalBufferCopyRowPitchAlignment) return false;
