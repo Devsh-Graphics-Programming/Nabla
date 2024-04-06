@@ -1,5 +1,8 @@
 #include "CIESProfile.h"
 
+#include <atomic>
+#include "nbl/asset/filters/CBasicImageFilterCommon.h"
+
 using namespace nbl;
 using namespace asset;
 
@@ -100,8 +103,21 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
     return { theta, phi };
 }
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
+// this would not be required if we were to use c++20 on this branch
+template<typename T>
+T atomic_fetch_add(std::atomic<T>* obj, T arg) {
+    T expected = obj->load();
+    while (!std::atomic_compare_exchange_weak(obj, &expected, expected + arg));
+
+    return expected;
+}
+
+template<class ExecutionPolicy>
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const size_t& width, const size_t& height) const
 {
+    if constexpr (policy._Parallelize)
+        static_assert(false, "meh it appears that filters with par policy are broken on this branch, use seq policy till fixed");
+
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
     imgInfo.extent.width = width;
@@ -115,9 +131,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const
     auto outImg = asset::ICPUImage::create(std::move(imgInfo));
 
     asset::ICPUImage::SBufferCopy region;
-    size_t texelBytesz = asset::getTexelOrBlockBytesize(imgInfo.format);
-    size_t bufferRowLength =
-        asset::IImageAssetHandlerBase::calcPitchInBlocks(width, texelBytesz);
+    const size_t texelBytesz = asset::getTexelOrBlockBytesize(imgInfo.format);
+    const size_t bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, texelBytesz);
     region.bufferRowLength = bufferRowLength;
     region.imageExtent = imgInfo.extent;
     region.imageSubresource.baseArrayLayer = 0u;
@@ -125,44 +140,79 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const
     region.imageSubresource.mipLevel = 0u;
     region.bufferImageHeight = 0u;
     region.bufferOffset = 0u;
-    auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(
-        texelBytesz * bufferRowLength * height);
 
-    double maxValue = getMaxValue();
-    double maxValueRecip = 1.0 / maxValue;
+    auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * bufferRowLength * height);
 
-    double vertInv = 1.0 / height;
-    double horiInv = 1.0 / width;
-    char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
-    
-    integral = 0;
-    size_t nonZeroEmissionDomainSize = 0;
+    if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
+        return {};
 
-    const double dTheta = core::PI<double>() / height;
-    const double dPhi = 2 * core::PI<double>() / width;
+    //! Generate 2D IES grid data CandelaPower Distribution Curve texture can be created from
+    {
+        const auto& creationParams = outImg->getCreationParameters();
 
-    for (size_t i = 0; i < height; i++)
-        for (size_t j = 0; j < width; j++) 
+        CFillImageFilter::state_type state;
+        state.outImage = outImg.get();
+        state.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        state.subresource.baseArrayLayer = 0u;
+        state.subresource.layerCount = 1u;
+        state.outRange.extent = creationParams.extent;
+
+        const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
+
+        const double maxValue = getMaxValue();
+        const double maxValueRecip = 1.0 / maxValue;
+
+        const double vertInv = 1.0 / height;
+        const double horiInv = 1.0 / width;
+
+        const double dTheta = core::PI<double>() / height;
+        const double dPhi = 2 * core::PI<double>() / width;
+
+        integral = 0.0;
+        size_t nonZeroEmissionDomainSize = 0u;
+
+        std::atomic<IES_STORAGE_FORMAT> aIntegral = 0.0;
+        std::atomic<size_t> aNonZeroEmissionDomainSize = 0;
+
+        auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-            const auto dir = octahdronUVToDir(((float)j + 0.5) * vertInv, ((float)i + 0.5) * horiInv);
+            const auto dir = octahdronUVToDir(((float)position.x + 0.5) * vertInv, ((float)position.y + 0.5) * horiInv);
             const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto& intensity = sample(theta, phi);
             const auto& value = intensity * maxValueRecip;
 
-            const auto integrationV = dPhi * dTheta * std::sin(theta) * intensity;
-            integral += integrationV;
-
+            const decltype(integral) integrationV = dPhi * dTheta * std::sin(theta) * intensity;
+            
             if (integrationV != 0.0)
-                ++nonZeroEmissionDomainSize;
+                if constexpr (policy._Parallelize)
+                {
+                    atomic_fetch_add<IES_STORAGE_FORMAT>(&aIntegral, integrationV);
+                    aNonZeroEmissionDomainSize.fetch_add(1u);
+                }
+                else
+                {
+                    integral += integrationV;
+                    ++nonZeroEmissionDomainSize;
+                }
 
             const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * UI16_MAX_D, 0.0, UI16_MAX_D));
-            *reinterpret_cast<uint16_t*>(bufferPtr + i * bufferRowLength * texelBytesz + j * texelBytesz) = encodeV;
+
+            *state.fillValue.asUShort = encodeV;
+            state.fillValue.writeMemory(wInfo, blockArrayOffset);
+        };
+
+        CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
+        const auto& regions = outImg->getRegions(state.subresource.mipLevel);
+        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions.begin(), regions.end(), clip);
+    
+        if constexpr (policy._Parallelize)
+        {
+            integral = aIntegral;
+            nonZeroEmissionDomainSize = aNonZeroEmissionDomainSize;
         }
 
-    avgEmmision = integral / static_cast<decltype(integral)>(nonZeroEmissionDomainSize);
-
-    if (!outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(1ull, region)))
-        return {};
+       avgEmmision = integral / static_cast<decltype(integral)>(nonZeroEmissionDomainSize);
+    }
 
     ICPUImageView::SCreationParams viewParams = {};
     viewParams.image = outImg;
@@ -174,4 +224,13 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const
     viewParams.subresourceRange.layerCount = 1u;
 
     return ICPUImageView::create(std::move(viewParams));
+}
+
+//! Explicit instantiations
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const size_t&, const size_t&) const;
+// template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const size_t&, const size_t&) const;
+
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
+{
+    return createIESTexture(std::execution::seq, width, height); 
 }

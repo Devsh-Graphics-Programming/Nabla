@@ -65,6 +65,8 @@ namespace nbl
                 const IES_STORAGE_FORMAT& getIntegralFromGrid() const { return integral; }
                 const IES_STORAGE_FORMAT& getAvgEmmision() const { return avgEmmision; }
 
+                template<class ExecutionPolicy>
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
                 core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
@@ -113,14 +115,14 @@ namespace nbl
                 Version version;
                 LuminairePlanesSymmetry symmetry;
 
-                core::vector<IES_STORAGE_FORMAT> hAngles;       //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention
-                IES_STORAGE_FORMAT hAnglesOffset;               //! The real horizontal angle provided by IES data is (hAngles[index] + hAnglesOffset) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
-                core::vector<IES_STORAGE_FORMAT> vAngles;       //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
-                core::vector<IES_STORAGE_FORMAT> data;          //! Candela values
-                IES_STORAGE_FORMAT maxValue = {};               //! Max value from this->data vector
+                core::vector<IES_STORAGE_FORMAT> hAngles;                   //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention
+                IES_STORAGE_FORMAT hAnglesOffset;                           //! The real horizontal angle provided by IES data is (hAngles[index] + hAnglesOffset) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
+                core::vector<IES_STORAGE_FORMAT> vAngles;                   //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
+                core::vector<IES_STORAGE_FORMAT> data;                      //! Candela values
+                IES_STORAGE_FORMAT maxValue = {};                           //! Max value from this->data vector
                 
-                mutable IES_STORAGE_FORMAT integral = {};       //! Total energy emitted
-                mutable IES_STORAGE_FORMAT avgEmmision = {};    //! this->integral / <size of the emission domain where non zero values>
+                mutable IES_STORAGE_FORMAT integral = {};                  //! Total energy emitted
+                mutable IES_STORAGE_FORMAT avgEmmision = {};                //! this->integral / <size of the emission domain where non zero values>
 
                 friend class CIESProfileParser;
         };
