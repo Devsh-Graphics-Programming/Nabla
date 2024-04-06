@@ -20,12 +20,12 @@ struct SPhysicalDeviceLimits
     constexpr static inline uint32_t MinMaxImageDimension2D = 1u<<14u;
     uint32_t maxImageDimension1D = MinMaxImageDimension2D;
     uint32_t maxImageDimension2D = MinMaxImageDimension2D;
-    uint32_t maxImageDimension3D = 1u<<12u;
+    uint32_t maxImageDimension3D = 1u<<11u;
     uint32_t maxImageDimensionCube = MinMaxImageDimension2D;
     uint32_t maxImageArrayLayers = 1u<<11u;
     uint32_t maxBufferViewTexels = 1u<<25u;
     uint32_t maxUBOSize = 1u<<16u;
-    constexpr static inline uint32_t MinMaxSSBOSize = 1u<<30u;
+    constexpr static inline uint32_t MinMaxSSBOSize = (1u<<30u)-sizeof(uint32_t);
     uint32_t maxSSBOSize = MinMaxSSBOSize;
     constexpr static inline uint16_t MaxMaxPushConstantsSize = 256u;
     uint16_t maxPushConstantsSize = 128u;
