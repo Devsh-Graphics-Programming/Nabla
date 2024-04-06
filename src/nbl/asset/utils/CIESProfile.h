@@ -72,7 +72,31 @@ namespace nbl
                     : type(type), version(V_SIZE), hAngles(hSize), vAngles(vSize), data(hSize* vSize) {}
 
                 // TODO for @Hazard, I would move it into separate file, we may use this abstraction somewhere too
+                //! Returns spherical coordinates with physics convention in radians
+                /*
+                    https://en.wikipedia.org/wiki/Spherical_coordinate_system#/media/File:3D_Spherical.svg
+                    Retval.first is "theta" polar angle in range [0, PI] & Retval.second "phi" is azimuthal angle
+                    in range [-PI, PI] range
+
+                    Cartesian coordinates obtained from the spherical coordinates in Nabla
+                    are assumed to have radius equal to 1 and therefore always are
+
+                    x = cos(phi)*sin(theta)
+                    y = sin(phi)*sin(theta)
+                    z = cos(theta)
+                */
+
                 static inline std::pair<float, float> sphericalDirToRadians(const core::vectorSIMDf& dir);
+                
+                //! Octahedral coordinate mapping is following
+                /*
+                    center is Z-
+                    U+ from center is X+
+                    V+ from center is Y+
+
+                    when viewed as a texture, the net folds, and the apex where the seams join is Z+
+                */
+                
                 static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v);
                 
                 void addHoriAngle(IES_STORAGE_FORMAT hAngle)

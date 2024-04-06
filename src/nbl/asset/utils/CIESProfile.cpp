@@ -49,12 +49,14 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
     // bilinear interpolation
     auto lb = [](const core::vector<double>& angles, double angle) -> size_t
     {
+        assert(!angles.empty());
         const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
         return (size_t)std::max((int64_t)idx - 1, (int64_t)0);
     };
 
     auto ub = [](const core::vector<double>& angles, double angle) -> size_t
     {
+        assert(!angles.empty());
         const size_t idx = std::upper_bound(std::begin(angles), std::end(angles), angle) - std::begin(angles);
         return std::min<size_t>(idx, angles.size() - 1);
     };
@@ -89,12 +91,6 @@ inline core::vectorSIMDf CIESProfile::octahdronUVToDir(const float& u, const flo
     return core::normalize(pos);
 }
 
-//! Returns spherical coordinates with physics convention in radians
-/*
-    https://en.wikipedia.org/wiki/Spherical_coordinate_system#/media/File:3D_Spherical.svg
-    Retval.first is "theta" polar angle in range [0, PI] & Retval.second "phi" is azimuthal angle
-    in range [-PI, PI] range
-*/
 
 inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::vectorSIMDf& dir)
 {
