@@ -13,8 +13,6 @@
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include <json_struct/include/json_struct/json_struct.h>
-
 #include "nbl/core/xxHash256.h"
 
 namespace nbl::asset
@@ -217,7 +215,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					hash_t hash;
 					// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 					bool standardInclude;
-					std::chrono::utc_clock::duration lastWriteTime;
+					std::chrono::utc_clock::time_point lastWriteTime;
 				};
 
 				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
@@ -237,7 +235,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				struct SMacroData {
 					std::string identifier;
 					std::string definition;
-					JS_OBJ(identifier, definition);
 				};
 
 				struct SPreprocessorData {
@@ -270,9 +267,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 					std::string sourceIdentifier;
 					std::vector<SMacroData> extraDefines;
-
-					JS_OBJECT(JS_MEMBER(sourceIdentifier),
-						JS_MEMBER(extraDefines));
 				};
 
 				struct SCompilerData {
@@ -309,19 +303,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				};
 
 				// We delay loading the shader at runtime until someone tries to compile it
-				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
+				
 				system::path mainFilePath;
 				hash_t mainFileHash;
-				std::chrono::utc_clock::duration lastWriteTime;
+				std::chrono::utc_clock::time_point lastWriteTime;
 				SCompilerData compilerData;
 				hash_t compilerDataHash;
-				system::path shaderStorePath = "";
-				// Having all dependencies stored in the Cache at runtime probably blows up memory usage. For now the Cache only loads 
-				// dependencies from disk when it needs to compare those, then unloads them. Future revision could probably add 
-				// the option to keep dependencies loaded for a bit faster lookup if necessary, + an option to unload dependencies 
-				// whenever memory usage becomes too big
-				system::path dependenciesPath = "";
+				system::path storagePath = "";
+				std::string mainFilecontents = {};
 				dependency_container_t dependencies;
+				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 			};
 
 			inline void insert(SEntry&& entry)

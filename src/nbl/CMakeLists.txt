@@ -469,10 +469,17 @@ target_include_directories(Nabla PUBLIC
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
 )
-# json_struct
-# This library is header-only, see about refactoring in the future
-add_dependencies(Nabla json_struct)
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/json_struct)
+
+# nlohmann_json
+add_dependencies(Nabla nlohmann_json)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE nlohmann_json)
+else()
+	target_link_libraries(Nabla PRIVATE nlohmann_json)
+endif()
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json)
+
+
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
