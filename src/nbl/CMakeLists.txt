@@ -471,13 +471,14 @@ target_include_directories(Nabla PUBLIC
 )
 
 # nlohmann_json
+set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_dependencies(Nabla nlohmann_json)
 if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE nlohmann_json)
+	target_link_libraries(Nabla INTERFACE nlohmann_json::nlohmann_json)
 else()
-	target_link_libraries(Nabla PRIVATE nlohmann_json)
+	target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json)
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
 
 
 # simdjson

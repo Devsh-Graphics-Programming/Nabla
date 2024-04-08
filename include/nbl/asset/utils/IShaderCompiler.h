@@ -302,8 +302,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					SPreprocessorData preprocessorData;
 				};
 
-				// We delay loading the shader at runtime until someone tries to compile it
-				
+				// This next bit is a bit of a Frankenstein. We serialize shader creation parameters into a json, while the actual shader code goes in another file
+				struct CPUShaderCreationParams {
+					IShader::E_SHADER_STAGE stage;
+					IShader::E_CONTENT_TYPE contentType; //I think this one could be skipped since it's always going to be SPIR-V
+					std::string filepathHint;
+					uint64_t codeByteSize;
+				};
+
 				system::path mainFilePath;
 				hash_t mainFileHash;
 				std::chrono::utc_clock::time_point lastWriteTime;
@@ -376,6 +382,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				
 			};
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
+			system::path m_storagePath;
+			uint64_t lastShaderID;  //TODO: look into UUID generation to avoid this ugly indexation
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const
