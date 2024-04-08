@@ -124,14 +124,14 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
             profile.up = core::normalize(worldSpaceIESTransform[1]);
             profile.view = core::normalize(worldSpaceIESTransform[2]);
 
-            const auto maxIntesity = meta->profile.getMaxValue();
+            const auto maxIntesity = meta->profile.getMaxCandelaValue();
             res->emissionProfile = profile;
             const float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
 
             if (normalizeEnergy == 0.0f)
                 res->intensity *= maxIntesity;
             else if (normalizeEnergy > 0.0f) {
-                const auto integral = meta->profile.getIntegralFromGrid();
+                const auto integral = meta->profile.getTotalEmission();
                 res->intensity *= normalizeEnergy * maxIntesity / integral;
             }
         };

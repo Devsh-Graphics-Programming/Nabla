@@ -54,17 +54,18 @@ namespace nbl
                 CIESProfile() = default;
                 ~CIESProfile() = default;
 
-                const IES_STORAGE_FORMAT& getHAnglesOffset() const { return hAnglesOffset; }
+                auto getType() const { return type; }
+                auto getVersion() const { return version; }
+                auto getSymmetry() const { return symmetry; }
+
                 const core::vector<IES_STORAGE_FORMAT>& getHoriAngles() const { return hAngles; }
                 const core::vector<IES_STORAGE_FORMAT>& getVertAngles() const { return vAngles; }
-                const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }
-                const auto getSymmetry() const { return symmetry; }
-
-                IES_STORAGE_FORMAT getValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
-                IES_STORAGE_FORMAT getMaxValue() const { return maxValue; }
-
-                const IES_STORAGE_FORMAT& getIntegralFromGrid() const { return integral; }
-                const IES_STORAGE_FORMAT& getAvgEmmision() const { return avgEmmision; }
+                const core::vector<IES_STORAGE_FORMAT>& getData() const { return data; }              
+                IES_STORAGE_FORMAT getCandelaValue(size_t i, size_t j) const { return data[vAngles.size() * i + j]; }
+                
+                IES_STORAGE_FORMAT getMaxCandelaValue() const { return maxCandelaValue; }
+                IES_STORAGE_FORMAT getTotalEmission() const { return totalEmissionIntegral; }
+                IES_STORAGE_FORMAT getAvgEmmision() const { return avgEmmision; }
 
                 template<class ExecutionPolicy>
                 core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
@@ -106,13 +107,7 @@ namespace nbl
                 
                 static inline core::vectorSIMDf octahdronUVToDir(const float& u, const float& v);
                 
-                void addHoriAngle(IES_STORAGE_FORMAT hAngle)
-                {
-                    hAngles.push_back(hAngle);
-                    data.resize(getHoriAngles().size() * vAngles.size());
-                }
-
-                void setValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[vAngles.size() * i + j] = val; }
+                void setCandelaValue(size_t i, size_t j, IES_STORAGE_FORMAT val) { data[vAngles.size() * i + j] = val; }
 
                 const IES_STORAGE_FORMAT sample(IES_STORAGE_FORMAT vAngle, IES_STORAGE_FORMAT hAngle) const;
 
@@ -120,14 +115,13 @@ namespace nbl
                 Version version;
                 LuminairePlanesSymmetry symmetry;
 
-                core::vector<IES_STORAGE_FORMAT> hAngles;                   //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention
-                IES_STORAGE_FORMAT hAnglesOffset;                           //! The real horizontal angle provided by IES data is (hAngles[index] + hAnglesOffset) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
-                core::vector<IES_STORAGE_FORMAT> vAngles;                   //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
-                core::vector<IES_STORAGE_FORMAT> data;                      //! Candela values
-                IES_STORAGE_FORMAT maxValue = {};                           //! Max value from this->data vector
+                core::vector<IES_STORAGE_FORMAT> hAngles;           //! The angular displacement indegreesfrom straight down, a value represents spherical coordinate "theta" with physics convention. Note that if symmetry is OTHER_HALF_SYMMETRIC then real horizontal angle provided by IES data is (hAngles[index] + 90) - the reason behind it is we patch 1995 IES OTHER_HALF_SYMETRIC case to be HALF_SYMETRIC
+                core::vector<IES_STORAGE_FORMAT> vAngles;           //! Measurements in degrees of angular displacement measured counterclockwise in a horizontal plane for Type C photometry and clockwise for Type A and B photometry, a value represents spherical coordinate "phi" with physics convention
+                core::vector<IES_STORAGE_FORMAT> data;              //! Candela values
                 
-                mutable IES_STORAGE_FORMAT integral = {};                  //! Total energy emitted
-                mutable IES_STORAGE_FORMAT avgEmmision = {};                //! this->integral / <size of the emission domain where non zero values>
+                IES_STORAGE_FORMAT maxCandelaValue = {};            //! Max value from this->data vector    
+                IES_STORAGE_FORMAT totalEmissionIntegral = {};      //! Total energy emitted
+                IES_STORAGE_FORMAT avgEmmision = {};                //! this->totalEmissionIntegral / <size of the emission domain where non zero emission values>
 
                 friend class CIESProfileParser;
         };

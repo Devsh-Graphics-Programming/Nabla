@@ -1,4 +1,4 @@
-#include "CIESProfileParser.h"
+﻿#include "CIESProfileParser.h"
 
 using namespace nbl;
 using namespace asset;
@@ -123,17 +123,23 @@ bool CIESProfileParser::parse(CIESProfile& result)
             return false; // Angles should be sorted
     }
 
-    // validate horizontal angles
+    float fluxMultiplier = 1.0f;
     {
-        const auto& firstHAngle = result.hAnglesOffset = hAngles.front();
-        const auto& lastHAngle = hAngles.back();
+        const auto firstHAngle = hAngles.front();
+        const auto lastHAngle = hAngles.back();
 
         if (lastHAngle == 0)
             result.symmetry = CIESProfile::ISOTROPIC;
         else if (lastHAngle == 90)
+        {
             result.symmetry = CIESProfile::QUAD_SYMETRIC;
+            fluxMultiplier = 4.0;
+        }
         else if (lastHAngle == 180)
+        {
             result.symmetry = CIESProfile::HALF_SYMETRIC;
+            fluxMultiplier = 2.0;
+        }
         else if (lastHAngle == 360)
             result.symmetry = CIESProfile::NO_LATERAL_SYMMET;
         else
@@ -141,6 +147,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
             if (firstHAngle == 90 && lastHAngle == 270 && result.version == CIESProfile::V_1995)
             {
                 result.symmetry = CIESProfile::OTHER_HALF_SYMMETRIC;
+                fluxMultiplier = 2.0;
 
                 for (auto& angle : hAngles)
                     angle -= firstHAngle; // patch the profile to HALF_SYMETRIC by shifting [90,270] range to [0, 180]
@@ -150,12 +157,58 @@ bool CIESProfileParser::parse(CIESProfile& result)
         }
     }
 
-    const double factor = ballastFactor * candelaMultiplier;
-    for (int i = 0; i < hSize; i++)
-        for (int j = 0; j < vSize; j++)
-            result.setValue(i, j, factor * getDouble("intensity value truncated"));
-    
-    result.maxValue = *std::max_element(std::begin(result.data), std::end(result.data));
+    {
+        const double factor = ballastFactor * candelaMultiplier;
+        for (int i = 0; i < hSize; i++)
+            for (int j = 0; j < vSize; j++)
+                result.setCandelaValue(i, j, factor * getDouble("intensity value truncated"));
+    }
+
+    float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
+    constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
+
+    if (result.symmetry == CIESProfile::ISOTROPIC && result.vAngles.size() == 1) // not sure if any IES provides this kind of distribution but it should be possible to do so meaning fixed candela value for each direction
+    {
+        const auto candelaValue = result.getCandelaValue(0, 0);
+        constexpr auto solidAngle = FULL_SOLID_ANGLE; // spans whole sphere area
+
+        totalEmissionIntegral = candelaValue * solidAngle;
+        nonZeroEmissionDomainSize = solidAngle;
+    }
+    else
+        for (size_t i = 0; i < result.hAngles.size(); i++)
+            for (size_t j = 0; j < result.vAngles.size(); j++)
+            {
+                const auto candelaValue = result.getCandelaValue(i, j);
+
+                auto getDPhiRad = [&]()
+                {
+                    if (result.symmetry == CIESProfile::ISOTROPIC) // this could be nice templated lambda, TODO: correct once c++20 enters this branch
+                        return core::PI<float>() * 2.0f; // spans whole circle
+                    else
+                        return core::radians<float>((i < result.hAngles.size() - 1) ? result.hAngles[i + 1] - result.hAngles[i] : result.hAngles[i] - result.hAngles[i - 1]);
+                };
+
+                const float thetaRad = core::radians<float>(result.vAngles[j]);
+                const float dThetaRad = core::radians<float>((j < result.vAngles.size() - 1) ? result.vAngles[j + 1] - result.vAngles[j] : result.vAngles[j] - result.vAngles[j - 1]);
+                const float dPhiRad = getDPhiRad();
+
+                const auto differentialSolidAngle = std::clamp<float>(std::sin(thetaRad) * dThetaRad * dPhiRad, 0.0, FULL_SOLID_ANGLE);
+                const auto integralV = candelaValue * differentialSolidAngle;
+
+                if (integralV > 0.0)
+                {
+                    totalEmissionIntegral += integralV;
+                    nonZeroEmissionDomainSize += differentialSolidAngle;
+                }
+            }
+
+    if (nonZeroEmissionDomainSize <= 0) // protect us from division by 0 (just in case, we should never hit it)
+        return false;
+
+    result.avgEmmision = totalEmissionIntegral / static_cast<decltype(totalEmissionIntegral)>(nonZeroEmissionDomainSize);
+    result.totalEmissionIntegral = totalEmissionIntegral * fluxMultiplier; // we use fluxMultiplier to calculate final total emission for case where we have some symmetry between planes (fluxMultiplier is 1.0f if ISOTROPIC or NO_LATERAL_SYMMET because they already have correct total emission integral calculated), also note it doesn't affect average emission at all
+    result.maxCandelaValue = *std::max_element(std::begin(result.data), std::end(result.data));
 
     return !error;
 }

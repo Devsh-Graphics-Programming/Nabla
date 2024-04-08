@@ -75,8 +75,8 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
     double u = (hAngle - hAngles[i0]) * uResp;
     double v = (vAngle - vAngles[j0]) * vResp;
 
-    double s0 = getValue(i0, j0) * (1.0 - v) + getValue(i0, j1) * (v);
-    double s1 = getValue(i1, j0) * (1.0 - v) + getValue(i1, j1) * (v);
+    double s0 = getCandelaValue(i0, j0) * (1.0 - v) + getCandelaValue(i0, j1) * (v);
+    double s1 = getCandelaValue(i1, j0) * (1.0 - v) + getCandelaValue(i1, j1) * (v);
 
     return s0 * (1.0 - u) + s1 * u;
 }
@@ -101,15 +101,6 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
     const float phi = std::atan2(dir.y, dir.x);
 
     return { theta, phi };
-}
-
-// this would not be required if we were to use c++20 on this branch
-template<typename T>
-T atomic_fetch_add(std::atomic<T>* obj, T arg) {
-    T expected = obj->load();
-    while (!std::atomic_compare_exchange_weak(obj, &expected, expected + arg));
-
-    return expected;
 }
 
 template<class ExecutionPolicy>
@@ -159,20 +150,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
 
-        const double maxValue = getMaxValue();
+        const double maxValue = getMaxCandelaValue();
         const double maxValueRecip = 1.0 / maxValue;
 
         const double vertInv = 1.0 / height;
         const double horiInv = 1.0 / width;
-
-        const double dTheta = core::PI<double>() / height;
-        const double dPhi = 2 * core::PI<double>() / width;
-
-        integral = 0.0;
-        size_t nonZeroEmissionDomainSize = 0u;
-
-        std::atomic<IES_STORAGE_FORMAT> aIntegral = 0.0;
-        std::atomic<size_t> aNonZeroEmissionDomainSize = 0;
 
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
@@ -180,20 +162,6 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto& intensity = sample(theta, phi);
             const auto& value = intensity * maxValueRecip;
-
-            const decltype(integral) integrationV = dPhi * dTheta * std::sin(theta) * intensity;
-            
-            if (integrationV != 0.0)
-                if constexpr (policy._Parallelize)
-                {
-                    atomic_fetch_add<IES_STORAGE_FORMAT>(&aIntegral, integrationV);
-                    aNonZeroEmissionDomainSize.fetch_add(1u);
-                }
-                else
-                {
-                    integral += integrationV;
-                    ++nonZeroEmissionDomainSize;
-                }
 
             const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * UI16_MAX_D, 0.0, UI16_MAX_D));
 
@@ -204,14 +172,6 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
         const auto& regions = outImg->getRegions(state.subresource.mipLevel);
         CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outImg.get(), fill, regions.begin(), regions.end(), clip);
-    
-        if constexpr (policy._Parallelize)
-        {
-            integral = aIntegral;
-            nonZeroEmissionDomainSize = aNonZeroEmissionDomainSize;
-        }
-
-       avgEmmision = integral / static_cast<decltype(integral)>(nonZeroEmissionDomainSize);
     }
 
     ICPUImageView::SCreationParams viewParams = {};
