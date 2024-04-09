@@ -106,9 +106,6 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 template<class ExecutionPolicy>
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const size_t& width, const size_t& height) const
 {
-    if constexpr (policy._Parallelize)
-        static_assert(false, "meh it appears that filters with par policy are broken on this branch, use seq policy till fixed");
-
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
     imgInfo.extent.width = width;
@@ -160,13 +157,14 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
         {
             const auto dir = octahdronUVToDir(((float)position.x + 0.5) * vertInv, ((float)position.y + 0.5) * horiInv);
             const auto [theta, phi] = sphericalDirToRadians(dir);
-            const auto& intensity = sample(theta, phi);
-            const auto& value = intensity * maxValueRecip;
+            const auto intensity = sample(theta, phi);
+            const auto value = intensity * maxValueRecip;
 
             const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * UI16_MAX_D, 0.0, UI16_MAX_D));
 
-            *state.fillValue.asUShort = encodeV;
-            state.fillValue.writeMemory(wInfo, blockArrayOffset);
+            asset::IImageFilter::IState::ColorValue color;
+            *color.asUShort = encodeV;
+            color.writeMemory(wInfo, blockArrayOffset);
         };
 
         CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
@@ -188,7 +186,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
 //! Explicit instantiations
 template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const size_t&, const size_t&) const;
-// template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const size_t&, const size_t&) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const size_t&, const size_t&) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const size_t&, const size_t&) const;
 
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
 {
@@ -198,9 +197,6 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const
 template<class ExecutionPolicy>
 bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
 {
-    if constexpr (policy._Parallelize)
-        static_assert(false, "meh it appears that filters with par policy are broken on this branch, use seq policy till fixed");
-
     const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
 
     if (!inFlattenDomain)
@@ -228,14 +224,15 @@ bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_
 
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
-            state.fillValue.readMemory(rInfo, blockArrayOffset);
+            asset::IImageFilter::IState::ColorValue color;
+            color.readMemory(rInfo, blockArrayOffset);
 
-            const auto decodeV = (IES_STORAGE_FORMAT)(*state.fillValue.asUShort) / CIESProfile::UI16_MAX_D;
+            const auto decodeV = (IES_STORAGE_FORMAT)(*color.asUShort) / CIESProfile::UI16_MAX_D;
             const auto blendV = decodeV * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
             const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * CIESProfile::UI16_MAX_D, 0.0, CIESProfile::UI16_MAX_D));
             
-            *state.fillValue.asUShort = encodeV;
-            state.fillValue.writeMemory(wInfo, blockArrayOffset);
+            *color.asUShort = encodeV;
+            color.writeMemory(wInfo, blockArrayOffset);
         };
 
         CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
@@ -252,7 +249,8 @@ bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_
 
 //! Explicit instantiations
 template bool CIESProfile::flattenIESTexture(const std::execution::sequenced_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
-// template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
+template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
+template bool CIESProfile::flattenIESTexture(const std::execution::parallel_unsequenced_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
 
 bool CIESProfile::flattenIESTexture(const IES_STORAGE_FORMAT& avgEmission, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
 {
