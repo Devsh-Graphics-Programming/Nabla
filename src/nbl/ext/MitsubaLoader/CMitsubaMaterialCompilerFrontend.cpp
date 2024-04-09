@@ -90,20 +90,20 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
         
         auto fillProfile = [&]() -> void
         {
-            if (_emitter->area.emissionProfile->flatten > 0)
+            profile.texture = { image, sampler, 1.f };
+
+            const bool inFlattenDomain = _emitter->area.emissionProfile->flatten >= 0.0 && _emitter->area.emissionProfile->flatten <= 1.0;
+
+            if (inFlattenDomain)
             {
                 auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(image->clone()); // TODO: check if its already a copy
-                if (!asset::CIESProfile::flattenIESTexture(meta->profile.getAvgEmmision(), clone, _emitter->area.emissionProfile->flatten))
-                {
-                    os::Printer::log("ERROR: Emission profile rejected because flatten operation on the IES texture failed!", ELL_ERROR);
-                    return; // exit the lambda
-                }
-;
-                profile.texture = { clone, sampler, 1.f };
+                if (meta->profile.flattenIESTexture(clone, _emitter->area.emissionProfile->flatten))
+                    profile.texture = { clone, sampler, 1.f };
+                else
+                    os::Printer::log("ERROR: Failed to flatten an IES texture - using the original texture", ELL_ERROR);
             }
             else
-                profile.texture = { image, sampler, 1.f };
-
+                os::Printer::log("ERROR: Flatten property = %s is outside it's [0, 1) domain - an IES texture will not be flattened", ELL_ERROR);
 
             auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
             
@@ -111,7 +111,7 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
             worldSpaceIESTransform[1].w = 0;
             worldSpaceIESTransform[2].w = 0;
 
-            _NBL_STATIC_INLINE_CONSTEXPR float THRESHOLD = std::numeric_limits<float>::epsilon();
+            const float THRESHOLD = core::exp2(-14.f);
             const auto det = core::determinant(worldSpaceIESTransform);
 
             if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
@@ -120,7 +120,7 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                 return; // exit the lambda
             }
 
-            profile.right_hand = core::sign(det) > 0.0f;
+            profile.right_hand = det > 0.0f;
             profile.up = core::normalize(worldSpaceIESTransform[1]);
             profile.view = core::normalize(worldSpaceIESTransform[2]);
 

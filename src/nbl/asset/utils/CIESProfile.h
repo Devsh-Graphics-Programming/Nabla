@@ -72,8 +72,8 @@ namespace nbl
                 core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const size_t& width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t& height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
                 
                 template<class ExecutionPolicy>
-                static bool flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0);
-                static bool flattenIESTexture(const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0);
+                bool flattenIESTexture(ExecutionPolicy&& policy, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0) const;
+                bool flattenIESTexture(core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten = 0.0) const;
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)

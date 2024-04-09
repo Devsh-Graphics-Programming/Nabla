@@ -160,10 +160,8 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             const auto intensity = sample(theta, phi);
             const auto value = intensity * maxValueRecip;
 
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(value * UI16_MAX_D, 0.0, UI16_MAX_D));
-
             asset::IImageFilter::IState::ColorValue color;
-            *color.asUShort = encodeV;
+            asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &value);
             color.writeMemory(wInfo, blockArrayOffset);
         };
 
@@ -195,20 +193,16 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const
 }
 
 template<class ExecutionPolicy>
-bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_FORMAT& avgEmmision, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
+bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten) const
 {
     const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
-
-    if (!inFlattenDomain)
-        return false;
+    assert(inFlattenDomain);
 
     auto outIES = inoutIES->getCreationParameters().image;
 
     const auto& creationParams = outIES->getCreationParameters();
     const bool validFormat = creationParams.format == CIESProfile::IES_TEXTURE_STORAGE_FORMAT;
-
-    if (!validFormat)
-        return false;
+    assert(validFormat);
 
     if (flatten > 0.0) // skip if 0 because its just copying texels
     {
@@ -221,17 +215,18 @@ bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outIES->getBuffer()->getPointer());
         const IImageFilter::IState::ColorValue::ReadMemoryInfo rInfo(creationParams.format, outIES->getBuffer()->getPointer());
-
+        
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
             asset::IImageFilter::IState::ColorValue color;
             color.readMemory(rInfo, blockArrayOffset);
 
-            const auto decodeV = (IES_STORAGE_FORMAT)(*color.asUShort) / CIESProfile::UI16_MAX_D;
-            const auto blendV = decodeV * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * CIESProfile::UI16_MAX_D, 0.0, CIESProfile::UI16_MAX_D));
-            
-            *color.asUShort = encodeV;
+            const void* inSourcePixels[] = { color.pointer, nullptr, nullptr, nullptr };
+            asset::decodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(inSourcePixels, color.asDouble, 0, 0);
+                    
+            const auto blendV = *color.asDouble * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
+
+            asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV);
             color.writeMemory(wInfo, blockArrayOffset);
         };
 
@@ -248,11 +243,11 @@ bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, const IES_STORAGE_
 }
 
 //! Explicit instantiations
-template bool CIESProfile::flattenIESTexture(const std::execution::sequenced_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
-template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
-template bool CIESProfile::flattenIESTexture(const std::execution::parallel_unsequenced_policy&, const IES_STORAGE_FORMAT&, core::smart_refctd_ptr<asset::ICPUImageView>, const float);
+template bool CIESProfile::flattenIESTexture(const std::execution::sequenced_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
+template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
+template bool CIESProfile::flattenIESTexture(const std::execution::parallel_unsequenced_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
 
-bool CIESProfile::flattenIESTexture(const IES_STORAGE_FORMAT& avgEmission, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten)
+bool CIESProfile::flattenIESTexture(core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten) const
 {
-    return flattenIESTexture(std::execution::seq, avgEmission, inoutIES, flatten);
+    return flattenIESTexture(std::execution::seq, inoutIES, flatten);
 }
