@@ -70,8 +70,10 @@ struct SPhysicalDeviceFeatures
     // good device support, but a somewhat useless feature (axis aligned screenspace boxes with limits on size)
     bool largePoints = false;
 
+    // Some AMD don't support
+    bool alphaToOne = true;
+
     // [REQUIRE] good device support
-    //bool alphaToOne = true;
     //bool multiViewport = true;
 
     // [REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous
@@ -92,7 +94,7 @@ struct SPhysicalDeviceFeatures
     //bool fragmentStoresAndAtomics;
     //bool shaderTessellationAndGeometryPointSize;
 
-    // [REQUIRE] good device support
+    // [REQUIRE] ROADMAP 2024 good device support
     //bool shaderImageGatherExtended = true;
 
     // [REQUIRE] ROADMAP 2022 and good device support
@@ -126,6 +128,7 @@ struct SPhysicalDeviceFeatures
 
     // [REQUIRE]
     //bool shaderInt64 = true;
+    // [REQUIRE] ROADMAP 2024
     //bool shaderInt16 = true;
 
     // poor support on Apple GPUs
@@ -152,8 +155,9 @@ struct SPhysicalDeviceFeatures
 
     /* Vulkan 1.1 Core */
 
-    // [REQUIRED] Force Enabled : ALIAS VK_KHR_16bit_storage
+    // [REQUIRED] ROADMAP 2024
     //bool storageBuffer16BitAccess = true;
+    // [REQUIRED] Force Enabled : ALIAS VK_KHR_16bit_storage
     //bool uniformAndStorageBuffer16BitAccess = true;
   
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
@@ -178,7 +182,7 @@ struct SPhysicalDeviceFeatures
     // [DO NOT EXPOSE] ROADMAP 2022 Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     //bool           samplerYcbcrConversion = false;
 
-    // [REQUIRE] Force Enabled : VK_KHR_shader_draw_parameters
+    // [REQUIRE] ROADMAP2024 and Force Enabled : VK_KHR_shader_draw_parameters
     //bool shaderDrawParameters = true;
 
 
@@ -191,8 +195,9 @@ struct SPhysicalDeviceFeatures
     //bool drawIndirectCount; // ALIAS: VK_KHR_draw_indirect_count
 
     // or VK_KHR_8bit_storage:
-    // [REQUIRE] good device coverage
+    // [REQUIRE] ROADMAP 2024 and good device coverage
     //bool storageBuffer8BitAccess = true;
+    // [REQUIRE] good device coverage
     //bool uniformAndStorageBuffer8BitAccess = true;
     // [EXPOSE AS LIMIT] not great support yet
     //bool storagePushConstant8;
@@ -202,9 +207,9 @@ struct SPhysicalDeviceFeatures
     //bool shaderSharedInt64Atomics;
 
     // or VK_KHR_shader_float16_int8:
-    // [EXPOSE AS LIMIT] not great support yet
+    // [EXPOSE AS LIMIT] ROADMAP 2024 but not great support yet
     //bool shaderFloat16;
-    // [REQUIRE] good device coverage
+    // [REQUIRE] ROADMAP 2024 good device coverage
     //bool shaderInt8 = true;
     
     // [REQUIRE] ROADMAP 2022
@@ -1532,7 +1537,7 @@ struct SPhysicalDeviceFeatures
     // VK_JUICE_extension_399
     // VK_JUICE_extension_400
 
-    // [TODO LATER] needs to figure out how extending our LOAD_OP enum would affect the GL backend
+    // [TODO LATER] ROADMAP 2024 but need to figure out how extending our LOAD_OP enum would affect us
     /* VK_EXT_load_store_op_none */
 
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -1870,6 +1875,8 @@ struct SPhysicalDeviceFeatures
         res.wideLines |= _rhs.wideLines;
         res.largePoints |= _rhs.largePoints;
 
+        res.alphaToOne |= _rhs.alphaToOne;
+
         res.pipelineStatisticsQuery |= _rhs.pipelineStatisticsQuery;
 
         res.shaderCullDistance |= _rhs.shaderCullDistance;
@@ -1977,6 +1984,8 @@ struct SPhysicalDeviceFeatures
         res.depthBounds &= _rhs.depthBounds;
         res.wideLines &= _rhs.wideLines;
         res.largePoints &= _rhs.largePoints;
+
+        res.alphaToOne &= _rhs.alphaToOne;
 
         res.pipelineStatisticsQuery &= _rhs.pipelineStatisticsQuery;
 

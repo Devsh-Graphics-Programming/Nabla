@@ -214,11 +214,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.lineWidthGranularity = vk_deviceProperties.limits.lineWidthGranularity;
         properties.limits.strictLines = vk_deviceProperties.limits.strictLines;
 
-        if (!vk_deviceProperties.limits.standardSampleLocations)
-        {
-            logger.log("Not enumerating VkPhysicalDevice %p because it reports a limit below ROADMAP2022 spec which is ubiquitously supported already!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
-        }
+        properties.limits.standardSampleLocations = vk_deviceProperties.limits.standardSampleLocations;
 
         properties.limits.optimalBufferCopyOffsetAlignment = vk_deviceProperties.limits.optimalBufferCopyOffsetAlignment;
         properties.limits.optimalBufferCopyRowPitchAlignment = vk_deviceProperties.limits.optimalBufferCopyRowPitchAlignment;
@@ -805,8 +801,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         features.wideLines = deviceFeatures.features.wideLines;
         features.largePoints = deviceFeatures.features.largePoints;
 
-        if (!deviceFeatures.features.alphaToOne)
-            return nullptr;
+        features.alphaToOne = deviceFeatures.features.alphaToOne;
 
         if (!deviceFeatures.features.multiViewport)
             return nullptr;
@@ -1594,7 +1589,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.depthBounds = enabledFeatures.depthBounds;
         vk_deviceFeatures2.features.wideLines = enabledFeatures.wideLines;
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
-        vk_deviceFeatures2.features.alphaToOne = true; // good device support
+        vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = true; // good device support
         vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP 2022
         // leave defaulted, enable if supported

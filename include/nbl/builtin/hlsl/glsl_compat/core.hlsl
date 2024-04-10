@@ -19,45 +19,51 @@ namespace glsl
 /**
 * Generic SPIR-V
 */
+
+// Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6508
+// Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAdd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    // FUTURE: assert the scalart type is an integer type, then assert device traits maybe? but default to traits there?
+    return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicOr(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicXor(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+
+/* TODO: @Hazardu struct dispatchers like for `bitfieldExtract`
 template<typename T>
 T atomicMin(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicMin<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
 template<typename T>
 T atomicMax(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicMax<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
 }
+*/
 template<typename T>
 T atomicExchange(NBL_REF_ARG(T) ptr, T value)
 {
-    return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, value);
+    return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 {
-    return spirv::atomicCompSwap<T>(ptr, spv::ScopeDevice, spv::DecorationRelaxedPrecision, spv::DecorationRelaxedPrecision, value, comparator);
+    return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 
 /**
