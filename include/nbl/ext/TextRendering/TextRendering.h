@@ -7,7 +7,6 @@
 
 #include "nabla.h"
 
-#include "nbl/video/alloc/SubAllocatedDataBuffer.h"
 #include "nbl/video/utilities/CPropertyPool.h"
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
@@ -52,7 +51,7 @@ struct FontAtlasGlyph {
 class FontAtlas
 {
 public:
-	FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
+	FontAtlas(video::IQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
 
 	FT_Library library;
 	FT_Face face;
@@ -103,7 +102,7 @@ public:
 
 	template<class Clock = typename std::chrono::steady_clock>
 	uint32_t allocateStrings(
-		IGPUQueue* queue,
+		IQueue* queue,
 		const std::chrono::time_point<Clock>& maxWaitPoint, // lets have also a version without this (default)
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
@@ -269,7 +268,7 @@ public:
 	}
 
 	inline uint32_t allocateStrings(
-		IGPUQueue* queue,
+		IQueue* queue,
 		const uint32_t count, // how many strings
 		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
 		const char* const* stringData,
@@ -283,7 +282,7 @@ public:
 	void freeStrings(
 		const uint32_t count, // how many strings
 		const string_handle_t* handles,
-		core::smart_refctd_ptr<IGPUFence>&& fence // for a deferred free
+		core::smart_refctd_ptr<ISemaphore>&& fence // for a deferred free
 	);
 
 	// One of the sets would be our global DS, and the other would be the user provided visible strings DS
