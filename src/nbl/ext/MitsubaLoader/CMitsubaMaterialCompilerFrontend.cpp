@@ -92,19 +92,34 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
         {
             profile.texture = { image, sampler, 1.f };
 
-            const bool inFlattenDomain = _emitter->area.emissionProfile->flatten >= 0.0 && _emitter->area.emissionProfile->flatten <= 1.0;
+            const bool inFlattenDomain = _emitter->area.emissionProfile->flatten >= 0.0 && _emitter->area.emissionProfile->flatten < 1.0; // [0, 1)
 
-            if (inFlattenDomain)
+            if (!inFlattenDomain)
             {
-                auto flattenIES = meta->profile.createIESTexture(m_loaderContext->override_, _emitter->area.emissionProfile->filename, _emitter->area.emissionProfile->flatten);
-
-                if (flattenIES.get())
-                    profile.texture = { flattenIES, sampler, 1.f };
-                else
-                    os::Printer::log("ERROR: Failed to flatten an IES texture - using the original texture", ELL_ERROR);
+                const auto cFlatten = core::min(core::abs(_emitter->area.emissionProfile->flatten), 1.f - std::numeric_limits<float>::epsilon());
+                os::Printer::log("WARNING: Flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten) + " is outside it's [0, 1) domain - the flatten property will be clamped to " + std::to_string(cFlatten), ELL_WARNING);
+                _emitter->area.emissionProfile->flatten = cFlatten;
             }
-            else
-                os::Printer::log("ERROR: Flatten property = %s is outside it's [0, 1) domain - an IES texture will not be flattened", ELL_ERROR);
+
+            if (_emitter->area.emissionProfile->flatten > 0.0) // if 0 then it's just "image"
+            {
+                core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
+
+                const auto aHash = _emitter->area.emissionProfile->filename + "?flatten=" + std::to_string(_emitter->area.emissionProfile->flatten);
+                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+                asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(aHash, types, m_loaderContext->inner, 0u);
+                {
+                    auto contents = bundle.getContents();
+
+                    if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
+                        flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
+                }
+
+                if(!flattenIES)
+                    flattenIES = meta->profile.createIESTexture(m_loaderContext->override_, _emitter->area.emissionProfile->filename, _emitter->area.emissionProfile->flatten);
+                
+                profile.texture = { flattenIES, sampler, 1.f };
+            }
 
             auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
             

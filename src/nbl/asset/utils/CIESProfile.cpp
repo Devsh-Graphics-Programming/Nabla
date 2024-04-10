@@ -111,18 +111,6 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     assert(inFlattenDomain);
     assert(aOverride);
 
-    const auto aHash = key + "?flatten=" + std::to_string(flatten);
-    asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-
-    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-    SAssetBundle bundle = aOverride->findCachedAsset(aHash, types, ctx, 0u);
-    {
-        auto contents = bundle.getContents();
-
-        if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
-            return core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
-    }
-
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
     imgInfo.extent.width = width;
@@ -200,7 +188,9 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     viewParams.subresourceRange.layerCount = 1u;
 
     auto imageView = ICPUImageView::create(std::move(viewParams));
-    bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(imageView) });
+    const auto aHash = key + "?flatten=" + std::to_string(flatten);
+    asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+    SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(imageView) });
     aOverride->insertAssetIntoCache(bundle, aHash, ctx, 0u);
 
     return core::smart_refctd_ptr(imageView);
