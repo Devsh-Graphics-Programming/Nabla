@@ -3,6 +3,8 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+
 #include "nbl/asset/ICPUImage.h"
 
 namespace nbl::ui
@@ -13,9 +15,10 @@ class IClipboardManager : public core::IReferenceCounted
     public:
         struct SImageClipboardRegion
         {
-            VkOffset2D srcOffset;
-            VkOffset2D dstOffset;
-            VkExtent2D extent;
+            // TODO: signed vs unsigned for the offsets?
+            hlsl::int32_t2 srcOffset;
+            hlsl::int32_t2 dstOffset;
+            hlsl::uint32_t2 extent;
         };
 
         NBL_API2 virtual std::string getClipboardText() = 0;

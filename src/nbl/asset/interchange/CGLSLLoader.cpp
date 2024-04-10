@@ -48,5 +48,5 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, IShader::E_CONTENT_TYPE::ECT_GLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
 
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
+	return SAssetBundle(nullptr,{ std::move(shader) });
 } 

@@ -25,7 +25,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool setWindowSize(IWindow* window, const uint32_t width, const uint32_t height)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable())
+			if (window->getManager()!=this || !window->canProgrammaticallyResize())
 				return false;
 
 			return setWindowSize_impl(window, width, height);
@@ -34,7 +34,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool setWindowPosition(IWindow* window, const int32_t x, const int32_t y)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable())
+			if (window->getManager()!=this)
 				return false;
 
 			return setWindowPosition_impl(window, x, y);
@@ -56,7 +56,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool show(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || !window->isHidden())
+			if (window->getManager() != this || !window->isHidden())
 				return false;
 
 			return setWindowVisible_impl(window, true);
@@ -65,7 +65,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool hide(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isHidden())
+			if (window->getManager() != this || window->isHidden())
 				return false;
 
 			return setWindowVisible_impl(window, false);
@@ -74,7 +74,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool maximize(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isMaximized())
+			if (window->getManager() != this || window->isMaximized())
 				return false;
 
 			return setWindowMaximized_impl(window, true);
@@ -83,7 +83,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool minimize(IWindow* window)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager() != this || !window->isResizable() || window->isMinimized())
+			if (window->getManager() != this || window->isMinimized())
 				return false;
 
 			return setWindowMaximized_impl(window, false);

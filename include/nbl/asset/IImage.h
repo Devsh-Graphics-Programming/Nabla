@@ -15,6 +15,7 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
 
+#include <bitset>
 #include <compare>
 
 namespace nbl::asset
@@ -81,7 +82,7 @@ class IImage : public IDescriptor
 			ECF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
 			ECF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
 			//! if you want to be able to create an ImageView with a different format later
-			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
+			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u, // TODO: deduce this anyway
 			//! whether can fashion a cubemap out of the image
 			ECF_CUBE_COMPATIBLE_BIT						= 0x1u << 4u,
 			//! whether can fashion a 2d array texture out of the image
@@ -90,9 +91,9 @@ class IImage : public IDescriptor
 			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT			= 0x1u << 6u,
 			//! whether can view a block compressed texture as uncompressed
 			// (1 block size must equal 1 uncompressed pixel size)
-			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u,
+			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u, // TODO: deduce this anyway
 			//! can create with flags not supported by primary image but by a potential compatible view
-			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
+			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u, // TODO: deduce this anyway
 			//! irrelevant now - no support for planar images
 			ECF_DISJOINT_BIT							= 0x1u << 9u,
 			//! irrelevant now - two `IGPUImage`s backing memory can overlap
@@ -111,27 +112,26 @@ class IImage : public IDescriptor
 		};
 		enum E_SAMPLE_COUNT_FLAGS : uint8_t
 		{
-			ESCF_1_BIT = 0x00000001,
-			ESCF_2_BIT = 0x00000002,
-			ESCF_4_BIT = 0x00000004,
-			ESCF_8_BIT = 0x00000008,
-			ESCF_16_BIT = 0x00000010,
-			ESCF_32_BIT = 0x00000020,
-			ESCF_64_BIT = 0x00000040
+			ESCF_1_BIT = 0x01,
+			ESCF_2_BIT = 0x02,
+			ESCF_4_BIT = 0x04,
+			ESCF_8_BIT = 0x08,
+			ESCF_16_BIT = 0x10,
+			ESCF_32_BIT = 0x20,
+			ESCF_64_BIT = 0x40
 		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
-			EUF_NONE = 0x00000000,
-			EUF_TRANSFER_SRC_BIT = 0x00000001,
-			EUF_TRANSFER_DST_BIT = 0x00000002,
-			EUF_SAMPLED_BIT = 0x00000004,
-			EUF_STORAGE_BIT = 0x00000008,
-			EUF_COLOR_ATTACHMENT_BIT = 0x00000010,
-			EUF_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000020,
-			EUF_TRANSIENT_ATTACHMENT_BIT = 0x00000040,
-			EUF_INPUT_ATTACHMENT_BIT = 0x00000080,
-			EUF_SHADING_RATE_IMAGE_BIT_NV = 0x00000100,
-			EUF_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x00000200
+			EUF_NONE = 0x0000,
+			EUF_TRANSFER_SRC_BIT = 0x0001,
+			EUF_TRANSFER_DST_BIT = 0x0002,
+			EUF_SAMPLED_BIT = 0x0004,
+			EUF_STORAGE_BIT = 0x0008,
+			EUF_RENDER_ATTACHMENT_BIT = 0x0010,
+			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,
+			EUF_INPUT_ATTACHMENT_BIT = 0x0080,
+			EUF_SHADING_RATE_ATTACHMENT_BIT = 0x0100,
+			EUF_FRAGMENT_DENSITY_MAP_BIT = 0x0200
 		};
 		struct SSubresourceRange
 		{
@@ -201,7 +201,7 @@ class IImage : public IDescriptor
 			// setting this to different from 0 can fail an image copy on OpenGL
 			uint32_t			bufferRowLength = 0u;
 			// setting this to different from 0 can fail an image copy on OpenGL
-			uint32_t			bufferImageHeight = 0u;
+			uint32_t			bufferImageHeight = 0u; // TODO: size_t ?
 			SSubresourceLayers	imageSubresource = {};
 			VkOffset3D			imageOffset = {0u,0u,0u};
 			VkExtent3D			imageExtent = {0u,0u,0u};
@@ -241,7 +241,22 @@ class IImage : public IDescriptor
 			uint32_t						mipLevels;
 			uint32_t						arrayLayers;
 			core::bitflag<E_CREATE_FLAGS>	flags = ECF_NONE;
-			core::bitflag<E_USAGE_FLAGS>	usage = EUF_NONE;
+			union
+			{
+				// need to give it a nice default so validation doesn't fail when we don't touch it
+				core::bitflag<E_USAGE_FLAGS>	usage = EUF_SAMPLED_BIT;
+				core::bitflag<E_USAGE_FLAGS>	depthUsage;
+			};
+			// Do not touch AT ALL for an image without stencil format & aspect
+			// Leave as is to default to `depthUsage` for a stencil image
+			core::bitflag<E_USAGE_FLAGS>	stencilUsage = EUF_NONE;
+			// Do not touch unless you want to fail at creating views with their Format not listed here
+			std::bitset<E_FORMAT::EF_COUNT>	viewFormats = {};
+
+			inline core::bitflag<E_USAGE_FLAGS> actualStencilUsage() const
+			{
+				return stencilUsage.value!=E_USAGE_FLAGS::EUF_NONE ? stencilUsage:depthUsage;
+			}
 
 			inline bool operator==(const SCreationParams& rhs) const
 			{
@@ -282,7 +297,7 @@ class IImage : public IDescriptor
 					break;
 			}
 			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
-			return core::findLSB(round);
+			return hlsl::findLSB(round);
 		}
 		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
 		{
@@ -314,31 +329,48 @@ class IImage : public IDescriptor
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
 		{
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00944
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00945
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00946
 			if (_params.extent.width == 0u || _params.extent.height == 0u || _params.extent.depth == 0u)
 				return false;
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00947
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-extent-00948
 			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
-			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
+			if (hlsl::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
 			if (_params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT))
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00949
 				if (_params.type != ET_2D)
 					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00950
 				if (_params.extent.width != _params.extent.height)
 					return false;
-				if (_params.extent.depth > 1u)
-					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-08866
 				if (_params.arrayLayers < 6u)
 					return false;
 				if (_params.samples != ESCF_1_BIT)
 					return false;
 			}
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00950
 			if (_params.flags.hasFlags(ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
 				return false;
-			if (_params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT) || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
+			// TODO: add 2D view compat bit?
+			
+			const bool sparseResidency = _params.flags.hasFlags(ECF_SPARSE_RESIDENCY_BIT);
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00970
+			if (sparseResidency && _params.type == ET_1D)
+				return false;
+
+			if (sparseResidency || _params.flags.hasFlags(ECF_SPARSE_ALIASED_BIT))
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-00987
 				if (!_params.flags.hasFlags(ECF_SPARSE_BINDING_BIT))
 					return false;
 				if (_params.flags.hasFlags(ECF_PROTECTED_BIT))
@@ -351,27 +383,91 @@ class IImage : public IDescriptor
 				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
 					return false;
 			}
-			if (_params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT))
+
+			const bool isMutable = _params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT);
 			{
-				if (!isBlockCompressionFormat(_params.format) || !_params.flags.hasFlags(ECF_MUTABLE_FORMAT_BIT))
+				const bool isBlockTexelViewCompat = _params.flags.hasFlags(ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
+				if (isBlockTexelViewCompat)
+				{
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01572
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01573
+					if (!isBlockCompressionFormat(_params.format) || !isMutable)
+						return false;
+				}
+				bool actuallyMutable = false;
+				// if only there existed a nice iterator that would let me iterate over set bits 64 faster
+				if (_params.viewFormats.any())
+				for (auto fmt=0; fmt<_params.viewFormats.size(); fmt++)
+				if (_params.viewFormats.test(fmt))
+				{
+					const auto format = static_cast<asset::E_FORMAT>(fmt);
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-pNext-06722
+					if (asset::getFormatClass(format) != asset::getFormatClass(_params.format))
+					{
+						if (!isBlockTexelViewCompat || asset::getTexelOrBlockBytesize(format)!=asset::getTexelOrBlockBytesize(_params.format))
+							return false;
+					}
+					actuallyMutable = format!=_params.format;
+				}
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-04738
+				if (actuallyMutable && !isMutable)
 					return false;
 			}
-			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
+
+			const bool depthOrStencilFormat = isDepthOrStencilFormat(_params.format);
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-01533
+			if (_params.flags.hasFlags(ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!depthOrStencilFormat || _params.format == EF_S8_UINT))
 				return false;
 
-			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
-				return false;
+			if (depthOrStencilFormat)
+			{
+				// IGNORE
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02795
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02796
+				// WHY? Because we don't expose "combined" usage enums at all!
+
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02797
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-format-02798
+				if ((_params.depthUsage&EUF_TRANSIENT_ATTACHMENT_BIT).value!=(_params.stencilUsage&EUF_TRANSIENT_ATTACHMENT_BIT).value)
+					return false;
+			}
+
+			if (_params.samples != ESCF_1_BIT)
+			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02257
+				if (_params.type != ET_2D || _params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT) || _params.mipLevels == 1u)
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02558
+				if (_params.usage.hasFlags(EUF_FRAGMENT_DENSITY_MAP_BIT))
+					return false;
+			}
+
+			if (_params.usage.hasFlags(EUF_TRANSIENT_ATTACHMENT_BIT))
+			{
+				const auto attachmentUsageFlags = core::bitflag(EUF_RENDER_ATTACHMENT_BIT)|EUF_INPUT_ATTACHMENT_BIT;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-usage-00966
+				if (!_params.usage.hasFlags(attachmentUsageFlags))
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-usage-00963
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-None-01925
+				if (_params.usage.hasFlags(~(attachmentUsageFlags|EUF_TRANSIENT_ATTACHMENT_BIT)))
+					return false;
+			}
 
 			switch (_params.type)
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00956
 				case ET_1D:
 					if (_params.extent.height > 1u)
 						return false;
 					[[fallthrough]];
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00957
 				case ET_2D:
 					if (_params.extent.depth > 1u)
 						return false;
 					break;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-00961
 				default: //	3D format
 					if (_params.arrayLayers > 1u)
 						return false;
@@ -383,14 +479,19 @@ class IImage : public IDescriptor
 				if (_params.mipLevels > 1u || _params.samples != ESCF_1_BIT || _params.type != ET_2D)
 					return false;
 			}
-			else
-			{
-				if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
-					return false;
-			}
+			else if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
+				return false;
 
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-mipLevels-00958
 			if (_params.mipLevels > calculateFullMipPyramidLevelCount(_params.extent, _params.type))
 				return false;
+
+			if (_params.usage.hasFlags(EUF_SHADING_RATE_ATTACHMENT_BIT))
+			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-02082
+				if (_params.type!=ET_2D || _params.samples!=ESCF_1_BIT)
+					return false;
+			}
 
 			return true;
 		}
@@ -524,24 +625,35 @@ class IImage : public IDescriptor
 			return memreq;
 		}
 
-		//! leaving here as might be useful for a future `ICPUCommandBuffer`
-		enum E_LAYOUT : uint32_t
+		enum class LAYOUT : uint8_t
 		{
-			EL_UNDEFINED = 0,
-			EL_GENERAL = 1,
-			EL_COLOR_ATTACHMENT_OPTIMAL = 2,
-			EL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
-			EL_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
-			EL_SHADER_READ_ONLY_OPTIMAL = 5,
-			EL_TRANSFER_SRC_OPTIMAL = 6,
-			EL_TRANSFER_DST_OPTIMAL = 7,
-			EL_PREINITIALIZED = 8,
-			EL_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
-			EL_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
-			EL_PRESENT_SRC = 1000001002,
-			EL_SHARED_PRESENT = 1000111000,
-			EL_SHADING_RATE_OPTIMAL_NV = 1000164003,
-			EL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
+			UNDEFINED,
+			GENERAL,
+			READ_ONLY_OPTIMAL,
+			ATTACHMENT_OPTIMAL,
+			TRANSFER_SRC_OPTIMAL,
+			TRANSFER_DST_OPTIMAL,
+			PREINITIALIZED,
+			PRESENT_SRC,
+			SHARED_PRESENT
+			// TODO: Density Map, shading rate (are they the same thing?), and feedback loop optimal
+		};
+		// utility struct for later
+		struct SDepthStencilLayout
+		{
+			LAYOUT depth = LAYOUT::UNDEFINED;
+			// if you leave `stencilLayout` as undefined this means you want same layout as `depth`
+			LAYOUT stencil = LAYOUT::UNDEFINED;
+
+			auto operator<=>(const SDepthStencilLayout&) const = default;
+
+			inline LAYOUT actualStencilLayout() const
+			{
+				using layout_t = LAYOUT;
+				if (stencil != layout_t::UNDEFINED)
+					return stencil;
+				return depth;
+			}
 		};
 	protected:
 		IImage(const SCreationParams& _params) : m_creationParams(_params), info(_params.format) {}
@@ -588,7 +700,7 @@ class IImage : public IDescriptor
 				//if (!formatHasAspects(m_creationParams.format,subresource.aspectMask))
 					//return false;
 				// The aspectMask member of imageSubresource must only have a single bit set
-				if (!core::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
+				if (!hlsl::bitCount<uint32_t>(subresource.aspectMask.value) == 1u)
 					return false;
 				if (subresource.mipLevel >= m_creationParams.mipLevels)
 					return false;
@@ -738,6 +850,7 @@ class IImage : public IDescriptor
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
+NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_SAMPLE_COUNT_FLAGS)
 
 } // end namespace nbl::asset
 

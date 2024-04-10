@@ -2488,6 +2488,7 @@ namespace asset
             inp >>= 52;
             inp &= 0x7ffull;
             inp -= (1023ull - 15ull);
+            // TODO: this is wrong, need to get maximum exponent across all 3 input values
             exp = (static_cast<uint32_t>(inp) << 27);
         }
         for (uint32_t i = 0u; i < 3u; ++i)

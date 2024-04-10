@@ -32,8 +32,9 @@ endforeach()
 
 add_subdirectory(superproject/libs/wave EXCLUDE_FROM_ALL)
 
+list(APPEND NBL_BOOST_TARGETS boost_wave) # wave
 foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
-	if(TARGET boost_${BOOST_LIB})
+	if(TARGET boost_${BOOST_LIB}) # wave's deps
 		list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
 	endif()
 endforeach()

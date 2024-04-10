@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "nsc test module",
+            "type": "python",
+            "request": "launch",
+            "module": "nsc",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/../",
+        }
+    ]
+}

@@ -14,6 +14,7 @@ namespace nbl
 namespace asset
 {
 
+#if 0 // REWRITE
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
 class CCPUMeshPackerV1 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 {
@@ -530,7 +531,7 @@ static uint32_t CCPUMeshPackerV1<MDIStructType>::getPackerCreationParamsFromMesh
 
 	return packersNeeded;
 }
-
+#endif
 }
 }
 

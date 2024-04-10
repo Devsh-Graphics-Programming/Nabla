@@ -22,17 +22,34 @@ namespace hlsl
 namespace subgroup
 {
 
-namespace native
+namespace impl
 {
-
-template<class Binop, typename T=typename Binop::type_t>
+template<class Binop, bool native> // might need a 3rd default param `typename T=typename Binop::type_t`
 struct reduction;
-template<class Binop, typename T=typename Binop::type_t>
+template<class Binop, bool native>
 struct inclusive_scan;
-template<class Binop, typename T=typename Binop::type_t>
+template<class Binop, bool native>
 struct exclusive_scan;
 
-#define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<BINOP<T>,T> \
+// native
+template<class Binop>
+struct reduction<Binop, true>;
+template<class Binop>
+struct inclusive_scan<Binop, true>;
+template<class Binop>
+struct exclusive_scan<Binop, true>;
+
+// portability
+template<class Binop>
+struct reduction<Binop, false>;
+template<class Binop>
+struct inclusive_scan<Binop, false>;
+template<class Binop>
+struct exclusive_scan<Binop, false>;
+
+// specialize native
+
+#define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<typename T> struct NAME<BINOP<T>,true> \
 { \
     using type_t = T; \
  \
@@ -56,11 +73,8 @@ SPECIALIZE_ALL(maximum,Max);
 #undef SPECIALIZE_ALL
 #undef SPECIALIZE
 
-}
+// specialize portability
 
-namespace portability
-{
-    
 // WARNING
 // THIS PORTABILITY IMPLEMENTATION USES SHUFFLE OPS
 // Shuffles where you attempt to read an invactive lane, return garbage, 
@@ -68,7 +82,7 @@ namespace portability
 // Always use the native subgroup_arithmetic extensions if supported
     
 template<class Binop>
-struct inclusive_scan
+struct inclusive_scan<Binop, false>
 {
     using type_t = typename Binop::type_t;
 
@@ -97,13 +111,13 @@ struct inclusive_scan
 };
 
 template<class Binop>
-struct exclusive_scan
+struct exclusive_scan<Binop, false>
 {
     using type_t = typename Binop::type_t;
 
     type_t operator()(type_t value)
     {
-        value = inclusive_scan<Binop>::__call(value);
+        value = inclusive_scan<Binop,false>::__call(value);
         // can't risk getting short-circuited, need to store to a var
         type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
         // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
@@ -112,16 +126,17 @@ struct exclusive_scan
 };
 
 template<class Binop>
-struct reduction
+struct reduction<Binop, false>
 {
     using type_t = typename Binop::type_t;
 
     type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         // take the last subgroup invocation's value for the reduction
-        return BroadcastLast<type_t>(inclusive_scan<Binop>::__call(value));
+        return BroadcastLast<type_t>(inclusive_scan<Binop,false>::__call(value));
     }
 };
+
 }
 
 }

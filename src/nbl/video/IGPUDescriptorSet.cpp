@@ -38,13 +38,16 @@ IGPUDescriptorSet::~IGPUDescriptorSet()
         m_pool->deleteSetStorage(m_storageOffsets.getSetOffset());
 }
 
-bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const
+asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const
 {
     assert(write.dstSet == this);
 
     const char* debugName = getDebugName();
 
-    auto* descriptors = getDescriptors(write.descriptorType, write.binding);
+    // screw it, we'll need to replace the descriptor writing with update templates of descriptor buffer soon anyway
+    const auto descriptorType = getBindingType(write.binding);
+
+    auto* descriptors = getDescriptors(descriptorType,write.binding);
     if (!descriptors)
     {
         if (debugName)
@@ -52,24 +55,32 @@ bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorS
         else
             m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
 
-        return false;
+        return asset::IDescriptor::E_TYPE::ET_COUNT;
     }
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if (write.descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
+    if (descriptorType==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
     {
-#ifdef _NBL_DEBUG
         if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
         {
             if (debugName)
                 m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
             else
                 m_pool->m_logger.log("Descriptor set (%p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, this, write.binding);
-            return false;
+            return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
 
-        for (uint32_t i = 0; i < write.count; ++i)
+        for (uint32_t i=0; i<write.count; ++i)
         {
+            if (asset::IDescriptor::GetTypeCategory(descriptorType) != write.info[i].desc->getTypeCategory())
+            {
+                if (debugName)
+                    m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+                else
+                    m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
+                return asset::IDescriptor::E_TYPE::ET_COUNT;
+            }
             auto* sampler = write.info[i].info.image.sampler.get();
             if (!sampler || !sampler->isCompatibleDevicewise(write.dstSet))
             {
@@ -78,10 +89,10 @@ bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorS
                     m_pool->m_logger.log("Sampler (%s, %p) does not exist or is not device-compatible with descriptor set (%s, %p).", system::ILogger::ELL_ERROR, samplerDebugName, sampler, debugName, write.dstSet);
                 else
                     m_pool->m_logger.log("Sampler (%p) does not exist or is not device-compatible with descriptor set (%p).", system::ILogger::ELL_ERROR, sampler, write.dstSet);
-                return false;
+                return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
         }
-#endif
+
         mutableSamplers = getMutableSamplers(write.binding);
         if (!mutableSamplers)
         {
@@ -90,28 +101,28 @@ bool IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorS
             else
                 m_pool->m_logger.log("Descriptor set (%p) doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
 
-            return false;
+            return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
     }
 
-    return true;
+    return descriptorType;
 }
 
-void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write)
+void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type)
 {
     assert(write.dstSet == this);
 
-    auto* descriptors = getDescriptors(write.descriptorType, write.binding);
+    auto* descriptors = getDescriptors(type,write.binding);
     assert(descriptors);
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if ((write.descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && write.info->info.image.sampler)
+    if (type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
     {
         mutableSamplers = getMutableSamplers(write.binding);
         assert(mutableSamplers);
     }
 
-    for (auto j = 0; j < write.count; ++j)
+    for (auto j=0; j<write.count; ++j)
     {
         descriptors[j] = write.info[j].desc;
 
@@ -120,6 +131,31 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     }
 
     incrementVersion();
+}
+
+void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
+{
+    assert(drop.dstSet == this);
+
+    const auto descriptorType = getBindingType(drop.binding);
+
+	auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, drop.binding);
+	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+
+	if (dstDescriptors)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstDescriptors[drop.arrayElement + i] = nullptr;
+
+	if (dstSamplers)
+		for (uint32_t i = 0; i < drop.count; i++)
+			dstSamplers[drop.arrayElement + i] = nullptr;
+
+	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
+	// so, only if we do the path that writes descriptors, do we want to increment version
+    if (getOriginDevice()->getEnabledFeatures().nullDescriptor)
+    {
+        incrementVersion();
+    }
 }
 
 bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const

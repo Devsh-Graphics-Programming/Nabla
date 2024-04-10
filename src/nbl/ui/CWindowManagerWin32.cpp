@@ -58,7 +58,7 @@ static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> 
 		style |= WS_VISIBLE;
 	}
 	style |= WS_OVERLAPPEDWINDOW;
-	if (!flags.hasFlags(IWindow::ECF_RESIZABLE))
+	if (!flags.hasFlags(IWindow::ECF_CAN_RESIZE))
 	{
 		style &= ~WS_SIZEBOX;
 	}
@@ -76,6 +76,13 @@ static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> 
 
 core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCreationParams&& creationParams)
 {
+	// this could be common to all `createWindow` impl
+	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_RESIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
+		creationParams.flags |= IWindow::ECF_RESIZABLE;
+	// win32 minimize is weird, its a resize to 0,0
+	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
+		creationParams.flags |= IWindow::ECF_CAN_RESIZE;
+
 	CAsyncQueue::future_t<IWindowWin32::native_handle_t> future;
 	m_windowThreadManager.request(&future, SRequestParams_CreateWindow{
 		.windowCaption = std::move(creationParams.windowCaption),
@@ -84,7 +91,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCrea
 		.x = creationParams.x,
 		.y = creationParams.y,
 		.flags = creationParams.flags
-		});
+	});
 	if (auto handle = future.acquire())
 		return core::make_smart_refctd_ptr<CWindowWin32>(std::move(creationParams),core::smart_refctd_ptr<CWindowManagerWin32>(this),*handle);
 	return nullptr;
@@ -178,6 +185,7 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 	const int32_t realWidth = clientSize.right - clientSize.left;
 	const int32_t realHeight = clientSize.bottom - clientSize.top;
 
+					
 	auto nativeWindow = CreateWindowA(
 		classname, windowCaption.c_str(), style,
 		clientSize.left, clientSize.top, realWidth, realHeight,

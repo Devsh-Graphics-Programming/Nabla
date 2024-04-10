@@ -19,7 +19,7 @@
 namespace nbl::system
 {
 
-class IApplicationFramework : public virtual core::IReferenceCounted
+class IApplicationFramework : public core::IReferenceCounted
 {
 	public:
         // this is safe to call multiple times

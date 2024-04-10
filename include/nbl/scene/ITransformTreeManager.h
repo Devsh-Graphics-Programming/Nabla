@@ -15,7 +15,8 @@
 namespace nbl::scene
 {
 
-//
+// TODO: rewrite
+#if 0
 #define uint uint32_t
 #define int int32_t
 #define uvec4 core::vectorSIMDu32
@@ -55,7 +56,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			{
 				infos[i].desc = std::move(bufferBindings[i].buffer);
 				infos[i].info.buffer.offset = bufferBindings[i].offset;
-				infos[i].info.buffer.size = video::IGPUDescriptorSet::SDescriptorInfo::SBufferInfo::WholeBuffer;
+				infos[i].info.buffer.size = asset::SBufferRange<video::IGPUBuffer>::WholeBuffer;
 				writes[i].dstSet = set;
 				writes[i].binding = i;
 				writes[i].arrayElement = 0u;
@@ -102,7 +103,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 
 		// creation
-		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue)
+		static inline core::smart_refctd_ptr<ITransformTreeManager> create(video::IUtilities* utils, video::IQueue* uploadQueue)
 		{
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
@@ -318,7 +319,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				asset::SBufferBinding<video::IGPUBuffer> scratch;
 				video::StreamingTransientDataBufferMT<>* upBuff;
 				video::CPropertyPoolHandler* poolHandler;
-				video::IGPUQueue* queue;
+				video::IQueue* queue;
 				system::logger_opt_ptr logger = nullptr;
 
 			protected:
@@ -342,7 +343,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		inline uint32_t addNodes(
 			const AdditionRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
-			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
+			const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
 			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
 		)
 		{
@@ -424,7 +425,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		inline bool addSkeletonNodes(
 			const SkeletonAllocationRequest& request, uint32_t& waitSemaphoreCount,
 			video::IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite,
-			const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
+			const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore, 
 			const std::chrono::steady_clock::time_point& maxWaitPoint=video::GPUEventWrapper::default_wait()
 		)
 		{
@@ -527,8 +528,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				EF_POST_UPDATE_AND_RECOMPUTE = EF_POST_RELATIVE_TFORM_UPDATE|EF_POST_GLOBAL_TFORM_RECOMPUTE,
 			};
 
-			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
-			core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask = static_cast<asset::E_PIPELINE_STAGE_FLAGS>(0u);
+			core::bitflag<asset::PIPELINE_STAGE_FLAGS> srcStageMask = asset::PIPELINE_STAGE_FLAGS::NONE;
+			core::bitflag<asset::PIPELINE_STAGE_FLAGS> dstStageMask = asset::PIPELINE_STAGE_FLAGS::NONE;
 			asset::SMemoryBarrier requestRanges = {};
 			asset::SMemoryBarrier modificationRequests = {};
 			asset::SMemoryBarrier relativeTransforms = {};
@@ -540,13 +541,14 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		//
 		static inline SBarrierSuggestion barrierHelper(const SBarrierSuggestion::E_FLAG type)
 		{
-			const auto rwAccessMask = core::bitflag(asset::EAF_SHADER_READ_BIT)|asset::EAF_SHADER_WRITE_BIT;
+			const auto rwAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS|asset::ACCESS_FLAGS::SHADER_READ_BITS;
 
 			SBarrierSuggestion barrier;
+#if 0 // TODO: redo
 			if (type&SBarrierSuggestion::EF_PRE_RELATIVE_TFORM_UPDATE)
 			{
 				// we're mostly concerned about stuff writing to buffer update reads from 
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 				barrier.requestRanges.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.modificationRequests.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				// the case of update stepping on its own toes is handled by the POST case
@@ -554,8 +556,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (type&SBarrierSuggestion::EF_POST_RELATIVE_TFORM_UPDATE)
 			{
 				// we're mostly concerned about relative tform update overwriting itself
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.srcStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 				// we also need to barrier against any future update to the inputs overstepping our reading
 				barrier.requestRanges.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.modificationRequests.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
@@ -572,8 +574,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (type&SBarrierSuggestion::EF_PRE_GLOBAL_TFORM_RECOMPUTE)
 			{
 				// we're mostly concerned about relative transform update not being finished before global transform recompute runs 
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.srcStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 				barrier.relativeTransforms.srcAccessMask |= rwAccessMask;
 				barrier.relativeTransforms.dstAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.modifiedTimestamps.srcAccessMask |= asset::EAF_SHADER_WRITE_BIT;
@@ -583,8 +585,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			if (type&SBarrierSuggestion::EF_POST_GLOBAL_TFORM_RECOMPUTE)
 			{
 				// we're mostly concerned about global tform recompute overwriting itself
-				barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-				barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+				barrier.srcStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 				// and future local update overwritng the inputs before recompute is done reading
 				barrier.relativeTransforms.srcAccessMask |= asset::EAF_SHADER_READ_BIT;
 				barrier.relativeTransforms.dstAccessMask |= rwAccessMask;
@@ -599,6 +601,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 				barrier.normalMatrices.srcAccessMask |= rwAccessMask;
 				barrier.normalMatrices.dstAccessMask |= rwAccessMask;
 			}
+#endif
 			return barrier;
 		}
 
@@ -618,27 +621,23 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		{
 			DispatchParams()
 			{
-				indirect.buffer = nullptr;
+				indirect = {};
 				direct.nodeCount = 0u;
 			}
 
 			inline DispatchParams& operator=(const DispatchParams& other)
 			{
-				if (other.indirect.buffer)
+				if (other.indirect.isValid())
 					indirect = other.indirect;
 				else
 				{
-					indirect.buffer = nullptr;
+					indirect = {};
 					direct.nodeCount = other.direct.nodeCount;
 				}
 				return *this;
 			}
 
-			struct
-			{
-				video::IGPUBuffer* buffer;
-				uint64_t offset;
-			} indirect;
+			asset::SBufferBinding<video::IGPUBuffer> indirect;
 			struct
 			{
 				private:
@@ -706,15 +705,24 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const video::IGPUDescriptorSet* updateLocalTransformsDS, const video::IGPUDescriptorSet* recomputeGlobalTransformsDS
 		)
 		{
-			const core::bitflag<asset::E_PIPELINE_STAGE_FLAGS> renderingStages = asset::EPSF_VERTEX_SHADER_BIT;
+			assert(false);
+#if 0 // TODO: REDO
+			const core::bitflag<asset::PIPELINE_STAGE_FLAGS> renderingStages = asset::PIPELINE_STAGE_FLAGS::PRE_RASTERIZATION_SHADERS_BITS;
 			updateLocalTransforms(baseParams,updateDispatch,updateLocalTransformsDS);
 			{
+				video::IGPUCommandBuffer::SDependencyInfo info = {};
 				asset::SMemoryBarrier memoryBarrier;
-				memoryBarrier.srcAccessMask = asset::EAF_ALL_BUFFER_ACCESSES_DEVSH;
-				memoryBarrier.dstAccessMask = asset::EAF_ALL_BUFFER_ACCESSES_DEVSH;
-				baseParams.cmdbuf->pipelineBarrier(asset::EPSF_BOTTOM_OF_PIPE_BIT,asset::EPSF_TOP_OF_PIPE_BIT,asset::EDF_NONE,1u,&memoryBarrier,0u,nullptr,0u,nullptr);
+				memoryBarrier.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				memoryBarrier.srcAccessMask = asset::ACCESS_FLAGS::MEMORY_WRITE_BITS;
+				memoryBarrier.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+				memoryBarrier.dstAccessMask = asset::ACCESS_FLAGS::MEMORY_WRITE_BITS|asset::ACCESS_FLAGS::MEMORY_READ_BITS;
+				// I'm lazy but this should really be on a per-buffer granularity!
+				info.memBarrierCount = 1u;
+				info.memBarriers = &memoryBarrier;
+				baseParams.cmdbuf->pipelineBarrier(asset::EDF_NONE,info);
 			}
 			recomputeGlobalTransforms(baseParams,recomputeDispatch,recomputeGlobalTransformsDS);
+#endif
 		}
 
 
@@ -755,7 +763,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		};
 		inline void debugDraw(
 			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ITransformTree* tree,
-			const video::IGPUDescriptorSet* debugDrawDS, const asset::SBufferBinding<video::IGPUBuffer>& nodeID, const asset::SBufferBinding<video::IGPUBuffer>& aabbID,
+			const video::IGPUDescriptorSet* debugDrawDS, const asset::SBufferBinding<const video::IGPUBuffer>& nodeID, const asset::SBufferBinding<const video::IGPUBuffer>& aabbID,
 			const DebugPushConstants& pushConstants, const uint32_t count
 		)
 		{
@@ -765,15 +773,9 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 			const video::IGPUDescriptorSet* sets[] = {tree->getNodePropertyPoolDescriptorSet(),debugDrawDS};
 			cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS,layout,0u,2u,sets);
 			cmdbuf->bindGraphicsPipeline(pipeline);
-			{
-				auto buffer = nodeID.buffer.get();
-				size_t offset = nodeID.offset;
-				cmdbuf->bindVertexBuffers(DebugNodeIDBindingIndex,1u,&buffer,&offset);
-				buffer = aabbID.buffer.get();
-				offset = aabbID.offset;
-				cmdbuf->bindVertexBuffers(DebugAABBIDBindingIndex,1u,&buffer,&offset);
-			}
-			cmdbuf->bindIndexBuffer(m_debugIndexBuffer.get(),0u,asset::EIT_16BIT);
+			cmdbuf->bindVertexBuffers(DebugNodeIDBindingIndex,1u,&nodeID);
+			cmdbuf->bindVertexBuffers(DebugAABBIDBindingIndex,1u,&aabbID);
+			cmdbuf->bindIndexBuffer({0u,m_debugIndexBuffer},asset::EIT_16BIT);
 			cmdbuf->pushConstants(layout,asset::IShader::ESS_VERTEX,0u,sizeof(DebugPushConstants),&pushConstants);
 			cmdbuf->drawIndexed(DebugIndexCount,count,0u,0u,0u);
 		}
@@ -932,8 +934,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		
 		void dispatch(video::IGPUCommandBuffer* cmdbuf, const DispatchParams& dispatch)
 		{
-			if (dispatch.indirect.buffer)
-				cmdbuf->dispatchIndirect(dispatch.indirect.buffer, dispatch.indirect.offset);
+			if (dispatch.indirect.isValid())
+				cmdbuf->dispatchIndirect(dispatch.indirect);
 			else
 			{
 				const auto& limits = m_device->getPhysicalDevice()->getLimits();
@@ -952,7 +954,7 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 
 
 };
-
+#endif
 } // end namespace nbl::scene
 
 #endif

@@ -212,7 +212,7 @@ template<bool val>
 struct bool_constant : integral_constant<bool, val> {};
 
 struct true_type : bool_constant<true> {};
-struct false_type : bool_constant<true> {};
+struct false_type : bool_constant<false> {};
 
 template<bool C, class T, class F>
 struct conditional : type_identity<T> {};
@@ -582,6 +582,10 @@ using make_unsigned = std::make_unsigned<T>;
 
 #endif
 
+// Template Variables
+template<typename A, typename B>
+NBL_CONSTEXPR bool is_same_v = is_same<A,B>::value;
+
 // Overlapping definitions
 template<bool C, typename T, T A, T B>
 struct conditional_value
@@ -600,6 +604,9 @@ struct is_vector<vector<T, N> > : bool_constant<true> {};
 
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
+
+template<class T>
+NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
 
 
 template<typename T,bool=is_scalar<T>::value>
@@ -625,6 +632,9 @@ struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
 };
+
+template<typename T>
+using scalar_type_t = typename scalar_type<T>::type;
 
 
 template<uint16_t bytesize>
@@ -662,8 +672,10 @@ struct unsigned_integer_of_size<8>
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
-#define NBL_REGISTER_OBJ_TYPE(T, A) namespace nbl { namespace hlsl { \
-    namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; } \ 
+// Found a bug in Boost.Wave, try to avoid multi-line macros https://github.com/boostorg/wave/issues/195
+#define NBL_IMPL_SPECIALIZE_TYPE_ID(T) namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }
+
+#define NBL_REGISTER_OBJ_TYPE(T,A) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(T) \
     template<> struct alignment_of<T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<const T> : integral_constant<uint32_t,A> {}; \
     template<> struct alignment_of<typename impl::add_lvalue_reference<T>::type> : integral_constant<uint32_t,A> {}; \
@@ -671,7 +683,7 @@ struct unsigned_integer_of_size<8>
 }}
 
 // TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
-#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { template<> struct typeid_t<__decltype(fn)> : integral_constant<uint32_t,__COUNTER__> {}; }}
+#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(__decltype(fn)) }}
 // TODO: ideally we'd like to call NBL_REGISTER_FUN_TYPE under the hood, but we can't right now. Also we have a bigger problem, the passing of the function identifier as the second template parameter doesn't work :(
 /*
 template<> \

@@ -20,23 +20,9 @@ class CMountDirectoryArchive : public IFileArchive
             m_system = system;
         }
 
-        core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const std::string_view& password) override
-        {
-            {
-                //std::unique_lock(itemMutex); already inside `getItemFromPath`
-                if (!getItemFromPath(pathRelativeToArchive))
-                    return nullptr;
-            }
-            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-            m_system->createFile(future, m_defaultAbsolutePath / pathRelativeToArchive, system::IFile::ECF_READ);
-            if (auto file = future.acquire())
-                return *file;
-
-            return nullptr;
-        }
-
  
-        SFileList listAssets() const override {
+        SFileList listAssets() const override
+        {
             auto items = m_system->listItemsInDirectory(m_defaultAbsolutePath);
             auto new_entries = std::make_shared<core::vector<SFileList::SEntry>>();
             for (auto item : items)
@@ -53,8 +39,15 @@ class CMountDirectoryArchive : public IFileArchive
             return IFileArchive::listAssets();
         }
 
-        void populateItemList(const path& p) const
-        {   
+    protected:		
+		inline core::smart_refctd_ptr<IFile> getFile_impl(const SFileList::found_t& found, const core::bitflag<IFile::E_CREATE_FLAGS> flags, const std::string_view& password) override
+		{
+            system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+            m_system->createFile(future,m_defaultAbsolutePath/found->pathRelativeToArchive,flags);
+            if (auto file=future.acquire())
+                return *file;
+
+            return nullptr;
         }
 };
 

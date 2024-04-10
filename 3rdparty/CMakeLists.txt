@@ -71,9 +71,15 @@ set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
+
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-execute_process(COMMAND ${CMAKE_COMMAND} -E rename zconf.h.included zconf.h 
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib") # clean zlib git working-tree
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
+	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
+	) # clean zlib git working-tree
+endif()
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
@@ -143,7 +149,6 @@ if (UNIX)
 	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
-
 
 # libjpeg-turbo
 option(WITH_SIMD "libjpeg-turbo" ON)
@@ -303,6 +308,8 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)

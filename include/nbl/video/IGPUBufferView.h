@@ -17,19 +17,18 @@
 namespace nbl::video
 {
 
-class IGPUBufferView : public asset::IBufferView<IGPUBuffer>, public IBackendObject
+class IGPUBufferView : public asset::IBufferView<const IGPUBuffer>, public IBackendObject
 {
-public:
-    IGPUBufferView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, core::smart_refctd_ptr<IGPUBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) :
-        asset::IBufferView<IGPUBuffer>(std::move(_buffer), _format, _offset, _size), IBackendObject(std::move(dev))
-    {}
+    public:
+        IGPUBufferView(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _format) :
+            asset::IBufferView<const IGPUBuffer>(underlying,_format), IBackendObject(std::move(dev)) {}
 
-    // OpenGL: const GLuint* handle of GL_TEXTURE_BUFFER
-    // Vulkan: const VkBufferView*
-    virtual const void* getNativeHandle() const = 0;
+        // OpenGL: const GLuint* handle of GL_TEXTURE_BUFFER
+        // Vulkan: const VkBufferView*
+        virtual const void* getNativeHandle() const = 0;
 
-protected:
-    virtual ~IGPUBufferView() = default;
+    protected:
+        virtual ~IGPUBufferView() = default;
 };
 
 }

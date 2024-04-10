@@ -12,12 +12,8 @@ CVulkanImage::~CVulkanImage()
     // don't destroy imported handles
     if (!m_cachedCreationParams.skipHandleDestroy)
     {
-        if (m_vkImage != VK_NULL_HANDLE)
-        {
-            const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-            auto* vk = vulkanDevice->getFunctionTable();
-            vk->vk.vkDestroyImage(vulkanDevice->getInternalObject(), m_vkImage, nullptr);
-        }
+        const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+        vulkanDevice->getFunctionTable()->vk.vkDestroyImage(vulkanDevice->getInternalObject(),getInternalObject(), nullptr);
     }
 }
 

@@ -1762,18 +1762,28 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     {
         switch (format)
         {
-        case EF_BC6H_SFLOAT_BLOCK: return 32767;
-        case EF_BC6H_UFLOAT_BLOCK: return 65504;
-        default: break;
+            case EF_B10G11R11_UFLOAT_PACK32:
+                if (channel<=1)
+                    return 65520;
+                else if (channel==2)
+                    return 65504;
+                break;
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                if (channel<3)
+                    return 32704;
+                break;
+            case EF_BC6H_SFLOAT_BLOCK: return 32767;
+            case EF_BC6H_UFLOAT_BLOCK: return 65504;
+            default: break;
         }
 
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
-        case 2u: return 65504;
-        case 4u: return FLT_MAX;
-        case 8u: return DBL_MAX;
-        default: break;
+            case 2u: return 65504;
+            case 4u: return FLT_MAX;
+            case 8u: return DBL_MAX;
+            default: break;
         }
     }
     return 0;
@@ -1883,43 +1893,46 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
     {
         switch (format)
         {
-        case EF_B10G11R11_UFLOAT_PACK32:
-        {
             // unsigned values are always ordered as + 1
-            float f = std::abs(static_cast<float>(value));
-            int bitshft = channel == 2u ? 6 : 5;
+            case EF_B10G11R11_UFLOAT_PACK32: [[fallthrough]];
+            case EF_E5B9G9R9_UFLOAT_PACK32: // TODO: probably need to change signature and take all values?
+            {
+                float f = std::abs(static_cast<float>(value));
+                int bitshift;
+                if (format==EF_B10G11R11_UFLOAT_PACK32)
+                    bitshift = channel==2u ? 6:5;
+                else
+                    bitshift = 4;
 
-            uint16_t f16 = core::Float16Compressor::compress(f);
-            uint16_t enc = f16 >> bitshft;
-            uint16_t next_f16 = (enc + 1) << bitshft;
+                uint16_t f16 = core::Float16Compressor::compress(f);
+                uint16_t enc = f16 >> bitshift;
+                uint16_t next_f16 = (enc + 1) << bitshift;
 
-            return core::Float16Compressor::decompress(next_f16) - f;
-        }
-        case EF_E5B9G9R9_UFLOAT_PACK32:
-            return 0; //TODO
-        default: break;
+                return core::Float16Compressor::decompress(next_f16) - f;
+            }
+            default: break;
         }
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
-        case 2u:
-        {
-            float f = std::abs(static_cast<float>(value));
-            uint16_t f16 = core::Float16Compressor::compress(f);
-            uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
-            return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
-        }
-        case 4u:
-        {
-            float f32 = std::abs(static_cast<float>(value));
-            return core::nextafter32(f32,2.f*(f32+1.f))-f32;
-        }
-        case 8u:
-        {
-            double f64 = std::abs(static_cast<double>(value));
-            return core::nextafter64(f64,2.0*(f64+1.0))-f64;
-        }
-        default: break;
+            case 2u:
+            {
+                float f = std::abs(static_cast<float>(value));
+                uint16_t f16 = core::Float16Compressor::compress(f);
+                uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
+                return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
+            }
+            case 4u:
+            {
+                float f32 = std::abs(static_cast<float>(value));
+                return core::nextafter32(f32,2.f*(f32+1.f))-f32;
+            }
+            case 8u:
+            {
+                double f64 = std::abs(static_cast<double>(value));
+                return core::nextafter64(f64,2.0*(f64+1.0))-f64;
+            }
+            default: break;
         }
     }
 

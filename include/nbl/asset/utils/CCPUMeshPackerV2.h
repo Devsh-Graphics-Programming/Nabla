@@ -12,7 +12,7 @@ namespace nbl
 {
 namespace asset
 {
-
+#if 0 // REWRITE
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
 class CCPUMeshPackerV2 final : public IMeshPackerV2<ICPUBuffer,ICPUDescriptorSet,ICPUMeshBuffer,MDIStructType>
 {
@@ -187,7 +187,7 @@ uint32_t CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBuff
 
     return batchCntTotal;
 }
-
+#endif
 }
 }
 
