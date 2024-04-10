@@ -104,8 +104,25 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 }
 
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const size_t& width, const size_t& height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten, const size_t width, const size_t height) const
 {
+    const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
+    
+    assert(inFlattenDomain);
+    assert(aOverride);
+
+    const auto aHash = key + "?flatten=" + std::to_string(flatten);
+    asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+
+    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+    SAssetBundle bundle = aOverride->findCachedAsset(aHash, types, ctx, 0u);
+    {
+        auto contents = bundle.getContents();
+
+        if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
+            return core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
+    }
+
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
     imgInfo.extent.width = width;
@@ -159,9 +176,12 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
             const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto intensity = sample(theta, phi);
             const auto value = intensity * maxValueRecip;
+            const auto blendV = value * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
 
             asset::IImageFilter::IState::ColorValue color;
-            asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &value);
+            //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D, 0.0, UI16_MAX_D));
+            *color.asUShort = encodeV;
             color.writeMemory(wInfo, blockArrayOffset);
         };
 
@@ -179,75 +199,19 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
     viewParams.subresourceRange.layerCount = 1u;
 
-    return ICPUImageView::create(std::move(viewParams));
+    auto imageView = ICPUImageView::create(std::move(viewParams));
+    bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(imageView) });
+    aOverride->insertAssetIntoCache(bundle, aHash, ctx, 0u);
+
+    return core::smart_refctd_ptr(imageView);
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const size_t&, const size_t&) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const size_t&, const size_t&) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const size_t&, const size_t&) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const size_t& width, const size_t& height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten, const size_t width, const size_t height) const
 {
-    return createIESTexture(std::execution::seq, width, height); 
-}
-
-template<class ExecutionPolicy>
-bool CIESProfile::flattenIESTexture(ExecutionPolicy&& policy, core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten) const
-{
-    const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
-    assert(inFlattenDomain);
-
-    auto outIES = inoutIES->getCreationParameters().image;
-
-    const auto& creationParams = outIES->getCreationParameters();
-    const bool validFormat = creationParams.format == CIESProfile::IES_TEXTURE_STORAGE_FORMAT;
-    assert(validFormat);
-
-    if (flatten > 0.0) // skip if 0 because its just copying texels
-    {
-        CFillImageFilter::state_type state;
-        state.outImage = outIES.get();
-        state.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-        state.subresource.baseArrayLayer = 0u;
-        state.subresource.layerCount = 1u;
-        state.outRange.extent = creationParams.extent;
-
-        const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outIES->getBuffer()->getPointer());
-        const IImageFilter::IState::ColorValue::ReadMemoryInfo rInfo(creationParams.format, outIES->getBuffer()->getPointer());
-        
-        auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
-        {
-            asset::IImageFilter::IState::ColorValue color;
-            color.readMemory(rInfo, blockArrayOffset);
-
-            const void* inSourcePixels[] = { color.pointer, nullptr, nullptr, nullptr };
-            asset::decodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(inSourcePixels, color.asDouble, 0, 0);
-                    
-            const auto blendV = *color.asDouble * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
-
-            asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV);
-            color.writeMemory(wInfo, blockArrayOffset);
-        };
-
-        CBasicImageFilterCommon::clip_region_functor_t clip(state.subresource, state.outRange, creationParams.format);
-        const auto& regions = outIES->getRegions(state.subresource.mipLevel);
-
-        if (regions.size() != 1u)
-            return false; // protects from overlapping issue - we could use flatten filter here first then forward its output bellow instead of returning false
-
-        CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy), outIES.get(), fill, regions.begin(), regions.end(), clip);
-    }
-
-    return true;
-}
-
-//! Explicit instantiations
-template bool CIESProfile::flattenIESTexture(const std::execution::sequenced_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
-template bool CIESProfile::flattenIESTexture(const std::execution::parallel_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
-template bool CIESProfile::flattenIESTexture(const std::execution::parallel_unsequenced_policy&, core::smart_refctd_ptr<asset::ICPUImageView>, const float) const;
-
-bool CIESProfile::flattenIESTexture(core::smart_refctd_ptr<asset::ICPUImageView> inoutIES, const float flatten) const
-{
-    return flattenIESTexture(std::execution::seq, inoutIES, flatten);
+    return createIESTexture(std::execution::seq, aOverride, key, flatten, width, height);
 }

@@ -27,10 +27,10 @@ CIESProfileLoader::loadAsset(io::IReadFile* _file,
     auto meta = core::make_smart_refctd_ptr<CIESProfileMetadata>(profile);
     core::smart_refctd_ptr<asset::ICPUImageView> cpuImageView;
 
-    if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_LOAD_METADATA_ONLY)
+    if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_LOAD_METADATA_ONLY) // TODO: create dummy view with no regions for that case
         cpuImageView = _override->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d", loadContex, _hierarchyLevel).first; // note: we could also pass empty content, but this would require adjusting IAssetLoader source to not attempt to use all loaders to find the asset
     else
-        cpuImageView = profile.createIESTexture();
+        cpuImageView = profile.createIESTexture(_override, _file->getFileName().c_str());
 
     return asset::SAssetBundle(std::move(meta), { core::smart_refctd_ptr(cpuImageView) });
 }

@@ -96,9 +96,10 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
 
             if (inFlattenDomain)
             {
-                auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(image->clone()); // TODO: check if its already a copy
-                if (meta->profile.flattenIESTexture(clone, _emitter->area.emissionProfile->flatten))
-                    profile.texture = { clone, sampler, 1.f };
+                auto flattenIES = meta->profile.createIESTexture(m_loaderContext->override_, _emitter->area.emissionProfile->filename, _emitter->area.emissionProfile->flatten);
+
+                if (flattenIES.get())
+                    profile.texture = { flattenIES, sampler, 1.f };
                 else
                     os::Printer::log("ERROR: Failed to flatten an IES texture - using the original texture", ELL_ERROR);
             }
