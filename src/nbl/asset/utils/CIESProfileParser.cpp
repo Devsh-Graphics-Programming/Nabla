@@ -171,22 +171,31 @@ bool CIESProfileParser::parse(CIESProfile& result)
     float totalEmissionIntegral = 0.0, nonZeroEmissionDomainSize = 0.0;
     constexpr auto FULL_SOLID_ANGLE = 4.0f * core::PI<float>();
 
-    for (size_t i = 0; i < result.hAngles.size() - 2; i++)
+    const auto H_ANGLES_I_RANGE = result.symmetry != CIESProfile::ISOTROPIC ? result.hAngles.size() - 1 : 1;
+    const auto V_ANGLES_I_RANGE = result.vAngles.size() - 1;
+
+    for (size_t i = 0; i < H_ANGLES_I_RANGE; i++)
     {
         const float dPhiRad = result.symmetry != CIESProfile::ISOTROPIC ? (hAngles[i + 1] - hAngles[i]) : core::PI<float>() * 2.0f;
 
-        for (size_t j = 0; j < result.vAngles.size() - 2; j++)
+        for (size_t j = 0; j < V_ANGLES_I_RANGE; j++)
         {
             const auto candelaValue = result.getCandelaValue(i, j);
+
+            // interpolate candela value spanned onto a solid angle
+            const auto candelaAverage = result.symmetry != CIESProfile::ISOTROPIC ? 
+                  0.25f * (candelaValue + result.getCandelaValue(i + 1, j) + result.getCandelaValue(i, j + 1) + result.getCandelaValue(i + 1, j + 1))
+                : 0.5f * (candelaValue + result.getCandelaValue(i, j + 1));
 
             if (result.maxCandelaValue < candelaValue)
                 result.maxCandelaValue = candelaValue;
 
             const float thetaRad = core::radians<float>(result.vAngles[j]);
-            const float dThetaRad = core::radians<float>((j < result.vAngles.size() - 1) ? result.vAngles[j + 1] - result.vAngles[j] : result.vAngles[j] - result.vAngles[j - 1]);
+            const float cosLo = std::cos(core::radians<float>(result.vAngles[j]));
+            const float cosHi = std::cos(core::radians<float>(result.vAngles[j + 1]));
 
-            const auto differentialSolidAngle = std::sin(thetaRad) * dThetaRad * dPhiRad;
-            const auto integralV = candelaValue * differentialSolidAngle;
+            const auto differentialSolidAngle = dPhiRad*(cosLo - cosHi);
+            const auto integralV = candelaAverage * differentialSolidAngle;
 
             if (integralV > 0.0)
             {
