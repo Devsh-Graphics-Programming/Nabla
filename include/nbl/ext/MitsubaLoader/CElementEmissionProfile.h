@@ -19,8 +19,8 @@ namespace MitsubaLoader
 
 struct CElementEmissionProfile : public IElement {
 
-	CElementEmissionProfile(const char* id) : IElement(id), normalizeEnergy(1.0f), flatten(0.0) /*no blending by default*/ {}
-	CElementEmissionProfile() : IElement(""), normalizeEnergy(1.0f) {}
+	CElementEmissionProfile(const char* id) : IElement(id), normalization(EN_NONE), flatten(0.0) /*no blending by default*/ {}
+	CElementEmissionProfile() : IElement(""), normalization(EN_NONE) {}
 	CElementEmissionProfile(const CElementEmissionProfile& other) : IElement("")
 	{
 		operator=(other);
@@ -55,9 +55,19 @@ struct CElementEmissionProfile : public IElement {
 	bool processChildData(IElement* _child, const std::string& name) override;
 	IElement::Type getType() const override { return IElement::Type::EMISSION_PROFILE; }
 	std::string getLogName() const override { return "emissionprofile "; }
+	
+	enum E_NORMALIZE
+	{
+		EN_UNIT_MAX,									//! normalize the intensity by dividing out the maximum intensity
+		EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN,			//! normlize by energy - integrate the profile over the hemisphere as well as the solid angles where the profile has emission above 0.
+		EN_UNIT_AVERAGE_OVER_FULL_DOMAIN,				//! similar to UNIT_AVERAGE_OVER_IMPLIED_DOMAIN but in this case we presume the soild angle of the domain is (CIESProfile::vAngles.front()-CIESProfile::vAngles.back())*4.f
+		EN_NONE											//! no normalization
+
+	};
 
 	std::string filename;
-	float normalizeEnergy, flatten;
+	E_NORMALIZE normalization;
+	float flatten;
 };
 
 }

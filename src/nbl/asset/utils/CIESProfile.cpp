@@ -38,6 +38,7 @@ const CIESProfile::IES_STORAGE_FORMAT CIESProfile::sample(IES_STORAGE_FORMAT the
             }
             default:
                 assert(false);
+                return 69;
         }
     };
 
@@ -104,12 +105,11 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 }
 
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const size_t width, const size_t height) const
 {
     const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
     
     assert(inFlattenDomain);
-    assert(aOverride);
 
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -188,20 +188,15 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
     viewParams.subresourceRange.layerCount = 1u;
 
     auto imageView = ICPUImageView::create(std::move(viewParams));
-    const auto aHash = key + "?flatten=" + std::to_string(flatten);
-    asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-    SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(imageView) });
-    aOverride->insertAssetIntoCache(bundle, aHash, ctx, 0u);
-
     return core::smart_refctd_ptr(imageView);
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, asset::IAssetLoader::IAssetLoaderOverride*, const std::string, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const size_t, const size_t) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const size_t width, const size_t height) const
 {
-    return createIESTexture(std::execution::seq, aOverride, key, flatten, width, height);
+    return createIESTexture(std::execution::seq, flatten, width, height);
 }

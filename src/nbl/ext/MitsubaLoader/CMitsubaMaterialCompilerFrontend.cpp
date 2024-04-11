@@ -115,9 +115,23 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                         flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
                 }
 
-                if(!flattenIES)
-                    flattenIES = meta->profile.createIESTexture(m_loaderContext->override_, _emitter->area.emissionProfile->filename, _emitter->area.emissionProfile->flatten);
-                
+                if (!flattenIES)
+                {
+                    flattenIES = meta->profile.createIESTexture(_emitter->area.emissionProfile->flatten);
+
+                    if (flattenIES)
+                    {
+                        asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+                        asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
+                        m_loaderContext->override_->insertAssetIntoCache(bundle, aHash, m_loaderContext->inner, 0u);
+                    }
+                    else
+                    {
+                        os::Printer::log("WARNING: Failed to flatten IES \"" + _emitter->area.emissionProfile->filename + "\" texture, using original one", ELL_WARNING);
+                        flattenIES = core::smart_refctd_ptr(image);
+                    }
+                }
+
                 profile.texture = { flattenIES, sampler, 1.f };
             }
 
@@ -142,13 +156,23 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
 
             const auto maxIntesity = meta->profile.getMaxCandelaValue();
             res->emissionProfile = profile;
-            const float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
-
-            if (normalizeEnergy == 0.0f)
-                res->intensity *= maxIntesity;
-            else if (normalizeEnergy > 0.0f) {
-                const auto integral = meta->profile.getTotalEmission();
-                res->intensity *= normalizeEnergy * maxIntesity / integral;
+            
+            // note that IES texel intensity value is already divided by max intensity
+            switch (_emitter->area.emissionProfile->normalization)
+            {
+                case CElementEmissionProfile::EN_UNIT_MAX: break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
+                {
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision();
+                } break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
+                {
+                    res->intensity *= maxIntesity * core::radians(meta->profile.getVertAngles().back() - meta->profile.getVertAngles().front()) * 4.f / meta->profile.getTotalEmission();
+                } break;
+                default:
+                {
+                    res->intensity *= maxIntesity;
+                } break;
             }
         };
 

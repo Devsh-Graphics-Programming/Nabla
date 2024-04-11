@@ -68,8 +68,8 @@ namespace nbl
                 IES_STORAGE_FORMAT getAvgEmmision() const { return avgEmmision; }
 
                 template<class ExecutionPolicy>
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(asset::IAssetLoader::IAssetLoaderOverride* aOverride, const std::string key, const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
