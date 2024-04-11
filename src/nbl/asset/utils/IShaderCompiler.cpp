@@ -122,7 +122,6 @@ std::string IShaderCompiler::preprocessShader(
 auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
-
     for (const auto& pattern : builtinNames)
     if (std::regex_match(includeName,pattern.first))
     {
@@ -176,7 +175,9 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return {f->getFileName(),std::move(contents)};
+    found_t retVal = {f->getFileName(),std::move(contents)};
+    retVal.lastWriteTime = f->getLastWriteTime();
+    return retVal;
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) 

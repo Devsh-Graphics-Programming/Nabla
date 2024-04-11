@@ -1,12 +1,11 @@
-#include "nbl/asset/utils/IShaderCompiler.h"
-#include <nlohmann/json.hpp>
-
 #ifndef  _NBL_ASSET_SHADER_COMPILER_SERIALIZATION_H_INCLUDED_
 #define _NBL_ASSET_SHADER_COMPILER_SERIALIZATION_H_INCLUDED_
 
+#include "nbl/asset/utils/IShaderCompiler.h"
+#include <nlohmann/json.hpp>
+
 using json = nlohmann::json;
 using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
-
 
 
 namespace nbl::asset {
@@ -91,8 +90,9 @@ namespace nbl::asset {
     }
 
     // Serialize clock's time point
+    using time_point_t = nbl::system::IFileBase::time_point_t;
 
-    void to_json(json& j, const std::chrono::utc_clock::time_point& timePoint)
+    void to_json(json& j, const time_point_t& timePoint)
     {
         auto ticks = timePoint.time_since_epoch().count();
         j = json{
@@ -100,11 +100,11 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, std::chrono::utc_clock::time_point& timePoint)
+    void from_json(const json& j, time_point_t& timePoint)
     {
         uint64_t ticks;
         j.at("ticks").get_to(ticks);
-        timePoint = std::chrono::utc_clock::time_point(std::chrono::utc_clock::duration(ticks));
+        timePoint = time_point_t(time_point_t::clock::duration(ticks));
     }
 
     // Serialize (most) of SEntry, keeping some fields as extra serialization to keep them separate on disk
@@ -127,7 +127,7 @@ namespace nbl::asset {
     {
         uint64_t ticks;
         j.at("lastWriteTimeTicks").get_to(ticks);
-        entry.lastWriteTime = std::chrono::utc_clock::time_point(std::chrono::utc_clock::duration(ticks));
+        entry.lastWriteTime = time_point_t(time_point_t::clock::duration(ticks));
         j.at("mainFilePath").get_to(entry.mainFilePath);
         j.at("mainFileHash").get_to(entry.mainFileHash);
         j.at("compilerData").get_to(entry.compilerData);
@@ -137,7 +137,7 @@ namespace nbl::asset {
 
     // Sdependency serialization. Dependencies will be saved in a vector for easier vectorization
 
-    void to_json(json& j, const IShaderCompiler::CCache::SEntry::SDependency& dependency)
+    void to_json(json& j, const SPreprocessingDependency& dependency)
     {
         // Serializing the write time by hand because compiler wasn't having it otherwise
         auto ticks = dependency.lastWriteTime.time_since_epoch().count();
@@ -151,7 +151,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, IShaderCompiler::CCache::SEntry::SDependency& dependency)
+    void from_json(const json& j, SPreprocessingDependency& dependency)
     {
         uint64_t ticks;
         j.at("lastWriteTimeTicks").get_to(ticks);
