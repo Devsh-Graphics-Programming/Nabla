@@ -175,9 +175,7 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    found_t retVal = {f->getFileName(),std::move(contents)};
-    retVal.lastWriteTime = f->getLastWriteTime();
-    return retVal;
+    return {f->getFileName(),std::move(contents)};
 }
 
 IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) 

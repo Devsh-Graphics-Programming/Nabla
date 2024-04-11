@@ -369,11 +369,11 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>& dependencies) const
 {
     auto hlslOptions = option_cast(options);
     auto logger = hlslOptions.preprocessorOptions.logger;
-    if (!code)
+    if (code.empty())
     {
         logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;

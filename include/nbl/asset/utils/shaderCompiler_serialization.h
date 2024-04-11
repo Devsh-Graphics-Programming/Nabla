@@ -109,7 +109,7 @@ namespace nbl::asset {
 
     // Serialize (most) of SEntry, keeping some fields as extra serialization to keep them separate on disk
 
-    void to_json(json& j, const IShaderCompiler::CCache::SEntry& entry)
+    void to_json(json& j, const SEntry& entry)
     {
         // Serializing the write time by hand because compiler wasn't having it otherwise
         auto ticks = entry.lastWriteTime.time_since_epoch().count();
@@ -123,7 +123,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, IShaderCompiler::CCache::SEntry& entry)
+    void from_json(const json& j, SEntry& entry)
     {
         uint64_t ticks;
         j.at("lastWriteTimeTicks").get_to(ticks);
@@ -137,7 +137,7 @@ namespace nbl::asset {
 
     // Sdependency serialization. Dependencies will be saved in a vector for easier vectorization
 
-    void to_json(json& j, const SPreprocessingDependency& dependency)
+    void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     {
         // Serializing the write time by hand because compiler wasn't having it otherwise
         auto ticks = dependency.lastWriteTime.time_since_epoch().count();
@@ -145,13 +145,15 @@ namespace nbl::asset {
             { "requestingSourceDir", dependency.requestingSourceDir },
             { "identifier", dependency.identifier },
             { "contents", dependency.contents },
-            { "hash", dependency.hash },
             { "standardInclude", dependency.standardInclude },
             { "lastWriteTimeTicks", ticks },
         };
+        if (dependency.hash.has_value()) {
+            j["hash"] = dependency.hash.value();
+        }
     }
 
-    void from_json(const json& j, SPreprocessingDependency& dependency)
+    void from_json(const json& j, SEntry::SPreprocessingDependency& dependency)
     {
         uint64_t ticks;
         j.at("lastWriteTimeTicks").get_to(ticks);
@@ -159,8 +161,11 @@ namespace nbl::asset {
         j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
         j.at("identifier").get_to(dependency.identifier);
         j.at("contents").get_to(dependency.contents);
-        j.at("hash").get_to(dependency.hash);
         j.at("standardInclude").get_to(dependency.standardInclude);
+        dependency.hash = std::nullopt;
+        if (j.count("hash") != 0) {
+            dependency.hash = j.at("hash").get<std::array<uint64_t, 4>>();
+        }
     }
 
     // We do a bit of a Frankenstein for CPU Shader serialization. We serialize creation parameters into a json, but binary data into a .bin file so it takes up less space

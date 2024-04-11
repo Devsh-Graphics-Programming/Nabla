@@ -13,7 +13,6 @@
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
-#include "nbl/asset/utils/SPreprocessingDependency.h"
 
 
 namespace nbl::wave
@@ -469,7 +468,7 @@ class context : private boost::noncopyable
         core::string located_include_content;
         // Cache Additions 
         bool cachingRequested;
-        std::vector<SPreprocessingDependency> dependencies;
+        std::vector<IShaderCompiler::IIncludeLoader::found_t> dependencies;
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -520,8 +519,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     // TODO: We're reopening a file here after the getInclude did it already to get the last write time. Putting this logic into the getIncludes and making it return the lastWriteTime
     // in the found_t should be doable. It's easy for common files but requires a bit more changes for it to work with builtins
     if (ctx.cachingRequested) {
-        SPreprocessingDependency dependency;
-        
+        ctx.dependencies.push_back(result);
     }
 
     ctx.located_include_content = std::move(result.contents);
