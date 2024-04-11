@@ -9,7 +9,6 @@
 #ifdef __HLSL_VERSION
 
 NBL_GENERATE_MEMBER_TESTER(shaderFloat64);
-NBL_GENERATE_MEMBER_TESTER(shaderDrawParameters);
 NBL_GENERATE_MEMBER_TESTER(subgroupArithmetic);
 NBL_GENERATE_MEMBER_TESTER(fragmentShaderPixelInterlock);
 NBL_GENERATE_MEMBER_TESTER(maxOptimallyResidentWorkgroupInvocations);
@@ -27,7 +26,6 @@ namespace hlsl
 namespace impl
 {
 NBL_GENERATE_GET_OR_DEFAULT(shaderFloat64, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(shaderDrawParameters, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(subgroupArithmetic, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(fragmentShaderPixelInterlock, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(maxOptimallyResidentWorkgroupInvocations, uint16_t, 0);
@@ -49,7 +47,6 @@ struct device_capabilities_traits
     }
 
     NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64                                = impl::get_or_default_shaderFloat64<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters                         = impl::get_or_default_shaderDrawParameters<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool subgroupArithmetic                           = impl::get_or_default_subgroupArithmetic<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool fragmentShaderPixelInterlock                 = impl::get_or_default_fragmentShaderPixelInterlock<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t maxOptimallyResidentWorkgroupInvocations = impl::get_or_default_maxOptimallyResidentWorkgroupInvocations<device_capabilities>::value;
