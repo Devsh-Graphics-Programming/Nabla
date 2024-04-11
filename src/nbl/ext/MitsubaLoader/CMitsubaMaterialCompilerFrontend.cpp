@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/asset/utils/CIESProfile.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
@@ -88,27 +89,99 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
     if (_emitter->area.emissionProfile) {
         asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
         auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
-        if (image) {
+        
+        auto fillProfile = [&]() -> void
+        {
             profile.texture = { image, sampler, 1.f };
-            auto inverseTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
-            inverseTransform[1].w = 0;
-            inverseTransform[2].w = 0;
-            profile.right_hand = core::determinant(inverseTransform) >= 0.0f;
-            profile.up = core::normalize(inverseTransform[1]);
-            profile.view = core::normalize(inverseTransform[2]);
 
+            const bool inFlattenDomain = _emitter->area.emissionProfile->flatten >= 0.0 && _emitter->area.emissionProfile->flatten < 1.0; // [0, 1)
+
+            if (!inFlattenDomain)
+            {
+                const auto cFlatten = core::min(core::abs(_emitter->area.emissionProfile->flatten), 1.f - std::numeric_limits<float>::epsilon());
+                os::Printer::log("WARNING: Flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten) + " is outside it's [0, 1) domain - the flatten property will be clamped to " + std::to_string(cFlatten), ELL_WARNING);
+                _emitter->area.emissionProfile->flatten = cFlatten;
+            }
+
+            if (_emitter->area.emissionProfile->flatten > 0.0) // if 0 then it's just "image"
+            {
+                core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
+
+                const auto aHash = _emitter->area.emissionProfile->filename + "?flatten=" + std::to_string(_emitter->area.emissionProfile->flatten);
+                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+                asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(aHash, types, m_loaderContext->inner, 0u);
+                {
+                    auto contents = bundle.getContents();
+
+                    if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
+                        flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
+                }
+
+                if (!flattenIES)
+                {
+                    flattenIES = meta->profile.createIESTexture(_emitter->area.emissionProfile->flatten);
+
+                    if (flattenIES)
+                    {
+                        asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+                        asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
+                        m_loaderContext->override_->insertAssetIntoCache(bundle, aHash, m_loaderContext->inner, 0u);
+                    }
+                    else
+                    {
+                        os::Printer::log("WARNING: Failed to flatten IES \"" + _emitter->area.emissionProfile->filename + "\" texture, using original one", ELL_WARNING);
+                        flattenIES = core::smart_refctd_ptr(image);
+                    }
+                }
+
+                profile.texture = { flattenIES, sampler, 1.f };
+            }
+
+            auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
+            
+            // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
+            worldSpaceIESTransform[1].w = 0;
+            worldSpaceIESTransform[2].w = 0;
+
+            const float THRESHOLD = core::exp2(-14.f);
+            const auto det = core::determinant(worldSpaceIESTransform);
+
+            if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
+            {
+                os::Printer::log("ERROR: Emission profile rejected because determinant of transformation matrix does not exceed the minimum threshold and is too close or equal 0", ELL_ERROR);
+                return; // exit the lambda
+            }
+
+            profile.right_hand = det > 0.0f;
+            profile.up = core::normalize(worldSpaceIESTransform[1]);
+            profile.view = core::normalize(worldSpaceIESTransform[2]);
+
+            const auto maxIntesity = meta->profile.getMaxCandelaValue();
             res->emissionProfile = profile;
-            float normalizeEnergy = _emitter->area.emissionProfile->normalizeEnergy;
-            if (normalizeEnergy == 0.0f) {
-                res->intensity *= meta->getMaxIntensity();
+            
+            // note that IES texel intensity value is already divided by max intensity
+            switch (_emitter->area.emissionProfile->normalization)
+            {
+                case CElementEmissionProfile::EN_UNIT_MAX: break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
+                {
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision();
+                } break;
+                case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
+                {
+                    res->intensity *= maxIntesity * core::radians(meta->profile.getVertAngles().back() - meta->profile.getVertAngles().front()) * 4.f / meta->profile.getTotalEmission();
+                } break;
+                default:
+                {
+                    res->intensity *= maxIntesity;
+                } break;
             }
-            else if (normalizeEnergy > 0.0f) {
-                res->intensity *= normalizeEnergy * meta->getMaxIntensity() / meta->getIntegral();
-            }
-        }
-        else {
+        };
+
+        if (image)
+            fillProfile();
+        else
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
-        }
     }
     return res;
 }

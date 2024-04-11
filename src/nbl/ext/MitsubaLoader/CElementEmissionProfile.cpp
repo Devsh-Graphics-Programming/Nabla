@@ -39,11 +39,30 @@ bool CElementEmissionProfile::addProperty(SNamedPropertyElement&& _property)  {
 		filename = _property.getProperty<SPropertyElementData::Type::STRING>();
 		return true;
 	}
-	else if (_property.name == "normalizeEnergy") {
-		if (_property.type != SPropertyElementData::Type::FLOAT) {
+	else if (_property.name == "normalization") {
+		if (_property.type != SPropertyElementData::Type::STRING)
 			return false;
-		}
-		normalizeEnergy = _property.getProperty<SPropertyElementData::Type::FLOAT>();
+
+		const auto normalizeS = std::string(_property.getProperty<SPropertyElementData::Type::STRING>());
+
+		if (normalizeS == "UNIT_MAX")
+			normalization = EN_UNIT_MAX;
+		else if(normalizeS == "UNIT_AVERAGE_OVER_IMPLIED_DOMAIN")
+			normalization = EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN;
+		else if(normalizeS == "UNIT_AVERAGE_OVER_FULL_DOMAIN")
+			normalization = EN_UNIT_AVERAGE_OVER_FULL_DOMAIN;
+		else
+			normalization = EN_NONE;
+
+		return true;
+	}
+	else if (_property.name == "flatten") 
+	{
+		if (_property.type != SPropertyElementData::Type::FLOAT)
+			return false;
+
+		flatten = _property.getProperty<SPropertyElementData::Type::FLOAT>();
+
 		return true;
 	}
 	else {

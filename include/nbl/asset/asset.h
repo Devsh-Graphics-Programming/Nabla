@@ -80,6 +80,7 @@
 #include "nbl/asset/metadata/COBJMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
+#include "nbl/asset/metadata/CIESProfileMetadata.h"
 
 //VT
 #include "nbl/asset/utils/CCPUMeshPackerV1.h"
