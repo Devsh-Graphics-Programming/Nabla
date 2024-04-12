@@ -60,11 +60,12 @@ T acosh(T x)
     return INTRINSIC_NAMESPACE(log)(x + INTRINSIC_NAMESPACE(sqrt)(x*x - T(1)));
 }
 
-template<class T>
-T asinh(T x)
-{
-    return INTRINSIC_NAMESPACE(log)(x + INTRINSIC_NAMESPACE(sqrt)(x*x + T(1)));
-}
+// TODO numerically better impl of asinh
+//template<class T>
+//T asinh(T x)
+//{
+//    return INTRINSIC_NAMESPACE(log)(x + INTRINSIC_NAMESPACE(sqrt)(x*x + T(1)));
+//}
 
 template<class T>
 T atanh(T x)
@@ -84,16 +85,13 @@ NBL_ALIAS_UNARY_FUNCTION(exp2)
 NBL_ALIAS_UNARY_FUNCTION(log2)
 NBL_ALIAS_UNARY_FUNCTION2(logb,log)
 
-template<class T> 
-T expm1(T x) 
-{ 
-    //wrong
+//template<class T> 
+//T expm1(T x) 
+//{ 
     // for better implementation, missing function for evaluate_polynomial
     // https://www.boost.org/doc/libs/1_83_0/boost/math/special_functions/expm1.hpp
-
     //or use std::expm1f, std::expm1l depending on size of T
-    return INTRINSIC_NAMESPACE(exp)(x) - T(1); 
-}
+//}
 
 template<class T> 
 T log1p(T x) 
@@ -101,8 +99,12 @@ T log1p(T x)
     // https://www.boost.org/doc/libs/1_83_0/boost/math/special_functions/log1p.hpp
     /*if (x < T(-1))
          "log1p(x) requires x > -1, but got x = %1%.
+        */
     if (x == T(-1))
-        return -inf */
+    {
+        using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
+        return  -nbl::hlsl::numeric_limits<T>::infinity;
+    }
     T u = T(1) + x;
     if (u == T(1))
         return x;
@@ -116,7 +118,7 @@ int32_t ilogb(T x)
     using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
     const int32_t shift = (impl::num_base<T>::float_digits-1);
     const uint_type mask = ~(((uint_type(1) << shift) - 1) | (uint_type(1)<<(sizeof(T)*8-1)));
-    int32_t bits = (std::bit_cast<uint_type, T>(x) & mask) >> shift; //nbl::hlsl::bit_cast sucks as it pulls the ambiguous one from intrinsics.h
+    int32_t bits = (INTRINSIC_NAMESPACE(bit_cast)<uint_type, T>(x) & mask) >> shift; 
     return bits + impl::num_base<T>::min_exponent - 2;
 }
 
@@ -129,7 +131,7 @@ T scalbn(T x, int32_t n)
 // Power functions
 NBL_ALIAS_BINARY_FUNCTION(pow)
 NBL_ALIAS_UNARY_FUNCTION(sqrt)
-NBL_ALIAS_UNARY_FUNCTION(cbrt)
+// NBL_ALIAS_UNARY_FUNCTION(cbrt) // TODO
 
 template<class T>
 T hypot(T x, T y)
@@ -137,92 +139,36 @@ T hypot(T x, T y)
     return INTRINSIC_NAMESPACE(sqrt)(x*x+y*y);
 }
 
-// Floating-point manipulation functions
+// Floating-point manipulation functions 
 
 template<class T>
 T copysign(T x, T sign_)
 {
-    using uint_type = uint32_t; //typename nbl::hlsl::numeric_limits<T>::uint_type;
-    constexpr uint_type m = (1u << 31);
-    const uint_type a = std::bit_cast<uint_type, T>(sign_) & m;
-    const uint_type b = std::bit_cast<uint_type, T>(x) & (m-1);
-    return std::bit_cast<T, uint_type>(a ^ b);
+    if ((x < 0 && sign_ > 0) || (x > 0 && sign_ < 0))
+        return -x;
+    return x;
 }
 
 // Generate quiet NaN (function)
 template<class T>
 T nan()
 {
-    return nbl::core::nan<T>();
+    using uint_type = typename nbl::hlsl::numeric_limits<T>::uint_type;
+    return INTRINSIC_NAMESPACE(bit_cast)<uint_type, T>(nbl::hlsl::numeric_limits<T>::quiet_NaN);
 }
 // TODO:
 // nextafter	Next representable value (function) 
 // nexttoward	Next representable value toward precise value (function)
+// erf
+// erfc
+// tgamma
+// lgamma
 
-// Error and gamma functions
-
-template<class T>
-T erf(T x)
-{
-    // Bürmann series approximation  
-    // https://www.desmos.com/calculator/myf9ylguh1
-    // https://en.wikipedia.org/wiki/Error_function#Numerical_approximations
-    T E = INTRINSIC_NAMESPACE(exp)(-x*x);
-    T P = T(0.886226925453);
-    T re = INTRINSIC_NAMESPACE(sqrt)(T(1)-E)*(T(1)+T(.155)*E/P*(T(1)-T(.275)*E));
-    return INTRINSIC_NAMESPACE(copysign)(re, x);
-}
-
-template<class T>
-T erfc(T x)
-{
-    return T(1) - erf(x);
-}
-
-
-template<class T>
-T tgamma(T x)
-{
-    // TODO:
-    // Investigate this approximation since margin of error seems to be high
-    // https://www.desmos.com/calculator/ivfbrvxha8
-    // https://en.wikipedia.org/wiki/Lanczos_approximation
-    T pi = T(3.14159265358979323846);
-    T sqrt2pi = T(2.50662827463);
-    T p[] = { 
-        0.99999999999980993,
-        676.5203681218851,
-        -1259.1392167224028,
-        771.32342877765313,
-        -176.61502916214059,
-        12.507343278686905,
-        -0.13857109526572012,
-        9.9843695780195716e-6,
-        1.5056327351493116e-7
-    };
-
-    T c = T(1);
-    if (x < T(0.5))
-    {
-        c = pi / (sin(pi * x));
-        x = T(1)-x;
-    }
-
-    T q = p[0];
-    for(uint32_t i = 1; i < sizeof(p)/sizeof(p[0]); ++i)
-    {
-        q += p[i] / (x + i - 1);
-    }
-    
-    T t = x + T(6.5);
-    return c * sqrt2pi * INTRINSIC_NAMESPACE(pow)(t, (x-T(.5)))*INTRINSIC_NAMESPACE(exp)(-t)*q;
-}
-
-template<class T>
-T lgamma(T x)
-{
-    return INTRINSIC_NAMESPACE(log)(INTRINSIC_NAMESPACE(tgamma)(x));
-}
+//template<class T>
+//T lgamma(T x)
+//{
+//    return INTRINSIC_NAMESPACE(log)(INTRINSIC_NAMESPACE(tgamma)(x));
+//}
 
 // Rounding and remainder functions
 
@@ -237,6 +183,7 @@ NBL_ALIAS_UNARY_FUNCTION(round)
 NBL_ALIAS_UNARY_FUNCTION(rint)
 NBL_ALIAS_UNARY_FUNCTION2(nearbyint,round)
 
+// TODO numerically better implementation
 template<class T>
 T remquo(T num, T denom, NBL_REF_ARG(int32_t) quot)
 {
