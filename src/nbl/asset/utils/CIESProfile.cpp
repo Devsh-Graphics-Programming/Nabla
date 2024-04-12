@@ -107,7 +107,7 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 template<class ExecutionPolicy>
 core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const size_t width, const size_t height) const
 {
-    const bool inFlattenDomain = flatten >= 0.0 && flatten < 1.0; // [0, 1) range for blend equation, 1 is invalid
+    const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
     
     assert(inFlattenDomain);
 

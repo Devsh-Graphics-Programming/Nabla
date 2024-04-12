@@ -94,14 +94,14 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
         {
             profile.texture = { image, sampler, 1.f };
 
-            const bool inFlattenDomain = _emitter->area.emissionProfile->flatten >= 0.0 && _emitter->area.emissionProfile->flatten < 1.0; // [0, 1)
-
-            if (!inFlattenDomain)
+            _emitter->area.emissionProfile->flatten = abs(_emitter->area.emissionProfile->flatten);
+            if (_emitter->area.emissionProfile->flatten > 1.f)
             {
-                const auto cFlatten = core::min(core::abs(_emitter->area.emissionProfile->flatten), 1.f - std::numeric_limits<float>::epsilon());
-                os::Printer::log("WARNING: Flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten) + " is outside it's [0, 1) domain - the flatten property will be clamped to " + std::to_string(cFlatten), ELL_WARNING);
-                _emitter->area.emissionProfile->flatten = cFlatten;
+                _emitter->area.emissionProfile->flatten = 1.f;
+                os::Printer::log("ERROR: Flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten) + " is outside it's [0, 1] domain", ELL_ERROR);
             }
+            else if (_emitter->area.emissionProfile->flatten > 1.f - std::numeric_limits<float>::epsilon())
+                os::Printer::log("WARNING: Implied domain flatten mode detected, flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten), ELL_WARNING);
 
             if (_emitter->area.emissionProfile->flatten > 0.0) // if 0 then it's just "image"
             {
