@@ -10,74 +10,11 @@ namespace nbl::video
     
 //! Struct meant to be used with any Utility (not just `IUtilities`) which exhibits "submit on overflow" behaviour.
 //! Such functions are non-blocking (unless overflow) and take `SIntendedSubmitInfo` by reference and patch it accordingly. 
-//! MAKE SURE to do a submit to `queue` by yourself with a submit info obtained by casting `this` to `IQueue::SSubmitInfo` !
+//! MAKE SURE to do a submit to `queue` by yourself with a submit info obtained by convert assigning `this` to `IQueue::SSubmitInfo` !
 //!     for example: in the case the `frontHalf.waitSemaphores` were already waited upon, the struct will be modified to have it's `waitSemaphores` emptied.
-struct SIntendedSubmitInfo final
+struct SIntendedSubmitInfo final : core::Uncopyable
 {
     public:
-        inline bool valid() const
-        {
-            if (!frontHalf.valid() || frontHalf.commandBuffers.empty() || signalSemaphores.empty())
-                return false;
-            const auto* scratch = frontHalf.getScratchCommandBuffer();
-            // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened 
-            if (!scratch->isResettable())
-                return false;
-            // It makes no sense to reuse the same commands for a second submission.
-            // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
-            // frees have already been latched on the scratch semaphore you must signal anyway.
-            if (!scratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                return false;
-            if (scratch->getState()!=IGPUCommandBuffer::STATE::RECORDING)
-                return false;
-            return true;
-        }
-
-        inline ISemaphore::SWaitInfo getScratchSemaphoreNextWait() const {return {signalSemaphores.front().semaphore,signalSemaphores.front().value};}
-
-        inline operator IQueue::SSubmitInfo() const
-        {
-            return {
-                .waitSemaphores = frontHalf.waitSemaphores,
-                .commandBuffers = frontHalf.commandBuffers,
-                .signalSemaphores = signalSemaphores
-            };
-        }
-
-        inline void advanceScratchSemaphoreValue()
-        {
-            auto& scratchSemaphore = signalSemaphores.front();
-            scratchSemaphore.value++;
-        }
-
-        // One thing you might notice is that this results in a few implicit Memory and Execution Dependencies
-        // So there's a little bit of non-deterministic behaviour we won't fight (will not insert a barrier every time you "could-have" overflown)
-        inline void overflowSubmit()
-        {
-            auto cmdbuf = frontHalf.getScratchCommandBuffer();
-            auto& scratchSemaphore = signalSemaphores.front();
-            // but first sumbit the already buffered up copies
-            cmdbuf->end();
-            IQueue::SSubmitInfo submit = *this;
-            // we only signal the last semaphore which is used as scratch
-            submit.signalSemaphores = {&scratchSemaphore,1};
-            assert(submit.valid());
-            frontHalf.queue->submit({&submit,1});
-            // We wait (stall) on the immediately preceeding submission timeline semaphore signal value and increase it for the next signaller
-            {
-                const ISemaphore::SWaitInfo info = getScratchSemaphoreNextWait();
-                advanceScratchSemaphoreValue();
-                const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
-            }
-            // we've already waited on the Host for the semaphores, no use waiting twice
-            frontHalf.waitSemaphores = {};
-            // since all the commandbuffers have submitted already we only reuse the last one
-            frontHalf.commandBuffers = {&frontHalf.commandBuffers.back(),1};
-            // we will still signal the same set in the future
-            cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
-            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-        }
-
         //! SFrontHalf contains the data needed for a submit without signal semaphores, for the purpose of blocking function
         //! SFrontHalf also holds the queue and has functions to patch the command buffers 
         //! The last CommandBuffer will be used to record the copy commands  
@@ -195,6 +132,70 @@ struct SIntendedSubmitInfo final
         //! after the submit is done, indicating that your streaming routine is done.  
         //! * Also use this parameter to signal new semaphores so that other submits know your Utility method is done.
         std::span<IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores = {};
+
+        //  
+        inline bool valid() const
+        {
+            if (!frontHalf.valid() || frontHalf.commandBuffers.empty() || signalSemaphores.empty())
+                return false;
+            const auto* scratch = frontHalf.getScratchCommandBuffer();
+            // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened 
+            if (!scratch->isResettable())
+                return false;
+            // It makes no sense to reuse the same commands for a second submission.
+            // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
+            // frees have already been latched on the scratch semaphore you must signal anyway.
+            if (!scratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                return false;
+            if (scratch->getState()!=IGPUCommandBuffer::STATE::RECORDING)
+                return false;
+            return true;
+        }
+
+        inline ISemaphore::SWaitInfo getScratchSemaphoreNextWait() const {return {signalSemaphores.front().semaphore,signalSemaphores.front().value};}
+
+        inline operator IQueue::SSubmitInfo() const
+        {
+            return {
+                .waitSemaphores = frontHalf.waitSemaphores,
+                .commandBuffers = frontHalf.commandBuffers,
+                .signalSemaphores = signalSemaphores
+            };
+        }
+
+        inline void advanceScratchSemaphoreValue()
+        {
+            auto& scratchSemaphore = signalSemaphores.front();
+            scratchSemaphore.value++;
+        }
+
+        // One thing you might notice is that this results in a few implicit Memory and Execution Dependencies
+        // So there's a little bit of non-deterministic behaviour we won't fight (will not insert a barrier every time you "could-have" overflown)
+        inline void overflowSubmit()
+        {
+            auto cmdbuf = frontHalf.getScratchCommandBuffer();
+            auto& scratchSemaphore = signalSemaphores.front();
+            // but first sumbit the already buffered up copies
+            cmdbuf->end();
+            IQueue::SSubmitInfo submit = *this;
+            // we only signal the last semaphore which is used as scratch
+            submit.signalSemaphores = {&scratchSemaphore,1};
+            assert(submit.valid());
+            frontHalf.queue->submit({&submit,1});
+            // We wait (stall) on the immediately preceeding submission timeline semaphore signal value and increase it for the next signaller
+            {
+                const ISemaphore::SWaitInfo info = getScratchSemaphoreNextWait();
+                advanceScratchSemaphoreValue();
+                const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
+            }
+            // we've already waited on the Host for the semaphores, no use waiting twice
+            frontHalf.waitSemaphores = {};
+            // since all the commandbuffers have submitted already we only reuse the last one
+            frontHalf.commandBuffers = {&frontHalf.commandBuffers.back(),1};
+            // we will still signal the same set in the future
+            cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
+            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+        }
 
     private:
         friend class IUtilities;

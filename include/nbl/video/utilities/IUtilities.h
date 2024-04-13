@@ -230,24 +230,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return IQueue::RESULT::SUCCESS;
         }
 
-        //! This function is an specialization of the `autoSubmit` function above, it will additionally wait on the Host (CPU) for the final submit to finish.
-        //! WARNING: This function blocks CPU and stalls the GPU!
-        inline bool autoSubmitAndBlock(const SIntendedSubmitInfo::SFrontHalf& submit, const std::function<bool(SIntendedSubmitInfo&)>& what)
-        {            
-            auto semaphore = m_device->createSemaphore(0);
-            // so we begin latching everything on the value of 1, but if we overflow it increases
-            IQueue::SSubmitInfo::SSemaphoreInfo info = {semaphore.get(),1};
-
-            SIntendedSubmitInfo intendedSubmit = {.frontHalf=submit,.signalSemaphores={&info,1}};
-            if (autoSubmit(intendedSubmit,what)!=IQueue::RESULT::SUCCESS)
-                return false;
-            
-            // Watch carefully and note that we might not be waiting on the value of `1` for why @see `SIntendedSubmitInfo::signalSemaphores`
-            const ISemaphore::SWaitInfo waitInfo = {info.semaphore,info.value};
-            m_device->blockForSemaphores({&waitInfo,1});
-            return true;
-        }  
-
         // --------------
         // updateBufferRangeViaStagingBuffer
         // --------------
@@ -327,16 +309,18 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return true;
         }
 
-        //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalBufferOnDedMem(const SIntendedSubmitInfo::SFrontHalf& submit, IGPUBuffer::SCreationParams&& params, const void* data)
+        //! This only needs a valid queure in `submit`
+        inline ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> createFilledDeviceLocalBufferOnDedMem(const SIntendedSubmitInfo& submit, IGPUBuffer::SCreationParams&& params, const void* data)
         {
             auto buffer = m_device->createBuffer(std::move(params));
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs,buffer.get());
             if (!autoSubmitAndBlock(submit,[&](auto& info){return updateBufferRangeViaStagingBuffer(info,asset::SBufferRange<IGPUBuffer>{0u,params.size,core::smart_refctd_ptr(buffer)},data);}))
-                return nullptr;
-            return buffer;
+                return {};
+
+            ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> retval(std::move(buffer));
+            return {};
         }
 
         // pipelineBarrierAutoSubmit?

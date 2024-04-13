@@ -52,7 +52,9 @@ class ISemaphore : public IBackendObject
                 }
                 inline bool ready() const
                 {
-                    return m_semaphore->getCounterValue()>=m_waitValue;
+                    if (m_semaphore)
+                        return m_semaphore->getCounterValue()>=m_waitValue;
+                    return true;
                 }
                 WAIT_RESULT wait() const;
 
@@ -89,8 +91,8 @@ class ISemaphore : public IBackendObject
                 }
                 inline ~future_t()
                 {
-                    const bool success = wait();
-                    assert(success);
+                    const auto success = wait();
+                    assert(success!=WAIT_RESULT::TIMEOUT);
                     storage_t::destruct();
                 }
 
@@ -112,8 +114,8 @@ class ISemaphore : public IBackendObject
                 template<std::copyable U> requires std::is_same_v<T,U>
                 inline T copy() const
                 {
-                    const bool success = wait();
-                    assert(success);
+                    const auto success = wait();
+                    assert(success!=WAIT_RESULT::TIMEOUT);
                     return *get();
                 }
 
