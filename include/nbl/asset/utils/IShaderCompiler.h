@@ -175,7 +175,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			SPreprocessorOptions preprocessorOptions = {};
 		};
 
-		class CCache final
+		class CCache final : public IReferenceCounted
 		{
 		public:
 			using hash_t = std::array<uint64_t, 4>;
@@ -199,6 +199,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						hash = nbl::core::XXHash_256((uint8_t*)(hashable.data()), hashable.size() * (sizeof(char) / sizeof(uint8_t)));
 					}
 
+
+					SPreprocessingDependency(SPreprocessingDependency&) = delete;
+					SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
+				
 					inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
 					inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
 
@@ -220,14 +224,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				};
 
 				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
-				using dependency_container_t = core::smart_refctd_dynamic_array<const SPreprocessingDependency>;
-				template<typename Container>
-				inline SEntry(const Container& _dependencies) : dependencies(core::make_refctd_dynamic_array<dependency_container_t>(_dependencies))
+				using dependency_container_t = std::vector<SPreprocessingDependency>;
+				inline SEntry(std::string_view _mainFileContents, dependency_container_t&& _dependencies) : mainFileContents(std::move(std::string(_mainFileContents))), dependencies(std::move(_dependencies))
 				{
-					// we must at last have the "main" file as a dependency
-					assert(dependencies && dependencies->size() > 0);
-					// the main file is not an include
-					assert(!dependencies->front().standardInclude);
 				}
 
 				inline SEntry(SEntry&&) = default;
@@ -311,13 +310,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					uint64_t codeByteSize;
 				};
 
-				system::path mainFilePath;
-				hash_t mainFileHash;
-				nbl::system::IFileBase::time_point_t lastWriteTime;
 				SCompilerData compilerData;
 				hash_t compilerDataHash;
 				system::path storagePath = "";
-				std::string mainFilecontents = {};
+				std::string mainFileContents = {};
 				dependency_container_t dependencies;
 				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 			};
@@ -328,16 +324,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 
 			// can move to .cpp and have it not inline
-			inline asset::ICPUShader* find(const SEntry::SPreprocessingDependency& mainFile, CIncludeFinder* finder) const
+			inline asset::ICPUShader* find(const SEntry& mainFile, CIncludeFinder* finder) const
 			{
 				auto foundRange = m_container.equal_range(mainFile);
 				for (auto found = foundRange.first; found != foundRange.second; found++)
 				{
 					bool allDependenciesMatch = true;
 					// go through all dependencies
-					for (auto i = 1; i != found->dependencies->size(); i++)
+					for (auto i = 1; i != found->dependencies.size(); i++)
 					{
-						const auto& dependency = found->dependencies->operator[](i);
+						const auto& dependency = found->dependencies[i];
 
 						IIncludeLoader::found_t header;
 						if (dependency.standardInclude)
@@ -360,15 +356,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
 
 		private:
-			// we only do lookups based on main file path + compiler options
+			// we only do lookups based on main file contents + compiler options
 			struct Hash
 			{
 				inline size_t operator()(const SEntry& entry) const noexcept
 				{
 					std::vector<char> hashable = entry.compilerData.getHashable();
 					std::string hashableString(hashable.begin(), hashable.end());
-					auto pathString = entry.mainFilePath.string();
-					hashableString += pathString;
+					hashableString += entry.mainFileContents;
 					return std::hash<std::string>{}(hashableString);
 				}
 				
@@ -378,7 +373,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// used for insertions
 				inline bool operator()(const SEntry& lhs, const SEntry& rhs) const
 				{
-					return lhs.mainFilePath == rhs.mainFilePath && lhs.mainFileHash == rhs.mainFileHash && lhs.compilerDataHash == rhs.compilerDataHash && lhs.compilerData == rhs.compilerData;
+					return lhs.compilerData == rhs.compilerData && lhs.mainFileContents == rhs.mainFileContents;
 				}
 				
 			};
@@ -401,7 +396,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			if (options.cache)
 				options.cache->insert(CCache::SEntry(dependencies));
 			return retval;*/
-			return nullptr;
+			return compileToSPIRV_impl(code, options, nullptr);
 		}
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const
@@ -438,9 +433,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		@returns Shader containing logically same High Level code as input but with #include directives resolved.
 		*/
-		virtual std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const = 0;
+		virtual std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const = 0;
 
-		std::string preprocessShader(system::IFile* sourcefile, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions) const;
+		std::string preprocessShader(system::IFile* sourcefile, IShader::E_SHADER_STAGE stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const;
 		
 		/*
 			Creates a formatted copy of the original
@@ -538,7 +533,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	protected:
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
-		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>& dependencies) const = 0;
+		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const = 0;
 
 		core::smart_refctd_ptr<system::ISystem> m_system;
 

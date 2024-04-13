@@ -133,7 +133,7 @@ CGLSLCompiler::CGLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
 
 
 
-std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     if (!preprocessOptions.extraDefines.empty())
     {
@@ -166,11 +166,13 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     return resolvedString;
 }
 
-core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    // The dependencies are only sent if a Cache was requested. Since caching is not supported for GLSL, we crash the program
+    assert(!dependencies);
     auto glslOptions = option_cast(options);
 
-    if (!code)
+    if (code.empty())
     {
         glslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;

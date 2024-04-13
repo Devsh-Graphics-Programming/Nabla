@@ -107,7 +107,8 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
 std::string IShaderCompiler::preprocessShader(
     system::IFile* sourcefile,
     IShader::E_SHADER_STAGE stage,
-    const SPreprocessorOptions& preprocessOptions) const
+    const SPreprocessorOptions& preprocessOptions,
+    std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::string code(sourcefile->getSize(), '\0');
 
@@ -116,7 +117,7 @@ std::string IShaderCompiler::preprocessShader(
     if (!success)
         return nullptr;
 
-    return preprocessShader(std::move(code), stage, preprocessOptions);
+    return preprocessShader(std::move(code), stage, preprocessOptions, dependencies);
 }
 
 auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const -> IIncludeLoader::found_t

@@ -36,7 +36,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>& dependencies) const override;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const override;
 
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
@@ -50,8 +50,8 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		//	return "";
 		//}
 
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const override;
-		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override) const;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const override;
+		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
 		constexpr static inline const wchar_t* RequiredArguments[] = {

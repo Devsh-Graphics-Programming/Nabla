@@ -453,6 +453,18 @@ class context : private boost::noncopyable
             return current_relative_filename;
         }
 
+        void set_caching(bool b) {
+            cachingRequested = b;
+        }
+
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>&& get_dependencies() {
+            return std::move(dependencies);
+        }
+
+        const std::vector<nbl::system::path>& peek_dependencies_paths() const {
+            return dependenciesAbsolutePaths;
+        }
+
     private:
         // the main input stream
         target_iterator_type first;         // underlying input stream
@@ -467,8 +479,10 @@ class context : private boost::noncopyable
         system::path current_dir;
         core::string located_include_content;
         // Cache Additions 
-        bool cachingRequested;
-        std::vector<IShaderCompiler::IIncludeLoader::found_t> dependencies;
+        bool cachingRequested = false;
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
+        // Also return the absolute path for each SDependency, for getting the write time later on
+        std::vector<nbl::system::path> dependenciesAbsolutePaths = {};
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -496,12 +510,18 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
+    bool standardInclude;
+
     if (includeFinder)
     {
-        if (is_system)
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(),file_path);
-        else
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
+        if (is_system) {
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path);
+            standardInclude = true;
+        }
+        else {
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path);
+            standardInclude = false;
+        }
     }
     else {
         ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
@@ -519,7 +539,14 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     // TODO: We're reopening a file here after the getInclude did it already to get the last write time. Putting this logic into the getIncludes and making it return the lastWriteTime
     // in the found_t should be doable. It's easy for common files but requires a bit more changes for it to work with builtins
     if (ctx.cachingRequested) {
-        ctx.dependencies.push_back(result);
+        IShaderCompiler::CCache::SEntry::SPreprocessingDependency dependency(ctx.get_current_directory(), file_path, result.contents);
+        dependency.hash = std::nullopt;
+        dependency.standardInclude = standardInclude;
+        if (result.hash.has_value()) {
+            dependency.hash = result.hash.value();
+        }
+        ctx.dependencies.push_back(std::move(dependency));
+        ctx.dependenciesAbsolutePaths.push_back(result.absolutePath);
     }
 
     ctx.located_include_content = std::move(result.contents);
@@ -561,4 +588,5 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     return true;
 }
+
 #endif
