@@ -276,6 +276,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISemaphore.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
