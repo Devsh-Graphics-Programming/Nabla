@@ -543,7 +543,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     if (ctx.cachingRequested) {
         IShaderCompiler::CCache::SEntry::SPreprocessingDependency dependency(ctx.get_current_directory(), file_path, result.contents);
         dependency.standardInclude = standardInclude;
-        dependency.hash = nbl::core::XXHash_256((uint8_t*)(result.contents.data()), result.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+        dependency.hash = std::move(result.hash);
         ctx.dependencies.push_back(std::move(dependency));
         ctx.dependenciesAbsolutePaths.push_back(result.absolutePath);
     }

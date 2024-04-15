@@ -207,6 +207,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						return hash == other.hash && identifier == identifier && contents == contents;
 					}
 
+					// Needed for json vector serialization I believe
+					SPreprocessingDependency() {}
+
 					// path or identifier
 					system::path requestingSourceDir = "";
 					std::string identifier = "";
@@ -303,14 +306,19 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					IShader::E_SHADER_STAGE stage;
 					IShader::E_CONTENT_TYPE contentType; //I think this one could be skipped since it's always going to be SPIR-V
 					std::string filepathHint;
-					uint64_t codeByteSize;
+					uint64_t codeByteSize = 0;
+					uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
 				};
 
 				std::string mainFileContents;
 				SCompilerData compilerData;
-				uint64_t entryID;
+				// Keeping this one commented out. Could be useful for lazy-loading of dependencies if it takes up too much memory
+				// uint64_t entryID;
+
 				dependency_container_t dependencies;
-				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
+				mutable CPUShaderCreationParams shaderParams;
+				bool serialized = false;
+				mutable core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 			};
 
 			inline void insert(SEntry&& entry)
@@ -319,10 +327,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 
 			// can move to .cpp and have it not inline
-			inline asset::ICPUShader* find(const SEntry& mainFile, CIncludeFinder* finder) const
+			inline core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, CIncludeFinder* finder)
 			{
 				auto foundRange = m_container.equal_range(mainFile);
-				for (auto found = foundRange.first; found != foundRange.second; found++)
+				for (auto& found = foundRange.first; found != foundRange.second; found++)
 				{
 					bool allDependenciesMatch = true;
 					// go through all dependencies
@@ -342,14 +350,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							break;
 						}
 					}
-					if (allDependenciesMatch)
-						return nullptr;//found->value;
+					if (allDependenciesMatch) {
+						if (!found->value) { // Load shader if not already loaded
+							// If the Cache has no storageBuffer, then it's fresh new (not picked up from serialization): all compiled shaders should be loaded
+							// If codeByteSize is 0, then the Entry found lives in the Cache but not in the serialization, so the Entry was generated in the current runtime:
+							// This means the shader should be loaded
+							assert(storageBuffer && found->shaderParams.codeByteSize != 0);
+							auto code = core::make_smart_refctd_ptr<ICPUBuffer>(found->shaderParams.codeByteSize);
+							memcpy(code->getPointer(), (uint8_t*)storageBuffer->getPointer() + containerJsonSize + found->shaderParams.offset, found->shaderParams.codeByteSize);
+							found->value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), found->shaderParams.stage, found->shaderParams.contentType, std::move(std::string(found->shaderParams.filepathHint)));
+						}
+						return found->value;
+					}	
 				}
 				return nullptr;
 			}
 
 			// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
-			void serializeEntry(const SEntry& entry) const;
+			std::vector<uint8_t> serialize();
+			static CCache deserialize(std::vector<uint8_t>& serializedCache);
 		private:
 			// we only do lookups based on main file contents + compiler options
 			struct Hash
@@ -372,10 +391,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				}
 				
 			};
+
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
-			system::path m_storagePath;
-			uint64_t lastShaderID;  //TODO: look into UUID generation to avoid this ugly indexation
-			core::smart_refctd_ptr<system::ISystem> m_system;
+			// If provided at creation time, this will hold the json representing entries in m_container + all SPIRV shaders
+			core::smart_refctd_ptr<ICPUBuffer> storageBuffer = nullptr;
+			// Specifies the size in bytes of the container json. This is so we know the offset into the buffer where shader bytecode starts
+			uint64_t containerJsonSize = 0;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const

@@ -12,7 +12,7 @@ namespace nbl::asset {
 
     // SMacroData, simple container used in SPreprocessorData
 
-    void to_json(json& j, const SEntry::SMacroData& macroData)
+    inline void to_json(json& j, const SEntry::SMacroData& macroData)
     {
         j = json{
             { "identifier", macroData.identifier },
@@ -20,7 +20,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, SEntry::SMacroData& macroData)
+    inline void from_json(const json& j, SEntry::SMacroData& macroData)
     {
         j.at("identifier").get_to(macroData.identifier);
         j.at("definition").get_to(macroData.definition);
@@ -28,7 +28,7 @@ namespace nbl::asset {
 
     // SPreprocessorData, holds serialized info for Preprocessor options used during compilation
 
-    void to_json(json& j, const SEntry::SPreprocessorData& preprocData)
+    inline void to_json(json& j, const SEntry::SPreprocessorData& preprocData)
     {
         j = json{
             { "sourceIdentifier", preprocData.sourceIdentifier },
@@ -36,7 +36,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, SEntry::SPreprocessorData& preprocData)
+    inline void from_json(const json& j, SEntry::SPreprocessorData& preprocData)
     {
         j.at("sourceIdentifier").get_to(preprocData.sourceIdentifier);
         j.at("extraDefines").get_to(preprocData.extraDefines);
@@ -44,7 +44,7 @@ namespace nbl::asset {
 
     // Optimizer pass has its own method for easier vector serialization
 
-    void to_json(json& j, const ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
+    inline void to_json(json& j, const ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
     {
         uint32_t value = static_cast<uint32_t>(optPass);
         j = json{
@@ -52,7 +52,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
+    inline void from_json(const json& j, ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
     {
         uint32_t aux;
         j.at("optPass").get_to(aux);
@@ -61,7 +61,7 @@ namespace nbl::asset {
 
     // SCompilerData, holds serialized info for all Compilation options
 
-    void to_json(json& j, const SEntry::SCompilerData& compilerData)
+    inline void to_json(json& j, const SEntry::SCompilerData& compilerData)
     {
         uint32_t shaderStage = static_cast<uint32_t>(compilerData.stage);
         uint32_t spirvVersion = static_cast<uint32_t>(compilerData.targetSpirvVersion);
@@ -76,7 +76,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, SEntry::SCompilerData& compilerData)
+    inline void from_json(const json& j, SEntry::SCompilerData& compilerData)
     {
         uint32_t shaderStage, spirvVersion, debugFlags;
         j.at("shaderStage").get_to(shaderStage);
@@ -92,7 +92,7 @@ namespace nbl::asset {
     // Serialize clock's time point
     using time_point_t = nbl::system::IFileBase::time_point_t;
 
-    void to_json(json& j, const time_point_t& timePoint)
+    inline void to_json(json& j, const time_point_t& timePoint)
     {
         auto ticks = timePoint.time_since_epoch().count();
         j = json{
@@ -100,34 +100,16 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, time_point_t& timePoint)
+    inline void from_json(const json& j, time_point_t& timePoint)
     {
         uint64_t ticks;
         j.at("ticks").get_to(ticks);
         timePoint = time_point_t(time_point_t::clock::duration(ticks));
     }
 
-    // Serialize (most) of SEntry, keeping some fields as extra serialization to keep them separate on disk
+    // SDependency serialization. Dependencies will be saved in a vector for easier vectorization
 
-    void to_json(json& j, const SEntry& entry)
-    {
-        j = json{
-            { "mainFileContents", entry.mainFileContents },
-            { "compilerData", entry.compilerData },
-            { "entryID", entry.entryID },
-        };
-    }
-
-    void from_json(const json& j, SEntry& entry)
-    {
-        j.at("mainFileContents").get_to(entry.mainFileContents);
-        j.at("compilerData").get_to(entry.compilerData);
-        j.at("entryID").get_to(entry.entryID);
-    }
-
-    // Sdependency serialization. Dependencies will be saved in a vector for easier vectorization
-
-    void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
+    inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     {
         // Serializing the write time by hand because compiler wasn't having it otherwise
         auto ticks = dependency.lastWriteTime.time_since_epoch().count();
@@ -141,7 +123,7 @@ namespace nbl::asset {
         };
     }
 
-    void from_json(const json& j, SEntry::SPreprocessingDependency& dependency)
+    inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependency)
     {
         uint64_t ticks;
         j.at("lastWriteTimeTicks").get_to(ticks);
@@ -153,9 +135,31 @@ namespace nbl::asset {
         j.at("standardInclude").get_to(dependency.standardInclude);
     }
 
+    // Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
+
+    inline void to_json(json& j, const SEntry& entry)
+    {
+        j = json{
+            { "mainFileContents", entry.mainFileContents },
+            { "compilerData", entry.compilerData },
+            { "dependencies", entry.dependencies },
+            { "shaderParams", entry.shaderParams },
+        };
+    }
+
+    inline void from_json(const json& j, SEntry& entry)
+    {
+        j.at("mainFileContents").get_to(entry.mainFileContents);
+        j.at("compilerData").get_to(entry.compilerData);
+        j.at("dependencies").get_to(entry.dependencies);
+        j.at("shaderParams").get_to(entry.shaderParams);
+        entry.serialized = true;
+        entry.value = nullptr;
+    }
+
     // We do a bit of a Frankenstein for CPU Shader serialization. We serialize creation parameters into a json, but binary data into a .bin file so it takes up less space
 
-    void to_json(json& j, const IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
+    inline void to_json(json& j, const IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
     {
         uint32_t stage = static_cast<uint32_t>(creationParams.stage);
         uint32_t contentType = static_cast<uint32_t>(creationParams.contentType);
@@ -164,19 +168,22 @@ namespace nbl::asset {
             { "contentType", contentType },
             { "filepathHint", creationParams.filepathHint },
             { "codeByteSize", creationParams.codeByteSize },
+            { "offset", creationParams.offset },
         };
     }
 
-    void from_json(const json& j, IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
+    inline void from_json(const json& j, IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
     {
         uint32_t stage, contentType;
         j.at("stage").get_to(stage);
         j.at("contentType").get_to(contentType);
         j.at("filepathHint").get_to(creationParams.filepathHint);
         j.at("codeByteSize").get_to(creationParams.codeByteSize);
+        j.at("offset").get_to(creationParams.offset);
         creationParams.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
         creationParams.contentType = static_cast<IShader::E_CONTENT_TYPE>(stage);
     }
+
 }
 
 #endif

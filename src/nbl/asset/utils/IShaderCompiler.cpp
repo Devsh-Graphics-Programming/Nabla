@@ -5,6 +5,7 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
+#include "nbl/core/xxHash256.h"
 
 #include <sstream>
 #include <regex>
@@ -107,11 +108,15 @@ IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::I
 // @param includeName: the string within <> of the include preprocessing directive
 auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
+    IShaderCompiler::IIncludeLoader::found_t retVal;
     if (auto contents = tryIncludeGenerators(includeName)) 
-        return contents;
-    if (auto contents = trySearchPaths(includeName)) 
-        return contents;
-    return m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName);
+        retVal = std::move(contents);
+    else if (auto contents = trySearchPaths(includeName)) 
+        retVal = std::move(contents);
+    else retVal = std::move(m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName));
+
+    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    return retVal;
 }
 
 // ! includes within ""
@@ -119,9 +124,12 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 // @param includeName: the string within "" of the include preprocessing directive
 auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
+    IShaderCompiler::IIncludeLoader::found_t retVal;
     if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName))
-        return contents;
-    return trySearchPaths(includeName);
+        retVal = std::move(contents);
+    else retVal = std::move(trySearchPaths(includeName));
+    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    return retVal;
 }
 
 void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader)
@@ -207,7 +215,32 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     return {};
 }
 
-void IShaderCompiler::CCache::serializeEntry(const SEntry& entry) const
+std::vector<uint8_t> IShaderCompiler::CCache::serialize()
 {
-    
+    std::vector<uint8_t> shadersBuffer;
+    // Push back the entries that were already serialized straight into the buffer
+    if (storageBuffer) {
+        shadersBuffer.resize(storageBuffer->getSize() - containerJsonSize);
+        shadersBuffer.insert(shadersBuffer.end(), (uint8_t*)storageBuffer->getPointer() + containerJsonSize, (uint8_t*)storageBuffer->getPointer() + storageBuffer->getSize());
+    }
+    for (auto& entry : m_container) {
+        if (!entry.serialized) {
+            assert(entry.value);
+            entry.shaderParams.offset = shadersBuffer.size();
+            shadersBuffer.reserve(shadersBuffer.size() + entry.shaderParams.codeByteSize);
+            shadersBuffer.insert(shadersBuffer.end(), (uint8_t*)entry.value->getContent()->getPointer(), (uint8_t*)entry.value->getContent()->getPointer() + entry.shaderParams.codeByteSize);
+        }
+    }
+    json containerJson;
+    to_json(containerJson, m_container);
+    std::string dumpedContainerJson = std::move(containerJson.dump());
+    std::vector<uint8_t> retVal(dumpedContainerJson.begin(), dumpedContainerJson.end());
+    retVal.reserve(retVal.size() + shadersBuffer.size());
+    retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
+    return retVal;
+}
+
+CCache nbl::asset::IShaderCompiler::CCache::deserialize(std::vector<uint8_t>& serializedCache)
+{
+    return CCache();
 }
