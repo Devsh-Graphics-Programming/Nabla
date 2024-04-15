@@ -21,9 +21,6 @@ namespace nbl::asset
 class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 {
 	public:
-		//string to be replaced with all "#" except those in "#include"
-		static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_"; // TODO: remove/move to GLSL Compiler
-		static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER; // TODO: remove/move to GLSL Compiler
 
 		class NBL_API2 IIncludeLoader : public core::IReferenceCounted
 		{
@@ -32,7 +29,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
-					std::optional<std::array<uint64_t, 4>> hash = std::nullopt; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					std::array<uint64_t, 4> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
@@ -199,7 +196,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						hash = nbl::core::XXHash_256((uint8_t*)(hashable.data()), hashable.size() * (sizeof(char) / sizeof(uint8_t)));
 					}
 
-
 					SPreprocessingDependency(SPreprocessingDependency&) = delete;
 					SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
 				
@@ -217,20 +213,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// file contents
 					std::string contents = "";
 					// hash of the contents
-					std::optional<std::array<uint64_t, 4>> hash = std::nullopt;
+					std::array<uint64_t, 4> hash = {};
 					// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 					bool standardInclude = false;
 					nbl::system::IFileBase::time_point_t lastWriteTime = {};
 				};
-
-				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
-				using dependency_container_t = std::vector<SPreprocessingDependency>;
-				inline SEntry(std::string_view _mainFileContents, dependency_container_t&& _dependencies) : mainFileContents(std::move(std::string(_mainFileContents))), dependencies(std::move(_dependencies))
-				{
-				}
-
-				inline SEntry(SEntry&&) = default;
-				inline SEntry& operator=(SEntry&&) = default;
 
 				struct SMacroData {
 					std::string identifier;
@@ -302,6 +289,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					SPreprocessorData preprocessorData;
 				};
 
+				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
+				using dependency_container_t = std::vector<SPreprocessingDependency>;
+				inline SEntry(std::string_view _mainFileContents, dependency_container_t&& _dependencies, SCompilerData&& compilerData) : mainFileContents(std::move(std::string(_mainFileContents))), dependencies(std::move(_dependencies))
+				{
+				}
+
+				inline SEntry(SEntry&&) = default;
+				inline SEntry& operator=(SEntry&&) = default;
+
 				// This next bit is a bit of a Frankenstein. We serialize shader creation parameters into a json, while the actual shader code goes in another file
 				struct CPUShaderCreationParams {
 					IShader::E_SHADER_STAGE stage;
@@ -310,10 +306,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					uint64_t codeByteSize;
 				};
 
+				std::string mainFileContents;
 				SCompilerData compilerData;
-				hash_t compilerDataHash;
-				system::path storagePath = "";
-				std::string mainFileContents = {};
+				uint64_t entryID;
 				dependency_container_t dependencies;
 				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 			};
@@ -354,7 +349,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 
 			// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
-
+			void serializeEntry(const SEntry& entry) const;
 		private:
 			// we only do lookups based on main file contents + compiler options
 			struct Hash
@@ -380,6 +375,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
 			system::path m_storagePath;
 			uint64_t lastShaderID;  //TODO: look into UUID generation to avoid this ugly indexation
+			core::smart_refctd_ptr<system::ISystem> m_system;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, core::smart_refctd_ptr<CCache> cache = nullptr) const
@@ -511,18 +507,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				return nullptr;
 			}
 		}
-
-		// TODO: push this crap into CGLSLCompiler, HLSL doesn't use it
-		static std::string escapeFilename(std::string&& code);
-
-		static void disableAllDirectivesExceptIncludes(std::string& _code);
-
-		static void reenableDirectives(std::string& _code);
-
-		static std::string encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier);
-
-		static uint32_t encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions);
-		// end of TODO
 
 		virtual IShader::E_CONTENT_TYPE getCodeContentType() const = 0;
 

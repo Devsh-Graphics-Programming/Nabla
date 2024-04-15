@@ -111,28 +111,18 @@ namespace nbl::asset {
 
     void to_json(json& j, const SEntry& entry)
     {
-        // Serializing the write time by hand because compiler wasn't having it otherwise
-        auto ticks = entry.lastWriteTime.time_since_epoch().count();
         j = json{
-            { "mainFilePath", entry.mainFilePath },
-            { "mainFileHash", entry.mainFileHash },
-            { "lastWriteTimeTicks", ticks },
+            { "mainFileContents", entry.mainFileContents },
             { "compilerData", entry.compilerData },
-            { "compilerDataHash", entry.compilerDataHash },
-            { "storagePath", entry.storagePath },
+            { "entryID", entry.entryID },
         };
     }
 
     void from_json(const json& j, SEntry& entry)
     {
-        uint64_t ticks;
-        j.at("lastWriteTimeTicks").get_to(ticks);
-        entry.lastWriteTime = time_point_t(time_point_t::clock::duration(ticks));
-        j.at("mainFilePath").get_to(entry.mainFilePath);
-        j.at("mainFileHash").get_to(entry.mainFileHash);
+        j.at("mainFileContents").get_to(entry.mainFileContents);
         j.at("compilerData").get_to(entry.compilerData);
-        j.at("compilerDataHash").get_to(entry.compilerDataHash);
-        j.at("storagePath").get_to(entry.storagePath);
+        j.at("entryID").get_to(entry.entryID);
     }
 
     // Sdependency serialization. Dependencies will be saved in a vector for easier vectorization
@@ -145,12 +135,10 @@ namespace nbl::asset {
             { "requestingSourceDir", dependency.requestingSourceDir },
             { "identifier", dependency.identifier },
             { "contents", dependency.contents },
+            { "hash", dependency.hash },
             { "standardInclude", dependency.standardInclude },
             { "lastWriteTimeTicks", ticks },
         };
-        if (dependency.hash.has_value()) {
-            j["hash"] = dependency.hash.value();
-        }
     }
 
     void from_json(const json& j, SEntry::SPreprocessingDependency& dependency)
@@ -161,11 +149,8 @@ namespace nbl::asset {
         j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
         j.at("identifier").get_to(dependency.identifier);
         j.at("contents").get_to(dependency.contents);
+        j.at("hash").get_to(dependency.hash);
         j.at("standardInclude").get_to(dependency.standardInclude);
-        dependency.hash = std::nullopt;
-        if (j.count("hash") != 0) {
-            dependency.hash = j.at("hash").get<std::array<uint64_t, 4>>();
-        }
     }
 
     // We do a bit of a Frankenstein for CPU Shader serialization. We serialize creation parameters into a json, but binary data into a .bin file so it takes up less space

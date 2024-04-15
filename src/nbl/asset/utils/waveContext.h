@@ -14,6 +14,8 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
+#include "nbl/core/xxHash256.h"
+
 
 namespace nbl::wave
 {
@@ -540,11 +542,8 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     // in the found_t should be doable. It's easy for common files but requires a bit more changes for it to work with builtins
     if (ctx.cachingRequested) {
         IShaderCompiler::CCache::SEntry::SPreprocessingDependency dependency(ctx.get_current_directory(), file_path, result.contents);
-        dependency.hash = std::nullopt;
         dependency.standardInclude = standardInclude;
-        if (result.hash.has_value()) {
-            dependency.hash = result.hash.value();
-        }
+        dependency.hash = nbl::core::XXHash_256((uint8_t*)(result.contents.data()), result.contents.size() * (sizeof(char) / sizeof(uint8_t)));
         ctx.dependencies.push_back(std::move(dependency));
         ctx.dependenciesAbsolutePaths.push_back(result.absolutePath);
     }

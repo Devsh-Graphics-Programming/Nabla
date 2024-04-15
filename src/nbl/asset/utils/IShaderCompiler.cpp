@@ -4,6 +4,7 @@
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
+#include "nbl/asset/utils/shaderCompiler_serialization.h"
 
 #include <sstream>
 #include <regex>
@@ -11,90 +12,6 @@
 
 using namespace nbl;
 using namespace nbl::asset;
-
-std::string IShaderCompiler::escapeFilename(std::string&& code)
-{
-    std::string dest;
-    dest.reserve(code.size() * 2);
-    for (char c : code)
-    {
-        if (c == '\\')
-            dest.append("\\" "\\");
-        else 
-            dest.push_back(c);
-    }
-    return dest;
-}
-
-//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
-void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
-{
-    // TODO: replace this with a proper-ish proprocessor and includer one day
-    std::regex directive("#(?!(( |\t|\r|\v|\f)*(include|version|pragma shader_stage)))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
-    //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-    _code = std::regex_replace(_code, directive, IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
-}
-
-void IShaderCompiler::reenableDirectives(std::string& _code)
-{
-    std::regex directive(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER);
-    _code = std::regex_replace(_code, directive, "#");
-}
-
-std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier)
-{
-    assert(_maxInclusions != 0u);
-
-    using namespace std::string_literals;
-    std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
-    std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
-
-    auto genDefs = [&defBase_, _maxInclusions, _identifier] {
-        auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
-        std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
-        for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
-            const std::string defname = defBase(i);
-            defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
-        }
-        defs += "#endif\n";
-        return defs;
-    };
-    auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
-        auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
-        std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
-        for (int32_t i = _maxInclusions - 1; i >= 0; --i) {
-            const std::string defname = defBase(i);
-            undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
-        }
-        undefs += "#endif\n";
-        return undefs;
-    };
-
-    std::string identifier = IShaderCompiler::escapeFilename(_identifier);
-    return
-        genDefs() +
-        "\n"
-        "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
-        "\n" +
-        // This will get turned back into #line after the directives get re-enabled
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
-        _code +
-        "\n"
-        "#endif"
-        "\n\n" +
-        genUndefs();
-}
-
-// Amount of lines before the #line after having run encloseWithinExtraInclGuards
-uint32_t IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions)
-{
-    auto lineDirectiveString = std::string(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER) + "line";
-    std::string str = IShaderCompiler::encloseWithinExtraInclGuards(std::string(""), _maxInclusions, "encloseWithinExtraInclGuardsLeadingLines");
-    size_t lineDirectivePos = str.find(lineDirectiveString);
-    auto substr = str.substr(0, lineDirectivePos - lineDirectiveString.length());
-
-    return std::count(substr.begin(), substr.end(), '\n');
-}
 
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
@@ -288,4 +205,9 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     }
 
     return {};
+}
+
+void IShaderCompiler::CCache::serializeEntry(const SEntry& entry) const
+{
+    
 }
