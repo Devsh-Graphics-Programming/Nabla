@@ -56,6 +56,9 @@ endif()
 
 # boost
 add_subdirectory(boost boost EXCLUDE_FROM_ALL)
+set(NBL_BOOST_LIBRARIES
+	${NBL_BOOST_LIBRARIES}
+PARENT_SCOPE)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})

@@ -600,12 +600,13 @@ target_compile_definitions(Nabla
 )
 
 # Boost
-add_dependencies(Nabla boost_wave)
+
+add_dependencies(Nabla boost)
 target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
 if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE boost_wave)
+	target_link_libraries(Nabla INTERFACE ${NBL_BOOST_LIBRARIES})
 else()
-	target_link_libraries(Nabla PRIVATE boost_wave)
+	target_link_libraries(Nabla PRIVATE ${NBL_BOOST_LIBRARIES})
 endif()
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
