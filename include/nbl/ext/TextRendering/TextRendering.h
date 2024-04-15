@@ -111,12 +111,12 @@ public:
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
-		auto fence = m_device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
+		auto fence = m_device->createSemaphore(0);
+		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::CREATE_FLAGS::NONE);
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-		m_device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
+		commandPool->createCommandBuffers(nbl::video::IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { &commandBuffer, 1 });
 
-		commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		commandBuffer->begin(nbl::video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 
 		std::vector<std::tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>> stringDataTuples;
 		std::vector<uint32_t> stringIndices;
@@ -192,11 +192,12 @@ public:
 			bufreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 			auto mem = m_device->allocate(bufreqs, data.get());
 
-			video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, bufParams.size);
-			m_device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+			video::IDeviceMemoryAllocation::MemoryRange mappedMemoryRange(data->getBoundMemory().offset, bufParams.size);
+			void* mappedPtr = data->getBoundMemory().memory->map(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+			assert(data->getBoundMemory().memory->getMappedPointer() == mappedPtr);
 			
 			memcpy(
-				reinterpret_cast<char*>(data->getBoundMemory()->getMappedPointer()),
+				reinterpret_cast<char*>(data->getBoundMemory().memory->getMappedPointer()),
 				reinterpret_cast<char*>(&glyphData[0]), 
 				bufParams.size
 			);
@@ -205,7 +206,7 @@ public:
 			assert(res);
 			pool_size_t glyphAllocationIx = glyphDataIndices[0];
 
-			asset::SBufferCopy region;
+			video::IGPUCommandBuffer::SBufferCopy region;
 			region.srcOffset = 0;
 			region.dstOffset = glyphAllocationIx * sizeof(uint64_t) + m_geomDataBuffer->getPropertyMemoryBlock(0).offset;
 			region.size = bufParams.size;
@@ -237,7 +238,7 @@ public:
 			auto writeProperty = [&](uint32_t propIx, uint32_t dataSize, const void* pData)
 			{
 				auto& buf = m_stringDataPropertyPool->getPropertyMemoryBlock(propIx);
-				commandBuffer->updateBuffer(buf.buffer.get(), buf.offset + index * dataSize, dataSize, pData);
+				commandBuffer->updateBuffer({ buf.offset + index * dataSize, dataSize, core::smart_refctd_ptr<video::IGPUBuffer>(buf.buffer) }, pData);
 			};
 
 			writeProperty(0, sizeof(pool_size_t), &glyphAllocationIx);
@@ -254,17 +255,19 @@ public:
 
 		commandBuffer->end();
 
-		nbl::video::IGPUQueue::SSubmitInfo submit;
+		nbl::video::IQueue::SSubmitInfo submit;
 		{
-			submit.commandBufferCount = 1u;
-			submit.commandBuffers = &commandBuffer.get();
-			submit.signalSemaphoreCount = 0u;
-			submit.waitSemaphoreCount = 0u;
+			nbl::video::IQueue::SSubmitInfo::SCommandBufferInfo commandBufInfo = { commandBuffer.get()};
+			submit.commandBuffers = { &commandBufInfo, 1 };
 
-			queue->submit(1u, &submit, fence.get());
+			nbl::video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo = { fence.get(), 1u };
+			submit.signalSemaphores = { &signalInfo, 1 };
+
+			queue->submit({ &submit, 1 });
 		}
 
-		m_device->blockForFences(1u, &fence.get());
+		video::ISemaphore::SWaitInfo waitInfos = { fence.get(), 1u };
+		m_device->blockForSemaphores({ &waitInfos, 1 });
 	}
 
 	inline uint32_t allocateStrings(
@@ -276,7 +279,7 @@ public:
 		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
 	)
 	{
-		return allocateStrings(queue, GPUEventWrapper::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
+		return allocateStrings(queue, video::TimelineEventHandlerBase::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
 	}
 
 	void freeStrings(
@@ -292,7 +295,6 @@ public:
 	// layout(set=1, binding=1) Visible string glyph count
 	// layout(set=1, binding=2) Cummulative visible string glyph count
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
-		video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
 		nbl::system::ILogger* logger,
 		nbl::asset::IAssetManager* assetManager,
 		core::smart_refctd_ptr<video::IGPURenderpass> renderpass,

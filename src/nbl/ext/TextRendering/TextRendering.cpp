@@ -96,7 +96,7 @@ asset::IImage::SBufferCopy TextRenderer::copyGlyphShapeToImage(
 	float scaleY = (1.0 / float(shapeBoundsHeight)) * glyphHeight;
 	msdfgen::generateMSDF(msdfMap, shape, 4.0, { scaleX, scaleY }, msdfgen::Vector2(-shapeBounds.l, -shapeBounds.b));
 
-	auto texelBufferPtr = reinterpret_cast<char*>(scratchBuffer->getBoundMemory()->getMappedPointer()) + scratchBufferOffset;
+	auto texelBufferPtr = reinterpret_cast<char*>(scratchBuffer->getBoundMemory().memory->getMappedPointer()) + scratchBufferOffset;
 	for (int y = 0; y < msdfMap.height(); ++y)
 	{
 		for (int x = 0; x < msdfMap.width(); ++x)
@@ -123,7 +123,7 @@ asset::IImage::SBufferCopy TextRenderer::copyGlyphShapeToImage(
 }
 
 // Generates atlas of MSDF textures for each ASCII character
-FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t atlasWidth, uint32_t atlasHeight, uint32_t pixelSizes, uint32_t padding)
+FontAtlas::FontAtlas(video::IQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t atlasWidth, uint32_t atlasHeight, uint32_t pixelSizes, uint32_t padding)
 {
 	auto error = FT_Init_FreeType(&library);
 	assert(!error);
@@ -201,8 +201,9 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 				bufreqs.memoryTypeBits &= device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 				auto mem = device->allocate(bufreqs, data.get());
 
-				video::IDeviceMemoryAllocation::MappedMemoryRange mappedMemoryRange(data->getBoundMemory(), 0u, rowLength * mipH);
-				device->mapMemory(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+				video::IDeviceMemoryAllocation::MemoryRange mappedMemoryRange(data->getBoundMemory().offset, rowLength * mipH);
+				void* mappedPtr = data->getBoundMemory().memory->map(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
+				assert(data->getBoundMemory().memory->getMappedPointer() == mappedPtr);
 
 				// Generate MSDF for the current mip and copy it
 				dataBufferCopyRegions.push_back(TextRenderer::copyGlyphShapeToImage(data.get(), 0, mipW, mipH, shape));
@@ -237,35 +238,33 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		device->allocate(imgreqs, atlasImage.get());
 	}
 
-	auto fence = device->createFence(static_cast<nbl::video::IGPUFence::E_CREATE_FLAGS>(0));
-	auto commandPool = device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::ECF_NONE);
+	auto fence = device->createSemaphore(0u);
+	auto commandPool = device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::CREATE_FLAGS::NONE);
 	nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-	device->createCommandBuffers(commandPool.get(), nbl::video::IGPUCommandBuffer::EL_PRIMARY, 1u, &commandBuffer);
+	commandPool->createCommandBuffers(nbl::video::IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { &commandBuffer, 1 });
 
-	commandBuffer->begin(nbl::video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+	commandBuffer->begin(nbl::video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 
-	video::IGPUCommandBuffer::SImageMemoryBarrier layoutTransBarrier;
-	layoutTransBarrier.srcQueueFamilyIndex = ~0u;
-	layoutTransBarrier.dstQueueFamilyIndex = ~0u;
+	video::IGPUCommandBuffer::SImageMemoryBarrier<video::IGPUCommandBuffer::SOwnershipTransferBarrier> layoutTransBarrier;
 	layoutTransBarrier.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 	layoutTransBarrier.subresourceRange.baseMipLevel = 0u;
 	layoutTransBarrier.subresourceRange.levelCount = 1u;
 	layoutTransBarrier.subresourceRange.baseArrayLayer = 0u;
 	layoutTransBarrier.subresourceRange.layerCount = 1u;
 
-	layoutTransBarrier.barrier.srcAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
-	layoutTransBarrier.barrier.dstAccessMask = asset::EAF_TRANSFER_WRITE_BIT;
-	layoutTransBarrier.oldLayout = asset::IImage::EL_UNDEFINED;
-	layoutTransBarrier.newLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-	layoutTransBarrier.image = atlasImage;
+	layoutTransBarrier.barrier.dep.srcAccessMask = static_cast<asset::ACCESS_FLAGS>(0);
+	layoutTransBarrier.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::TRANSFER_WRITE_BIT;
+	layoutTransBarrier.oldLayout = asset::IImage::LAYOUT::UNDEFINED;
+	layoutTransBarrier.newLayout = asset::IImage::LAYOUT::TRANSFER_DST_OPTIMAL;
+	layoutTransBarrier.image = atlasImage.get();
 
+	video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo barrierInfo;
+	{
+		barrierInfo.imgBarriers = { &layoutTransBarrier, 1 };
+	}
 	commandBuffer->pipelineBarrier(
-		asset::EPSF_TOP_OF_PIPE_BIT,
-		asset::EPSF_TRANSFER_BIT,
 		static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-		0u, nullptr,
-		0u, nullptr,
-		1u, &layoutTransBarrier);
+		barrierInfo);
 
 	for (uint32_t i = 0; i < dataBuffers.size(); i ++)
 	{
@@ -279,36 +278,34 @@ FontAtlas::FontAtlas(IGPUQueue* queue, ILogicalDevice* device, const std::string
 		characterAtlasPosition[getCharacterAtlasPositionIx(k)].mips[mip].position = { uint16_t(rect.x), uint16_t(rect.y) };
 
 		region.imageOffset = { rect.x + padding, rect.y + padding, 0u };
-		commandBuffer->copyBufferToImage(buf.get(), atlasImage.get(), asset::IImage::EL_TRANSFER_DST_OPTIMAL, 1, &region);
+		commandBuffer->copyBufferToImage(buf.get(), atlasImage.get(), asset::IImage::LAYOUT::TRANSFER_DST_OPTIMAL, 1, &region);
 	}
 
-	layoutTransBarrier.barrier.srcAccessMask = asset::EAF_TRANSFER_READ_BIT;
-	layoutTransBarrier.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(0);
-	layoutTransBarrier.oldLayout = asset::IImage::EL_TRANSFER_DST_OPTIMAL;
-	layoutTransBarrier.newLayout = asset::IImage::EL_GENERAL;
-	layoutTransBarrier.image = atlasImage;
+	layoutTransBarrier.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::TRANSFER_READ_BIT;
+	layoutTransBarrier.barrier.dep.dstAccessMask = static_cast<asset::ACCESS_FLAGS>(0);
+	layoutTransBarrier.oldLayout = asset::IImage::LAYOUT::TRANSFER_DST_OPTIMAL;
+	layoutTransBarrier.newLayout = asset::IImage::LAYOUT::GENERAL;
+	layoutTransBarrier.image = atlasImage.get();
 
 	commandBuffer->pipelineBarrier(
-		asset::EPSF_TRANSFER_BIT,
-		asset::EPSF_BOTTOM_OF_PIPE_BIT,
 		static_cast<asset::E_DEPENDENCY_FLAGS>(0u),
-		0u, nullptr,
-		0u, nullptr,
-		1u, &layoutTransBarrier);
+		barrierInfo);
 
 	commandBuffer->end();
 
-	nbl::video::IGPUQueue::SSubmitInfo submit;
+	nbl::video::IQueue::SSubmitInfo submit;
 	{
-		submit.commandBufferCount = 1u;
-		submit.commandBuffers = &commandBuffer.get();
-		submit.signalSemaphoreCount = 0u;
-		submit.waitSemaphoreCount = 0u;
+		nbl::video::IQueue::SSubmitInfo::SCommandBufferInfo commandBufInfo = { commandBuffer.get()};
+		submit.commandBuffers = { &commandBufInfo, 1 };
 
-		queue->submit(1u, &submit, fence.get());
+		nbl::video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo = { fence.get(), 1u };
+		submit.signalSemaphores = { &signalInfo, 1 };
+
+		queue->submit({ &submit, 1 });
 	}
 
-	device->blockForFences(1u, &fence.get());
+	video::ISemaphore::SWaitInfo waitInfos = { fence.get(), 1u };
+	device->blockForSemaphores({ &waitInfos, 1 });
 }
 
 TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString):
@@ -345,7 +342,7 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 			bindings[1].samplers = nullptr;
 		}
 		m_globalStringDSLayout =
-			m_device->createDescriptorSetLayout(bindings, bindings + bindingCount);
+			m_device->createDescriptorSetLayout(bindings);
 
 		video::IDescriptorPool::SCreateInfo poolCreateInfo = {};
 		poolCreateInfo.flags = 
@@ -364,7 +361,7 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 		video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
 		{
-			descriptorInfos[0].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[0].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 			descriptorInfos[0].info.image.sampler = nullptr;
 			// TODO take offset into account?
 			descriptorInfos[0].desc = m_geomDataBuffer->getPropertyMemoryBlock(0).buffer;
@@ -373,12 +370,11 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 			writeDescriptorSets[0].binding = 0u;
 			writeDescriptorSets[0].arrayElement = 0u;
 			writeDescriptorSets[0].count = 1u;
-			writeDescriptorSets[0].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			writeDescriptorSets[0].info = &descriptorInfos[0];
 		}
 
 		{
-			descriptorInfos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			descriptorInfos[1].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 			descriptorInfos[1].info.image.sampler = nullptr;
 			descriptorInfos[1].desc = m_glyphIndexBuffer;
 
@@ -386,7 +382,6 @@ TextRenderer::TextRenderer(FontAtlas* fontAtlas, core::smart_refctd_ptr<ILogical
 			writeDescriptorSets[1].binding = 1u;
 			writeDescriptorSets[1].arrayElement = 0u;
 			writeDescriptorSets[1].count = 1u;
-			writeDescriptorSets[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 			writeDescriptorSets[1].info = &descriptorInfos[1];
 		}
 
@@ -408,7 +403,7 @@ void TextRenderer::updateVisibleStringDS(
 	video::IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSets[writeDescriptorCount] = {};
 
 	{
-		descriptorInfos[0].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[0].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 		descriptorInfos[0].info.image.sampler = nullptr;
 		descriptorInfos[0].desc = visibleStringMvps;
 
@@ -416,12 +411,11 @@ void TextRenderer::updateVisibleStringDS(
 		writeDescriptorSets[0].binding = 0u;
 		writeDescriptorSets[0].arrayElement = 0u;
 		writeDescriptorSets[0].count = 1u;
-		writeDescriptorSets[0].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[0].info = &descriptorInfos[0];
 	}
 
 	{
-		descriptorInfos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[1].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 		descriptorInfos[1].info.image.sampler = nullptr;
 		descriptorInfos[1].desc = visibleStringGlyphOffsets;
 
@@ -429,12 +423,11 @@ void TextRenderer::updateVisibleStringDS(
 		writeDescriptorSets[1].binding = 1u;
 		writeDescriptorSets[1].arrayElement = 0u;
 		writeDescriptorSets[1].count = 1u;
-		writeDescriptorSets[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[1].info = &descriptorInfos[1];
 	}
 
 	{
-		descriptorInfos[2].info.image.imageLayout = asset::IImage::EL_GENERAL;
+		descriptorInfos[2].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
 		descriptorInfos[2].info.image.sampler = nullptr;
 		descriptorInfos[2].desc = cumulativeGlyphCount;
 
@@ -442,7 +435,6 @@ void TextRenderer::updateVisibleStringDS(
 		writeDescriptorSets[2].binding = 2u;
 		writeDescriptorSets[2].arrayElement = 0u;
 		writeDescriptorSets[2].count = 1u;
-		writeDescriptorSets[2].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 		writeDescriptorSets[2].info = &descriptorInfos[2];
 	}
 
@@ -451,72 +443,72 @@ void TextRenderer::updateVisibleStringDS(
 
 
 core::smart_refctd_ptr<video::IGPUGraphicsPipeline> TextRenderer::createPipeline(
-	video::IGPUObjectFromAssetConverter::SParams& cpu2gpuParams,
 	nbl::system::ILogger* logger,
 	nbl::asset::IAssetManager* assetManager,
 	core::smart_refctd_ptr<video::IGPURenderpass> renderpass,
 	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
 )
 {
-	auto loadShader = [&](const char* pathToShader)
+	auto loadShader = [&](const char* pathToShader, const video::IGPUShader::E_SHADER_STAGE stage)
 	{
-		core::smart_refctd_ptr<video::IGPUSpecializedShader> specializedShader = nullptr;
-		{
-			video::IGPUObjectFromAssetConverter cpu2gpu;
-			asset::IAssetLoader::SAssetLoadParams params = {};
-			params.logger = logger;
-			auto spec = (assetManager->getAsset(pathToShader, params).getContents());
-			auto specShader_cpu = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*assetManager->getAsset(pathToShader, params).getContents().begin());
-			specializedShader = cpu2gpu.getGPUObjectsFromAssets(&specShader_cpu, &specShader_cpu + 1, cpu2gpuParams)->front();
-		}
-		assert(specializedShader);
+		video::IGPUShader::SSpecInfo shaderInfo;
 
-		return specializedShader;
+		{
+			IAssetLoader::SAssetLoadParams lp = {};
+			lp.logger = logger;
+			lp.workingDirectory = ""; // virtual root
+			auto assetBundle = assetManager->getAsset(pathToShader,lp);
+			const auto assets = assetBundle.getContents();
+			assert(!assets.empty());
+
+			// lets go straight from ICPUSpecializedShader to IGPUSpecializedShader
+			auto cpuShader = IAsset::castDown<ICPUShader>(assets[0]);
+			cpuShader->setShaderStage(stage);
+			assert(cpuShader);
+
+			auto shader = m_device->createShader(cpuShader.get());
+			assert(shader);
+			shaderInfo.shader = shader.get();
+		}
+
+		return shaderInfo;
 	};
 
-	auto pipelineLayout = m_device->createPipelineLayout(nullptr, nullptr, std::move(m_globalStringDSLayout), std::move(visibleStringLayout));
-
-	asset::SVertexInputParams inputParams;
-	inputParams.enabledAttribFlags = 0;
-	inputParams.enabledBindingFlags = 0;
-
-	asset::SPrimitiveAssemblyParams assemblyParams;
-	assemblyParams.primitiveRestartEnable = false;
-	assemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
-	assemblyParams.tessPatchVertCount = 3u;
-
-	asset::SBlendParams blendParams;
-	blendParams.logicOpEnable = false;
-	blendParams.logicOp = nbl::asset::ELO_NO_OP;
-
-	asset::SRasterizationParams rasterParams;
-	rasterParams.depthCompareOp = nbl::asset::ECO_ALWAYS;
-	rasterParams.minSampleShading = 1.f;
-	rasterParams.depthWriteEnable = false;
-	rasterParams.depthTestEnable = false;
-	rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
-
-	auto vs = loadShader("text.vert");
-	auto fs = loadShader("text.frag");
-	video::IGPUSpecializedShader* shaders[2] = { vs.get(), fs.get() };
-
-	auto gpuRenderpassIndependentPipeline = m_device->createRenderpassIndependentPipeline
-	(
-		nullptr,
-		std::move(pipelineLayout),
-		shaders,
-		shaders + 2,
-		inputParams,
-		blendParams,
-		assemblyParams,
-		rasterParams
+	auto pipelineLayout = m_device->createPipelineLayout(
+		std::span<const asset::SPushConstantRange>{},
+		std::move(m_globalStringDSLayout), 
+		std::move(visibleStringLayout)
 	);
 
-	video::IGPUGraphicsPipeline::SCreationParams pipelineCreationParams;
-	pipelineCreationParams.renderpassIndependent = gpuRenderpassIndependentPipeline;
-	pipelineCreationParams.renderpass = renderpass;
+	asset::SVertexInputParams inputParams = {};
+	asset::SPrimitiveAssemblyParams assemblyParams = {};
+	asset::SBlendParams blendParams = {};
+	asset::SRasterizationParams rasterParams = {};
+	rasterParams.depthCompareOp = nbl::asset::ECO_ALWAYS;
+	rasterParams.depthWriteEnable = false;
+	rasterParams.depthBoundsTestEnable = false;
+	rasterParams.faceCullingMode = nbl::asset::EFCM_NONE;
 
-	return m_device->createGraphicsPipeline(nullptr, std::move(pipelineCreationParams));
+	auto vs = loadShader("text.vert", video::IGPUShader::E_SHADER_STAGE::ESS_VERTEX);
+	auto fs = loadShader("text.frag", video::IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
+	video::IGPUShader::SSpecInfo shaders[2] = { vs, fs };
+
+	video::IGPUGraphicsPipeline::SCreationParams pipelineCreationParams;
+	pipelineCreationParams.cached = {
+		inputParams,
+		assemblyParams,
+		rasterParams,
+		blendParams,
+		0u
+	};
+	pipelineCreationParams.shaders = shaders;
+	pipelineCreationParams.renderpass = renderpass.get();
+
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
+	m_device->createGraphicsPipelines(nullptr, { &pipelineCreationParams, 1 }, & pipeline);
+	assert(pipeline);
+
+	return pipeline;
 }
 
 void TextRenderer::drawText(
@@ -528,7 +520,7 @@ void TextRenderer::drawText(
 {
 	video::IGPUDescriptorSet* ds[2] = { m_globalStringDS.get(), visibleStringDS };
 	cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS, pipelineLayout, 0, 2, &ds[0]);
-	cmdbuf->drawIndirect(indirectDrawArgs, 0, 1, sizeof(uint32_t) * 4);
+	cmdbuf->drawIndirect({ 0u, core::smart_refctd_ptr<video::IGPUBuffer>(indirectDrawArgs) }, 1, sizeof(uint32_t) * 4);
 }
 
 void TextRenderer::drawTextIndexed(
@@ -538,10 +530,10 @@ void TextRenderer::drawTextIndexed(
 	video::IGPUPipelineLayout* pipelineLayout
 )
 {
-	cmdbuf->bindIndexBuffer(m_glyphIndexBuffer.get(), 0, asset::EIT_32BIT);
+	cmdbuf->bindIndexBuffer({ 0u, core::smart_refctd_ptr<video::IGPUBuffer>(indirectDrawArgs) }, asset::EIT_32BIT);
 	video::IGPUDescriptorSet* ds[2] = { m_globalStringDS.get(), visibleStringDS };
 	cmdbuf->bindDescriptorSets(asset::EPBP_GRAPHICS, pipelineLayout, 0, 2, &ds[0]);
-	cmdbuf->drawIndexedIndirect(indirectDrawArgs, 0, 1, sizeof(uint32_t) * 5);
+	cmdbuf->drawIndexedIndirect({ 0u, core::smart_refctd_ptr<video::IGPUBuffer>(indirectDrawArgs) }, 1, sizeof(uint32_t) * 4);
 }
 
 }
