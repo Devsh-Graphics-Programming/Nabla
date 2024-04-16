@@ -135,28 +135,6 @@ namespace nbl::asset {
         j.at("standardInclude").get_to(dependency.standardInclude);
     }
 
-    // Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
-
-    inline void to_json(json& j, const SEntry& entry)
-    {
-        j = json{
-            { "mainFileContents", entry.mainFileContents },
-            { "compilerData", entry.compilerData },
-            { "dependencies", entry.dependencies },
-            { "shaderParams", entry.shaderParams },
-        };
-    }
-
-    inline void from_json(const json& j, SEntry& entry)
-    {
-        j.at("mainFileContents").get_to(entry.mainFileContents);
-        j.at("compilerData").get_to(entry.compilerData);
-        j.at("dependencies").get_to(entry.dependencies);
-        j.at("shaderParams").get_to(entry.shaderParams);
-        entry.serialized = true;
-        entry.value = nullptr;
-    }
-
     // We do a bit of a Frankenstein for CPU Shader serialization. We serialize creation parameters into a json, but binary data into a .bin file so it takes up less space
 
     inline void to_json(json& j, const IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
@@ -182,6 +160,39 @@ namespace nbl::asset {
         j.at("offset").get_to(creationParams.offset);
         creationParams.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
         creationParams.contentType = static_cast<IShader::E_CONTENT_TYPE>(stage);
+    }
+
+    // Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
+
+    inline void to_json(json& j, const SEntry& entry)
+    {
+        j = json{
+            { "mainFileContents", entry.mainFileContents },
+            { "compilerData", entry.compilerData },
+            { "dependencies", entry.dependencies },
+            { "shaderParams", entry.shaderParams },
+        };
+    }
+
+    inline void from_json(const json& j, SEntry& entry)
+    {
+        j.at("mainFileContents").get_to(entry.mainFileContents);
+        j.at("compilerData").get_to(entry.compilerData);
+        j.at("dependencies").get_to(entry.dependencies);
+        j.at("shaderParams").get_to(entry.shaderParams);
+        entry.serialized = true;
+        entry.value = nullptr;
+    }
+
+    // Serialization for the multiset is immediate since it's iterable. Deserialization has to be done by hand
+    template<typename H, typename KE>
+    void from_json(const json& j, core::unordered_multiset<SEntry, H, KE>& multiset)
+    {
+        std::vector<SEntry> aux;
+        from_json(j, aux);
+        for (auto& entry : aux) {
+            multiset.insert(std::move(entry));
+        }
     }
 
 }

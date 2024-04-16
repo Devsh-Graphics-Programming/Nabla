@@ -220,8 +220,8 @@ std::vector<uint8_t> IShaderCompiler::CCache::serialize()
     std::vector<uint8_t> shadersBuffer;
     // Push back the entries that were already serialized straight into the buffer
     if (storageBuffer) {
-        shadersBuffer.resize(storageBuffer->getSize() - containerJsonSize);
-        shadersBuffer.insert(shadersBuffer.end(), (uint8_t*)storageBuffer->getPointer() + containerJsonSize, (uint8_t*)storageBuffer->getPointer() + storageBuffer->getSize());
+        shadersBuffer.resize(storageBuffer->getSize() - containerJsonSize - CONTAINER_JSON_SIZE_BYTES);
+        shadersBuffer.insert(shadersBuffer.end(), (uint8_t*)storageBuffer->getPointer() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize, (uint8_t*)storageBuffer->getPointer() + storageBuffer->getSize());
     }
     for (auto& entry : m_container) {
         if (!entry.serialized) {
@@ -234,13 +234,37 @@ std::vector<uint8_t> IShaderCompiler::CCache::serialize()
     json containerJson;
     to_json(containerJson, m_container);
     std::string dumpedContainerJson = std::move(containerJson.dump());
-    std::vector<uint8_t> retVal(dumpedContainerJson.begin(), dumpedContainerJson.end());
-    retVal.reserve(retVal.size() + shadersBuffer.size());
+    uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
+    // first 8 entries are the size of the json, stored byte by byte
+    std::vector<uint8_t> retVal;
+    retVal.reserve(CONTAINER_JSON_SIZE_BYTES + dumpedContainerJsonLength + shadersBuffer.size());
+    for (size_t i = 0; i < CONTAINER_JSON_SIZE_BYTES; i++) {
+        uint8_t byte = static_cast<uint8_t>((dumpedContainerJsonLength >> (8 * (CONTAINER_JSON_SIZE_BYTES - i - 1))) & 0xFF);
+        retVal.push_back(byte);
+    }
+    retVal.insert(retVal.end(), std::make_move_iterator(dumpedContainerJson.begin()), std::make_move_iterator(dumpedContainerJson.end()));
     retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
     return retVal;
 }
 
-CCache nbl::asset::IShaderCompiler::CCache::deserialize(std::vector<uint8_t>& serializedCache)
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(core::smart_refctd_ptr<ICPUBuffer> serializedCache)
 {
-    return CCache();
+    auto retVal = core::make_smart_refctd_ptr<CCache>();
+    retVal->storageBuffer = std::move(serializedCache);
+    // First get the size of the json in the buffer
+    uint64_t* bufferStart = (uint64_t*)retVal->storageBuffer->getPointer();
+    retVal->containerJsonSize = bufferStart[0];
+    uint8_t* containerJsonStart = (uint8_t*)(bufferStart + 1);
+    std::string containerJsonString(containerJsonStart, containerJsonStart + retVal->containerJsonSize);
+    json containerJson = json::parse(containerJsonString);
+    from_json(containerJson, retVal->m_container);
+    
+    return retVal;
+}
+
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(std::span<uint8_t> serializedCache)
+{
+    auto cacheBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(serializedCache.size());
+    memcpy(cacheBuffer->getPointer(), serializedCache.data(), serializedCache.size());
+    return IShaderCompiler::CCache::deserialize(cacheBuffer);
 }

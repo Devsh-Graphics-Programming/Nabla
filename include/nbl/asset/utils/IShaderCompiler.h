@@ -15,6 +15,9 @@
 
 #include "nbl/core/xxHash256.h"
 
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
 namespace nbl::asset
 {
 
@@ -176,6 +179,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 		public:
 			using hash_t = std::array<uint64_t, 4>;
+			static auto const CONTAINER_JSON_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
 			struct SEntry
 			{
@@ -298,6 +302,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 				}
 
+				// Needed to get the vector deserialization automatically
+				SEntry() {}
 				inline SEntry(SEntry&&) = default;
 				inline SEntry& operator=(SEntry&&) = default;
 
@@ -357,7 +363,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							// This means the shader should be loaded
 							assert(storageBuffer && found->shaderParams.codeByteSize != 0);
 							auto code = core::make_smart_refctd_ptr<ICPUBuffer>(found->shaderParams.codeByteSize);
-							memcpy(code->getPointer(), (uint8_t*)storageBuffer->getPointer() + containerJsonSize + found->shaderParams.offset, found->shaderParams.codeByteSize);
+							memcpy(code->getPointer(), (uint8_t*)storageBuffer->getPointer() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize + found->shaderParams.offset, found->shaderParams.codeByteSize);
 							found->value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), found->shaderParams.stage, found->shaderParams.contentType, std::move(std::string(found->shaderParams.filepathHint)));
 						}
 						return found->value;
@@ -366,9 +372,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				return nullptr;
 			}
 
+			CCache() {}
+
 			// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
 			std::vector<uint8_t> serialize();
-			static CCache deserialize(std::vector<uint8_t>& serializedCache);
+			static core::smart_refctd_ptr<CCache> deserialize(core::smart_refctd_ptr<ICPUBuffer> serializedCache);
+			static core::smart_refctd_ptr<CCache> deserialize(std::span<uint8_t> serializedCache);
+
 		private:
 			// we only do lookups based on main file contents + compiler options
 			struct Hash
@@ -391,6 +401,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				}
 				
 			};
+
+			
+
+			// json serialization methods for the unordered multiset go here since I need access to Hash and KeyEquals 
 
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
 			// If provided at creation time, this will hold the json representing entries in m_container + all SPIRV shaders
