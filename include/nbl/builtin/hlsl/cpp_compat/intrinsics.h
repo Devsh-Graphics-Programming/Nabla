@@ -92,6 +92,9 @@ inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forw
 
 NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::isnan, isnan);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::isinf, isinf);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::exp2, exp2);
 
 template<typename T>
 inline T rsqrt(T x)

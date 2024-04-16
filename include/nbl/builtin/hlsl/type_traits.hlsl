@@ -582,6 +582,10 @@ using make_unsigned = std::make_unsigned<T>;
 
 #endif
 
+// Template Variables
+template<typename A, typename B>
+NBL_CONSTEXPR bool is_same_v = is_same<A,B>::value;
+
 // Overlapping definitions
 template<bool C, typename T, T A, T B>
 struct conditional_value

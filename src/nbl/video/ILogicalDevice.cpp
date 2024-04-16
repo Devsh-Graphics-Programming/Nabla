@@ -104,7 +104,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     }
 
     if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL):nullptr)
-        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit",core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(),m_physicalDevice->getFeatures()));
+        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit",core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(),m_enabledFeatures));
 }
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
@@ -680,6 +680,8 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
 
         const auto& rasterParams = ci.cached.rasterization;
+        if (rasterParams.alphaToOneEnable && !features.alphaToOne)
+            return false;
         if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
             return false;
 

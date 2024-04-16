@@ -49,7 +49,7 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 
 		inline IGPURenderpass* getRenderpass() {return m_renderpass.get();}
 
-		inline IGPUFramebuffer* getFrambuffer(const uint8_t imageIx)
+		inline IGPUFramebuffer* getFramebuffer(const uint8_t imageIx)
 		{
 			if (imageIx<m_framebuffers.size())
 				return m_framebuffers[imageIx].get();
