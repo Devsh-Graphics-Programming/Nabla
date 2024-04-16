@@ -452,9 +452,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 					return std::get<core::vector<SOutputInterface>>(m_output);
 				}
-				inline const SPushConstantInfo<>& getPushConstants() { return m_pushConstants; }
-
 				inline const auto& getPushConstants() const {return m_pushConstants;}
+				inline const auto& getSpecConstants() const {return m_specConstants;}
 
 				/*inline bool canSpecializationlesslyCreateDescSetFrom() const
 				{
@@ -601,7 +600,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						return lhs.binding==rhs.binding;
 					}
 				};
-				core::unordered_set<SDescriptorInfo,Hash,KeyEqual> m_descriptorSetBindings[4];
+				using DescriptorSetBindings = core::unordered_set<SDescriptorInfo, Hash, KeyEqual>;
+				DescriptorSetBindings m_descriptorSetBindings[4];
 				std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> m_highestBindingNumbers;
 		};
 

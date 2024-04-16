@@ -113,16 +113,29 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
+        // Here i need to verify if last binding is runtime sized
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
         for (const auto& stageIntroBindingInfo : introBindingInfos)
+            // wrong!
             highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
     }
 
+    stageData->getSpecConstants();
+
     // validate if descriptors are compatible
+    DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         std::ostringstream debug;
         debug << "ds ID: " << i << std::endl;
+
+        auto multiplyArrayDimensions = [](uint32_t val, const SArrayInfo& arrInfo)
+            {
+                if (arrInfo.value == 0)
+                    return val;
+
+                return val * arrInfo.value;
+            };
 
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
         for (const auto& stageIntroBindingInfo : introBindingInfos)
@@ -131,19 +144,17 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
             descInfo.binding = stageIntroBindingInfo.binding;
             descInfo.type = stageIntroBindingInfo.type;
             descInfo.stageMask = stageData->m_shaderStage;
-            // TODO:
-            auto asdf = stageIntroBindingInfo.count;
             if (stageIntroBindingInfo.isArray())
             {
                 if (stageIntroBindingInfo.isRunTimeSized())
                 {
                     descInfo.count = 0u;
-                    descInfo.stride = 1u;
+                    descInfo.stride = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
                 }
                 else
                 {
-                    auto multiply = [](uint32_t val, const SArrayInfo& arrInfo) {return val * arrInfo.value;};
-                    descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiply);
+                    descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
+                    descInfo.stride = descInfo.count;
                 }
             }
             else
@@ -152,10 +163,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 descInfo.stride = 0u;
             }
 
-            //if (descInfo.type == IDescriptor::E_TYPE::ET_STORAGE_BUFFER)
-            //    descInfo.stride = stageIntroBindingInfo.storageBuffer.getRuntimeSize(descInfo.count);
-            //if(descInfo.type == IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)
-
+            // VALIDATION
             if (descInfo.isRuntimeSized())
             {
                 if (stageIntroBindingInfo.count.front().isRuntimeSized() && stageIntroBindingInfo.binding < highestBindingsTmp[i])
@@ -165,35 +173,25 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
             const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
             if (pplnIntroDataFoundBinding != m_descriptorSetBindings[i].end())
             {
-                // validate descriptr bindings
-                if (pplnIntroDataFoundBinding->type == stageIntroBindingInfo.type)
+                if (pplnIntroDataFoundBinding->type != stageIntroBindingInfo.type)
                     return false;
-                // TODO: better count validation
-                if (pplnIntroDataFoundBinding->count == stageIntroBindingInfo.count[0].value)
+                if (pplnIntroDataFoundBinding->count != descInfo.count)
                     return false;
-                // TODO: stride?
+                if (pplnIntroDataFoundBinding->stride != descInfo.stride)
+                    return false;
             }
 
             debug << "binding ID: " << descInfo.binding << "type: " << static_cast<uint32_t>(descInfo.type) << std::endl;
-        }
 
+            descriptorsToMerge[i].insert(descInfo);
+        }
         std::cout << debug.str() << std::endl;
     }
+
+    // validation successfull, update `CPipelineIntrospectionData` contents
     m_highestBindingNumbers = highestBindingsTmp;
-
-    // insert all bindings
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-    {
-        const auto& bindingInfos = stageData->getDescriptorSetInfo(i);
-        for (const auto& bindingInfo : bindingInfos)
-        {
-            CPipelineIntrospectionData::SDescriptorInfo descInfo;
-            descInfo.binding = bindingInfo.binding;
-            descInfo.type = bindingInfo.type;
-
-            m_descriptorSetBindings->insert(std::move(descInfo));
-        }
-    }
+        m_descriptorSetBindings[i].merge(descriptorsToMerge[i]);
 
     // TODO: possible push constants validation
     // can only be success now
