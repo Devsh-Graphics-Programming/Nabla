@@ -176,29 +176,14 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
                     // can be reverted back to do nothing if the TODO about adjusting max-value while flattening gets done
                     res->intensity *= maxIntesity/(maxIntesity+(meta->profile.getAvgEmmision(fullDomain)-maxIntesity)*flatten);
                 } break;
-// positive flatten
-/// Integral = (1-f) * OrigInt + f * Target * ImpliedDomainSize
-/// Integral = (1-f) * OrigInt + f * OrigInt/ImpliedDomainSize * ImpliedDomainSize
-    /// Integral = (1-f) * OrigInt + f * OrigInt/ImpliedDomainSize * ImpliedDomainSize
-    /// Average = (1-f) * OrigInt/FullDomainSize + f * OrigInt/ImpliedDomainSize
-    /// Average = (1-f) * FullAverage + f * ImpliedAverage  ---> 
-/// Integral = (1-f) * OrigInt + f * OrigInt
-    /// Average = (1-f) * OrigInt/ChosenDomain + f * OrigInt/ChosenDomain
-    /// Average = (1-f) * ImpliedAverage + f * ImpliedAverage
-// negative flatten
-/// Integral = (1-f) * OrigInt + f * Target * FullDomainSize
-/// Integral = (1-f) * OrigInt + f * OrigInt/FullDomainSize * FullDomainSize
-    /// Integral = (1-f) * OrigInt + f * OrigInt/FullDomainSize * FullDomainSize
-/// Integral = (1-f) * OrigInt + f * OrigInt
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
                 {
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(false);
+                    // because negative flatten (`!fullDomain`) expands the domain so implied==full
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(fullDomain);
                 } break;
-/// Integral = (1-f) * OrigInt + f * Target * DomainSize
-/// Integral = (1-f) * OrigInt + f * OrigInt/DomainSizeA * DomainSizeN
-/// Average = Integral / DomainSize
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
                 {
+                    // flatten does not affect the average over the full domain
                     res->intensity *= maxIntesity / meta->profile.getAvgEmmision(true);
                 } break;
                 default:
