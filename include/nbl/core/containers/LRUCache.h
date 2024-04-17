@@ -110,30 +110,6 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			return success ? (*iterator):invalid_iterator;
 		}
 
-		template<typename K,typename V>
-		inline void common_insert(K&& k, V&& v)
-		{
-			bool success;
-			shortcut_iterator_t iterator = common_find(k,success);
-			if (success)
-			{
-				const auto nodeAddr = *iterator;
-				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
-				base_t::m_list.moveToFront(nodeAddr);
-			}
-			else
-			{
-				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
-				if (overflow)
-				{
-					m_shortcut_map.erase(base_t::m_list.getLastAddress());
-					base_t::m_list.popBack();
-				}
-				base_t::m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
-				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
-			}
-		}
-
 	public:
 		using disposal_func_t = typename base_t::disposal_func_t;
 		using assoc_t = typename base_t::list_value_t;
@@ -162,11 +138,41 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			}
 		}
 
-		//insert an element into the cache, or update an existing one with the same key
-		inline void insert(Key&& k, Value&& v) { common_insert(std::move(k), std::move(v)); }
-		inline void insert(Key&& k, const Value& v) { common_insert(std::move(k), v); }
-		inline void insert(const Key& k, Value&& v) { common_insert(k, std::move(v)); }
-		inline void insert(const Key& k, const Value& v) { common_insert(k, v); }
+		template<typename V, std::invocable<const Value&> EvictionCallback> requires std::is_assignable_v<Value,V> && std::is_constructible_v<Value,V>
+		inline Value* insert(Key&& k, V&& v, EvictionCallback&& evictCallback)
+		{
+			bool success;
+			shortcut_iterator_t iterator = common_find(k,success);
+			if (success)
+			{
+				const auto nodeAddr = *iterator;
+				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
+				base_t::m_list.moveToFront(nodeAddr);
+			}
+			else
+			{
+				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
+				if (overflow)
+				{
+					evictCallback(base_t::m_list.getBack()->data.second);
+					m_shortcut_map.erase(base_t::m_list.getLastAddress());
+					base_t::m_list.popBack();
+				}
+				if constexpr (std::is_same_v<Value, V>)
+					base_t::m_list.pushFront(std::make_pair(std::forward<Key>(k),std::forward<V>(v)));
+				else
+					base_t::m_list.pushFront(std::make_pair(std::forward<Key>(k),Value(v)));
+				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
+			}
+			return &base_t::m_list.getBegin()->data.second;
+		}
+
+		template<typename V>
+		inline Value* insert(Key&& k, V&& v)
+		{
+			auto doNothing = [](const Value& ejected)->void{};
+			return insert<V>(std::forward<Key>(k),std::forward<V>(v),doNothing);
+		}
 
 		//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Marks the returned value as most recently used
 		inline Value* get(const Key& key)
