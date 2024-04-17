@@ -105,7 +105,7 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 }
 
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, const size_t width, const size_t height) const
 {
     const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
     
@@ -152,19 +152,28 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
         const IImageFilter::IState::ColorValue::WriteMemoryInfo wInfo(creationParams.format, outImg->getBuffer()->getPointer());
 
+        // Late Optimization TODO: Modify the Max Value for the UNORM texture to be the Max Value after flatten blending 
         const double maxValue = getMaxCandelaValue();
         const double maxValueRecip = 1.0 / maxValue;
 
         const double vertInv = 1.0 / height;
         const double horiInv = 1.0 / width;
 
+        const double flattenTarget = getAvgEmmision(fullDomainFlatten);
+        const double domainLo = core::radians(vAngles.front());
+        const double domainHi = core::radians(vAngles.back());
         auto fill = [&](uint32_t blockArrayOffset, core::vectorSIMDu32 position) -> void
         {
             const auto dir = octahdronUVToDir(((float)position.x + 0.5) * vertInv, ((float)position.y + 0.5) * horiInv);
             const auto [theta, phi] = sphericalDirToRadians(dir);
             const auto intensity = sample(theta, phi);
-            const auto value = intensity * maxValueRecip;
-            const auto blendV = value * (1.0 - flatten) + avgEmmision * flatten; //! blend the IES texture with "flatten"
+            
+            //! blend the IES texture with "flatten"
+            double blendV = intensity * (1.0 - flatten);
+            if (fullDomainFlatten && domainLo<=theta && theta<=domainHi || intensity >0.0)
+                blendV += flattenTarget * flatten;
+
+            blendV *= maxValueRecip;
 
             asset::IImageFilter::IState::ColorValue color;
             //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
@@ -192,11 +201,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const bool, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const bool, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const bool, const size_t, const size_t) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const bool fullDomainFlatten, const size_t width, const size_t height) const
 {
-    return createIESTexture(std::execution::seq, flatten, width, height);
+    return createIESTexture(std::execution::seq, flatten, fullDomainFlatten, width, height);
 }

@@ -65,11 +65,16 @@ namespace nbl
                 
                 IES_STORAGE_FORMAT getMaxCandelaValue() const { return maxCandelaValue; }
                 IES_STORAGE_FORMAT getTotalEmission() const { return totalEmissionIntegral; }
-                IES_STORAGE_FORMAT getAvgEmmision() const { return avgEmmision; }
+                inline IES_STORAGE_FORMAT getAvgEmmision(const bool fullDomain=false) const
+                {
+                    if (fullDomain)
+                        return totalEmissionIntegral*0.25/core::radians(vAngles.back()-vAngles.front());
+                    return avgEmmision;
+                }
 
                 template<class ExecutionPolicy>
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const bool fullDomainFlatten=false, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const bool fullDomainFlatten=false, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)

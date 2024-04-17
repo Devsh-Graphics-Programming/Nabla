@@ -82,105 +82,134 @@ auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmission
     return { nullptr, nullptr, nullptr };
 }
 
-CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform) {
+CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform)
+{
     assert(_emitter->type == CElementEmitter::AREA);
+
     auto* res = ir->allocNode<asset::material_compiler::IR::CEmitterNode>();
     res->intensity = _emitter->area.radiance;
-    if (_emitter->area.emissionProfile) {
-        asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
-        auto [image, sampler, meta] = getEmissionProfile(_emitter->area.emissionProfile);
+
+    const auto inProfile = _emitter->area.emissionProfile;
+    if (inProfile)
+    {
+        auto [image, sampler, meta] = getEmissionProfile(inProfile);
         
-        auto fillProfile = [&]() -> void
+        auto fillProfile = [&]() -> bool
         {
-            profile.texture = { image, sampler, 1.f };
+            asset::material_compiler::IR::CEmitterNode::EmissionProfile profile;
 
-            _emitter->area.emissionProfile->flatten = abs(_emitter->area.emissionProfile->flatten);
-            if (_emitter->area.emissionProfile->flatten > 1.f)
+            // do cheap checks first
             {
-                _emitter->area.emissionProfile->flatten = 1.f;
-                os::Printer::log("ERROR: Flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten) + " is outside it's [0, 1] domain", ELL_ERROR);
-            }
-            else if (_emitter->area.emissionProfile->flatten > 1.f - std::numeric_limits<float>::epsilon())
-                os::Printer::log("WARNING: Implied domain flatten mode detected, flatten property = " + std::to_string(_emitter->area.emissionProfile->flatten), ELL_WARNING);
+                auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
 
-            if (_emitter->area.emissionProfile->flatten > 0.0) // if 0 then it's just "image"
-            {
-                core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
+                // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
+                worldSpaceIESTransform[1].w = 0;
+                worldSpaceIESTransform[2].w = 0;
 
-                const auto aHash = _emitter->area.emissionProfile->filename + "?flatten=" + std::to_string(_emitter->area.emissionProfile->flatten);
-                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-                asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(aHash, types, m_loaderContext->inner, 0u);
+                const float THRESHOLD = core::exp2(-14.f);
+                const auto det = core::determinant(worldSpaceIESTransform);
+
+                if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
                 {
-                    auto contents = bundle.getContents();
+                    os::Printer::log("ERROR: Emission profile rejected because determinant of transformation matrix does not exceed the minimum threshold and is too close or equal 0", ELL_ERROR);
+                    return false; // exit the lambda
+                }
 
+                profile.right_hand = det > 0.0f;
+                profile.up = core::normalize(worldSpaceIESTransform[1]);
+                profile.view = core::normalize(worldSpaceIESTransform[2]);
+            }
+
+            float flatten = inProfile->flatten;
+
+            // negative means full domain
+            const bool fullDomain = flatten < 0.f;
+            if (fullDomain)
+                flatten = -flatten;
+
+            if (flatten > 1.f)
+            {
+                flatten = 1.f;
+                os::Printer::log("ERROR: Flatten property = " + std::to_string(inProfile->flatten) + " is outside it's [0, 1] domain, clamping!", ELL_ERROR);
+            }
+            else if (inProfile->flatten < std::numeric_limits<float>::epsilon()-1)
+                os::Printer::log("WARNING: Full domain flatten mode detected with abs(flatten) = " + std::to_string(flatten), ELL_WARNING);
+
+            core::smart_refctd_ptr<asset::ICPUImageView> flattenIES = nullptr;
+            {
+                const auto cacheName = inProfile->filename + "?flatten=" + std::to_string(flatten);
+
+                // try cache
+                {
+                    const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+                    asset::SAssetBundle bundle = m_loaderContext->override_->findCachedAsset(cacheName,types,m_loaderContext->inner,0u);
+                    auto contents = bundle.getContents();
                     if (!contents.empty() && bundle.getAssetType() == asset::IAsset::ET_IMAGE_VIEW)
                         flattenIES = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(*contents.begin());
                 }
 
+                // failed to find, have to create
                 if (!flattenIES)
-                {
-                    flattenIES = meta->profile.createIESTexture(_emitter->area.emissionProfile->flatten);
+                    flattenIES = meta->profile.createIESTexture(flatten,fullDomain);
 
-                    if (flattenIES)
-                    {
-                        asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
-                        asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
-                        m_loaderContext->override_->insertAssetIntoCache(bundle, aHash, m_loaderContext->inner, 0u);
-                    }
-                    else
-                    {
-                        os::Printer::log("WARNING: Failed to flatten IES \"" + _emitter->area.emissionProfile->filename + "\" texture, using original one", ELL_WARNING);
-                        flattenIES = core::smart_refctd_ptr(image);
-                    }
-                }
-
-                profile.texture = { flattenIES, sampler, 1.f };
+                // now must be loaded to proceed
+                if (!flattenIES)
+                    return false;
+                
+                // insert into cache
+                asset::IAssetLoader::SAssetLoadContext ctx = { {}, nullptr };
+                asset::SAssetBundle bundle = asset::SAssetBundle(nullptr, { core::smart_refctd_ptr(flattenIES) });
+                m_loaderContext->override_->insertAssetIntoCache(bundle, cacheName, m_loaderContext->inner, 0u);
             }
-
-            auto worldSpaceIESTransform = core::concatenateBFollowedByA(transform, _emitter->transform.matrix);
-            
-            // fill .w component of 1 & 2 row with 0 to perform normmalization on .xyz vectors for these rows bellow to get up & view vectors
-            worldSpaceIESTransform[1].w = 0;
-            worldSpaceIESTransform[2].w = 0;
-
-            const float THRESHOLD = core::exp2(-14.f);
-            const auto det = core::determinant(worldSpaceIESTransform);
-
-            if (abs(det) < THRESHOLD) // protect us from determinant = 0 where inverse transform doesn't exist because the matrix is singular, also we don't want to be too much close to 0 because of the matrix conditioning index becoming higher and higher
-            {
-                os::Printer::log("ERROR: Emission profile rejected because determinant of transformation matrix does not exceed the minimum threshold and is too close or equal 0", ELL_ERROR);
-                return; // exit the lambda
-            }
-
-            profile.right_hand = det > 0.0f;
-            profile.up = core::normalize(worldSpaceIESTransform[1]);
-            profile.view = core::normalize(worldSpaceIESTransform[2]);
-
-            const auto maxIntesity = meta->profile.getMaxCandelaValue();
+            profile.texture = { flattenIES, sampler, 1.f };
+    
+            // success
             res->emissionProfile = profile;
-            
+
             // note that IES texel intensity value is already divided by max intensity
-            switch (_emitter->area.emissionProfile->normalization)
+            const auto maxIntesity = meta->profile.getMaxCandelaValue();
+            switch (inProfile->normalization)
             {
-                case CElementEmissionProfile::EN_UNIT_MAX: break;
+                case CElementEmissionProfile::EN_UNIT_MAX:
+                {
+                    // true Max value changes because of flatten
+                    // can be reverted back to do nothing if the TODO about adjusting max-value while flattening gets done
+                    res->intensity *= maxIntesity/(maxIntesity+(meta->profile.getAvgEmmision(fullDomain)-maxIntesity)*flatten);
+                } break;
+// positive flatten
+/// Integral = (1-f) * OrigInt + f * Target * ImpliedDomainSize
+/// Integral = (1-f) * OrigInt + f * OrigInt/ImpliedDomainSize * ImpliedDomainSize
+    /// Integral = (1-f) * OrigInt + f * OrigInt/ImpliedDomainSize * ImpliedDomainSize
+    /// Average = (1-f) * OrigInt/FullDomainSize + f * OrigInt/ImpliedDomainSize
+    /// Average = (1-f) * FullAverage + f * ImpliedAverage  ---> 
+/// Integral = (1-f) * OrigInt + f * OrigInt
+    /// Average = (1-f) * OrigInt/ChosenDomain + f * OrigInt/ChosenDomain
+    /// Average = (1-f) * ImpliedAverage + f * ImpliedAverage
+// negative flatten
+/// Integral = (1-f) * OrigInt + f * Target * FullDomainSize
+/// Integral = (1-f) * OrigInt + f * OrigInt/FullDomainSize * FullDomainSize
+    /// Integral = (1-f) * OrigInt + f * OrigInt/FullDomainSize * FullDomainSize
+/// Integral = (1-f) * OrigInt + f * OrigInt
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_IMPLIED_DOMAIN:
                 {
-                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision();
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(false);
                 } break;
+/// Integral = (1-f) * OrigInt + f * Target * DomainSize
+/// Integral = (1-f) * OrigInt + f * OrigInt/DomainSizeA * DomainSizeN
+/// Average = Integral / DomainSize
                 case CElementEmissionProfile::EN_UNIT_AVERAGE_OVER_FULL_DOMAIN:
                 {
-                    res->intensity *= maxIntesity * core::radians(meta->profile.getVertAngles().back() - meta->profile.getVertAngles().front()) * 4.f / meta->profile.getTotalEmission();
+                    res->intensity *= maxIntesity / meta->profile.getAvgEmmision(true);
                 } break;
                 default:
                 {
                     res->intensity *= maxIntesity;
                 } break;
             }
+            return true;
         };
 
-        if (image)
-            fillProfile();
-        else
+        if (meta && !fillProfile())
             os::Printer::log("ERROR: Emission profile not loaded", ELL_ERROR);
     }
     return res;
