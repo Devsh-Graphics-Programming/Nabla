@@ -116,10 +116,23 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
         std::ostringstream debug;
         debug << "ds ID: " << i << std::endl;
 
-        auto multiplyArrayDimensions = [](uint32_t val, const SArrayInfo& arrInfo)
+        // TODO: test it with glsl
+        auto multiplyArrayDimensions = [&specConstants](uint32_t val, const SArrayInfo& arrInfo) -> uint32_t
             {
                 if (arrInfo.value == 0)
                     return val;
+
+                if (arrInfo.isSpecConstant)
+                {
+                    if (!specConstants)
+                        return 0u;
+
+                    const auto& specConstantFound = specConstants->find(arrInfo.specID);
+                    if (specConstantFound == specConstants->end())
+                        return 0u;
+
+                    return val * specConstantFound->second;
+                }
 
                 return val * arrInfo.value;
             };
@@ -137,11 +150,15 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 {
                     descInfo.count = 0u;
                     descInfo.stride = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
+                    if (descInfo.stride == 0u)
+                        return false;
                 }
                 else
                 {
                     descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
                     descInfo.stride = descInfo.count;
+                    if (descInfo.stride == 0u)
+                        return false;
                 }
             }
             else
@@ -277,7 +294,7 @@ NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPi
         outBinding.type = binding.type;
         outBinding.stageFlags = binding.stageMask;
         outBinding.createFlags = ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
-        // TODO: outBinding.stageFlags = 
+        // TODO: outBinding.samplers
 
         outBindings.push_back(outBinding);
     }

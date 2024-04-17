@@ -389,8 +389,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					span_t<SArrayInfo,Mutable> count = {};
 					uint8_t restrict_ : 1 = false;
 					uint8_t aliased : 1 = false;
-
-					uint32_t inBindingCount;
 					
 					//
 					union
