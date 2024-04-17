@@ -109,19 +109,6 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
-    // copy m_highestBindingNumers so it is not changed on merge failure
-    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
-    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-    {
-        // Here i need to verify if last binding is runtime sized
-        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
-        for (const auto& stageIntroBindingInfo : introBindingInfos)
-            // wrong!
-            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
-    }
-
-    stageData->getSpecConstants();
-
     // validate if descriptors are compatible
     DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
@@ -163,13 +150,6 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 descInfo.stride = 0u;
             }
 
-            // VALIDATION
-            if (descInfo.isRuntimeSized())
-            {
-                if (stageIntroBindingInfo.count.front().isRuntimeSized() && stageIntroBindingInfo.binding < highestBindingsTmp[i])
-                    return false;
-            }
-
             const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
             if (pplnIntroDataFoundBinding != m_descriptorSetBindings[i].end())
             {
@@ -186,6 +166,22 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
             descriptorsToMerge[i].insert(descInfo);
         }
         std::cout << debug.str() << std::endl;
+    }
+
+    // validate if only descriptors with the highest bindings are run-time sized
+    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+
+        for (const auto& stageIntroBindingInfo : introBindingInfos)
+            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
+
+        for (const auto& descriptor : descriptorsToMerge[i])
+        {
+            if (descriptor.binding < highestBindingsTmp[i] && descriptor.isRuntimeSized())
+                return false;
+        }
     }
 
     // validation successfull, update `CPipelineIntrospectionData` contents
