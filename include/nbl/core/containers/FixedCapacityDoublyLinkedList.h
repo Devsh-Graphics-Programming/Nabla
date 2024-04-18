@@ -123,6 +123,12 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			insertAt(reserveAddress(), std::move(val));
 		}
 
+		template <typename... Args>
+		inline void emplaceFront(Args&&... args)
+		{
+			insertAt(reserveAddress(), Value(std::forward<Args>(args)...));
+		}
+
 		//get node ptr of the first item in the list
 		inline node_t* getBegin() { return m_array + m_begin; }
 		inline const node_t* getBegin() const { return m_array + m_begin; }
@@ -143,6 +149,12 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			assert(nodeAddr != invalid_iterator);
 			assert(nodeAddr < cap);
 			node_t* node = get(nodeAddr);
+
+			if (m_back == nodeAddr)
+				m_back = node->prev;
+			if (m_begin == nodeAddr)
+				m_begin = node->next;
+
 			common_detach(node);
 			common_delete(nodeAddr);
 		}
@@ -156,6 +168,10 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			getBegin()->prev = nodeAddr;
 
 			auto node = get(nodeAddr);
+			
+			if (m_back == nodeAddr)
+				m_back = node->prev;
+
 			common_detach(node);
 			node->next = m_begin;
 			node->prev = invalid_iterator;

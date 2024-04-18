@@ -137,9 +137,9 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				node = base_t::m_list.get(node->prev);
 			}
 		}
-
-		template<typename V, std::invocable<const Value&> EvictionCallback> requires std::is_assignable_v<Value,V> && std::is_constructible_v<Value,V>
-		inline Value* insert(Key&& k, V&& v, EvictionCallback&& evictCallback)
+		
+		template<typename K, typename V, std::invocable<const Value&> EvictionCallback> requires std::is_constructible_v<Value,V> // && (std::is_same_v<Value,V> || std::is_assignable_v<Value,V>) // is_assignable_v<int, int&> returns false :(
+		inline Value* insert(K&& k, V&& v, EvictionCallback&& evictCallback)
 		{
 			bool success;
 			shortcut_iterator_t iterator = common_find(k,success);
@@ -154,24 +154,23 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
 				if (overflow)
 				{
-					evictCallback(base_t::m_list.getBack()->data.second);
+					// evictCallback(base_t::m_list.getBack()->data.second);
 					m_shortcut_map.erase(base_t::m_list.getLastAddress());
 					base_t::m_list.popBack();
 				}
 				if constexpr (std::is_same_v<Value, V>)
-					base_t::m_list.pushFront(std::make_pair(std::forward<Key>(k),std::forward<V>(v)));
+					base_t::m_list.emplaceFront(std::forward<K>(k), std::forward<V>(v));
 				else
-					base_t::m_list.pushFront(std::make_pair(std::forward<Key>(k),Value(v)));
+					base_t::m_list.emplaceFront(std::forward<K>(k), Value(std::forward<V>(v)) );
 				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
 			}
 			return &base_t::m_list.getBegin()->data.second;
 		}
 
-		template<typename V>
-		inline Value* insert(Key&& k, V&& v)
+		template<typename K, typename V>
+		inline Value* insert(K&& k, V&& v)
 		{
-			auto doNothing = [](const Value& ejected)->void{};
-			return insert<V>(std::forward<Key>(k),std::forward<V>(v),doNothing);
+			return insert(std::forward<K>(k),std::forward<V>(v),[](const Value& ejected)->void{});
 		}
 
 		//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Marks the returned value as most recently used
