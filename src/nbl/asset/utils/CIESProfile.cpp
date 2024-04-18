@@ -177,7 +177,7 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 
             asset::IImageFilter::IState::ColorValue color;
             //asset::encodePixels<CIESProfile::IES_TEXTURE_STORAGE_FORMAT>(color.asDouble, &blendV); TODO: FIX THIS ENCODE, GIVES ARTIFACTS
-            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D, 0.0, UI16_MAX_D));
+            const uint16_t encodeV = static_cast<uint16_t>(std::clamp(blendV * UI16_MAX_D + 0.5, 0.0, UI16_MAX_D));
             *color.asUShort = encodeV;
             color.writeMemory(wInfo, blockArrayOffset);
         };
