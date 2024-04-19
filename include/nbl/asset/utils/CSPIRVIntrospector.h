@@ -426,8 +426,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 				};
 				inline const auto& getParams() const {return m_params;}
-
-				//! TODO: Add getters for all the other members!
 				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
 				inline const auto& getInputs() const { return m_input; }
 				inline const core::vector<SFragmentOutputInterface>& getFragmentShaderOutputs() const
@@ -629,6 +627,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			return introspection;
 		}
 		
+		// TODO: for sure this function should be inline?
 		//! creates pipeline for a single ICPUShader
 		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
 		{
@@ -652,8 +651,49 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			if (layout)
 			{
-				//if (introspection->getPushConstants())
-				//	return nullptr;
+				// regarding push constants we only need to validate if size of push constants in `layout` is greater or equal to size of push constants determined by the `introspect` function
+				const auto& introspectionPushConstants = introspection->getPushConstants();
+				if (introspectionPushConstants.present())
+				{
+					const auto& layoutPushConstantRanges = layout->getPushConstantRanges();
+					if (layoutPushConstantRanges.empty())
+						return nullptr;
+
+					uint32_t layoutPushConstantSize = 0u;
+					for (const auto& pcRange : layoutPushConstantRanges)
+					{
+						const uint32_t rangeSize = pcRange.offset + pcRange.size;
+						layoutPushConstantSize = std::max(rangeSize, layoutPushConstantSize);
+					}
+
+					if (layoutPushConstantSize < introspectionPushConstants.offset + introspectionPushConstants.size)
+						return nullptr;
+				}
+
+				// now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
+				for (uint32_t i = 0; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+				{
+					const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(i);
+					const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(i);
+
+					if (introspectionDescriptorSetLayout.empty())
+					{
+						if (layoutDescriptorSetLayout == nullptr)
+							continue;
+						else
+							return nullptr;
+					}
+					else
+					{
+						auto pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+
+						for (uint32_t dstSetIdx = 0u; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
+						{
+							if (!pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx)->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
+								return nullptr;
+						}
+					}
+				}
 			}
 			else
 			{
