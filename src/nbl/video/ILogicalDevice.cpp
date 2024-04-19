@@ -370,6 +370,31 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings)
 {
     // TODO: MORE VALIDATION, but after descriptor indexing.
+
+    // validate if last only last binding is run-time sized and there is only one run-time sized binding
+    bool variableLengthArrayDescriptorFound = false;
+    uint32_t variableLengthArrayDescriptorBindingNr = 0;
+    uint32_t highestBindingNr = 0u;
+    for (uint32_t i = 0u; i < bindings.size(); ++i)
+    {
+        bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
+
+        // no 2 run-time sized descriptors allowed
+        if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray)
+            return nullptr;
+
+        if (isCurrentDescriptorVariableLengthArray)
+        {
+            variableLengthArrayDescriptorFound = true;
+            variableLengthArrayDescriptorBindingNr = bindings[i].binding;
+        }
+
+        // only last binding can be run-time sized
+        highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
+        if (variableLengthArrayDescriptorBindingNr != highestBindingNr)
+            return nullptr;
+    }
+
     uint32_t maxSamplersCount = 0u;
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
     for (auto& binding : bindings)
