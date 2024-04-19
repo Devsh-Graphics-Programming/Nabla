@@ -10,7 +10,8 @@ using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
 
 namespace nbl::asset {
 
-    // SMacroData, simple container used in SPreprocessorData
+    /* ---------------------------------------- Comment out begin -------------------------------------
+    // SMacroData, simple container used in SPreprocessorArgs
 
     inline void to_json(json& j, const SEntry::SMacroData& macroData)
     {
@@ -28,19 +29,21 @@ namespace nbl::asset {
 
     // SPreprocessorData, holds serialized info for Preprocessor options used during compilation
 
-    inline void to_json(json& j, const SEntry::SPreprocessorData& preprocData)
+    inline void to_json(json& j, const SEntry::SPreprocessorArgs& preprocArgs)
     {
         j = json{
-            { "sourceIdentifier", preprocData.sourceIdentifier },
-            { "extraDefines", preprocData.extraDefines},
+            { "sourceIdentifier", preprocArgs.sourceIdentifier },
+            { "extraDefines", preprocArgs.extraDefines},
         };
     }
 
-    inline void from_json(const json& j, SEntry::SPreprocessorData& preprocData)
+    inline void from_json(const json& j, SEntry::SPreprocessorArgs& preprocArgs)
     {
-        j.at("sourceIdentifier").get_to(preprocData.sourceIdentifier);
-        j.at("extraDefines").get_to(preprocData.extraDefines);
+        j.at("sourceIdentifier").get_to(preprocArgs.sourceIdentifier);
+        j.at("extraDefines").get_to(preprocArgs.extraDefines);
     }
+
+    --------------------------------------------- Comment out end -------------------------------------------- */ 
 
     // Optimizer pass has its own method for easier vector serialization
 
@@ -59,9 +62,9 @@ namespace nbl::asset {
         optPass = static_cast<ISPIRVOptimizer::E_OPTIMIZER_PASS>(aux);
     }
 
-    // SCompilerData, holds serialized info for all Compilation options
+    // SCompilerArgs, holds serialized info for all Compilation options
 
-    inline void to_json(json& j, const SEntry::SCompilerData& compilerData)
+    inline void to_json(json& j, const SEntry::SCompilerArgs& compilerData)
     {
         uint32_t shaderStage = static_cast<uint32_t>(compilerData.stage);
         uint32_t spirvVersion = static_cast<uint32_t>(compilerData.targetSpirvVersion);
@@ -72,18 +75,18 @@ namespace nbl::asset {
             { "spirvVersion", spirvVersion },
             { "optimizerPasses", compilerData.optimizerPasses },
             { "debugFlags", debugFlags },
-            { "preprocessorData", compilerData.preprocessorData },
+            { "preprocessorArgs", compilerData.preprocessorArgs },
         };
     }
 
-    inline void from_json(const json& j, SEntry::SCompilerData& compilerData)
+    inline void from_json(const json& j, SEntry::SCompilerArgs& compilerData)
     {
         uint32_t shaderStage, spirvVersion, debugFlags;
         j.at("shaderStage").get_to(shaderStage);
         j.at("spirvVersion").get_to(spirvVersion);
         j.at("optimizerPasses").get_to(compilerData.optimizerPasses);
         j.at("debugFlags").get_to(debugFlags);
-        j.at("preprocessorData").get_to(compilerData.preprocessorData);
+        j.at("preprocessorArgs").get_to(compilerData.preprocessorArgs);
         compilerData.stage = static_cast<IShader::E_SHADER_STAGE>(shaderStage);
         compilerData.targetSpirvVersion = static_cast<IShaderCompiler::E_SPIRV_VERSION>(spirvVersion);
         compilerData.debugInfoFlags = core::bitflag<IShaderCompiler::E_DEBUG_INFO_FLAGS>(debugFlags);
@@ -111,23 +114,17 @@ namespace nbl::asset {
 
     inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     {
-        // Serializing the write time by hand because compiler wasn't having it otherwise
-        auto ticks = dependency.lastWriteTime.time_since_epoch().count();
         j = json{
             { "requestingSourceDir", dependency.requestingSourceDir },
             { "identifier", dependency.identifier },
             { "contents", dependency.contents },
             { "hash", dependency.hash },
             { "standardInclude", dependency.standardInclude },
-            { "lastWriteTimeTicks", ticks },
         };
     }
 
     inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependency)
     {
-        uint64_t ticks;
-        j.at("lastWriteTimeTicks").get_to(ticks);
-        dependency.lastWriteTime = std::chrono::utc_clock::time_point(std::chrono::utc_clock::duration(ticks));
         j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
         j.at("identifier").get_to(dependency.identifier);
         j.at("contents").get_to(dependency.contents);
@@ -135,9 +132,17 @@ namespace nbl::asset {
         j.at("standardInclude").get_to(dependency.standardInclude);
     }
 
-    // We do a bit of a Frankenstein for CPU Shader serialization. We serialize creation parameters into a json, but binary data into a .bin file so it takes up less space
+    // We serialize shader creation parameters into a json, along with indexing info into the .bin buffer where the cache is serialized
 
-    inline void to_json(json& j, const IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
+    struct CPUShaderCreationParams {
+        IShader::E_SHADER_STAGE stage;
+        IShader::E_CONTENT_TYPE contentType; //I think this one could be skipped since it's always going to be SPIR-V
+        std::string filepathHint;
+        uint64_t codeByteSize = 0;
+        uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
+    };
+
+    inline void to_json(json& j, const CPUShaderCreationParams& creationParams)
     {
         uint32_t stage = static_cast<uint32_t>(creationParams.stage);
         uint32_t contentType = static_cast<uint32_t>(creationParams.contentType);
@@ -150,7 +155,7 @@ namespace nbl::asset {
         };
     }
 
-    inline void from_json(const json& j, IShaderCompiler::CCache::SEntry::CPUShaderCreationParams& creationParams)
+    inline void from_json(const json& j, CPUShaderCreationParams& creationParams)
     {
         uint32_t stage, contentType;
         j.at("stage").get_to(stage);
@@ -168,33 +173,22 @@ namespace nbl::asset {
     {
         j = json{
             { "mainFileContents", entry.mainFileContents },
-            { "compilerData", entry.compilerData },
+            { "compilerArgs", entry.compilerArgs },
+            { "lookupHash", entry.lookupHash },
             { "dependencies", entry.dependencies },
-            { "shaderParams", entry.shaderParams },
         };
     }
 
     inline void from_json(const json& j, SEntry& entry)
     {
         j.at("mainFileContents").get_to(entry.mainFileContents);
-        j.at("compilerData").get_to(entry.compilerData);
+        j.at("compilerArgs").get_to(entry.compilerArgs);
+        j.at("lookupHash").get_to(entry.lookupHash);
         j.at("dependencies").get_to(entry.dependencies);
-        j.at("shaderParams").get_to(entry.shaderParams);
-        entry.serialized = true;
         entry.value = nullptr;
     }
-
-    // Serialization for the multiset is immediate since it's iterable. Deserialization has to be done by hand
-    template<typename H, typename KE>
-    void from_json(const json& j, core::unordered_multiset<SEntry, H, KE>& multiset)
-    {
-        std::vector<SEntry> aux;
-        from_json(j, aux);
-        for (auto& entry : aux) {
-            multiset.insert(std::move(entry));
-        }
-    }
-
 }
+
+
 
 #endif

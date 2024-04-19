@@ -32,6 +32,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					system::path absolutePath = {};
 					std::string contents = {};
 					std::array<uint64_t, 4> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					// Could be used in the future for early rejection of cache hit
+					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
 					explicit inline operator bool() const {return !absolutePath.empty();}
 				};
@@ -199,9 +201,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						hash = nbl::core::XXHash_256(reinterpret_cast<uint8_t*>(hashable.data()), hashable.size() * (sizeof(char) / sizeof(uint8_t)));
 					}
 
-					SPreprocessingDependency(SPreprocessingDependency&) = delete;
-					SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
-				
+					inline SPreprocessingDependency(SPreprocessingDependency&) = default;
+					inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = default;
 					inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
 					inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
 
@@ -217,12 +218,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					std::array<uint64_t, 4> hash = {};
 					// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 					bool standardInclude = false;
-					nbl::system::IFileBase::time_point_t lastWriteTime = {};
 				};
 
 				struct SMacroData {
 					std::string identifier;
 					std::string definition;
+					NLOHMANN_DEFINE_TYPE_INTRUSIVE(SMacroData, identifier, definition);
 				};
 
 				struct SCompilerArgs; // Forward declaration for SPreprocessorArgs's friend declaration
@@ -256,7 +257,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				private:
 
 					// Only SCompilerArgs should instantiate this struct
-					SPreprocessorArgs(SPreprocessorOptions& options)
+					SPreprocessorArgs(const SPreprocessorOptions& options)
 						: sourceIdentifier(options.sourceIdentifier)
 					{
 						for (auto define : options.extraDefines) {
@@ -266,17 +267,20 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					};
 					std::string sourceIdentifier;
 					std::vector<SMacroData> extraDefines;
+					NLOHMANN_DEFINE_TYPE_INTRUSIVE(SPreprocessorArgs, sourceIdentifier, extraDefines);
 				};
 
 				struct SCompilerArgs final {
 
 					friend class SEntry;
+					friend void to_json(nlohmann::json&, const SCompilerArgs&);
+					friend void from_json(const nlohmann::json&, SCompilerArgs&);
 					// Public default needed for json serialization
 					SCompilerArgs() {}
 
 					inline bool operator==(const SCompilerArgs& other) const {
 						bool retVal = true;
-						if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorData != other.preprocessorData) retVal = false;
+						if (stage != other.stage || targetSpirvVersion != other.targetSpirvVersion || debugInfoFlags != other.debugInfoFlags || preprocessorArgs != other.preprocessorArgs) retVal = false;
 						if (optimizerPasses.size() != other.optimizerPasses.size()) retVal = false;
 						for (auto passesIt = optimizerPasses.begin(), otherPassesIt = other.optimizerPasses.begin(); passesIt != optimizerPasses.end(); passesIt++, otherPassesIt++) {
 							if (*passesIt != *otherPassesIt) {
@@ -290,8 +294,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				private:
 
 					// Only SEntry should instantiate this struct
-					SCompilerArgs(SCompilerOptions& options)
-						: stage(options.stage), targetSpirvVersion(options.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorData(options.preprocessorOptions)
+					SCompilerArgs(const SCompilerOptions& options)
+						: stage(options.stage), targetSpirvVersion(options.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorArgs(options.preprocessorOptions)
 					{
 						if (options.spirvOptimizer) {
 							for (auto pass : options.spirvOptimizer->getPasses())
@@ -303,30 +307,32 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					E_SPIRV_VERSION targetSpirvVersion;
 					std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
 					core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
-					SPreprocessorArgs preprocessorData;
+					SPreprocessorArgs preprocessorArgs;
 				};
 
 				// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
 				using dependency_container_t = std::vector<SPreprocessingDependency>;
 				
-				// Hashes are precompued at entry creation time. Even though in a preprocessing pass the compiler options' stage might change from a #pragma, 
+				// Lookup Hash is precompued at entry creation time. Even though in a preprocessing pass the compiler options' stage might change from a #pragma, 
 				// we can't update the info that the Cache uses to find entries post preprocessing: this would make it so that we need to preprocess entries
 				// to get the "real" stage before lookup in the cache, defeating its purpose
-				inline SEntry(std::string_view _mainFileContents, dependency_container_t&& _dependencies, SCompilerOptions& compilerOptions)
-					: mainFileContents(std::move(std::string(_mainFileContents))), dependencies(std::move(_dependencies)), compilerData(compilerOptions)
+				inline SEntry(const std::string_view _mainFileContents, const SCompilerOptions& compilerOptions)
+					: mainFileContents(std::move(std::string(_mainFileContents))), compilerArgs(compilerOptions)
 				{
 					// Form the hashable for the compiler data
-					size_t preprocessorDataHashableSize = compilerData.preprocessorData.sourceIdentifier.size() + compilerData.preprocessorData.extraDefines.size() * sizeof(SMacroData);
-					auto stageString = std::to_string(compilerData.stage);
-					auto versionString = std::to_string(static_cast<uint32_t>(compilerData.targetSpirvVersion));
-					auto debugString = std::to_string(static_cast<uint8_t>(compilerData.debugInfoFlags.value));
-					size_t compilerDataHashableSize = stageString.size() + versionString.size() + debugString.size() + compilerData.optimizerPasses.size();
+					size_t preprocessorArgsHashableSize = compilerArgs.preprocessorArgs.sourceIdentifier.size() + compilerArgs.preprocessorArgs.extraDefines.size() * sizeof(SMacroData);
+					auto stageString = std::to_string(compilerArgs.stage);
+					auto versionString = std::to_string(static_cast<uint32_t>(compilerArgs.targetSpirvVersion));
+					auto debugString = std::to_string(static_cast<uint8_t>(compilerArgs.debugInfoFlags.value));
+					size_t compilerArgsHashableSize = stageString.size() + versionString.size() + debugString.size() + compilerArgs.optimizerPasses.size();
 					std::vector<char> hashable;
-					hashable.reserve(preprocessorDataHashableSize + compilerDataHashableSize + mainFileContents.size());
+					hashable.reserve(preprocessorArgsHashableSize + compilerArgsHashableSize + mainFileContents.size());
+					
 					// Insert preproc stuff
-					hashable.insert(hashable.end(), compilerData.preprocessorData.sourceIdentifier.begin(), compilerData.preprocessorData.sourceIdentifier.end());
+					hashable.insert(hashable.end(), compilerArgs.preprocessorArgs.sourceIdentifier.begin(), compilerArgs.preprocessorArgs.sourceIdentifier.end());
 					core::vector<SMacroData> sortedExtraDefines;
-					sortedExtraDefines.assign(compilerData.preprocessorData.extraDefines.begin(), compilerData.preprocessorData.extraDefines.end());
+					sortedExtraDefines.assign(compilerArgs.preprocessorArgs.extraDefines.begin(), compilerArgs.preprocessorArgs.extraDefines.end());
+					
 					// Sort them by identifier so the hash is not order-sensitive!
 					std::sort(sortedExtraDefines.begin(), sortedExtraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
 					for (const auto& defines : sortedExtraDefines) {
@@ -338,39 +344,29 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					hashable.insert(hashable.end(), stageString.begin(), stageString.end());
 					hashable.insert(hashable.end(), versionString.begin(), versionString.end());
 					hashable.insert(hashable.end(), debugString.begin(), debugString.end());
-					for (auto pass : compilerData.optimizerPasses) {
+					for (auto pass : compilerArgs.optimizerPasses) {
 						hashable.push_back(static_cast<char>(pass));
 					}
 
 					// Now add the mainFileContents and produce both lookup and early equality rejection hashes
 					hashable.insert(hashable.end(), mainFileContents.begin(), mainFileContents.end());
-					hash = nbl::core::XXHash_256(reinterpret_cast<uint8_t*>(mainFileContents.data()), mainFileContents.size() * (sizeof(char) / sizeof(uint8_t)));
-					std::string hashableString(hashable.begin(), hashable.end());
+					std::string hashableString(std::move_iterator(hashable.begin()), std::move_iterator(hashable.end()));
 					lookupHash = std::hash<std::string>{}(hashableString);
 				}
 
 				// Needed to get the vector deserialization automatically
 				SEntry() {}
+
+				inline SEntry(SEntry&) = default;
+				inline SEntry& operator=(SEntry&) = default;
 				inline SEntry(SEntry&&) = default;
 				inline SEntry& operator=(SEntry&&) = default;
 
-				// This next bit is a bit of a Frankenstein. We serialize shader creation parameters into a json, while the actual shader code goes in another file
-				struct CPUShaderCreationParams {
-					IShader::E_SHADER_STAGE stage;
-					IShader::E_CONTENT_TYPE contentType; //I think this one could be skipped since it's always going to be SPIR-V
-					std::string filepathHint;
-					uint64_t codeByteSize = 0;
-					uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
-				};
-
 				std::string mainFileContents;
-				std::array<uint64_t, 4>hash; // For early equality rejection
-				SCompilerArgs compilerData;
+				SCompilerArgs compilerArgs;
 				size_t lookupHash;
 				dependency_container_t dependencies;
-				mutable CPUShaderCreationParams shaderParams;
-				bool serialized = false;
-				mutable core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
+				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
 			};
 
 			inline void insert(SEntry&& entry)
@@ -430,37 +426,30 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// used for insertions
 				inline bool operator()(const SEntry& lhs, const SEntry& rhs) const
 				{
-					return lhs.hash == rhs.hash && lhs.compilerData == rhs.compilerData && lhs.mainFileContents == rhs.mainFileContents;
+					return lhs.compilerArgs == rhs.compilerArgs && lhs.mainFileContents == rhs.mainFileContents;
 				}
 				
-			};
-
-			
-
-			// json serialization methods for the unordered multiset go here since I need access to Hash and KeyEquals 
+			};	
 
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
-			// If provided at creation time, this will hold the json representing entries in m_container + all SPIRV shaders
-			core::smart_refctd_ptr<ICPUBuffer> storageBuffer = nullptr;
-			// Specifies the size in bytes of the container json. This is so we know the offset into the buffer where shader bytecode starts
-			uint64_t containerJsonSize = 0;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, CCache* cache = nullptr) const
 		{
-			/*core::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (options.cache)
-			{
-				const auto& mainDep = dependencies.emplace_back(code,options.hash());
-				auto found = options.cache->find(mainDep);
+			CCache::SEntry entry;
+			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
+			if (cache) {
+				entry = std::move(CCache::SEntry(code, options));
+				auto found = cache->find(entry, options.preprocessorOptions.includeFinder);
 				if (found)
-					return core::smart_refctd_ptr<ICPUShader>(found);
+					return found;
 			}
-			auto retval = compileToSPIRV_impl(code,options,dependencies);
-			if (options.cache)
-				options.cache->insert(CCache::SEntry(dependencies));
-			return retval;*/
-			return compileToSPIRV_impl(code, options, nullptr);
+			auto retVal = compileToSPIRV_impl(code, options, cache ? &dependencies : nullptr);
+			if (cache) {
+				entry.dependencies = std::move(dependencies);
+				entry.value = retVal;
+			}
+			return retVal;
 		}
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options, CCache* cache = nullptr) const

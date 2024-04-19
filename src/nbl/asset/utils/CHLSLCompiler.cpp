@@ -360,25 +360,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
 
-    // Context does not have access to the system, so it's up to us to add the lastWriteTime now
-    if (dependencies) {
-        *dependencies = context.get_dependencies();
-        auto& dependenciesPaths = context.peek_dependencies_paths();
-        for (auto i = 0u; i < dependencies->size(); i++) {
-            auto& absPath = dependenciesPaths[i];
-            core::smart_refctd_ptr<system::IFile> f;
-            {
-                system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-                m_system->createFile(future, absPath.c_str(), system::IFile::ECF_READ);
-                if (!future.wait())
-                    return {};
-                future.acquire().move_into(f);
-            }
-            if (!f)
-                return {};
-            (*dependencies)[i].lastWriteTime = f->getLastWriteTime();
-        }
-    }
     return resolvedString;
 }
 

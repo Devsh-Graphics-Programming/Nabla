@@ -2,7 +2,6 @@
 #define _NBL_SYSTEM_I_FILE_H_INCLUDED_
 
 #include "nbl/system/ISystem.h"
-#include "nbl/asset/ICPUBuffer.h"
 
 namespace nbl::system
 {
@@ -106,19 +105,6 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 		}
 };
 
-}
-
-namespace nbl::asset {
-	class IFileBackedCPUBuffer : public ICPUBuffer {
-
-		IFileBackedCPUBuffer(core::smart_refctd_ptr<nbl::system::IFile> _file)
-			: ICPUBuffer(_file->getSize(), file->getMappedPointer()), file(_file) {}
-
-
-	private:
-		core::smart_refctd_ptr<nbl::system::IFile> file;
-
-	};
 }
 
 #endif

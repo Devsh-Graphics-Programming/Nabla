@@ -48,7 +48,7 @@ struct load_to_string final
 
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
-    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
+    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
         : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() 
     {
         hash_token_occurences = 0;
@@ -463,10 +463,6 @@ class context : private boost::noncopyable
             return std::move(dependencies);
         }
 
-        const std::vector<nbl::system::path>& peek_dependencies_paths() const {
-            return dependenciesAbsolutePaths;
-        }
-
     private:
         // the main input stream
         target_iterator_type first;         // underlying input stream
@@ -483,8 +479,6 @@ class context : private boost::noncopyable
         // Cache Additions 
         bool cachingRequested = false;
         std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
-        // Also return the absolute path for each SDependency, for getting the write time later on
-        std::vector<nbl::system::path> dependenciesAbsolutePaths = {};
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -545,7 +539,6 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         dependency.standardInclude = standardInclude;
         dependency.hash = std::move(result.hash);
         ctx.dependencies.push_back(std::move(dependency));
-        ctx.dependenciesAbsolutePaths.push_back(result.absolutePath);
     }
 
     ctx.located_include_content = std::move(result.contents);
