@@ -150,145 +150,11 @@ if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_
 	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define '_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
-macro(nbl_adjust_flags)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		option(NBL_SANITIZE_THREAD OFF)
-	endif()
+option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
+option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		add_compile_options(
-			-Wextra
-			-Wno-unused-parameter
-			-fno-strict-aliasing
-			-msse4.2
-			-mfpmath=sse
-			
-			-Wextra
-			-Wno-sequence-point
-			-Wno-error=ignored-attributes
-			-Wno-error=unused-function
-			-Wno-error=unused-variable
-			-Wno-error=unused-parameter
-
-			$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
-			
-			$<$<CONFIG:DEBUG>:-Wall>
-			$<$<CONFIG:DEBUG>:-fno-omit-frame-pointer>
-			$<$<CONFIG:DEBUG>:-fstack-protector-strong>
-		)
-		
-		if(ANDROID)
-			add_compile_options(
-				$<$<CONFIG:DEBUG>:-glldb>
-			)
-			
-			function(NBL_INSERT_ANDROID_FLAGS _NBL_CMAKE_FLAGS_VARIABLE_NAME_)
-				string(FIND "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}}" "-g -glldb" CHECK)
-				if(${CHECK} EQUAL -1)
-					set(${_NBL_CMAKE_FLAGS_VARIABLE_NAME_} "${${_NBL_CMAKE_FLAGS_VARIABLE_NAME_}} -g -glldb" CACHE STRING "" FORCE)
-				endif()
-			endfunction()
-			
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_ASM_FLAGS_DEBUG)
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_CXX_FLAGS_DEBUG)
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_C_FLAGS_DEBUG)
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_EXE_LINKER_FLAGS_DEBUG)
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_MODULE_LINKER_FLAGS_DEBUG)
-			NBL_INSERT_ANDROID_FLAGS(CMAKE_SHARED_LINKER_FLAGS_DEBUG)
-		else()
-			add_compile_options(
-				$<$<CONFIG:DEBUG>:-ggdb3>
-			)
-		endif()
-
-		add_compile_options(-fno-exceptions)
-
-		if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-
-			add_compile_options(
-			-Wno-unused-but-set-parameter	
-			$<$<CONFIG:RELEASE>:-fexpensive-optimizations>
-			)
-		endif()
-		if (NBL_SANITIZE_ADDRESS)
-			add_compile_options(-fsanitize=address) 
-		endif()
-		if (NBL_SANITIZE_THREAD)
-			add_compile_options(-fsanitize=thread)
-		endif()
-		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
-			add_compile_options(-Wno-error=ignored-attributes)
-		endif()
-		
-		# https://github.com/android/ndk/issues/1426
-		if (NOT ANDROID)
-			link_libraries(
-				-fuse-ld=gold
-			)
-		endif()
-
-		if(FAST_MATH)
-			add_compile_options(
-				$<$<CONFIG:RELEASE>:-ffast-math>
-			)
-		endif()
-
-	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
-		if(NBL_SANITIZE_ADDRESS)
-			list(APPEND CMAKE_CXX_FLAGS /fsanitize=address)
-			list(APPEND CMAKE_C_FLAGS /fsanitize=address)
-		endif()
-		
-		# debug
-		string(REPLACE "/W3" "/W0" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /fp:fast /Zc:wchar_t /INCREMENTAL" )
-		string(REPLACE "/W3" "/W0" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP${_NBL_JOBS_AMOUNT_} /fp:fast /Zc:wchar_t /INCREMENTAL")
-		
-		# release
-		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}") # for some reason simply replacing /GS -> /GS- doesn't work... so it vanishes here and appears a few lines below!
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
-		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
-		
-		# relWithDebInfo
-		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP${_NBL_JOBS_AMOUNT_} /Gy /sdl- /Oy- /fp:fast")
-		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
-		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP${_NBL_JOBS_AMOUNT_} /Gy /Zc:wchar_t /sdl- /Oy- /fp:fast")
-		
-		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
-		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
-	else()
-		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-	endif()
-endmacro()
-
-macro(nbl_adjust_definitions)
-	add_compile_definitions(
-		PNG_THREAD_UNSAFE_OK
-		PNG_NO_MMX_CODE
-		PNG_NO_MNG_FEATURES
-		_7ZIP_ST
-		SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-		BOOST_ALL_NO_LIB
-	)
-	
-	if(ANDROID)
-		add_compile_definitions(
-			NBL_ANDROID_TOOLCHAIN
-		)
-	endif()
-
-	if(WIN32)
-		add_compile_definitions(
-			WIN32
-			__GNUWIN32__
-			_CRT_SECURE_NO_DEPRECATE
-			NOMINMAX
-		)
-	endif()
-endmacro()
+include(adjust/flags)
+include(adjust/definitions)
 
 if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
@@ -309,15 +175,10 @@ endif()
 #option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
-
 option(NBL_PCH "Enable pre-compiled header" ON)
-
 option(NBL_FAST_MATH "Enable fast low-precision math" ON)
-
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
-
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
-
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
@@ -331,9 +192,7 @@ else()
 endif()
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
-
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
-
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
@@ -344,7 +203,7 @@ set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
 get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
 
 include(submodules/update)
-find_package (Python3 COMPONENTS Interpreter REQUIRED)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
