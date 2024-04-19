@@ -27,12 +27,23 @@ double CIESProfileParser::getDouble(const char* errorMsg)
 
 bool CIESProfileParser::parse(CIESProfile& result) 
 {
+    auto removeTrailingWhiteChars = [](std::string& str) -> void
+    {
+        if (std::isspace(str.back()))
+        {
+            auto it = str.rbegin();
+            while (it != str.rend() && std::isspace(*it))
+                ++it;
+
+            str.erase(it.base(), str.end());
+        }
+    };
+
     // skip metadata
     std::string line;
 
     std::getline(ss, line);
-    if (line.back() == '\r')
-        line.pop_back();
+    removeTrailingWhiteChars(line);
 
     CIESProfile::Version iesVersion;
     if (line == "IESNA:LM-63-1995")
@@ -47,8 +58,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
 
     while (std::getline(ss, line)) 
     {
-        if (line.back() == '\r')
-            line.pop_back();
+        removeTrailingWhiteChars(line);
         if (line == "TILT=INCLUDE" || line == "TILT=NONE")
             break;
     }
