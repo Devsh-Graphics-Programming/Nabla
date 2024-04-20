@@ -52,8 +52,14 @@ bool CIESProfileParser::parse(CIESProfile& result)
         iesVersion = CIESProfile::V_2002;
     else
     {
-        errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
-        return false;
+        size_t found = line.find("IESNA91");
+        if (found != std::string::npos)
+            iesVersion = CIESProfile::V_1995;
+        else
+        {
+            errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
+            return false;
+        }
     }
 
     while (std::getline(ss, line)) 
