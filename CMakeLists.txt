@@ -40,10 +40,6 @@ else()
 	endif()
 endif()
 
-if(NBL_BUILD_ANDROID)
-	enable_language(ASM)
-endif()
-
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
@@ -96,13 +92,6 @@ set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
-if(NBL_SANITIZE_ADDRESS) # get rid of RTC1 flag provided by CMake for ASAN purposes
-	unset(CMAKE_CXX_FLAGS_DEBUG CACHE) 
-	unset(CMAKE_CXX_FLAGS_DEBUG)
-	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO CACHE) 
-	unset(CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-endif()
-
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
@@ -150,9 +139,6 @@ if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_
 	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define '_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
-option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
-option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
-
 include(adjust/flags)
 include(adjust/definitions)
 
@@ -170,9 +156,6 @@ if(NBL_STATIC_BUILD)
 else()
 	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
 endif()
-
-#uncomment in the future
-#option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)

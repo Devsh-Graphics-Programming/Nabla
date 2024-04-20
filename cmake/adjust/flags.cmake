@@ -17,8 +17,21 @@ include_guard(GLOBAL)
 # )
 
 function(nbl_adjust_flags)
+	# only configuration dependent, global CMAKE_<LANG>_FLAGS flags are fine
+	macro(UNSET_GLOBAL_CONFIGURATION_FLAGS NBL_CONFIGURATION)
+		if(DEFINED CMAKE_CXX_FLAGS_${NBL_CONFIGURATION})
+			unset(CMAKE_CXX_FLAGS_${NBL_CONFIGURATION} CACHE)
+		endif()
+		
+		if(DEFINED CMAKE_C_FLAGS_${NBL_CONFIGURATION})
+			unset(CMAKE_C_FLAGS_${NBL_CONFIGURATION} CACHE)
+		endif()
+	endmacro()
+
 	foreach(_NBL_CONFIG_IMPL_ ${CMAKE_CONFIGURATION_TYPES})
 		string(TOUPPER "${_NBL_CONFIG_IMPL_}" _NBL_CONFIG_U_IMPL_)
+		UNSET_GLOBAL_CONFIGURATION_FLAGS(${_NBL_CONFIG_U_IMPL_})
+		
 		list(APPEND _NBL_OPTIONS_IMPL_ MAP_${_NBL_CONFIG_U_IMPL_})
 	endforeach()
 
@@ -90,19 +103,16 @@ function(nbl_adjust_flags)
 		list(REMOVE_ITEM _NBL_OPTIONS_IMPL_ TARGET)
 		
 		# global compile options
-		add_compile_options(
-			${NBL_COMPILE_OPTIONS}
-		)
-		
+		list(APPEND _D_NBL_COMPILE_OPTIONS_ ${NBL_COMPILE_OPTIONS})
 		foreach(_NBL_OPTION_IMPL_ ${_NBL_OPTIONS_IMPL_})
-			string(REPLACE "NBL_MAP" "" NBL_MAP_CONFIGURATION_FROM "NBL_${_NBL_OPTION_IMPL_}")
-			set(NBL_MAP_CONFIGURATION_TO ${NBL_${_NBL_OPTION_IMPL_}})
+			string(REPLACE "NBL_MAP_" "" NBL_MAP_CONFIGURATION_FROM "NBL_${_NBL_OPTION_IMPL_}")
+			string(TOUPPER "${NBL_${_NBL_OPTION_IMPL_}}" NBL_MAP_CONFIGURATION_TO)
 			set(NBL_TO_CONFIG_COMPILE_OPTIONS ${NBL_${NBL_MAP_CONFIGURATION_TO}_COMPILE_OPTIONS})
 			
 			# per configuration compile options with mapping
-			add_compile_options(
-				$<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_TO_CONFIG_COMPILE_OPTIONS}>
-			)
+			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_TO_CONFIG_COMPILE_OPTIONS}>)
 		endforeach()
+		
+		set_directory_properties(PROPERTIES COMPILE_OPTIONS ${_D_NBL_COMPILE_OPTIONS_})
 	endif()
 endfunction()
