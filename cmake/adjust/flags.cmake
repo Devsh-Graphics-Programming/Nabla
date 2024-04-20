@@ -1,5 +1,42 @@
 include_guard(GLOBAL)
 
+macro(_NBL_IMPL_GET_FLAGS_PROFILE_)
+	if(MSVC)
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/windows/msvc.cmake")
+	elseif(ANDROID)
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/android.cmake")
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/gnu.cmake")
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/clang.cmake")
+	else()
+		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
+	endif()
+endmacro()
+
+function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)
+	_NBL_IMPL_GET_FLAGS_PROFILE_()
+		
+	macro(NBL_MAP_CONFIGURATION NBL_CONFIG_FROM NBL_CONFIG_TO)
+		string(TOUPPER "${NBL_CONFIG_FROM}" NBL_CONFIG_FROM_U)
+		string(TOUPPER "${NBL_CONFIG_TO}" NBL_CONFIG_TO_U)
+		
+		string(REPLACE ";" " " _NBL_CXX_CO_ "${NBL_CXX_${NBL_CONFIG_TO_U}_COMPILE_OPTIONS}")
+		string(REPLACE ";" " " _NBL_C_CO_ "${NBL_C_${NBL_CONFIG_TO_U}_COMPILE_OPTIONS}")
+		
+		list(APPEND ${NBL_LIST_NAME} "-DCMAKE_CXX_FLAGS_${NBL_CONFIG_FROM_U}:STRING=${_NBL_CXX_CO_}")
+		list(APPEND ${NBL_LIST_NAME} "-DCMAKE_C_FLAGS_${NBL_CONFIG_FROM_U}:STRING=${_NBL_C_CO_}")
+	endmacro()
+	
+	NBL_MAP_CONFIGURATION(RELEASE ${MAP_RELEASE})
+	NBL_MAP_CONFIGURATION(RELWITHDEBINFO ${MAP_RELWITHDEBINFO})
+	NBL_MAP_CONFIGURATION(DEBUG ${MAP_DEBUG})
+	
+	set(${NBL_LIST_NAME} 
+		${${NBL_LIST_NAME}}
+	PARENT_SCOPE)
+endfunction()
+
 # Adjust compile flags for the build system, supports calling per target or directory and map a configuration into another one.
 #
 # -- TARGET mode --
@@ -42,18 +79,7 @@ function(nbl_adjust_flags)
 	list(APPEND _NBL_OPTIONS_IMPL_ TARGET)
 	cmake_parse_arguments(NBL "" "" "${_NBL_OPTIONS_IMPL_}" ${ARGN})
 	
-	# Profiles
-	if(MSVC)
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/windows/msvc.cmake")
-	elseif(ANDROID)
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/android.cmake")
-	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/gnu.cmake")
-	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/clang.cmake")
-	else()
-		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-	endif()
+	_NBL_IMPL_GET_FLAGS_PROFILE_()
 
 	# TARGET mode
 	if(NBL_TARGET)
