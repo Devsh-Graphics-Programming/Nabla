@@ -389,11 +389,12 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
             variableLengthArrayDescriptorBindingNr = bindings[i].binding;
         }
 
-        // only last binding can be run-time sized
         highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
-        if (variableLengthArrayDescriptorBindingNr != highestBindingNr)
-            return nullptr;
     }
+
+    // only last binding can be run-time sized
+    if (variableLengthArrayDescriptorBindingNr != highestBindingNr)
+        return nullptr;
 
     uint32_t maxSamplersCount = 0u;
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
