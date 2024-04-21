@@ -2,12 +2,10 @@
 #define _NBL_HLSL_SCAN_VIRTUAL_WORKGROUP_INCLUDED_
 
 // TODO (PentaKon): Decide if these are needed once we have a clearer picture of the refactor
-#include "nbl/builtin/hlsl/limits/numeric.hlsl"
-#include "nbl/builtin/hlsl/math/typeless_arithmetic.hlsl"
+#include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl" // This is where all the nbl_glsl_workgroupOPs are defined
 #include "nbl/builtin/hlsl/scan/declarations.hlsl"
 #include "nbl/builtin/hlsl/scan/default_scheduler.hlsl"
-#include "nbl/builtin/hlsl/binops.hlsl"
 
 namespace nbl
 {
@@ -19,8 +17,8 @@ namespace scan
 	void virtualWorkgroup(NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) accessor)
 	{
 		const Parameters_t params = getParameters();
-		const uint32_t levelInvocationIndex = localWorkgroupIndex * glsl::gl_WorkGroupSize().x + SubgroupContiguousIndex();
-		const bool lastInvocationInGroup = SubgroupContiguousIndex() == (gl_WorkGroupSize().x - 1);
+		const uint32_t levelInvocationIndex = localWorkgroupIndex * glsl::gl_WorkGroupSize().x + workgroup::SubgroupContiguousIndex();
+		const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex() == (glsl::gl_WorkGroupSize().x - 1);
 
 		const uint32_t lastLevel = params.topLevel << 1u;
 		const uint32_t pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
@@ -29,10 +27,10 @@ namespace scan
         // REVIEW: Right now in order to support REDUCE operation we need to set the max treeLevel == topLevel
         // so that it exits after reaching the top?
 
-		Storage_t data = Binop::identity(); // REVIEW: replace Storage_t with Binop::type_t?
+		Storage_t data = Binop::identity; // REVIEW: replace Storage_t with Binop::type_t?
 		if(inRange)
 		{
-			getData(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
+			getData<Storage_t, isExclusive>(data, levelInvocationIndex, localWorkgroupIndex, treeLevel, pseudoLevel);
 		}
 
 		if(treeLevel < params.topLevel) 

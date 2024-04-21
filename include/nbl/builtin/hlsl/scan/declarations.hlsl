@@ -37,7 +37,7 @@ namespace scan
     
     DefaultSchedulerParameters_t getSchedulerParameters();
 
-	template<typename Storage_t>
+	template<typename Storage_t, bool isExclusive=false>
 	void getData(
 		NBL_REF_ARG(Storage_t) data,
 		NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,

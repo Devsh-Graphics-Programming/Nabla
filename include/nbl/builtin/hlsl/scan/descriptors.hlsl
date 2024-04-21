@@ -17,7 +17,7 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=scratchSz> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
+template<uint32_t scratchElementCount=SCRATCH_SZ> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
 struct Scratch
 {
     uint32_t workgroupsStarted;
@@ -25,9 +25,9 @@ struct Scratch
 };
 
 [[vk::binding(0 ,0)]] RWStructuredBuffer<uint32_t /*Storage_t*/> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
-[[vk::binding(1 ,0)]] RWStructuredBuffer<Scratch> globallycoherent scanScratchBuf; // (REVIEW): Check if globallycoherent can be used with Vulkan Mem Model
+[[vk::binding(1 ,0)]] RWStructuredBuffer<Scratch> /*globallycoherent (seems we can't use along with VMM)*/ scanScratchBuf; // (REVIEW): Check if globallycoherent can be used with Vulkan Mem Model
 
-template<typename Storage_t, bool isExclusive=false>
+template<typename Storage_t, bool isExclusive>
 void getData(
     NBL_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
@@ -36,6 +36,7 @@ void getData(
     NBL_CONST_REF_ARG(uint32_t) pseudoLevel
 )
 {
+    glsl::memoryBarrierBuffer(); // scanScratchBuf can't be declared as coherent due to VMM(?)
     const Parameters_t params = getParameters(); // defined differently for direct and indirect shaders
     
     uint32_t offset = levelInvocationIndex;
@@ -45,7 +46,7 @@ void getData(
     
     if (pseudoLevel!=treeLevel) // downsweep
 	{
-		const bool firstInvocationInGroup = SubgroupContiguousIndex()==0u;
+		const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
 		if (bool(localWorkgroupIndex) && firstInvocationInGroup)
 			data = scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
 
@@ -89,7 +90,7 @@ void setData(
     const Parameters_t params = getParameters();
 	if (treeLevel<params.topLevel)
 	{
-		const bool lastInvocationInGroup = SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
+		const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
 		if (lastInvocationInGroup)
 			scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
 	}

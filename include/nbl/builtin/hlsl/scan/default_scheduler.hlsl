@@ -15,8 +15,6 @@ namespace hlsl
 {
 namespace scan
 {
-
-#ifdef HLSL
 namespace scheduler
 {
 	/**
@@ -115,14 +113,14 @@ namespace scheduler
 	 * For example, if we have dispatched 10 workgroups and we the virtual workgroup number is 35, then the localWorkgroupIndex should be 5.
 	 */
 	template<class Accessor>
-	bool getWork(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) sharedScratch)
+	bool getWork(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_REF_ARG(uint32_t) treeLevel, NBL_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) sharedScratch)
 	{
-		if(SubgroupContiguousIndex() == 0u) 
+		if(workgroup::SubgroupContiguousIndex() == 0u) 
 		{
 			uint32_t originalWGs = glsl::atomicAdd(scanScratchBuf[0].workgroupsStarted, 1u);
             sharedScratch.set(0u, originalWGs);
 		}
-		else if (SubgroupContiguousIndex() == 1u) 
+		else if (workgroup::SubgroupContiguousIndex() == 1u) 
 		{
 			sharedScratch.set(1u, 0u);
 		}
@@ -130,7 +128,7 @@ namespace scheduler
         
 		const uint32_t globalWorkgroupIndex = sharedScratch.get(0u); // does every thread need to know?
 		const uint32_t lastLevel = topLevel<<1u;
-		if (SubgroupContiguousIndex()<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[SubgroupContiguousIndex()]) 
+		if (workgroup::SubgroupContiguousIndex()<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[workgroup::SubgroupContiguousIndex()]) 
 		{
             sharedScratch.atomicAdd(1u, 1u);
 		}
@@ -146,7 +144,7 @@ namespace scheduler
 		{
 			const uint prevLevel = treeLevel - 1u;
 			localWorkgroupIndex -= params.cumulativeWorkgroupCount[prevLevel];
-			if(SubgroupContiguousIndex() == 0u) 
+			if(workgroup::SubgroupContiguousIndex() == 0u) 
 			{
 				uint dependentsCount = 1u;
 				if(treeLevel <= topLevel) 
@@ -179,7 +177,7 @@ namespace scheduler
 	void markComplete(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex)
 	{
         glsl::memoryBarrierBuffer();
-		if (SubgroupContiguousIndex()==0u)
+		if (workgroup::SubgroupContiguousIndex()==0u)
 		{
 			uint32_t finishedFlagOffset = params.finishedFlagOffset[treeLevel];
 			if (treeLevel<topLevel)
@@ -195,7 +193,6 @@ namespace scheduler
 		}
 	}
 }
-#endif
 
 }
 }

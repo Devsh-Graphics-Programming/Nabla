@@ -284,24 +284,24 @@ class CScanner final : public core::IReferenceCounted
 		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
 
 		// You need to override this shader with your own defintion of `nbl_glsl_scan_getIndirectElementCount` for it to even compile, so we always give you a new shader
-		core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
+		core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
 		{
-			return createShader(true,scanType,dataType,op);
+			return createShader(true,scanType,dataType,op,scratchSz);
 		}
 
 		//
-		inline asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		inline asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
 		{
 			if (!m_shaders[scanType][dataType][op])
-				m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op);
+				m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op,scratchSz);
 			return m_shaders[scanType][dataType][op].get();
 		}
 		//
-		inline IGPUShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		inline IGPUShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
 		{
 			if (!m_specialized_shaders[scanType][dataType][op])
 			{
-				auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op));
+				auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op,scratchSz));
 				cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
 				cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
@@ -313,7 +313,7 @@ class CScanner final : public core::IReferenceCounted
 		}
 
 		//
-		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
+		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
 		{
 			// ondemand
 			if (!m_pipelines[scanType][dataType][op]) {
@@ -321,7 +321,7 @@ class CScanner final : public core::IReferenceCounted
 				params.layout = m_pipeline_layout.get();
 				// Theoretically a blob of SPIR-V can contain multiple named entry points and one has to be chosen, in practice most compilers only support outputting one (and glslang used to require it be called "main")
 				params.shader.entryPoint = "main";
-				params.shader.shader = getDefaultSpecializedShader(scanType, dataType, op);
+				params.shader.shader = getDefaultSpecializedShader(scanType, dataType, op, scratchSz);
 
 				m_device->createComputePipelines(
 					nullptr, { &params,1 },
@@ -388,7 +388,7 @@ class CScanner final : public core::IReferenceCounted
 			// all drop themselves automatically
 		}
 
-		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const;
+		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const;
 
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;

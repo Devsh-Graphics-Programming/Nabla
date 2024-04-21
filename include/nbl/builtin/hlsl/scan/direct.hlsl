@@ -7,8 +7,10 @@
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/workgroup/scratch_size.hlsl"
 #include "nbl/builtin/hlsl/scan/declarations.hlsl"
+#include "nbl/builtin/hlsl/scan/virtual_workgroup.hlsl"
 
-static const uint32_t SharedScratchSz = nbl::hlsl::workgroup::scratch_size_arithmetic<ITEMS_PER_WG>::value;
+// ITEMS_PER_WG = WORKGROUP_SIZE
+static const uint32_t SharedScratchSz = nbl::hlsl::workgroup::scratch_size_arithmetic<WORKGROUP_SIZE>::value;
 
 // TODO: Can we make it a static variable?
 groupshared uint32_t wgScratch[SharedScratchSz];
@@ -29,7 +31,7 @@ struct WGScratchProxy
 
     uint32_t atomicAdd(uint32_t ix, uint32_t val)
     {
-        return glsl::atomicAdd(wgScratch[ix + offset], val);
+        return nbl::hlsl::glsl::atomicAdd(wgScratch[ix + offset], val);
     }
 
 	void workgroupExecutionAndMemoryBarrier()
@@ -86,5 +88,5 @@ DefaultSchedulerParameters_t getSchedulerParameters()
 [numthreads(WORKGROUP_SIZE,1,1)]
 void main()
 {
-    nbl::hlsl::scan::main<BINOP, Storage_t, isExclusive, WGScratchProxy>(accessor);
+    nbl::hlsl::scan::main<BINOP<Storage_t>, Storage_t, true, uint16_t(WORKGROUP_SIZE), WGScratchProxy<0> >(accessor);
 }

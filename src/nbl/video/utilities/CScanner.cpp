@@ -3,7 +3,7 @@
 using namespace nbl;
 using namespace video;
 
-core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
+core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
 {
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<const system::IFile> hlsl;
@@ -46,7 +46,7 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 			break;
 	}
 
-	bool isExclusive = scanType == EST_EXCLUSIVE;
+	const char* isExclusive = scanType == EST_EXCLUSIVE ? "true" : "false";
 
 	const char* binop = nullptr;
 	switch (op)
@@ -76,10 +76,10 @@ core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indi
 			assert(false);
 			break;
 	}
-
-	return asset::CGLSLCompiler::createOverridenCopy(
+	
+	return asset::CHLSLCompiler::createOverridenCopy(
 		cpushader.get(),
-		"#define WORKGROUP_SIZE %d\nconst bool isExclusive = %b\ntypedef storageType %s\n#define BINOP nbl::hlsl::%s\n",
-		m_workgroupSize,isExclusive,storageType,binop
+		"#define WORKGROUP_SIZE %d\ntypedef %s Storage_t;\n#define BINOP nbl::hlsl::%s\n#define SCRATCH_SZ %d\n",
+		m_workgroupSize, storageType, binop, scratchSz
 	);
 }
