@@ -28,17 +28,14 @@ namespace impl
 
 		protected:
 			list_t m_list;
-
-		private:
 			MapHash m_hash;
 			MapEquals m_equals;
-
-		protected:
 			const mutable Key* searchedKey;
 
-			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
-			{
-			}
+			LRUCacheBase() = default;
+
+			LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
+			{ }
 
 		public:
 			inline const Key& getReference(const uint32_t nodeAddr) const
@@ -59,7 +56,7 @@ namespace impl
 // Stores fixed size amount of elements. 
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename MapEquals=std::equal_to<Key> >
-class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
+class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
 		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
@@ -88,7 +85,6 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		};
 
 		// members
-		unordered_set<uint32_t,WrapHash,WrapEquals> m_shortcut_map;
 		using shortcut_iterator_t = typename unordered_set<uint32_t,WrapHash,WrapEquals>::const_iterator;
 		inline shortcut_iterator_t common_find(const Key& key) const
 		{
@@ -115,12 +111,27 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		using assoc_t = typename base_t::list_value_t;
 
 		//Constructor
-		inline LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
+		LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
 			base_t(capacity,std::move(_hash),std::move(_equals),std::move(_df)),
 			m_shortcut_map(capacity>>2,WrapHash{this},WrapEquals{this}) // 4x less buckets than capacity seems reasonable
 		{
 			assert(capacity > 1);
 			m_shortcut_map.reserve(capacity);
+		}
+
+		LRUCache() = default;
+		
+		LRUCache& operator=(LRUCache&& other)
+		{
+			m_shortcut_map = std::move(other.m_shortcut_map);
+			base_t::m_list = std::move(other.m_list);
+			base_t::m_hash = std::move(other.m_hash);
+			base_t::m_equals = std::move(other.m_equals);
+			base_t::searchedKey = other.searchedKey;
+
+			// Nullify other
+			other.searchedKey = nullptr;
+			return *this;
 		}
 
 		inline void print(core::smart_refctd_ptr<system::ILogger> logger)
@@ -215,6 +226,9 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				m_shortcut_map.erase(iterator);
 			}
 		}
+
+	protected:
+		unordered_set<uint32_t,WrapHash,WrapEquals> m_shortcut_map;
 };
 
 
