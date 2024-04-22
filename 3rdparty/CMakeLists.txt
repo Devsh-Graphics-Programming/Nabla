@@ -4,6 +4,9 @@
 
 include(../cmake/common.cmake)
 
+option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
+option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -396,15 +399,23 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
 		endif()
+		
+		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
+		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
+			# maybe explicit global mapping would be better, to discuss
+			if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+			elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+			else()
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+			endif()
+		endif()
 endforeach()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
-nbl_adjust_flags()
-
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
-## REMINDER / NOTE : This is how we install 3rdparty headers we need !
-# parallel hashmap headers
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
