@@ -371,35 +371,15 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 {
     // TODO: MORE VALIDATION, but after descriptor indexing.
 
-    // validate if last only last binding is run-time sized and there is only one run-time sized binding
     bool variableLengthArrayDescriptorFound = false;
     uint32_t variableLengthArrayDescriptorBindingNr = 0;
     uint32_t highestBindingNr = 0u;
-    for (uint32_t i = 0u; i < bindings.size(); ++i)
-    {
-        bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
-
-        // no 2 run-time sized descriptors allowed
-        if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray)
-            return nullptr;
-
-        if (isCurrentDescriptorVariableLengthArray)
-        {
-            variableLengthArrayDescriptorFound = true;
-            variableLengthArrayDescriptorBindingNr = bindings[i].binding;
-        }
-
-        highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
-    }
-
-    // only last binding can be run-time sized
-    if (variableLengthArrayDescriptorBindingNr != highestBindingNr)
-        return nullptr;
-
     uint32_t maxSamplersCount = 0u;
     uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
-    for (auto& binding : bindings)
+    for (uint32_t i = 0u; i < bindings.size(); ++i)
     {
+        const auto& binding = bindings[i];
+
         if (binding.type==asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
             dynamicSSBOCount++;
         else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
@@ -412,7 +392,24 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
                 return nullptr;
             maxSamplersCount += binding.count;
         }
+
+        // validate if only last binding is run-time sized and there is only one run-time sized binding
+        bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
+        // no 2 run-time sized descriptors allowed
+        if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray)
+            return nullptr;
+
+        if (isCurrentDescriptorVariableLengthArray)
+        {
+            variableLengthArrayDescriptorFound = true;
+            variableLengthArrayDescriptorBindingNr = bindings[i].binding;
+        }
+        highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
     }
+
+    // only last binding can be run-time sized
+    if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)
+        return nullptr;
 
     const auto& limits = m_physicalDevice->getLimits();
     if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
