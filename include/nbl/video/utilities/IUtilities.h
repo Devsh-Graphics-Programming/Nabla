@@ -199,35 +199,105 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! WARNING: Don't use this function in hot loops or to do batch updates, its merely a convenience for one-off uploads
         //!  like the `updateBufferRangeViaStagingBufferAutoSubmit` function below.
         //! Parameters:
-        //! - `intendedSubmit`: more lax than regular `SIntendedSubmitInfo::valid()`, only needs a valid queue and at least one semaphore to use as scratch and signal.
-        //!     if you don't have a commandbuffer usable as scratch as the last one, we'll patch internally.
-        inline IQueue::RESULT autoSubmit(SIntendedSubmitInfo& intendedSubmit, const std::function<bool(SIntendedSubmitInfo&)>& what)
+        //! - `intendedSubmit`: more lax than regular `SIntendedSubmitInfo::valid()`, only needs a valid queue.
+        //!     If you don't specify a scratch semaphore, we'll patch and create one internally.
+        //!     If you don't have a commandbuffer usable as scratch as the last one, we'll patch internally.
+        //!         WARNING: If this particular case happens the `commandBuffers` span will be emptied out!
+        inline ISemaphore::future_t<IQueue::RESULT> autoSubmit(
+            SIntendedSubmitInfo& intendedSubmit,
+            const std::function<bool(SIntendedSubmitInfo&)>& what,
+            const std::span<IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores={}
+        )
         {
-            if (!intendedSubmit.frontHalf.valid() || intendedSubmit.signalSemaphores.empty())
+            auto queue = intendedSubmit.queue;
+            if (!queue)
+            {
+                // TODO: log error
+                return IQueue::RESULT::OTHER_ERROR;
+            }
+            // backup in-case we need to restore to unmodified state
+            SIntendedSubmitInfo patchedSubmit;
+            memcpy(&patchedSubmit,&intendedSubmit,sizeof(SIntendedSubmitInfo));
+
+            core::smart_refctd_ptr<ISemaphore> patchedSemaphore;
+            if (!patchedSubmit.scratchSemaphore.semaphore)
+            {
+                auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
+                patchedSemaphore = device->createSemaphore(0);
+                patchedSubmit.scratchSemaphore = {patchedSemaphore.get(),0,asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS};
+            }
+            
+            // patch the commandbuffers if needed
+            core::vector<IQueue::SSubmitInfo::SCommandBufferInfo> patchedCmdBufs;
+            core::smart_refctd_ptr<IGPUCommandBuffer> newScratch;
+            if (auto* candidateScratch= patchedSubmit.getScratchCommandBuffer(); candidateScratch && candidateScratch->isResettable())
+            switch(candidateScratch->getState())
+            {
+                case IGPUCommandBuffer::STATE::INITIAL:
+                    if (candidateScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                        break;
+                    [[fallthrough]];
+                case IGPUCommandBuffer::STATE::RECORDING:
+                    if (!candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                    {
+                        // allocate a span one larger than the original
+                        const auto origCmdBufs = patchedSubmit.commandBuffers;
+                        patchedCmdBufs.resize(origCmdBufs.size()+1);
+                        patchedSubmit.commandBuffers = patchedCmdBufs;
+                        // copy the original commandbuffers
+                        std::copy(origCmdBufs.begin(),origCmdBufs.end(),patchedCmdBufs.begin());
+                        // create the scratch commandbuffer (the patching)
+                        {
+                            auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
+                            auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+                            if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{&newScratch,1}))
+                            {
+                                // TODO: log error
+                                return IQueue::RESULT::OTHER_ERROR;
+                            }
+                            if (!newScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                            {
+                                // TODO: log error
+                                return IQueue::RESULT::OTHER_ERROR;
+                            }
+                        }
+                        patchedCmdBufs[origCmdBufs.size()] = {newScratch.get()};
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            if (!patchedSubmit.valid())
             {
                 // TODO: log error
                 return IQueue::RESULT::OTHER_ERROR;
             }
 
-            const auto raii = intendedSubmit.frontHalf.patch();
-            if (!raii)
+            if (!what(patchedSubmit))
             {
                 // TODO: log error
                 return IQueue::RESULT::OTHER_ERROR;
             }
+            // no way back now, have to modify the intended submit
+            memcpy(&intendedSubmit,&patchedSubmit,sizeof(intendedSubmit));
+            intendedSubmit.getScratchCommandBuffer()->end();
 
-            if (!what(intendedSubmit))
-                return IQueue::RESULT::OTHER_ERROR;
-            intendedSubmit.frontHalf.getScratchCommandBuffer()->end();
-
-            const IQueue::SSubmitInfo submit = intendedSubmit;
-            if (const auto error=intendedSubmit.frontHalf.queue->submit({&submit,1}); error!=IQueue::RESULT::SUCCESS)
+            const auto submit = intendedSubmit.popSubmit(extraSignalSemaphores);
+            if (newScratch)
+                intendedSubmit.commandBuffers = {};
+            if (const auto error=queue->submit(submit); error!=IQueue::RESULT::SUCCESS)
+            {
+                if (patchedSemaphore)
+                    intendedSubmit.scratchSemaphore = {};
                 return error;
-            // If there's any subsequent submit in a chain, make sure it waits for this one to finish
-            // (to achieve a command ordering in the cmdbuffer transparent to overflow submits)
-            intendedSubmit.frontHalf.waitSemaphores = {&intendedSubmit.signalSemaphores.front(),1};
-            intendedSubmit.signalSemaphores = {};
-            return IQueue::RESULT::SUCCESS;
+            }
+
+            ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
+            retval.set({intendedSubmit.scratchSemaphore.semaphore,intendedSubmit.scratchSemaphore.value});
+            if (patchedSemaphore)
+                intendedSubmit.scratchSemaphore = {};
+            return retval;
         }
 
         // --------------
@@ -240,7 +310,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     True on successful recording of copy commands and handling of overflows, false on failure for any reason.
         //! Parameters:
         //!     - nextSubmit:
-        //!         Is the SubmitInfo you intended to submit your command buffers with, it will be patched if overflow occurred @see SIntendedSubmitInfo
+        //!         Is the SubmitInfo you intended to submit your command buffers with, it will be modified if overflow occurred @see SIntendedSubmitInfo
         //!     - bufferRange: contains offset + size into bufferRange::buffer that will be copied from `data` (offset doesn't affect how `data` is accessed)
         //!     - data: raw pointer to data that will be copied to bufferRange::buffer
         //! Valid Usage:
@@ -316,6 +386,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs,buffer.get());
+
             if (!autoSubmitAndBlock(submit,[&](auto& info){return updateBufferRangeViaStagingBuffer(info,asset::SBufferRange<IGPUBuffer>{0u,params.size,core::smart_refctd_ptr(buffer)},data);}))
                 return {};
 
