@@ -1,5 +1,9 @@
 include_guard(GLOBAL)
 
+define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
+  BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
+)
+
 macro(_NBL_IMPL_GET_FLAGS_PROFILE_)
 	if(MSVC)
 		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/windows/msvc.cmake")
@@ -106,22 +110,51 @@ function(nbl_adjust_flags)
 		while(_NBL_ARG_I_ LESS ${_NBL_V_OPTION_LEN_})
 			foreach(_NBL_OPTION_IMPL_ ${_NBL_OPTIONS_IMPL_})
 				list(GET NBL_${_NBL_OPTION_IMPL_} ${_NBL_ARG_I_} NBL_${_NBL_OPTION_IMPL_}_ITEM)
+				
 				set(NBL_${_NBL_OPTION_IMPL_}_ITEM 
 					${NBL_${_NBL_OPTION_IMPL_}_ITEM}
 				PARENT_SCOPE)
-				
-				# message("NBL_${_NBL_OPTION_IMPL_}[${_NBL_ARG_I_}]: ${NBL_${_NBL_OPTION_IMPL_}_ITEM}")
 			endforeach()
-			
-			target_compile_options(${NBL_TARGET_ITEM} PUBLIC # the old behaviour was "PUBLIC" anyway, but we could also make it a param of the bundle call
-				# global compile options
-				${NBL_COMPILE_OPTIONS}
+
+			# global compile options
+			list(APPEND _D_NBL_COMPILE_OPTIONS_ ${NBL_COMPILE_OPTIONS})
+
+			foreach(_NBL_CONFIG_IMPL_ ${CMAKE_CONFIGURATION_TYPES})
+				string(TOUPPER "${_NBL_CONFIG_IMPL_}" NBL_MAP_CONFIGURATION_FROM)
+				string(TOUPPER "${NBL_MAP_${NBL_MAP_CONFIGURATION_FROM}_ITEM}" NBL_MAP_CONFIGURATION_TO)
+				set(NBL_TO_CONFIG_COMPILE_OPTIONS ${NBL_${NBL_MAP_CONFIGURATION_TO}_COMPILE_OPTIONS})
 				
 				# per configuration compile options with mapping
-				$<$<CONFIG:${NBL_MAP_RELEASE_ITEM}>:${NBL_RELEASE_COMPILE_OPTIONS}>
-				$<$<CONFIG:${NBL_MAP_DEBUG_ITEM}>:${NBL_DEBUG_COMPILE_OPTIONS}>
-				$<$<CONFIG:${NBL_MAP_RELWITHDEBINFO_ITEM}>:${NBL_RELWITHDEBINFO_COMPILE_OPTIONS}>
+				list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_TO_CONFIG_COMPILE_OPTIONS}>)
+				string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_MAP_CONFIGURATION_TO}>)
+			endforeach()
+			
+			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
+				NBL_CONFIGURATION_MAP ${_D_NBL_CONFIGURATION_MAP_}
 			)
+			unset(_D_NBL_CONFIGURATION_MAP_)
+			
+			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
+			
+			if(MSVC)
+				if(NBL_SANITIZE_ADDRESS)
+					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase>")
+				else()
+					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<STREQUAL:${MAPPED_CONFIG},DEBUG>:EditAndContinue>$<$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>:ProgramDatabase>")
+				endif()
+				
+				# test
+				file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/TEST/GEN/${NBL_TARGET_ITEM}/test.cmake" CONTENT "TEST\nNBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT: \"${NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT}\"\nmapped config: \"${MAPPED_CONFIG}\"" CONDITION $<CONFIG:DEBUG>)
+			endif()
+			
+			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
+				MSVC_DEBUG_INFORMATION_FORMAT "${NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT}"
+			)
+		
+			target_compile_options(${NBL_TARGET_ITEM} PUBLIC # the old behaviour was "PUBLIC" anyway, but we could also make it a param of the bundle call
+				${_D_NBL_COMPILE_OPTIONS_}
+			)
+			unset(_D_NBL_COMPILE_OPTIONS_)
 			
 			math(EXPR _NBL_ARG_I_ "${_NBL_ARG_I_} + 1")
 		endwhile()		
