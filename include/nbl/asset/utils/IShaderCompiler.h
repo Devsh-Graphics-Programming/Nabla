@@ -232,29 +232,22 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 					friend class SCompilerArgs;
 					friend class SEntry;
-
-					// Public default needed for json serialization
-					SPreprocessorArgs() {};
 					
 					inline bool operator==(const SPreprocessorArgs& other) const {
 						if (sourceIdentifier != other.sourceIdentifier) return false;
 
 						if (extraDefines.size() != other.extraDefines.size()) return false;
-						core::vector<SMacroData> sortedExtraDefines, otherSortedExtraDefines;
 
-						sortedExtraDefines.assign(extraDefines.begin(), extraDefines.end());
-						std::sort(sortedExtraDefines.begin(), sortedExtraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
-						
-						otherSortedExtraDefines.assign(other.extraDefines.begin(), other.extraDefines.end());
-						std::sort(otherSortedExtraDefines.begin(), otherSortedExtraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
-
-						for (auto definesIt = sortedExtraDefines.begin(), otherDefinesIt = otherSortedExtraDefines.begin(); definesIt != sortedExtraDefines.end(); definesIt++, otherDefinesIt++) {
+						for (auto definesIt = extraDefines.begin(), otherDefinesIt = other.extraDefines.begin(); definesIt != extraDefines.end(); definesIt++, otherDefinesIt++) {
 							if (definesIt->identifier != otherDefinesIt->identifier || definesIt->definition != otherDefinesIt->definition) return false;
 						}
 						return true;
 					}
 
 				private:
+
+					// Default constructor needed for json serialization of SCompilerArgs
+					SPreprocessorArgs() {};
 
 					// Only SCompilerArgs should instantiate this struct
 					SPreprocessorArgs(const SPreprocessorOptions& options)
@@ -264,6 +257,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							SMacroData data{ std::string(define.identifier), std::string(define.definition) };
 							extraDefines.push_back(data);
 						}
+
+						// Sort them so equality and hashing are well defined
+						std::sort(extraDefines.begin(), extraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
 					};
 					std::string sourceIdentifier;
 					std::vector<SMacroData> extraDefines;
@@ -275,8 +271,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					friend class SEntry;
 					friend void to_json(nlohmann::json&, const SCompilerArgs&);
 					friend void from_json(const nlohmann::json&, SCompilerArgs&);
-					// Public default needed for json serialization
-					SCompilerArgs() {}
 
 					inline bool operator==(const SCompilerArgs& other) const {
 						bool retVal = true;
@@ -292,6 +286,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					}
 
 				private:
+
+					// Default constructor needed for json serialization of SEntry
+					SCompilerArgs() {}
 
 					// Only SEntry should instantiate this struct
 					SCompilerArgs(const SCompilerOptions& options)
@@ -321,37 +318,32 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					// Form the hashable for the compiler data
 					size_t preprocessorArgsHashableSize = compilerArgs.preprocessorArgs.sourceIdentifier.size() + compilerArgs.preprocessorArgs.extraDefines.size() * sizeof(SMacroData);
-					auto stageString = std::to_string(compilerArgs.stage);
-					auto versionString = std::to_string(static_cast<uint32_t>(compilerArgs.targetSpirvVersion));
-					auto debugString = std::to_string(static_cast<uint8_t>(compilerArgs.debugInfoFlags.value));
-					size_t compilerArgsHashableSize = stageString.size() + versionString.size() + debugString.size() + compilerArgs.optimizerPasses.size();
-					std::vector<char> hashable;
+					size_t compilerArgsHashableSize = sizeof(compilerArgs.stage) + sizeof(compilerArgs.targetSpirvVersion) + sizeof(compilerArgs.debugInfoFlags.value) + compilerArgs.optimizerPasses.size();
+					std::vector<uint8_t> hashable;
 					hashable.reserve(preprocessorArgsHashableSize + compilerArgsHashableSize + mainFileContents.size());
 					
 					// Insert preproc stuff
 					hashable.insert(hashable.end(), compilerArgs.preprocessorArgs.sourceIdentifier.begin(), compilerArgs.preprocessorArgs.sourceIdentifier.end());
-					core::vector<SMacroData> sortedExtraDefines;
-					sortedExtraDefines.assign(compilerArgs.preprocessorArgs.extraDefines.begin(), compilerArgs.preprocessorArgs.extraDefines.end());
-					
-					// Sort them by identifier so the hash is not order-sensitive!
-					std::sort(sortedExtraDefines.begin(), sortedExtraDefines.end(), [](const SMacroData& lhs, const SMacroData& rhs) {return lhs.identifier < rhs.identifier; });
-					for (const auto& defines : sortedExtraDefines) {
+					for (const auto& defines : compilerArgs.preprocessorArgs.extraDefines) {
 						hashable.insert(hashable.end(), defines.identifier.begin(), defines.identifier.end());
 						hashable.insert(hashable.end(), defines.definition.begin(), defines.definition.end());
 					}
 
-					// Insert rest of stuff from this struct
-					hashable.insert(hashable.end(), stageString.begin(), stageString.end());
-					hashable.insert(hashable.end(), versionString.begin(), versionString.end());
-					hashable.insert(hashable.end(), debugString.begin(), debugString.end());
+					// Insert rest of stuff from this struct. We're going to treat stage, targetSpirvVersion and debugInfoFlags.value as byte arrays for simplicity
+					hashable.insert(hashable.end(), reinterpret_cast<uint8_t*>(&compilerArgs.stage), reinterpret_cast<uint8_t*>(&compilerArgs.stage) + sizeof(compilerArgs.stage));
+					hashable.insert(hashable.end(), reinterpret_cast<uint8_t*>(&compilerArgs.targetSpirvVersion), reinterpret_cast<uint8_t*>(&compilerArgs.targetSpirvVersion) + sizeof(compilerArgs.targetSpirvVersion));
+					hashable.insert(hashable.end(), reinterpret_cast<uint8_t*>(&compilerArgs.debugInfoFlags.value), reinterpret_cast<uint8_t*>(&compilerArgs.debugInfoFlags.value) + sizeof(compilerArgs.debugInfoFlags.value));
 					for (auto pass : compilerArgs.optimizerPasses) {
-						hashable.push_back(static_cast<char>(pass));
+						hashable.push_back(static_cast<uint8_t>(pass));
 					}
 
 					// Now add the mainFileContents and produce both lookup and early equality rejection hashes
 					hashable.insert(hashable.end(), mainFileContents.begin(), mainFileContents.end());
-					std::string hashableString(std::move_iterator(hashable.begin()), std::move_iterator(hashable.end()));
-					lookupHash = std::hash<std::string>{}(hashableString);
+					hash = nbl::core::XXHash_256(hashable.data(), hashable.size());
+					lookupHash = hash[0];
+					for (auto i = 1u; i < 4; i++) {
+						core::hash_combine<uint64_t>(lookupHash, hash[i]);
+					}
 				}
 
 				// Needed to get the vector deserialization automatically
@@ -364,6 +356,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				std::string mainFileContents;
 				SCompilerArgs compilerArgs;
+				std::array<uint64_t, 4> hash;
 				size_t lookupHash;
 				dependency_container_t dependencies;
 				core::smart_refctd_ptr<asset::ICPUShader> value = nullptr;
@@ -439,7 +432,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			CCache::SEntry entry;
 			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
 			if (cache) {
-				entry = std::move(CCache::SEntry(code, options));
+				entry = CCache::SEntry(code, options);
 				auto found = cache->find(entry, options.preprocessorOptions.includeFinder);
 				if (found)
 					return found;
@@ -448,6 +441,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			if (cache) {
 				entry.dependencies = std::move(dependencies);
 				entry.value = retVal;
+				cache->insert(std::move(entry));
 			}
 			return retVal;
 		}

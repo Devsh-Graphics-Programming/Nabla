@@ -174,6 +174,7 @@ namespace nbl::asset {
         j = json{
             { "mainFileContents", entry.mainFileContents },
             { "compilerArgs", entry.compilerArgs },
+            { "hash", entry.hash },
             { "lookupHash", entry.lookupHash },
             { "dependencies", entry.dependencies },
         };
@@ -183,6 +184,7 @@ namespace nbl::asset {
     {
         j.at("mainFileContents").get_to(entry.mainFileContents);
         j.at("compilerArgs").get_to(entry.compilerArgs);
+        j.at("hash").get_to(entry.hash);
         j.at("lookupHash").get_to(entry.lookupHash);
         j.at("dependencies").get_to(entry.dependencies);
         entry.value = nullptr;

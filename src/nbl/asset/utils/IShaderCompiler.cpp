@@ -114,7 +114,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         retVal = std::move(contents);
     else if (auto contents = trySearchPaths(includeName))
             retVal = std::move(contents);
-    else retVal = std::move(m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName));
+    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 
     retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
     return retVal;
@@ -267,7 +267,8 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     uint64_t* cacheStart = reinterpret_cast<uint64_t*>(serializedCache.data());
     uint64_t containerJsonSize = cacheStart[0];
     // Next up get the json that stores the container data
-    std::string containerJsonString(serializedCache.begin() + CONTAINER_JSON_SIZE_BYTES, serializedCache.begin() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize);
+    std::span<char> cacheAsChar = { reinterpret_cast<char*>(serializedCache.data()), serializedCache.size() };
+    std::string_view containerJsonString(cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES, cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize);
     json containerJson = json::parse(containerJsonString);
     
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
