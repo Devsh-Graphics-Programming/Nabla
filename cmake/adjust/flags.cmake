@@ -82,7 +82,7 @@ function(nbl_adjust_flags)
 
 	list(APPEND _NBL_OPTIONS_IMPL_ TARGET)
 	cmake_parse_arguments(NBL "" "" "${_NBL_OPTIONS_IMPL_}" ${ARGN})
-	
+		
 	_NBL_IMPL_GET_FLAGS_PROFILE_()
 
 	# TARGET mode
@@ -107,32 +107,39 @@ function(nbl_adjust_flags)
 		list(APPEND _NBL_OPTIONS_IMPL_ TARGET)
 		
 		set(_NBL_ARG_I_ 0)
-		while(_NBL_ARG_I_ LESS ${_NBL_V_OPTION_LEN_})
+		while(_NBL_ARG_I_ LESS ${_NBL_V_OPTION_LEN_})		
 			foreach(_NBL_OPTION_IMPL_ ${_NBL_OPTIONS_IMPL_})
 				list(GET NBL_${_NBL_OPTION_IMPL_} ${_NBL_ARG_I_} NBL_${_NBL_OPTION_IMPL_}_ITEM)
+				string(TOUPPER "${NBL_${_NBL_OPTION_IMPL_}_ITEM}" NBL_${_NBL_OPTION_IMPL_}_ITEM_U)
 				
 				set(NBL_${_NBL_OPTION_IMPL_}_ITEM 
 					${NBL_${_NBL_OPTION_IMPL_}_ITEM}
+				PARENT_SCOPE)
+				
+				set(NBL_${_NBL_OPTION_IMPL_}_ITEM_U 
+					${NBL_${_NBL_OPTION_IMPL_}_ITEM_U}
 				PARENT_SCOPE)
 			endforeach()
 
 			# global compile options
 			list(APPEND _D_NBL_COMPILE_OPTIONS_ ${NBL_COMPILE_OPTIONS})
-
-			foreach(_NBL_CONFIG_IMPL_ ${CMAKE_CONFIGURATION_TYPES})
-				string(TOUPPER "${_NBL_CONFIG_IMPL_}" NBL_MAP_CONFIGURATION_FROM)
-				string(TOUPPER "${NBL_MAP_${NBL_MAP_CONFIGURATION_FROM}_ITEM}" NBL_MAP_CONFIGURATION_TO)
-				set(NBL_TO_CONFIG_COMPILE_OPTIONS ${NBL_${NBL_MAP_CONFIGURATION_TO}_COMPILE_OPTIONS})
-				
-				# per configuration compile options with mapping
-				list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_TO_CONFIG_COMPILE_OPTIONS}>)
-				string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_MAP_CONFIGURATION_TO}>)
-			endforeach()
+			
+			# per configuration compile options with mapping
+			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:Debug>:${NBL_${NBL_MAP_DEBUG_ITEM_U}_COMPILE_OPTIONS}>)
+			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:Release>:${NBL_${NBL_MAP_RELEASE_ITEM_U}_COMPILE_OPTIONS}>)
+			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:RelWithDebInfo>:${NBL_${NBL_MAP_RELWITHDEBINFO_ITEM_U}_COMPILE_OPTIONS}>)
+			
+			# configuration mapping properties
+			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:Debug>:${NBL_MAP_DEBUG_ITEM_U}>)
+			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:Release>:${NBL_MAP_RELEASE_ITEM_U}>)
+			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:RelWithDebInfo>:${NBL_MAP_RELWITHDEBINFO_ITEM_U}>)
 			
 			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
-				NBL_CONFIGURATION_MAP ${_D_NBL_CONFIGURATION_MAP_}
+				NBL_CONFIGURATION_MAP "${_D_NBL_CONFIGURATION_MAP_}"
+				COMPILE_OPTIONS "${_D_NBL_COMPILE_OPTIONS_}"
 			)
 			unset(_D_NBL_CONFIGURATION_MAP_)
+			unset(_D_NBL_COMPILE_OPTIONS_)
 			
 			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
 			
@@ -149,13 +156,7 @@ function(nbl_adjust_flags)
 			
 			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
 				MSVC_DEBUG_INFORMATION_FORMAT "${NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT}"
-			)
-		
-			target_compile_options(${NBL_TARGET_ITEM} PUBLIC # the old behaviour was "PUBLIC" anyway, but we could also make it a param of the bundle call
-				${_D_NBL_COMPILE_OPTIONS_}
-			)
-			unset(_D_NBL_COMPILE_OPTIONS_)
-			
+			)			
 			math(EXPR _NBL_ARG_I_ "${_NBL_ARG_I_} + 1")
 		endwhile()		
 	else() # DIRECTORY mode
