@@ -45,11 +45,6 @@ class ISemaphore : public IBackendObject
         class future_base_t
         {
             public:
-                inline void set(const SWaitInfo& wait)
-                {
-                    m_semaphore = core::smart_refctd_ptr<const ISemaphore>(wait.semaphore);
-                    m_waitValue = wait.value;
-                }
                 inline bool ready() const
                 {
                     if (m_semaphore)
@@ -100,8 +95,19 @@ class ISemaphore : public IBackendObject
                 {
                     future_base_t::operator=(std::move<future_base_t>(rhs));
                     if constexpr (!std::is_void_v<T>)
-                        *storage_t::getStorage() = *rhs.getStorage();
+                        *storage_t::getStorage() = std::move(*rhs.getStorage());
                     return *this;
+                }
+
+                inline void set(const SWaitInfo& wait)
+                {
+                    m_semaphore = core::smart_refctd_ptr<const ISemaphore>(wait.semaphore);
+                    m_waitValue = wait.value;
+                }
+                template<std::copyable U> requires std::is_same_v<T,U>
+                inline void set(U&& val)
+                {
+                    *storage_t::getStorage() = std::move(val);
                 }
 
                 inline const T* get() const
@@ -112,7 +118,7 @@ class ISemaphore : public IBackendObject
                 }
 
                 template<std::copyable U> requires std::is_same_v<T,U>
-                inline T copy() const
+                inline U copy() const
                 {
                     const auto success = wait();
                     assert(success!=WAIT_RESULT::TIMEOUT);
