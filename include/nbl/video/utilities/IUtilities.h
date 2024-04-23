@@ -230,8 +230,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             
             // patch the commandbuffers if needed
             core::vector<IQueue::SSubmitInfo::SCommandBufferInfo> patchedCmdBufs;
-            core::smart_refctd_ptr<IGPUCommandBuffer> newScratch;
-            if (auto* candidateScratch= patchedSubmit.getScratchCommandBuffer(); candidateScratch && candidateScratch->isResettable())
+            if (auto* candidateScratch=patchedSubmit.getScratchCommandBuffer(); candidateScratch && candidateScratch->isResettable())
             switch(candidateScratch->getState())
             {
                 case IGPUCommandBuffer::STATE::INITIAL:
@@ -239,34 +238,41 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         break;
                     [[fallthrough]];
                 case IGPUCommandBuffer::STATE::RECORDING:
-                    if (!candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                    {
-                        // allocate a span one larger than the original
-                        const auto origCmdBufs = patchedSubmit.commandBuffers;
-                        patchedCmdBufs.resize(origCmdBufs.size()+1);
-                        patchedSubmit.commandBuffers = patchedCmdBufs;
-                        // copy the original commandbuffers
-                        std::copy(origCmdBufs.begin(),origCmdBufs.end(),patchedCmdBufs.begin());
-                        // create the scratch commandbuffer (the patching)
-                        {
-                            auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
-                            auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-                            if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{&newScratch,1}))
-                            {
-                                // TODO: log error
-                                return IQueue::RESULT::OTHER_ERROR;
-                            }
-                            if (!newScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                            {
-                                // TODO: log error
-                                return IQueue::RESULT::OTHER_ERROR;
-                            }
-                        }
-                        patchedCmdBufs[origCmdBufs.size()] = {newScratch.get()};
-                    }
-                    break;
+                    if (candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                        break;
+                    candidateScratch->end();
+                    [[fallthrough]];
                 default:
+                    patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);
                     break;
+            }
+            else
+                patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);
+
+            core::smart_refctd_ptr<IGPUCommandBuffer> newScratch;
+            if (!patchedCmdBufs.empty())
+            {
+                // allocate a span one larger than the original
+                const auto origCmdBufs = patchedSubmit.commandBuffers;
+                patchedSubmit.commandBuffers = patchedCmdBufs;
+                // copy the original commandbuffers
+                std::copy(origCmdBufs.begin(),origCmdBufs.end(),patchedCmdBufs.begin());
+                // create the scratch commandbuffer (the patching)
+                {
+                    auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
+                    auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
+                    if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{&newScratch,1}))
+                    {
+                        // TODO: log error
+                        return IQueue::RESULT::OTHER_ERROR;
+                    }
+                    if (!newScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                    {
+                        // TODO: log error
+                        return IQueue::RESULT::OTHER_ERROR;
+                    }
+                }
+                patchedCmdBufs[origCmdBufs.size()] = {newScratch.get()};
             }
 
             if (!patchedSubmit.valid())
@@ -290,14 +296,20 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             if (const auto error=queue->submit(submit); error!=IQueue::RESULT::SUCCESS)
             {
                 if (patchedSemaphore)
+                {
+                    intendedSubmit.waitSemaphores = {};
                     intendedSubmit.scratchSemaphore = {};
+                }
                 return error;
             }
 
             ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
             retval.set({intendedSubmit.scratchSemaphore.semaphore,intendedSubmit.scratchSemaphore.value});
             if (patchedSemaphore)
+            {
+                intendedSubmit.waitSemaphores = {};
                 intendedSubmit.scratchSemaphore = {};
+            }
             return retval;
         }
 
