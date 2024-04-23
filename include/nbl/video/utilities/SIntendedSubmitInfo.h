@@ -70,10 +70,14 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         class CSubmitStorage final : core::Uncopyable
         {
             public:
-                // NOTE: might need a public default ctor
+                inline CSubmitStorage() = default;
                 inline ~CSubmitStorage() = default;
-                inline CSubmitStorage(CSubmitStorage&&) = default;
-                inline CSubmitStorage& operator=(CSubmitStorage&&) = default;
+                inline CSubmitStorage(CSubmitStorage&& other) : self(other.self), m_semaphores(std::move(other.m_semaphores)) {}
+                inline CSubmitStorage& operator=(CSubmitStorage&& rhs)
+                {
+                    self = std::move(self);
+                    m_semaphores = std::move(rhs.m_semaphores);
+                }
 
                 inline operator std::span<const IQueue::SSubmitInfo>() const
                 {
