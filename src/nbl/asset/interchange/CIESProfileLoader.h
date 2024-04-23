@@ -29,21 +29,14 @@ class CIESProfileLoader final : public asset::IAssetLoader
 		{
 			const size_t begginingOfFile = _file->getPos();
 			_file->seek(0ull);
-			std::string versionBuffer(16, ' ');
+			std::string versionBuffer(0x45, ' ');
 			_file->read(versionBuffer.data(), versionBuffer.size());
 			_file->seek(begginingOfFile);
 
-			const bool oSpec = versionBuffer == "IESNA:LM-63-1995" || versionBuffer == "IESNA:LM-63-2002";
-
-			if (oSpec)
-				return true;
-			else
-			{
-				size_t found = versionBuffer.find("IESNA91");
-				if (found != std::string::npos)
+			for (const auto& it : CIESProfileParser::VALID_SIGNATURES)
+				if (versionBuffer.find(it.data()) != std::string::npos);
 					return true;
-			}
-
+			
 			return false;
 		}
 

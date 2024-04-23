@@ -16,8 +16,6 @@ namespace nbl
             public:
                 CIESProfileParser(char* buf, size_t size) { ss << std::string(buf, size); }
 
-                const char* getErrorMsg() const { return errorMsg; }
-
                 /*
                     An IES file comes with following data
 
@@ -75,14 +73,52 @@ namespace nbl
                 */
 
                 bool parse(CIESProfile& result);
+                const char* getErrorMsg() const { return errorMsg; }
 
             private:
                 int getInt(const char* errorMsg);
                 double getDouble(const char* errorMsg);
 
+                template<class T>
+                T readStream(const char* errorMsg)
+                {
+                    T in;
+                    if (ss >> in)
+                        return in;
+                    else
+                    {
+                        ss.clear();
+                        if (ss.peek() == ',')
+                            ss.ignore();
+
+                        if (ss >> in)
+                            return in;
+                    }
+
+                    error = true;
+                    if (!this->errorMsg)
+                        this->errorMsg = errorMsg;
+
+                    if constexpr (std::is_same_v<typename T, double>)
+                        return -1.0;
+                    else
+                        return 0;
+                }
+
                 bool error{ false };
                 const char* errorMsg{ nullptr };
                 std::stringstream ss;
+
+                static constexpr auto SIG_LM63_1995 = std::string_view("IESNA:LM-63-1995");
+                static constexpr auto SIG_LM63_2002 = std::string_view("IESNA:LM-63-2002");
+                static constexpr auto SIG_IESNA91 = std::string_view("IESNA91");
+                static constexpr auto SIG_ERCO_LG = std::string_view("ERCO Leuchten GmbH");
+
+            public:
+                static constexpr auto VALID_SIGNATURES = std::array
+                {
+                    SIG_LM63_1995,SIG_LM63_2002,SIG_IESNA91,SIG_ERCO_LG
+                };
         };
     }
 }

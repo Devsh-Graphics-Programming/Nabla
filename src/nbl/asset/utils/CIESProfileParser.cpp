@@ -5,24 +5,12 @@ using namespace asset;
 
 int CIESProfileParser::getInt(const char* errorMsg)
 {
-    int in;
-    if (ss >> in)
-        return in;
-    error = true;
-    if (!this->errorMsg)
-        this->errorMsg = errorMsg;
-    return 0;
+    return readStream<int>(errorMsg);
 }
 
 double CIESProfileParser::getDouble(const char* errorMsg)
 {
-    double in;
-    if (ss >> in)
-        return in;
-    error = true;
-    if (!this->errorMsg)
-        this->errorMsg = errorMsg;
-    return -1.0;
+    return readStream<double>(errorMsg);
 }
 
 bool CIESProfileParser::parse(CIESProfile& result) 
@@ -32,7 +20,7 @@ bool CIESProfileParser::parse(CIESProfile& result)
         if (std::isspace(str.back()))
         {
             auto it = str.rbegin();
-            while (it != str.rend() && std::isspace(*it))
+            while (it != str.rend() && std::isspace(static_cast<unsigned char>(*it)))
                 ++it;
 
             str.erase(it.base(), str.end());
@@ -46,23 +34,22 @@ bool CIESProfileParser::parse(CIESProfile& result)
     removeTrailingWhiteChars(line);
 
     CIESProfile::Version iesVersion;
-    if (line == "IESNA:LM-63-1995")
+
+    if (line.find(SIG_LM63_1995.data()) != std::string::npos)
         iesVersion = CIESProfile::V_1995;
-    else if (line == "IESNA:LM-63-2002")
+    else if (line.find(SIG_LM63_2002.data()) != std::string::npos)
         iesVersion = CIESProfile::V_2002;
+    else if (line.find(SIG_IESNA91.data()) != std::string::npos)
+        iesVersion = CIESProfile::V_1995;
+    else if (line.find(SIG_ERCO_LG.data()) != std::string::npos)
+        iesVersion = CIESProfile::V_1995;
     else
     {
-        size_t found = line.find("IESNA91");
-        if (found != std::string::npos)
-            iesVersion = CIESProfile::V_1995;
-        else
-        {
-            errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
-            return false;
-        }
+        errorMsg = "Unknown IESNA:LM-63 version, the IES input being parsed is invalid!";
+        return false;
     }
 
-    while (std::getline(ss, line)) 
+     while (std::getline(ss, line)) 
     {
         removeTrailingWhiteChars(line);
         if (line == "TILT=INCLUDE" || line == "TILT=NONE")
