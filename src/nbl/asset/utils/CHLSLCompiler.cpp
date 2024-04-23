@@ -360,6 +360,10 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
 
+    if (dependencies) {
+        *dependencies = std::move(context.get_dependencies());
+    }
+
     return resolvedString;
 }
 

@@ -247,13 +247,10 @@ std::vector<uint8_t> IShaderCompiler::CCache::serialize()
     };
     std::string dumpedContainerJson = std::move(containerJson.dump());
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
-    // first 8 entries are the size of the json, stored byte by byte
     std::vector<uint8_t> retVal;
     retVal.reserve(CONTAINER_JSON_SIZE_BYTES + dumpedContainerJsonLength + shadersBuffer.size());
-    for (size_t i = 0; i < CONTAINER_JSON_SIZE_BYTES; i++) {
-        uint8_t byte = static_cast<uint8_t>((dumpedContainerJsonLength >> (8 * (CONTAINER_JSON_SIZE_BYTES - i - 1))) & 0xFF);
-        retVal.push_back(byte);
-    }
+    // first CONTAINER_JSON_SIZE_BYTES (8) entries are the size of the json
+    retVal.insert(retVal.end(), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength) + CONTAINER_JSON_SIZE_BYTES);
     retVal.insert(retVal.end(), std::make_move_iterator(dumpedContainerJson.begin()), std::make_move_iterator(dumpedContainerJson.end()));
     retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
     return retVal;
@@ -282,7 +279,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         // Create buffer to hold the code
         auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
         // Copy the shader bytecode into the buffer
-        memcpy(code->getPointer(), serializedCache.data() + CONTAINER_JSON_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        memcpy(code->getPointer(), serializedCache.data() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         // Create the ICPUShader
         auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
        

@@ -375,7 +375,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					bool allDependenciesMatch = true;
 					// go through all dependencies
-					for (auto i = 1; i != found->dependencies.size(); i++)
+					for (auto i = 0; i < found->dependencies.size(); i++)
 					{
 						const auto& dependency = found->dependencies[i];
 
