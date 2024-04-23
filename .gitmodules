@@ -95,3 +95,6 @@
 [submodule "3rdparty/Vulkan-Headers"]
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Headers.git
+[submodule "3rdparty/json"]
+	path = 3rdparty/json
+	url = git@github.com:Devsh-Graphics-Programming/json.git

@@ -234,6 +234,9 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
+# json
+set(JSON_BuildTests OFF)
+add_subdirectory(json json EXCLUDE_FROM_ALL)
 
 if (NBL_BUILD_RADEON_RAYS)
 	update_git_submodule(./radeonrays)
@@ -286,6 +289,7 @@ set(NBL_3RDPARTY_TARGETS
 				IlmThread
 				IlmImf
 				Half
+				nlohmann_json
 				convert_utf
 				bzip2			
 				glslang
