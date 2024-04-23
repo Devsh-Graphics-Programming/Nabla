@@ -307,7 +307,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
         //! If the allocation from staging memory fails due to large buffer size or fragmentation then This function may need to submit the command buffer via the `submissionQueue`. 
         //! Returns:
-        //!     True on successful recording of copy commands and handling of overflows, false on failure for any reason.
+        //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
+        //!     Make sure to submit with `nextSubmit.popSubmit()` after this function returns.
         //! Parameters:
         //!     - nextSubmit:
         //!         Is the SubmitInfo you intended to submit your command buffers with, it will be modified if overflow occurred @see SIntendedSubmitInfo
@@ -334,7 +335,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations * sizeof(uint32_t);
 
-            auto cmdbuf = nextSubmit.frontHalf.getScratchCommandBuffer();
+            auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
@@ -373,25 +374,40 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 copy.size = subSize;
                 cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
-                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getScratchSemaphoreNextWait(),&cmdbuf);
+                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&cmdbuf);
                 uploadedSize += subSize;
             }
             return true;
         }
 
         //! This only needs a valid queure in `submit`
-        inline ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> createFilledDeviceLocalBufferOnDedMem(const SIntendedSubmitInfo& submit, IGPUBuffer::SCreationParams&& params, const void* data)
+        inline ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> createFilledDeviceLocalBufferOnDedMem(
+            SIntendedSubmitInfo& submit,
+            IGPUBuffer::SCreationParams&& params,
+            const void* data,
+            const std::span<IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores={}
+        )
         {
             auto buffer = m_device->createBuffer(std::move(params));
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto mem = m_device->allocate(mreqs,buffer.get());
 
-            if (!autoSubmitAndBlock(submit,[&](auto& info){return updateBufferRangeViaStagingBuffer(info,asset::SBufferRange<IGPUBuffer>{0u,params.size,core::smart_refctd_ptr(buffer)},data);}))
+            auto submitSuccess = autoSubmit(
+                submit,
+                [&](auto& info)->bool
+                {
+                    return updateBufferRangeViaStagingBuffer(info,asset::SBufferRange<IGPUBuffer>{0u,params.size,core::smart_refctd_ptr(buffer)},data);
+                },
+                extraSignalSemaphores
+            );
+            // probably error
+            if (!submitSuccess.blocking())
                 return {};
 
             ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> retval(std::move(buffer));
-            return {};
+            static_cast<ISemaphore::future_base_t&>(retval) = std::move(submitSuccess);
+            return retval;
         }
 
         // pipelineBarrierAutoSubmit?
@@ -458,40 +474,27 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         };
 
         //! Calls the callback to copy the data to a destination Offset
-        //! * IMPORTANT: To make all the callbacks execute, IUtility::getDefaultDownStreamingBuffer()->cull_frees() should be called after the `nextSubmit.signalSemaphores.front()` is signaled.
+        //! * IMPORTANT: To make all the callbacks execute, `IUtility::getDefaultDownStreamingBuffer()->cull_frees()` should be called after the `nextSubmit.scratchSemaphore` is signaled.
         //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
         //! Returns:
-        //!     IQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
-        //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
-        //!     Make sure to submit with the new SSubmitInfo returned by this function
+        //!     Boolean whether successfully enqueued whole buffer range for download.
         //! Parameters:
         //!     - consumeCallback: it's a std::function called when the data is ready to be copied (see `data_consumption_callback_t`)
         //!     - srcBufferRange: the buffer range (buffer + size) to be copied from.
-        //!     - intendedNextSubmit:
+        //!     - nextSubmit:
         //!         Is the SubmitInfo you intended to submit your command buffers.
         //!         ** The last command buffer will be used to record the copy commands
-        //!     - submissionQueue: IQueue used to submit, when needed. 
-        //!         Note: This parameter is required but may not be used if there is no need to submit
-        //!     - submissionFence: 
-        //!         - This is the fence you will use to submit the copies to, this allows freeing up space in stagingBuffer when the fence is signalled, indicating that the copy has finished.
-        //!         - This fence will be in `UNSIGNALED` state after exiting the function. (It will reset after each implicit submit)
-        //!         - This fence may be used for CommandBuffer submissions using `submissionQueue` inside the function.
-        //!         ** NOTE: This fence will be signalled everytime there is a submission inside this function, which may be more than one until the job is finished.
         //! Valid Usage:
-        //!     * srcBuffer must point to a valid ICPUBuffer
-        //!     * srcBuffer->getPointer() must not be nullptr.
-        //!     * dstImage must point to a valid IGPUImage
-        //!     * regions.size() must be > 0
-        //!     * intendedNextSubmit::commandBufferCount must be > 0
-        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
+        //!     * `srcBufferRange` must be valid
+        //!     * `nextSubmit` must be valid
+        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `nextSubmit.queue`
         //!     * The last command buffer should be in `RECORDING` state.
         //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
         //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
         //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
         //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
-        //!     * submissionQueue must point to a valid IQueue
-        //!     * submissionFence must point to a valid IGPUFence
-        //!     * submissionFence must be in `UNSIGNALED` state
+        //!     * `nextSubmit.queue` must point to a valid `IQueue`
+        //!     * `nextSubmit.scratchSemaphore` must be a valid `IQueue::SSubmitInfo::SSemaphoreInfo` (the `value` member must be equal or higher than current and any pending signal operation)
         inline bool downloadBufferRangeViaStagingBuffer(const std::function<data_consumption_callback_t>& consumeCallback, SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange)
         {
             if (!srcBufferRange.isValid() || !srcBufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_SRC_BIT))
@@ -509,7 +512,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
 
-            auto cmdbuf = nextSubmit.frontHalf.getScratchCommandBuffer();
+            auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
             {
@@ -538,7 +541,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         m_defaultDownloadBuffer.get(),
                         downloadedSize
                     );
-                    m_defaultDownloadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getScratchSemaphoreNextWait(),&dataConsumer.get());
+                    m_defaultDownloadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&dataConsumer.get());
 
                     downloadedSize += copySize;
                 }
@@ -551,9 +554,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
-        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(const SIntendedSubmitInfo::SFrontHalf& submit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
+        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(SIntendedSubmitInfo& submit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
         {
-            if (!autoSubmitAndBlock(submit,[&](SIntendedSubmitInfo& nextSubmit){return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);}))
+            auto lambda = [&](SIntendedSubmitInfo& nextSubmit)->bool
+            {
+                return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);
+            };
+            if (autoSubmit(submit,lambda).copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
                 return false;
 
             //! NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 
@@ -594,58 +601,39 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // updateImageViaStagingBuffer
         // --------------
         //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`
-        //! If the allocation from staging memory fails due to large image size or fragmentation then This function may need to submit the command buffer via the `submissionQueue` and then signal the fence. 
+        //! If the allocation from staging memory fails due to large image size or fragmentation then this function may need to submit the command buffer
+        //! on the `nextSubmit.queue` and then signal the scratch semaphore. 
         //! Returns:
-        //!     IQueue::SSubmitInfo to use for command buffer submission instead of `intendedNextSubmit`. 
-        //!         for example: in the case the `SSubmitInfo::waitSemaphores` were already signalled, the new SSubmitInfo will have it's waitSemaphores emptied from `intendedNextSubmit`.
-        //!     Make sure to submit with the new SSubmitInfo returned by this function
+        //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
+        //!     Make sure to submit with `nextSubmit.popSubmit()` after this function returns.
         //! Parameters:
         //!     - srcBuffer: source buffer to copy image from
         //!     - srcFormat: The image format the `srcBuffer` is laid out in memory.
         //          In the case that dstImage has a different format this function will make the necessary conversions.
         //          If `srcFormat` is EF_UNKOWN, it will be assumed to have the same format `dstImage` was created with.
         //!     - dstImage: destination image to copy image to
-        //!     - currentDstImageLayout: the image layout of `dstImage` at the time of submission.
+        //!     - currentDstImageLayout: the image layout of `dstImage` will be at the time of submission of the copy commands
         //!     - regions: regions to copy `srcBuffer`
-        //!     - intendedNextSubmit:
-        //!         Is the SubmitInfo you intended to submit your command buffers.
-        //!         ** The last command buffer will be used to record the copy commands
-        //!     - submissionQueue: IQueue used to submit, when needed. 
-        //!         Note: This parameter is required but may not be used if there is no need to submit
-        //!     - submissionFence: 
-        //!         - This is the fence you will use to submit the copies to, this allows freeing up space in stagingBuffer when the fence is signalled, indicating that the copy has finished.
-        //!         - This fence will be in `UNSIGNALED` state after exiting the function. (It will reset after each implicit submit)
-        //!         - This fence may be used for CommandBuffer submissions using `submissionQueue` inside the function.
-        //!         ** NOTE: This fence will be signalled everytime there is a submission inside this function, which may be more than one until the job is finished.
+        //!     - nextSubmit:
+        //!         Is the SubmitInfo you intended to submit your command buffers with, it will be modified if overflow occurred @see SIntendedSubmitInfo
         //! Valid Usage:
-        //!     * srcBuffer must point to a valid ICPUBuffer
-        //!     * srcBuffer->getPointer() must not be nullptr.
+        //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
+        //!     * srcBuffer must be valid (see `SBufferRange::isValid()`)
         //!     * dstImage must point to a valid IGPUImage
         //!     * regions.size() must be > 0
-        //!     * intendedNextSubmit::commandBufferCount must be > 0
-        //!     * The commandBuffers should have been allocated from a CommandPool with the same queueFamilyIndex as `submissionQueue`
-        //!     * The last command buffer should be in `RECORDING` state.
-        //!     * The last command buffer should be must've called "begin()" with `IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT` flag
-        //!         The reason is the commands recorded into the command buffer would not be valid for a second submission and the stagingBuffer memory wouldv'e been freed/changed.
-        //!     * The last command buffer should be "resettable". See `ICommandBuffer::E_STATE` comments
-        //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
-        //!     * submissionQueue must point to a valid IQueue
-        //!     * submissionFence must point to a valid IGPUFence
-        //!     * submissionFence must be in `UNSIGNALED` state
-        //!     ** IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
+        //! NOTE: IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         bool updateImageViaStagingBuffer(
-            SIntendedSubmitInfo& nextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
-            const core::SRange<const asset::IImage::SBufferCopy>& regions);
+            SIntendedSubmitInfo& nextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, 
+            IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+            const core::SRange<const asset::IImage::SBufferCopy>& regions
+        );
 
-        inline bool updateImageViaStagingBufferAutoSubmit(
-            const SIntendedSubmitInfo::SFrontHalf& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+        inline ISemaphore::future_t<IQueue::RESULT> updateImageViaStagingBufferAutoSubmit(
+            SIntendedSubmitInfo& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
+            IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
             const core::SRange<const asset::IImage::SBufferCopy>& regions)
         {
-            if (!autoSubmitAndBlock(submit, [&](SIntendedSubmitInfo& nextSubmit) { return updateImageViaStagingBuffer(nextSubmit, srcBuffer, srcFormat, dstImage, currentDstImageLayout, regions); }))
-            {
-                return false;
-            }
-            return true;
+            return autoSubmit(submit,[&](SIntendedSubmitInfo& nextSubmit)->bool{return updateImageViaStagingBuffer(nextSubmit,srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions);});
         }
 
     protected:        
