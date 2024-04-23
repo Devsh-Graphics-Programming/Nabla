@@ -146,7 +146,12 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         }
 
         // Error Text to Log/Display if you try to use an invalid `SIntendedSubmitInfo`
-        static const char* ErrorText;
+        static constexpr inline const char* ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
+- No `commandBuffers` or `signalSemaphores` given in respective spans
+- `commandBuffer.back()` is not Resettable
+- `commandBuffer.back()` is not already begun with ONE_TIME_SUBMIT_BIT
+- one of the `commandBuffer`s' Pool's Queue Family Index doesn't match `queue`'s Family
+)===";
 };
 
 }

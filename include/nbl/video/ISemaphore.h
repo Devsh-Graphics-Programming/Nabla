@@ -60,7 +60,7 @@ class ISemaphore : public IBackendObject
                     return true;
                 }
 
-                WAIT_RESULT wait() const;
+                NBL_API2 WAIT_RESULT wait() const;
 
             protected:
                 // the base class is not directly usable

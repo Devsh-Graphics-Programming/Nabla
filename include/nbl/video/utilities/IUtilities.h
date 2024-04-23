@@ -203,8 +203,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     If you don't specify a scratch semaphore, we'll patch and create one internally.
         //!     If you don't have a commandbuffer usable as scratch as the last one, we'll patch internally.
         //!         WARNING: If this particular case happens the `commandBuffers` span will be emptied out!
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline ISemaphore::future_t<IQueue::RESULT> autoSubmit(
-            SIntendedSubmitInfo& intendedSubmit,
+            IntendedSubmitInfo&& intendedSubmit,
             const std::function<bool(SIntendedSubmitInfo&)>& what,
             const std::span<IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores={}
         )
@@ -318,7 +319,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
         //!     * bufferRange must be valid (see `SBufferRange::isValid()`)
         //!     * data must not be nullptr
-        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
         {
             if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
@@ -380,9 +382,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return true;
         }
 
-        //! This only needs a valid queure in `submit`
+        //! This only needs a valid queue in `submit`
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> createFilledDeviceLocalBufferOnDedMem(
-            SIntendedSubmitInfo& submit,
+            IntendedSubmitInfo&& submit,
             IGPUBuffer::SCreationParams&& params,
             const void* data,
             const std::span<IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores={}
@@ -495,7 +498,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * To ensure correct execution order, (if any) all the command buffers except the last one should be in `EXECUTABLE` state.
         //!     * `nextSubmit.queue` must point to a valid `IQueue`
         //!     * `nextSubmit.scratchSemaphore` must be a valid `IQueue::SSubmitInfo::SSemaphoreInfo` (the `value` member must be equal or higher than current and any pending signal operation)
-        inline bool downloadBufferRangeViaStagingBuffer(const std::function<data_consumption_callback_t>& consumeCallback, SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange)
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>, SIntendedSubmitInfo>
+        inline bool downloadBufferRangeViaStagingBuffer(const std::function<data_consumption_callback_t>& consumeCallback, IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange)
         {
             if (!srcBufferRange.isValid() || !srcBufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_SRC_BIT))
             {
@@ -554,7 +558,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //! This function is an specialization of the `downloadBufferRangeViaStagingBufferAutoSubmit` function above.
         //! Additionally waits for the fence
         //! WARNING: This function blocks CPU and stalls the GPU!
-        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(SIntendedSubmitInfo& submit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool downloadBufferRangeViaStagingBufferAutoSubmit(IntendedSubmitInfo&& submit, const asset::SBufferRange<IGPUBuffer>& srcBufferRange, void* data)
         {
             auto lambda = [&](SIntendedSubmitInfo& nextSubmit)->bool
             {
@@ -627,9 +632,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
             const core::SRange<const asset::IImage::SBufferCopy>& regions
         );
-
+        template<typename... Args>
+        inline bool updateImageViaStagingBuffer(SIntendedSubmitInfo&& nextSubmit, Args&&... args)
+        {
+            return updateImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);
+        }
+        
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline ISemaphore::future_t<IQueue::RESULT> updateImageViaStagingBufferAutoSubmit(
-            SIntendedSubmitInfo& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
+            IntendedSubmitInfo&& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
             IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
             const core::SRange<const asset::IImage::SBufferCopy>& regions)
         {

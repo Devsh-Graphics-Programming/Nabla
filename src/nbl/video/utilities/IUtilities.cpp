@@ -4,13 +4,6 @@
 
 namespace nbl::video
 {
-const char* SIntendedSubmitInfo::ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
-- No `commandBuffers` or `signalSemaphores` given in respective spans
-- `commandBuffer.back()` is not Resettable
-- `commandBuffer.back()` is not already begun with ONE_TIME_SUBMIT_BIT
-- one of the `commandBuffer`s' Pool's Queue Family Index doesn't match `queue`'s Family
-)===";
-
 bool IUtilities::updateImageViaStagingBuffer(
     SIntendedSubmitInfo& intendedNextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
     IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
