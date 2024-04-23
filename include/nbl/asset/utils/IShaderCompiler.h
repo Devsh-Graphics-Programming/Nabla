@@ -187,18 +187,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				struct SPreprocessingDependency
 				{
+					friend void to_json(nlohmann::json& j, const SEntry::SPreprocessingDependency& dependency);
+					friend void from_json(const nlohmann::json& j, SEntry::SPreprocessingDependency& dependency);
+					friend class CCache;
+
 					// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-					inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, const std::string_view& _contents) :
-						requestingSourceDir(_requestingSourceDir), identifier(_identifier), contents(_contents)
+					inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, const std::string_view& _contents, bool _standardInclude, std::array<uint64_t, 4> _hash) :
+						requestingSourceDir(_requestingSourceDir), identifier(_identifier), contents(_contents), standardInclude(_standardInclude), hash(_hash)
 					{
 						assert(!_contents.empty());
-						const auto reqDirStr = requestingSourceDir.make_preferred().string();
-						std::vector<char> hashable(reqDirStr.size() + _identifier.size() + _contents.size());
-						hashable.insert(hashable.end(), reqDirStr.begin(), reqDirStr.end());
-						hashable.insert(hashable.end(), identifier.begin(), identifier.end());
-						hashable.insert(hashable.end(), _contents.begin(), _contents.end());
-						// Can't static cast here?
-						hash = nbl::core::XXHash_256(reinterpret_cast<uint8_t*>(hashable.data()), hashable.size() * (sizeof(char) / sizeof(uint8_t)));
 					}
 
 					inline SPreprocessingDependency(SPreprocessingDependency&) = default;
@@ -206,15 +203,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
 					inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
 
-					// Needed for json vector serialization I believe
+					// Needed for json vector serialization. Making it private and declaring from_json(_, SEntry&) as friend didn't work
 					SPreprocessingDependency() {}
 
+				private:
 					// path or identifier
 					system::path requestingSourceDir = "";
 					std::string identifier = "";
 					// file contents
 					std::string contents = "";
-					// hash of the contents
+					// hash of the contents - used to check against a found_t
 					std::array<uint64_t, 4> hash = {};
 					// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 					bool standardInclude = false;
@@ -284,6 +282,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						}
 						return retVal;
 					}
+
+					inline SCompilerArgs(SCompilerArgs&) = default;
+					inline SCompilerArgs& operator=(SCompilerArgs&) = default;
+					inline SCompilerArgs(SCompilerArgs&&) = default;
+					inline SCompilerArgs& operator=(SCompilerArgs&&) = default;
+
 
 				private:
 
@@ -367,42 +371,31 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				m_container.insert(std::move(entry));
 			}
 
-			// can move to .cpp and have it not inline
-			inline core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const
-			{
-				auto foundRange = m_container.equal_range(mainFile);
-				for (auto& found = foundRange.first; found != foundRange.second; found++)
-				{
-					bool allDependenciesMatch = true;
-					// go through all dependencies
-					for (auto i = 0; i < found->dependencies.size(); i++)
-					{
-						const auto& dependency = found->dependencies[i];
-
-						IIncludeLoader::found_t header;
-						if (dependency.standardInclude)
-							header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
-						else
-							header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
-
-						if (header.hash != dependency.hash || header.contents != dependency.contents)
-						{
-							allDependenciesMatch = false;
-							break;
-						}
-					}
-					if (allDependenciesMatch) {
-						return found->value;
-					}	
+			// For now, the merge incorporates what it can. Once we have lastWriteTime going, matching entries could be replaced by the most recent one
+			// Alternatively, adding the time an SEntry entered the cache could also serve this purpose
+			inline void merge(const CCache* other) {
+				for (auto& entry : other->m_container) {
+					m_container.insert(entry);
 				}
-				return nullptr;
 			}
 
+			static inline core::smart_refctd_ptr<CCache> clone(const CCache* cache) {
+				auto retVal = core::make_smart_refctd_ptr<CCache>();
+				for (auto& entry : cache->m_container) {
+					retVal->m_container.insert(entry);
+				}
+				return retVal;
+			}
+
+			// can move to .cpp and have it not inline
+			core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
+		
 			CCache() {}
 
-			// TODO: add methods as needed, e.g. to serialize and deserialize to/from a pointer
+			// De/serialization methods
 			std::vector<uint8_t> serialize();
-			static core::smart_refctd_ptr<CCache> deserialize(std::span<uint8_t> serializedCache);
+			static core::smart_refctd_ptr<CCache> deserialize(const std::span<const uint8_t> serializedCache);
+			static core::smart_refctd_ptr<CCache> deserialize(core::smart_refctd_ptr<const system::IFile> serializedCache);
 
 		private:
 			// we only do lookups based on main file contents + compiler options
@@ -432,7 +425,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			CCache::SEntry entry;
 			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
 			if (cache) {
-				entry = CCache::SEntry(code, options);
+				entry = std::move(CCache::SEntry(code, options));
 				auto found = cache->find(entry, options.preprocessorOptions.includeFinder);
 				if (found)
 					return found;

@@ -535,9 +535,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     // TODO: We're reopening a file here after the getInclude did it already to get the last write time. Putting this logic into the getIncludes and making it return the lastWriteTime
     // in the found_t should be doable. It's easy for common files but requires a bit more changes for it to work with builtins
     if (ctx.cachingRequested) {
-        IShaderCompiler::CCache::SEntry::SPreprocessingDependency dependency(ctx.get_current_directory(), file_path, result.contents);
-        dependency.standardInclude = standardInclude;
-        dependency.hash = std::move(result.hash);
+        IShaderCompiler::CCache::SEntry::SPreprocessingDependency dependency(ctx.get_current_directory(), file_path, result.contents, standardInclude, std::move(result.hash));
         ctx.dependencies.push_back(std::move(dependency));
     }
 

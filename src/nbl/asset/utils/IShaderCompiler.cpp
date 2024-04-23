@@ -216,6 +216,35 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     return {};
 }
 
+core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
+    auto foundRange = m_container.equal_range(mainFile);
+    for (auto& found = foundRange.first; found != foundRange.second; found++)
+    {
+        bool allDependenciesMatch = true;
+        // go through all dependencies
+        for (auto i = 0; i < found->dependencies.size(); i++)
+        {
+            const auto& dependency = found->dependencies[i];
+
+            IIncludeLoader::found_t header;
+            if (dependency.standardInclude)
+                header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
+            else
+                header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
+
+            if (header.hash != dependency.hash || header.contents != dependency.contents)
+            {
+                allDependenciesMatch = false;
+                break;
+            }
+        }
+        if (allDependenciesMatch) {
+            return found->value;
+        }
+    }
+    return nullptr;
+}
 
 std::vector<uint8_t> IShaderCompiler::CCache::serialize()
 {
@@ -256,15 +285,15 @@ std::vector<uint8_t> IShaderCompiler::CCache::serialize()
     return retVal;
 }
 
-core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(std::span<uint8_t> serializedCache)
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
 {
     auto retVal = core::make_smart_refctd_ptr<CCache>();
 
     // First get the size of the json in the buffer, stored in the first 8 bytes
-    uint64_t* cacheStart = reinterpret_cast<uint64_t*>(serializedCache.data());
+    const uint64_t* cacheStart = reinterpret_cast<const uint64_t*>(serializedCache.data());
     uint64_t containerJsonSize = cacheStart[0];
     // Next up get the json that stores the container data
-    std::span<char> cacheAsChar = { reinterpret_cast<char*>(serializedCache.data()), serializedCache.size() };
+    std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
     std::string_view containerJsonString(cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES, cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize);
     json containerJson = json::parse(containerJsonString);
     
@@ -289,4 +318,13 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     }
 
     return retVal;
+}
+
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(core::smart_refctd_ptr<const system::IFile> serializedCache) {
+    const void* fileBufferPointer = serializedCache->getMappedPointer();
+    assert(fileBufferPointer); // Check the file is readable
+    
+    size_t fileSize = serializedCache->getSize();
+    std::span cacheSpan{ reinterpret_cast<const uint8_t*>(fileBufferPointer), fileSize };
+    return IShaderCompiler::CCache::deserialize(std::span{ reinterpret_cast<const uint8_t*>(fileBufferPointer), fileSize });
 }
