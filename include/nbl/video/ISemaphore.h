@@ -135,6 +135,8 @@ class ISemaphore : public IBackendObject
                 template<std::movable U=T> requires std::is_same_v<T,U>
                 inline void move_into(U& dst)
                 {
+                    const auto success = wait();
+                    assert(success!=WAIT_RESULT::TIMEOUT);
                     dst = std::move(*get());
                 }
         };
