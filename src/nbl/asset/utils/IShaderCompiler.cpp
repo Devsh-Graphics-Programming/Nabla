@@ -4,8 +4,12 @@
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
+
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
+
 #include "nbl/core/xxHash256.h"
+
+#include "nbl/asset/CVectorCPUBuffer.h"
 
 #include <sstream>
 #include <regex>
@@ -246,9 +250,9 @@ core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SE
     return nullptr;
 }
 
-std::vector<uint8_t> IShaderCompiler::CCache::serialize()
+core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 {
-    std::vector<uint8_t> shadersBuffer;
+    core::vector<uint8_t> shadersBuffer;
     json entries;
     json shaderCreationParams;
     for (auto& entry : m_container) {
@@ -282,7 +286,7 @@ std::vector<uint8_t> IShaderCompiler::CCache::serialize()
     retVal.insert(retVal.end(), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength) + CONTAINER_JSON_SIZE_BYTES);
     retVal.insert(retVal.end(), std::make_move_iterator(dumpedContainerJson.begin()), std::make_move_iterator(dumpedContainerJson.end()));
     retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
-    return retVal;
+    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, std::allocator<uint8_t>>>(std::move(retVal));
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)

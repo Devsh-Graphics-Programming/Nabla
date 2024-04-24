@@ -184,6 +184,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			struct SEntry
 			{
+				friend class CCache;
 
 				struct SPreprocessingDependency
 				{
@@ -283,8 +284,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						return retVal;
 					}
 
-					inline SCompilerArgs(SCompilerArgs&) = default;
-					inline SCompilerArgs& operator=(SCompilerArgs&) = default;
+					inline SCompilerArgs(const SCompilerArgs&) = default;
+					inline SCompilerArgs& operator=(const SCompilerArgs&) = default;
 					inline SCompilerArgs(SCompilerArgs&&) = default;
 					inline SCompilerArgs& operator=(SCompilerArgs&&) = default;
 
@@ -353,8 +354,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// Needed to get the vector deserialization automatically
 				SEntry() {}
 
-				inline SEntry(SEntry&) = default;
-				inline SEntry& operator=(SEntry&) = default;
+				// Making the copy constructor deep-copy
+				inline SEntry(const SEntry& other) 
+					: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
+					  dependencies(other.dependencies), value(core::smart_refctd_ptr_static_cast<ICPUShader, IAsset>(other.value->clone())) {}
+				
+				inline SEntry& operator=(const SEntry& other) {
+					*this = SEntry(other);
+				}
 				inline SEntry(SEntry&&) = default;
 				inline SEntry& operator=(SEntry&&) = default;
 
@@ -375,14 +382,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// Alternatively, adding the time an SEntry entered the cache could also serve this purpose
 			inline void merge(const CCache* other) {
 				for (auto& entry : other->m_container) {
-					m_container.insert(entry);
+					SEntry entryCopy(entry);
+					m_container.insert(entryCopy);
 				}
 			}
 
 			static inline core::smart_refctd_ptr<CCache> clone(const CCache* cache) {
 				auto retVal = core::make_smart_refctd_ptr<CCache>();
 				for (auto& entry : cache->m_container) {
-					retVal->m_container.insert(entry);
+					SEntry entryCopy(entry);
+					retVal->m_container.insert(entryCopy);
 				}
 				return retVal;
 			}
@@ -393,7 +402,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			CCache() {}
 
 			// De/serialization methods
-			std::vector<uint8_t> serialize();
+			core::smart_refctd_ptr<ICPUBuffer> serialize() const;
 			static core::smart_refctd_ptr<CCache> deserialize(const std::span<const uint8_t> serializedCache);
 			static core::smart_refctd_ptr<CCache> deserialize(core::smart_refctd_ptr<const system::IFile> serializedCache);
 
