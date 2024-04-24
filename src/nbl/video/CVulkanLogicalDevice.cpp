@@ -412,7 +412,7 @@ core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IG
     vk_createInfo.mipLodBias = _params.LodBias;
     assert(_params.AnisotropicFilter <= m_physicalDevice->getLimits().maxSamplerAnisotropyLog2);
     vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter);
-    vk_createInfo.anisotropyEnable = _params.AnisotropicFilter; // ROADMAP 2022
+    vk_createInfo.anisotropyEnable = (_params.AnisotropicFilter != 0u); // ROADMAP 2022
     vk_createInfo.compareEnable = _params.CompareEnable;
     vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
     vk_createInfo.minLod = _params.MinLod;
