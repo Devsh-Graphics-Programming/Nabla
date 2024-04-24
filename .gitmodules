@@ -95,4 +95,4 @@
 	url = git@github.com:p-ranav/argparse.git
 [submodule "3rdparty/nlohmann_json"]
 	path = 3rdparty/nlohmann_json
-	url = https://github.com/nlohmann/json
+	url = https://github.com/Devsh-Graphics-Programming/json
