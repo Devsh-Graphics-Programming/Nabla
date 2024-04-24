@@ -462,6 +462,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return true;
 				}*/
 
+				void debugPrint(system::ILogger* logger) const;
+
 				// all members are set-up outside the ctor
 				inline CStageIntrospectionData() {}
 
@@ -535,8 +537,19 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 				// Parameters it was created with
 				SParams m_params;
-				//! Sorted by `id`
-				core::vector<SSpecConstant<>> m_specConstants; // TODO: maybe unordered_set?
+				struct SpecConstantKeyEqual
+				{
+					inline bool operator()(const CStageIntrospectionData::SSpecConstant<>& lhs, const CStageIntrospectionData::SSpecConstant<>& rhs) const
+					{ 
+						return lhs.id == rhs.id;
+					}
+				};
+				struct SpecConstantHash
+				{
+					inline uint32_t operator()(const CStageIntrospectionData::SSpecConstant<>&pc) const { return pc.id; }
+				};
+				using SpecConstantsSet = std::unordered_set<SSpecConstant<>, SpecConstantHash, SpecConstantKeyEqual>;
+				SpecConstantsSet m_specConstants;
 				//! Sorted by `location`
 				core::vector<SInputInterface> m_input;
 				std::variant<
@@ -671,11 +684,12 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 
 				// now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
-				for (uint32_t i = 0; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+				core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+				for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
 				{
-					const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(i);
-					const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(i);
+					const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
 
+					const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
 					if (introspectionDescriptorSetLayout.empty())
 					{
 						if (layoutDescriptorSetLayout == nullptr)
@@ -685,13 +699,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 					else
 					{
-						auto pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
-
-						for (uint32_t dstSetIdx = 0u; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
-						{
-							if (!pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx)->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
-								return nullptr;
-						}
+						auto dscLayout = pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx);
+						if (!dscLayout)
+							continue;
+						if (!dscLayout->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
+							return nullptr;
 					}
 				}
 			}

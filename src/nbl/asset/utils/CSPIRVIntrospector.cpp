@@ -560,8 +560,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         default: break;
         }
 
-        auto where = std::lower_bound(stageIntroData->m_specConstants.begin(), stageIntroData->m_specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        stageIntroData->m_specConstants.insert(where, specConst);
+        stageIntroData->m_specConstants.insert(std::move(specConst));
     }
 
     spirv_cross::ShaderResources resources = comp.get_shader_resources(comp.get_active_interface_variables()/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
@@ -737,6 +736,8 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
     };
     // TODO: spec constant finalization
 
+
+
     auto addBaseAndConvertTypeToImmutable = [&](SType<true>* type)->void
     {
         auto* outImmutable = reinterpret_cast<SType<false>*>(type);
@@ -761,26 +762,6 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
 
     addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
     addBaseAndConvertStringToImmutable(m_pushConstants.name);
-    std::ostringstream debug = {};
-
-    if(!m_specConstants.empty())
-    {
-        debug << "SPEC CONSTATS:\n";
-
-        for (auto& specConstant : m_specConstants)
-            debug << " name: " << std::string_view(specConstant.name.begin(), specConstant.name.end()) << ' '
-                << "TODO: type "
-                << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
-    }
-
-    if (m_pushConstants.type)
-    {
-        debug << "PUSH CONSTANT BLOCK:\n";
-        printType(debug,m_pushConstants.type);
-        debug << "} " << m_pushConstants.name.data() << ";\n";
-    }
-
-    debug << "DESCRIPTOR SETS:\n";
     
     for (auto set=0; set< DESCRIPTOR_SET_COUNT; set++)
     for (auto& descriptor : m_descriptorSetBindings[set])
@@ -788,56 +769,18 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
         addBaseAndConvertStringToImmutable(descriptor.name);
         addBaseAndConvertExtentToImmutable(descriptor.count);
         auto& asMutable = reinterpret_cast<SDescriptorVarInfo<true>&>(descriptor);
-        debug << "(set=" << set << ",binding=" << descriptor.binding << ") ";
         switch (descriptor.type)
         {
             case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
                 addBaseAndConvertBlockToImmutable(asMutable.uniformBuffer);
-                printType(debug,descriptor.uniformBuffer.type);
                 break;
             case IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
                 addBaseAndConvertBlockToImmutable(asMutable.storageBuffer);
-                printType(debug,descriptor.storageBuffer.type);
                 break;
             default:
-                debug << "TODO_type"; // don't implement if not needed
                 break;
         }
-        debug << " " << descriptor.name.data();
-        printExtents(debug,descriptor.count);
-        debug << ";\n";
     }
-
-    if (!m_input.empty())
-    {
-        debug << "INPUT VARIABLES:\n";
-        for (auto& inputEntity : m_input)
-            debug << "type: " << getBaseTypeNameFromEnum(inputEntity.baseType) << " name: " << "TODO" << " location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
-    }
-
-    // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
-    if (shaderStage == IShader::ESS_FRAGMENT)
-    {
-        auto outputVec = std::get<FragmentOutputVecT>(m_output);
-        if (!outputVec.empty())
-        {
-            debug << "OUTPUT VARIABLES:\n";
-            for (auto& outputEntity : outputVec)
-                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location : " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
-        }
-    }
-    else
-    {
-        auto outputVec = std::get<OutputVecT>(m_output);
-        if (!outputVec.empty())
-        {
-            debug << "OUTPUT VARIABLES:\n";
-            for (auto& outputEntity : outputVec)
-                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
-        }
-    }
-
-    printf("%s\n",debug.str().c_str());
 }
 
 void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts)
@@ -925,4 +868,82 @@ size_t CSPIRVIntrospector::calcBytesizeForType(spirv_cross::Compiler& comp, cons
 
     return bytesize;
 }
+
+void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* logger) const
+{
+    auto* const basePtr = m_memPool.data();
+    std::ostringstream debug = {};
+
+    if (!m_specConstants.empty())
+    {
+        debug << "SPEC CONSTATS:\n";
+
+        for (auto& specConstant : m_specConstants)
+            debug << " name: " << std::string_view(specConstant.name.begin(), specConstant.name.end()) << ' '
+            << "TODO: type "
+            << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
+    }
+
+    if (m_pushConstants.type)
+    {
+        debug << "PUSH CONSTANT BLOCK:\n";
+        printType(debug, m_pushConstants.type);
+        debug << "} " << m_pushConstants.name.data() << ";\n";
+    }
+
+    debug << "DESCRIPTOR SETS:\n";
+
+    for (auto set = 0; set < DESCRIPTOR_SET_COUNT; set++)
+        for (auto& descriptor : m_descriptorSetBindings[set])
+        {
+            debug << "(set=" << set << ",binding=" << descriptor.binding << ") ";
+            switch (descriptor.type)
+            {
+            case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+                printType(debug, descriptor.uniformBuffer.type);
+                break;
+            case IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+                printType(debug, descriptor.storageBuffer.type);
+                break;
+            default:
+                debug << "TODO_type"; // don't implement if not needed
+                break;
+            }
+            debug << " " << descriptor.name.data();
+            printExtents(debug, descriptor.count);
+            debug << ";\n";
+        }
+
+    if (!m_input.empty())
+    {
+        debug << "INPUT VARIABLES:\n";
+        for (auto& inputEntity : m_input)
+            debug << "type: " << getBaseTypeNameFromEnum(inputEntity.baseType) << " name: " << "TODO" << " location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
+    }
+
+    // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
+    if (m_shaderStage == IShader::ESS_FRAGMENT)
+    {
+        auto outputVec = std::get<FragmentOutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location : " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+    else
+    {
+        auto outputVec = std::get<OutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+
+    logger->log(debug.str() + '\n');
+}
+
 }
