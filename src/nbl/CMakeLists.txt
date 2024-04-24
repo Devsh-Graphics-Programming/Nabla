@@ -471,7 +471,6 @@ target_include_directories(Nabla PUBLIC
 )
 
 # nlohmann_json
-set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_dependencies(Nabla nlohmann_json)
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE nlohmann_json::nlohmann_json)

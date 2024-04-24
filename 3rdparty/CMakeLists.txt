@@ -5,6 +5,7 @@
 include(../cmake/common.cmake)
 
 # nlohmann_json
+set(JSON_BuildTests OFF)
 add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
 
 # simdjson
