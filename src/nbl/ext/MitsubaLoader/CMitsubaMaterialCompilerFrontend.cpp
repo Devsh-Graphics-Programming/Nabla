@@ -67,19 +67,18 @@ auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _elemen
 
 auto CMitsubaMaterialCompilerFrontend::getEmissionProfile(const CElementEmissionProfile* _element) -> emission_profile_type
 {
-    asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
+    constexpr static asset::IAsset::E_TYPE types[] = {asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO};
     
     std::string filename = _element->filename;
     m_loaderContext->override_->getLoadFilename(filename, m_loaderContext->inner, 0u);
-    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
-    if (!viewBundle.getContents().empty())
-    {
-        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
 
+    auto viewBundle = m_loaderContext->override_->findCachedAsset(filename, types, m_loaderContext->inner, 0u);
+    if (viewBundle.getMetadata())
+    {
         const auto& meta = *static_cast<const asset::CIESProfileMetadata*>(viewBundle.getMetadata());
-        return { view, m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
+        return { m_loaderContext->getSampler(m_loaderContext->emissionProfileSamplerParams(_element,meta)), &meta};
     }
-    return { nullptr, nullptr, nullptr };
+    return { nullptr, nullptr };
 }
 
 CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend::createEmitterNode(asset::material_compiler::IR* ir, const CElementEmitter* _emitter, core::matrix4SIMD transform)
@@ -92,7 +91,7 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
     const auto inProfile = _emitter->area.emissionProfile;
     if (inProfile)
     {
-        auto [image, sampler, meta] = getEmissionProfile(inProfile);
+        auto [sampler, meta] = getEmissionProfile(inProfile);
         
         auto fillProfile = [&]() -> bool
         {

@@ -968,10 +968,13 @@ void CMitsubaLoader::cacheEmissionProfile(SContext& ctx, const CElementEmissionP
 {
 	if (!profile)
 		return;
-	
-	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
-	auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, ctx.inner.params, 0u, ctx.override_);
-	if (assetLoaded.getContents().empty())
+
+	auto params = ctx.inner.params;
+	params.loaderFlags = asset::IAssetLoader::ELPF_LOAD_METADATA_ONLY;
+
+	auto assetLoaded = interm_getAssetInHierarchy(m_assetMgr, profile->filename, params, 0u, ctx.override_);
+
+	if (!assetLoaded.getMetadata())
 	{
 		os::Printer::log("[ERROR] Could Not Find Emission Profile: " + profile->filename, ELL_ERROR);
 		return;

@@ -47,7 +47,7 @@ class CMitsubaMaterialCompilerFrontend
 
     private:
         using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
-        using emission_profile_type = std::tuple< core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, const asset::CIESProfileMetadata*>;
+        using emission_profile_type = std::tuple<core::smart_refctd_ptr<asset::ICPUSampler>, const asset::CIESProfileMetadata*>;
 
         const SContext* m_loaderContext;
 

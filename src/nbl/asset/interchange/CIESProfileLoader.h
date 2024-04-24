@@ -34,7 +34,7 @@ class CIESProfileLoader final : public asset::IAssetLoader
 			_file->seek(begginingOfFile);
 
 			for (const auto& it : CIESProfileParser::VALID_SIGNATURES)
-				if (versionBuffer.find(it.data()) != std::string::npos);
+				if (versionBuffer.find(it.data()) != std::string::npos)
 					return true;
 			
 			return false;
