@@ -117,6 +117,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
         debug << "ds ID: " << i << std::endl;
 
         // TODO: test it with glsl
+        constexpr uint32_t INVALID_ARRAY_DIMENSION = 0u;
         auto multiplyArrayDimensions = [&specConstants](uint32_t val, const SArrayInfo& arrInfo) -> uint32_t
             {
                 if (arrInfo.value == 0)
@@ -125,11 +126,11 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 if (arrInfo.isSpecConstant)
                 {
                     if (!specConstants)
-                        return 0u;
+                        return INVALID_ARRAY_DIMENSION;
 
                     const auto& specConstantFound = specConstants->find(arrInfo.specID);
                     if (specConstantFound == specConstants->end())
-                        return 0u;
+                        return INVALID_ARRAY_DIMENSION;
 
                     return val * specConstantFound->second;
                 }
@@ -150,14 +151,14 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 {
                     descInfo.count = 0u;
                     descInfo.stride = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
-                    if (descInfo.stride == 0u)
+                    if (descInfo.stride == INVALID_ARRAY_DIMENSION)
                         return false;
                 }
                 else
                 {
                     descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
                     descInfo.stride = descInfo.count;
-                    if (descInfo.stride == 0u)
+                    if (descInfo.stride == INVALID_ARRAY_DIMENSION)
                         return false;
                 }
             }
@@ -293,10 +294,8 @@ NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPi
         outBinding.count = binding.count;
         outBinding.type = binding.type;
         outBinding.stageFlags = binding.stageMask;
-        outBinding.createFlags = ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
+        outBinding.createFlags = binding.isRuntimeSized() ? ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT : ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
         // TODO: outBinding.samplers
-
-        outBindings.push_back(outBinding);
     }
 
     if (outBindings.empty())
@@ -666,6 +665,8 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
 
             return glslType;
         };
+
+    auto a = stageIntroData->m_descriptorSetBindings;
 
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)

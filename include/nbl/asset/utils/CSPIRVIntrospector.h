@@ -713,8 +713,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			}
 
 			ICPUComputePipeline::SCreationParams pplnCreationParams = {{.layout = layout.get()}};
-			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
-			params.entryPoint = info.entryPoint;
+			pplnCreationParams.shader = info;
+			pplnCreationParams.layout = layout.get();
 			return ICPUComputePipeline::create(pplnCreationParams);
 		}
 
