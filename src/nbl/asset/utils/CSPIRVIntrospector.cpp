@@ -113,31 +113,6 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
-        std::ostringstream debug;
-        debug << "ds ID: " << i << std::endl;
-
-        // TODO: test it with glsl
-        constexpr uint32_t INVALID_ARRAY_DIMENSION = 0u;
-        auto multiplyArrayDimensions = [&specConstants](uint32_t val, const SArrayInfo& arrInfo) -> uint32_t
-            {
-                if (arrInfo.value == 0)
-                    return val;
-
-                if (arrInfo.isSpecConstant)
-                {
-                    if (!specConstants)
-                        return INVALID_ARRAY_DIMENSION;
-
-                    const auto& specConstantFound = specConstants->find(arrInfo.specID);
-                    if (specConstantFound == specConstants->end())
-                        return INVALID_ARRAY_DIMENSION;
-
-                    return val * specConstantFound->second;
-                }
-
-                return val * arrInfo.value;
-            };
-
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
         for (const auto& stageIntroBindingInfo : introBindingInfos)
         {
@@ -150,22 +125,37 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 if (stageIntroBindingInfo.isRunTimeSized())
                 {
                     descInfo.count = 0u;
-                    descInfo.stride = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
-                    if (descInfo.stride == INVALID_ARRAY_DIMENSION)
-                        return false;
+                    descInfo.isRuntimeSizedFlag = true;
                 }
                 else
                 {
-                    descInfo.count = std::accumulate(stageIntroBindingInfo.count.begin(), stageIntroBindingInfo.count.end(), 1u, multiplyArrayDimensions);
-                    descInfo.stride = descInfo.count;
-                    if (descInfo.stride == INVALID_ARRAY_DIMENSION)
+                    const auto count = stageIntroBindingInfo.count;
+                    if (count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT)
+                    {
+                        if (!specConstants)
+                            return false;
+
+                        const auto& specConstantFound = specConstants->find(count.specID);
+                        if (specConstantFound == specConstants->end())
+                            return false;
+
+                        descInfo.count = count.count;
+                    }
+                    else
+                    {
+                        descInfo.count = stageIntroBindingInfo.count.count;
+                    }
+
+                    if (descInfo.count == 0u)
                         return false;
+
+                    descInfo.isRuntimeSizedFlag = false;
                 }
             }
             else
             {
                 descInfo.count = 1u;
-                descInfo.stride = 0u;
+                descInfo.isRuntimeSizedFlag = false;
             }
 
             const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
@@ -175,15 +165,10 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                     return false;
                 if (pplnIntroDataFoundBinding->count != descInfo.count)
                     return false;
-                if (pplnIntroDataFoundBinding->stride != descInfo.stride)
-                    return false;
             }
-
-            debug << "binding ID: " << descInfo.binding << "type: " << static_cast<uint32_t>(descInfo.type) << std::endl;
 
             descriptorsToMerge[i].insert(descInfo);
         }
-        std::cout << debug.str() << std::endl;
     }
 
     // validate if only descriptors with the highest bindings are run-time sized
@@ -348,7 +333,7 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
             //.descCount = 1
         },
         /*.name = */addString(r.name),
-        /*.count = */addCounts(arrDim,type.array.data(),type.array_size_literal.data())
+        /*.count = *///addCounts(arrDim,type.array.data(),type.array_size_literal.data())
     };
 
     auto& ref = reinterpret_cast<core::vector<CStageIntrospectionData::SDescriptorVarInfo<true>>*>(m_descriptorSetBindings)[descSet].emplace_back(std::move(res));
@@ -735,9 +720,10 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
     {
         count = reinterpret_cast<const core::based_span<CIntrospectionData::SArrayInfo>&>(count)(basePtr);
     };
-    // TODO: spec constant finalization
 
-
+    // const cast doesn't change hasher or operator==
+    for (auto& spec : m_specConstants)
+        addBaseAndConvertStringToImmutable(const_cast<std::span<const char>&>(spec.name));
 
     auto addBaseAndConvertTypeToImmutable = [&](SType<true>* type)->void
     {
@@ -763,15 +749,15 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
 
     addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
     addBaseAndConvertStringToImmutable(m_pushConstants.name);
-    
-    for (auto set=0; set< DESCRIPTOR_SET_COUNT; set++)
+
+    for (auto set=0; set < DESCRIPTOR_SET_COUNT; set++)
     for (auto& descriptor : m_descriptorSetBindings[set])
     {
         addBaseAndConvertStringToImmutable(descriptor.name);
-        addBaseAndConvertExtentToImmutable(descriptor.count);
         auto& asMutable = reinterpret_cast<SDescriptorVarInfo<true>&>(descriptor);
         switch (descriptor.type)
         {
+            // TODO: all descriptor types
             case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
                 addBaseAndConvertBlockToImmutable(asMutable.uniformBuffer);
                 break;
@@ -784,18 +770,14 @@ void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHAD
     }
 }
 
-void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts)
+void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const SArrayInfo& count)
 {
-    for (auto i=counts.size()-1; i!=(~0ull); i--)
-    {
-        const auto extent = counts[i];
-        out << "[";
-        if (extent.isSpecConstant)
-            out << "specID=" << extent.specID;
-        else if (!extent.isRuntimeSized())
-            out << extent.value;
-        out << "]";
-    }
+    out << "[";
+    if (count.isSpecConstant)
+        out << "specID=" << count.specID;
+    else if (!count.isRuntimeSized())
+        out << count.value;
+    out << "]";
 }
 void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& out, const SType<false>* type, const uint32_t depth)
 {
@@ -824,7 +806,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& 
     // post
     if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
         indent() << "}";
-    printExtents(out,type->count);
+   // printExtents(out,type->count);
 }
 
 size_t CSPIRVIntrospector::calcBytesizeForType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const
@@ -911,7 +893,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
                 break;
             }
             debug << " " << descriptor.name.data();
-            printExtents(debug, descriptor.count);
+            //printExtents(debug, descriptor.count);
             debug << ";\n";
         }
 

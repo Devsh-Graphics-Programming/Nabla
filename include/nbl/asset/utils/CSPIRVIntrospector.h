@@ -128,6 +128,25 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					// illegal for push constant block members
 					inline bool isRuntimeSized() const {return !isSpecConstant && value==0;}
 				};
+
+				struct SDescriptorArrayInfo
+				{
+					enum class DESCRIPTOR_COUNT : uint32_t
+					{
+						STATIC = 0,
+						SPEC_CONSTANT = 1,
+						RUNTIME = 2
+					};
+					// spec constant ID if `countMode==SPEC_CONSTANT` otherwise a lower bound on binding array size
+					union
+					{
+						uint32_t count : 30 = 0;
+						uint32_t specID : 30;
+					};
+
+					DESCRIPTOR_COUNT countMode : 2;
+				};
+
 				struct SDescriptorInfo
 				{
 					inline bool operator<(const SDescriptorInfo& _rhs) const
@@ -381,12 +400,12 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint32_t index;
 					};
 
-					inline bool isArray() const {return !count.empty();}
-					inline bool isRunTimeSized() const {return isArray() ? count[0].value == 0 : false;}
+					inline bool isArray() const {return count.count || count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT;}
+					inline bool isRunTimeSized() const {return count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::RUNTIME;}
 
 					//! Note: for SSBOs and UBOs it's the block name
 					span_t<char,Mutable> name = {};
-					span_t<SArrayInfo,Mutable> count = {};
+					SDescriptorArrayInfo count;
 					uint8_t restrict_ : 1 = false;
 					uint8_t aliased : 1 = false;
 					
@@ -530,7 +549,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				void finalize(IShader::E_SHADER_STAGE stage);
 
 				//! debug
-				static void printExtents(std::ostringstream& out, const std::span<const SArrayInfo> counts);
+				static void printExtents(std::ostringstream& out, const SArrayInfo& count);
 				static void printType(std::ostringstream& out, const SType<false>* counts, const uint32_t depth=0);
 				
 				IShader::E_SHADER_STAGE m_shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
@@ -548,7 +567,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				{
 					inline uint32_t operator()(const CStageIntrospectionData::SSpecConstant<>&pc) const { return pc.id; }
 				};
-				using SpecConstantsSet = std::unordered_set<SSpecConstant<>, SpecConstantHash, SpecConstantKeyEqual>;
+				using SpecConstantsSet = core::unordered_set<SSpecConstant<>, SpecConstantHash, SpecConstantKeyEqual>;
 				SpecConstantsSet m_specConstants;
 				//! Sorted by `location`
 				core::vector<SInputInterface> m_input;
@@ -571,11 +590,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			public:
 				struct SDescriptorInfo final : CIntrospectionData::SDescriptorInfo
 				{
-					inline bool isArray() const {return stride;}
-					inline bool isRuntimeSized() const {return isArray() && count==0;}
+					inline bool isArray() const {return count != 1u;}
+					inline bool isRuntimeSized() const {return isRuntimeSizedFlag;}
 
-					uint32_t count : 21 = 0;
-					uint32_t stride : 11 = 0;
+					uint32_t count : 31 = 0;
+					uint32_t isRuntimeSizedFlag : 1;
 					// Which shader stages touch it
 					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::ESS_UNKNOWN;
 				};
