@@ -293,9 +293,6 @@ public:
 
 	bool isSubsetOf(const IDescriptorSetLayout<sampler_type>* other) const
 	{
-		auto a = getTotalBindingCount();
-		auto b = other->getTotalBindingCount();
-
 		if (!other || getTotalBindingCount() > other->getTotalBindingCount())
 			return false;
 
