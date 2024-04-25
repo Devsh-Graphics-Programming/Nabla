@@ -9,9 +9,8 @@ template<typename T, typename Allocator>
 class CVectorCPUBuffer final : public ICPUBuffer
 {
 public:
-    inline CVectorCPUBuffer(core::vector<T, Allocator>&& _vec) : m_vec(std::move(_vec))
+    inline CVectorCPUBuffer(core::vector<T, Allocator>&& _vec) : ICPUBuffer(_vec.size(), _vec.data()), m_vec(std::move(_vec))
     {
-        data = m_vec.data();
     }
 
 protected:

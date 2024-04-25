@@ -280,13 +280,13 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     };
     std::string dumpedContainerJson = std::move(containerJson.dump());
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
-    std::vector<uint8_t> retVal;
+    core::vector<uint8_t> retVal;
     retVal.reserve(CONTAINER_JSON_SIZE_BYTES + dumpedContainerJsonLength + shadersBuffer.size());
     // first CONTAINER_JSON_SIZE_BYTES (8) entries are the size of the json
     retVal.insert(retVal.end(), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength) + CONTAINER_JSON_SIZE_BYTES);
     retVal.insert(retVal.end(), std::make_move_iterator(dumpedContainerJson.begin()), std::make_move_iterator(dumpedContainerJson.end()));
     retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
-    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, std::allocator<uint8_t>>>(std::move(retVal));
+    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
