@@ -276,6 +276,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISemaphore.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
@@ -367,8 +368,8 @@ else()
 	)
 endif()
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
+nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+nbl_adjust_definitions()
 
 if(NBL_DYNAMIC_MSVC_RUNTIME)
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")

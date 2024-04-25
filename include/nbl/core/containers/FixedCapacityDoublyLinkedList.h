@@ -24,6 +24,8 @@ namespace impl
 			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
 		protected:
 
+			FixedCapacityDoublyLinkedListBase() = default;
+
 			template<typename T>
 			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
 			{
@@ -56,12 +58,10 @@ struct alignas(void*) SDoublyLinkedNode
 		next = invalid_iterator;
 	}
 	SDoublyLinkedNode(SDoublyLinkedNode<Value>&& other) : data(std::move(other.data)), prev(std::move(other.prev)), next(std::move(other.next))
-	{
-	}
+	{}
 	
 	~SDoublyLinkedNode()
-	{
-	}
+	{}
 
 	SDoublyLinkedNode<Value>& operator=(const SDoublyLinkedNode<Value>& other)
 	{
@@ -84,6 +84,7 @@ template<typename Value>
 class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
 {
 	public:
+		using AddressAllocator = PoolAddressAllocator<uint32_t>;
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = impl::FixedCapacityDoublyLinkedListBase::invalid_iterator;
 
 		using disposal_func_t = std::function<void(Value&)>;
@@ -123,6 +124,12 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			insertAt(reserveAddress(), std::move(val));
 		}
 
+		template <typename... Args>
+		inline void emplaceFront(Args&&... args)
+		{
+			insertAt(reserveAddress(), Value(std::forward<Args>(args)...));
+		}
+
 		//get node ptr of the first item in the list
 		inline node_t* getBegin() { return m_array + m_begin; }
 		inline const node_t* getBegin() const { return m_array + m_begin; }
@@ -143,6 +150,12 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			assert(nodeAddr != invalid_iterator);
 			assert(nodeAddr < cap);
 			node_t* node = get(nodeAddr);
+
+			if (m_back == nodeAddr)
+				m_back = node->prev;
+			if (m_begin == nodeAddr)
+				m_begin = node->next;
+
 			common_detach(node);
 			common_delete(nodeAddr);
 		}
@@ -156,21 +169,53 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			getBegin()->prev = nodeAddr;
 
 			auto node = get(nodeAddr);
+			
+			if (m_back == nodeAddr)
+				m_back = node->prev;
+
 			common_detach(node);
 			node->next = m_begin;
 			node->prev = invalid_iterator;
 			m_begin = nodeAddr;
 		}
+
 		//Constructor, capacity determines the amount of allocated space
 		FixedCapacityDoublyLinkedList(const uint32_t capacity, disposal_func_t&& dispose_f = disposal_func_t()) :
 			FixedCapacityDoublyLinkedListBase(capacity,m_reservedSpace,m_array),
-			alloc(m_reservedSpace, 0u, 0u, 1u, capacity, 1u),
 			m_dispose_f(std::move(dispose_f))
 		{
+			addressAllocator = std::unique_ptr<AddressAllocator>(new AddressAllocator(m_reservedSpace, 0u, 0u, 1u, capacity, 1u));
 			cap = capacity;
 			m_back = invalid_iterator;
 			m_begin = invalid_iterator;
 		}
+		
+		FixedCapacityDoublyLinkedList() = default;
+
+		FixedCapacityDoublyLinkedList(const FixedCapacityDoublyLinkedList& other) = delete;
+
+		FixedCapacityDoublyLinkedList& operator=(const FixedCapacityDoublyLinkedList& other) = delete;
+		
+		FixedCapacityDoublyLinkedList& operator=(FixedCapacityDoublyLinkedList&& other)
+		{
+			addressAllocator = std::move(other.addressAllocator);
+			m_reservedSpace = std::move(other.m_reservedSpace);
+			m_array = std::move(other.m_array);
+			m_dispose_f = std::move(other.m_dispose_f);
+			cap = other.cap;
+			m_back = other.m_back;
+			m_begin = other.m_begin;
+
+			// Nullify other
+			other.addressAllocator = nullptr;
+			other.m_reservedSpace = nullptr;
+			other.m_array = nullptr;
+			other.cap = 0u;
+			other.m_back = 0u;
+			other.m_begin = 0u;
+			return *this;
+		}
+
 		~FixedCapacityDoublyLinkedList()
 		{
 			if (m_dispose_f && m_begin != invalid_iterator)
@@ -185,9 +230,10 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			}
 			_NBL_ALIGNED_FREE(m_reservedSpace);
 		}
+		
 
 	private:
-		PoolAddressAllocator<uint32_t> alloc;
+		std::unique_ptr<AddressAllocator> addressAllocator;
 		void* m_reservedSpace;
 		node_t* m_array;
 
@@ -200,7 +246,7 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 		//allocate and get the address of the next free node
 		inline uint32_t reserveAddress()
 		{
-			uint32_t addr = alloc.alloc_addr(1u, 1u);
+			uint32_t addr = addressAllocator->alloc_addr(1u, 1u);
 			return addr;
 		}
 
@@ -225,7 +271,7 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			if (m_dispose_f)
 				m_dispose_f(get(address)->data);
 			get(address)->~node_t();
-			alloc.free_addr(address, 1u);
+			addressAllocator->free_addr(address, 1u);
 		}
 
 		inline void common_detach(node_t* node)

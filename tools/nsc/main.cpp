@@ -196,17 +196,23 @@ private:
 		assert(assets.size() == 1);
 
 		// could happen when the file is missing an extension and we can't deduce its a shader
-		if (assets[0]->getAssetType()==IAsset::ET_BUFFER)
+		if (assetBundle.getAssetType() == IAsset::ET_BUFFER)
 		{
 			auto buf = IAsset::castDown<ICPUBuffer>(assets[0]);
 			std::string source; source.resize(buf->getSize()+1);
 			memcpy(source.data(),buf->getPointer(),buf->getSize());
 			return core::make_smart_refctd_ptr<ICPUShader>(source.data(), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath));
 		}
+		else if (assetBundle.getAssetType() == IAsset::ET_SHADER)
+		{
+			return smart_refctd_ptr_static_cast<ICPUShader>(assets[0]);
+		} 
+		else 
+		{
+			m_logger->log("file '%s' is an asset that is neither a buffer or a shader.", ILogger::ELL_ERROR, filepath);
+		}
 
-		smart_refctd_ptr<ICPUSpecializedShader> source = IAsset::castDown<ICPUSpecializedShader>(assets[0]);
-
-		return core::smart_refctd_ptr<const ICPUShader>(source->getUnspecialized());
+		return nullptr;
 	}
 
 
