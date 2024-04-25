@@ -331,11 +331,7 @@ public:
 				if (storageOffset.data != otherStorageOffset.data)
 					return false;
 
-
-
-					// TODO[Przemek]: validate samplers
-				
-					
+				// TODO[Przemek]: validate samplers	
 			}
 		}
 	}

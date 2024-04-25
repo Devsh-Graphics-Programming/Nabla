@@ -666,11 +666,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			if (info.shader->getStage()!=IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
 				return nullptr;
 
-			// TODO:
-			// 1. find or perform introspection using `info`
-			// 2. if `layout` then just check for compatiblity
-			// 3. if `!layout` then create `CPipelineIntrospectionData` from the stage introspection and create a Layout
-
 			CStageIntrospectionData::SParams params;
 			params.entryPoint = info.entryPoint;
 			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
@@ -683,40 +678,42 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			if (layout)
 			{
-				// regarding push constants we only need to validate if size of push constants in `layout` is greater or equal to size of push constants determined by the `introspect` function
-				const auto& introspectionPushConstants = introspection->getPushConstants();
-				if (introspectionPushConstants.present())
+				// regarding push constants we only need to validate if every range of push constants determined by the introspection is subset any push constants subset of predefined layout
+				core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+				const auto& introspectionPushConstantRanges = pplnIntrospectionLayout->getPushConstantRanges();
+				if (!introspectionPushConstantRanges.empty())
 				{
 					const auto& layoutPushConstantRanges = layout->getPushConstantRanges();
 					if (layoutPushConstantRanges.empty())
 						return nullptr;
 
-					uint32_t layoutPushConstantSize = 0u;
-					for (const auto& pcRange : layoutPushConstantRanges)
+					for (auto& introPcRange : introspectionPushConstantRanges)
 					{
-						const uint32_t rangeSize = pcRange.offset + pcRange.size;
-						layoutPushConstantSize = std::max(rangeSize, layoutPushConstantSize);
-					}
+						auto subsetRangeFound = std::find_if(
+							layoutPushConstantRanges.begin(),
+							layoutPushConstantRanges.end(), 
+							[&introPcRange](const SPushConstantRange& layoutPcRange)
+							{
+								const bool isIntrospectionPushConstantRangeSubset =
+									introPcRange.offset <= layoutPcRange.offset &&
+									introPcRange.offset + introPcRange.size <= layoutPcRange.offset + layoutPcRange.size;
+								return isIntrospectionPushConstantRangeSubset;
+							});
 
-					if (layoutPushConstantSize < introspectionPushConstants.offset + introspectionPushConstants.size)
-						return nullptr;
+						auto asdf = layoutPushConstantRanges.end();
+
+						if (subsetRangeFound == layoutPushConstantRanges.end())
+							return nullptr;
+					}
 				}
 
 				// now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
-				core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
 				for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
 				{
 					const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
 
 					const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
-					if (introspectionDescriptorSetLayout.empty())
-					{
-						if (layoutDescriptorSetLayout == nullptr)
-							continue;
-						else
-							return nullptr;
-					}
-					else
+					if (!introspectionDescriptorSetLayout.empty())
 					{
 						auto dscLayout = pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx);
 						if (!dscLayout)

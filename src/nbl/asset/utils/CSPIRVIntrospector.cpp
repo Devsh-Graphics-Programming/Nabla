@@ -124,7 +124,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
             {
                 if (stageIntroBindingInfo.isRunTimeSized())
                 {
-                    descInfo.count = 0u;
+                    descInfo.count = stageIntroBindingInfo.count.count;
                     descInfo.isRuntimeSizedFlag = true;
                 }
                 else
@@ -333,7 +333,6 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
             //.descCount = 1
         },
         /*.name = */addString(r.name),
-        /*.count = *///addCounts(arrDim,type.array.data(),type.array_size_literal.data())
     };
 
     auto& ref = reinterpret_cast<core::vector<CStageIntrospectionData::SDescriptorVarInfo<true>>*>(m_descriptorSetBindings)[descSet].emplace_back(std::move(res));
