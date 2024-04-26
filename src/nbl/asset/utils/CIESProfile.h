@@ -18,6 +18,10 @@ namespace nbl
             public:
                 using IES_STORAGE_FORMAT = double;
 
+                //! max 16K resolution
+                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_MAX_TEXTURE_WIDTH = 15360;
+                _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_MAX_TEXTURE_HEIGHT = 8640;
+
                 _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_WIDTH = 1024;
                 _NBL_STATIC_INLINE_CONSTEXPR size_t CDC_DEFAULT_TEXTURE_HEIGHT = 1024;
 
@@ -72,9 +76,11 @@ namespace nbl
                     return avgEmmision;
                 }
 
+                auto getOptimalIESResolution() const { return optimalIESResolution; }
+
                 template<class ExecutionPolicy>
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const bool fullDomainFlatten=false, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
-                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const bool fullDomainFlatten=false, const size_t width = CDC_DEFAULT_TEXTURE_WIDTH, const size_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(ExecutionPolicy&& policy, const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
+                core::smart_refctd_ptr<asset::ICPUImageView> createIESTexture(const float flatten = 0.0, const bool fullDomainFlatten=false, uint32_t width = CDC_DEFAULT_TEXTURE_WIDTH, uint32_t height = CDC_DEFAULT_TEXTURE_HEIGHT) const;
 
             private:
                 CIESProfile(PhotometricType type, size_t hSize, size_t vSize)
@@ -123,6 +129,8 @@ namespace nbl
                 IES_STORAGE_FORMAT maxCandelaValue = {};            //! Max value from this->data vector    
                 IES_STORAGE_FORMAT totalEmissionIntegral = {};      //! Total energy emitted
                 IES_STORAGE_FORMAT avgEmmision = {};                //! this->totalEmissionIntegral / <size of the emission domain where non zero emission values>
+
+                core::vector2du32_SIMD optimalIESResolution;        //! optimal resolution for IES profile texture
 
                 friend class CIESProfileParser;
         };

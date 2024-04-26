@@ -105,11 +105,16 @@ inline std::pair<float, float> CIESProfile::sphericalDirToRadians(const core::ve
 }
 
 template<class ExecutionPolicy>
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(ExecutionPolicy&& policy, const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
 {
     const bool inFlattenDomain = flatten >= 0.0 && flatten <= 1.0; // [0, 1] range for blend equation, 1 is normally invalid but we use it to for special implied domain flatten mode
-    
     assert(inFlattenDomain);
+
+    if (width > CDC_MAX_TEXTURE_WIDTH)
+        width = CDC_MAX_TEXTURE_WIDTH;
+
+    if (height > CDC_MAX_TEXTURE_HEIGHT)
+        height = CDC_MAX_TEXTURE_HEIGHT;
 
     asset::ICPUImage::SCreationParams imgInfo;
     imgInfo.type = asset::ICPUImage::ET_2D;
@@ -201,11 +206,11 @@ core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(Execu
 }
 
 //! Explicit instantiations
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const bool, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const bool, const size_t, const size_t) const;
-template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const bool, const size_t, const size_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::sequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_policy&, const float, const bool, uint32_t, uint32_t) const;
+template core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const std::execution::parallel_unsequenced_policy&, const float, const bool, uint32_t, uint32_t) const;
 
-core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const bool fullDomainFlatten, const size_t width, const size_t height) const
+core::smart_refctd_ptr<asset::ICPUImageView> CIESProfile::createIESTexture(const float flatten, const bool fullDomainFlatten, uint32_t width, uint32_t height) const
 {
     return createIESTexture(std::execution::seq, flatten, fullDomainFlatten, width, height);
 }

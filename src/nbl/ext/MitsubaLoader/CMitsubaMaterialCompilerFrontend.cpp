@@ -149,8 +149,11 @@ CMitsubaMaterialCompilerFrontend::EmitterNode* CMitsubaMaterialCompilerFrontend:
 
                 // failed to find, have to create
                 if (!flattenIES)
-                    flattenIES = meta->profile.createIESTexture(flatten,fullDomain);
-
+                {
+                    const auto optimalResolution = meta->profile.getOptimalIESResolution();
+                    flattenIES = meta->profile.createIESTexture(flatten, fullDomain, optimalResolution.x, optimalResolution.y);
+                }
+                
                 // now must be loaded to proceed
                 if (!flattenIES)
                     return false;

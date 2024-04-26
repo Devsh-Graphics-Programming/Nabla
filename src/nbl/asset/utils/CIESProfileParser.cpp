@@ -106,6 +106,12 @@ bool CIESProfileParser::parse(CIESProfile& result)
     if (vSize < 2)
         return false;
 
+    {
+        const uint32_t maxDimMeasureSize = core::max(hSize, vSize);
+        result.optimalIESResolution = decltype(result.optimalIESResolution){ maxDimMeasureSize, maxDimMeasureSize };
+        result.optimalIESResolution *= 2u; // safe bias for our bilinear interpolation to work nicely and increase resolution of a profile
+    }
+
     auto& vAngles = result.vAngles;
     for (int i = 0; i < vSize; i++) {
         vAngles[i] = getDouble("vertical angle truncated");
