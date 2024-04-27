@@ -368,8 +368,8 @@ else()
 	)
 endif()
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
+nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+nbl_adjust_definitions()
 
 if(NBL_DYNAMIC_MSVC_RUNTIME)
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")

@@ -4,16 +4,11 @@
 
 namespace nbl::video
 {
-const char* SIntendedSubmitInfo::ErrorText = R"===(Invalid `IUtilities::SIntendedSubmitInfo`, possible reasons are:
-- No `commandBuffers` or `signalSemaphores` given in respective spans
-- `commandBuffer.back()` is not Resettable
-- `commandBuffer.back()` is not already begun with ONE_TIME_SUBMIT_BIT
-- one of the `commandBuffer`s' Pool's Queue Family Index doesn't match `queue`'s Family
-)===";
-
 bool IUtilities::updateImageViaStagingBuffer(
-    SIntendedSubmitInfo& intendedNextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, video::IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
-    const core::SRange<const asset::IImage::SBufferCopy>& regions)
+    SIntendedSubmitInfo& intendedNextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
+    IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+    const core::SRange<const asset::IImage::SBufferCopy>& regions
+)
 {
     if(!intendedNextSubmit.valid())
     {
@@ -21,7 +16,7 @@ bool IUtilities::updateImageViaStagingBuffer(
         return false;
     }
 
-    auto cmdbuf = intendedNextSubmit.frontHalf.getScratchCommandBuffer();
+    auto cmdbuf = intendedNextSubmit.getScratchCommandBuffer();
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
  
@@ -42,8 +37,8 @@ bool IUtilities::updateImageViaStagingBuffer(
     }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
-    assert(intendedNextSubmit.frontHalf.queue);
-    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.frontHalf.queue->getFamilyIndex()];
+    assert(intendedNextSubmit.queue);
+    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
     auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
     
     assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
@@ -141,7 +136,7 @@ bool IUtilities::updateImageViaStagingBuffer(
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, intendedNextSubmit.getScratchSemaphoreNextWait()); // can queue with a reset but not yet pending fence, just fine
+        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, intendedNextSubmit.getFutureScratchSemaphore()); // can queue with a reset but not yet pending fence, just fine
     }
     return true;
 }
