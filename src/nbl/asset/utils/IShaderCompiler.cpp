@@ -253,10 +253,13 @@ core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SE
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 {
     size_t shaderBufferSize = 0;
+    core::vector<size_t> offsets(m_container.size());
+    core::vector<uint64_t> sizes(m_container.size());
     json entries;
     core::vector<CPUShaderCreationParams> shaderCreationParams;
 
     // In a first loop over entries we add all entries and their shader creation parameters to a json, and get the size of the shaders buffer
+    auto i = 0u;
     for (auto& entry : m_container) {
         // Add the entry as a json array
         entries.push_back(entry);
@@ -268,6 +271,11 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         params.filepathHint = entry.value->getFilepathHint();
         params.codeByteSize = entry.value->getContent()->getSize();
         params.offset = shaderBufferSize;
+
+        // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
+        // (where the params array has been moved) we don't have to read the json to get the offsets again
+        offsets[i] = shaderBufferSize;
+        sizes[i] = params.codeByteSize;
 
         // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += params.codeByteSize;
@@ -293,7 +301,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Loop over entries again, adding each one's shader to the buffer. 
     auto i = 0u;
     for (auto& entry : m_container) {
-        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, entry.value->getContent()->getPointer(), shaderCreationParams[i].codeByteSize);
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.value->getContent()->getPointer(), sizes[i]);
         i++;
     }
 
