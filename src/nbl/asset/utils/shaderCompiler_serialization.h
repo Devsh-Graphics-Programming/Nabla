@@ -145,7 +145,7 @@ namespace nbl::asset {
             : stage(_stage), contentType(_contentType), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset)
         {}
 
-        CPUShaderCreationParams();
+        CPUShaderCreationParams() {};
     };
 
     inline void to_json(json& j, const CPUShaderCreationParams& creationParams)
