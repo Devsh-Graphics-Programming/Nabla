@@ -93,7 +93,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuff
     return optimize(spirv, count, logger);
 }
 
-const std::initializer_list<ISPIRVOptimizer::E_OPTIMIZER_PASS> nbl::asset::ISPIRVOptimizer::getPasses() const
+const std::span<const ISPIRVOptimizer::E_OPTIMIZER_PASS> nbl::asset::ISPIRVOptimizer::getPasses() const
 {
-    return m_passes;
+    return std::span{m_passes};
 }

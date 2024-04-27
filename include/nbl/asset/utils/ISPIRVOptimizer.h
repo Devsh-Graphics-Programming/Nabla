@@ -42,10 +42,10 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
 
         core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const;
         core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const;
-        const std::initializer_list<E_OPTIMIZER_PASS> getPasses() const;
+        const std::span<const E_OPTIMIZER_PASS> getPasses() const;
 
     protected:
-        const std::initializer_list<E_OPTIMIZER_PASS> m_passes;
+        const core::vector<E_OPTIMIZER_PASS> m_passes;
 };
 
 }

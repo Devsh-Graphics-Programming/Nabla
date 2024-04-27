@@ -252,9 +252,11 @@ core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SE
 
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 {
-    core::vector<uint8_t> shadersBuffer;
+    size_t shaderBufferSize = 0;
     json entries;
-    json shaderCreationParams;
+    core::vector<CPUShaderCreationParams> shaderCreationParams;
+
+    // In a first loop over entries we add all entries and their shader creation parameters to a json, and get the size of the shaders buffer
     for (auto& entry : m_container) {
         // Add the entry as a json array
         entries.push_back(entry);
@@ -264,28 +266,40 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         params.stage = entry.value->getStage();
         params.contentType = entry.value->getContentType();
         params.filepathHint = entry.value->getFilepathHint();
-        params.offset = shadersBuffer.size();
         params.codeByteSize = entry.value->getContent()->getSize();
+        params.offset = shaderBufferSize;
 
-        // And add it to the shader creation parameters array
-        shaderCreationParams.push_back(params);
+        // Enlarge the shader buffer by the size of the current shader
+        shaderBufferSize += params.codeByteSize;
 
-        // Finally, insert the shader bytecode into the shaders buffer
-        shadersBuffer.reserve(shadersBuffer.size() + params.codeByteSize);
-        shadersBuffer.insert(shadersBuffer.end(), (uint8_t*)entry.value->getContent()->getPointer(), (uint8_t*)entry.value->getContent()->getPointer() + params.codeByteSize);
+        // And add the params to the shader creation parameters array
+        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), entry.value->getContent()->getSize(), shaderBufferSize);
     }
+
+    // Create the containerJson
     json containerJson{
-        { "entries", entries },
-        { "shaderCreationParams", shaderCreationParams },
+        { "entries", std::move(entries) },
+        { "shaderCreationParams", std::move(shaderCreationParams) },
     };
     std::string dumpedContainerJson = std::move(containerJson.dump());
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
-    core::vector<uint8_t> retVal;
-    retVal.reserve(CONTAINER_JSON_SIZE_BYTES + dumpedContainerJsonLength + shadersBuffer.size());
-    // first CONTAINER_JSON_SIZE_BYTES (8) entries are the size of the json
-    retVal.insert(retVal.end(), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength), reinterpret_cast<uint8_t*>(&dumpedContainerJsonLength) + CONTAINER_JSON_SIZE_BYTES);
-    retVal.insert(retVal.end(), std::make_move_iterator(dumpedContainerJson.begin()), std::make_move_iterator(dumpedContainerJson.end()));
-    retVal.insert(retVal.end(), std::make_move_iterator(shadersBuffer.begin()), std::make_move_iterator(shadersBuffer.end()));
+
+    // Create a buffer able to hold all shaders + the containerJson
+    core::vector<uint8_t> retVal(shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength);
+
+    // first SHADER_BUFFER_SIZE_BYTES (8) in the buffer are the size of the shader buffer
+    memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
+
+    // Loop over entries again, adding each one's shader to the buffer. 
+    auto i = 0u;
+    for (auto& entry : m_container) {
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, entry.value->getContent()->getPointer(), shaderCreationParams[i].codeByteSize);
+        i++;
+    }
+
+    // Might as well memcpy everything
+    memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
+    
     return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
 }
 
@@ -293,12 +307,12 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
 {
     auto retVal = core::make_smart_refctd_ptr<CCache>();
 
-    // First get the size of the json in the buffer, stored in the first 8 bytes
+    // First get the size of the shader buffer, stored in the first 8 bytes
     const uint64_t* cacheStart = reinterpret_cast<const uint64_t*>(serializedCache.data());
-    uint64_t containerJsonSize = cacheStart[0];
+    uint64_t shaderBufferSize = cacheStart[0];
     // Next up get the json that stores the container data
     std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
-    std::string_view containerJsonString(cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES, cacheAsChar.begin() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize);
+    std::string_view containerJsonString(cacheAsChar.begin() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, cacheAsChar.end());
     json containerJson = json::parse(containerJsonString);
     
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
@@ -312,7 +326,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         // Create buffer to hold the code
         auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
         // Copy the shader bytecode into the buffer
-        memcpy(code->getPointer(), serializedCache.data() + CONTAINER_JSON_SIZE_BYTES + containerJsonSize + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         // Create the ICPUShader
         auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
        
@@ -322,13 +336,4 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     }
 
     return retVal;
-}
-
-core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(core::smart_refctd_ptr<const system::IFile> serializedCache) {
-    const void* fileBufferPointer = serializedCache->getMappedPointer();
-    assert(fileBufferPointer); // Check the file is readable
-    
-    size_t fileSize = serializedCache->getSize();
-    std::span cacheSpan{ reinterpret_cast<const uint8_t*>(fileBufferPointer), fileSize };
-    return IShaderCompiler::CCache::deserialize(std::span{ reinterpret_cast<const uint8_t*>(fileBufferPointer), fileSize });
 }

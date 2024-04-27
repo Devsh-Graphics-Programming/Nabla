@@ -180,7 +180,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 		public:
 			using hash_t = std::array<uint64_t, 4>;
-			static auto const CONTAINER_JSON_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
+			static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
 			struct SEntry
 			{
@@ -253,8 +253,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						: sourceIdentifier(options.sourceIdentifier)
 					{
 						for (auto define : options.extraDefines) {
-							SMacroData data{ std::string(define.identifier), std::string(define.definition) };
-							extraDefines.push_back(data);
+							extraDefines.emplace_back(std::string(define.identifier), std::string(define.definition));
 						}
 
 						// Sort them so equality and hashing are well defined
@@ -382,16 +381,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// Alternatively, adding the time an SEntry entered the cache could also serve this purpose
 			inline void merge(const CCache* other) {
 				for (auto& entry : other->m_container) {
-					SEntry entryCopy(entry);
-					m_container.insert(entryCopy);
+					m_container.emplace(entry);
 				}
 			}
 
 			static inline core::smart_refctd_ptr<CCache> clone(const CCache* cache) {
 				auto retVal = core::make_smart_refctd_ptr<CCache>();
 				for (auto& entry : cache->m_container) {
-					SEntry entryCopy(entry);
-					retVal->m_container.insert(entryCopy);
+					retVal->m_container.emplace(entry);
 				}
 				return retVal;
 			}
@@ -404,7 +401,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			// De/serialization methods
 			core::smart_refctd_ptr<ICPUBuffer> serialize() const;
 			static core::smart_refctd_ptr<CCache> deserialize(const std::span<const uint8_t> serializedCache);
-			static core::smart_refctd_ptr<CCache> deserialize(core::smart_refctd_ptr<const system::IFile> serializedCache);
 
 		private:
 			// we only do lookups based on main file contents + compiler options

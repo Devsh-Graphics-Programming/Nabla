@@ -140,6 +140,12 @@ namespace nbl::asset {
         std::string filepathHint;
         uint64_t codeByteSize = 0;
         uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
+
+        CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, IShader::E_CONTENT_TYPE _contentType, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
+            : stage(_stage), contentType(_contentType), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset)
+        {}
+
+        CPUShaderCreationParams();
     };
 
     inline void to_json(json& j, const CPUShaderCreationParams& creationParams)
