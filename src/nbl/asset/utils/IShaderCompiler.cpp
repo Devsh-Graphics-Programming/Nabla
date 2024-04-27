@@ -46,15 +46,15 @@ auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeNa
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
     for (const auto& pattern : builtinNames)
-    if (std::regex_match(includeName,pattern.first))
-    {
-        if (auto contents=pattern.second(includeName); !contents.empty())
+        if (std::regex_match(includeName, pattern.first))
         {
-            // Welcome, you've came to a very disused piece of code, please check the first parameter (path) makes sense!
-            _NBL_DEBUG_BREAK_IF(true);
-            return {includeName,contents};
+            if (auto contents = pattern.second(includeName); !contents.empty())
+            {
+                // Welcome, you've came to a very disused piece of code, please check the first parameter (path) makes sense!
+                _NBL_DEBUG_BREAK_IF(true);
+                return { includeName,contents };
+            }
         }
-    }
 
     return {};
 }
@@ -98,10 +98,10 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return {f->getFileName(),std::move(contents)};
+    return { f->getFileName(),std::move(contents) };
 }
 
-IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) 
+IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 {
     addSearchPath("", m_defaultFileSystemLoader);
@@ -117,7 +117,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
     if (auto contents = tryIncludeGenerators(includeName))
         retVal = std::move(contents);
     else if (auto contents = trySearchPaths(includeName))
-            retVal = std::move(contents);
+        retVal = std::move(contents);
     else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 
     retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
@@ -130,7 +130,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
     IShaderCompiler::IIncludeLoader::found_t retVal;
-    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName))
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
         retVal = std::move(contents);
     else retVal = std::move(trySearchPaths(includeName));
     retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
@@ -163,8 +163,8 @@ void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<
 auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     for (const auto& itr : m_loaders)
-    if (auto contents = itr.loader->getInclude(itr.searchPath,includeName))
-        return contents;
+        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName))
+            return contents;
     return {};
 }
 
@@ -172,18 +172,18 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 {
     // Need custom function because std::filesystem doesn't consider the parameters we use after the extension like CustomShader.hlsl/512/64
     auto removeExtension = [](const std::string& str)
-    {
-        return str.substr(0, str.find_last_of('.'));
-    };
+        {
+            return str.substr(0, str.find_last_of('.'));
+        };
 
     auto standardizePrefix = [](const std::string_view& prefix) -> std::string
-    {
-        std::string ret(prefix);
-        // Remove Trailing '/' if any, to compare to filesystem paths
-        if (*ret.rbegin() == '/' && ret.size() > 1u)
-            ret.resize(ret.size() - 1u);
-        return ret;
-    };
+        {
+            std::string ret(prefix);
+            // Remove Trailing '/' if any, to compare to filesystem paths
+            if (*ret.rbegin() == '/' && ret.size() > 1u)
+                ret.resize(ret.size() - 1u);
+            return ret;
+        };
 
     auto extension_removed_path = system::path(removeExtension(includeName));
     system::path path = extension_removed_path.parent_path();
@@ -264,24 +264,15 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         // Add the entry as a json array
         entries.push_back(entry);
 
-        // Now create the CPU shader creation parameters struct
-        CPUShaderCreationParams params;
-        params.stage = entry.value->getStage();
-        params.contentType = entry.value->getContentType();
-        params.filepathHint = entry.value->getFilepathHint();
-        params.codeByteSize = entry.value->getContent()->getSize();
-        params.offset = shaderBufferSize;
-
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again
         offsets[i] = shaderBufferSize;
-        sizes[i] = params.codeByteSize;
-
-        // Enlarge the shader buffer by the size of the current shader
-        shaderBufferSize += params.codeByteSize;
+        sizes[i] = entry.value->getContent()->getSize();
 
         // And add the params to the shader creation parameters array
-        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), entry.value->getContent()->getSize(), shaderBufferSize);
+        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), sizes[i], shaderBufferSize);
+        // Enlarge the shader buffer by the size of the current shader
+        shaderBufferSize += sizes[i];
         i++;
     }
 
@@ -308,7 +299,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 
     // Might as well memcpy everything
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
-    
+
     return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
 }
 
@@ -323,7 +314,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
     std::string_view containerJsonString(cacheAsChar.begin() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, cacheAsChar.end());
     json containerJson = json::parse(containerJsonString);
-    
+
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
     std::vector<SEntry> entries;
     std::vector<CPUShaderCreationParams> shaderCreationParams;
@@ -338,7 +329,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         // Create the ICPUShader
         auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
-       
+
         entries[i].value = std::move(value);
 
         retVal->insert(std::move(entries[i]));
