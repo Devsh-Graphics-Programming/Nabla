@@ -259,7 +259,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     core::vector<CPUShaderCreationParams> shaderCreationParams;
 
     // In a first loop over entries we add all entries and their shader creation parameters to a json, and get the size of the shaders buffer
-    auto i = 0u;
+    size_t i = 0u;
     for (auto& entry : m_container) {
         // Add the entry as a json array
         entries.push_back(entry);
@@ -282,6 +282,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 
         // And add the params to the shader creation parameters array
         shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), entry.value->getContent()->getSize(), shaderBufferSize);
+        i++;
     }
 
     // Create the containerJson
@@ -299,7 +300,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
 
     // Loop over entries again, adding each one's shader to the buffer. 
-    auto i = 0u;
+    i = 0u;
     for (auto& entry : m_container) {
         memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.value->getContent()->getPointer(), sizes[i]);
         i++;
