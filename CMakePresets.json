@@ -101,6 +101,20 @@
 			"toolset": "v143"
 		},
 		{
+			"name": "ci-configure-static-ninja-multi",
+			"inherits": "ci-configure-static-windows-base",
+			"displayName": "[CI]: Static library target, Ninja multi-config generator",
+			"description": "Configure as static library with Ninja multi-config generator",
+			"generator": "Ninja Multi-Config"
+		},
+		{
+			"name": "ci-configure-dynamic-ninja-multi",
+			"inherits": "ci-configure-dynamic-windows-base",
+			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
+			"description": "Configure as dynamic library with Ninja multi-config generator",
+			"generator": "Ninja Multi-Config"
+		},
+		{
 			"name": "user-configure-base",
 			"hidden": true,
 			"cacheVariables": {
@@ -169,6 +183,20 @@
 			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
 			"toolset": "v143"
+		},
+		{
+			"name": "user-configure-static-ninja-multi",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static library target, Ninja multi-config generator",
+			"description": "Configure as static library with Ninja multi-config generator",
+			"generator": "Ninja Multi-Config"
+		},
+		{
+			"name": "user-configure-dynamic-ninja-multi",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic library target, Ninja multi-config generator",
+			"description": "Configure as dynamic library with Ninja multi-config generator",
+			"generator": "Ninja Multi-Config"
 		}
 	],
 	"buildPresets": [
@@ -216,6 +244,32 @@
 			}
 		},
 		{
+			"name": "ci-build-static-ninja-multi",
+			"configurePreset": "ci-configure-static-ninja-multi",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[CI]: Static library target, Ninja multi-config generator",
+			"description": "Build Nabla as static library with Ninja multi-config generator",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+		{
+			"name": "ci-build-dynamic-ninja-multi",
+			"configurePreset": "ci-configure-dynamic-ninja-multi",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
+			"description": "Build Nabla as dynamic library with Ninja multi-config generator",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+		{
 			"name": "user-build-static-msvc",
 			"configurePreset": "user-configure-static-msvc",
 			"inheritConfigureEnvironment": true,
@@ -230,6 +284,22 @@
 			"inherits": "build-windows-base",
 			"displayName": "[USER]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
 			"description": "Build Nabla as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset"
+		},
+		{
+			"name": "user-build-static-ninja-multi",
+			"configurePreset": "user-configure-static-ninja-multi",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Static library target, Ninja multi-config generator",
+			"description": "Build Nabla as static library with Ninja multi-config generator"
+		},
+		{
+			"name": "user-build-dynamic-ninja-multi",
+			"configurePreset": "user-configure-dynamic-ninja-multi",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Dynamic library target, Ninja multi-config generator",
+			"description": "Build Nabla as dynamic library with Ninja multi-config generator"
 		}
 	],
 	"packagePresets": [
@@ -265,6 +335,30 @@
 			"configurePreset": "ci-configure-dynamic-msvc",
 			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
 			"description": "Package Nabla as dynamic library compiled with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+		{
+			"name": "ci-package-static-ninja-multi",
+			"inherits": "ci-package-windows-base",
+			"configurePreset": "ci-configure-static-ninja-multi",
+			"displayName": "[CI]: Static library target, Ninja multi-config generator",
+			"description": "Package Nabla as static library compiled with Ninja multi-config generator",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+		{
+			"name": "ci-package-dynamic-ninja-multi",
+			"inherits": "ci-package-windows-base",
+			"configurePreset": "ci-configure-dynamic-ninja-multi",
+			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
+			"description": "Package Nabla as dynamic library compiled with Ninja multi-config generator",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",
