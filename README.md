@@ -175,7 +175,7 @@ CMake will update **all required submodules** for you by default but it doesn't 
 
 #### More options
 
-You can disable generating projects for examples with `NBL_BUILD_EXAMPLES`. It's recommended to build Nabla as shared library by turning off `NBL_STATIC_BUILD`.
+You can disable generating projects for examples with `NBL_BUILD_EXAMPLES`. It's recommended to build Nabla as shared library however you can also build as static library by turning on `NBL_STATIC_BUILD`.
 
 #### CMake presets
 
