@@ -197,6 +197,66 @@
 			"displayName": "[USER]: Dynamic library target, Ninja multi-config generator",
 			"description": "Configure as dynamic library with Ninja multi-config generator",
 			"generator": "Ninja Multi-Config"
+		},
+		{
+			"name": "user-configure-static-ninja-release",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static Release library target, Ninja single-config generator",
+			"description": "Configure as static Release library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "user-configure-dynamic-ninja-release",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic Release library target, Ninja single-config generator",
+			"description": "Configure as dynamic Release library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Release"
+			}
+		},
+		{
+			"name": "user-configure-static-ninja-relwithdebinfo",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static RelWithDebInfo library target, Ninja single-config generator",
+			"description": "Configure as static RelWithDebInfo library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		},
+		{
+			"name": "user-configure-dynamic-ninja-relwithdebinfo",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic RelWithDebInfo library target, Ninja single-config generator",
+			"description": "Configure as dynamic RelWithDebInfo library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+			}
+		},
+		{
+			"name": "user-configure-static-ninja-debug",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static Debug library target, Ninja single-config generator",
+			"description": "Configure as static Debug library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
+		},
+		{
+			"name": "user-configure-dynamic-ninja-debug",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic Debug library target, Ninja single-config generator",
+			"description": "Configure as dynamic Debug library with Ninja single-config generator",
+			"generator": "Ninja",
+			"cacheVariables": {
+				"CMAKE_BUILD_TYPE": "Debug"
+			}
 		}
 	],
 	"buildPresets": [
@@ -300,7 +360,56 @@
 			"inherits": "build-windows-base",
 			"displayName": "[USER]: Dynamic library target, Ninja multi-config generator",
 			"description": "Build Nabla as dynamic library with Ninja multi-config generator"
+		},
+		{
+			"name": "user-build-static-ninja-release",
+			"configurePreset": "user-configure-static-ninja-release",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Static Release library target, Ninja single-config generator",
+			"description": "Build Nabla as static Release library with Ninja single-config generator"
+		},
+		{
+			"name": "user-build-dynamic-ninja-release",
+			"configurePreset": "user-configure-dynamic-ninja-release",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Dynamic Release library target, Ninja single-config generator",
+			"description": "Build Nabla as dynamic Release library with Ninja single-config generator"
+		},
+		{
+			"name": "user-build-static-ninja-relwithdebinfo",
+			"configurePreset": "user-configure-static-ninja-relwithdebinfo",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Static RelWithDebInfo library target, Ninja single-config generator",
+			"description": "Build Nabla as static RelWithDebInfo library with Ninja single-config generator"
+		},
+		{
+			"name": "user-build-dynamic-ninja-relwithdebinfo",
+			"configurePreset": "user-configure-dynamic-ninja-relwithdebinfo",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Dynamic RelWithDebInfo library target, Ninja single-config generator",
+			"description": "Build Nabla as dynamic RelWithDebInfo library with Ninja single-config generator"
+		},
+		{
+			"name": "user-build-static-ninja-debug",
+			"configurePreset": "user-configure-static-ninja-debug",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Static Debug library target, Ninja single-config generator",
+			"description": "Build Nabla as static Debug library with Ninja single-config generator"
+		},
+		{
+			"name": "user-build-dynamic-ninja-debug",
+			"configurePreset": "user-configure-dynamic-ninja-debug",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Dynamic Debug library target, Ninja single-config generator",
+			"description": "Build Nabla as dynamic Debug library with Ninja single-config generator"
 		}
+		
 	],
 	"packagePresets": [
 		{
