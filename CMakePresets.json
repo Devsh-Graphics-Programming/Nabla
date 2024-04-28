@@ -2,15 +2,14 @@
 	"version": 6,
 	"cmakeMinimumRequired": {
 		"major": 3,
-		"minor": 26,
-		"patch": 0
+		"minor": 29,
+		"patch": 2
 	},
 
 	"configurePresets": [
 		{
-			"name": "ci-configure-dev",
+			"name": "ci-configure-base",
 			"hidden": true,
-			"description": "main CI configure preset for inheritance",
 			"cacheVariables": {
 				"NBL_CI_MODE": "ON",
 				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
@@ -20,104 +19,122 @@
 				"NBL_BUILD_RADEON_RAYS": "OFF",
 				"_NBL_COMPILE_WITH_OPEN_EXR_": "ON",
 				"NBL_RUN_TESTS": "ON",
-				"NBL_CPACK_CI": "ON",
-				"_NBL_MEMORY_CONSUMPTION_CHECK_SKIP_": "ON"
+				"NBL_CPACK_CI": "ON"
 			}
 		},
 		{
-			"name": "ci-configure-static-dev",
+			"name": "ci-configure-static-base",
 			"hidden": true,
-			"description": "CI preset for static-configure inheritance",
-			"inherits": "ci-configure-dev",
-			"binaryDir": "build/static"  
-		},
-		{
-			"name": "ci-configure-dynamic-dev",
-			"hidden": true,
-			"description": "CI preset for dynamic-configure inheritance",
-			"inherits": "ci-configure-dev",
-			"binaryDir": "build/dynamic",
+			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
 			"cacheVariables": {
-				"NBL_STATIC_BUILD": "OFF",
-				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+				"NBL_STATIC_BUILD": "ON"
 			}
 		},
 		{
-			"name": "ci-configure-static-ninja-multi",
-			"inherits": "ci-configure-static-dev",
-			"displayName": "CI configure-static Ninja Multi-Config",
-			"description": "CI static configure using Ninja Multi-Config generator, any OS as host",
-			"generator": "Ninja Multi-Config"
+			"name": "ci-configure-dynamic-base",
+			"hidden": true,
+			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
+			"cacheVariables": {
+				"NBL_STATIC_BUILD": "OFF"
+			}
 		},
 		{
-			"name": "ci-configure-dynamic-ninja-multi",
-			"inherits": "ci-configure-dynamic-dev",
-			"displayName": "CI configure-dynamic Ninja Multi-Config",
-			"description": "CI dynamic configure using Ninja Multi-Config generator, any OS as host",
-			"generator": "Ninja Multi-Config"
+			"name": "ci-configure-static-windows-base",
+			"hidden": true,
+			"inherits": "ci-configure-static-base",
+			"cacheVariables": {
+				"NBL_DYNAMIC_MSVC_RUNTIME": "OFF"
+			},
+			"condition": {
+				"type": "allOf",
+				"conditions": [
+					{
+						"type": "equals",
+						"lhs": "${hostSystemName}",
+						"rhs": "Windows"
+					},
+					{
+						"type": "equals",
+						"lhs": "$env{NBL_CI_MODE}",
+						"rhs": "ON"
+					}
+				]
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-windows-base",
+			"hidden": true,
+			"inherits": "ci-configure-dynamic-base",
+			"cacheVariables": {
+				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+			},
+			"condition": {
+				"type": "allOf",
+				"conditions": [
+					{
+						"type": "equals",
+						"lhs": "${hostSystemName}",
+						"rhs": "Windows"
+					},
+					{
+						"type": "equals",
+						"lhs": "$env{NBL_CI_MODE}",
+						"rhs": "ON"
+					}
+				]
+			}
 		},
 		{
 			"name": "ci-configure-static-msvc",
-			"inherits": "ci-configure-static-dev",
-			"displayName": "CI configure-static Visual Studio MSVC windows-host-only",
-			"description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
+			"inherits": "ci-configure-static-windows-base",
+			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Configure as static library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
-			"toolset": "v143",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
-		},
-		{
-			"name": "ci-configure-static-msvc-release",
-			"inherits": "ci-configure-static-dev",
-			"displayName": "CI configure-static Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI static configure using Visual Studio generator, Release configuration and MSVC toolset, windows as host only",
-			"generator": "Visual Studio 17 2022",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/static/release",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
-		},
-		{
-			"name": "ci-configure-static-msvc-relwithdebinfo",
-			"inherits": "ci-configure-static-dev",
-			"displayName": "CI configure-static Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
-			"generator": "Visual Studio 17 2022",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/static/relwithdebinfo",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
-		},
-		{
-			"name": "ci-configure-static-msvc-debug",
-			"inherits": "ci-configure-static-dev",
-			"displayName": "CI configure-static Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI static configure using Visual Studio generator and MSVC toolset, windows as host only",
-			"generator": "Visual Studio 17 2022",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/static/debug",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
+			"toolset": "v143"
 		},
 		{
 			"name": "ci-configure-dynamic-msvc",
-			"inherits": "ci-configure-dynamic-dev",
-			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only",
-			"description": "CI dynamic configure using Visual Studio generator and MSVC toolset, windows as host only",
-			"toolset": "v143",
+			"inherits": "ci-configure-dynamic-windows-base",
+			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
+			"toolset": "v143"
+		},
+		{
+			"name": "user-configure-base",
+			"hidden": true,
+			"cacheVariables": {
+				"NBL_CI_MODE": "OFF",
+				"NBL_UPDATE_GIT_SUBMODULE": "ON",
+				"NBL_RUN_TESTS": "OFF",
+				"NBL_CPACK_CI": "OFF"
+			}
+		},
+		{
+			"name": "user-configure-static-base",
+			"hidden": true,
+			"inherits": "user-configure-base",
+			"binaryDir": "build/static",
+			"cacheVariables": {
+				"NBL_STATIC_BUILD": "ON"
+			}
+		},
+		{
+			"name": "user-configure-dynamic-base",
+			"hidden": true,
+			"inherits": "user-configure-base",
+			"binaryDir": "build/dynamic",
+			"cacheVariables": {
+				"NBL_STATIC_BUILD": "OFF"
+			}
+		},
+		{
+			"name": "user-configure-static-windows-base",
+			"hidden": true,
+			"inherits": "user-configure-static-base",
+			"cacheVariables": {
+				"NBL_DYNAMIC_MSVC_RUNTIME": "OFF"
+			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
@@ -125,13 +142,12 @@
 			}
 		},
 		{
-			"name": "ci-configure-dynamic-msvc-release",
-			"inherits": "ci-configure-dynamic-dev",
-			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI dynamic configure using Visual Studio generator, Release configuration and MSVC toolset, windows as host only",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/dynamic/release",
-			"generator": "Visual Studio 17 2022",
+			"name": "user-configure-dynamic-windows-base",
+			"hidden": true,
+			"inherits": "user-configure-dynamic-base",
+			"cacheVariables": {
+				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+			},
 			"condition": {
 				"type": "equals",
 				"lhs": "${hostSystemName}",
@@ -139,238 +155,121 @@
 			}
 		},
 		{
-			"name": "ci-configure-dynamic-msvc-relwithdebinfo",
-			"inherits": "ci-configure-dynamic-dev",
-			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI dynamic configure using Visual Studio generator, RelWithDebInfo configuration and MSVC toolset, windows as host only",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/dynamic/relwithdebinfo",
+			"name": "user-configure-static-msvc",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Configure as static library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
+			"toolset": "v143"
 		},
 		{
-			"name": "ci-configure-dynamic-msvc-debug",
-			"inherits": "ci-configure-dynamic-dev",
-			"displayName": "CI configure-dynamic Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI dynamic configure using Visual Studio generator,Debug configuration and MSVC toolset, windows as host only",
-			"toolset": "v143",
-			"binaryDir": "build/.docker/windows/x86_64/dynamic/debug",
+			"name": "user-configure-dynamic-msvc",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
-			"condition": {
-				"type": "equals",
-				"lhs": "${hostSystemName}",
-				"rhs": "Windows"
-			}
+			"toolset": "v143"
 		}
 	],
 	"buildPresets": [
 		{
-			"name": "ci-build-dev",
-			"configurePreset": "ci-configure-dev",
+			"name": "build-base",
 			"hidden": true,
-			"description": "main CI build preset for inheritance",
 			"targets": [
 				"Nabla"
-			],
-			"inheritConfigureEnvironment": true
+			]
 		},
 		{
-			"name": "ci-build-static-dev",
-			"configurePreset": "ci-configure-static-dev",
+			"name": "build-windows-base",
 			"hidden": true,
-			"description": "CI preset for static build inheritance",
-			"inherits": "ci-build-dev"
-		},
-		{
-			"name": "ci-build-dynamic-dev",
-			"configurePreset": "ci-configure-dynamic-dev",
-			"hidden": true,
-			"description": "CI preset for dynamic-build inheritance",
-			"inherits": "ci-build-dev"
-		},
-		{
-			"name": "ci-build-static-ninja-multi",
-			"configurePreset": "ci-configure-static-ninja-multi",
-			"displayName": "CI build-static Ninja Multi-Config",
-			"description": "CI static build using Ninja Multi-Config generator",
-			"inherits": "ci-build-static-dev"
-		},
-		{
-			"name": "ci-build-dynamic-ninja-multi",
-			"configurePreset": "ci-configure-dynamic-ninja-multi",
-			"displayName": "CI build-dynamic Ninja Multi-Config",
-			"description": "CI dynamic build using Ninja Multi-Config generator",
-			"inherits": "ci-build-dynamic-dev"
+			"inherits": "build-base",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
 		},
 		{
 			"name": "ci-build-static-msvc",
 			"configurePreset": "ci-configure-static-msvc",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, windows as host only",
-			"inherits": "ci-build-static-dev"
-		},
-		{
-			"name": "ci-build-static-msvc-release",
-			"configurePreset": "ci-configure-static-msvc-release",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
-			"inherits": "ci-build-static-dev",
-			"configuration": "Release"
-		},
-		{
-			"name": "ci-build-static-msvc-relwithdebinfo",
-			"configurePreset": "ci-configure-static-msvc-relwithdebinfo",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
-			"inherits": "ci-build-static-dev",
-			"configuration": "RelWithDebInfo"
-		},
-		{
-			"name": "ci-build-static-msvc-debug",
-			"configurePreset": "ci-configure-static-msvc-debug",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
-			"inherits": "ci-build-static-dev",
-			"configuration": "Debug"
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Build Nabla as static library with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
 		},
 		{
 			"name": "ci-build-dynamic-msvc",
 			"configurePreset": "ci-configure-dynamic-msvc",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, windows as host only",
-			"inherits": "ci-build-dynamic-dev"
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Build Nabla as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
 		},
 		{
-			"name": "ci-build-dynamic-msvc-release",
-			"configurePreset": "ci-configure-dynamic-msvc-release",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
-			"inherits": "ci-build-dynamic-dev",
-			"configuration": "Release"
+			"name": "user-build-static-msvc",
+			"configurePreset": "user-configure-static-msvc",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Build Nabla as static library with Visual Studio 17 2022 generator and MSVC v143 toolset"
 		},
 		{
-			"name": "ci-build-dynamic-msvc-relwithdebinfo",
-			"configurePreset": "ci-configure-dynamic-msvc-relwithdebinfo",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
-			"inherits": "ci-build-dynamic-dev",
-			"configuration": "RelWithDebInfo"
-		},
-		{
-			"name": "ci-build-dynamic-msvc-debug",
-			"configurePreset": "ci-configure-dynamic-msvc-debug",
-			"displayName": "CI build-dynamic Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI dynamic build using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
-			"inherits": "ci-build-dynamic-dev",
-			"configuration": "Debug"
+			"name": "user-build-dynamic-msvc",
+			"configurePreset": "user-configure-dynamic-msvc",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"displayName": "[USER]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Build Nabla as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset"
 		}
 	],
 	"packagePresets": [
 		{
-			"name": "ci-package-dev",
+			"name": "ci-package-base",
 			"hidden": true
 		},
 		{
-			"name": "ci-package-static-dev",
+			"name": "ci-package-windows-base",
 			"hidden": true,
-			"inherits": "ci-package-dev"
-		},
-		{
-			"name": "ci-package-dynamic-dev",
-			"hidden": true,
-			"inherits": "ci-package-dev"
-		},
-		{
-			"name": "ci-package-static-ninja-multi",
-			"inherits": "ci-package-static-dev",
-			"configurePreset": "ci-configure-static-ninja-multi",
-			"displayName": "CI package-static Ninja Multi-Config",
-			"description": "CI static package using Ninja Multi-Config generator"
-		},
-		{
-			"name": "ci-package-dynamic-ninja-multi",
-			"inherits": "ci-package-dynamic-dev",
-			"configurePreset": "ci-configure-dynamic-ninja-multi",
-			"displayName": "CI package-dynamic Ninja Multi-Config",
-			"description": "CI dynamic package using Ninja Multi-Config generator"
+			"inherits": "ci-package-base",
+			"condition": {
+				"type": "equals",
+				"lhs": "${hostSystemName}",
+				"rhs": "Windows"
+			}
 		},
 		{
 			"name": "ci-package-static-msvc",
-			"inherits": "ci-package-static-dev",
+			"inherits": "ci-package-windows-base",
 			"configurePreset": "ci-configure-static-msvc",
-			"displayName": "CI package-static Visual Studio MSVC windows-host-only",
-			"description": "CI static package using Visual Studio generator and MSVC toolset, windows as host only"
-		},
-		{
-			"name": "ci-package-static-msvc-release",
-			"inherits": "ci-package-static-dev",
-			"configurePreset": "ci-configure-static-msvc-release",
-			"displayName": "CI package-static Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI static package using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
-			"configurations": [
-				"Release"
-			]
-		},
-		{
-			"name": "ci-package-static-msvc-relwithdebinfo",
-			"inherits": "ci-package-static-dev",
-			"configurePreset": "ci-configure-static-msvc-relwithdebinfo",
-			"displayName": "CI package-static Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI static package using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
-			"configurations": [
-				"RelWithDebInfo"
-			]
-		},
-		{
-			"name": "ci-package-static-msvc-debug",
-			"inherits": "ci-package-static-dev",
-			"configurePreset": "ci-configure-static-msvc-debug",
-			"displayName": "CI package-static Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI static package using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
-			"configurations": [
-				"Debug"
-			]
+			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Package Nabla as static library compiled with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
 		},
 		{
 			"name": "ci-package-dynamic-msvc",
-			"inherits": "ci-package-dynamic-dev",
+			"inherits": "ci-package-windows-base",
 			"configurePreset": "ci-configure-dynamic-msvc",
-			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only",
-			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, windows as host only"
-		},
-		{
-			"name": "ci-package-dynamic-msvc-release",
-			"inherits": "ci-package-dynamic-dev",
-			"configurePreset": "ci-configure-dynamic-msvc-release",
-			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only Release configuration",
-			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, Release configuration windows as host only",
-			"configurations": [
-				"Release"
-			]
-		},
-		{
-			"name": "ci-package-dynamic-msvc-relwithdebinfo",
-			"inherits": "ci-package-dynamic-dev",
-			"configurePreset": "ci-configure-dynamic-msvc-relwithdebinfo",
-			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only RelWithDebInfo configuration",
-			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, RelWithDebInfo configuration windows as host only",
-			"configurations": [
-				"RelWithDebInfo"
-			]
-		},
-		{
-			"name": "ci-package-dynamic-msvc-debug",
-			"inherits": "ci-package-dynamic-dev",
-			"configurePreset": "ci-configure-dynamic-msvc-debug",
-			"displayName": "CI package-dynamic Visual Studio MSVC windows-host-only Debug configuration",
-			"description": "CI dynamic package using Visual Studio generator and MSVC toolset, Debug configuration windows as host only",
-			"configurations": [
-				"Debug"
-			]
+			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
+			"description": "Package Nabla as dynamic library compiled with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
 		}
 	]
 }

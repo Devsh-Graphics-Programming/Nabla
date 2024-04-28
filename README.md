@@ -179,7 +179,7 @@ You can disable generating projects for examples with `NBL_BUILD_EXAMPLES`. It's
 
 #### CMake presets
 
-todo - soon
+We have customised [presets](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) which may be handy to configure **Nabla** project for a target platform with predefined & common configurations.
 
 # Caveats and Particular Behaviour
 
