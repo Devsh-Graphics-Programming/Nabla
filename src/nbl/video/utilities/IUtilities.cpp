@@ -39,7 +39,7 @@ bool IUtilities::updateImageViaStagingBuffer(
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
     assert(intendedNextSubmit.queue);
     auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
-    auto minImageTransferGranularity = queueFamProps.minImageTransferGranularity;
+    auto minGranularity = queueFamProps.minImageTransferGranularity;
     
     assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
     if (srcFormat == asset::EF_UNKNOWN)
@@ -55,7 +55,7 @@ bool IUtilities::updateImageViaStagingBuffer(
     for (const auto region : regions)
     {
         auto subresourceSize = dstImage->getMipSize(region.imageSubresource.mipLevel);
-        if (!dstImage->validateCopyOffsetAndExtent(region.imageExtent, region.imageOffset, subresourceSize, minImageTransferGranularity))
+        if (!dstImage->validateCopyOffsetAndExtent(region.imageExtent, region.imageOffset, subresourceSize, minGranularity))
             regionsValid = false;
     }
     if (!regionsValid)
@@ -66,8 +66,9 @@ bool IUtilities::updateImageViaStagingBuffer(
 
     ImageRegionIterator regionIterator = ImageRegionIterator(regions, queueFamProps, srcBuffer, srcFormat, dstImage, limits.optimalBufferCopyRowPitchAlignment);
 
+    // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
-    const uint32_t maxResidentImageTransferSize = limits.maxResidentInvocations * texelBlockInfo.getBlockByteSize() * (minImageTransferGranularity.width * minImageTransferGranularity.height * minImageTransferGranularity.depth); 
+    const uint32_t maxResidentImageTransferSize = core::min<uint32_t>(limits.maxResidentInvocations*minGranularity.depth*minGranularity.height*minGranularity.width*texelBlockInfo.getBlockByteSize(),m_defaultUploadBuffer->get_total_size()/4);
 
     core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 

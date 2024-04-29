@@ -32,15 +32,15 @@ class IDeviceMemoryBacked : public IBackendObject
             std::unique_ptr<ICleanup> preDestroyCleanup = nullptr;
             // A Post-Destroy-Step is called in this class' destructor, this is only useful for "imported" resources
             std::unique_ptr<ICleanup> postDestroyCleanup = nullptr;
-            // If non zero, then we're doing concurrent resource sharing
+            // If more than one, then we're doing concurrent resource sharing
             uint8_t queueFamilyIndexCount = 0u;
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
 
-            //! If you specify queue family indices, then you're concurrent sharing
+            //! If you specify multiple queue family indices, then you're concurrent sharing
             inline bool isConcurrentSharing() const
             {
-                return queueFamilyIndexCount!=0u;
+                return queueFamilyIndexCount>1u;
             }
         };
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
