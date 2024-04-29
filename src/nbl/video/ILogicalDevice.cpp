@@ -257,12 +257,12 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
     return createBufferView_impl(underlying,_fmt);
 }
 
-core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
+core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
 {
-    if (!cpushader)
+    if (!creationParams.cpushader)
         return nullptr;
 
-    const asset::IShader::E_SHADER_STAGE shaderStage = cpushader->getStage();
+    const asset::IShader::E_SHADER_STAGE shaderStage = creationParams.cpushader->getStage();
     const auto& features = getEnabledFeatures();
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
@@ -307,37 +307,37 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     }
 
     core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
-    if (cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpushader);
+    if (creationParams.cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(creationParams.cpushader);
     else
     {
-        auto compiler = m_compilerSet->getShaderCompiler(cpushader->getContentType());
+        auto compiler = m_compilerSet->getShaderCompiler(creationParams.cpushader->getContentType());
 
         asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
 
         commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr;
         commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-        commonCompileOptions.preprocessorOptions.sourceIdentifier = cpushader->getFilepathHint().c_str();
+        commonCompileOptions.preprocessorOptions.sourceIdentifier = creationParams.cpushader->getFilepathHint().c_str();
         commonCompileOptions.preprocessorOptions.extraDefines = {};
 
         commonCompileOptions.stage = shaderStage;
         commonCompileOptions.debugInfoFlags =
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
-        commonCompileOptions.spirvOptimizer = optimizer;
+        commonCompileOptions.spirvOptimizer = creationParams.optimizer;
         commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
-        if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+        if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
         {
             // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
         }
-        else if (cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+        else if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
         }
         else
-            spirvShader = m_compilerSet->compileToSPIRV(cpushader,commonCompileOptions);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
 
         if (!spirvShader)
             return nullptr;
@@ -351,7 +351,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     if constexpr (true)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_physicalDevice->getSystem()->createFile(future,system::path(cpushader->getFilepathHint()).parent_path()/"compiled.spv",system::IFileBase::ECF_WRITE);
+        m_physicalDevice->getSystem()->createFile(future,system::path(creationParams.cpushader->getFilepathHint()).parent_path()/"compiled.spv",system::IFileBase::ECF_WRITE);
         if (auto file=future.acquire(); file&&bool(*file))
         {
             system::IFile::success_t succ;
@@ -361,10 +361,15 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICP
     }
 
     auto retval = createShader_impl(spirvShader.get());
-    const auto path = cpushader->getFilepathHint();
+    const auto path = creationParams.cpushader->getFilepathHint();
     if (retval && !path.empty())
         retval->setObjectDebugName(path.c_str());
     return retval;
+}
+
+core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
+{
+    return ILogicalDevice::createShader({ cpushader, optimizer, nullptr });
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings)

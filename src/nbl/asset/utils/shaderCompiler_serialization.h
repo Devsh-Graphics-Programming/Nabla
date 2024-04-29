@@ -2,7 +2,7 @@
 #define _NBL_ASSET_SHADER_COMPILER_SERIALIZATION_H_INCLUDED_
 
 #include "nbl/asset/utils/IShaderCompiler.h"
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
@@ -10,7 +10,7 @@ using SEntry = nbl::asset::IShaderCompiler::CCache::SEntry;
 
 namespace nbl::asset {
 
-    /* ---------------------------------------- Comment out begin -------------------------------------
+    /* ----------------------------------------Comment out begin------------------------------------ -
     // SMacroData, simple container used in SPreprocessorArgs
 
     inline void to_json(json& j, const SEntry::SMacroData& macroData)
@@ -43,7 +43,7 @@ namespace nbl::asset {
         j.at("extraDefines").get_to(preprocArgs.extraDefines);
     }
 
-    --------------------------------------------- Comment out end -------------------------------------------- */ 
+    // --------------------------------------------- Comment out end -------------------------------------------- */ 
 
     // Optimizer pass has its own method for easier vector serialization
 

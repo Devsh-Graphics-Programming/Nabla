@@ -15,11 +15,10 @@
 
 #include "nbl/core/xxHash256.h"
 
-#include <nlohmann/json.hpp>
+#include "nlohmann/json.hpp"
 
 namespace nbl::asset
 {
-
 class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 {
 	public:
@@ -200,7 +199,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					}
 
 					inline SPreprocessingDependency(SPreprocessingDependency&) = default;
-					inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = default;
+					inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
 					inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
 					inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;
 
@@ -248,6 +247,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Default constructor needed for json serialization of SCompilerArgs
 					SPreprocessorArgs() {};
 
+					inline SPreprocessorArgs(const SPreprocessorArgs&) = default;
+					inline SPreprocessorArgs& operator=(const SPreprocessorArgs&) = delete;
+					inline SPreprocessorArgs(SPreprocessorArgs&&) = delete;
+					inline SPreprocessorArgs& operator=(SPreprocessorArgs&&) = default;
+
 					// Only SCompilerArgs should instantiate this struct
 					SPreprocessorArgs(const SPreprocessorOptions& options)
 						: sourceIdentifier(options.sourceIdentifier)
@@ -283,16 +287,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						return retVal;
 					}
 
-					inline SCompilerArgs(const SCompilerArgs&) = default;
-					inline SCompilerArgs& operator=(const SCompilerArgs&) = default;
-					inline SCompilerArgs(SCompilerArgs&&) = default;
-					inline SCompilerArgs& operator=(SCompilerArgs&&) = default;
-
-
 				private:
 
 					// Default constructor needed for json serialization of SEntry
 					SCompilerArgs() {}
+
+					// Default copy needed for SEntry cloning
+					inline SCompilerArgs(const SCompilerArgs&) = default;
+					inline SCompilerArgs& operator=(const SCompilerArgs&) = delete;
+					inline SCompilerArgs(SCompilerArgs&&) = delete;
+					inline SCompilerArgs& operator=(SCompilerArgs&&) = default;
 
 					// Only SEntry should instantiate this struct
 					SCompilerArgs(const SCompilerOptions& options)
@@ -353,16 +357,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// Needed to get the vector deserialization automatically
 				SEntry() {}
 
-				// Making the copy constructor deep-copy
+				// Making the copy constructor deep-copy everything but the shader 
 				inline SEntry(const SEntry& other) 
 					: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-					  dependencies(other.dependencies), value(core::smart_refctd_ptr_static_cast<ICPUShader, IAsset>(other.value->clone())) {}
+					  dependencies(other.dependencies), value(other.value) {}
 				
-				inline SEntry& operator=(const SEntry& other) {
-					*this = SEntry(other);
-				}
-				inline SEntry(SEntry&&) = default;
-				inline SEntry& operator=(SEntry&&) = default;
+				inline SEntry& operator=(SEntry& other) = delete;
+				inline SEntry(SEntry&& other) = default;
+				// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
+				inline SEntry& operator=(SEntry&& other) = default;
 
 				std::string mainFileContents;
 				SCompilerArgs compilerArgs;
@@ -393,7 +396,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				return retVal;
 			}
 
-			// can move to .cpp and have it not inline
 			core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		
 			CCache() {}

@@ -6,7 +6,7 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-core::smart_refctd_ptr<ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options, IShaderCompiler::CCache* cache) const
 {
 	core::smart_refctd_ptr<ICPUShader> outSpirvShader = nullptr;
 	if (shader)
@@ -17,14 +17,14 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader
 		{
 #ifdef _NBL_PLATFORM_WINDOWS_
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, options);
+			outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, options, cache);
 #endif
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_GLSL:
 		{
 			const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
-			outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, options);
+			outSpirvShader = m_GLSLCompiler->compileToSPIRV(code, options, cache);
 		}
 		break;
 		case IShader::E_CONTENT_TYPE::ECT_SPIRV:
