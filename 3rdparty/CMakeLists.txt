@@ -24,9 +24,6 @@ set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
-# openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
-
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
 get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
@@ -378,11 +375,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 		OpenEXR
 	)
 endif()
-if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenSSL
-	)
-endif()
+
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)

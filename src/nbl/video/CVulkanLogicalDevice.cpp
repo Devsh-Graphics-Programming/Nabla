@@ -306,6 +306,11 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
+    if (creationParams.queueFamilyIndexCount<2)
+    {
+        creationParams.queueFamilyIndexCount = 0;
+        creationParams.queueFamilyIndices = nullptr;
+    }
     vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
@@ -358,6 +363,11 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
     vk_createInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.usage.value,asset::isDepthOrStencilFormat(params.format));
+    if (params.queueFamilyIndexCount < 2)
+    {
+        params.queueFamilyIndexCount = 0;
+        params.queueFamilyIndices = nullptr;
+    }
     vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;

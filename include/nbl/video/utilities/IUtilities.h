@@ -22,6 +22,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
     protected:
         constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
+        constexpr static inline uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
 
         uint32_t m_allocationAlignment = 0u;
         uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
@@ -49,21 +50,18 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             m_allocationAlignment = limits.nonCoherentAtomSize;
             m_allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
 
-            constexpr uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
             const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations * OptimalCoalescedInvocationXferSize;
             const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
             const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();
             const uint32_t maxOptimalTransferAtom = core::max(bufferOptimalTransferAtom,maxImageOptimalTransferAtom);
             const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
 
-            // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom <= stagingBufferSize/4
+            // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom
             assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
             assert(m_allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize);
 
             assert(minStreamingBufferAllocationSize <= minOptimalTransferAtom);
-
-            assert(maxOptimalTransferAtom*OptimalCoalescedInvocationXferSize <= upstreamSize);
-            assert(maxOptimalTransferAtom*OptimalCoalescedInvocationXferSize <= downstreamSize);
+            assert(minOptimalTransferAtom <= maxOptimalTransferAtom);
 
             assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
             assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
@@ -347,7 +345,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            const uint32_t optimalTransferAtom = limits.maxResidentInvocations * sizeof(uint32_t);
+            // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
+            const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
 
             auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
@@ -526,7 +525,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            const uint32_t optimalTransferAtom = limits.maxResidentInvocations*sizeof(uint32_t);
+            // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
+            const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
 
             auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
