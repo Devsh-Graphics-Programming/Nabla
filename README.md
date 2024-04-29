@@ -138,11 +138,10 @@ TODO - soon
 
 #### Minimal required dependencies
 
-- **[CMake](https://cmake.org/download/)** 
-- **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**, at least **1.2.198.1** version ***without* any components** (they break out SPIR-V Tools integration) installed
-- **[Perl 5.28 executable version](https://www.perl.org/get.html)**
-- **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
-- **[Python 3.10.2](https://www.python.org/downloads/release/python-3102/)** or later (3.10.2 required for Renderdoc based GPU Automated Tests)
+- **[CMake 3.29.2](https://cmake.org/download/)** version or higher
+- **[Vulkan SDK 1.2.198.1](https://vulkan.lunarg.com/sdk/home)** version or higher
+- **[NASM 2.15](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)** version or higher
+- **[Python 3.10.2](https://www.python.org/downloads/release/python-3102/)** version or higher
 
 ### Cloning the project
 
