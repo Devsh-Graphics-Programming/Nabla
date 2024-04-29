@@ -650,8 +650,13 @@ set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
 #on MSVC it won't compile without this option!
+option(NBL_TREAT_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 if (MSVC)
-	target_compile_options(Nabla PUBLIC /bigobj)
+	if (NBL_TREAT_WARNINGS_AS_ERRORS)
+		target_compile_options(Nabla PUBLIC /bigobj /WX /Wall)
+	else()
+		target_compile_options(Nabla PUBLIC /bigobj)
+	endif()
 endif()
 
 #precompiled headers
