@@ -465,6 +465,17 @@ target_include_directories(Nabla PUBLIC
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
 )
+
+# nlohmann_json
+add_dependencies(Nabla nlohmann_json)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE nlohmann_json::nlohmann_json)
+else()
+	target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
+endif()
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
+
+
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)

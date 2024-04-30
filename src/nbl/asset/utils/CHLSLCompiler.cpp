@@ -309,9 +309,11 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 #include "nbl/asset/utils/waveContext.h"
 
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
+    // If dependencies were passed, we assume we want caching
+    context.set_caching(bool(dependencies));
     context.add_macro_definition("__HLSL_VERSION");
    
     // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
@@ -358,29 +360,31 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     if(context.get_hooks().m_pragmaStage != IShader::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
 
-
+    if (dependencies) {
+        *dependencies = std::move(context.get_dependencies());
+    }
 
     return resolvedString;
 }
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::vector<std::string> extra_dxc_compile_flags = {};
     return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
+core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     auto hlslOptions = option_cast(options);
     auto logger = hlslOptions.preprocessorOptions.logger;
-    if (!code)
+    if (code.empty())
     {
         logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
-    auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions, dxc_compile_flags);
+    auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);

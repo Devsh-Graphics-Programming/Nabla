@@ -7,6 +7,10 @@ include(../cmake/common.cmake)
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
+# nlohmann_json
+set(JSON_BuildTests OFF)
+add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -350,6 +354,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				nlohmann_json
 				glslang
 				OGLCompiler 
 				OSDependent
