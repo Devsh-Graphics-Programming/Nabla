@@ -165,6 +165,12 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                     return false;
                 if (pplnIntroDataFoundBinding->count != descInfo.count)
                     return false;
+
+                auto pplnIntroType = pplnIntroDataFoundBinding->type;
+                auto IntroType = stageIntroBindingInfo.type;
+                auto pplnIntroCunt = pplnIntroDataFoundBinding->count;
+                auto IntroCount = stageIntroBindingInfo.count;
+                //__debugbreak();
             }
 
             descriptorsToMerge[i].insert(descInfo);
@@ -315,24 +321,25 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
 )
 {
     const uint32_t descSet = comp.get_decoration(r.id,spv::DecorationDescriptorSet);
-    if (descSet> DESCRIPTOR_SET_COUNT)
+    if (descSet > DESCRIPTOR_SET_COUNT)
         return nullptr; // TODO: log fail
 
     auto a = comp.get_name(r.id);
     const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
-    const auto arrDim = type.array.size();
-    // assuming only 1D arrays because i don't know how desc set layout binding is constructed when it's let's say 2D array (e.g. uniform sampler2D smplr[4][5]; is it even legal?)
+    const size_t arrDim = type.array.size();
+    // only 1D arrays allowed
     if (arrDim>1)
         return nullptr; // TODO: log fail
 
-
+    const uint32_t descriptorArraySize = type.array.empty() ? 1u : *type.array.data();    
+    const bool isArrayTypeLiteral = descriptorArraySize <= 1u ? true : type.array_size_literal[0]; // can be set to true for runtime sized descriptors, doesn't make sense but also doesn't matter
     CStageIntrospectionData::SDescriptorVarInfo<true> res = {
         {
             .binding = comp.get_decoration(r.id,spv::DecorationBinding),
-            .type = restype//,
-            //.descCount = 1
+            .type = restype
         },
         /*.name = */addString(r.name),
+        /*.count = */addDescriptorCount(descriptorArraySize, isArrayTypeLiteral)
     };
 
     auto& ref = reinterpret_cast<core::vector<CStageIntrospectionData::SDescriptorVarInfo<true>>*>(m_descriptorSetBindings)[descSet].emplace_back(std::move(res));

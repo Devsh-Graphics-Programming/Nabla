@@ -400,7 +400,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						uint32_t index;
 					};
 
-					inline bool isArray() const {return count.count || count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT;}
+						// `DescriptorType descriptor[1];` can be treated as `DescriptorType descriptor;`
+					inline bool isArray() const {return count.countMode != SDescriptorArrayInfo::DESCRIPTOR_COUNT::STATIC || count.count > 1u;}
 					inline bool isRunTimeSized() const {return count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::RUNTIME;}
 
 					//! Note: for SSBOs and UBOs it's the block name
@@ -525,6 +526,30 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					}
 
 					return range;
+				}
+				inline SDescriptorArrayInfo addDescriptorCount(const uint32_t size, const bool sizeIsLiteral)
+				{
+					const auto descCount = alloc<SDescriptorArrayInfo>(1u);
+					auto descriptorArraySize = descCount(m_memPool.data());
+
+					// the API for this spec constant checking is truly messed up
+					if (size == 0u)
+					{
+						descriptorArraySize[0].count = size;
+						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::RUNTIME;
+					}
+					else if (sizeIsLiteral)
+					{
+						descriptorArraySize[0].count = size;
+						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::STATIC;
+					}
+					else
+					{
+						descriptorArraySize[0].specID = size; // ID of spec constant if size is spec constant
+						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT;
+					}
+
+					return descriptorArraySize[0];
 				}
 				inline core::based_span<char> addString(const std::string_view str) // TODO: move to cpp
 				{
