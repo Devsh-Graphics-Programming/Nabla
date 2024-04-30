@@ -107,16 +107,19 @@
 #endif
 
 // disabling 3rdparty warnings
-#if defined(_MVC_VER) && !defined(NBL_SILENT_WARNINGS_WITH_WRAPPER)
+#if defined(NBL_SILENT_WARNINGS_WITH_WRAPPER)
+    #if defined(_MVC_VER)
+        #define NBL_PUSH_DISABLE_WARNINGS __pragma(warning(push, 0))
+        #define NBL_POP_DISABLE_WARNINGS __pragma(warning(pop))
+    #endif
 
-#define NBL_PUSH_DISABLE_WARNINGS __pragma(warning(push, 0))
-#define NBL_POP_DISABLE_WARNINGS __pragma(warning(pop))
-
-#else
-// TODO: Macro definitions for unix compilers
-#define NBL_PUSH_DISABLE_WARNINGS
-#define NBL_POP_DISABLE_WARNINGS
-
+    #if !defined(NBL_PUSH_DISABLE_WARNINGS)
+        #define NBL_PUSH_DISABLE_WARNINGS
+    #endif
+    
+    #if !defined(NBL_POP_DISABLE_WARNINGS)
+        #define NBL_POP_DISABLE_WARNINGS
+    #endif
 #endif
 
 // any other target definitions for using Nabla as framework in another project
