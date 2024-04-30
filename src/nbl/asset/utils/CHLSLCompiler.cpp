@@ -16,7 +16,9 @@
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
+NBL_PUSH_DISABLE_WARNINGS
 #include <dxc/dxcapi.h>
+NBL_POP_DISABLE_WARNINGS
 
 using namespace nbl;
 using namespace nbl::asset;

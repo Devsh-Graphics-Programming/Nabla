@@ -22,7 +22,9 @@
 #include <vector>
 #include <utility>
 #include <iterator>
+NBL_PUSH_DISABLE_WARNINGS
 #include <parallel-hashmap/parallel_hashmap/phmap.h>
+NBL_POP_DISABLE_WARNINGS
 
 #include "nbl/core/memory/new_delete.h"
 

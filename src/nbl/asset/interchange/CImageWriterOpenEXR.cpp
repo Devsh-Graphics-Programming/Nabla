@@ -14,7 +14,7 @@
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
-
+NBL_PUSH_DISABLE_WARNINGS
 #include "ImfOutputFile.h"
 #include "ImfChannelList.h"
 #include "ImfChannelListAttribute.h"
@@ -26,6 +26,7 @@
 #include "ImfHeader.h"
 
 #include "ImfNamespace.h"
+NBL_POP_DISABLE_WARNINGS
 
 namespace IMF = Imf;
 namespace IMATH = Imath;

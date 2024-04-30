@@ -21,7 +21,9 @@
 #include <stdio.h> // required for jpeglib.h
 #ifdef _NBL_COMPILE_WITH_LIBJPEG_
 extern "C" {
+NBL_PUSH_DISABLE_WARNINGS
 #include "jpeglib.h"
+NBL_POP_DISABLE_WARNINGS
 #include <setjmp.h>
 }
 #endif // _NBL_COMPILE_WITH_LIBJPEG_

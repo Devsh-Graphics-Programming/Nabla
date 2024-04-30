@@ -10,7 +10,9 @@
 #include <type_traits>
 #include <typeinfo>
 
+NBL_PUSH_DISABLE_WARNINGS
 #include "btBulletDynamicsCommon.h"
+NBL_POP_DISABLE_WARNINGS
 
 namespace nbl
 {

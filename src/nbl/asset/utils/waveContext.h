@@ -10,9 +10,11 @@
 #define BOOST_WAVE_EMIT_PRAGMA_DIRECTIVES 1
 #define BOOST_WAVE_SERIALIZATION 0
 #define BOOST_WAVE_SUPPORT_INCLUDE_NEXT 0
+NBL_PUSH_DISABLE_WARNINGS
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
+NBL_POP_DISABLE_WARNINGS
 
 
 namespace nbl::wave

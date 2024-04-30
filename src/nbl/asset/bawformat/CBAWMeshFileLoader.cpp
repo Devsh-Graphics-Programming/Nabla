@@ -12,9 +12,11 @@
 #include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.h"
 
+NBL_PUSH_DISABLE_WARNINGS
 #include "lz4/lib/lz4.h"
 #undef Bool
 #include "lzma/C/LzmaDec.h"
+NBL_POP_DISABLE_WARNINGS
 
 namespace nbl
 {

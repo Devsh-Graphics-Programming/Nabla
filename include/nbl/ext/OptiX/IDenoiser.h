@@ -7,8 +7,10 @@
 
 #include "../../../../src/nbl/video/CCUDAHandler.h"
 
+NBL_PUSH_DISABLE_WARNINGS
 #include <optix.h>
 #include <optix_denoiser_tiling.h>
+NBL_POP_DISABLE_WARNINGS
 
 namespace nbl
 {

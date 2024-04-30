@@ -8,9 +8,10 @@
 #include <cstdint>
 #include "nabla.h"
 #include "nbl/core/IReferenceCounted.h"
+NBL_PUSH_DISABLE_WARNINGS
 #include "btBulletDynamicsCommon.h"
-
 #include "BulletUtility.h"
+NBL_POP_DISABLE_WARNINGS
 #include "IMotionStateBase.h"
 
 namespace nbl

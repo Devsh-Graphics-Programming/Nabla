@@ -8,7 +8,9 @@
 #   include "nbl/ui/IWindowWin32.h"
 #endif
 
+NBL_PUSH_DISABLE_WARNINGS
 #include <volk/volk.h>
+NBL_POP_DISABLE_WARNINGS
 
 namespace nbl::video
 {
