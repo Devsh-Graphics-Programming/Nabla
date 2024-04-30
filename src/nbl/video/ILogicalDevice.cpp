@@ -327,17 +327,20 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
         commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
+        commonCompileOptions.readCache = creationParams.readCache;
+        commonCompileOptions.writeCache = creationParams.writeCache;
+
         if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
         {
             // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
         }
         else if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
         {
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
         }
         else
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions, creationParams.cache);
+            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
 
         if (!spirvShader)
             return nullptr;

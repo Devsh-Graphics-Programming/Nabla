@@ -22,7 +22,7 @@ namespace nbl::asset
 			m_GLSLCompiler(core::make_smart_refctd_ptr<CGLSLCompiler>(core::smart_refctd_ptr(sys)))
 		{}
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options, IShaderCompiler::CCache* cache = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const asset::ICPUShader* shader, const IShaderCompiler::SCompilerOptions& options) const;
 
 		core::smart_refctd_ptr<ICPUShader> preprocessShader(const asset::ICPUShader* shader, const IShaderCompiler::SPreprocessorOptions& preprocessOptions) const;
 

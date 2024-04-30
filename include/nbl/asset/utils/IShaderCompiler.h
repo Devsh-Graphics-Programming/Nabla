@@ -159,6 +159,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				@maxSelfInclusionCount used only when includeFinder is not nullptr
 				@extraDefines adds extra defines to the shader before compilation
 		*/
+		// Forward declaration for SCompilerOptions use
+		struct CCache;
 		struct SCompilerOptions
 		{
 			inline void setCommonData(const SCompilerOptions& opt)
@@ -173,6 +175,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
 			SPreprocessorOptions preprocessorOptions = {};
+			CCache* readCache = nullptr;
+			CCache* writeCache = nullptr;
 		};
 
 		class CCache final : public IReferenceCounted
@@ -427,33 +431,34 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			core::unordered_multiset<SEntry, Hash, KeyEqual> m_container;
 		};
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options, CCache* cache = nullptr) const
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 		{
 			CCache::SEntry entry;
 			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (cache) {
+			if (options.readCache or options.writeCache)
 				entry = std::move(CCache::SEntry(code, options));
-				auto found = cache->find(entry, options.preprocessorOptions.includeFinder);
+			if (options.readCache) {
+				auto found = options.readCache->find(entry, options.preprocessorOptions.includeFinder);
 				if (found)
 					return found;
 			}
-			auto retVal = compileToSPIRV_impl(code, options, cache ? &dependencies : nullptr);
-			if (cache) {
+			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+			if (options.writeCache) {
 				entry.dependencies = std::move(dependencies);
 				entry.value = retVal;
-				cache->insert(std::move(entry));
+				options.writeCache->insert(std::move(entry));
 			}
 			return retVal;
 		}
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options, CCache* cache = nullptr) const
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
 		{
 			if (!code)
 				return nullptr;
-			return compileToSPIRV({code,strlen(code)},options,cache);
+			return compileToSPIRV({code,strlen(code)},options);
 		}
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options, CCache* cache = nullptr) const
+		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options) const
 		{
 			size_t fileSize = sourceFile->getSize();
 			std::string code(fileSize,'\0');
@@ -461,7 +466,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			system::IFile::success_t success;
 			sourceFile->read(success, code.data(), 0, fileSize);
 			if (success)
-				return compileToSPIRV(code,options,cache);
+				return compileToSPIRV(code,options);
 			else
 				return nullptr;
 		}

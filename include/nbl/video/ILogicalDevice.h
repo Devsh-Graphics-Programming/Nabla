@@ -563,7 +563,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         struct SShaderCreationParameters {
             const asset::ICPUShader* cpushader;
             const asset::ISPIRVOptimizer* optimizer;
-            asset::IShaderCompiler::CCache* cache;
+            asset::IShaderCompiler::CCache* readCache;
+            asset::IShaderCompiler::CCache* writeCache;
         };
 
         // New version below has caching options
