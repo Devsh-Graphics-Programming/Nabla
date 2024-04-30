@@ -106,6 +106,19 @@
     #define NBL_API2
 #endif
 
+// disabling 3rdparty warnings
+#if defined(_MVC_VER)
+
+#define NBL_PUSH_DISABLE_WARNINGS __pragma(warning(push, 0))
+#define NBL_POP_DISABLE_WARNINGS __pragma(warning(pop))
+
+#else
+// TODO: Macro definitions for unix compilers
+#define NBL_PUSH_DISABLE_WARNINGS
+#define NBL_POP_DISABLE_WARNINGS
+
+#endif
+
 // any other target definitions for using Nabla as framework in another project
 #ifndef __NBL_BUILDING_NABLA__
 #include "define.h"

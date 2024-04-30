@@ -652,10 +652,9 @@ write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIO
 #on MSVC it won't compile without this option!
 option(NBL_TREAT_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 if (MSVC)
+	target_compile_options(Nabla PUBLIC /bigobj)
 	if (NBL_TREAT_WARNINGS_AS_ERRORS)
-		target_compile_options(Nabla PUBLIC /bigobj /WX /Wall)
-	else()
-		target_compile_options(Nabla PUBLIC /bigobj)
+		target_compile_options(Nabla PUBLIC /WX /Wall)
 	endif()
 endif()
 
