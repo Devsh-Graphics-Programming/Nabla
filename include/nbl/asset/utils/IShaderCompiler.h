@@ -15,7 +15,8 @@
 
 #include "nbl/core/xxHash256.h"
 
-#include "nlohmann/json.hpp"
+// Less leakage than "nlohmann/json.hpp" only forward declarations
+#include "nlohmann/json_fwd.hpp"
 
 namespace nbl::asset
 {
