@@ -165,12 +165,6 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                     return false;
                 if (pplnIntroDataFoundBinding->count != descInfo.count)
                     return false;
-
-                auto pplnIntroType = pplnIntroDataFoundBinding->type;
-                auto IntroType = stageIntroBindingInfo.type;
-                auto pplnIntroCunt = pplnIntroDataFoundBinding->count;
-                auto IntroCount = stageIntroBindingInfo.count;
-                //__debugbreak();
             }
 
             descriptorsToMerge[i].insert(descInfo);
