@@ -15,7 +15,6 @@
 include_guard(GLOBAL)
 
 include(ProcessorCount)
-set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 	if(NOT TARGET Nabla)
@@ -375,6 +374,8 @@ endmacro()
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
 
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
+
 function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
@@ -425,6 +426,7 @@ endfunction()
 
 function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
+	set(_DEST_GE_ $<PATH:CMAKE_PATH,NORMALIZE,${_DEST_GE_}>)
 	
 	if (TARGET ${_TRGT})
 		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
@@ -480,6 +482,7 @@ endfunction()
 function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
 	set(_TARGETS ${_TARGETS})
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/exe/${_RELATIVE_DESTINATION}")
+	set(_DEST_GE_ $<PATH:CMAKE_PATH,NORMALIZE,${_DEST_GE_}>)
 	
 	foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
 		install(TARGETS ${_TARGETS} RUNTIME DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Executables)
