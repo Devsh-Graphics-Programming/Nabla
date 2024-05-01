@@ -258,6 +258,7 @@ set(NBL_ASSET_SOURCES
 )
 set(NBL_VIDEO_SOURCES
 # Utilities
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/ImageRegionIterator.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IUtilities.cpp

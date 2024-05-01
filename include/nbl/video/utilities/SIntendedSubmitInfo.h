@@ -47,13 +47,18 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         {
             if (!queue || commandBuffers.empty() || !scratchSemaphore.semaphore)
                 return false;
+            // All commandbuffers must be compatible with the queue we're about to submit to
+            auto cmdbufNotSubmittableToQueue = [this](const IGPUCommandBuffer* cmdbuf)->bool
+            {
+                return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
+            };
             // All commandbuffers before the scratch must be executable (ready to be submitted)
             for (size_t i=0; i<commandBuffers.size()-1; i++)
-            if (commandBuffers[i].cmdbuf->getState()==IGPUCommandBuffer::STATE::EXECUTABLE)
+            if (cmdbufNotSubmittableToQueue(commandBuffers[i].cmdbuf) || commandBuffers[i].cmdbuf->getState()==IGPUCommandBuffer::STATE::EXECUTABLE)
                 return false;
             const auto* scratch = getScratchCommandBuffer();
             // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened 
-            if (!scratch->isResettable())
+            if (cmdbufNotSubmittableToQueue(scratch) || !scratch->isResettable())
                 return false;
             // It makes no sense to reuse the same commands for a second submission.
             // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
