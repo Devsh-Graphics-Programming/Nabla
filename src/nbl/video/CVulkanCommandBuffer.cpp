@@ -518,7 +518,7 @@ bool CVulkanCommandBuffer::setDepthBias_impl(const float depthBiasConstantFactor
     return true;
 }
 
-bool CVulkanCommandBuffer::setBlendConstants_impl(const hlsl::float32_t& constants)
+bool CVulkanCommandBuffer::setBlendConstants_impl(const hlsl::float32_t4& constants)
 {
     getFunctionTable().vkCmdSetBlendConstants(m_cmdbuf,reinterpret_cast<const float*>(&constants));
     return true;
