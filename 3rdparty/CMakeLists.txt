@@ -7,6 +7,10 @@ include(../cmake/common.cmake)
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
+# nlohmann_json
+set(JSON_BuildTests OFF)
+add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -19,9 +23,6 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
-
-# openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
@@ -353,6 +354,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				nlohmann_json
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -373,11 +375,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 		OpenEXR
 	)
 endif()
-if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenSSL
-	)
-endif()
+
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)

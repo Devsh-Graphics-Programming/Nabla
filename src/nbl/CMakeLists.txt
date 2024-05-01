@@ -421,12 +421,7 @@ if (UNIX)
 	)
 	target_link_libraries(Nabla PUBLIC atomic)
 endif()
-# OpenSSL
-if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-	add_dependencies(Nabla openssl_build)
-	target_link_libraries(Nabla INTERFACE "$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>")
-	target_include_directories(Nabla PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
-endif()
+
 # zlib
 add_dependencies(zlibstatic zlib_copy)
 add_dependencies(Nabla zlibstatic)
@@ -470,6 +465,17 @@ target_include_directories(Nabla PUBLIC
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
 	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
 )
+
+# nlohmann_json
+add_dependencies(Nabla nlohmann_json)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE nlohmann_json::nlohmann_json)
+else()
+	target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
+endif()
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
+
+
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -716,13 +722,6 @@ if(NBL_STATIC_BUILD)
 		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
-
-	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-		install(FILES
-				"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
-			DESTINATION lib
-		)
-	endif()
 	nbl_install_lib(shaderc)
 	nbl_install_lib(shaderc_util)
 	nbl_install_lib(SPIRV)

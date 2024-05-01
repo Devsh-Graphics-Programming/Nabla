@@ -15,7 +15,6 @@
 include_guard(GLOBAL)
 
 include(ProcessorCount)
-set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 	if(NOT TARGET Nabla)
@@ -374,6 +373,8 @@ endmacro()
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
+
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
 
 function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
