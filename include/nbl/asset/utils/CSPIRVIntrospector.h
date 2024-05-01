@@ -21,6 +21,8 @@
 #include "nbl/asset/utils/CGLSLCompiler.h"
 
 #include "nbl/core/definitions.h"
+#include "nbl/core/based_offset.h"
+#include "nbl/core/based_span.h"
 
 namespace spirv_cross
 {
@@ -28,76 +30,6 @@ namespace spirv_cross
     class Compiler;
 	class Resource;
     struct SPIRType;
-}
-
-// TODO: put this somewhere useful in a separate header
-namespace nbl::core
-{
-
-template<typename T>
-struct based_offset
-{
-		constexpr static inline bool IsConst = std::is_const_v<T>;
-
-	public:
-		using element_type = T;
-
-		constexpr based_offset() {}
-
-		constexpr explicit based_offset(T* basePtr, T* ptr) : m_byteOffset(ptrdiff_t(ptr)-ptrdiff_t(basePtr)) {}
-		constexpr based_offset(const size_t _byteOffset) : m_byteOffset(_byteOffset) {}
-
-		inline explicit operator bool() const {return m_byteOffset!=InvalidOffset;}
-		inline T* operator()(std::conditional_t<IsConst,const void*,void*> newBase) const
-		{
-			std::conditional_t<IsConst,const uint8_t,uint8_t>* retval = nullptr;
-			if (bool(*this))
-				retval = reinterpret_cast<decltype(retval)>(newBase)+m_byteOffset;
-			return reinterpret_cast<T*>(retval);
-		}
-		
-		inline based_offset<T> operator+(const size_t extraOff) const {return {sizeof(T)*extraOff+m_byteOffset};}
-
-		inline auto byte_offset() const {return m_byteOffset;}
-
-	private:
-		constexpr static inline size_t InvalidOffset = ~0ull;
-		size_t m_byteOffset = InvalidOffset;
-};
-
-template<typename T, size_t Extent=std::dynamic_extent>
-struct based_span
-{
-		constexpr static inline bool IsConst = std::is_const_v<T>;
-
-	public:
-		using element_type = T;
-
-		constexpr based_span()
-		{
-			static_assert(sizeof(based_span<T,Extent>)==sizeof(std::span<T,Extent>));
-		}
-
-		constexpr explicit based_span(T* basePtr, std::span<T,Extent> span) : m_byteOffset(ptrdiff_t(span.data())-ptrdiff_t(basePtr)), m_size(span.size()) {}
-		constexpr based_span(size_t byteOffset, size_t size) : m_byteOffset(byteOffset), m_size(size) {}
-
-		inline bool empty() const {return m_size==0ull;}
-		
-		inline std::span<T> operator()(std::conditional_t<IsConst,const void*,void*> newBase) const
-		{
-			std::conditional_t<IsConst,const uint8_t,uint8_t>* retval = nullptr;
-			if (!empty())
-				retval = reinterpret_cast<decltype(retval)>(newBase)+m_byteOffset;
-			return {reinterpret_cast<T*>(retval),m_size};
-		}
-
-		inline auto byte_offset() const {return m_byteOffset;}
-
-	private:
-		size_t m_byteOffset = ~0ull;
-		size_t m_size = 0ull;
-};
-
 }
 
 namespace nbl::asset
@@ -453,7 +385,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					if (m_shaderStage != IShader::ESS_FRAGMENT)
 					{
 						// TODO: log error
-						return {};
+						return EMPTY_FRAGMENT_OUTPUT_INTERFACE;
 					}
 
 					return std::get<core::vector<SFragmentOutputInterface>>(m_output);
@@ -463,24 +395,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					if (m_shaderStage == IShader::ESS_UNKNOWN || m_shaderStage == IShader::ESS_FRAGMENT)
 					{
 						// TODO: log error
-						return {};
+						return EMPTY_OUTPUT_INTERFACE;
 					}
 
 					return std::get<core::vector<SOutputInterface>>(m_output);
 				}
 				inline const auto& getPushConstants() const {return m_pushConstants;}
 				inline const auto& getSpecConstants() const {return m_specConstants;}
-
-				/*inline bool canSpecializationlesslyCreateDescSetFrom() const
-				{
-					for (const auto& descSet : m_descriptorSetBindings)
-					{
-						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorVarInfo<>& bnd)->bool{ return bnd.count.isSpecConstant();});
-						if (found!=descSet.end())
-							return false;
-					}
-					return true;
-				}*/
 
 				void debugPrint(system::ILogger* logger) const;
 
@@ -492,6 +413,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			protected:
 				friend CSPIRVIntrospector;
+
+				static const core::vector<SFragmentOutputInterface> EMPTY_FRAGMENT_OUTPUT_INTERFACE;
+				static const core::vector<SOutputInterface> EMPTY_OUTPUT_INTERFACE;
 
 				//! Only call these during construction!
 				inline size_t allocOffset(const size_t bytes) // TODO: move to cpp
@@ -529,27 +453,21 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 				inline SDescriptorArrayInfo addDescriptorCount(const uint32_t size, const bool sizeIsLiteral)
 				{
-					const auto descCount = alloc<SDescriptorArrayInfo>(1u);
-					auto descriptorArraySize = descCount(m_memPool.data());
+					SDescriptorArrayInfo descriptorArraySize;
 
 					// the API for this spec constant checking is truly messed up
-					if (size == 0u)
+					if (sizeIsLiteral)
 					{
-						descriptorArraySize[0].count = size;
-						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::RUNTIME;
-					}
-					else if (sizeIsLiteral)
-					{
-						descriptorArraySize[0].count = size;
-						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::STATIC;
+						descriptorArraySize.count = size;
+						descriptorArraySize.countMode = size == 0u ? SDescriptorArrayInfo::DESCRIPTOR_COUNT::RUNTIME : SDescriptorArrayInfo::DESCRIPTOR_COUNT::STATIC;
 					}
 					else
 					{
-						descriptorArraySize[0].specID = size; // ID of spec constant if size is spec constant
-						descriptorArraySize[0].countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT;
+						descriptorArraySize.specID = size; // ID of spec constant if size is spec constant
+						descriptorArraySize.countMode = SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT;
 					}
 
-					return descriptorArraySize[0];
+					return descriptorArraySize;
 				}
 				inline core::based_span<char> addString(const std::string_view str) // TODO: move to cpp
 				{
@@ -590,7 +508,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				};
 				struct SpecConstantHash
 				{
-					inline uint32_t operator()(const CStageIntrospectionData::SSpecConstant<>&pc) const { return pc.id; }
+					inline uint32_t operator()(const CStageIntrospectionData::SSpecConstant<>&pc) const { return std::hash<size_t>()(pc.id); }
 				};
 				using SpecConstantsSet = core::unordered_set<SSpecConstant<>, SpecConstantHash, SpecConstantKeyEqual>;
 				SpecConstantsSet m_specConstants;
@@ -630,6 +548,17 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), -1);
 				}
 
+				inline bool canSpecializationlesslyCreateDescSetFrom() const
+				{
+					for (const auto& descSet : m_descriptorSetBindings)
+					{
+						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorInfo& bnd)->bool{ return bnd.isRuntimeSized();});
+						if (found!=descSet.end())
+							return false;
+					}
+					return true;
+				}
+
 				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 				NBL_API2 bool merge(const CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants=nullptr);
 
@@ -644,7 +573,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				//
 				struct Hash
 				{
-					inline size_t operator()(const SDescriptorInfo& item) const {return item.binding;}
+					inline size_t operator()(const SDescriptorInfo& item) const {return std::hash<size_t>()(item.binding);}
 				};
 				struct KeyEqual
 				{

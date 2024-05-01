@@ -109,8 +109,12 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
+    if (!stageData)
+        return false;
+
     // validate if descriptors are compatible
     DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
@@ -163,22 +167,18 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
             {
                 if (pplnIntroDataFoundBinding->type != stageIntroBindingInfo.type)
                     return false;
-                if (pplnIntroDataFoundBinding->count != descInfo.count)
-                    return false;
+                descInfo.count = std::max(pplnIntroDataFoundBinding->count, descInfo.count);
             }
 
+            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
             descriptorsToMerge[i].insert(descInfo);
         }
     }
 
     // validate if only descriptors with the highest bindings are run-time sized
-    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
-
-        for (const auto& stageIntroBindingInfo : introBindingInfos)
-            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
 
         for (const auto& descriptor : descriptorsToMerge[i])
         {
@@ -318,15 +318,14 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
     if (descSet > DESCRIPTOR_SET_COUNT)
         return nullptr; // TODO: log fail
 
-    auto a = comp.get_name(r.id);
     const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
     const size_t arrDim = type.array.size();
-    // only 1D arrays allowed
+    // acording to the Vulkan documentation (15.5.3) only 1D arrays are allowed
     if (arrDim>1)
         return nullptr; // TODO: log fail
 
     const uint32_t descriptorArraySize = type.array.empty() ? 1u : *type.array.data();    
-    const bool isArrayTypeLiteral = descriptorArraySize <= 1u ? true : type.array_size_literal[0]; // can be set to true for runtime sized descriptors, doesn't make sense but also doesn't matter
+    const bool isArrayTypeLiteral = type.array_size_literal.empty() ? true : type.array_size_literal[0];
     CStageIntrospectionData::SDescriptorVarInfo<true> res = {
         {
             .binding = comp.get_decoration(r.id,spv::DecorationBinding),
@@ -651,8 +650,6 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
             return glslType;
         };
 
-    auto a = stageIntroData->m_descriptorSetBindings;
-
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
@@ -670,7 +667,6 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     {
         if (shaderStage == IShader::ESS_FRAGMENT)
         {
-            // TODO: desn't path here for frag_test1.hlsl, why?
             CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
                 std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
             getStageIOtype(res, r.id, r.base_type_id);
