@@ -26,8 +26,20 @@ T atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memoryS
 
 namespace bda
 {
+template<typename T>
+using __spv_ptr_t = vk::SpirvOpaqueType<
+    /* OpTypePointer */ 32,
+    /* PhysicalStorageBuffer */ vk::Literal<vk::integral_constant<uint,5349> >,
+    T
+>;
+
 namespace impl
 {
+// this only exists to workaround DXC issue XYZW TODO https://github.com/microsoft/DirectXShaderCompiler/issues/6576
+template<class T>
+[[vk::ext_capability(/*PhysicalStorageBufferAddresses */ 5347 )]]
+[[vk::ext_instruction(/*spv::OpBitcast*/124)]]
+T bitcast(uint64_t);
 
 template<typename T, typename P, uint32_t alignment>
 [[vk::ext_capability( /*PhysicalStorageBufferAddresses */5347)]]
@@ -55,13 +67,12 @@ struct __base_ref
 // TODO:
 // static_assert(alignment>=alignof(T));
 
-    using __spv_ptr_t = vk::SpirvOpaqueType < /* OpTypePointer */32, /* PhysicalStorageBuffer */ vk::Literal<vk::integral_constant<uint,5349> >, T>;
     using spv_ptr_t = uint64_t;
     spv_ptr_t ptr;
 
-    __spv_ptr_t __get_spv_ptr()
+    __spv_ptr_t<T> __get_spv_ptr()
     {
-        return spirv::bitcast < __spv_ptr_t > (ptr);
+        return impl::bitcast < __spv_ptr_t<T> > (ptr);
     }
 
     // TODO: Would like to use `spv_ptr_t` or OpAccessChain result instead of `uint64_t`
@@ -79,12 +90,12 @@ struct __base_ref
 
     T load()
     {
-        return impl::load < T, __spv_ptr_t, alignment > (__get_spv_ptr());
+        return impl::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
     }
 
     void store(const T val)
     {
-        impl::store < T, __spv_ptr_t, alignment > (__get_spv_ptr(), val);
+        impl::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
     }
 };
 
@@ -101,6 +112,8 @@ struct __ref<Type,alignment,_restrict> : __base_ref<Type,alignment,_restrict>   
 {                                                                               \
     using base_t = __base_ref <Type, alignment, _restrict>;                     \
     using this_t = __ref <Type, alignment, _restrict>;                          \
+                                                                                \
+    [[vk::ext_capability(/*PhysicalStorageBufferAddresses */ 5347 )]]           \
     Type atomicAdd(const Type value)                                            \
     {                                                                           \
         return impl::atomicIAdd <Type> (base_t::__get_spv_ptr(), 1, 0, value);  \
@@ -135,7 +148,7 @@ struct __ptr
         // TODO: assert(addr&uint64_t(alignment-1)==0);
         using retval_t = __ref < T, alignment, _restrict>;
         retval_t retval;
-        retval.__init(spirv::bitcast<typename retval_t::spv_ptr_t,uint64_t>(addr));
+        retval.__init(impl::bitcast<typename retval_t::spv_ptr_t,uint64_t>(addr));
         return retval;
     }
 };
@@ -147,10 +160,14 @@ namespace hlsl
 {
 namespace sort
 {
-            
-template<typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
+
+template<typename KeyAccessor>
 struct counting
 {
+    void init(const uint64_t key_addr, uint32_t index) {
+        key_ptr = KeyAccessor(key_addr + sizeof(uint32_t) * index);
+    }
+
     void histogram()
     {
     }
@@ -158,6 +175,8 @@ struct counting
     void scatter()
     {
     }
+
+    KeyAccessor key_ptr;
 };
 
 }
