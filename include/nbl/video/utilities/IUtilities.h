@@ -344,6 +344,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
             }
 
+            assert(intendedNextSubmit.queue);
+            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
+            if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            {
+                m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer.", nbl::system::ILogger::ELL_ERROR);
+                return false;
+            }
+
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
@@ -521,6 +529,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             if (!nextSubmit.valid())
             {
                 m_logger.log(nextSubmit.ErrorText, system::ILogger::ELL_ERROR);
+                return false;
+            }
+
+            assert(intendedNextSubmit.queue);
+            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
+            if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            {
+                m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer.", nbl::system::ILogger::ELL_ERROR);
                 return false;
             }
 

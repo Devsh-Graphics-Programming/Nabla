@@ -16,6 +16,14 @@ bool IUtilities::updateImageViaStagingBuffer(
         return false;
     }
 
+    assert(intendedNextSubmit.queue);
+    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
+    if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+    {
+        m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer.", nbl::system::ILogger::ELL_ERROR);
+        return false;
+    }
+
     auto cmdbuf = intendedNextSubmit.getScratchCommandBuffer();
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
@@ -37,8 +45,6 @@ bool IUtilities::updateImageViaStagingBuffer(
     }
 
     auto texelBlockInfo = asset::TexelBlockInfo(dstImage->getCreationParameters().format);
-    assert(intendedNextSubmit.queue);
-    auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
     auto minGranularity = queueFamProps.minImageTransferGranularity;
     
     assert(dstImage->getCreationParameters().format != asset::EF_UNKNOWN);
