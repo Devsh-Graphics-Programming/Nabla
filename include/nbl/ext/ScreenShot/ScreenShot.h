@@ -27,8 +27,6 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 	const ACCESS_FLAGS accessMask,
 	const IImage::LAYOUT imageLayout)
 {
-	assert(logicalDevice->getPhysicalDevice()->getQueueFamilyProperties().begin()[queue->getFamilyIndex()].queueFlags.value&IQueue::FAMILY_FLAGS::TRANSFER_BIT);
-
 	auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 	auto gpuImage = fetchedImageViewParmas.image;
 	auto fetchedGpuImageParams = gpuImage->getCreationParameters();
