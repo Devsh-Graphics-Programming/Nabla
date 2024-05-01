@@ -338,19 +338,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
             }
 
-            if (!nextSubmit.valid())
-            {
-                m_logger.log(nextSubmit.ErrorText,system::ILogger::ELL_ERROR);
+            if (!commonTransferValidation(nextSubmit))
                 return false;
-            }
-
-            assert(intendedNextSubmit.queue);
-            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
-            if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
-            {
-                m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer.", nbl::system::ILogger::ELL_ERROR);
-                return false;
-            }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
@@ -526,19 +515,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
             }
 
-            if (!nextSubmit.valid())
-            {
-                m_logger.log(nextSubmit.ErrorText, system::ILogger::ELL_ERROR);
+            if (!commonTransferValidation(nextSubmit))
                 return false;
-            }
-
-            assert(intendedNextSubmit.queue);
-            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
-            if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
-            {
-                m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer.", nbl::system::ILogger::ELL_ERROR);
-                return false;
-            }
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
@@ -640,7 +618,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
         //!     Make sure to submit with `nextSubmit.popSubmit()` after this function returns.
         //! Parameters:
-        //!     - srcBuffer: source buffer to copy image from
+        //!     - srcData: source data to copy image from
         //!     - srcFormat: The image format the `srcBuffer` is laid out in memory.
         //          In the case that dstImage has a different format this function will make the necessary conversions.
         //          If `srcFormat` is EF_UNKOWN, it will be assumed to have the same format `dstImage` was created with.
@@ -656,26 +634,56 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * regions.size() must be > 0
         //! NOTE: IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         bool updateImageViaStagingBuffer(
-            SIntendedSubmitInfo& nextSubmit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat, 
+            SIntendedSubmitInfo& nextSubmit, const void* srcData, asset::E_FORMAT srcFormat, 
+            IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
+            const std::span<const asset::IImage::SBufferCopy> regions
+        );
+
+        // wrapper for old API
+        [[deprecated]] inline bool updateImageViaStagingBuffer(
+            SIntendedSubmitInfo& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
             IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
             const core::SRange<const asset::IImage::SBufferCopy>& regions
-        );
+        )
+        {
+            return updateImageViaStagingBuffer(submit,srcBuffer->getPointer(),srcFormat,dstImage,currentDstImageLayout,{regions.begin(),regions.size()});
+        }
+
+        // wrapped for R-value reference submit infos
         template<typename... Args>
         inline bool updateImageViaStagingBuffer(SIntendedSubmitInfo&& nextSubmit, Args&&... args)
         {
             return updateImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);
         }
         
-        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
-        inline ISemaphore::future_t<IQueue::RESULT> updateImageViaStagingBufferAutoSubmit(
-            IntendedSubmitInfo&& submit, asset::ICPUBuffer const* srcBuffer, asset::E_FORMAT srcFormat,
-            IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
-            const core::SRange<const asset::IImage::SBufferCopy>& regions)
+        //! Auto-Submit utility
+        template<typename IntendedSubmitInfo, typename... Args> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline ISemaphore::future_t<IQueue::RESULT> updateImageViaStagingBufferAutoSubmit(IntendedSubmitInfo&& submit, Args&&... args)
         {
-            return autoSubmit(submit,[&](SIntendedSubmitInfo& nextSubmit)->bool{return updateImageViaStagingBuffer(nextSubmit,srcBuffer,srcFormat,dstImage,currentDstImageLayout,regions);});
+            return autoSubmit(submit,[&](SIntendedSubmitInfo& nextSubmit)->bool{return updateImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);});
         }
 
-    protected:        
+    protected:
+        //
+        inline bool commonTransferValidation(const SIntendedSubmitInfo& intendedNextSubmit)
+        {
+            if (!intendedNextSubmit.valid())
+            {
+                m_logger.log("Invalid `intendedNextSubmit`.", nbl::system::ILogger::ELL_ERROR);
+                return false;
+            }
+
+            assert(intendedNextSubmit.queue);
+            auto queueFamProps = m_device->getPhysicalDevice()->getQueueFamilyProperties()[intendedNextSubmit.queue->getFamilyIndex()];
+            if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
+            {
+                m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer operations!", nbl::system::ILogger::ELL_ERROR);
+                return false;
+            }
+
+            return true;
+        }
+
         // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
         // and round the end of the range up to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize.
         static ILogicalDevice::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
@@ -697,72 +705,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
         core::smart_refctd_ptr<CScanner> m_scanner;
 #endif
-};
-
-class ImageRegionIterator
-{
-    public:
-        ImageRegionIterator(
-            const core::SRange<const asset::IImage::SBufferCopy>& copyRegions,
-            IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
-            asset::ICPUBuffer const* srcBuffer,
-            asset::E_FORMAT srcImageFormat,
-            video::IGPUImage* const dstImage,
-            size_t optimalRowPitchAlignment
-        );
-    
-        // ! Memory you need to allocate to transfer the remaining regions in one submit.
-        // ! WARN: It's okay to use less memory than the return value of this function for your staging memory, in that usual case more than 1 copy regions will be needed to transfer the remaining regions.
-        size_t getMemoryNeededForRemainingRegions() const;
-
-        // ! Gives `regionToCopyNext` based on `availableMemory`
-        // ! memcopies the data from `srcBuffer` to `stagingBuffer`, preparing it for launch and submit to copy to GPU buffer
-        // ! updates `availableMemory` (availableMemory -= consumedMemory)
-        // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
-        // ! this function may do format conversions when copying from `srcBuffer` to `stagingBuffer` if srcBufferFormat != dstImage->Format passed as constructor parameters
-        bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer);
-
-        // ! returns true when there is no more regions left over to copy
-        bool isFinished() const { return currentRegion == regions.size(); }
-        uint32_t getCurrentBlockInRow() const { return currentBlockInRow; }
-        uint32_t getCurrentRowInSlice() const { return currentRowInSlice; }
-        uint32_t getCurrentSliceInLayer() const { return currentSliceInLayer; }
-        uint32_t getCurrentLayerInRegion() const { return currentLayerInRegion; }
-        uint32_t getCurrentRegion() const { return currentRegion; }
-
-        inline core::vector3du32_SIMD getOptimalCopyTexelStrides(const asset::VkExtent3D& copyExtents) const
-        {
-            return core::vector3du32_SIMD(
-                core::alignUp(copyExtents.width, optimalRowPitchAlignment),
-                copyExtents.height,
-                copyExtents.depth);
-        }
-
-    private:
-
-        core::SRange<const asset::IImage::SBufferCopy> regions;
-
-        // Mock CPU Images used to copy cpu buffer to staging buffer
-        std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterInCPUImages;
-        core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // needs to be updated before each upload
-        std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterOutCPUImages;
-
-        size_t optimalRowPitchAlignment = 1u;
-        bool canTransferMipLevelsPartially = false;
-        asset::VkExtent3D minImageTransferGranularity = {};
-        uint32_t bufferOffsetAlignment = 1u;
-
-        asset::E_FORMAT srcImageFormat;
-        asset::E_FORMAT dstImageFormat;
-        asset::ICPUBuffer const* srcBuffer;
-        video::IGPUImage* const dstImage;
-    
-        // Block Offsets 
-        uint16_t currentBlockInRow = 0u;
-        uint16_t currentRowInSlice = 0u;
-        uint16_t currentSliceInLayer = 0u;
-        uint16_t currentLayerInRegion = 0u;
-        uint16_t currentRegion = 0u;
 };
 
 }
