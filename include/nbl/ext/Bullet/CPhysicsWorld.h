@@ -9,9 +9,8 @@
 #include <type_traits>
 #include "nabla.h"
 #include "nbl/core/IReferenceCounted.h"
-NBL_PUSH_DISABLE_WARNINGS
 #include "btBulletDynamicsCommon.h"
-NBL_POP_DISABLE_WARNINGS
+
 #include "IMotionStateBase.h"
 
 

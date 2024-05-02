@@ -10,9 +10,7 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
 
-NBL_PUSH_DISABLE_WARNINGS
 #include "simdjson/singleheader/simdjson.h"
-NBL_POP_DISABLE_WARNINGS
 #include <algorithm>
 
 #include "nbl/core/execution.h"

@@ -13,9 +13,7 @@
 #define bswap_16(X) _byteswap_ushort(X)
 #define bswap_32(X) _byteswap_ulong(X)
 #elif defined(_NBL_OSX_PLATFORM_)
-NBL_PUSH_DISABLE_WARNINGS
 #include <libkern/OSByteOrder.h>
-NBL_POP_DISABLE_WARNINGS
 #define bswap_16(X) OSReadSwapInt16(&X,0)
 #define bswap_32(X) OSReadSwapInt32(&X,0)
 #elif defined(__FreeBSD__) || defined(__OpenBSD__)

@@ -14,9 +14,7 @@
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
-NBL_PUSH_DISABLE_WARNINGS
 #include "expat/lib/expat.h"
-NBL_POP_DISABLE_WARNINGS
 
 #include <stack>
 

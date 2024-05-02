@@ -19,13 +19,11 @@
 
 #ifdef _NBL_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
-NBL_PUSH_DISABLE_WARNINGS
 extern "C"
 {
 	#include "jpeglib.h"
 	#include "jerror.h"
 }
-NBL_POP_DISABLE_WARNINGS
 
 // The writer uses a 4k buffer and flushes to disk each time it's filled
 #define OUTPUT_BUF_SIZE 4096

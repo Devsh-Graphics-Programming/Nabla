@@ -6,9 +6,7 @@
 
 //! This file is not supposed to be included in user-accesible header files
 
-NBL_PUSH_DISABLE_WARNINGS
 #include <shaderc/shaderc.hpp>
-NBL_POP_DISABLE_WARNINGS
 #include "nbl/asset/IShader.h"
 
 namespace nbl

@@ -17,7 +17,6 @@
 
 #include "CImageLoaderOpenEXR.h"
 
-NBL_PUSH_DISABLE_WARNINGS
 #include "ImfRgbaFile.h"
 #include "ImfInputFile.h"
 #include "ImfChannelList.h"
@@ -27,8 +26,6 @@ NBL_PUSH_DISABLE_WARNINGS
 #include "ImfArray.h"
 
 #include "ImfNamespace.h"
-NBL_POP_DISABLE_WARNINGS
-
 namespace IMF = Imf;
 namespace IMATH = Imath;
 

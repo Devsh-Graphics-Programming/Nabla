@@ -9,14 +9,12 @@
 #include <execution>
 #include <algorithm>
 #else
-NNBL_PUSH_DISABLE_WARNINGS
 #include <oneapi/dpl/algorithm>
 #include <oneapi/dpl/execution>
 #include <oneapi/dpl/iterator>
 #include "oneapi/dpl/pstl/execution_defs.h"
 #include "oneapi/dpl/pstl/glue_algorithm_defs.h"
 #include "oneapi/dpl/pstl/glue_algorithm_ranges_defs.h"
-NBL_POP_DISABLE_WARNINGS
 #endif
 
 #define ALIAS_TEMPLATE_FUNCTION(highLevelF, lowLevelF) \

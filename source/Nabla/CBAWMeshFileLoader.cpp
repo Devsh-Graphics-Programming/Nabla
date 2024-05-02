@@ -10,8 +10,10 @@
 #include "SMesh.h" // Why is this nowhere to be found?
 #include "CSkinnedMesh.h"
 #include "nbl_os.h"
+NBL_PUSH_DISABLE_WARNINGS
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"
+NBL_POP_DISABLE_WARNINGS
 
 namespace nbl { namespace scene
 {

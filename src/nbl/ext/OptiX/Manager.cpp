@@ -8,9 +8,7 @@
 
 #include "nbl/ext/OptiX/Manager.h"
 
-NBL_PUSH_DISABLE_WARNINGS
 #include "optix_function_table_definition.h"
-NBL_POP_DISABLE_WARNINGS
 
 using namespace nbl;
 using namespace asset;
