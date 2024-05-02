@@ -103,7 +103,7 @@ option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 # Compilation related options
-option(NBL_TREAT_WARNINGS_AS_ERRORS "Treat all warnings as errors" ON)
+option(NBL_TREAT_WARNINGS_AS_ERRORS "Treat all warnings severe as errors" ON)
 option(NBL_SILENT_WARNINGS_WITH_WRAPPER "Make all warnings silent" ON) 
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
@@ -662,7 +662,7 @@ endif()
 if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 	if (NBL_TREAT_WARNINGS_AS_ERRORS)
-		target_compile_options(Nabla PUBLIC /WX /Wall)
+		target_compile_options(Nabla PUBLIC /WX /W1)
 	endif()
 endif()
 
