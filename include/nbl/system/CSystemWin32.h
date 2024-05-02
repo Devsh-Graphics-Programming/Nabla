@@ -93,7 +93,9 @@ class NBL_API2 CSystemWin32 : public ISystem
                 return E_FAIL;
             }
 
-            return __HrLoadAllImportsForDll(dllName);
+            // VS 17.9.6 bug
+            __HrLoadAllImportsForDll(dllName);
+            return true;
         }
 };
 
