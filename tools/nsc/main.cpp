@@ -24,6 +24,9 @@ public:
 		else
 			m_system = system::IApplicationFramework::createSystem();
 
+		if (!m_system)
+			return false;
+
 		m_logger = make_smart_refctd_ptr<CStdoutLogger>();
 
 		auto argc = argv.size();
@@ -50,7 +53,6 @@ public:
 			return false;
 		}
 		std::string output_filepath = "";
-
 
 		auto builtin_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-no-nbl-builtins");
 		if (builtin_flag_pos != m_arguments.end()) {
