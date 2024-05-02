@@ -30,7 +30,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t binding;
             uint32_t arrayElement;
             uint32_t count;
-            SDescriptorInfo* info;
+            const SDescriptorInfo* info;
         };
 
         struct SCopyDescriptorSet

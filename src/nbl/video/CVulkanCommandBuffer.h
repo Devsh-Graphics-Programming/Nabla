@@ -192,7 +192,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) override;
         bool setLineWidth_impl(const float width) override;
         bool setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor) override;
-        bool setBlendConstants_impl(const hlsl::float32_t& constants) override;
+        bool setBlendConstants_impl(const hlsl::float32_t4& constants) override;
         bool setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds) override;
         bool setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask) override;
         bool setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask) override;

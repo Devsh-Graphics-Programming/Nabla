@@ -4,6 +4,13 @@
 
 include(../cmake/common.cmake)
 
+option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
+option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
+# nlohmann_json
+set(JSON_BuildTests OFF)
+add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -16,9 +23,6 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
-
-# openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
@@ -350,6 +354,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				nlohmann_json
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -370,11 +375,7 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
 		OpenEXR
 	)
 endif()
-if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenSSL
-	)
-endif()
+
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
@@ -396,15 +397,23 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
 		endif()
+		
+		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
+		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
+			# maybe explicit global mapping would be better, to discuss
+			if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+			elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+			else()
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+			endif()
+		endif()
 endforeach()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
-nbl_adjust_flags()
-
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
-## REMINDER / NOTE : This is how we install 3rdparty headers we need !
-# parallel hashmap headers
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")

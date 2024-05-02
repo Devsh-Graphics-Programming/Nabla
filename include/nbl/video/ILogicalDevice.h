@@ -558,8 +558,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 
+
         //! Shaders
+        struct SShaderCreationParameters {
+            const asset::ICPUShader* cpushader;
+            const asset::ISPIRVOptimizer* optimizer;
+            asset::IShaderCompiler::CCache* readCache;
+            asset::IShaderCompiler::CCache* writeCache;
+        };
+
+        // New version below has caching options
+        [[deprecated]]
         core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
+        core::smart_refctd_ptr<IGPUShader> createShader(const SShaderCreationParameters& creationParams);
 
         //! Layouts
         // Create a descriptor set layout (@see ICPUDescriptorSetLayout)

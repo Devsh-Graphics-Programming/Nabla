@@ -14,6 +14,8 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
+#include "nbl/core/xxHash256.h"
+
 
 namespace nbl::wave
 {
@@ -46,7 +48,7 @@ struct load_to_string final
 
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
-    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
+    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
         : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() 
     {
         hash_token_occurences = 0;
@@ -453,6 +455,14 @@ class context : private boost::noncopyable
             return current_relative_filename;
         }
 
+        void set_caching(bool b) {
+            cachingRequested = b;
+        }
+
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>&& get_dependencies() {
+            return std::move(dependencies);
+        }
+
     private:
         // the main input stream
         target_iterator_type first;         // underlying input stream
@@ -466,6 +476,9 @@ class context : private boost::noncopyable
         // these are temporaries!
         system::path current_dir;
         core::string located_include_content;
+        // Cache Additions 
+        bool cachingRequested = false;
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -493,12 +506,18 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
+    bool standardInclude;
+
     if (includeFinder)
     {
-        if (is_system)
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(),file_path);
-        else
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
+        if (is_system) {
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path);
+            standardInclude = true;
+        }
+        else {
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path);
+            standardInclude = false;
+        }
     }
     else {
         ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
@@ -510,6 +529,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         ctx.get_hooks().m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
+    }
+
+    // If caching was requested, push a new SDependency onto dependencies
+    if (ctx.cachingRequested) {
+        ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, result.contents, standardInclude, std::move(result.hash));
     }
 
     ctx.located_include_content = std::move(result.contents);
@@ -551,4 +575,5 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     return true;
 }
+
 #endif

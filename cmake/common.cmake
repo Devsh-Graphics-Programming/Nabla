@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 
+include_guard(GLOBAL)
+
 include(ProcessorCount)
-set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
 function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 	if(NOT TARGET Nabla)
@@ -140,8 +141,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif()
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
@@ -295,8 +295,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${LIB_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
 	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
@@ -374,6 +373,8 @@ endmacro()
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
+
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
 
 function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})

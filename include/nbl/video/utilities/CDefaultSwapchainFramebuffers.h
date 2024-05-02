@@ -70,7 +70,7 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 			const auto swapchain = getSwapchain();
 			const auto count = swapchain->getImageCount();
 			const auto& sharedParams = swapchain->getCreationParameters().sharedParams;
-			for (uint8_t i=0u; i<count; i++)
+			for (uint32_t i=0u; i<count; i++)
 			{
 				auto imageView = device->createImageView({
 					.flags = IGPUImageView::ECF_NONE,
@@ -79,6 +79,9 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 					.viewType = IGPUImageView::ET_2D,
 					.format = getImage(i)->getCreationParameters().format
 				});
+				std::string debugName = "Swapchain "+std::to_string(ptrdiff_t(swapchain));
+				debugName += " Image View #"+std::to_string(i);
+				imageView->setObjectDebugName(debugName.c_str());
 				m_framebuffers[i] = device->createFramebuffer({{
 					.renderpass = core::smart_refctd_ptr(m_renderpass),
 					.colorAttachments = &imageView.get(),

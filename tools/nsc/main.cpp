@@ -10,7 +10,6 @@ using namespace nbl::system;
 using namespace nbl::core;
 using namespace nbl::asset;
 
-
 class ShaderCompiler final : public system::IApplicationFramework
 {
 	using base_t = system::IApplicationFramework;
@@ -24,6 +23,9 @@ public:
 			m_system = std::move(system);
 		else
 			m_system = system::IApplicationFramework::createSystem();
+
+		if (!m_system)
+			return false;
 
 		m_logger = make_smart_refctd_ptr<CStdoutLogger>();
 
@@ -51,7 +53,6 @@ public:
 			return false;
 		}
 		std::string output_filepath = "";
-
 
 		auto builtin_flag_pos = std::find(m_arguments.begin(), m_arguments.end(), "-no-nbl-builtins");
 		if (builtin_flag_pos != m_arguments.end()) {
