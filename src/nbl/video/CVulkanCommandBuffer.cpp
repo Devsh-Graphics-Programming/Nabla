@@ -103,7 +103,7 @@ static inline auto getVkImageSubresourceFrom(const SubresourceRange& range) -> s
     if constexpr (rangeNotLayers)
     {
         retval.baseMipLevel = range.baseMipLevel;
-        retval.levelCount = range.layerCount;
+        retval.levelCount = range.levelCount;
     }
     else
         retval.mipLevel = range.mipLevel;
