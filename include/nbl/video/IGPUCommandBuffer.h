@@ -343,7 +343,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
             return setDepthBias_impl(depthBiasConstantFactor,depthBiasClamp,depthBiasSlopeFactor);
         }
-        inline bool setBlendConstants(const hlsl::float32_t& constants)
+        inline bool setBlendConstants(const hlsl::float32_t4& constants)
         {
             if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
                 return false;
@@ -601,7 +601,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) = 0;
         virtual bool setLineWidth_impl(const float width) = 0;
         virtual bool setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor) = 0;
-        virtual bool setBlendConstants_impl(const hlsl::float32_t& constants) = 0;
+        virtual bool setBlendConstants_impl(const hlsl::float32_t4& constants) = 0;
         virtual bool setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds) = 0;
         virtual bool setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask) = 0;
         virtual bool setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask) = 0;

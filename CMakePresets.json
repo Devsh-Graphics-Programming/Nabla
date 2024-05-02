@@ -18,6 +18,8 @@
 				"NBL_BUILD_MITSUBA_LOADER": "OFF",
 				"NBL_BUILD_RADEON_RAYS": "OFF",
 				"_NBL_COMPILE_WITH_OPEN_EXR_": "ON",
+				"NBL_EXPLICIT_MODULE_LOAD_LOG": "ON",
+				"NBL_CPACK_NO_BUILD_DIRECTORY_MODULES": "ON",
 				"NBL_RUN_TESTS": "ON",
 				"NBL_CPACK_CI": "ON"
 			}
@@ -25,6 +27,7 @@
 		{
 			"name": "ci-configure-static-base",
 			"hidden": true,
+			"inherits": "ci-configure-base",
 			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
 			"cacheVariables": {
 				"NBL_STATIC_BUILD": "ON"
@@ -33,6 +36,7 @@
 		{
 			"name": "ci-configure-dynamic-base",
 			"hidden": true,
+			"inherits": "ci-configure-base",
 			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
 			"cacheVariables": {
 				"NBL_STATIC_BUILD": "OFF"
