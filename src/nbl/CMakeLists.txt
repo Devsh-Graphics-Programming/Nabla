@@ -105,6 +105,7 @@ option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF 
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
+option(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES "Disable searching for modules in developer's build directory in install mode" OFF)
 
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
@@ -376,6 +377,10 @@ nbl_adjust_definitions()
 
 if(NBL_EXPLICIT_MODULE_LOAD_LOG)
 	target_compile_definitions(Nabla PUBLIC NBL_EXPLICIT_MODULE_LOAD_LOG)
+endif()
+
+if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
+	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
 if(NBL_DYNAMIC_MSVC_RUNTIME)
