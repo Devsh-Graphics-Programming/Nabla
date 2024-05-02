@@ -10,7 +10,6 @@ using namespace nbl::system;
 using namespace nbl::core;
 using namespace nbl::asset;
 
-
 class ShaderCompiler final : public system::IApplicationFramework
 {
 	using base_t = system::IApplicationFramework;
