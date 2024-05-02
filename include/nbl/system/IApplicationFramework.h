@@ -95,7 +95,11 @@ class IApplicationFramework : public core::IReferenceCounted
 
         // needs to be public because of how constructor forwarding works
         IApplicationFramework(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD) :
-            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD) {}
+            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD) 
+        {
+            const bool status = GlobalsInit();
+            assert(status);
+        }
 
         // DEPRECATED
         virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) {}
