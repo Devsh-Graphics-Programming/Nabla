@@ -6,7 +6,7 @@
 
 // TODO: 
 // - test specialization constant as an array size
-// - test input / output
+// - test input / output (while 
 
 #include "nbl/core/declarations.h"
 
@@ -469,7 +469,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 					return descriptorArraySize;
 				}
-				inline core::based_span<char> addString(const std::string_view str) // TODO: move to cpp
+				inline core::based_span<char> addString(const std::string_view str)
 				{
 					const auto range = alloc<char>(str.size()+1);
 					const auto out = range(m_memPool.data());
@@ -478,7 +478,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					return range;
 				}
 				SDescriptorVarInfo<true>* addResource(const spirv_cross::Compiler& comp, const spirv_cross::Resource& r, IDescriptor::E_TYPE restype);
-				inline core::based_offset<SType<true>> addType(const size_t memberCount) // TODO: move to cpp
+				inline core::based_offset<SType<true>> addType(const size_t memberCount)
 				{
 					const auto memberStorage = allocOffset(SType<true>::StoragePerMember*memberCount);
 					auto retval = alloc<SType<true>>(1);
@@ -612,81 +612,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			return introspection;
 		}
-		
-		// TODO: for sure this function should be inline?
+
 		//! creates pipeline for a single ICPUShader
-		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr)
-		{
-			if (info.shader->getStage()!=IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
-				return nullptr;
-
-			CStageIntrospectionData::SParams params;
-			params.entryPoint = info.entryPoint;
-			params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
-
-			auto introspection = introspect(params);
-
-			core::smart_refctd_ptr<CPipelineIntrospectionData> pplnIntrospectData = core::make_smart_refctd_ptr<CPipelineIntrospectionData>();
-			if (!pplnIntrospectData->merge(introspection.get()))
-				return nullptr;
-
-			if (layout)
-			{
-				// regarding push constants we only need to validate if every range of push constants determined by the introspection is subset any push constants subset of predefined layout
-				core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
-				const auto& introspectionPushConstantRanges = pplnIntrospectionLayout->getPushConstantRanges();
-				if (!introspectionPushConstantRanges.empty())
-				{
-					const auto& layoutPushConstantRanges = layout->getPushConstantRanges();
-					if (layoutPushConstantRanges.empty())
-						return nullptr;
-
-					for (auto& introPcRange : introspectionPushConstantRanges)
-					{
-						auto subsetRangeFound = std::find_if(
-							layoutPushConstantRanges.begin(),
-							layoutPushConstantRanges.end(), 
-							[&introPcRange](const SPushConstantRange& layoutPcRange)
-							{
-								const bool isIntrospectionPushConstantRangeSubset =
-									introPcRange.offset <= layoutPcRange.offset &&
-									introPcRange.offset + introPcRange.size <= layoutPcRange.offset + layoutPcRange.size;
-								return isIntrospectionPushConstantRangeSubset;
-							});
-
-						auto asdf = layoutPushConstantRanges.end();
-
-						if (subsetRangeFound == layoutPushConstantRanges.end())
-							return nullptr;
-					}
-				}
-
-				// now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
-				for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
-				{
-					const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
-
-					const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
-					if (!introspectionDescriptorSetLayout.empty())
-					{
-						auto dscLayout = pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx);
-						if (!dscLayout)
-							continue;
-						if (!dscLayout->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
-							return nullptr;
-					}
-				}
-			}
-			else
-			{
-				layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
-			}
-
-			ICPUComputePipeline::SCreationParams pplnCreationParams = {{.layout = layout.get()}};
-			pplnCreationParams.shader = info;
-			pplnCreationParams.layout = layout.get();
-			return ICPUComputePipeline::create(pplnCreationParams);
-		}
+		core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout = nullptr);
 
 #if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way
 		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos);

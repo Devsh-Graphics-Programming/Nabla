@@ -106,6 +106,79 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
     }
 }
 
+core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
+{
+    if (info.shader->getStage() != IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
+        return nullptr;
+
+    CStageIntrospectionData::SParams params;
+    params.entryPoint = info.entryPoint;
+    params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+
+    auto introspection = introspect(params);
+
+    core::smart_refctd_ptr<CPipelineIntrospectionData> pplnIntrospectData = core::make_smart_refctd_ptr<CPipelineIntrospectionData>();
+    if (!pplnIntrospectData->merge(introspection.get()))
+        return nullptr;
+
+    if (layout)
+    {
+        // regarding push constants we only need to validate if every range of push constants determined by the introspection is subset any push constants subset of predefined layout
+        core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+        const auto& introspectionPushConstantRanges = pplnIntrospectionLayout->getPushConstantRanges();
+        if (!introspectionPushConstantRanges.empty())
+        {
+            const auto& layoutPushConstantRanges = layout->getPushConstantRanges();
+            if (layoutPushConstantRanges.empty())
+                return nullptr;
+
+            for (auto& introPcRange : introspectionPushConstantRanges)
+            {
+                auto subsetRangeFound = std::find_if(
+                    layoutPushConstantRanges.begin(),
+                    layoutPushConstantRanges.end(),
+                    [&introPcRange](const SPushConstantRange& layoutPcRange)
+                    {
+                        const bool isIntrospectionPushConstantRangeSubset =
+                            introPcRange.offset <= layoutPcRange.offset &&
+                            introPcRange.offset + introPcRange.size <= layoutPcRange.offset + layoutPcRange.size;
+                        return isIntrospectionPushConstantRangeSubset;
+                    });
+
+                auto asdf = layoutPushConstantRanges.end();
+
+                if (subsetRangeFound == layoutPushConstantRanges.end())
+                    return nullptr;
+            }
+        }
+
+        // now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
+        for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
+        {
+            const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
+
+            const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
+            if (!introspectionDescriptorSetLayout.empty())
+            {
+                auto dscLayout = pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx);
+                if (!dscLayout)
+                    continue;
+                if (!dscLayout->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
+                    return nullptr;
+            }
+        }
+    }
+    else
+    {
+        layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+    }
+
+    ICPUComputePipeline::SCreationParams pplnCreationParams = { {.layout = layout.get()} };
+    pplnCreationParams.shader = info;
+    pplnCreationParams.layout = layout.get();
+    return ICPUComputePipeline::create(pplnCreationParams);
+}
+
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
 NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
 {
@@ -323,6 +396,8 @@ CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVInt
     // acording to the Vulkan documentation (15.5.3) only 1D arrays are allowed
     if (arrDim>1)
         return nullptr; // TODO: log fail
+
+
 
     const uint32_t descriptorArraySize = type.array.empty() ? 1u : *type.array.data();    
     const bool isArrayTypeLiteral = type.array_size_literal.empty() ? true : type.array_size_literal[0];
@@ -858,10 +933,14 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
         debug << "SPEC CONSTATS:\n";
 
         for (auto& specConstant : m_specConstants)
-            debug << " name: " << std::string_view(specConstant.name.begin(), specConstant.name.end()) << ' '
-            << "TODO: type "
-            << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
-    }
+        {
+            // TODO: it gives weird errors, debug
+            const std::string_view specConstantName = "SPEC_CONSTANT_NAME"; // std::string_view(specConstant.name.begin(), specConstant.name.end());
+
+            debug << " name: " << specConstantName << ' '
+                << "TODO: type "
+                << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
+        }    }
 
     if (m_pushConstants.type)
     {
