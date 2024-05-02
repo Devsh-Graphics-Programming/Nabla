@@ -3,9 +3,7 @@
 #include "nbl/video/IGPUSampler.h"
 
 #define VK_NO_PROTOTYPES
-NBL_PUSH_DISABLE_WARNINGS
 #include <vulkan/vulkan.h>
-NBL_POP_DISABLE_WARNINGS
 
 namespace nbl::video
 {

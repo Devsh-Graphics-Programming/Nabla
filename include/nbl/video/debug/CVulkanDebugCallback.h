@@ -4,9 +4,7 @@
 #include "nbl/video/debug/IDebugCallback.h"
 
 #define VK_NO_PROTOTYPES
-NBL_PUSH_DISABLE_WARNINGS
 #include <vulkan/vulkan.h>
-NBL_POP_DISABLE_WARNINGS
 
 #if defined(_NBL_PLATFORM_WINDOWS_) && defined(_NBL_EG_OP_LNK)
 #include <windows.h>

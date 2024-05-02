@@ -13,9 +13,7 @@
 
 // TODO: remove
 #define VK_NO_PROTOTYPES
-NBL_PUSH_DISABLE_WARNINGS
 #include <vulkan/vulkan.h>
-NBL_POP_DISABLE_WARNINGS
 
 #include <type_traits>
 
