@@ -632,7 +632,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * srcBuffer must be valid (see `SBufferRange::isValid()`)
         //!     * dstImage must point to a valid IGPUImage
         //!     * regions.size() must be > 0
-        //! NOTE: IUtility::getDefaultUpStreamingBuffer()->cull_frees() should be called before reseting the submissionFence and after `submissionFence` is signaled. 
         bool updateImageViaStagingBuffer(
             SIntendedSubmitInfo& nextSubmit, const void* srcData, asset::E_FORMAT srcFormat, 
             IGPUImage* dstImage, IGPUImage::LAYOUT currentDstImageLayout,
@@ -649,7 +648,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return updateImageViaStagingBuffer(submit,srcBuffer->getPointer(),srcFormat,dstImage,currentDstImageLayout,{regions.begin(),regions.size()});
         }
 
-        // wrapped for R-value reference submit infos
+        // wrapper for R-value reference submit infos
         template<typename... Args>
         inline bool updateImageViaStagingBuffer(SIntendedSubmitInfo&& nextSubmit, Args&&... args)
         {
@@ -661,6 +660,21 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         inline ISemaphore::future_t<IQueue::RESULT> updateImageViaStagingBufferAutoSubmit(IntendedSubmitInfo&& submit, Args&&... args)
         {
             return autoSubmit(submit,[&](SIntendedSubmitInfo& nextSubmit)->bool{return updateImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);});
+        }
+
+        // --------------
+        // downloadImageViaStagingBuffer
+        // --------------
+        bool downloadImageViaStagingBuffer(
+            SIntendedSubmitInfo& nextSubmit, const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
+            void* dest, const std::span<const asset::IImage::SBufferCopy> regions
+        );
+
+        // wrapper for R-value reference submit infos
+        template<typename... Args>
+        inline bool downloadImageViaStagingBuffer(SIntendedSubmitInfo&& nextSubmit, Args&&... args)
+        {
+            return downloadImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);
         }
 
     protected:

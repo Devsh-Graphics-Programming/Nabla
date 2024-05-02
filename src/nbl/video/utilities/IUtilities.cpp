@@ -139,19 +139,17 @@ bool IUtilities::updateImageViaStagingBuffer(
     return true;
 }
 
-#if 0
 bool IUtilities::downloadImageViaStagingBuffer(
-    SIntendedSubmitInfo& intendedNextSubmit,
-    const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
-    void* dest, const core::SRange<const asset::IImage::SBufferCopy>& regions
+    SIntendedSubmitInfo& intendedNextSubmit, const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
+    void* dest, const std::span<const asset::IImage::SBufferCopy> regions
 )
 {
     if (regions.empty())
         return false;
 
+    _NBL_TODO();
+
     return true;
 }
-#endif
-
 
 } // namespace nbl::video
