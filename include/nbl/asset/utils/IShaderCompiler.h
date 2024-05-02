@@ -182,6 +182,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		class CCache final : public IReferenceCounted
 		{
 		public:
+			// Used to check compatibility of Caches before reading
+			constexpr static inline std::string_view VERSION = "1.0.0";
 			using hash_t = std::array<uint64_t, 4>;
 			static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 

@@ -278,6 +278,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
 
     // Create the containerJson
     json containerJson{
+        { "version", VERSION },
         { "entries", std::move(entries) },
         { "shaderCreationParams", std::move(shaderCreationParams) },
     };
@@ -314,6 +315,16 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
     std::string_view containerJsonString(cacheAsChar.begin() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, cacheAsChar.end());
     json containerJson = json::parse(containerJsonString);
+
+    // Check that this cache is from the currently supported version
+    {
+        std::string version;
+        containerJson.at("version").get_to(version);
+        if (version != VERSION) {
+            return nullptr;
+        }
+    }
+    
 
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
     std::vector<SEntry> entries;
