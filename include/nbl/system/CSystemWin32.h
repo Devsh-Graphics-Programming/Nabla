@@ -41,15 +41,35 @@ class NBL_API2 CSystemWin32 : public ISystem
             };
             #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
 
+            const auto executableDirectory = []() -> std::filesystem::path
+            {
+                wchar_t path[MAX_PATH] = { 0 };
+                GetModuleFileNameW(NULL, path, MAX_PATH);
+
+                return std::filesystem::path(path).parent_path();
+            }();
+
             // load from right next to the executable (always be able to override like this)
             HMODULE res = LoadLibraryExA(dllName, NULL, LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
-  
-            // now lets try our custom dirs
+
+            // now lets try our custom dirs, always attempt to resolve relative paths
             for (system::path dir : paths)
             {
-                const auto pathStr = std::filesystem::absolute(dir.make_preferred()/dllName).string(); // always attempt to resolve relative paths
-                if (res = LoadLibraryExA(pathStr.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
-                    break;
+                auto requestModulePath = dir.make_preferred() / dllName;
+
+                // first try relative to CWD
+                {
+                    const auto path = std::filesystem::absolute(requestModulePath).string(); 
+                    if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                        break;
+                }
+
+                // then relative to the executable's directory
+                {
+                    const auto path = std::filesystem::absolute(executableDirectory / requestModulePath).string();
+                    if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                        break;
+                }
             }
 
             // if still can't find, try looking for a system wide install

@@ -27,12 +27,16 @@ class IApplicationFramework : public core::IReferenceCounted
         {
             #ifdef _NBL_PLATFORM_WINDOWS_
                 #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
+                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #else
+                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #endif
                 #else
                     const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path() });
                 #endif
 
-                if (!dxcLoad)
+                if (dxcLoad == E_FAIL)
                     return false;
                 
                 #ifdef _NBL_SHARED_BUILD_
@@ -41,12 +45,16 @@ class IApplicationFramework : public core::IReferenceCounted
                     // and in CPack package install directory
                 
                     #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
-                        const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
+                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #else
+                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #endif
                     #else
                         const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_ });
                     #endif
 
-                    if (!nablaLoad)
+                    if (nablaLoad == E_FAIL)
                         return false;
                 #endif // _NBL_SHARED_BUILD_
             #else
