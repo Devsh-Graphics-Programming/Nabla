@@ -64,8 +64,14 @@ class NBL_API2 CSystemWin32 : public ISystem
             }
             #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
 
-            if(!res)
+            if (!res)
+            {
+                #ifdef NBL_EXPLICIT_MODULE_LOAD_LOG
+                printf("[ERROR]: Could not load \"%s\" module\n", dllName);
+                #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
+
                 return E_FAIL;
+            }
 
             return __HrLoadAllImportsForDll(dllName);
         }
