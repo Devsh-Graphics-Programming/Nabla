@@ -26,6 +26,7 @@
 		{
 			"name": "ci-configure-static-base",
 			"hidden": true,
+			"inherits": "ci-configure-base",
 			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
 			"cacheVariables": {
 				"NBL_STATIC_BUILD": "ON"
@@ -34,6 +35,7 @@
 		{
 			"name": "ci-configure-dynamic-base",
 			"hidden": true,
+			"inherits": "ci-configure-base",
 			"binaryDir": "$env{NBL_CI_BUILD_DIRECTORY}",
 			"cacheVariables": {
 				"NBL_STATIC_BUILD": "OFF"
