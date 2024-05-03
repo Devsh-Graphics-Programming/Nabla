@@ -101,8 +101,6 @@ struct counting
                 scan_sum = sum + sdata[WorkgroupSize * i + tid];
                 sdata[WorkgroupSize * (i + 1)] += scan_sum;
             }
-
-            arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
         }
     }
                 
@@ -127,6 +125,8 @@ struct counting
             nbl::hlsl::glsl::atomicAdd(sdata[value - minimum], (uint32_t) 1);
         }
 
+        nbl::hlsl::glsl::barrier();
+
         [unroll]
         for (int i = 0; i < elements_per_wt; i++)
         {
@@ -138,8 +138,6 @@ struct counting
             KeyAccessor(out_key_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(key);
             ValueAccessor(out_value_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(value);
         }
-
-        nbl::hlsl::glsl::barrier();
     }
 
     uint64_t in_key_addr, out_key_addr;
