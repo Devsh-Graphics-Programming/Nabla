@@ -105,6 +105,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			switch (type)
 			{
 			case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER: [[fallthrough]];
+			case IDescriptor::E_TYPE::ET_SAMPLED_IMAGE: [[fallthrough]];
 			case IDescriptor::E_TYPE::ET_STORAGE_IMAGE: [[fallthrough]];
 			case IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
 				category = IDescriptor::E_CATEGORY::EC_IMAGE;

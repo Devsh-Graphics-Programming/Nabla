@@ -14,7 +14,9 @@ class IDescriptor : public virtual core::IReferenceCounted
 	public:
 		enum class E_TYPE : uint8_t
 		{
-			ET_COMBINED_IMAGE_SAMPLER = 0,
+			ET_SAMPLER = 0,
+			ET_COMBINED_IMAGE_SAMPLER,
+			ET_SAMPLED_IMAGE,
 			ET_STORAGE_IMAGE,
 			ET_UNIFORM_TEXEL_BUFFER,
 			ET_STORAGE_TEXEL_BUFFER,
@@ -49,6 +51,7 @@ class IDescriptor : public virtual core::IReferenceCounted
 			switch (type)
 			{
 				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+				case E_TYPE::ET_SAMPLED_IMAGE:
 				case E_TYPE::ET_STORAGE_IMAGE:
 				case E_TYPE::ET_INPUT_ATTACHMENT:
 					return EC_IMAGE;

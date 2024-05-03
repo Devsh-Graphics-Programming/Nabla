@@ -102,6 +102,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
             switch (type)
             {
             case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
                 break;
             case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:

@@ -997,8 +997,12 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
 {
     switch (descriptorType)
     {
+        case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+            return VK_DESCRIPTOR_TYPE_SAMPLER;
         case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
