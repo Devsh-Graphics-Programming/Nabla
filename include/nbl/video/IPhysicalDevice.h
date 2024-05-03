@@ -332,21 +332,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline bool operator<(const SUsage& other) const
-                {
-                    if (vertexAttribute && !other.vertexAttribute) return false;
-                    if (bufferView && !other.bufferView) return false;
-                    if (storageBufferView && !other.storageBufferView) return false;
-                    if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
-                    if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
-                    if (storageBufferViewLoadWithoutFormat && !other.storageBufferViewLoadWithoutFormat) return false;
-                    if (storageBufferViewStoreWithoutFormat && !other.storageBufferViewStoreWithoutFormat) return false;
-                    if (opticalFlowImage && !other.opticalFlowImage) return false;
-                    if (opticalFlowVector && !other.opticalFlowVector) return false;
-                    if (opticalFlowCost && !other.opticalFlowCost) return false;
-                    return true;
-                }
-
                 inline bool operator == (const SUsage& other) const
                 {
                     return
@@ -375,9 +360,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             inline bool isSubsetOf(const SFormatBufferUsages& other) const
             {
-                for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
-                    if(!(m_usages[i] < other.m_usages[i]))
-                        return false;
+                for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+                if ((m_usages[i]&other.m_usages[i])!=m_usages[i])
+                    return false;
                 return true;
             }
 
@@ -559,31 +544,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                constexpr bool operator<(const SUsage& other) const
-                {
-                    if (sampledImage && !other.sampledImage) return false;
-                    if (linearlySampledImage && !other.linearlySampledImage) return false;
-                    if (minmaxSampledImage && !other.minmaxSampledImage) return false;
-                    if (storageImage && !other.storageImage) return false;
-                    if (storageImageAtomic && !other.storageImageAtomic) return false;
-                    if (attachment && !other.attachment) return false;
-                    if (attachmentBlend && !other.attachmentBlend) return false;
-                    if (blitSrc && !other.blitSrc) return false;
-                    if (blitDst && !other.blitDst) return false;
-                    if (transferSrc && !other.transferSrc) return false;
-                    if (transferDst && !other.transferDst) return false;
-                    if (videoDecodeOutput && !other.videoDecodeOutput) return false;
-                    if (videoDecodeDPB && !other.videoDecodeDPB) return false;
-                    if (videoEncodeInput && !other.videoEncodeInput) return false;
-                    if (videoEncodeDPB && !other.videoEncodeDPB) return false;
-                    if (storageImageLoadWithoutFormat && !other.storageImageLoadWithoutFormat) return false;
-                    if (storageImageStoreWithoutFormat && !other.storageImageStoreWithoutFormat) return false;
-                    if (depthCompareSampledImage && !other.depthCompareSampledImage) return false;
-                    if (hostImageTransfer && !other.hostImageTransfer) return false;
-                    if (log2MaxSamples > other.log2MaxSamples) return false;
-                    return true;
-                }
-
                 constexpr bool operator==(const SUsage& other) const
                 {
                     return
@@ -622,9 +582,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             inline bool isSubsetOf(const SFormatImageUsages& other) const
             {
-                for(uint32_t i=0; i<asset::EF_COUNT; ++i)
-                    if(!(m_usages[i]<other.m_usages[i]))
-                        return false;
+                for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+                if((m_usages[i]&other.m_usages[i])!=m_usages[i])
+                    return false;
                 return true;
             }
 

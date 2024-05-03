@@ -5,6 +5,12 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 
+#include "nbl/asset/utils/shaderCompiler_serialization.h"
+
+#include "nbl/core/xxHash256.h"
+
+#include "nbl/asset/CVectorCPUBuffer.h"
+
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -12,102 +18,17 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-std::string IShaderCompiler::escapeFilename(std::string&& code)
-{
-    std::string dest;
-    dest.reserve(code.size() * 2);
-    for (char c : code)
-    {
-        if (c == '\\')
-            dest.append("\\" "\\");
-        else 
-            dest.push_back(c);
-    }
-    return dest;
-}
-
-//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
-void IShaderCompiler::disableAllDirectivesExceptIncludes(std::string& _code)
-{
-    // TODO: replace this with a proper-ish proprocessor and includer one day
-    std::regex directive("#(?!(( |\t|\r|\v|\f)*(include|version|pragma shader_stage)))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
-    //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IShaderCompiler functions is set to ESS_UNKNOWN
-    _code = std::regex_replace(_code, directive, IShaderCompiler::PREPROC_DIRECTIVE_DISABLER);
-}
-
-void IShaderCompiler::reenableDirectives(std::string& _code)
-{
-    std::regex directive(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER);
-    _code = std::regex_replace(_code, directive, "#");
-}
-
-std::string IShaderCompiler::encloseWithinExtraInclGuards(std::string&& _code, uint32_t _maxInclusions, const char* _identifier)
-{
-    assert(_maxInclusions != 0u);
-
-    using namespace std::string_literals;
-    std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
-    std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
-
-    auto genDefs = [&defBase_, _maxInclusions, _identifier] {
-        auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
-        std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
-        for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
-            const std::string defname = defBase(i);
-            defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
-        }
-        defs += "#endif\n";
-        return defs;
-    };
-    auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
-        auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
-        std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
-        for (int32_t i = _maxInclusions - 1; i >= 0; --i) {
-            const std::string defname = defBase(i);
-            undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
-        }
-        undefs += "#endif\n";
-        return undefs;
-    };
-
-    std::string identifier = IShaderCompiler::escapeFilename(_identifier);
-    return
-        genDefs() +
-        "\n"
-        "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
-        "\n" +
-        // This will get turned back into #line after the directives get re-enabled
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + identifier.c_str() + "\"\n" +
-        _code +
-        "\n"
-        "#endif"
-        "\n\n" +
-        genUndefs();
-}
-
-// Amount of lines before the #line after having run encloseWithinExtraInclGuards
-uint32_t IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxInclusions)
-{
-    auto lineDirectiveString = std::string(IShaderCompiler::PREPROC_DIRECTIVE_DISABLER) + "line";
-    std::string str = IShaderCompiler::encloseWithinExtraInclGuards(std::string(""), _maxInclusions, "encloseWithinExtraInclGuardsLeadingLines");
-    size_t lineDirectivePos = str.find(lineDirectiveString);
-    auto substr = str.substr(0, lineDirectivePos - lineDirectiveString.length());
-
-    return std::count(substr.begin(), substr.end(), '\n');
-}
-
 IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_system(std::move(system))
 {
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
-    m_defaultIncludeFinder->addGenerator(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeGenerator>());
-    m_defaultIncludeFinder->getIncludeStandard("", "nbl/builtin/glsl/utils/common.glsl");
 }
 
 std::string IShaderCompiler::preprocessShader(
     system::IFile* sourcefile,
     IShader::E_SHADER_STAGE stage,
-    const SPreprocessorOptions& preprocessOptions) const
+    const SPreprocessorOptions& preprocessOptions,
+    std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     std::string code(sourcefile->getSize(), '\0');
 
@@ -116,23 +37,22 @@ std::string IShaderCompiler::preprocessShader(
     if (!success)
         return nullptr;
 
-    return preprocessShader(std::move(code), stage, preprocessOptions);
+    return preprocessShader(std::move(code), stage, preprocessOptions, dependencies);
 }
 
 auto IShaderCompiler::IIncludeGenerator::getInclude(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
-
     for (const auto& pattern : builtinNames)
-    if (std::regex_match(includeName,pattern.first))
-    {
-        if (auto contents=pattern.second(includeName); !contents.empty())
+        if (std::regex_match(includeName, pattern.first))
         {
-            // Welcome, you've came to a very disused piece of code, please check the first parameter (path) makes sense!
-            _NBL_DEBUG_BREAK_IF(true);
-            return {includeName,contents};
+            if (auto contents = pattern.second(includeName); !contents.empty())
+            {
+                // Welcome, you've came to a very disused piece of code, please check the first parameter (path) makes sense!
+                _NBL_DEBUG_BREAK_IF(true);
+                return { includeName,contents };
+            }
         }
-    }
 
     return {};
 }
@@ -176,10 +96,10 @@ auto IShaderCompiler::CFileSystemIncludeLoader::getInclude(const system::path& s
     const bool success = bool(succ);
     assert(success);
 
-    return {f->getFileName(),std::move(contents)};
+    return { f->getFileName(),std::move(contents) };
 }
 
-IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system) 
+IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::ISystem>&& system)
     : m_defaultFileSystemLoader(core::make_smart_refctd_ptr<CFileSystemIncludeLoader>(std::move(system)))
 {
     addSearchPath("", m_defaultFileSystemLoader);
@@ -188,13 +108,18 @@ IShaderCompiler::CIncludeFinder::CIncludeFinder(core::smart_refctd_ptr<system::I
 // ! includes within <>
 // @param requestingSourceDir: the directory where the incude was requested
 // @param includeName: the string within <> of the include preprocessing directive
+// @param 
 auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
-    if (auto contents = tryIncludeGenerators(includeName)) 
-        return contents;
-    if (auto contents = trySearchPaths(includeName)) 
-        return contents;
-    return m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName);
+    IShaderCompiler::IIncludeLoader::found_t retVal;
+    if (auto contents = tryIncludeGenerators(includeName))
+        retVal = std::move(contents);
+    else if (auto contents = trySearchPaths(includeName))
+        retVal = std::move(contents);
+    else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
+
+    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    return retVal;
 }
 
 // ! includes within ""
@@ -202,9 +127,12 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 // @param includeName: the string within "" of the include preprocessing directive
 auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& requestingSourceDir, const std::string& includeName) const -> IIncludeLoader::found_t
 {
-    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(),includeName))
-        return contents;
-    return trySearchPaths(includeName);
+    IShaderCompiler::IIncludeLoader::found_t retVal;
+    if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
+        retVal = std::move(contents);
+    else retVal = std::move(trySearchPaths(includeName));
+    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    return retVal;
 }
 
 void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader)
@@ -233,8 +161,8 @@ void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<
 auto IShaderCompiler::CIncludeFinder::trySearchPaths(const std::string& includeName) const -> IIncludeLoader::found_t
 {
     for (const auto& itr : m_loaders)
-    if (auto contents = itr.loader->getInclude(itr.searchPath,includeName))
-        return contents;
+        if (auto contents = itr.loader->getInclude(itr.searchPath, includeName))
+            return contents;
     return {};
 }
 
@@ -242,18 +170,18 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 {
     // Need custom function because std::filesystem doesn't consider the parameters we use after the extension like CustomShader.hlsl/512/64
     auto removeExtension = [](const std::string& str)
-    {
-        return str.substr(0, str.find_last_of('.'));
-    };
+        {
+            return str.substr(0, str.find_last_of('.'));
+        };
 
     auto standardizePrefix = [](const std::string_view& prefix) -> std::string
-    {
-        std::string ret(prefix);
-        // Remove Trailing '/' if any, to compare to filesystem paths
-        if (*ret.rbegin() == '/' && ret.size() > 1u)
-            ret.resize(ret.size() - 1u);
-        return ret;
-    };
+        {
+            std::string ret(prefix);
+            // Remove Trailing '/' if any, to compare to filesystem paths
+            if (*ret.rbegin() == '/' && ret.size() > 1u)
+                ret.resize(ret.size() - 1u);
+            return ret;
+        };
 
     auto extension_removed_path = system::path(removeExtension(includeName));
     system::path path = extension_removed_path.parent_path();
@@ -288,4 +216,133 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     }
 
     return {};
+}
+
+core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
+    auto foundRange = m_container.equal_range(mainFile);
+    for (auto& found = foundRange.first; found != foundRange.second; found++)
+    {
+        bool allDependenciesMatch = true;
+        // go through all dependencies
+        for (auto i = 0; i < found->dependencies.size(); i++)
+        {
+            const auto& dependency = found->dependencies[i];
+
+            IIncludeLoader::found_t header;
+            if (dependency.standardInclude)
+                header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
+            else
+                header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
+
+            if (header.hash != dependency.hash || header.contents != dependency.contents)
+            {
+                allDependenciesMatch = false;
+                break;
+            }
+        }
+        if (allDependenciesMatch) {
+            return found->value;
+        }
+    }
+    return nullptr;
+}
+
+core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
+{
+    size_t shaderBufferSize = 0;
+    core::vector<size_t> offsets(m_container.size());
+    core::vector<uint64_t> sizes(m_container.size());
+    json entries;
+    core::vector<CPUShaderCreationParams> shaderCreationParams;
+
+    // In a first loop over entries we add all entries and their shader creation parameters to a json, and get the size of the shaders buffer
+    size_t i = 0u;
+    for (auto& entry : m_container) {
+        // Add the entry as a json array
+        entries.push_back(entry);
+
+        // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
+        // (where the params array has been moved) we don't have to read the json to get the offsets again
+        offsets[i] = shaderBufferSize;
+        sizes[i] = entry.value->getContent()->getSize();
+
+        // And add the params to the shader creation parameters array
+        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), sizes[i], shaderBufferSize);
+        // Enlarge the shader buffer by the size of the current shader
+        shaderBufferSize += sizes[i];
+        i++;
+    }
+
+    // Create the containerJson
+    json containerJson{
+        { "version", VERSION },
+        { "entries", std::move(entries) },
+        { "shaderCreationParams", std::move(shaderCreationParams) },
+    };
+    std::string dumpedContainerJson = std::move(containerJson.dump());
+    uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
+
+    // Create a buffer able to hold all shaders + the containerJson
+    core::vector<uint8_t> retVal(shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength);
+
+    // first SHADER_BUFFER_SIZE_BYTES (8) in the buffer are the size of the shader buffer
+    memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
+
+    // Loop over entries again, adding each one's shader to the buffer. 
+    i = 0u;
+    for (auto& entry : m_container) {
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.value->getContent()->getPointer(), sizes[i]);
+        i++;
+    }
+
+    // Might as well memcpy everything
+    memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
+
+    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
+}
+
+core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
+{
+    auto retVal = core::make_smart_refctd_ptr<CCache>();
+
+    // First get the size of the shader buffer, stored in the first 8 bytes
+    const uint64_t* cacheStart = reinterpret_cast<const uint64_t*>(serializedCache.data());
+    uint64_t shaderBufferSize = cacheStart[0];
+    // Next up get the json that stores the container data
+    std::span<const char> cacheAsChar = { reinterpret_cast<const char*>(serializedCache.data()), serializedCache.size() };
+    std::string_view containerJsonString(cacheAsChar.begin() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, cacheAsChar.end());
+    json containerJson = json::parse(containerJsonString);
+
+    // Check that this cache is from the currently supported version
+    {
+        std::string version;
+        containerJson.at("version").get_to(version);
+        if (version != VERSION) {
+            return nullptr;
+        }
+    }
+    
+
+    // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
+    std::vector<SEntry> entries;
+    std::vector<CPUShaderCreationParams> shaderCreationParams;
+    containerJson.at("entries").get_to(entries);
+    containerJson.at("shaderCreationParams").get_to(shaderCreationParams);
+
+    // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
+    for (auto i = 0u; i < entries.size(); i++) {
+        // Create buffer to hold the code
+        auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
+        // Copy the shader bytecode into the buffer
+        memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        // Create the ICPUShader
+        auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
+
+        entries[i].value = std::move(value);
+
+        retVal->insert(std::move(entries[i]));
+    }
+
+    return retVal;
 }

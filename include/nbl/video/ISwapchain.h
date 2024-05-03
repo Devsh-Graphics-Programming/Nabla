@@ -297,7 +297,7 @@ class ISwapchain : public IBackendObject
                 core::bitflag<IGPUImage::E_CREATE_FLAGS> retval = IGPUImage::ECF_NONE;
                 if (sharedParams.viewFormats.count()>1)
                     retval |= IGPUImage::ECF_MUTABLE_FORMAT_BIT;
-                if (!(physDev->getImageFormatUsagesOptimalTiling()[surfaceFormat.format]<sharedParams.imageUsage))
+                if ((physDev->getImageFormatUsagesOptimalTiling()[surfaceFormat.format]&sharedParams.imageUsage)!=sharedParams.imageUsage)
                     retval |= IGPUImage::ECF_EXTENDED_USAGE_BIT;
                 return retval;
             }

@@ -14,7 +14,7 @@ If you are a programmer with a passion for High Performance Computing, Mathemati
 
 If you can be in charge of your own time managment and work 4-day work weeks 100% remotely
 
-Then make something impressive using Nabla, open a PR and contact us (jobs devsh.eu) with your CV.
+Then make something impressive using **Nabla**, open a PR and contact us (`jobs@devsh.eu` or **[discord](https://discord.gg/4MTCVaN)**) with your CV.
 
 We would also be happy to sponsor your master or bachelor thesis as long as:
 - You are an above average student with an interest in Graphics
@@ -46,7 +46,7 @@ The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (
  - video encoding and decoding
  - High Performance Computing
 
-Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to C#, Java, Python and related languages.
+Our language of choice is C++20 however we're also amenable to C#, Java, Python and related languages.
 
 Contact `newclients@devsh.eu` with inquires into contracting.
 
@@ -124,260 +124,61 @@ You can download a stable build [here](https://artifactory.devsh.eu/Ditt/ci/data
 [NA]: https://img.shields.io/badge/free%20slot-n%2Fa-red
 [BUILD_STATUS]: https://img.shields.io/badge/build-status-blueviolet
 
-## Required Build Tools and SDK's
+# Quick start
 
-### Vanilla Build - most extensions disabled
+### Use Nabla from package
 
-- **[CMake](https://cmake.org/download/)** 
-- **[MSVC](https://visualstudio.microsoft.com/pl/downloads/)** or **[GCC](https://sourceforge.net/projects/mingw-w64/)** or **[NDK's Clang](https://TODO.todo/)** 
-- **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**, at least **1.2.198.1** version ***without* any components** (they break out SPIR-V Tools integration) installed
-- **[Perl 5.28 executable version](https://www.perl.org/get.html)**
-- **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
-- **[Python 3.8](https://www.python.org/downloads/release/python-380/)** or later (3.10.2 required for Renderdoc based GPU Automated Tests)
+TODO - soon
 
-#### Vanilla + CUDA Build
+### Build Nabla with Docker
 
-**Nabla** only supports *CUDA* interop using the Driver API not the Runtime API. We use NVRTC to produce runtime compiled PTX.
+TODO - soon
 
-Because *CUDA* needs its own version the GeForce (Quadro or Tesla) Driver, its often a few minor versions behind your automatically updated Windows driver, the install will fail even if it prompts you to agree to installing an older driver. 
+### Build Nabla manually
 
-So basically first remove your driver, then install *CUDA SDK*.
+#### Minimal required dependencies
 
-- **[CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)**
-
-#### CMake warnings in reference CUDA and notes
-
-On Windows *CMake* has trouble finding new packages installed after *CMake*, so its the perfect time to visit **[its website](https://cmake.org/)** and check for a new version installer after installing *CUDA SDK*.
-
-You can also thank NVidia for making the CUDA SDK a whole whopping 2.5 GB on Windows.
-
-#### Vanilla + CUDA + Optix Build
-
-After dealing with *CUDA* installing just install *Optix SKD*.
-
-- **[OptiX SDK](https://developer.nvidia.com/designworks/optix/download)** 
-
-### Android Build
-
-**Required:**
-
-- **[Android Studio](https://developer.android.com/studio)**
-- **[JDK 8](https://www.java.com/download/)**
-
-The first step is to install Android Studio and JDK 8. When done, open Android Studio and navigate to **Tools** -> **SDK Manager** -> **System Settings** -> **Android SDK**.
-Select *SDK Platforms* and install proper individual SDK components - install Android version with Android API level you will be targeting. Then switch to *SDK Tools* and make sure to install **Android SDK Build-Tools 32** and **NDK (Side by side)** - it's a *requirement*! Also you must make sure that your **JAVA_HOME** enviroment variable is set to proper JDK installation path.
-
-Now you can begin CMake'ing. We use **Ninja** generator tools as a generator for building Nabla for Android on both Windows and Linux Host-OSes. *Note that Nabla Android build has been performed and tested so far on Windows as cross compile OS with **Ninja** generator and on Linux as cross compile OS with **Makefile** and **Ninja** generators, but we recommend using **Ninja** for both OSes.* 
-
-Before configuring CMake you must add 2 cache variables:
-
-- **ANDROID_PLATFORM**
-- **ANDROID_ABI**
-
-**ANDROID_PLATFORM** is a target API platform that you pass as `android-x` where `x` is your android API level (you can pass 28 for instance). **ANDROID_ABI** is Application Binary Interface and note, that we support only `x86_64` currently. Those 2 cache variables *must be* specified before CMake configuration. Having done it you can specify toolchain file for cross-compiling by passing path to `android.toolchain.cmake`. You can find it in Android Studio's SDK directory in `ndk/<version>/build/cmake/android.toolchain.cmake`. Basically the entire path should look like this one `C:/Users/<your_user>/AppData/Local/AndroidSdk/ndk/<version>/build/cmake/android.toolchain.cmake`. With all of this feel free to generate.
-
-Having Nabla generated you need to enter build directory, launch the terminal and type `cmake --build . --target Nabla -j4 -v` or if you want build android sample example you would type `cmake --build . --target android_sample_apk -j4 -v`. The android sample example produces *.apk* file you can use for debugging and profiling.
-
-**Note:** each example provided by the engine builds as an executable with non-cross builds and with target of a name called `a_target`, in following example above it would be `android_sample`. When building cross-compile for android **to produce the APK file you need to add `_apk` postfix to the `a_target`, because `a_target` gets built then as a library.
-
-#### DEPRECATED: Chrome Book SDK version
-
-In order for the chromebook to work with the apk you build you need to install the right SDK version. Go to **Tools** -> **SDK Manager** -> **System Settings** -> **Android SDK** then select the *SDK Platforms* tab and tick the "Show Packake Details" checkbox in the bottom-right corner. After that select *Android 9.0 (Pie) -> Android SDK Platform 28* and hit "OK".
-
-#### DEPRECATED: Chrome Book upload
-
-To upload generated *.apk* into your ChromeBook you need first to make sure your device is in *developer mode* state. If it is, you can open Android Studio and choose Debug or Profile choosing *.apk* file. Then you will need to connect to your device using **adb** connector. To make use of adb, you need to find path to the executable that is placed in `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools` directory. When found, you can type in Android Studio command line `C:/Users/<your_user>/AppData/Local/AndroidSdk/platform-tools/adb connect <IP of ChromeBook network>`. You can find ChromeBook's IP by entering network settings and choosing current network ChromeBook is connected to. This way the ChromeBook should be listed in available devices and you should be able to upload *.apk* to the machine through debugging app shortcut. Take into account that you won't probably be able to debug in that scenario, but you will be able to upload *.apk* to the device.
-
-#### DEPRECATED: Chrome Book debug
-
-To debug the *.apk* on your chromebook you need to open the source file you want to debug in Android Studio (Either via *File->Open* or Drag&Drop, but be aware that d&d can deadlock your Android Studio 25% of the time so youll need to restart it), then place your breakpoints and hit "Debug" (The bug icon)  in the top right corner.
-
-## External Dependencies
-
-- **gl.h** header for *OpenGL* (possible to obtain even on headless servers from *mesa-libgl-devel*)
-
-## Future Boost Library Dependencies
-
-**Nabla** uses or will use the following **[*Boost*](https://www.boost.org/)** libraries:
-
-- [ ] **[Bimap](http://man.hubwiz.com/docset/Boost.docset/Contents/Resources/Documents/boost/libs/bimap/doc/html/boost_bimap/bimap_and_boost.html)**
-- [ ] **[Context](https://www.boost.org/doc/libs/1_61_0/libs/context/doc/html/context/overview.html)** (maybe, and if yes only the *fcontext_t* variant)
-- [ ] **[Interprocess](https://www.boost.org/doc/libs/1_72_0/doc/html/interprocess.html)**
-- [ ] **[Special](https://www.boost.org/doc/libs/1_72_0/libs/math/doc/html/special.html)**
-- [ ] **[Stacktrace](https://www.boost.org/doc/libs/1_65_1/doc/html/stacktrace.html)** (we already have stack tracing on Linux, might be less work to do it on Windows)
-
-The maybe's depend on how *xplatform* and easy to operate the *boost::context* is, esp w.r.t. Linux, Windows and Android. We will not use *boost::fibers* as we need our own complex scheduler.
-
-## Building the Nabla library
+- **[CMake 3.29.2](https://cmake.org/download/)** version or higher
+- **[Vulkan SDK 1.2.198.1](https://vulkan.lunarg.com/sdk/home)** version or higher
+- **[NASM 2.15](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)** version or higher
+- **[Python 3.10.2](https://www.python.org/downloads/release/python-3102/)** version or higher
 
 ### Cloning the project
 
-**NOTICE: Due to GitHub SSH policy, our CI needed all submodules to be added with SSH URLs. THIS MEANS YOU NEED TO CHECKOUT THE SUPERPROJECT VIA SSH!**
-
-Begin with cloning **Nabla** with:
-
 ```shell
-git clone --recurse-submodules -j8 git@github.com:Devsh-Graphics-Programming/Nabla.git
+git clone git@github.com:Devsh-Graphics-Programming/Nabla.git <target directory>
 ```
 
-If you haven't cloned `recursive`ly, you have to also perform:
+#### Force HTTPS protocol (optional)
 
-```shell
-git submodule init
-git submodule update
+We support cloning Nabla with **ssh only**, however you can still force clone with https for whole repository and it's all submodules by overriding project git config setup.
+
+```powershell
+git init
+git config --project protocol.*.allow always
+git config --project url."https://github.com/".insteadOf "git@github.com:"
+git remote add origin https://github.com/Devsh-Graphics-Programming/Nabla.git
+git fetch origin master
+git checkout master
 ```
 
-*CMake* config script will try to initialize submodules for you however as well, but it doesn't mean the initialization attempt will be successful (it often is not when performed on a shaky internet connection, and you end up with dirty, locked or unversioned submodules).
+### Configure & Generate with CMake
 
-### Submodules
+#### Target platform
 
-If you haven't initialized the submodules yourself before the *CMake* configure step, and out *CMake* submodule update script destroyed them (badly/half initialized), you can run the following set of commands, but **beware** - it will completely wipe any changes to submodules.
+Check individual instructions for building for a particular platform in **./docs/build** directory before going further. For each platform it is assumed minimal required dependencies are installed and additional may be specified depending on the target.
 
-```shell
-git submodule foreach --recursive git clean -xfd
-git submodule foreach --recursive git reset --hard
-git submodule update --init --recursive
-```
+#### Submodules
 
-#### TODO: DOCUMENT THE NBL_UPDATE_SUBMODULE flag
+CMake will update **all required submodules** for you by default but it doesn't mean the initialization & update attempt will be successful (it is often not when performed on a shaky internet connection, so you may end up with dirty, locked or un-versioned submodules) - if not successful then try to re-configure CMake again. We have a few options for managing submodules by CMake, for more details and description check the [update submodule script](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/cmake/submodules/update.cmake). For example sometimes it may appear that there won't be any files in submodules' directories because of an update fail or dirty git cache, you could fix it and bring them back by enabling `NBL_FORCE_ON_UPDATE_GIT_SUBMODULE` CMake option. Note that we do not recommend to initialize and update submodules by hand in cmd because of private submodules in the repository.
 
-By default Nabla's cmake...
+#### More options
 
-But if you're working on making changes to one of our customized dependencies, you want to disable that, to not have the submodule reset on every CMake reconfigure (which may happen during a build).
+You can disable generating projects for examples with `NBL_BUILD_EXAMPLES`. It's recommended to build Nabla as shared library however you can also build as static library by turning on `NBL_STATIC_BUILD`.
 
-#### Weird CMake behaviour, notes
+#### CMake presets
 
-Sometimes it may appear that there **won't be any files in submodules directories**. If so, you have to bring them back by using:
-
-```shell
-git reset --hard
-```
-
-on each submodule's directory required!
-
-### CMake notes
-
-#### Consider CMake and Visual Studio version, **important**! 
-
-- The paragraph concerns *Visual Studio* only
-
-Make sure you have installed the latest version of *Visual Studio* and *CMake*. Within older versions sometimes there may occur that *Visual Studio* outputs an error associated with compiler heap space. If you don't get any error, just skip the point. It's because having *x64* project opened the solution still uses *32 bit compiler exe* and cannot allocate **more than 4G of memory**, therefore **Nabla** is unbuildable. Furthermore *Visual Studio* doesn't provide any option to change that. Because of that you have to manually modify **.vcxproj xml** and add `x64` to `PropertyGroup` nodes. Pay attention that *CMake* generates a standard `PropertyGroup` node, but it isn't enough, because you need to put it into the target where building type is directly specified. It should look for instance as following:
-
-```xml
-<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <CharacterSet>MultiByte</CharacterSet>
-    <PlatformToolset>v142</PlatformToolset>
-</PropertyGroup>
-```
-
-Current example above shows *Release* mode, but you should consider *Debug* as well. Having it done, 64bit cl.exe binary usage will be assured. When u get this problem, don't bother with editing all the **.vcxproj**s. It will probably only matter while building the engine, so the only thing you have to do is edit that **.vcxproj** you actually use - **Nabla.vcxproj** for instance and that's it. 
-
-If you know a way to make *CMake* generating **.vcxproj**s already having those changes that will solve the issue, it will be great if you let us know about it :)
-
-#### CMake on 64bit Windows
-
-- Best to use *cmake-gui*
-
-Run *cmake-gui* and, as usually, give *CMake* root **Nabla** directory and where you want *CMake* to put project files and click "Configure" field. When *CMake* asks you to choose compiler/IDE, make sure to check whether there's a distinct option for *64bit* mode and, if this is the case, choose this one.
-
-For single-config IDEs (Code::Blocks) you'll have to manually set `CMAKE_BUILD_TYPE` to `Debug` or `Release`. `Release` is default.
-
-You also have options `BUILD_EXAMPLES` and `BUILD_TOOLS` which do exactly what they say. By "*tools*" you should currently understand just `convert2baw`.
-
-For Windows *MSVC* required, *MinGW* build system maintenance will be delegated to the community.
-
-#### CMake on 64bit Linux
-
-Same as Windows, except that currently we have no way of setting the correct working directory for executing the examples from within the IDE (for debugging). If you care about this please submit an *issue/PR/MR* to **[*CMake's* gitlab](https://gitlab.kitware.com/cmake/cmake)**.
-
-We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMake-gui* generator and has been tested and works relatively nice.
-
-**[*Visual Studio Code*](https://code.visualstudio.com/)** suffers from a number of issues such as configuring the *CMake* every time you want to build a target and slow build times. Here are the issues:
-
-1. **https://github.com/microsoft/vscode-cmake-tools/issues/771**
-2. **https://github.com/microsoft/vscode-cmake-tools/issues/772**
-3. **https://github.com/microsoft/vscode-cmake-tools/issues/773**
-
-***[Clang](https://clang.llvm.org/) toolset*** is unmaintained and untested on Linux.
-
-## First examples launching, significant notes
-
-Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To do that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `NBL_BUILD_EXAMPLES` option in *CMake*.
-
-## Use Nabla in your project!
-
-To get **Nabla** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
-
-```cmake
-set(NBL_SOURCE_DIR "<YOUR_NABLA_SOURCE_DIRECTORY>") # PAY ATTENTION: you have to fill this one with Nabla source directory
-set(NBL_BINARY_DIR "${NBL_SOURCE_DIR}/build")
-set(NBL_INSTALL_DIR "${NBL_BINARY_DIR}/install")
-
-list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
-list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_EXAMPLES:BOOL=OFF")
-list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
-list(APPEND NBL_CMAKE_ARGS "-DNBL_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
-list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_LOADER_:BOOL=OFF") # you probably don't want this extension
-list(APPEND NBL_CMAKE_ARGS "-D_NBL_COMPILE_WITH_BAW_WRITER_:BOOL=OFF") # you probably don't want this extension
-list(APPEND NBL_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${NBL_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
-
-ExternalProject_Add(Nabla
-    DOWNLOAD_COMMAND  ""
-    SOURCE_DIR        "${NBL_SOURCE_DIR}"
-    BINARY_DIR        "${NBL_BINARY_DIR}"
-    CMAKE_ARGS        ${NBL_CMAKE_ARGS}
-    TEST_COMMAND      ""
-)
-
-include(${NBL_SOURCE_DIR}/cmake/build/AddNablaModule.cmake)
-
-# now if you create executable you can use addNablaModule
-add_executable(executableTest main.cpp) # assuming main.cpp exsists
-
-# add Nabla module to "executableTest"
-addNablaModule(executableTest "${NBL_INSTALL_DIR}")
-```
-
-If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
-
-I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **Nabla** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet.
-
-# Continuous integration
-
-## Nabla Python Framework
-
-### CPU & GPU local tests shipped with the repository
-
-#### Description
-
-***Nabla*** aims to implement full CPU & GPU tests used by our CI in-house infrastructure groovy pipelines in relocatable way allowing users to execute and debug the tests locally on their own devices as well. Each test is a Python module which part of it gets created with the CMake build system configuration. A test is defined and created as a module by
-
-- top json configuration file
-- interface Python script
-
-Top json configuration file contains run & build info, array of profiles and json inputs for a Python testing module. The file is processed and validated by CMake to create output profiles bound to the Python module. Single profile contains data used by the module to execute tests with and the implementation of the test is located in interface Python script - the script overrides common abstract interface defined as a integral part of Nabla Python framework module. The description is abstract and doesn't contain specific details, join our discord if you have any questions!
-
-#### Development & Debug
-
-Each valid Python module contains autogenerated .vscode's *launch.json* and *settings.json* to make development easy. You just need to `Open with Code`in the module's directory. Make sure to install [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) there to enable IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), code formatting, refactoring, unit tests, and more.
-
-A target for which Python module is available for testing lists a special Python Framework section located in its solution's project file structure (**Visual Studio only!**) containing Nabla Python Framework sources, target's interface Python script, autogenerated json profiles and autogenerated` __main__.py` module script. Unfortunately pure Visual Studio works so-so with Python (issues with search module paths defined as `searchPath` .pyproj's property, issues with IntelliSense and Debugging) - we encourage to use Visual Studio Code if you need to Debug an interface or develop it.
-
-#### Runtime
-
-##### Command line
-
-To run all tests bound to a module with a command line you just need to execute `python3 -m <module_reference>`. You can also specify special arguments to have more control over the test execution, for more details see [template module script](https://github.com/Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework/blob/4f7a67a3fa9bb418bcb07fa2f7a5853e55b853c4/scripts/__main__.py.cmake)
-
-##### Visual Studio
-
-You need to open a target's solution. To launch all tests bound to a module a module's `__main__.py` file located in Python Framework section must be selected and `Debug -> Execute File in Python interactive` executed.
-
-**Visual Studio Code**
-
-You need to open module's directory as workspace with `Open with Code `, select `Run and Debug` icon, select `__main__.py` file and run it.
+We have customised [presets](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) which may be handy to configure **Nabla** project for a target platform with predefined & common configurations.
 
 # Caveats and Particular Behaviour
 
@@ -432,19 +233,54 @@ Use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Progr
         - Apply an **inverse** transform to the screen-space coordinates (taken from `gl_GlobalInvocationID.xy`) before turning them into UV/world-space coordinates for rendering:
             - [`nbl_glsl_surface_transform_applyInverseToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
-## Automated Builds (TODO)
+# Continuous integration
 
-## License
+## Nabla Python Framework
+
+### CPU & GPU local tests shipped with the repository
+
+#### Description
+
+**Nabla** aims to implement full CPU & GPU tests used by our CI in-house infrastructure groovy pipelines in relocatable way allowing users to execute and debug the tests locally on their own devices as well. Each test is a Python module which part of it gets created with the CMake build system configuration. A test is defined and created as a module by
+
+- top json configuration file
+- interface Python script
+
+Top json configuration file contains run & build info, array of profiles and json inputs for a Python testing module. The file is processed and validated by CMake to create output profiles bound to the Python module. Single profile contains data used by the module to execute tests with and the implementation of the test is located in interface Python script - the script overrides common abstract interface defined as a integral part of Nabla Python framework module. The description is abstract and doesn't contain specific details, join our discord if you have any questions!
+
+#### Development & Debug
+
+Each valid Python module contains autogenerated .vscode's *launch.json* and *settings.json* to make development easy. You just need to `Open with Code`in the module's directory. Make sure to install [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) there to enable IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), code formatting, refactoring, unit tests, and more.
+
+A target for which Python module is available for testing lists a special Python Framework section located in its solution's project file structure (**Visual Studio only!**) containing Nabla Python Framework sources, target's interface Python script, autogenerated json profiles and autogenerated` __main__.py` module script. Unfortunately pure Visual Studio works so-so with Python (issues with search module paths defined as `searchPath` .pyproj's property, issues with IntelliSense and Debugging) - we encourage to use Visual Studio Code if you need to Debug an interface or develop it.
+
+#### Runtime
+
+##### Command line
+
+To run all tests bound to a module with a command line you just need to execute `python3 -m <module_reference>`. You can also specify special arguments to have more control over the test execution, for more details see [template module script](https://github.com/Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework/blob/4f7a67a3fa9bb418bcb07fa2f7a5853e55b853c4/scripts/__main__.py.cmake)
+
+##### Visual Studio
+
+You need to open a target's solution. To launch all tests bound to a module a module's `__main__.py` file located in Python Framework section must be selected and `Debug -> Execute File in Python interactive` executed.
+
+**Visual Studio Code**
+
+You need to open module's directory as workspace with `Open with Code `, select `Run and Debug` icon, select `__main__.py` file and run it.
+
+# License
 
 **Nabla** is released under the **[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)** license. See [**LICENSE.md**](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/LICENSE.md) for more details.
 
-## Documentation (WIP/TODO)
+# Documentation
 
-## Official Support (Discord)
+**(WIP/TODO)**
 
-Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organise publicly visible work. **[Join to the server](https://discord.gg/4MTCVaN)** to get into more details.
+# Official Support (Discord)
 
-## Credits and Attribution
+Permanent members of *Devsh Graphics Programming Sp. z O.O.* use this to organise publicly visible work. **[Join to the server](https://discord.gg/4MTCVaN)** to get into more details.
+
+# Credits and Attribution
 
 #### The authors of **Nabla** are:
 

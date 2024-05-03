@@ -9,8 +9,7 @@
 namespace nbl::asset
 {
 
-template<class ImageType>
-class IImageView : public IDescriptor
+class IImageViewBase : public IDescriptor
 {
 	public:
 		static inline constexpr uint32_t remaining_mip_levels = ~static_cast<uint32_t>(0u);
@@ -75,6 +74,15 @@ class IImageView : public IDescriptor
 				return !operator==(rhs);
 			}
 		};
+
+		//!
+		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
+};
+
+template<class ImageType>
+class IImageView : public IImageViewBase
+{
+	public:
 		struct SCreationParams
 		{
 			E_CREATE_FLAGS							flags = static_cast<E_CREATE_FLAGS>(0);
@@ -325,14 +333,9 @@ class IImageView : public IDescriptor
 		}
 
 		//!
-		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
-
-
-		//!
 		const SCreationParams&	getCreationParameters() const { return params; }
 
 	protected:
-		IImageView() : params{static_cast<E_CREATE_FLAGS>(0u),nullptr,ET_COUNT,EF_UNKNOWN,{}} {}
 		IImageView(SCreationParams&& _params) : params(_params) {}
 		virtual ~IImageView() = default;
 

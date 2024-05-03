@@ -254,7 +254,7 @@ struct SColorAttachmentBlendParams
     uint32_t alphaBlendOp : 3 = EBO_ADD;
 
     //RGBA, LSB is R, MSB is A
-    uint32_t colorWriteMask : 4;
+    uint32_t colorWriteMask : 4 = 0b1111;
 };
 static_assert(sizeof(SColorAttachmentBlendParams)==4u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
