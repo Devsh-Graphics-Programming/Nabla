@@ -65,15 +65,16 @@ struct counting
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
             sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize + tid) * elements_per_wt;
+        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * elements_per_wt;
 
         nbl::hlsl::glsl::barrier();
 
         for (int i = 0; i < elements_per_wt; i++)
         {
-            if (index + i >= data_element_count)
+            int j = index + i * WorkgroupSize + tid;
+            if (j >= data_element_count)
                 break;
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * (index + i)).template deref<4>().load();
+            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
             nbl::hlsl::glsl::atomicAdd(sdata[value - minimum], (uint32_t) 1);
         }
 
@@ -111,17 +112,18 @@ struct counting
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
             sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize + tid) * elements_per_wt;
+        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * elements_per_wt;
 
         nbl::hlsl::glsl::barrier();
 
         [unroll]
         for (int i = 0; i < elements_per_wt; i++)
         {
-            if (index + i >= data_element_count)
+            int j = index + i * WorkgroupSize + tid;
+            if (j >= data_element_count)
                 break;
-            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * (index + i)).template deref<4>().load();
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * (index + i)).template deref<4>().load();
+            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * j).template deref<4>().load();
+            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
             nbl::hlsl::glsl::atomicAdd(sdata[value - minimum], (uint32_t) 1);
         }
 
@@ -130,10 +132,11 @@ struct counting
         [unroll]
         for (int i = 0; i < elements_per_wt; i++)
         {
-            if (index + i >= data_element_count)
+            int j = index + i * WorkgroupSize + tid;
+            if (j >= data_element_count)
                 break;
-            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * (index + i)).template deref<4>().load();
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * (index + i)).template deref<4>().load();
+            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * j).template deref<4>().load();
+            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
             sdata[value - minimum] = ScratchAccessor(scratch_addr + sizeof(uint32_t) * (value - minimum)).template deref<4>().atomicAdd(1);
             KeyAccessor(out_key_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(key);
             ValueAccessor(out_value_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(value);
