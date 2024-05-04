@@ -20,25 +20,25 @@ groupshared uint32_t wgScratch[SharedScratchSz];
 template<uint16_t offset>
 struct WGScratchProxy
 {
-	uint32_t get(const uint32_t ix)
-	{
-		return wgScratch[ix+offset];
-	}
-	void set(const uint32_t ix, const uint32_t value)
-	{
-		wgScratch[ix+offset] = value;
-	}
+    uint32_t get(const uint32_t ix)
+    {
+        return wgScratch[ix+offset];
+    }
+    void set(const uint32_t ix, const uint32_t value)
+    {
+        wgScratch[ix+offset] = value;
+    }
 
     uint32_t atomicAdd(uint32_t ix, uint32_t val)
     {
         return nbl::hlsl::glsl::atomicAdd(wgScratch[ix + offset], val);
     }
 
-	void workgroupExecutionAndMemoryBarrier()
-	{
-		nbl::hlsl::glsl::barrier();
-		//nbl::hlsl::glsl::memoryBarrierShared(); implied by the above
-	}
+    void workgroupExecutionAndMemoryBarrier()
+    {
+        nbl::hlsl::glsl::barrier();
+        //nbl::hlsl::glsl::memoryBarrierShared(); implied by the above
+    }
 };
 static WGScratchProxy<0> accessor;
 
@@ -62,7 +62,7 @@ ScanPushConstants spc;
  */
 uint32_t globalIndex()
 {
-	return nbl::hlsl::glsl::gl_WorkGroupID().x*WORKGROUP_SIZE+nbl::hlsl::workgroup::SubgroupContiguousIndex();
+    return nbl::hlsl::glsl::gl_WorkGroupID().x*WORKGROUP_SIZE+nbl::hlsl::workgroup::SubgroupContiguousIndex();
 }
 
 namespace nbl

@@ -17,7 +17,7 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=SCRATCH_SZ> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
+template<uint32_t scratchElementCount=SCRATCH_SZ - 1> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
 struct Scratch
 {
     uint32_t workgroupsStarted;
@@ -42,21 +42,21 @@ void getData(
     uint32_t offset = levelInvocationIndex;
     const bool notFirstOrLastLevel = bool(pseudoLevel);
     if (notFirstOrLastLevel)
-		offset += params.temporaryStorageOffset[pseudoLevel-1u];
+        offset += params.temporaryStorageOffset[pseudoLevel-1u];
     
     if (pseudoLevel!=treeLevel) // downsweep
-	{
-		const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
-		if (bool(localWorkgroupIndex) && firstInvocationInGroup)
-			data = scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
+    {
+        const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
+        if (bool(localWorkgroupIndex) && firstInvocationInGroup)
+            data = scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
 
-		if (notFirstOrLastLevel)
-		{
-			if (!firstInvocationInGroup)
-				data = scanScratchBuf[0].data[offset-1u];
-		}
-		else
-		{
+        if (notFirstOrLastLevel)
+        {
+            if (!firstInvocationInGroup)
+                data = scanScratchBuf[0].data[offset-1u];
+        }
+        else
+        {
             if(isExclusive)
             {
                 if (!firstInvocationInGroup)
@@ -66,15 +66,15 @@ void getData(
             {
                 data += scanBuffer[offset];
             }
-		}
-	}
-	else
-	{
-		if (notFirstOrLastLevel)
-			data = scanScratchBuf[0].data[offset];
-		else
-			data = scanBuffer[offset];
-	}
+        }
+    }
+    else
+    {
+        if (notFirstOrLastLevel)
+            data = scanScratchBuf[0].data[offset];
+        else
+            data = scanBuffer[offset];
+    }
 }
 
 template<typename Storage_t>
@@ -88,22 +88,22 @@ void setData(
 )
 {
     const Parameters_t params = getParameters();
-	if (treeLevel<params.topLevel)
-	{
-		const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
-		if (lastInvocationInGroup)
-			scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
-	}
-	else if (inRange)
-	{
-		if (bool(pseudoLevel))
-		{
-			const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
-			scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
-		}
-		else
-			scanBuffer[levelInvocationIndex] = data;
-	}
+    if (treeLevel<params.topLevel)
+    {
+        const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
+        if (lastInvocationInGroup)
+            scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+    }
+    else if (inRange)
+    {
+        if (bool(pseudoLevel))
+        {
+            const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
+            scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
+        }
+        else
+            scanBuffer[levelInvocationIndex] = data;
+    }
 }
 
 }

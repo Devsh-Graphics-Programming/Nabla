@@ -20,13 +20,13 @@ namespace hlsl
 namespace scan
 {
     // REVIEW: Putting topLevel second allows better alignment for packing of constant variables, assuming lastElement has length 4. (https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules)
-	struct Parameters_t {
-		uint32_t lastElement[NBL_BUILTIN_MAX_SCAN_LEVELS/2+1];
-		uint32_t topLevel;
-		uint32_t temporaryStorageOffset[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
-	};
+    struct Parameters_t {
+        uint32_t lastElement[NBL_BUILTIN_MAX_SCAN_LEVELS/2+1];
+        uint32_t topLevel;
+        uint32_t temporaryStorageOffset[NBL_BUILTIN_MAX_SCAN_LEVELS/2];
+    };
     
-	Parameters_t getParameters();
+    Parameters_t getParameters();
 
     struct DefaultSchedulerParameters_t
     {
@@ -37,24 +37,24 @@ namespace scan
     
     DefaultSchedulerParameters_t getSchedulerParameters();
 
-	template<typename Storage_t, bool isExclusive=false>
-	void getData(
-		NBL_REF_ARG(Storage_t) data,
-		NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
-		NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
-		NBL_CONST_REF_ARG(uint32_t) treeLevel,
-		NBL_CONST_REF_ARG(uint32_t) pseudoLevel
-	);
+    template<typename Storage_t, bool isExclusive=false>
+    void getData(
+        NBL_REF_ARG(Storage_t) data,
+        NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
+        NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
+        NBL_CONST_REF_ARG(uint32_t) treeLevel,
+        NBL_CONST_REF_ARG(uint32_t) pseudoLevel
+    );
 
-	template<typename Storage_t>
-	void setData(
-		NBL_CONST_REF_ARG(Storage_t) data,
-		NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
-		NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
-		NBL_CONST_REF_ARG(uint32_t) treeLevel,
-		NBL_CONST_REF_ARG(uint32_t) pseudoLevel,
-		NBL_CONST_REF_ARG(bool) inRange
-	);
+    template<typename Storage_t>
+    void setData(
+        NBL_CONST_REF_ARG(Storage_t) data,
+        NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
+        NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
+        NBL_CONST_REF_ARG(uint32_t) treeLevel,
+        NBL_CONST_REF_ARG(uint32_t) pseudoLevel,
+        NBL_CONST_REF_ARG(bool) inRange
+    );
     
 }
 }
