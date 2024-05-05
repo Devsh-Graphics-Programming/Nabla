@@ -5,6 +5,7 @@
 cmake_minimum_required(VERSION 3.29)
 cmake_policy(SET CMP0112 NEW)
 cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
+cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
 set(NBL_BUILD_ANDROID OFF)
 
