@@ -6,10 +6,10 @@ namespace nbl::ext::imgui
 class UI final : public core::IReferenceCounted
 {
 	public:
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> device, int maxFramesInFlight, core::smart_refctd_ptr<video::IGPURenderpass>& renderPass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
+		UI(core::smart_refctd_ptr<video::ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
 		~UI() override;
 
-		bool Render(nbl::video::IGPUCommandBuffer& commandBuffer, int frameIndex);
+		bool Render(nbl::video::IGPUCommandBuffer* commandBuffer, int frameIndex);
 		void Update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
 		void BeginWindow(char const* windowName);
 		void EndWindow();
@@ -40,7 +40,7 @@ class UI final : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> CreateDescriptorSetLayout();
 
-		void CreatePipeline(core::smart_refctd_ptr<video::IGPURenderpass>& renderPass, video::IGPUPipelineCache* pipelineCache);
+		void CreatePipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
 		void CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
 		void UpdateDescriptorSets();
 		void createSystem();

@@ -9,8 +9,8 @@
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
-#include "ext/imgui//spirv/builtin/builtinResources.h"
-#include "ext/imgui//spirv/builtin/CArchive.h"
+#include "ext/imgui/spirv/builtin/builtinResources.h"
+#include "ext/imgui/spirv/builtin/CArchive.h"
 
 // 3rdparty
 #include "imgui/imgui.h"
@@ -39,7 +39,7 @@ namespace nbl::ext::imgui
 		return m_device->createDescriptorSetLayout(bindings);
 	}
 
-	void UI::CreatePipeline(smart_refctd_ptr<IGPURenderpass>& renderPass, IGPUPipelineCache* pipelineCache)
+	void UI::CreatePipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
 	{
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = {
@@ -144,7 +144,7 @@ namespace nbl::ext::imgui
 				auto& param = params[0];
 				param.layout = pipelineLayout.get();
 				param.shaders = specs;
-				param.renderpass = renderPass.get();
+				param.renderpass = renderpass;
 				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = 0u }; // TODO: check "subpassIx"
 			};
 			
@@ -410,7 +410,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, smart_refctd_ptr<IGPURenderpass>& renderPass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
+	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
 		: m_device(std::move(device)), m_window(std::move(window))
 	{
 		createSystem();
@@ -467,7 +467,7 @@ namespace nbl::ext::imgui
 		CreateFontSampler();
 		CreateDescriptorPool();
 		CreateDescriptorSetLayout();
-		CreatePipeline(renderPass, pipelineCache);
+		CreatePipeline(renderpass, pipelineCache);
 		CreateFontTexture(transistentCMD.get(), tQueue);
 		prepareKeyMapForDesktop();
 		adjustGlobalFontScale();
@@ -497,7 +497,7 @@ namespace nbl::ext::imgui
 		{
 			logger->log("Failed to create nbl::video::IUtilities!", system::ILogger::ELL_ERROR);
 			assert(false);
-		}	
+		}
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -524,7 +524,7 @@ namespace nbl::ext::imgui
 		//}
 	//}
 
-	bool UI::Render(IGPUCommandBuffer& commandBuffer, int const frameIndex)
+	bool UI::Render(IGPUCommandBuffer* commandBuffer, int const frameIndex)
 	{
 		ImGuiIO& io = ImGui::GetIO();
 
@@ -535,8 +535,8 @@ namespace nbl::ext::imgui
 		}
 
 		auto* rawPipeline = pipeline.get();
-		commandBuffer.bindGraphicsPipeline(rawPipeline);
-		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
+		commandBuffer->bindGraphicsPipeline(rawPipeline);
+		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 		
 		auto const* drawData = ImGui::GetDrawData();
 
@@ -626,7 +626,7 @@ namespace nbl::ext::imgui
 					.buffer = core::smart_refctd_ptr(indexBuffer)
 				};
 
-				commandBuffer.bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT);
+				commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT);
 			}
 
 			{
@@ -639,7 +639,7 @@ namespace nbl::ext::imgui
 				};
 
 				static constexpr size_t offset = 0;
-				commandBuffer.bindVertexBuffers(0, 1, bindings);
+				commandBuffer->bindVertexBuffers(0, 1, bindings);
 			}
 
 			SViewport const viewport
@@ -651,7 +651,7 @@ namespace nbl::ext::imgui
 				.minDepth = 0.0f,
 				.maxDepth = 1.0f,
 			};
-			commandBuffer.setViewport(0, 1, &viewport);
+			commandBuffer->setViewport(0, 1, &viewport);
 
 			// Setup scale and translation:
 			// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
@@ -662,7 +662,7 @@ namespace nbl::ext::imgui
 				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
 				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
 
-				commandBuffer.pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
+				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
 			}
 
 			// Will project scissor/clipping rectangles into frame-buffer space
@@ -701,11 +701,11 @@ namespace nbl::ext::imgui
 							scissor.offset.y = static_cast<int32_t>(clip_rect.y);
 							scissor.extent.width = static_cast<uint32_t>(clip_rect.z - clip_rect.x);
 							scissor.extent.height = static_cast<uint32_t>(clip_rect.w - clip_rect.y);
-							commandBuffer.setScissor(0, 1, &scissor);
+							commandBuffer->setScissor(0, 1, &scissor);
 						}
 
 						// Draw
-						commandBuffer.drawIndexed(
+						commandBuffer->drawIndexed(
 							pcmd->ElemCount,
 							1,
 							pcmd->IdxOffset + global_idx_offset,
@@ -822,19 +822,9 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	bool UI::Combo(
-		char const* label,
-		int32_t* selectedItemIndex,
-		char const** items,
-		int32_t const itemsCount
-	)
+	bool UI::Combo(char const* label, int32_t* selectedItemIndex, char const** items, int32_t const itemsCount)
 	{
-		return ImGui::Combo(
-			label,
-			selectedItemIndex,
-			items,
-			itemsCount
-		);
+		return ImGui::Combo(label, selectedItemIndex, items, itemsCount);
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -850,16 +840,9 @@ namespace nbl::ext::imgui
 	bool UI::Combo(const char* label, int* selectedItemIndex, std::vector<std::string>& values)
 	{
 		if (values.empty())
-		{
 			return false;
-		}
-		return ImGui::Combo(
-			label,
-			selectedItemIndex,
-			vector_getter,
-			&values,
-			static_cast<int>(values.size())
-		);
+
+		return ImGui::Combo(label, selectedItemIndex, vector_getter, &values, static_cast<int>(values.size()));
 	}
 
 	void UI::SliderInt(char const* label, int* value, int const minValue, int const maxValue)
