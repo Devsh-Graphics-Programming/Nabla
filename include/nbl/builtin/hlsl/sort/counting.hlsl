@@ -43,7 +43,7 @@ groupshared uint32_t sdata[BucketCount];
 template<typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
 struct counting
 {
-    void histogram(const KeyAccessor in_key, const ScratchAccessor scratch, const CountingPushData data)
+    void histogram(const KeyAccessor key, const ScratchAccessor scratch, const nbl::hlsl::sort::CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
@@ -59,8 +59,8 @@ struct counting
             int j = index + i * WorkgroupSize + tid;
             if (j >= data.dataElementCount)
                 break;
-            uint32_t key = in_key.get(j);// ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            nbl::hlsl::glsl::atomicAdd(sdata[key - data.minimum], (uint32_t) 1);
+            uint32_t k = key.get(j);
+            nbl::hlsl::glsl::atomicAdd(sdata[k - data.minimum], (uint32_t) 1);
         }
 
         nbl::hlsl::glsl::barrier();
@@ -90,7 +90,7 @@ struct counting
         }
     }
                 
-    void scatter(const KeyAccessor in_key, const ValueAccessor in_val, const ScratchAccessor scratch, const KeyAccessor out_key, const ValueAccessor out_val, const CountingPushData data)
+    void scatter(const KeyAccessor key, const ValueAccessor val, const ScratchAccessor scratch, const nbl::hlsl::sort::CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
@@ -107,20 +107,13 @@ struct counting
             int j = index + i * WorkgroupSize + tid;
             if (j >= data.dataElementCount)
                 break;
-            uint32_t key = in_key.get(j);
-            uint32_t value = in_val.get(j);
-            sdata[key - data.minimum] = scratch.atomicAdd(key - data.minimum, 1);
-            out_key.set(sdata[key - data.minimum], key);
-            out_val.set(sdata[key - data.minimum], value);
+            uint32_t k = key.get(j);
+            uint32_t v = val.get(j);
+            sdata[k - data.minimum] = scratch.atomicAdd(k - data.minimum, 1);
+            key.set(sdata[k - data.minimum], k);
+            val.set(sdata[k - data.minimum], v);
         }
     }
-
-    KeyAccessor in_key, out_key;
-    ValueAccessor in_val, out_val;
-    ScratchAccessor scratch;
-    uint32_t dataElementCount;
-    uint32_t minimum;
-    uint32_t elementsPerWT;
 };
 
 }

@@ -34,34 +34,6 @@ struct __ptr
     }
 };
 
-template<typename T>
-struct PtrAccessor
-{
-    static PtrAccessor createAccessor(uint64_t addr)
-    {
-        PtrAccessor ptr;
-        ptr.addr = addr;
-        return ptr;
-    }
-
-    T get(uint64_t index)
-    {
-        return __ptr<T>(addr + sizeof(T) * index).template deref().load();
-    }
-
-    void set(uint64_t index, T value)
-    {
-        __ptr<T>(addr + sizeof(T) * index).template deref().store(value);
-    }
-
-    T atomicAdd(uint64_t index, T value)
-    {
-        return __ptr<T>(addr + sizeof(uint32_t) * index).template deref().atomicAdd(value);
-    }
-
-    uint64_t addr;
-};
-
 }
 
 #endif
