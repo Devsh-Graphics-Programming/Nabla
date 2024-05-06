@@ -411,7 +411,7 @@ namespace nbl::ext::imgui
 	}
 
 	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(std::move(device)), m_window(std::move(window))
+		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window))
 	{
 		createSystem();
 		struct
@@ -429,15 +429,16 @@ namespace nbl::ext::imgui
 
 		auto requestFamilyQueueId = [&](IQueue::FAMILY_FLAGS requried, std::string_view onError)
 		{
+			uint8_t index = 0;
 			for (const auto& fProperty : properties)
 			{
 				if (fProperty.queueFlags.hasFlags(requried))
 				{
-					const uint8_t index = &properties.back() - &properties.front();
 					++params.queueParams[index].count;
 
 					return index;
 				}
+				++index;
 			}
 
 			logger->log(onError.data(), system::ILogger::ELL_ERROR);
@@ -450,9 +451,23 @@ namespace nbl::ext::imgui
 
 		// allocate temporary command buffer
 		auto* tQueue = device->getThreadSafeQueue(families.id.transfer, 0);
+
+		if (!tQueue)
+		{
+			logger->log("Could not get queue!", system::ILogger::ELL_ERROR);
+			assert(false);
+		}
+
 		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
 		{
 			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = device->createCommandPool(families.id.transfer, IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+			if (!pool)
+			{
+				logger->log("Could not create command pool!", system::ILogger::ELL_ERROR);
+				assert(false);
+			}
+			
+			
 			if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transistentCMD))
 			{
 				logger->log("Could not create transistent command buffer!", system::ILogger::ELL_ERROR);
