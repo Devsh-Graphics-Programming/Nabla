@@ -41,6 +41,7 @@ class IDescriptor : public virtual core::IReferenceCounted
 		enum E_CATEGORY : uint8_t
 		{
 			EC_BUFFER = 0,
+			EC_SAMPLER,
 			EC_IMAGE,
 			EC_BUFFER_VIEW,
 			EC_ACCELERATION_STRUCTURE,
