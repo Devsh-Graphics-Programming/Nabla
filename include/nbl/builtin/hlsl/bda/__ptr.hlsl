@@ -2,6 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/bda/__ref.hlsl"
 
 #ifndef _NBL_BUILTIN_HLSL_BDA_PTR_INCLUDED_
@@ -22,7 +23,7 @@ struct __ptr
         return retval;
     }
 
-    template<uint32_t alignment>
+    template<uint64_t alignment=nbl::hlsl::alignment_of<T>::value>
     __ref<T,alignment,_restrict> deref()
     {
         // TODO: assert(addr&uint64_t(alignment-1)==0);
@@ -32,6 +33,35 @@ struct __ptr
         return retval;
     }
 };
+
+template<typename T>
+struct PtrAccessor
+{
+    static PtrAccessor createAccessor(uint64_t addr)
+    {
+        PtrAccessor ptr;
+        ptr.addr = addr;
+        return ptr;
+    }
+
+    T get(uint64_t index)
+    {
+        return __ptr<T>(addr + sizeof(T) * index).template deref().load();
+    }
+
+    void set(uint64_t index, T value)
+    {
+        __ptr<T>(addr + sizeof(T) * index).template deref().store(value);
+    }
+
+    T atomicAdd(uint64_t index, T value)
+    {
+        return __ptr<T>(addr + sizeof(uint32_t) * index).template deref().atomicAdd(value);
+    }
+
+    uint64_t addr;
+};
+
 }
 
 #endif

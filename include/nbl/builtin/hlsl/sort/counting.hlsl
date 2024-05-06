@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/builtin/hlsl/bda/__ptr.hlsl"
-
 #include "nbl/builtin/hlsl/sort/common.hlsl"
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl"
 
@@ -45,37 +43,24 @@ groupshared uint32_t sdata[BucketCount];
 template<typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
 struct counting
 {
-    void init(
-        const CountingPushData data
-    ) {
-        in_key_addr         = data.inputKeyAddress;
-        out_key_addr        = data.outputKeyAddress;
-        in_value_addr       = data.inputValueAddress;
-        out_value_addr      = data.outputValueAddress;
-        scratch_addr        = data.scratchAddress;
-        data_element_count  = data.dataElementCount;
-        minimum             = data.minimum;
-        elements_per_wt     = data.elementsPerWT;
-    }
-
-    void histogram()
+    void histogram(const KeyAccessor in_key, const ScratchAccessor scratch, const CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
             sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * elements_per_wt;
+        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
         nbl::hlsl::glsl::barrier();
 
-        for (int i = 0; i < elements_per_wt; i++)
+        for (int i = 0; i < data.elementsPerWT; i++)
         {
             int j = index + i * WorkgroupSize + tid;
-            if (j >= data_element_count)
+            if (j >= data.dataElementCount)
                 break;
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            nbl::hlsl::glsl::atomicAdd(sdata[value - minimum], (uint32_t) 1);
+            uint32_t key = in_key.get(j);// ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
+            nbl::hlsl::glsl::atomicAdd(sdata[key - data.minimum], (uint32_t) 1);
         }
 
         nbl::hlsl::glsl::barrier();
@@ -91,9 +76,9 @@ struct counting
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
-            ScratchAccessor(scratch_addr + sizeof(uint32_t) * (WorkgroupSize * i + tid)).template deref<4>().atomicAdd(sum);
+            scratch.atomicAdd(WorkgroupSize * i + tid, sum);
             if ((tid == WorkgroupSize - 1) && i > 0)
-                ScratchAccessor(scratch_addr + sizeof(uint32_t) * (WorkgroupSize * i)).template deref<4>().atomicAdd(scan_sum);
+                scratch.atomicAdd(WorkgroupSize * i, scan_sum);
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -105,50 +90,37 @@ struct counting
         }
     }
                 
-    void scatter()
+    void scatter(const KeyAccessor in_key, const ValueAccessor in_val, const ScratchAccessor scratch, const KeyAccessor out_key, const ValueAccessor out_val, const CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
             sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * elements_per_wt;
+        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
         nbl::hlsl::glsl::barrier();
 
         [unroll]
-        for (int i = 0; i < elements_per_wt; i++)
+        for (int i = 0; i < data.elementsPerWT; i++)
         {
             int j = index + i * WorkgroupSize + tid;
-            if (j >= data_element_count)
+            if (j >= data.dataElementCount)
                 break;
-            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            nbl::hlsl::glsl::atomicAdd(sdata[value - minimum], (uint32_t) 1);
-        }
-
-        nbl::hlsl::glsl::barrier();
-
-        [unroll]
-        for (int i = 0; i < elements_per_wt; i++)
-        {
-            int j = index + i * WorkgroupSize + tid;
-            if (j >= data_element_count)
-                break;
-            uint32_t key = KeyAccessor(in_key_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            uint32_t value = ValueAccessor(in_value_addr + sizeof(uint32_t) * j).template deref<4>().load();
-            sdata[value - minimum] = ScratchAccessor(scratch_addr + sizeof(uint32_t) * (value - minimum)).template deref<4>().atomicAdd(1);
-            KeyAccessor(out_key_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(key);
-            ValueAccessor(out_value_addr + sizeof(uint32_t) * sdata[value - minimum]).template deref<4>().store(value);
+            uint32_t key = in_key.get(j);
+            uint32_t value = in_val.get(j);
+            sdata[key - data.minimum] = scratch.atomicAdd(key - data.minimum, 1);
+            out_key.set(sdata[key - data.minimum], key);
+            out_val.set(sdata[key - data.minimum], value);
         }
     }
 
-    uint64_t in_key_addr, out_key_addr;
-    uint64_t in_value_addr, out_value_addr;
-    uint64_t scratch_addr;
-    uint32_t data_element_count;
+    KeyAccessor in_key, out_key;
+    ValueAccessor in_val, out_val;
+    ScratchAccessor scratch;
+    uint32_t dataElementCount;
     uint32_t minimum;
-    uint32_t elements_per_wt;
+    uint32_t elementsPerWT;
 };
 
 }
