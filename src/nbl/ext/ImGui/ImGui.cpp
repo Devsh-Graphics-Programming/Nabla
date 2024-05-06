@@ -181,12 +181,13 @@ namespace nbl::ext::imgui
 		assert(height > 0);
 		const size_t componentsCount = 4, image_size = width * height * componentsCount * sizeof(uint8_t);
 		
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 		const auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(image_size, pixels, core::adopt_memory);
 		
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 		params.type = IImage::ET_2D;
-		params.format = EF_R8G8B8A8_UNORM;
+		params.format = NBL_FORMAT_FONT;
 		params.extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u };
 		params.mipLevels = 1;
 		params.arrayLayers = 1u;
@@ -260,6 +261,7 @@ namespace nbl::ext::imgui
 				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
 			};
 
+			transfer->startCapture();
 			cmdBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 			const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] = 
 			{ 
@@ -272,7 +274,9 @@ namespace nbl::ext::imgui
 			};
 
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
-			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), params.format, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
+
+			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), NBL_FORMAT_FONT, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
+			transfer->endCapture();
 		}
 		 
 		{
@@ -508,6 +512,7 @@ namespace nbl::ext::imgui
 		system->mount(core::smart_refctd_ptr(archive));
 
 		utilities = make_smart_refctd_ptr<video::IUtilities>(core::smart_refctd_ptr(m_device), core::smart_refctd_ptr(logger));
+
 		if (!utilities)
 		{
 			logger->log("Failed to create nbl::video::IUtilities!", system::ILogger::ELL_ERROR);
@@ -641,7 +646,11 @@ namespace nbl::ext::imgui
 					.buffer = core::smart_refctd_ptr(indexBuffer)
 				};
 
-				commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT);
+				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
+				{
+					logger->log("Could not bind index buffer!", system::ILogger::ELL_ERROR);
+					assert(false);
+				}
 			}
 
 			{
@@ -653,8 +662,12 @@ namespace nbl::ext::imgui
 					}
 				};
 
-				static constexpr size_t offset = 0;
-				commandBuffer->bindVertexBuffers(0, 1, bindings);
+				if(!commandBuffer->bindVertexBuffers(0, 1, bindings))
+				{
+					logger->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
+					assert(false);
+				}
+
 			}
 
 			SViewport const viewport
