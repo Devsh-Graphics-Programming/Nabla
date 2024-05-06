@@ -187,7 +187,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 
     // validate if descriptors are compatible
     DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-    std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> highestBindingsTmp = m_highestBindingNumbers;
+    HighestBindingArray highestBindingsTmp = m_highestBindingNumbers;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
         const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
@@ -216,7 +216,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                         if (specConstantFound == specConstants->end())
                             return false;
 
-                        descInfo.count = count.count;
+                        descInfo.count = specConstantFound->second;
                     }
                     else
                     {
@@ -235,6 +235,10 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 descInfo.isRuntimeSizedFlag = false;
             }
 
+            const auto& selfIntersectionFound = descriptorsToMerge[i].find(descInfo);
+            if (selfIntersectionFound != descriptorsToMerge[i].end() && selfIntersectionFound->type != stageIntroBindingInfo.type)
+                return false;
+
             const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
             if (pplnIntroDataFoundBinding != m_descriptorSetBindings[i].end())
             {
@@ -243,7 +247,8 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                 descInfo.count = std::max(pplnIntroDataFoundBinding->count, descInfo.count);
             }
 
-            highestBindingsTmp[i] = std::max<const int32_t>(highestBindingsTmp[i], stageIntroBindingInfo.binding);
+            highestBindingsTmp[i].binding = std::max<const int32_t>(highestBindingsTmp[i].binding, stageIntroBindingInfo.binding);
+            highestBindingsTmp[i].isRunTimeSized = descInfo.isRuntimeSized();
             descriptorsToMerge[i].insert(descInfo);
         }
     }
@@ -255,17 +260,19 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 
         for (const auto& descriptor : descriptorsToMerge[i])
         {
-            if (descriptor.binding < highestBindingsTmp[i] && descriptor.isRuntimeSized())
+            if (descriptor.binding < highestBindingsTmp[i].binding && descriptor.isRuntimeSized())
                 return false;
         }
+
+        if (m_highestBindingNumbers[i].isRunTimeSized && m_highestBindingNumbers[i].binding < highestBindingsTmp[i].binding)
+            return false;
     }
 
-    // validation successfull, update `CPipelineIntrospectionData` contents
-    m_highestBindingNumbers = highestBindingsTmp;
+    //// validation successfull, update `CPipelineIntrospectionData` contents
+    //m_highestBindingNumbers = highestBindingsTmp;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         m_descriptorSetBindings[i].merge(descriptorsToMerge[i]);
 
-    // TODO: possible push constants validation
     // can only be success now
     const auto& pc = stageData->getPushConstants();
     auto a = pc.size;
@@ -304,7 +311,6 @@ NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector
         .size = 0
     };
 
-    // TODO: test
     // run-length encode m_pushConstantBytes
     for (uint32_t currentByteOffset = 1u; currentByteOffset < MaxPushConstantsSize; ++currentByteOffset)
     {
@@ -540,7 +546,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
                     typeEnum = VAR_TYPE::F64;
                     break;
                 default:
-                    // TODO: get name of the type
+                    // TODO: get name of the type ( https://github.com/Devsh-Graphics-Programming/Nabla/pull/677#discussion_r1574860622 )
                     //        getTypeStore()->typeName = addString(comp.get_name(type));
                     typeEnum = VAR_TYPE::UNKNOWN_OR_STRUCT;
                     break;

@@ -5,8 +5,7 @@
 #define _NBL_ASSET_C_SPIRV_INTROSPECTOR_H_INCLUDED_
 
 // TODO: 
-// - test specialization constant as an array size
-// - test input / output (while 
+// - test input / output
 
 #include "nbl/core/declarations.h"
 
@@ -17,7 +16,6 @@
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-//#include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 
 #include "nbl/core/definitions.h"
@@ -545,7 +543,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				inline CPipelineIntrospectionData()
 				{
 					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::ESS_UNKNOWN);
-					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), -1);
+					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), HighestBindingData());
 				}
 
 				inline bool canSpecializationlesslyCreateDescSetFrom() const
@@ -584,7 +582,14 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				};
 				using DescriptorSetBindings = core::unordered_set<SDescriptorInfo, Hash, KeyEqual>;
 				DescriptorSetBindings m_descriptorSetBindings[4];
-				std::array<int32_t, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT> m_highestBindingNumbers;
+
+				struct HighestBindingData
+				{
+					bool isRunTimeSized = false;
+					int32_t binding = -1;
+				};
+				using HighestBindingArray = std::array<HighestBindingData, ICPUPipelineLayout::DESCRIPTOR_SET_COUNT>;
+				HighestBindingArray m_highestBindingNumbers;
 		};
 
 		// 
