@@ -1,3 +1,9 @@
+#include <iostream>
+#include <map>
+#include <ranges>
+#include <vector>
+#include <utility>
+
 // internal & nabla
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLogger.h"
@@ -64,8 +70,8 @@ namespace nbl::ext::imgui
 
 			auto createShader = [&](const system::SBuiltinFile& in, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUShader>
 			{
-				auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(in.size, in.contents, core::adopt_memory); // no copy
-				auto shader = make_smart_refctd_ptr<ICPUShader>(std::move(buffer), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, "");
+				const auto buffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(in.size, /*this cast is awful but my custom buffer won't free it's memory*/ (void*)in.contents, core::adopt_memory); // no copy
+				const auto shader = make_smart_refctd_ptr<ICPUShader>(core::smart_refctd_ptr(buffer), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, "");
 				
 				return m_device->createShader(shader.get());
 			};
@@ -127,18 +133,19 @@ namespace nbl::ext::imgui
 		}
 
 		{
-			const IGPUShader::SSpecInfo specs[] = 
+			const IGPUShader::SSpecInfo specs[] =
 			{
 				{ .entryPoint = "VSMain", .shader = shaders.vertex.get() },
 				{ .entryPoint = "PSMain", .shader = shaders.fragment.get() }
 			};
 
-			const IGPUGraphicsPipeline::SCreationParams params[] =
+			IGPUGraphicsPipeline::SCreationParams params[1];
 			{
-				{
-					.layout = pipelineLayout.get(), .shaders = specs, .renderpass = renderPass.get(),
-					.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = 0u } // TODO: check "subpassIx"
-				}
+				auto& param = params[0];
+				param.layout = pipelineLayout.get();
+				param.shaders = specs;
+				param.renderpass = renderPass.get();
+				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = 0u }; // TODO: check "subpassIx"
 			};
 			
 			if (!m_device->createGraphicsPipelines(pipelineCache, params, &pipeline))
@@ -149,7 +156,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue)
+	void UI::CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -186,9 +193,21 @@ namespace nbl::ext::imgui
 		params.samples = IImage::ESCF_1_BIT;
 		params.usage |= IGPUImage::EUF_TRANSFER_DST_BIT | IGPUImage::EUF_SAMPLED_BIT | IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT;
 
-		const auto regions = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
+		struct
 		{
-			auto* region = regions->begin();
+			smart_refctd_dynamic_array<ICPUImage::SBufferCopy> data = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);		
+			SRange <ICPUImage::SBufferCopy> range = { data->begin(), data->end() };
+			IImage::SSubresourceRange subresource = 
+			{
+				.aspectMask = IImage::EAF_COLOR_BIT,
+				.baseMipLevel = 0u,
+				.levelCount = 1u,
+				.baseArrayLayer = 0u,
+				.layerCount = 1u
+			};
+		} regions;
+		{
+			auto* region = regions.data->begin();
 			region->bufferOffset = 0ull;
 			region->bufferRowLength = params.extent.width;
 			region->bufferImageHeight = 0u;
@@ -198,15 +217,6 @@ namespace nbl::ext::imgui
 			region->imageOffset = { 0, 0, 0 };
 			region->imageExtent = { params.extent.width, params.extent.height, 1u };
 		}
-
-		const IImage::SSubresourceRange range = 
-		{
-			.aspectMask = IImage::EAF_COLOR_BIT,
-			.baseMipLevel = 0u,
-			.levelCount = 1u,
-			.baseArrayLayer = 0u,
-			.layerCount = 1u
-		};
 
 		auto image = m_device->createImage(std::move(params));
 
@@ -235,7 +245,7 @@ namespace nbl::ext::imgui
 			}
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
 
-			sInfo.queue = queue;
+			sInfo.queue = transfer;
 			sInfo.waitSemaphores = {};
 			sInfo.commandBuffers = { &cmdInfo, 1 };
 			sInfo.scratchSemaphore = // TODO: do I really need it?
@@ -256,20 +266,20 @@ namespace nbl::ext::imgui
 				{
 					.barrier = { .dep = toTransferBarrier },
 					.image = image.get(),
-					.subresourceRange = range,
+					.subresourceRange = regions.subresource,
 					.newLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL
 				} 
 			};
 
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
-			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), params.format, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions);
+			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), params.format, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
 		}
-		
+		 
 		{
 			IGPUImageView::SCreationParams params;
 			params.format = image->getCreationParameters().format;
 			params.viewType = IImageView<IGPUImage>::ET_2D;
-			params.subresourceRange = range;
+			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
 			m_fontTexture = m_device->createImageView(std::move(params));
@@ -403,16 +413,62 @@ namespace nbl::ext::imgui
 	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, smart_refctd_ptr<IGPURenderpass>& renderPass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
 		: m_device(std::move(device)), m_window(std::move(window))
 	{
+		createSystem();
+		struct
+		{
+			struct
+			{
+				uint8_t transfer, graphics;
+			} id;
+		} families;
+
+		const nbl::video::IPhysicalDevice* pDevice = device->getPhysicalDevice();
+		ILogicalDevice::SCreationParams params = {};
+
+		auto properties = pDevice->getQueueFamilyProperties();
+
+		auto requestFamilyQueueId = [&](IQueue::FAMILY_FLAGS requried, std::string_view onError)
+		{
+			for (const auto& fProperty : properties)
+			{
+				if (fProperty.queueFlags.hasFlags(requried))
+				{
+					const uint8_t index = &properties.back() - &properties.front();
+					++params.queueParams[index].count;
+
+					return index;
+				}
+			}
+
+			logger->log(onError.data(), system::ILogger::ELL_ERROR);
+			assert(false);
+		};
+
+		// get & validate families' capabilities
+		families.id.transfer = requestFamilyQueueId(IQueue::FAMILY_FLAGS::TRANSFER_BIT, "Could not find any queue with TRANSFER_BIT enabled!");
+		families.id.graphics = requestFamilyQueueId(IQueue::FAMILY_FLAGS::GRAPHICS_BIT, "Could not find any queue with GRAPHICS_BIT enabled!");
+
+		// allocate temporary command buffer
+		auto* tQueue = device->getThreadSafeQueue(families.id.transfer, 0);
+		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
+		{
+			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = device->createCommandPool(families.id.transfer, IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+			if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transistentCMD))
+			{
+				logger->log("Could not create transistent command buffer!", system::ILogger::ELL_ERROR);
+				assert(false);
+			}
+		}
+
 		// Setup Dear ImGui context
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
-		createSystem();
 		CreateFontSampler();
 		CreateDescriptorPool();
 		CreateDescriptorSetLayout();
 		CreatePipeline(renderPass, pipelineCache);
-		CreateFontTexture(); // TODO get cmdBuffer and queue
+		CreateFontTexture(transistentCMD.get(), tQueue);
 		prepareKeyMapForDesktop();
 		adjustGlobalFontScale();
 		UpdateDescriptorSets();
@@ -478,8 +534,9 @@ namespace nbl::ext::imgui
 			assert(false);
 		}
 
-		commandBuffer.bindGraphicsPipeline(pipeline.get());
-		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, pipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
+		auto* rawPipeline = pipeline.get();
+		commandBuffer.bindGraphicsPipeline(rawPipeline);
+		commandBuffer.bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 		
 		auto const* drawData = ImGui::GetDrawData();
 

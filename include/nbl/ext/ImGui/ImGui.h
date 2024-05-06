@@ -52,14 +52,14 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<system::ILogger> logger;
 		core::smart_refctd_ptr<video::IUtilities> utilities;
 
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device{};
-		core::smart_refctd_ptr<video::IGPUSampler> m_fontSampler{};
-		core::smart_refctd_ptr<video::IDescriptorPool> m_descriptorPool{};
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_gpuDescriptorSet{};
+		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+		core::smart_refctd_ptr<video::IGPUSampler> m_fontSampler;
+		core::smart_refctd_ptr<video::IDescriptorPool> m_descriptorPool;
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_gpuDescriptorSet;
 
-		core::smart_refctd_ptr<IGPUGraphicsPipeline> pipeline;
-		core::smart_refctd_ptr<video::IGPUImageView> m_fontTexture{};
-		core::smart_refctd_ptr<ui::IWindow> m_window{};
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
+		core::smart_refctd_ptr<video::IGPUImageView> m_fontTexture;
+		core::smart_refctd_ptr<ui::IWindow> m_window;
 		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_vertexBuffers, m_indexBuffers;
 		bool hasFocus = false;
 
