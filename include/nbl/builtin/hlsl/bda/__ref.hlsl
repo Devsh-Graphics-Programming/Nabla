@@ -23,7 +23,7 @@ namespace bda
 template<typename T>
 using __spv_ptr_t = vk::SpirvOpaqueType<
     spv::OpTypePointer,
-    /* PhysicalStorageBuffer */ vk::Literal<vk::integral_constant<uint,5349> >,
+    vk::Literal< vk::integral_constant<uint, spv::StorageClassPhysicalStorageBuffer> >,
     T
 >;
 
@@ -31,17 +31,17 @@ namespace impl
 {
 // this only exists to workaround DXC issue XYZW TODO https://github.com/microsoft/DirectXShaderCompiler/issues/6576
 template<class T>
-[[vk::ext_capability(/*PhysicalStorageBufferAddresses */ 5347 )]]
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(uint64_t);
 
 template<typename T, typename P, uint32_t alignment>
-[[vk::ext_capability( /*PhysicalStorageBufferAddresses */5347)]]
-[[vk::ext_instruction( spv::OpLoad)]]
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpLoad)]]
 T load(P pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 template<typename T, typename P, uint32_t alignment >
-[[vk::ext_capability( /*PhysicalStorageBufferAddresses */5347)]]
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpStore)]]
 void store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
@@ -106,7 +106,7 @@ struct __ref<Type,alignment,_restrict> : __base_ref<Type,alignment,_restrict>   
     using base_t = __base_ref <Type, alignment, _restrict>;                     \
     using this_t = __ref <Type, alignment, _restrict>;                          \
                                                                                 \
-    [[vk::ext_capability(/*PhysicalStorageBufferAddresses */ 5347 )]]           \
+    [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]       \
     Type atomicAdd(const Type value)                                            \
     {                                                                           \
         return impl::atomicIAdd <Type> (base_t::__get_spv_ptr(), 1, 0, value);  \
