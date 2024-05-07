@@ -10,10 +10,10 @@
 
 namespace bda
 {
-template<typename T, bool _restrict>
+template<typename T>
 struct __ptr
 {
-    using this_t = __ptr < T, _restrict>;
+    using this_t = __ptr <T>;
     uint64_t addr;
 
     static this_t create(const uint64_t _addr)
@@ -24,10 +24,10 @@ struct __ptr
     }
 
     template<uint64_t alignment=nbl::hlsl::alignment_of<T>::value>
-    __ref<T,alignment,_restrict> deref()
+    __ref<T,alignment,false> deref()
     {
         // TODO: assert(addr&uint64_t(alignment-1)==0);
-        using retval_t = __ref < T, alignment, _restrict>;
+        using retval_t = __ref < T, alignment, false>;
         retval_t retval;
         retval.__init(impl::bitcast<typename retval_t::spv_ptr_t>(addr));
         return retval;

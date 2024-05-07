@@ -53,7 +53,7 @@ T atomicIAdd(P ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 }
 
 // TODO: maybe make normal and restrict separate distinct types instead of templates
-template<typename T, bool _restrict = false>
+template<typename T>
 struct __ptr;
 
 template<typename T, uint32_t alignment, bool _restrict>
@@ -76,9 +76,9 @@ struct __base_ref
         ptr = _ptr;
     }
 
-    __ptr<T,_restrict> addrof()
+    __ptr<T> addrof()
     {
-        __ptr<T,_restrict> retval;
+        __ptr<T> retval;
         retval.addr = nbl::hlsl::spirv::bitcast<uint64_t>(ptr);
         return retval;
     }
