@@ -17,10 +17,10 @@ namespace nbl::video
 class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainResources
 {
 	public:
-		inline CDefaultSwapchainFramebuffers(ILogicalDevice* device, const asset::E_FORMAT format, const IGPURenderpass::SCreationParams::SSubpassDependency* dependencies)
+		inline CDefaultSwapchainFramebuffers(ILogicalDevice* device, const asset::E_FORMAT format, const IGPURenderpass::SCreationParams::SSubpassDependency* dependencies) : m_device(device)
 		{
 			// If we create the framebuffers by default, we also need to default the renderpass (except dependencies)
-			const IGPURenderpass::SCreationParams::SColorAttachmentDescription colorAttachments[] = {
+			static const IGPURenderpass::SCreationParams::SColorAttachmentDescription colorAttachments[] = {
 				{{
 					{
 						.format = format,
@@ -34,20 +34,23 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 				}},
 				IGPURenderpass::SCreationParams::ColorAttachmentsEnd
 			};
-			IGPURenderpass::SCreationParams::SSubpassDescription subpasses[] = {
+			static IGPURenderpass::SCreationParams::SSubpassDescription subpasses[] = {
 				{},
 				IGPURenderpass::SCreationParams::SubpassesEnd
 			};
 			subpasses[0].colorAttachments[0] = {.render={.attachmentIndex=0,.layout=IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL}};
 				
-			IGPURenderpass::SCreationParams params = {};
-			params.colorAttachments = colorAttachments;
-			params.subpasses = subpasses;
-			params.dependencies = dependencies;
-			m_renderpass = device->createRenderpass(params);
+			m_params.colorAttachments = colorAttachments;
+			m_params.subpasses = subpasses;
+			m_params.dependencies = dependencies;
 		}
 
-		inline IGPURenderpass* getRenderpass() {return m_renderpass.get();}
+		inline IGPURenderpass* getRenderpass()
+		{
+			if (!m_renderpass)
+				m_renderpass = m_device->createRenderpass(m_params);
+			return m_renderpass.get();
+		}
 
 		inline IGPUFramebuffer* getFramebuffer(const uint8_t imageIx)
 		{
@@ -65,14 +68,12 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 		// For creating extra per-image or swapchain resources you might need
 		virtual inline bool onCreateSwapchain_impl(const uint8_t qFam)
 		{
-			auto device = const_cast<ILogicalDevice*>(m_renderpass->getOriginDevice());
-
 			const auto swapchain = getSwapchain();
 			const auto count = swapchain->getImageCount();
 			const auto& sharedParams = swapchain->getCreationParameters().sharedParams;
 			for (uint32_t i=0u; i<count; i++)
 			{
-				auto imageView = device->createImageView({
+				auto imageView = m_device->createImageView({
 					.flags = IGPUImageView::ECF_NONE,
 					.subUsages = IGPUImage::EUF_RENDER_ATTACHMENT_BIT,
 					.image = core::smart_refctd_ptr<IGPUImage>(getImage(i)),
@@ -82,8 +83,8 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 				std::string debugName = "Swapchain "+std::to_string(ptrdiff_t(swapchain));
 				debugName += " Image View #"+std::to_string(i);
 				imageView->setObjectDebugName(debugName.c_str());
-				m_framebuffers[i] = device->createFramebuffer({{
-					.renderpass = core::smart_refctd_ptr(m_renderpass),
+				m_framebuffers[i] = createFramebuffer({{
+					.renderpass = core::smart_refctd_ptr<IGPURenderpass>(getRenderpass()),
 					.colorAttachments = &imageView.get(),
 					.width = sharedParams.width,
 					.height = sharedParams.height
@@ -94,6 +95,14 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 			return true;
 		}
 
+		virtual inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
+		{
+			return m_device->createFramebuffer(std::move(params));
+		}
+
+
+		ILogicalDevice* const m_device;
+		IGPURenderpass::SCreationParams m_params = {};
 		core::smart_refctd_ptr<IGPURenderpass> m_renderpass;
 		// Per-swapchain
 		std::array<core::smart_refctd_ptr<IGPUFramebuffer>,ISwapchain::MaxImages> m_framebuffers;
