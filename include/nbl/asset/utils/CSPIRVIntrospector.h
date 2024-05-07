@@ -172,9 +172,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 						struct MatrixInfo
 						{
-							uint32_t rowMajor : 2;
-							uint32_t rows : 15;
-							uint32_t columns : 15;
+							uint8_t rowMajor : 1;
+							uint8_t rows : 3;
+							uint8_t columns : 3;
 						};
 
 						//! children
@@ -207,8 +207,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						using member_stride_t = uint32_t;
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
-						using member_matrix_info_t = uint32_t;
-						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const {return memberStrides()+memberCount;}
+						using member_matrix_info_t = MatrixInfo;
+						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const {return reinterpret_cast<ptr_t<member_matrix_info_t,Mutable>&>(memberStrides()+memberCount); }
 
 						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t)+sizeof(member_matrix_info_t);
 
@@ -399,25 +399,21 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				inline const auto& getParams() const {return m_params;}
 				inline const auto& getDescriptorSetInfo(const uint8_t set) const {return m_descriptorSetBindings[set];}
 				inline const auto& getInputs() const { return m_input; }
-				inline const core::vector<SFragmentOutputInterface>& getFragmentShaderOutputs() const
+				inline const std::span<const SFragmentOutputInterface> getFragmentShaderOutputs() const
 				{
 					if (m_shaderStage != IShader::ESS_FRAGMENT)
-					{
-						// TODO: log error
-						return EMPTY_FRAGMENT_OUTPUT_INTERFACE;
-					}
+						return {};
 
-					return std::get<core::vector<SFragmentOutputInterface>>(m_output);
+					const auto& outputInterface = std::get<core::vector<SFragmentOutputInterface>>(m_output);
+					return { outputInterface.data(), outputInterface.size() };
 				}
-				inline const core::vector<SOutputInterface>& getShaderOutputs() const
+				inline const std::span<const SOutputInterface> getShaderOutputs() const
 				{
 					if (m_shaderStage == IShader::ESS_UNKNOWN || m_shaderStage == IShader::ESS_FRAGMENT)
-					{
-						// TODO: log error
-						return EMPTY_OUTPUT_INTERFACE;
-					}
+						return {};
 
-					return std::get<core::vector<SOutputInterface>>(m_output);
+					const auto& outputInterface = std::get<core::vector<SOutputInterface>>(m_output);
+					return { outputInterface.data(), outputInterface.size() };
 				}
 				inline const auto& getPushConstants() const {return m_pushConstants;}
 				inline const auto& getSpecConstants() const {return m_specConstants;}
@@ -432,9 +428,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			protected:
 				friend CSPIRVIntrospector;
-
-				static const core::vector<SFragmentOutputInterface> EMPTY_FRAGMENT_OUTPUT_INTERFACE;
-				static const core::vector<SOutputInterface> EMPTY_OUTPUT_INTERFACE;
 
 				//! Only call these during construction!
 				inline size_t allocOffset(const size_t bytes) // TODO: move to cpp

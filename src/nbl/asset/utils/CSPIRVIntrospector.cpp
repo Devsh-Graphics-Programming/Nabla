@@ -470,13 +470,14 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             getParentTypeStore()->memberOffsets()(m_memPool.data())[entry.memberIndex] = comp.type_struct_member_offset(parentType,entry.memberIndex);
             getParentTypeStore()->memberStrides()(m_memPool.data())[entry.memberIndex] = getTypeStore()->isArray() ? comp.type_struct_member_array_stride(parentType,entry.memberIndex):0u;
 
-            SType<true>::MatrixInfo matrixInfo = {
-                .rowMajor = comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor),
-                .rows = parentType.vecsize,
-                .columns = parentType.columns
-            };
+            _NBL_DEBUG_BREAK_IF(parentType.columns > 1);
 
-            getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex] = reinterpret_cast<uint32_t&>(matrixInfo);
+            SType<true>::MatrixInfo matrixInfo = {
+                .rowMajor = static_cast<uint8_t>(comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor)),
+                .rows = static_cast<uint8_t>(parentType.vecsize),
+                .columns = static_cast<uint8_t>(parentType.columns)
+            };
+            std::memcpy(&getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex], &matrixInfo, sizeof(SType<true>::MatrixInfo));
 
             /*getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex] = {
                 .rowMajor = comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor),
@@ -485,18 +486,6 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             };*/
 //          comp.get_declared_struct_size();
 //          comp.get_declared_struct_size_runtime_array();
-
-#if 0 
-    for (uint32_t m = 0u; m < memberCnt; ++m)
-    {
-        MembT& member = dstMembers.array[m];
-        const spirv_cross::SPIRType& mtype = comp.get_type(allMembersTypes[m]);
-
-        member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor); // ?
-
-            //if (member.mtxColCnt > 1u)
-            //    member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
-#endif
         }
 
         // found in cache, then don't need to fill out the rest
@@ -783,6 +772,10 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         stageIntroData->shaderMemBlockIntrospection(comp,pPushConstantsMutable,r);
         // believe it or not you can declare an empty PC block
         pPushConstantsMutable->size = comp.get_declared_struct_size(comp.get_type(r.type_id));
+
+        if (pPushConstantsMutable->offset + pPushConstantsMutable->size >= MaxPushConstantsSize)
+            return nullptr;
+
         if (pPushConstantsMutable->size != 0)
             pPushConstantsMutable->offset = comp.type_struct_member_offset(comp.get_type(r.type_id/*TODO: verify if this of base*/), 0);
     }
