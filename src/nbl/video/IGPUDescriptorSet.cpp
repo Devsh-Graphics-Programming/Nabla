@@ -59,14 +59,16 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
     }
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if (descriptorType==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
+    if ((descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER or descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and write.info->info.image.sampler)
     {
-        if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
+        if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0 
+            // providing samplers to an immutable sampler binding is only a problem if the descriptor is not a combined image sampler
+            and descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER)
         {
             if (debugName)
-                m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%s, %p), but those are immutable.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
             else
-                m_pool->m_logger.log("Descriptor set (%p) doesn't allow immutable samplers at binding %u, but immutable samplers found.", system::ILogger::ELL_ERROR, this, write.binding);
+                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%p), but those are immutable.", system::ILogger::ELL_ERROR, this, write.binding);
             return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
 
@@ -82,8 +84,14 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
                 return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
             auto* sampler = write.info[i].info.image.sampler.get();
-            if (!sampler || !sampler->isCompatibleDevicewise(write.dstSet))
-            {
+            if (not sampler) {
+                if (debugName)
+                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%s, %p). All writes should provide a sampler.", system::ILogger::ELL_ERROR, debugName, write.dstSet);
+                else
+                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%p). All writes should provide a sampler.", system::ILogger::ELL_ERROR, write.dstSet);
+                return asset::IDescriptor::E_TYPE::ET_COUNT;
+            }
+            else if (not sampler->isCompatibleDevicewise(write.dstSet)) {
                 const char* samplerDebugName = sampler->getDebugName();
                 if (samplerDebugName && debugName)
                     m_pool->m_logger.log("Sampler (%s, %p) does not exist or is not device-compatible with descriptor set (%s, %p).", system::ILogger::ELL_ERROR, samplerDebugName, sampler, debugName, write.dstSet);
@@ -116,7 +124,11 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     assert(descriptors);
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if (type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && write.info->info.image.sampler)
+    if ((type == asset::IDescriptor::E_TYPE::ET_SAMPLER or type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) 
+        and write.info->info.image.sampler
+        // Since the write was validated, immutable samplers will only show up here if we're trying to write to a combined image sampler, in which case
+        // the samplers will be ignored by the Vulkan call. We avoid lifetime tracking them in this case
+        and m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) == 0)
     {
         mutableSamplers = getMutableSamplers(write.binding);
         assert(mutableSamplers);
@@ -129,8 +141,10 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
         if (mutableSamplers)
             mutableSamplers[j] = write.info[j].info.image.sampler;
     }
-
-    incrementVersion();
+    auto& bindingRedirect = m_layout->getDescriptorRedirect(type);
+    auto bindingCreateFlags = bindingRedirect.getCreateFlags(bindingRedirect.findBindingStorageIndex({ write.binding }));
+    if (not (bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT)))
+        incrementVersion();
 }
 
 void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop)
@@ -152,7 +166,10 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
 
 	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
 	// so, only if we do the path that writes descriptors, do we want to increment version
-    if (getOriginDevice()->getEnabledFeatures().nullDescriptor)
+    auto& bindingRedirect = m_layout->getDescriptorRedirect(descriptorType);
+    auto bindingCreateFlags = bindingRedirect.getCreateFlags(bindingRedirect.findBindingStorageIndex({ drop.binding }));
+    bool shouldIncrementVersion = not (bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT));
+    if (getOriginDevice()->getEnabledFeatures().nullDescriptor or shouldIncrementVersion)
     {
         incrementVersion();
     }
@@ -193,6 +210,8 @@ void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
 {
     assert(copy.dstSet == this);
 
+    bool shouldIncrementVersion = false;
+
     for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
     {
         const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
@@ -210,9 +229,15 @@ void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
 
         if (srcSamplers && dstSamplers)
             std::copy_n(srcSamplers, copy.count, dstSamplers);
+
+        auto& bindingRedirect = m_layout->getDescriptorRedirect(type);
+        auto bindingCreateFlags = bindingRedirect.getCreateFlags(bindingRedirect.findBindingStorageIndex({ copy.srcBinding }));
+        if (not (bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or bindingCreateFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT)))
+            shouldIncrementVersion = true;
     }
 
-    incrementVersion();
+    if (shouldIncrementVersion)
+        incrementVersion();
 }
 
 }

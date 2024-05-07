@@ -28,21 +28,21 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         {
             for (const auto& binding : _bindings)
             {
-                if (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) || binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT))
+                if (not (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT)))
                 {
-                    m_canUpdateAfterBind = true;
+                    m_versionChangeInvalidatesCommandBuffer = true;
                     break;
                 }
             }
         }
 
-        inline bool canUpdateAfterBind() const { return m_canUpdateAfterBind; }
+        inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
 
     protected:
         virtual ~IGPUDescriptorSetLayout() = default;
 
         bool m_isPushDescLayout = false;
-        bool m_canUpdateAfterBind = false;
+        bool m_versionChangeInvalidatesCommandBuffer = false;
 };
 
 }

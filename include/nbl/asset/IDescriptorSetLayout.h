@@ -361,7 +361,7 @@ protected:
 		{
 			buildInfo_descriptors[static_cast<uint32_t>(b.type)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 
-			if (b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
+			if (b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
 			{
 				if (b.samplers)
 					buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
@@ -381,7 +381,7 @@ protected:
 
 		for (const auto& b : _bindings)
 		{
-			if (b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && b.samplers)
+			if ((b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and b.samplers)
 			{
 				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);

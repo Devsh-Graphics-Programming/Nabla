@@ -551,7 +551,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers && binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.samplers and binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
@@ -681,6 +681,16 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
             outWrite->descriptorCount = write.count;
             switch (asset::IDescriptor::GetTypeCategory(type))
             {
+                case asset::IDescriptor::EC_SAMPLER:
+                {
+                    outWrite->pImageInfo = outImageInfo;
+                    for (auto j = 0u; j < write.count; j++, outImageInfo++)
+                    {
+                        const auto& imageInfo = infos[j].info.image;
+                        // Write was validated so we can just get the sampler
+                        outImageInfo->sampler = static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject();
+                    }
+                } break;
                 case asset::IDescriptor::EC_BUFFER:
                 {
                     outWrite->pBufferInfo = outBufferInfo;

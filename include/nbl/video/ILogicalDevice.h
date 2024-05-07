@@ -889,6 +889,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             std::span<const IGPUDescriptorSet::SWriteDescriptorSet> writes;
             std::span<const IGPUDescriptorSet::SCopyDescriptorSet> copies;
             const asset::IDescriptor::E_TYPE* pWriteTypes;
+            uint32_t samplerCount = 0u;
             uint32_t bufferCount = 0u;
             uint32_t bufferViewCount = 0u;
             uint32_t imageCount = 0u;

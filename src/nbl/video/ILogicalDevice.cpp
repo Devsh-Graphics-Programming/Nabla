@@ -392,7 +392,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
             dynamicSSBOCount++;
         else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
-        else if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers)
+        // If binding comes with samplers, we're binding an immutable sampler
+        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.samplers)
         {
             auto* samplers = binding.samplers;
             for (uint32_t i=0u; i<binding.count; ++i)
@@ -442,6 +443,9 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         const auto writeCount = write.count;
         switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write)))
         {
+            case asset::IDescriptor::EC_SAMPLER:
+                params.samplerCount += writeCount;
+                break;
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
                 break;
