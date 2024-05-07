@@ -1230,8 +1230,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     {
         core::vector<VkQueueFamilyProperties2> qfamprops;
         {
-            uint32_t qfamCount = 0u;
+            uint32_t qfamCount = 0;
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, nullptr);
+            if (qfamCount>ILogicalDevice::MaxQueueFamilies)
+                qfamCount = ILogicalDevice::MaxQueueFamilies;
             qfamprops.resize(qfamCount, { VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr });
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, qfamprops.data());
         }
