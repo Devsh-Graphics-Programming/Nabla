@@ -74,13 +74,6 @@ struct __base_ref
         ptr = _ptr;
     }
 
-    __ptr<T> addrof()
-    {
-        __ptr<T> retval;
-        retval.addr = nbl::hlsl::spirv::bitcast<uint64_t>(ptr);
-        return retval;
-    }
-
     T load()
     {
         return impl::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
