@@ -52,7 +52,6 @@ template<typename T, typename P> // integers operate on 2s complement so same op
 T atomicIAdd(P ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 }
 
-// TODO: maybe make normal and restrict separate distinct types instead of templates
 template<typename T>
 struct __ptr;
 
