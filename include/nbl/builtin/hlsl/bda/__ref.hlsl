@@ -11,10 +11,9 @@
 namespace spirv
 {
 template<typename M, typename T, typename StorageClass>
-[[vk::ext_instruction(/*spv::OpAccessChain*/65)]]
-vk::SpirvOpaqueType </* OpTypePointer*/ 32,StorageClass,M> accessChain(
-    [[vk::ext_reference]] vk::SpirvOpaqueType </* OpTypePointer*/ 32,
-    StorageClass,T>base,
+[[vk::ext_instruction(spv::OpAccessChain)]]
+vk::SpirvOpaqueType <spv::OpTypePointer,StorageClass,M> accessChain(
+    [[vk::ext_reference]] vk::SpirvOpaqueType <spv::OpTypePointer,StorageClass,T>base,
     [[vk::ext_literal]] uint32_t index0
 );
 }
@@ -23,7 +22,7 @@ namespace bda
 {
 template<typename T>
 using __spv_ptr_t = vk::SpirvOpaqueType<
-    /* OpTypePointer */ 32,
+    spv::OpTypePointer,
     /* PhysicalStorageBuffer */ vk::Literal<vk::integral_constant<uint,5349> >,
     T
 >;
@@ -33,22 +32,22 @@ namespace impl
 // this only exists to workaround DXC issue XYZW TODO https://github.com/microsoft/DirectXShaderCompiler/issues/6576
 template<class T>
 [[vk::ext_capability(/*PhysicalStorageBufferAddresses */ 5347 )]]
-[[vk::ext_instruction(/*spv::OpBitcast*/124)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(uint64_t);
 
 template<typename T, typename P, uint32_t alignment>
 [[vk::ext_capability( /*PhysicalStorageBufferAddresses */5347)]]
-[[vk::ext_instruction( /*OpLoad*/61)]]
+[[vk::ext_instruction( spv::OpLoad)]]
 T load(P pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 template<typename T, typename P, uint32_t alignment >
 [[vk::ext_capability( /*PhysicalStorageBufferAddresses */5347)]]
-[[vk::ext_instruction( /*OpStore*/62)]]
+[[vk::ext_instruction(spv::OpStore)]]
 void store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 // TODO: atomics for different types
 template<typename T, typename P> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_instruction( /*spv::OpAtomicIAdd*/234)]]
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
 T atomicIAdd(P ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 }
 
