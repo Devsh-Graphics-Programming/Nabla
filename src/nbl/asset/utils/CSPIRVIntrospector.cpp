@@ -269,7 +269,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     }
 
     //// validation successfull, update `CPipelineIntrospectionData` contents
-    //m_highestBindingNumbers = highestBindingsTmp;
+    m_highestBindingNumbers = highestBindingsTmp;
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         m_descriptorSetBindings[i].merge(descriptorsToMerge[i]);
 
@@ -278,10 +278,10 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
     auto a = pc.size;
     if (pc.present())
     {
-        std::span<core::bitflag<ICPUShader::E_SHADER_STAGE>> pcRangesSpan(
-            &m_pushConstantBytes[pc.offset],
-            &m_pushConstantBytes[pc.offset + pc.size]
-        );
+        std::span<core::bitflag<ICPUShader::E_SHADER_STAGE>> pcRangesSpan = {
+            m_pushConstantBytes.data() + pc.offset,
+            pc.size
+        };
 
         // iterate over all bytes used
         const IShader::E_SHADER_STAGE shaderStage = stageData->getParams().shader->getStage();
@@ -326,22 +326,18 @@ NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector
                 tmp.push_back(prev);
             }
             prev = current;
+            current.size = 0u;
         }
     }
 
     if (prev.stageFlags)
     {
-        prev.size = current.offset - prev.offset;
+        prev.size = MaxPushConstantsSize - prev.offset;
         tmp.push_back(prev);
     }
 
     if(tmp.size() == 0)
         return nullptr;
-
-    std::ostringstream debug;
-    for (auto it = tmp.begin(); it != tmp.end(); it++)
-        debug << "Stage flags: " << std::bitset<32>(it->stageFlags) << " offset: " << it->offset << " size: " << it->size << std::endl;
-    std::cout << debug.str();
 
     return core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(tmp);
 }
@@ -473,8 +469,23 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             getParentTypeStore()->memberSizes()(m_memPool.data())[entry.memberIndex] = comp.get_declared_struct_member_size(parentType,entry.memberIndex);
             getParentTypeStore()->memberOffsets()(m_memPool.data())[entry.memberIndex] = comp.type_struct_member_offset(parentType,entry.memberIndex);
             getParentTypeStore()->memberStrides()(m_memPool.data())[entry.memberIndex] = getTypeStore()->isArray() ? comp.type_struct_member_array_stride(parentType,entry.memberIndex):0u;
-//            comp.get_declared_struct_size();
-//            comp.get_declared_struct_size_runtime_array();
+
+            SType<true>::MatrixInfo matrixInfo = {
+                .rowMajor = comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor),
+                .rows = parentType.vecsize,
+                .columns = parentType.columns
+            };
+
+            getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex] = reinterpret_cast<uint32_t&>(matrixInfo);
+
+            /*getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex] = {
+                .rowMajor = comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor),
+                .rows = parentType.vecsize,
+                .columns = parentType.columns
+            };*/
+//          comp.get_declared_struct_size();
+//          comp.get_declared_struct_size_runtime_array();
+
 #if 0 
     for (uint32_t m = 0u; m < memberCnt; ++m)
     {
@@ -498,8 +509,6 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
             const auto& parentType = comp.get_type(entry.parentTypeID);
             auto memberId = parentType.member_types[entry.memberIndex];
             auto memberBaseType = comp.get_type(memberId).basetype;
-
-            auto typeName = getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType));
 
             getTypeStore()->typeName = addString(getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType)));
         }
@@ -734,9 +743,9 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
-                                                                                            // TODO: hash map instead
-        CSPIRVIntrospector::CStageIntrospectionData::SInputInterface& res = stageIntroData->m_input.emplace_back();
+        CSPIRVIntrospector::CStageIntrospectionData::SInputInterface res;
         getStageIOtype(res, r.id, r.base_type_id);
+        stageIntroData->m_input.insert(res);
     }
 
     if (shaderStage == IShader::ESS_FRAGMENT)

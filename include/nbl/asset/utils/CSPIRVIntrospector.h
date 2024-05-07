@@ -109,15 +109,27 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					F32,
 					F16
 				};
+
+				inline bool canSpecializationlesslyCreateDescSetFrom() const
+				{
+					for (const auto& descSet : m_descriptorSetBindings)
+					{
+						auto found = std::find_if(descSet.begin(), descSet.end(), [](const SDescriptorVarInfo<false>& bnd)->bool { return bnd.count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT; });
+						if (found != descSet.end())
+							return false;
+					}
+					return true;
+				}
+
 				struct SInterface
 				{
 					uint32_t location;
 					uint32_t elements; // of array
 					VAR_TYPE baseType;
 
-					inline bool operator<(const SInterface& _rhs) const
+					inline bool operator==(const SInterface& rhs) const
 					{
-						return location<_rhs.location;
+						return std::memcmp(this, &rhs, sizeof(SInterface));
 					}
 				};
 				struct SInputInterface final : SInterface {};
@@ -158,6 +170,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					public:
 						inline bool isArray() const {return !count.empty();}
 
+						struct MatrixInfo
+						{
+							uint32_t rowMajor : 2;
+							uint32_t rows : 15;
+							uint32_t columns : 15;
+						};
+
 						//! children
 						//! TODO: replace these 5 SoA arrays with some struct similar to `STypeInfo` that has the per-member decorations, call it `SMemberInfo`
 						using member_type_t = ptr_t<SType<Mutable>,Mutable>;
@@ -188,8 +207,10 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						using member_stride_t = uint32_t;
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
+						using member_matrix_info_t = uint32_t;
+						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const {return memberStrides()+memberCount;}
 
-						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t);
+						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t)+sizeof(member_matrix_info_t);
 
 						//! self
 						span_t<char,Mutable> typeName = {};
@@ -510,8 +531,28 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				};
 				using SpecConstantsSet = core::unordered_set<SSpecConstant<>, SpecConstantHash, SpecConstantKeyEqual>;
 				SpecConstantsSet m_specConstants;
-				//! Sorted by `location`
-				core::vector<SInputInterface> m_input;
+
+				struct InputInterfaceHash
+				{
+					inline uint32_t operator()(const CStageIntrospectionData::SInputInterface& input) const
+					{
+						// TODO: combine hashes of ints maybe?
+						std::stringstream ss;
+						ss << input.location << input.elements << static_cast<uint32_t>(input.baseType);
+
+						return std::hash<std::string_view>()(std::string_view(ss.str()));
+					}
+				};
+				struct InputInterfaceKeyEqual
+				{
+					inline bool operator()(const CStageIntrospectionData::SInputInterface& lhs, const CStageIntrospectionData::SInputInterface& rhs) const
+					{
+						return std::memcmp(&lhs, &rhs, sizeof(CStageIntrospectionData::SInputInterface)) == 0;
+					}
+				};
+
+				using InputInterfaceMap = core::unordered_set<SInputInterface, InputInterfaceHash, InputInterfaceKeyEqual>;
+				InputInterfaceMap m_input;
 				std::variant<
 					core::vector<SFragmentOutputInterface>, // when `params.shader->getStage()==ESS_FRAGMENT`
 					core::vector<SOutputInterface> // otherwise
@@ -544,17 +585,6 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				{
 					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::ESS_UNKNOWN);
 					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), HighestBindingData());
-				}
-
-				inline bool canSpecializationlesslyCreateDescSetFrom() const
-				{
-					for (const auto& descSet : m_descriptorSetBindings)
-					{
-						auto found = std::find_if(descSet.begin(),descSet.end(),[](const SDescriptorInfo& bnd)->bool{ return bnd.isRuntimeSized();});
-						if (found!=descSet.end())
-							return false;
-					}
-					return true;
 				}
 
 				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
