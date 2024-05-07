@@ -43,7 +43,7 @@ groupshared uint32_t sdata[BucketCount];
 template<typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
 struct counting
 {
-    void histogram(const KeyAccessor key, const ScratchAccessor scratch, const nbl::hlsl::sort::CountingPushData data)
+    void histogram(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, const nbl::hlsl::sort::CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
@@ -90,7 +90,7 @@ struct counting
         }
     }
                 
-    void scatter(const KeyAccessor key, const ValueAccessor val, const ScratchAccessor scratch, const nbl::hlsl::sort::CountingPushData data)
+    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, const nbl::hlsl::sort::CountingPushData data)
     {
         uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
 
