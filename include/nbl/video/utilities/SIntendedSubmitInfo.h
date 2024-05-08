@@ -54,7 +54,7 @@ struct SIntendedSubmitInfo final : core::Uncopyable
             };
             // All commandbuffers before the scratch must be executable (ready to be submitted)
             for (size_t i=0; i<commandBuffers.size()-1; i++)
-            if (cmdbufNotSubmittableToQueue(commandBuffers[i].cmdbuf) || commandBuffers[i].cmdbuf->getState()==IGPUCommandBuffer::STATE::EXECUTABLE)
+            if (cmdbufNotSubmittableToQueue(commandBuffers[i].cmdbuf) || commandBuffers[i].cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
                 return false;
             const auto* scratch = getScratchCommandBuffer();
             // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened 
