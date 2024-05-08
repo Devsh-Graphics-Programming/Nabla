@@ -55,39 +55,81 @@ template<typename T> // integers operate on 2s complement so same op for signed 
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 T atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+T atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
 T atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicAnd)]]
+T atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicOr)]]
 T atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicOr)]]
+T atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicXor)]]
 T atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicXor)]]
+T atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMin )]]
 Signed atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+
+template<typename Signed, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicSMin)]]
+Signed atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMin )]]
 Unsigned atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
+template<typename Unsigned, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicUMin)]]
+Unsigned atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMax )]]
 Signed atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+
+template<typename Signed, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicSMax)]]
+Signed atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMax )]]
 Unsigned atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+
+template<typename Unsigned, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicUMax)]]
+Unsigned atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
 T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicAtomicExchange)]]
+T atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+template<typename T, Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
+T atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
 //! Std 450 Extended set operations
 template<typename SquareMatrix>
