@@ -58,8 +58,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetBundle, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
-        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::smart_refctd_ptr<core::IReferenceCounted> >;
-
     private:
         struct WriterKey
         {
@@ -88,7 +86,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
-        std::array<CpuGpuCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_cpuGpuCache;
 
         struct Loaders {
             Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
@@ -134,8 +131,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
 
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
-            for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
-                m_cpuGpuCache[i] = new CpuGpuCacheType();
 
             insertBuiltinAssets();
 			addLoadersAndWriters();
@@ -153,21 +148,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
 			for (size_t i = 0u; i < m_assetCache.size(); ++i)
 				if (m_assetCache[i])
 					delete m_assetCache[i];
-
-			core::vector<typename CpuGpuCacheType::MutablePairType> buf;
-			for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
-			{
-				if (m_cpuGpuCache[i])
-				{
-					size_t sizeToReserve{};
-					m_cpuGpuCache[i]->outputAll(sizeToReserve, nullptr);
-					buf.resize(sizeToReserve);
-					m_cpuGpuCache[i]->outputAll(sizeToReserve, buf.data());
-					for (auto& pair : buf)
-						pair.first->drop(); // drop keys (CPU "empty cache handles")
-					delete m_cpuGpuCache[i]; // drop on values (GPU objects) will be done by cache's destructor
-				}
-			}
 		}
 
 		//TODO change name
@@ -545,98 +525,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
                 if ((_assetTypeBitFlags>>i) & 1ull)
                     m_assetCache[i]->clear();
         }
-
-
-        //! This function does not free the memory consumed by IAssets, but allows you to cache GPU objects already created from given assets so that no unnecessary GPU-side duplicates get created.
-        /** Keeping assets around (by their pointers) helps a lot by making sure that the same asset is not converted to a gpu resource multiple times, or created and deleted multiple times.
-        However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void insertGPUObjectIntoCache(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
-        {
-            const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
-                _asset->grab();
-        }
-
-        //! This function frees most of the memory consumed by IAssets, but not destroying them.
-        /** However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
-        {
-            _asset->convertToDummyObject(referenceLevelsBelowToConvert);
-            insertGPUObjectIntoCache(_asset,std::move(_gpuObject));
-        }
-
-		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
-        {
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-
-            core::smart_refctd_ptr<core::IReferenceCounted> storage[1];
-            size_t storageSz = 1u;
-            m_cpuGpuCache[ix]->findAndStoreRange(_asset, storageSz, storage);
-            if (storageSz > 0u)
-                return storage[0];
-            return nullptr;
-        }
-
-		//! utility function to find from path instead of asset
-		inline core::smart_refctd_dynamic_array<core::smart_refctd_ptr<core::IReferenceCounted> > findGPUObject(const std::string& _key, IAsset::E_TYPE _type)
-		{
-			IAsset::E_TYPE type[] = {_type,static_cast<IAsset::E_TYPE>(0u)};
-			auto assets = findAssets(_key,type);
-			if (!assets->size())
-				return nullptr;
-
-			size_t outputSize = 0u;
-			for (auto it=assets->begin(); it!=assets->end(); it++)
-			{
-                const auto contentCount = it->getContents().size();
-				outputSize += contentCount;
-				if (contentCount)
-					assert(it->getAssetType() == _type);
-			}
-			if (!outputSize)
-				return nullptr;
-
-			const uint32_t ix = IAsset::typeFlagToIndex(_type);
-
-			auto retval = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<core::IReferenceCounted> > >(outputSize);
-			auto outIt = retval->data();
-			for (auto it=assets->begin(); it!=assets->end(); it++)
-			{
-				const auto& contents = it->getContents();
-                for (auto ass : contents)
-				{
-					size_t storageSz = 1u;
-					m_cpuGpuCache[ix]->findAndStoreRange(ass.get(), storageSz, outIt++);
-					assert(storageSz);
-				}
-			}
-			return retval;
-		}
-
-		//! Removes one GPU object matched to an IAsset.
-        bool removeCachedGPUObject(const IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuObject)
-        {
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-			bool success = m_cpuGpuCache[ix]->removeObject(_gpuObject,_asset);
-            if (success)
-			    _asset->drop();
-			return success;
-        }
-
-		// we need a removeCachedGPUObjects(const IAsset* _asset) but CObjectCache.h needs a `removeAllAssociatedObjects(const Key& _key)`
-
-        //! Removes all GPU objects from the specified caches, all caches by default
-        /* TODO
-        void clearAllGPUObjects(const uint64_t& _assetTypeBitFlags = 0xffffffffffffffffull)
-        {
-            for (size_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
-            {
-                if ((_assetTypeBitFlags >> i) & 1ull)
-                {
-                    TODO
-                }
-            }
-        }*/
 
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear 

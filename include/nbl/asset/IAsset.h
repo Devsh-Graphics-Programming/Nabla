@@ -289,6 +289,9 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
 };
 
+template<typename T>
+concept Asset = std::is_base_of_v<IAsset,T>;
+
 }
 
 #endif
