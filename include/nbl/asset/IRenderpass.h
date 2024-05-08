@@ -616,10 +616,10 @@ inline bool IRenderpass::SCreationParams::SDepthStencilAttachmentDescription::va
     if (hasDepth && disallowedFinalLayout(finalLayout.depth))
         return false;
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescription2-format-06699
-    if (hasDepth && initialLayout.depth==IImage::LAYOUT::UNDEFINED)
+    if (hasDepth && loadOp.depth==LOAD_OP::LOAD && initialLayout.depth==IImage::LAYOUT::UNDEFINED)
         return false;
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescription2-pNext-06705
-    if (hasStencil && initialLayout.actualStencilLayout()==IImage::LAYOUT::UNDEFINED)
+    if (hasStencil && loadOp.actualStencilOp()==LOAD_OP::LOAD && initialLayout.actualStencilLayout() == IImage::LAYOUT::UNDEFINED)
         return false;
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAttachmentDescriptionStencilLayout-stencilFinalLayout-03310
     if (hasStencil && disallowedFinalLayout(finalLayout.actualStencilLayout()))
