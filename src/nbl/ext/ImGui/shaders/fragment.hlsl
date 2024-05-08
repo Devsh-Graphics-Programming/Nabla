@@ -1,7 +1,7 @@
 #include "common.hlsl"
 
-[[vk::binding(0, 0)]] Texture2D sampleTexture : register(t0);
-[[vk::binding(0, 0)]] SamplerState linearSampler : register(s0);
+[[vk::combinedImageSampler]][[vk::binding(0, 0)]] Texture2D sampleTexture : register(t0);
+[[vk::combinedImageSampler]][[vk::binding(0, 0)]] SamplerState linearSampler : register(s0);
 
 float4 PSMain(PSInput input) : SV_Target0
 {

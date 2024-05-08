@@ -261,7 +261,6 @@ namespace nbl::ext::imgui
 				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
 			};
 
-			transfer->startCapture();
 			cmdBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 			const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] = 
 			{ 
@@ -276,7 +275,6 @@ namespace nbl::ext::imgui
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
 
 			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), NBL_FORMAT_FONT, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
-			transfer->endCapture();
 		}
 		 
 		{
@@ -479,18 +477,22 @@ namespace nbl::ext::imgui
 			}
 		}
 
-		// Setup Dear ImGui context
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
+		tQueue->startCapture();
+		{
+			// Setup Dear ImGui context
+			IMGUI_CHECKVERSION();
+			ImGui::CreateContext();
 
-		CreateFontSampler();
-		CreateDescriptorPool();
-		CreateDescriptorSetLayout();
-		CreatePipeline(renderpass, pipelineCache);
-		CreateFontTexture(transistentCMD.get(), tQueue);
-		prepareKeyMapForDesktop();
-		adjustGlobalFontScale();
-		UpdateDescriptorSets();
+			CreateFontSampler();
+			CreateDescriptorPool();
+			CreateDescriptorSetLayout();
+			CreatePipeline(renderpass, pipelineCache);
+			CreateFontTexture(transistentCMD.get(), tQueue);
+			prepareKeyMapForDesktop();
+			adjustGlobalFontScale();
+			UpdateDescriptorSets();
+		}
+		tQueue->endCapture();
 
 		auto & io = ImGui::GetIO();
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
