@@ -32,8 +32,6 @@ namespace impl
 			MapEquals m_equals;
 			const mutable Key* searchedKey;
 
-			LRUCacheBase() = default;
-
 			LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 			{ }
 
@@ -56,7 +54,7 @@ namespace impl
 // Stores fixed size amount of elements. 
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename MapEquals=std::equal_to<Key> >
-class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
+class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>, public core::Unmovable, public core::Uncopyable
 {
 		// typedefs
 		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
@@ -118,21 +116,7 @@ class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			assert(capacity > 1);
 			m_shortcut_map.reserve(capacity);
 		}
-
-		LRUCache() = default;
-		
-		LRUCache& operator=(LRUCache&& other)
-		{
-			m_shortcut_map = std::move(other.m_shortcut_map);
-			base_t::m_list = std::move(other.m_list);
-			base_t::m_hash = std::move(other.m_hash);
-			base_t::m_equals = std::move(other.m_equals);
-			base_t::searchedKey = other.searchedKey;
-
-			// Nullify other
-			other.searchedKey = nullptr;
-			return *this;
-		}
+		LRUCache() = delete;
 
 		inline void print(core::smart_refctd_ptr<system::ILogger> logger)
 		{
