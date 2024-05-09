@@ -352,12 +352,6 @@ template <class T>
 struct is_aggregate : is_compound<T> {};
 
 template<class T>
-struct is_physical_storage_ptr : bool_constant<false> {};
-
-template<class T>
-struct is_physical_storage_ptr<vk::SpirvOpaqueType< 32, vk::Literal< vk::integral_constant< uint, 5349 > >, T > > : bool_constant<true> {};
-
-template<class T>
 struct rank : integral_constant<uint64_t, 0> { };
 
 template<class T, uint64_t N>
@@ -476,12 +470,6 @@ struct make_unsigned : impl::uint_type<sizeof(T)>
     _Static_assert(is_integral<T>::value && !is_same<typename remove_cv<T>::type, bool>::value, 
         "make_unsigned<T> requires that T shall be a (possibly cv-qualified) "
         "integral type or enumeration but not a bool type.");
-};
-
-template<bool C, int, int c>
-struct conditional_capability_v
-{
-    NBL_CONSTEXPR_STATIC_INLINE int value = C ? c : 1;
 };
 
 #else // C++
