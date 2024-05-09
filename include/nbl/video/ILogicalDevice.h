@@ -889,10 +889,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             std::span<const IGPUDescriptorSet::SWriteDescriptorSet> writes;
             std::span<const IGPUDescriptorSet::SCopyDescriptorSet> copies;
             const asset::IDescriptor::E_TYPE* pWriteTypes;
-            uint32_t samplerCount = 0u;
             uint32_t bufferCount = 0u;
             uint32_t bufferViewCount = 0u;
-            uint32_t imageCount = 0u;
+            uint32_t imageCount = 0u;       // combined image/samplers as well as samplers belong here, since they're written through a VkDescriptorImageInfo
             uint32_t accelerationStructureCount = 0u;
             uint32_t accelerationStructureWriteCount = 0u;
         };

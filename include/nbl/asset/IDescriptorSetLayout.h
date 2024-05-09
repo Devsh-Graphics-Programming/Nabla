@@ -317,18 +317,20 @@ public:
 		if (!areRedirectsEqual(m_immutableSamplerRedirect, _other->m_immutableSamplerRedirect))
 			return false;
 
-		if (!areRedirectsEqual(m_mutableSamplerRedirect, _other->m_mutableSamplerRedirect))
+		if (!areRedirectsEqual(m_mutableCombinedSamplerRedirect, _other->m_mutableCombinedSamplerRedirect))
 			return false;
 
-		if (m_samplers && _other->m_samplers)
-			return std::equal(m_samplers->begin(), m_samplers->end(), _other->m_samplers->begin(), _other->m_samplers->end());
+		if (m_immutableSamplers && _other->m_immutableSamplers)
+			return std::equal(m_immutableSamplers->begin(), m_immutableSamplers->end(), _other->m_immutableSamplers->begin(), _other->m_immutableSamplers->end());
 		else
-			return !m_samplers && !_other->m_samplers;
+			return !m_immutableSamplers && !_other->m_immutableSamplers;
 	}
 
-	inline uint32_t getTotalMutableSamplerCount() const { return m_mutableSamplerRedirect.getTotalCount(); }
+	inline uint32_t getTotalMutableCombinedSamplerCount() const { return m_mutableCombinedSamplerRedirect.getTotalCount(); }
+	// Immutable sampler descriptors are not counted here
 	inline uint32_t getTotalDescriptorCount(const IDescriptor::E_TYPE type) const { return m_descriptorRedirects[static_cast<uint32_t>(type)].getTotalCount(); }
 
+	// Immutable sampler bindings are not counted here
 	inline uint32_t getTotalBindingCount() const
 	{
 		uint32_t result = 0u;
@@ -340,14 +342,14 @@ public:
 
 	inline const CBindingRedirect& getDescriptorRedirect(const IDescriptor::E_TYPE type) const { return m_descriptorRedirects[static_cast<uint32_t>(type)]; }
 	inline const CBindingRedirect& getImmutableSamplerRedirect() const { return m_immutableSamplerRedirect; }
-	inline const CBindingRedirect& getMutableSamplerRedirect() const { return m_mutableSamplerRedirect; }
+	inline const CBindingRedirect& getMutableCombinedSamplerRedirect() const { return m_mutableCombinedSamplerRedirect; }
 
 	inline core::SRange<const core::smart_refctd_ptr<sampler_type>> getImmutableSamplers() const
 	{
-		if (!m_samplers)
+		if (!m_immutableSamplers)
 			return { nullptr, nullptr };
 		
-		return { m_samplers->cbegin(), m_samplers->cend() };
+		return { m_immutableSamplers->cbegin(), m_immutableSamplers->cend() };
 	}
 
 protected:
@@ -359,14 +361,22 @@ protected:
 
 		for (const auto& b : _bindings)
 		{
-			buildInfo_descriptors[static_cast<uint32_t>(b.type)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
-
-			if (b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
-			{
-				if (b.samplers)
-					buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
-				else
-					buildInfo_mutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+			switch (b.type) {
+				case IDescriptor::E_TYPE::ET_SAMPLER:
+					if (b.samplers)
+						buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+					else 
+						buildInfo_descriptors[static_cast<uint32_t>(b.type)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+					break;
+				case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+					if (b.samplers)
+						buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+					else
+						buildInfo_mutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+					[[fallthrough]];
+				default:
+					buildInfo_descriptors[static_cast<uint32_t>(b.type)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+					break;
 			}
 		}
 
@@ -374,10 +384,10 @@ protected:
 			m_descriptorRedirects[type] = CBindingRedirect(std::move(buildInfo_descriptors[type]));
 
 		m_immutableSamplerRedirect = CBindingRedirect(std::move(buildInfo_immutableSamplers));
-		m_mutableSamplerRedirect = CBindingRedirect(std::move(buildInfo_mutableSamplers));
+		m_mutableCombinedSamplerRedirect = CBindingRedirect(std::move(buildInfo_mutableSamplers));
 
 		const uint32_t immutableSamplerCount = m_immutableSamplerRedirect.getTotalCount();
-		m_samplers = immutableSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>>>(immutableSamplerCount) : nullptr;
+		m_immutableSamplers = immutableSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>>>(immutableSamplerCount) : nullptr;
 
 		for (const auto& b : _bindings)
 		{
@@ -386,7 +396,7 @@ protected:
 				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
 
-				auto* dst = m_samplers->begin() + localOffset;
+				auto* dst = m_immutableSamplers->begin() + localOffset;
 				std::copy_n(b.samplers, b.count, dst);
 			}
 		}
@@ -396,9 +406,9 @@ protected:
 
 	CBindingRedirect m_descriptorRedirects[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)];
 	CBindingRedirect m_immutableSamplerRedirect;
-	CBindingRedirect m_mutableSamplerRedirect;
+	CBindingRedirect m_mutableCombinedSamplerRedirect;
 
-	core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>> m_samplers = nullptr;
+	core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type>> m_immutableSamplers = nullptr;
 };
 
 }

@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class ISampler : IDescriptor
+class ISampler : public IDescriptor
 {
 	public:
 		//! Texture coord clamp mode outside [0.0, 1.0]

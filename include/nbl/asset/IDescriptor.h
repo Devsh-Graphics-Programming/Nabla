@@ -51,25 +51,23 @@ class IDescriptor : public virtual core::IReferenceCounted
 		{
 			switch (type)
 			{
+				case E_TYPE::ET_SAMPLER:
+					return EC_SAMPLER;
 				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
 				case E_TYPE::ET_SAMPLED_IMAGE:
 				case E_TYPE::ET_STORAGE_IMAGE:
 				case E_TYPE::ET_INPUT_ATTACHMENT:
 					return EC_IMAGE;
-					break;
 				case E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
 				case E_TYPE::ET_STORAGE_TEXEL_BUFFER:
 					return EC_BUFFER_VIEW;
-					break;
 				case E_TYPE::ET_UNIFORM_BUFFER:
 				case E_TYPE::ET_STORAGE_BUFFER:
 				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
 				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
 					return EC_BUFFER;
-					break;
 				case E_TYPE::ET_ACCELERATION_STRUCTURE:
 					return EC_ACCELERATION_STRUCTURE;
-					break;
 				default:
 					break;
 			}

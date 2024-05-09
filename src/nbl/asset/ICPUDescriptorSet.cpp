@@ -59,7 +59,7 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 
 			auto category = getCategoryFromType(type);
 			
-			if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
+			if (category == IDescriptor::E_CATEGORY::EC_IMAGE or category == IDescriptor::E_CATEGORY::EC_SAMPLER)
 				dstDescriptorInfo.info.image = srcDescriptorInfo.info.image;
 			else
 				dstDescriptorInfo.info.buffer = srcDescriptorInfo.info.buffer;
@@ -71,7 +71,9 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 					assert(srcDescriptorInfo.desc);
 
 					IAsset* descriptor = nullptr;
-					if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
+					if (category == IDescriptor::E_CATEGORY::EC_SAMPLER)
+						descriptor = static_cast<ICPUSampler*>(srcDescriptorInfo.desc.get());
+					else if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
 						descriptor = static_cast<ICPUImageView*>(srcDescriptorInfo.desc.get());
 					else if (category == IDescriptor::E_CATEGORY::EC_BUFFER_VIEW)
 						descriptor = static_cast<ICPUBufferView*>(srcDescriptorInfo.desc.get());
@@ -80,7 +82,9 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 
 					auto descriptorClone = descriptor->clone(_depth - 1);
 
-					if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
+					if (category == IDescriptor::E_CATEGORY::EC_SAMPLER)
+						dstDescriptorInfo.desc = core::smart_refctd_ptr_static_cast<ICPUSampler>(std::move(descriptorClone));
+					else if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
 						dstDescriptorInfo.desc = core::smart_refctd_ptr_static_cast<ICPUImageView>(std::move(descriptorClone));
 					else if (category == IDescriptor::E_CATEGORY::EC_BUFFER_VIEW)
 						dstDescriptorInfo.desc = core::smart_refctd_ptr_static_cast<ICPUBufferView>(std::move(descriptorClone));
@@ -91,7 +95,7 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 
 				// Clone the sampler.
 				{
-					if ((category == IDescriptor::E_CATEGORY::EC_IMAGE) && srcDescriptorInfo.info.image.sampler)
+					if ((category == IDescriptor::E_CATEGORY::EC_IMAGE or category == IDescriptor::E_CATEGORY::EC_SAMPLER) and srcDescriptorInfo.info.image.sampler)
 						dstDescriptorInfo.info.image.sampler = core::smart_refctd_ptr_static_cast<ICPUSampler>(srcDescriptorInfo.info.image.sampler->clone(_depth - 1u));
 				}
 			}
@@ -131,6 +135,14 @@ void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConv
 				case IDescriptor::E_CATEGORY::EC_BUFFER:
 					static_cast<asset::ICPUBuffer*>(descriptorInfos[i].desc.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 					break;
+
+				case IDescriptor::E_CATEGORY::EC_SAMPLER:
+				{
+					static_cast<asset::ICPUSampler*>(descriptorInfos[i].desc.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+					// should add asserts here? Not sure
+					if (descriptorInfos[i].info.image.sampler)
+						descriptorInfos[i].info.image.sampler->convertToDummyObject(referenceLevelsBelowToConvert);
+				} break;
 
 				case IDescriptor::E_CATEGORY::EC_IMAGE:
 				{
@@ -183,6 +195,14 @@ void ICPUDescriptorSet::restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBe
 					restoreFromDummy_impl_call(static_cast<ICPUBuffer*>(descriptorInfos[i].desc.get()), static_cast<ICPUBuffer*>(otherDescriptorInfos[i].desc.get()), _levelsBelow);
 					break;
 
+				case IDescriptor::EC_SAMPLER:
+				{
+					restoreFromDummy_impl_call(static_cast<ICPUSampler*>(descriptorInfos[i].desc.get()), static_cast<ICPUSampler*>(otherDescriptorInfos[i].desc.get()), _levelsBelow);
+					// should add asserts here? Not sure
+					if (descriptorInfos[i].info.image.sampler && otherDescriptorInfos[i].info.image.sampler)
+						restoreFromDummy_impl_call(descriptorInfos[i].info.image.sampler.get(), otherDescriptorInfos[i].info.image.sampler.get(), _levelsBelow);
+				} break;
+
 				case IDescriptor::EC_IMAGE:
 				{
 					restoreFromDummy_impl_call(static_cast<ICPUImageView*>(descriptorInfos[i].desc.get()), static_cast<ICPUImageView*>(otherDescriptorInfos[i].desc.get()), _levelsBelow);
@@ -229,6 +249,16 @@ bool ICPUDescriptorSet::isAnyDependencyDummy_impl(uint32_t _levelsBelow) const
 					if (static_cast<ICPUBuffer*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
 						return true;
 					break;
+
+				case IDescriptor::EC_SAMPLER:
+				{
+					if (static_cast<ICPUSampler*>(descriptorInfos[i].desc.get())->isAnyDependencyDummy(_levelsBelow))
+						return true;
+
+					// should add asserts here? Not sure
+					if (descriptorInfos[i].info.image.sampler && descriptorInfos[i].info.image.sampler->isAnyDependencyDummy(_levelsBelow))
+						return true;
+				} break;
 
 				case IDescriptor::EC_IMAGE:
 				{

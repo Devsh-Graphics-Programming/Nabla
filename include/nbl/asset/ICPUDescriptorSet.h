@@ -101,36 +101,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 	private:
 		static inline IDescriptor::E_CATEGORY getCategoryFromType(const IDescriptor::E_TYPE type)
 		{
-			auto category = IDescriptor::E_CATEGORY::EC_COUNT;
-			switch (type)
-			{
-			case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_SAMPLED_IMAGE: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_IMAGE: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
-				category = IDescriptor::E_CATEGORY::EC_IMAGE;
-				break;
-
-			case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-				category = IDescriptor::E_CATEGORY::EC_BUFFER;
-				break;
-
-			case IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
-			case IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
-				category = IDescriptor::E_CATEGORY::EC_BUFFER_VIEW;
-				break;
-
-			case IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
-				category = IDescriptor::E_CATEGORY::EC_ACCELERATION_STRUCTURE;
-				break;
-
-			default:
-				assert(!"Invalid code path.");
-			}
-			return category;
+			return IDescriptor::GetTypeCategory(type);
 		}
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];

@@ -23,10 +23,10 @@ IGPUDescriptorSet::IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptor
         std::uninitialized_default_construct_n(descriptors, m_layout->getTotalDescriptorCount(type));
     }
 
-    const auto mutableSamplerCount = m_layout->getTotalMutableSamplerCount();
+    const auto mutableSamplerCount = m_layout->getTotalMutableCombinedSamplerCount();
     if (mutableSamplerCount > 0)
     {
-        auto mutableSamplers = getAllMutableSamplers();
+        auto mutableSamplers = getAllMutableCombinedSamplers();
         assert(mutableSamplers);
         std::uninitialized_default_construct_n(mutableSamplers, mutableSamplerCount);
     }
@@ -101,15 +101,18 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
             }
         }
 
-        mutableSamplers = getMutableSamplers(write.binding);
-        if (!mutableSamplers)
-        {
-            if (debugName)
-                m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
-            else
-                m_pool->m_logger.log("Descriptor set (%p) doesn't allow mutable samplers at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+        if (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) {
+            mutableSamplers = getMutableCombinedSamplers(write.binding);
+            // Should never reach here, the GetTypeCategory check earlier should ensure that
+            if (!mutableSamplers)
+            {
+                if (debugName)
+                    m_pool->m_logger.log("Descriptor set (%s, %p) only allows standalone mutable samplers at binding %u (no combined image samplers).", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+                else
+                    m_pool->m_logger.log("Descriptor set (%p) only allows standalone mutable samplers at binding %u (no combined image samplers).", system::ILogger::ELL_ERROR, this, write.binding);
 
-            return asset::IDescriptor::E_TYPE::ET_COUNT;
+                return asset::IDescriptor::E_TYPE::ET_COUNT;
+            }
         }
     }
 
@@ -124,13 +127,13 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
     assert(descriptors);
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if ((type == asset::IDescriptor::E_TYPE::ET_SAMPLER or type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) 
+    if (type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER
         and write.info->info.image.sampler
-        // Since the write was validated, immutable samplers will only show up here if we're trying to write to a combined image sampler, in which case
-        // the samplers will be ignored by the Vulkan call. We avoid lifetime tracking them in this case
+        // In the case of COMBINED_IMAGE_SAMPLER, one can provide samplers on a write, but if the descriptor we're trying to write to has those immutable,
+        // samplers will just be ignored by Vulkan. Therefore we only track the samplers' lifetimes if the binding is has mutable samplers
         and m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) == 0)
     {
-        mutableSamplers = getMutableSamplers(write.binding);
+        mutableSamplers = getMutableCombinedSamplers(write.binding);
         assert(mutableSamplers);
     }
 
@@ -154,7 +157,7 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
     const auto descriptorType = getBindingType(drop.binding);
 
 	auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, drop.binding);
-	auto* dstSamplers = drop.dstSet->getMutableSamplers(drop.binding);
+	auto* dstSamplers = drop.dstSet->getMutableCombinedSamplers(drop.binding);
 
 	if (dstDescriptors)
 		for (uint32_t i = 0; i < drop.count; i++)
@@ -189,8 +192,8 @@ bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet
         auto* srcDescriptors = copy.srcSet->getDescriptors(type, copy.srcBinding);
         auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
 
-        auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
-        auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
+        auto* srcSamplers = copy.srcSet->getMutableCombinedSamplers(copy.srcBinding);
+        auto* dstSamplers = copy.dstSet->getMutableCombinedSamplers(copy.dstBinding);
 
         if ((!srcDescriptors != !dstDescriptors) || (!srcSamplers != !dstSamplers))
         {
@@ -220,8 +223,8 @@ void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
         auto* dstDescriptors = copy.dstSet->getDescriptors(type, copy.dstBinding);
         assert(!(!srcDescriptors != !dstDescriptors));
 
-        auto* srcSamplers = copy.srcSet->getMutableSamplers(copy.srcBinding);
-        auto* dstSamplers = copy.dstSet->getMutableSamplers(copy.dstBinding);
+        auto* srcSamplers = copy.srcSet->getMutableCombinedSamplers(copy.srcBinding);
+        auto* dstSamplers = copy.dstSet->getMutableCombinedSamplers(copy.dstBinding);
         assert(!(!srcSamplers != !dstSamplers));
 
         if (srcDescriptors && dstDescriptors)

@@ -788,6 +788,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
 			case asset::IDescriptor::EC_BUFFER:
 				outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
 				break;
+            case asset::IDescriptor::EC_SAMPLER:
 			case asset::IDescriptor::EC_IMAGE:
 				outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
 				break;

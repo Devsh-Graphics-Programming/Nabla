@@ -99,13 +99,13 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             return descriptors+localOffset;
         }
 
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplers(const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(redirect_t::binding_number_t{ binding }).data;
-            if (localOffset == getLayout()->getMutableSamplerRedirect().Invalid)
+            const auto localOffset = getLayout()->getMutableCombinedSamplerRedirect().getStorageOffset(redirect_t::binding_number_t{ binding }).data;
+            if (localOffset == getLayout()->getMutableCombinedSamplerRedirect().Invalid)
                 return nullptr;
 
-            auto* samplers = getAllMutableSamplers();
+            auto* samplers = getAllMutableCombinedSamplers();
             if (!samplers)
                 return nullptr;
 
@@ -125,13 +125,13 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             return baseAddress + offset;
         }
 
-        inline core::smart_refctd_ptr<IGPUSampler>* getAllMutableSamplers() const
+        inline core::smart_refctd_ptr<IGPUSampler>* getAllMutableCombinedSamplers() const
         {
-            auto* baseAddress = m_pool->getMutableSamplerStorage();
+            auto* baseAddress = m_pool->getMutableCombinedSamplerStorage();
             if (baseAddress == nullptr)
                 return nullptr;
 
-            const auto offset = m_storageOffsets.getMutableSamplerOffset();
+            const auto offset = m_storageOffsets.getMutableCombinedSamplerOffset();
             if (offset == ~0u)
                 return nullptr;
 
