@@ -70,7 +70,7 @@ T atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySe
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
-T atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicOr)]]
@@ -78,7 +78,7 @@ T atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySem
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicOr)]]
-T atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicXor)]]
@@ -86,7 +86,7 @@ T atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySe
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicXor)]]
-T atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMin )]]
@@ -94,7 +94,7 @@ Signed atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint3
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMin)]]
-Signed atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, Signed>::type atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMin )]]
@@ -102,7 +102,7 @@ Unsigned atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, ui
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMin)]]
-Unsigned atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, Unsigned>::type atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMax )]]
@@ -110,7 +110,7 @@ Signed atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMax)]]
-Signed atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, Signed>::type atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMax )]]
@@ -118,7 +118,7 @@ Unsigned atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, ui
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMax)]]
-Unsigned atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, Unsigned>::type atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
@@ -126,7 +126,7 @@ T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t mem
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
-T atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
@@ -134,7 +134,7 @@ T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint3
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
-T atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
 //! Std 450 Extended set operations
 template<typename SquareMatrix>
