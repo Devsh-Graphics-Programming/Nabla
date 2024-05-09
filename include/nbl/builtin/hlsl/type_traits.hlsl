@@ -290,6 +290,13 @@ struct is_signed : bool_constant<
 
 }
 
+template<class T>
+struct is_spirv_type : false_type {};
+template<class T, class Storage>
+struct is_spirv_type< vk::SpirvOpaqueType</*spv::OpTypePointer*/ 32, Storage, T> > : true_type {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
 

@@ -29,12 +29,6 @@ using __spv_ptr_t = vk::SpirvOpaqueType<
 
 namespace impl
 {
-// this only exists to workaround DXC issue XYZW TODO https://github.com/microsoft/DirectXShaderCompiler/issues/6576
-template<class T>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-T bitcast(uint64_t);
-
 template<typename T, typename P, uint32_t alignment>
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpLoad)]]
@@ -44,11 +38,6 @@ template<typename T, typename P, uint32_t alignment >
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpStore)]]
 void store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
-
-// TODO: atomics for different types
-template<typename T, typename P> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_instruction(spv::OpAtomicIAdd)]]
-T atomicIAdd(P ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 }
 
 template<typename T>
@@ -65,7 +54,7 @@ struct __base_ref
 
     __spv_ptr_t<T> __get_spv_ptr()
     {
-        return impl::bitcast < __spv_ptr_t<T> > (ptr);
+        return nbl::hlsl::experimental::bitcast < __spv_ptr_t<T> > (ptr);
     }
 
     // TODO: Would like to use `spv_ptr_t` or OpAccessChain result instead of `uint64_t`
@@ -90,30 +79,12 @@ struct __ref : __base_ref<T,alignment,_restrict>
 {
     using base_t = __base_ref < T, alignment, _restrict>;
     using this_t = __ref < T, alignment, _restrict>;
-};
 
-#define REF_INTEGRAL(Type)                                                      \
-template<uint32_t alignment, bool _restrict>                                    \
-struct __ref<Type,alignment,_restrict> : __base_ref<Type,alignment,_restrict>   \
-{                                                                               \
-    using base_t = __base_ref <Type, alignment, _restrict>;                     \
-    using this_t = __ref <Type, alignment, _restrict>;                          \
-                                                                                \
-    [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]       \
-    Type atomicAdd(const Type value)                                            \
-    {                                                                           \
-        return impl::atomicIAdd <Type> (base_t::__get_spv_ptr(), 1, 0, value);  \
-    }                                                                           \
+    __spv_ptr_t<T> get_ptr()
+    {
+        return base_t::__get_spv_ptr();
+    }
 };
-
-// TODO: specializations for simple builtin types that have atomics
-// We are currently only supporting builtin types that work with atomicIAdd
-REF_INTEGRAL(int16_t)
-REF_INTEGRAL(uint16_t)
-REF_INTEGRAL(int32_t)
-REF_INTEGRAL(uint32_t)
-REF_INTEGRAL(int64_t)
-REF_INTEGRAL(uint64_t)
 }
 
 #endif

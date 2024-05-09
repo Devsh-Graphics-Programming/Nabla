@@ -29,7 +29,7 @@ struct __ptr
         // TODO: assert(addr&uint64_t(alignment-1)==0);
         using retval_t = __ref < T, alignment, false>;
         retval_t retval;
-        retval.__init(impl::bitcast<typename retval_t::spv_ptr_t>(addr));
+        retval.__init(nbl::hlsl::experimental::bitcast<typename retval_t::spv_ptr_t>(addr));
         return retval;
     }
 };

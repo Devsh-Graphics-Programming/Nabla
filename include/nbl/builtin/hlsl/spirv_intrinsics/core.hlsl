@@ -10,6 +10,7 @@
 #include "spirv/unified1/GLSL.std.450.h"
 #endif
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 namespace nbl 
 {
@@ -47,6 +48,10 @@ static const uint32_t3 GlobalInvocationId;
 [[vk::ext_builtin_input(spv::BuiltInLocalInvocationIndex)]]
 static const uint32_t LocalInvocationIndex;
 
+//! General Types
+template<uint32_t StorageClass, typename T>
+using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<uint32_t,StorageClass> >,T>;
+
 //! General Operations
 
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
@@ -57,7 +62,7 @@ T atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memoryS
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
-T atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
@@ -147,7 +152,6 @@ void controlBarrier(uint32_t executionScope, uint32_t memoryScope, uint32_t memo
 [[vk::ext_instruction( spv::OpMemoryBarrier )]]
 void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
-
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
@@ -166,6 +170,32 @@ template<typename Signed>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
 Signed bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
 
+}
+
+// should be in `nbl::hlsl::spirv` but would collide right now
+namespace experimental
+{
+using namespace nbl::hlsl::spirv;
+
+template<typename T, typename U>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+T bitcast(U);
+
+template<typename T, uint32_t StorageClass>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+uint64_t bitcast(pointer_t<StorageClass,T>);
+
+template<typename T, uint32_t StorageClass>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+pointer_t<StorageClass,T> bitcast(uint64_t);
+
+template<typename T, typename U, uint32_t StorageClass>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+pointer_t<StorageClass,T> bitcast(pointer_t<StorageClass,U>);
 }
 #endif
 }
