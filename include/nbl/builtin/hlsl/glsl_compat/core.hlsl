@@ -27,14 +27,17 @@ template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
     // FUTURE: assert the scalart type is an integer type, then assert device traits maybe? but default to traits there?
-    return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    if (sizeof(T) == sizeof(uint32_t))
+        return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return atomic64::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-
 template<typename T, typename Ptr_T> // DXC Workaround
 typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicAdd(Ptr_T ptr, T value)
 {
     // FUTURE: assert the scalart type is an integer type, then assert device traits maybe? but default to traits there?
-    return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    if (sizeof(T) == sizeof(uint32_t))
+        return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return atomic64::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)

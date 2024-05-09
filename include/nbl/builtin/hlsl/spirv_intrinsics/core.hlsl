@@ -197,6 +197,18 @@ template<typename T, typename U, uint32_t StorageClass>
 [[vk::ext_instruction(spv::OpBitcast)]]
 pointer_t<StorageClass,T> bitcast(pointer_t<StorageClass,U>);
 }
+
+namespace atomic64 {
+template<typename T> // integers operate on 2s complement so same op for signed and unsigned
+[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+T atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+}
 #endif
 }
 }
