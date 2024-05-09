@@ -27,19 +27,6 @@ using __spv_ptr_t = vk::SpirvOpaqueType<
     T
 >;
 
-namespace impl
-{
-template<typename T, typename P, uint32_t alignment>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpLoad)]]
-T load(P pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
-
-template<typename T, typename P, uint32_t alignment >
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpStore)]]
-void store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
-}
-
 template<typename T>
 struct __ptr;
 
@@ -65,12 +52,12 @@ struct __base_ref
 
     T load()
     {
-        return impl::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
+        return nbl::hlsl::spirv::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
     }
 
     void store(const T val)
     {
-        impl::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
+        nbl::hlsl::spirv::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
     }
 };
 

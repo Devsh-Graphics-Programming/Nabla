@@ -136,6 +136,16 @@ template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
+template<typename T, typename P, uint32_t alignment>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpLoad)]]
+typename nbl::hlsl::enable_if<is_spirv_type_v<P>, T>::type load(P pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+
+template<typename T, typename P, uint32_t alignment >
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpStore)]]
+typename nbl::hlsl::enable_if<is_spirv_type_v<P>, void>::type store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+
 //! Std 450 Extended set operations
 template<typename SquareMatrix>
 [[vk::ext_instruction(GLSLstd450MatrixInverse)]]
