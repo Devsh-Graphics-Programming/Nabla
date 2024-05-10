@@ -67,7 +67,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			return 0xdeadbeefull;
 		}
 
-		inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
+		inline std::span<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 		{
 			// TODO: @Hazardu
 			// Cannot do the mutability check here because it requires the function to be non-const, but the function cannot be non-const because it's called
@@ -78,14 +78,14 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			// 
 			// assert(!isImmutable_debug());
 			if (!m_descriptorInfos[static_cast<uint32_t>(type)])
-				return { nullptr, nullptr };
+				return { };
 			else
 				return { m_descriptorInfos[static_cast<uint32_t>(type)]->begin(), m_descriptorInfos[static_cast<uint32_t>(type)]->end() };
 		}
 
-		core::SRange<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
+		std::span<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
 
-		core::SRange<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
+		std::span<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 

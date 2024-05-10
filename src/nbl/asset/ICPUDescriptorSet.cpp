@@ -3,14 +3,14 @@
 namespace nbl::asset
 {
 
-core::SRange<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type)
+std::span<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type)
 {
 	assert(!isImmutable_debug());
 	auto immutableResult = const_cast<const ICPUDescriptorSet*>(this)->getDescriptorInfos(binding, type);
-	return {const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.begin()), const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.end())};
+	return {const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.data()), immutableResult.size()};
 }
 
-core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type) const
+std::span<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type) const
 {
 	if (type == IDescriptor::E_TYPE::ET_COUNT)
 	{
@@ -26,20 +26,20 @@ core::SRange<const ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDes
 		}
 
 		if (type == IDescriptor::E_TYPE::ET_COUNT)
-			return { nullptr, nullptr };
+			return { };
 	}
 
 	const auto& redirect = getLayout()->getDescriptorRedirect(type);
 	const auto bindingNumberIndex = redirect.findBindingStorageIndex(binding);
 	if (bindingNumberIndex.data == redirect.Invalid)
-		return { nullptr, nullptr };
+		return { };
 
 	const auto offset = redirect.getStorageOffset(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ bindingNumberIndex }).data;
 	const auto count = redirect.getCount(asset::ICPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ bindingNumberIndex });
 
 	auto infosBegin = m_descriptorInfos[static_cast<uint32_t>(type)]->begin() + offset;
 
-	return { infosBegin, infosBegin + count };
+	return { infosBegin, count };
 }
 
 core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
