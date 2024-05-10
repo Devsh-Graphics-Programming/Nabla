@@ -602,13 +602,9 @@ NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDualSrcAttachments, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxFragmentCombinedOutputResources, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeSharedMemorySize, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCount[0], uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountY[1], uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountZ[2], uint32_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCount, uint32_t3, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupInvocations, uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize[0], uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize[1], uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize[2], uint16_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize, uint16_t3, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(subPixelPrecisionBits, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(subTexelPrecisionBits, uint8_t, 0);
@@ -620,10 +616,8 @@ NBL_GENERATE_GET_OR_DEFAULT(maxSamplerLodBias, float, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(maxSamplerAnisotropyLog2, uint8_t, 0.0f);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxViewports, uint8_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims[0], uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims[1], uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange[0], float, 0.0f);
-NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange[1], float, 0.0f);
+NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims, uint16_t2, 0);
+NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange, float2, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(viewportSubPixelBits, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(bufferViewAlignment, uint16_t, 0);
@@ -666,7 +660,7 @@ NBL_GENERATE_GET_OR_DEFAULT(optimalBufferCopyRowPitchAlignment, uint16_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(nonCoherentAtomSize, uint16_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(subgroupSize, uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(subgroupOpsShaderStages, core::bitflag<asset::IShader::E_SHADER_STAGE, 0);
+NBL_GENERATE_GET_OR_DEFAULT(subgroupOpsShaderStages, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupClustered, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupArithmetic, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupQuad, bool, false);
@@ -715,8 +709,8 @@ NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindImages, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindStorageImages, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindInputAttachments, uint32_t, 0);
 
-NBL_GENERATE_GET_OR_DEFAULT(supportedDepthResolveModes, core::bitflag<RESOLVE_MODE_FLAGS>, 0);
-NBL_GENERATE_GET_OR_DEFAULT(supportedStencilResolveModes, core::bitflag<RESOLVE_MODE_FLAGS>, 0);
+NBL_GENERATE_GET_OR_DEFAULT(supportedDepthResolveModes, uint8_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(supportedStencilResolveModes, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(independentResolveNone, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(independentResolve, bool, false);
 
@@ -725,7 +719,7 @@ NBL_GENERATE_GET_OR_DEFAULT(filterMinmaxImageComponentMapping, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(minSubgroupSize, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxSubgroupSize, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkgroupSubgroups, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(requiredSubgroupSizeStages, core::bitflag<asset::IShader::E_SHADER_STAGE>, 0);
+NBL_GENERATE_GET_OR_DEFAULT(requiredSubgroupSizeStages, uint8_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProduct8BitUnsignedAccelerated, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProduct8BitSignedAccelerated, bool, false);
@@ -799,8 +793,8 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderStencilExport, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(variableSampleLocations, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSubPixelBits, uint8_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCounts, core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSize, VkExtent2D, {0, 0});
+NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCounts, uint8_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSize, uint32_t2, {0, 0});
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange[0], float, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange[1], float, 0.0f);
 
@@ -833,8 +827,8 @@ NBL_GENERATE_GET_OR_DEFAULT(imageFootprint, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(shaderIntegerFunctions2, bool, false);
 
-NBL_GENERATE_GET_OR_DEFAULT(minFragmentDensityTexelSize, VkExtent2D, {0, 0});
-NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDensityTexelSize, VkExtent2D, {0, 0});
+NBL_GENERATE_GET_OR_DEFAULT(minFragmentDensityTexelSize, uint32_t2, {0, 0});
+NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDensityTexelSize, uint32_t2, {0, 0});
 NBL_GENERATE_GET_OR_DEFAULT(fragmentDensityInvocations, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(decorateString, bool, false);
@@ -865,7 +859,7 @@ NBL_GENERATE_GET_OR_DEFAULT(workgroupMemoryExplicitLayout16BitAccess, bool, fals
 
 NBL_GENERATE_GET_OR_DEFAULT(colorWriteEnable, bool, false);
 
-NBL_GENERATE_GET_OR_DEFAULT(cooperativeMatrixSupportedStages, core::bitflag<asset::IShader::E_SHADER_STAGE>, 0);
+NBL_GENERATE_GET_OR_DEFAULT(cooperativeMatrixSupportedStages, uint8_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(shaderBufferInt64Atomics, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSharedInt64Atomics, bool, false);
@@ -1083,7 +1077,7 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint16_t nonCoherentAtomSize                      = impl::get_or_default_nonCoherentAtomSize<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t subgroupSize                              = impl::get_or_default_subgroupSize<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = impl::get_or_default_subgroupOpsShaderStages<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t subgroupOpsShaderStages = impl::get_or_default_subgroupOpsShaderStages<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClustered                      = impl::get_or_default_shaderSubgroupClustered<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupArithmetic                     = impl::get_or_default_shaderSubgroupArithmetic<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupQuad                           = impl::get_or_default_shaderSubgroupQuad<device_capabilities>::value;
@@ -1132,8 +1126,8 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindStorageImages = impl::get_or_default_maxDescriptorSetUpdateAfterBindStorageImages<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = impl::get_or_default_maxDescriptorSetUpdateAfterBindInputAttachments<device_capabilities>::value;
 
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<RESOLVE_MODE_FLAGS> supportedDepthResolveModes = impl::get_or_default_supportedDepthResolveModes<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<RESOLVE_MODE_FLAGS> supportedStencilResolveModes = impl::get_or_default_supportedStencilResolveModes<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t supportedDepthResolveModes = impl::get_or_default_supportedDepthResolveModes<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t supportedStencilResolveModes = impl::get_or_default_supportedStencilResolveModes<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool independentResolveNone                       = impl::get_or_default_independentResolveNone<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool independentResolve                           = impl::get_or_default_independentResolve<device_capabilities>::value;
 
@@ -1142,7 +1136,7 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint8_t minSubgroupSize                           = impl::get_or_default_minSubgroupSize<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSubgroupSize                           = impl::get_or_default_maxSubgroupSize<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkgroupSubgroups             = impl::get_or_default_maxComputeWorkgroupSubgroups<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IShader::E_SHADER_STAGE> requiredSubgroupSizeStages = impl::get_or_default_requiredSubgroupSizeStages<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t requiredSubgroupSizeStages = impl::get_or_default_requiredSubgroupSizeStages<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE bool integerDotProduct8BitUnsignedAccelerated                    = impl::get_or_default_integerDotProduct8BitUnsignedAccelerated<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool integerDotProduct8BitSignedAccelerated                      = impl::get_or_default_integerDotProduct8BitSignedAccelerated<device_capabilities>::value;
@@ -1216,8 +1210,8 @@ struct device_capabilities_traits
 
     NBL_CONSTEXPR_STATIC_INLINE bool variableSampleLocations = impl::get_or_default_variableSampleLocations<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSubPixelBits = impl::get_or_default_sampleLocationSubPixelBits<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = impl::get_or_default_sampleLocationSampleCounts<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE VkExtent2D maxSampleLocationGridSize = impl::get_or_default_maxSampleLocationGridSize<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSampleCounts = impl::get_or_default_sampleLocationSampleCounts<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t2 maxSampleLocationGridSize = impl::get_or_default_maxSampleLocationGridSize<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRange[2] = { impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[0], impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[1] };
 
     NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureGeometryCount = impl::get_or_default_maxAccelerationStructureGeometryCount<device_capabilities>::value;
@@ -1249,8 +1243,8 @@ struct device_capabilities_traits
 
     NBL_CONSTEXPR_STATIC_INLINE bool shaderIntegerFunctions2 = impl::get_or_default_shaderIntegerFunctions2<device_capabilities>::value;
 
-    NBL_CONSTEXPR_STATIC_INLINE VkExtent2D minFragmentDensityTexelSize = impl::get_or_default_minFragmentDensityTexelSize<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE VkExtent2D maxFragmentDensityTexelSize = impl::get_or_default_maxFragmentDensityTexelSize<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t2 minFragmentDensityTexelSize = impl::get_or_default_minFragmentDensityTexelSize<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t2 maxFragmentDensityTexelSize = impl::get_or_default_maxFragmentDensityTexelSize<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool fragmentDensityInvocations = impl::get_or_default_fragmentDensityInvocations<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE bool decorateString = impl::get_or_default_decorateString<device_capabilities>::value;
@@ -1280,7 +1274,7 @@ struct device_capabilities_traits
 
     NBL_CONSTEXPR_STATIC_INLINE bool colorWriteEnable = impl::get_or_default_colorWriteEnable<device_capabilities>::value;
 
-    NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = impl::get_or_default_cooperativeMatrixSupportedStages<device_capabilities>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint8_t cooperativeMatrixSupportedStages = impl::get_or_default_cooperativeMatrixSupportedStages<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE bool shaderBufferInt64Atomics = impl::get_or_default_shaderBufferInt64Atomics<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool shaderSharedInt64Atomics = impl::get_or_default_shaderSharedInt64Atomics<device_capabilities>::value;
