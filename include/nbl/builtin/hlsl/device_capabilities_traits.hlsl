@@ -139,13 +139,9 @@ NBL_GENERATE_MEMBER_TESTER(maxFragmentDualSrcAttachments);
 NBL_GENERATE_MEMBER_TESTER(maxFragmentCombinedOutputResources);
 
 NBL_GENERATE_MEMBER_TESTER(maxComputeSharedMemorySize);
-NBL_GENERATE_MEMBER_TESTER(maxComputeWorkGroupCount[0]);
-NBL_GENERATE_MEMBER_TESTER(maxComputeWorkGroupCount[1]);
-NBL_GENERATE_MEMBER_TESTER(maxComputeWorkGroupCount[2]);
+NBL_GENERATE_MEMBER_TESTER(maxComputeWorkGroupCount);
 NBL_GENERATE_MEMBER_TESTER(maxComputeWorkGroupInvocations);
-NBL_GENERATE_MEMBER_TESTER(maxWorkgroupSize[0]);
-NBL_GENERATE_MEMBER_TESTER(maxWorkgroupSize[1]);
-NBL_GENERATE_MEMBER_TESTER(maxWorkgroupSize[2]);
+NBL_GENERATE_MEMBER_TESTER(maxWorkgroupSize);
 
 NBL_GENERATE_MEMBER_TESTER(subPixelPrecisionBits);
 NBL_GENERATE_MEMBER_TESTER(subTexelPrecisionBits);
@@ -157,10 +153,8 @@ NBL_GENERATE_MEMBER_TESTER(maxSamplerLodBias);
 NBL_GENERATE_MEMBER_TESTER(maxSamplerAnisotropyLog2);
 
 NBL_GENERATE_MEMBER_TESTER(maxViewports);
-NBL_GENERATE_MEMBER_TESTER(maxViewportDims[0]);
-NBL_GENERATE_MEMBER_TESTER(maxViewportDims[1]);
-NBL_GENERATE_MEMBER_TESTER(viewportBoundsRange[0]);
-NBL_GENERATE_MEMBER_TESTER(viewportBoundsRange[1]);
+NBL_GENERATE_MEMBER_TESTER(maxViewportDims);
+NBL_GENERATE_MEMBER_TESTER(viewportBoundsRange);
 NBL_GENERATE_MEMBER_TESTER(viewportSubPixelBits);
 
 NBL_GENERATE_MEMBER_TESTER(bufferViewAlignment);
@@ -190,10 +184,8 @@ NBL_GENERATE_MEMBER_TESTER(maxClipDistances);
 NBL_GENERATE_MEMBER_TESTER(maxCullDistances);
 NBL_GENERATE_MEMBER_TESTER(maxCombinedClipAndCullDistances);
 
-NBL_GENERATE_MEMBER_TESTER(pointSizeRange[0]);
-NBL_GENERATE_MEMBER_TESTER(pointSizeRange[1]);
-NBL_GENERATE_MEMBER_TESTER(lineWidthRange[0]);
-NBL_GENERATE_MEMBER_TESTER(lineWidthRange[1]);
+NBL_GENERATE_MEMBER_TESTER(pointSizeRange);
+NBL_GENERATE_MEMBER_TESTER(lineWidthRange);
 NBL_GENERATE_MEMBER_TESTER(pointSizeGranularity);
 NBL_GENERATE_MEMBER_TESTER(lineWidthGranularity);
 
