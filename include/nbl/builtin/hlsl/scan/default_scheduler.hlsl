@@ -115,24 +115,20 @@ namespace scheduler
     template<class Accessor>
     bool getWork(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_REF_ARG(uint32_t) treeLevel, NBL_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) sharedScratch)
     {
-        if(workgroup::SubgroupContiguousIndex() == 0u) 
-        {
-            uint32_t originalWGs = glsl::atomicAdd(scanScratchBuf[0].workgroupsStarted, 1u);
-            sharedScratch.set(0u, originalWGs);
-        }
-        else if (workgroup::SubgroupContiguousIndex() == 1u) 
-        {
-            sharedScratch.set(1u, 0u);
-        }
-        sharedScratch.workgroupExecutionAndMemoryBarrier();
-        
-        const uint32_t globalWorkgroupIndex = sharedScratch.get(0u); // does every thread need to know?
         const uint32_t lastLevel = topLevel<<1u;
-        if (workgroup::SubgroupContiguousIndex()<=lastLevel && globalWorkgroupIndex>=params.cumulativeWorkgroupCount[workgroup::SubgroupContiguousIndex()]) 
-        {
-            sharedScratch.atomicAdd(1u, 1u);
-        }
-        sharedScratch.workgroupExecutionAndMemoryBarrier();
+		if(workgroup::SubgroupContiguousIndex() == 0u) 
+		{
+		  uint32_t originalWGs = glsl::atomicAdd(scanScratchBuf[0].workgroupsStarted, 1u);
+		  sharedScratch.set(0u, originalWGs);
+		  treeLevel = 0;
+		  while (originalWGs>=params.cumulativeWorkgroupCount[treeLevel]) { // doesn't work for now because PushConstant arrays can only be accessed by dynamically uniform indices
+			treeLevel++;
+		  }
+		  sharedScratch.set(1u, treeLevel);
+		}
+		sharedScratch.workgroupExecutionAndMemoryBarrier();
+		const uint32_t globalWorkgroupIndex = sharedScratch.get(0u);
+		treeLevel = sharedScratch.get(1u);
         
         treeLevel = sharedScratch.get(1u);
         if(treeLevel>lastLevel)

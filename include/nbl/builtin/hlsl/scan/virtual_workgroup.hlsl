@@ -26,7 +26,12 @@ namespace scan
 
         // REVIEW: Right now in order to support REDUCE operation we need to set the max treeLevel == topLevel
         // so that it exits after reaching the top?
-
+        
+        // Seems that even though it's a mem barrier is must NOT diverge!
+        // This was called inside getData but due to inRange it can possibly diverge 
+        // so it must be called outside! Not yet sure why a mem barrier must be uniformly called.
+        glsl::memoryBarrierBuffer(); // scanScratchBuf can't be declared as coherent due to VMM(?)
+        
         Storage_t data = Binop::identity; // REVIEW: replace Storage_t with Binop::type_t?
         if(inRange)
         {

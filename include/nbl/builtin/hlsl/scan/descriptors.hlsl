@@ -36,7 +36,6 @@ void getData(
     NBL_CONST_REF_ARG(uint32_t) pseudoLevel
 )
 {
-    glsl::memoryBarrierBuffer(); // scanScratchBuf can't be declared as coherent due to VMM(?)
     const Parameters_t params = getParameters(); // defined differently for direct and indirect shaders
     
     uint32_t offset = levelInvocationIndex;
