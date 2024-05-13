@@ -380,6 +380,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     // TODO: MORE VALIDATION, but after descriptor indexing.
 
     bool variableLengthArrayDescriptorFound = false;
+    bool updateableAfterBindBindingFound = false;
     uint32_t variableLengthArrayDescriptorBindingNr = 0;
     uint32_t highestBindingNr = 0u;
     uint32_t maxSamplersCount = 0u;
@@ -402,6 +403,9 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
             maxSamplersCount += binding.count;
         }
 
+        if (bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
+            updateableAfterBindBindingFound = true;
+
         // validate if only last binding is run-time sized and there is only one run-time sized binding
         bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
         // no 2 run-time sized descriptors allowed
@@ -415,6 +419,10 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         }
         highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
     }
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutCreateInfo-descriptorType-03001
+    if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0)
+        return nullptr;
 
     // only last binding can be run-time sized
     if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)

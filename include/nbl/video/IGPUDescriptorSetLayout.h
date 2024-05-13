@@ -24,6 +24,10 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
     public:
+
+        inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
+
+    protected:
         inline IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const SBinding> _bindings) : base_t(_bindings), IBackendObject(std::move(dev))
         {
             for (const auto& binding : _bindings)
@@ -36,9 +40,6 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
             }
         }
 
-        inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
-
-    protected:
         virtual ~IGPUDescriptorSetLayout() = default;
 
         bool m_isPushDescLayout = false;
