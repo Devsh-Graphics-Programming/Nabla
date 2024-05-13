@@ -602,9 +602,9 @@ NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDualSrcAttachments, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxFragmentCombinedOutputResources, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeSharedMemorySize, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCount, uint32_t3, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCount, uint32_t3, {0, 0, 0});
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupInvocations, uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize, uint16_t3, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize, uint16_t3, {0, 0, 0});
 
 NBL_GENERATE_GET_OR_DEFAULT(subPixelPrecisionBits, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(subTexelPrecisionBits, uint8_t, 0);
@@ -616,8 +616,8 @@ NBL_GENERATE_GET_OR_DEFAULT(maxSamplerLodBias, float, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(maxSamplerAnisotropyLog2, uint8_t, 0.0f);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxViewports, uint8_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims, uint16_t2, 0);
-NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange, float2, 0.0f);
+NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims, uint16_t2, {0, 0});
+NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange, float2, {0.0f, 0.0f});
 NBL_GENERATE_GET_OR_DEFAULT(viewportSubPixelBits, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(bufferViewAlignment, uint16_t, 0);
@@ -647,10 +647,8 @@ NBL_GENERATE_GET_OR_DEFAULT(maxClipDistances, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxCullDistances, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxCombinedClipAndCullDistances, uint8_t, 0);
 
-NBL_GENERATE_GET_OR_DEFAULT(pointSizeRange[0], float, 0.0f);
-NBL_GENERATE_GET_OR_DEFAULT(pointSizeRange[1], float, 0.0f);
-NBL_GENERATE_GET_OR_DEFAULT(lineWidthRange[0], float, 0.0f);
-NBL_GENERATE_GET_OR_DEFAULT(lineWidthRange[1], float, 0.0f);
+NBL_GENERATE_GET_OR_DEFAULT(pointSizeRange, float2, {0.0f, 0.0f});
+NBL_GENERATE_GET_OR_DEFAULT(lineWidthRange, float2, {0.0f, 0.0f});
 NBL_GENERATE_GET_OR_DEFAULT(pointSizeGranularity, float, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(lineWidthGranularity, float, 0.0f);
 NBL_GENERATE_GET_OR_DEFAULT(strictLines, bool, false);
@@ -795,8 +793,7 @@ NBL_GENERATE_GET_OR_DEFAULT(variableSampleLocations, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSubPixelBits, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCounts, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSize, uint32_t2, {0, 0});
-NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange[0], float, 0.0f);
-NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange[1], float, 0.0f);
+NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange, float2, {0.0f, 0.0f});
 
 NBL_GENERATE_GET_OR_DEFAULT(maxAccelerationStructureGeometryCount, uint64_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxAccelerationStructureInstanceCount, uint64_t, 0);
@@ -1013,13 +1010,9 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentCombinedOutputResources         = impl::get_or_default_maxFragmentCombinedOutputResources<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeSharedMemorySize                 = impl::get_or_default_maxComputeSharedMemorySize<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCount[0]                = impl::get_or_default_maxComputeWorkGroupCount<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountY[1]
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountZ[2]               = impl::get_or_default_maxComputeWorkGroupCount<device_capabilities, 2>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t3 maxComputeWorkGroupCount                = {impl::get_or_default_maxComputeWorkGroupCount<device_capabilities, 0>::value, impl::get_or_default_maxComputeWorkGroupCount<device_capabilities, 1>::value, impl::get_or_default_maxComputeWorkGroupCount<device_capabilities, 2>::value};
     NBL_CONSTEXPR_STATIC_INLINE uint16_t maxComputeWorkGroupInvocations             = impl::get_or_default_maxComputeWorkGroupInvocations<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[0]                       = impl::get_or_default_maxWorkgroupSize<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[1]                       = impl::get_or_default_maxWorkgroupSize<device_capabilities, 1>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[2]                       = impl::get_or_default_maxWorkgroupSize<device_capabilities, 2>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t3 maxWorkgroupSize                       = {impl::get_or_default_maxWorkgroupSize<device_capabilities, 0>::value, impl::get_or_default_maxWorkgroupSize<device_capabilities, 1>::value, impl::get_or_default_maxWorkgroupSize<device_capabilities, 2>::value};
 
     NBL_CONSTEXPR_STATIC_INLINE uint8_t subPixelPrecisionBits                   = impl::get_or_default_subPixelPrecisionBits<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint8_t subTexelPrecisionBits                    = impl::get_or_default_subTexelPrecisionBits<device_capabilities>::value;
@@ -1031,10 +1024,8 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSamplerAnisotropyLog2                = impl::get_or_default_maxSamplerAnisotropyLog2<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE uint8_t maxViewports                             = impl::get_or_default_maxViewports<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDims[0]                      = impl::get_or_default_maxViewportDims<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDims[1]                      = impl::get_or_default_maxViewportDims<device_capabilities, 1>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRange[0]                     = impl::get_or_default_viewportBoundsRange<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRange[1]                     = impl::get_or_default_viewportBoundsRange<device_capabilities, 1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t2 maxViewportDims                      = {impl::get_or_default_maxViewportDims<device_capabilities, 0>::value, impl::get_or_default_maxViewportDims<device_capabilities, 1>::value};
+    NBL_CONSTEXPR_STATIC_INLINE float2 viewportBoundsRange                     = {impl::get_or_default_viewportBoundsRange<device_capabilities, 0>::value, impl::get_or_default_viewportBoundsRange<device_capabilities, 1>::value};
     NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportSubPixelBits                    = impl::get_or_default_viewportSubPixelBits<device_capabilities>::value;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t bufferViewAlignment                      = impl::get_or_default_bufferViewAlignment<device_capabilities>::value;
@@ -1064,10 +1055,8 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint8_t maxCullDistances                          = impl::get_or_default_maxCullDistances<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint8_t maxCombinedClipAndCullDistances           = impl::get_or_default_maxCombinedClipAndCullDistances<device_capabilities>::value;
 
-    NBL_CONSTEXPR_STATIC_INLINE float pointSizeRange[0]                          = impl::get_or_default_pointSizeRange<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float pointSizeRange[1]                          = impl::get_or_default_pointSizeRange<device_capabilities, 1>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float lineWidthRange[0]                          = impl::get_or_default_lineWidthRange<device_capabilities, 0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float lineWidthRange[1]                          = impl::get_or_default_lineWidthRange<device_capabilities, 1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE float pointSizeRange                          = {impl::get_or_default_pointSizeRange<device_capabilities, 0>::value, impl::get_or_default_pointSizeRange<device_capabilities, 1>::value};
+    NBL_CONSTEXPR_STATIC_INLINE float lineWidthRange                          = {impl::get_or_default_lineWidthRange<device_capabilities, 0>::value, impl::get_or_default_lineWidthRange<device_capabilities, 1>::value};
     NBL_CONSTEXPR_STATIC_INLINE float pointSizeGranularity                        = impl::get_or_default_pointSizeGranularity<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE float lineWidthGranularity                        = impl::get_or_default_lineWidthGranularity<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE bool strictLines                                 = impl::get_or_default_strictLines<device_capabilities>::value;
@@ -1212,7 +1201,7 @@ struct device_capabilities_traits
     NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSubPixelBits = impl::get_or_default_sampleLocationSubPixelBits<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSampleCounts = impl::get_or_default_sampleLocationSampleCounts<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t2 maxSampleLocationGridSize = impl::get_or_default_maxSampleLocationGridSize<device_capabilities>::value;
-    NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRange[2] = { impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[0], impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[1] };
+    NBL_CONSTEXPR_STATIC_INLINE float2 sampleLocationCoordinateRange = { impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[0], impl::get_or_default_sampleLocationCoordinateRange<device_capabilities>::value[1] };
 
     NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureGeometryCount = impl::get_or_default_maxAccelerationStructureGeometryCount<device_capabilities>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureInstanceCount = impl::get_or_default_maxAccelerationStructureInstanceCount<device_capabilities>::value;
