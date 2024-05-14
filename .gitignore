@@ -13,8 +13,6 @@
 *.ilk
 *.pdb
 *_d.exe
-# CEGUI's downloaded dependencies on Windows
-3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # usually where people build
 android_build/*
 build*/*
@@ -23,14 +21,17 @@ install/*
 # legacy temporary and output directories
 lib/*
 doctemp/*
-source/obj
-source/Irrlicht/libIrrlichtServer.a
 # stuff output by examples
 examples_tests/*
 examples_tests/tmp/*
 android-sample/bin/*
+# shader debug sideeffects
+preprocessed.hlsl
+compiled.spv
 .vs/*
-*/.vs/*
-__pycache__/*
+tools/nsc/__main__.py
+tools/nsc/.vscode/*
+tools/nsc/.profiles/*
+tools/nsc/bin/*
 */__pycache__/*
-*.pyc
+__pycache__/*

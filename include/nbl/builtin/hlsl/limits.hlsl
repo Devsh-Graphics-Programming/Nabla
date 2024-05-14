@@ -10,7 +10,7 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
-#include <openexr/IlmBase/Imath/ImathHalfLimits.h>
+#include "halfLimits.h"
 #endif
 
 /*
@@ -192,8 +192,10 @@ struct num_base : type_identity<T>
 template<class T> 
 struct num_traits : num_base<T>
 {
-    NBL_CONSTEXPR_STATIC_INLINE T min            = num_base<T>::is_signed ? (T(1)<<num_base<T>::digits) : T(0);
-    NBL_CONSTEXPR_STATIC_INLINE T max            = ~(T(num_base<T>::is_signed)<<num_base<T>::digits);
+    // have to be weird like that to avoid a warning
+    NBL_CONSTEXPR_STATIC_INLINE T min            = T(num_base<T>::is_signed)<<(num_base<T>::is_signed ? num_base<T>::digits:0);
+    // FIXME: Lots of warnings with `T=bool`
+    NBL_CONSTEXPR_STATIC_INLINE T max            = ~min;
     NBL_CONSTEXPR_STATIC_INLINE T denorm_min     = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN      = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T signaling_NaN  = T(0);
@@ -246,8 +248,9 @@ struct numeric_limits : num_traits<T>
 {
     using type = typename num_traits<T>::type;
     NBL_CONSTEXPR_STATIC_INLINE type lowest  = num_traits<T>::is_integer ? num_traits<T>::min : -num_traits<T>::max;
+    // FIXME: warning C4293 `<<`: shift count negative or too big (only when instantiating with `int8_t`
     NBL_CONSTEXPR_STATIC_INLINE type epsilon = num_traits<T>::is_integer ? type(0) : (type(1) / type(1ull<<(num_traits<T>::float_digits-1)));
-    NBL_CONSTEXPR_STATIC_INLINE type round_error = num_traits<T>::is_bool ? type(0) : type(0.5);
+    NBL_CONSTEXPR_STATIC_INLINE type round_error = type(num_traits<T>::is_iec559)/type(2.0);
 };
 
 }
@@ -261,7 +264,7 @@ struct numeric_limits : impl::numeric_limits<T> {};
 
 
 template<class T>
-struct numeric_limits : std::numeric_limits<T> 
+struct numeric_limits : std::numeric_limits<T>
 {
     using base = std::numeric_limits<T>;
     using uint_type = std::remove_cvref_t<decltype(impl::num_traits<T>::infinity)>;

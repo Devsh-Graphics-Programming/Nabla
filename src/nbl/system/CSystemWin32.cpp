@@ -58,7 +58,6 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
         auto e = GetLastError();
         return nullptr;
     }
-    const auto _size = GetFileSize(_native,nullptr);
 
     HANDLE _fileMappingObj = nullptr;
     void* _mappedPtr = nullptr;
@@ -75,16 +74,19 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
             CloseHandle(_native);
             return nullptr;
         }
+        DWORD hi = 0;
+        size_t size = GetFileSize(_native,&hi);
+        size |= size_t(hi) << 32ull;
         switch (flags.value&IFile::ECF_READ_WRITE)
         {
             case IFile::ECF_READ:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_READ,0,0,_size);
+                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_READ,0,0,size);
                 break;
             case IFile::ECF_WRITE:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_WRITE,0,0,_size);
+                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_WRITE,0,0,size);
                 break;
             case IFile::ECF_READ_WRITE:
-                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_ALL_ACCESS,0,0,_size);
+                _mappedPtr = MapViewOfFile(_fileMappingObj,FILE_MAP_ALL_ACCESS,0,0,size);
                 break;
             default:
                 assert(false); // should never happen
@@ -97,6 +99,6 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
             return nullptr;
         }
     }
-    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_size,_native,_fileMappingObj);
+    return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_native,_fileMappingObj);
 }
 #endif

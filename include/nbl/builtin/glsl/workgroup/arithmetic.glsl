@@ -18,7 +18,7 @@
 
 
 
-#include <nbl/builtin/glsl/workgroup/clustered.glsl>
+#include <nbl/builtin/glsl/workgroup/ballot.glsl>
 
 
 

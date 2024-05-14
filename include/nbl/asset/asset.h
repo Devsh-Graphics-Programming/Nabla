@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_H_INCLUDED__
-#define __NBL_ASSET_H_INCLUDED__
+#ifndef _NBL_ASSET_H_INCLUDED_
+#define _NBL_ASSET_H_INCLUDED_
 
 #include "nbl/asset/compile_config.h"
 
@@ -22,8 +21,7 @@
 
 // base
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/IAsset.h"
-#include "nbl/asset/IMesh.h"
+#include "nbl/asset/IMesh.h" //depr
 
 // images
 #include "nbl/asset/ICPUImage.h"
@@ -38,10 +36,11 @@
 #include "nbl/asset/filters/CMipMapGenerationImageFilter.h"
 #include "nbl/asset/filters/CSummedAreaTableImageFilter.h"
 
+// acceleration structure
+#include "nbl/asset/ICPUAccelerationStructure.h"
+
 // shaders
 #include "nbl/asset/ICPUShader.h"
-#include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CSPIRVIntrospector.h"

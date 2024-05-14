@@ -4,6 +4,13 @@
 
 include(../cmake/common.cmake)
 
+option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
+option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
+# nlohmann_json
+set(JSON_BuildTests OFF)
+add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -16,9 +23,6 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
-
-# openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
@@ -62,9 +66,15 @@ set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
+
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-execute_process(COMMAND ${CMAKE_COMMAND} -E rename zconf.h.included zconf.h 
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib") # clean zlib git working-tree
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
+	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
+	) # clean zlib git working-tree
+endif()
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
@@ -135,7 +145,6 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-
 # libjpeg-turbo
 option(WITH_SIMD "libjpeg-turbo" ON)
 option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
@@ -151,6 +160,8 @@ add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
+# blake3
+add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
@@ -160,24 +171,34 @@ add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
 
-#openexr
+# OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
-if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-	set(BUILD_SHARED_LIBS OFF)
-	set(BUILD_STATIC_LIBS OFF)
-	set(BUILD_TESTING OFF)
-	set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-	set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-	set(OPENEXR_VIEWERS_ENABLE OFF CACHE STRING "" FORCE)
-	add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
-endif()
 
+# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
+# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
+# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
+# but it's core 
+
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
+set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
+set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
+set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
+set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
+set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
+
+add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -193,10 +214,6 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
-
-
-nbl_adjust_flags()
-
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -289,18 +306,15 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
+add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
+
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)
 #add_subdirectory(glm EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
-
 if (NBL_BUILD_MITSUBA_LOADER)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./libexpat)
-	endif()
-
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
    option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
@@ -321,25 +335,13 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-
 if (NBL_BUILD_BULLET)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./bullet3)
-	endif()
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
-
-
-if (NBL_COMPILE_WITH_CUDA)
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		update_git_submodule(./jitify)
-	endif()
-endif()
-
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS
@@ -354,6 +356,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				nlohmann_json
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -361,25 +364,21 @@ set(NBL_3RDPARTY_TARGETS
 				GenericCodeGen
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt 
+				SPIRV-Tools-opt
+				OpenEXRUtil
+				OpenEXRCore
+				Iex
+				IlmThread
+				Imath
+				blake3
+				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
-	    IlmBaseConfig
-		IlmImfConfig
-		Imath
-		IlmThread
-		IlmImf
-		Half
-		Iex
-		IexMath
+		OpenEXR
 	)
 endif()
-if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenSSL
-	)
-endif()
+
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
@@ -397,6 +396,22 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		else()
 			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 		endif()
+		
+		if(MSVC AND NBL_SANITIZE_ADDRESS)
+			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+		endif()
+		
+		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
+		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
+			# maybe explicit global mapping would be better, to discuss
+			if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+			elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+			else()
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+			endif()
+		endif()
 endforeach()
 
 add_custom_target(3rdparty)
@@ -404,6 +419,4 @@ add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
 
-## REMINDER / NOTE : This is how we install 3rdparty headers we need !
-# parallel hashmap headers
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")

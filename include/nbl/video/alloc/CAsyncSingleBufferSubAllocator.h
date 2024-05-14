@@ -1,15 +1,16 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_VIDEO_C_ASYNC_SINGLE_BUFFER_SUB_ALLOCATOR_H_
 #define _NBL_VIDEO_C_ASYNC_SINGLE_BUFFER_SUB_ALLOCATOR_H_
 
+
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
+#include "nbl/video/alloc/CSingleBufferSubAllocator.h"
+#include "nbl/video/TimelineEventHandlers.h"
 
 #include <mutex>
 
-#include "nbl/video/alloc/CSingleBufferSubAllocator.h"
-#include "nbl/video/IGPUFence.h"
 
 namespace nbl::video
 {
@@ -34,31 +35,27 @@ class CAsyncSingleBufferSubAllocator
 
         class DeferredFreeFunctor
         {
-                static constexpr size_t PseudoTupleByteSize = (2u*sizeof(size_type)+sizeof(core::smart_refctd_ptr<core::IReferenceCounted>));
+                using ref_t = core::smart_refctd_ptr<const core::IReferenceCounted>;
+                static constexpr size_t PseudoTupleByteSize = 2u*sizeof(size_type)+sizeof(ref_t);
                 static constexpr size_t AllocatorUnitsPerMetadata = PseudoTupleByteSize/sizeof(typename HostAllocator::value_type);
                 static_assert((PseudoTupleByteSize%sizeof(typename HostAllocator::value_type)) == 0u, "should be divisible by HostAllocator::value_type");
 
             public:
-                template<typename T>
+                template<typename T> requires std::is_base_of_v<core::IReferenceCounted,T>
                 inline DeferredFreeFunctor(Composed* _composed, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes, const T*const *const objectsToHold)
                     : composed(_composed), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
                     static_assert(std::is_base_of_v<core::IReferenceCounted,T>);
 
-                    // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty do
+                    // TODO : CMemoryPool<RobustGeneralpurposeAllocator> a-la naughty dog
                     rangeData = reinterpret_cast<size_type*>(composed->getReservedAllocator().allocate(AllocatorUnitsPerMetadata*numAllocs,sizeof(void*)));
                     auto out = rangeData;
                     memcpy(out,addrs,sizeof(size_type)*numAllocs);
                     out += numAllocs;
                     memcpy(out,bytes,sizeof(size_type)*numAllocs);
                     out += numAllocs;
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(out);
                     for (size_t i=0u; i<numAllocs; i++)
-                    {
-                        reinterpret_cast<const void**>(out)[i] = nullptr; // clear it first
-                        if (objectsToHold)
-                            objHoldIt[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(objectsToHold[i]);
-                    }
+                        std::construct_at<ref_t>(reinterpret_cast<ref_t*>(out)+i,objectsToHold ? objectsToHold[i]:nullptr);
                 }
                 DeferredFreeFunctor(const DeferredFreeFunctor& other) = delete;
                 inline DeferredFreeFunctor(DeferredFreeFunctor&& other) : composed(nullptr), rangeData(nullptr), numAllocs(0u)
@@ -105,13 +102,11 @@ class CAsyncSingleBufferSubAllocator
 
                 inline void operator()()
                 {
+                    std::destroy_n(reinterpret_cast<ref_t*>(rangeData+numAllocs*2u),numAllocs);
                     #ifdef _NBL_DEBUG
                     assert(composed && rangeData);
                     #endif // _NBL_DEBUG
                     composed->multi_deallocate(numAllocs,rangeData,rangeData+numAllocs);
-                    auto* const objHoldIt = reinterpret_cast<core::smart_refctd_ptr<const core::IReferenceCounted>*>(rangeData+numAllocs*2u);
-                    for (size_t i=0u; i<numAllocs; i++)
-                        objHoldIt[i] = nullptr;
                 }
 
             private:
@@ -122,7 +117,8 @@ class CAsyncSingleBufferSubAllocator
 
         // perfect forward ctor to `CSingleBufferSubAllocator`
         template<typename... Args>
-        inline CAsyncSingleBufferSubAllocator(Args&&... args) : m_composed(std::forward<Args>(args)...) {}
+        inline CAsyncSingleBufferSubAllocator(Args&&... args) : m_composed(std::forward<Args>(args)...),
+            deferredFrees(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice())) {}
         virtual ~CAsyncSingleBufferSubAllocator() {}
 
 
@@ -133,14 +129,14 @@ class CAsyncSingleBufferSubAllocator
         inline IGPUBuffer* getBuffer() {return m_composed.getBuffer();}
         inline const IGPUBuffer* getBuffer() const {return m_composed.getBuffer();}
 
-        //!
-        inline void cull_frees() noexcept
+        //! Returns free events still outstanding
+        inline uint32_t cull_frees() noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.cullEvents(0u);
+            return deferredFrees.poll().eventsLeft;
         }
 
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
@@ -152,7 +148,7 @@ class CAsyncSingleBufferSubAllocator
             #endif // _NBL_DEBUG
             size_type valueToStopAt = getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
             // we don't actually want or need to poll all possible blocks to free, only first few
-            deferredFrees.pollForReadyEvents(valueToStopAt);
+            deferredFrees.poll(valueToStopAt);
             return getAddressAllocator().max_size();
         }
 
@@ -161,7 +157,7 @@ class CAsyncSingleBufferSubAllocator
         template<typename... Args>
         inline size_type multi_allocate(uint32_t count, Args&&... args) noexcept
         {
-            return multi_alloc(GPUEventWrapper::default_wait(),count,std::forward<Args>(args)...);
+            return multi_alloc(decltype(deferredFrees)::default_wait(),count,std::forward<Args>(args)...);
         }
         //! attempt to allocate, if fail (presumably because of fragmentation), then keep trying till timeout is reached
         template<class Clock=typename std::chrono::steady_clock, typename... Args>
@@ -180,7 +176,7 @@ class CAsyncSingleBufferSubAllocator
             // then try to wait at least once and allocate
             do
             {
-                deferredFrees.waitUntilForReadyEvents(maxWaitPoint,unallocatedSize);
+                deferredFrees.wait(maxWaitPoint,unallocatedSize);
 
                 unallocatedSize = try_multi_alloc(args...);
                 if (!unallocatedSize)
@@ -191,13 +187,13 @@ class CAsyncSingleBufferSubAllocator
         }
 
         //!
-        inline void multi_deallocate(core::smart_refctd_ptr<IGPUFence>&& fence, DeferredFreeFunctor&& functor) noexcept
+        inline void multi_deallocate(const ISemaphore::SWaitInfo& futureWait, DeferredFreeFunctor&& functor) noexcept
         {
             #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            deferredFrees.addEvent(GPUEventWrapper(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice()),std::move(fence)),std::move(functor));
+            deferredFrees.latch(futureWait,std::move(functor));
         }
         inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes) noexcept
         {
@@ -205,21 +201,21 @@ class CAsyncSingleBufferSubAllocator
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            multi_deallocate(count,addr,bytes,nullptr);
+            multi_deallocate(count,addr,bytes,{});
         }
         // TODO: improve signature of this function in the future
         template<typename T=core::IReferenceCounted>
-        inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes, core::smart_refctd_ptr<IGPUFence>&& fence, const T*const *const objectsToDrop=nullptr) noexcept
+        inline void multi_deallocate(uint32_t count, const value_type* addr, const size_type* bytes, const ISemaphore::SWaitInfo& futureWait, const T*const *const objectsToDrop=nullptr) noexcept
         {
-            if (fence)
-                multi_deallocate(std::move(fence),DeferredFreeFunctor(&m_composed,count,addr,bytes,objectsToDrop));
+            if (futureWait.semaphore)
+                multi_deallocate(futureWait,DeferredFreeFunctor(&m_composed,count,addr,bytes,objectsToDrop));
             else
                 multi_deallocate(count,addr,bytes);
         }
 
     protected:
         Composed m_composed;
-        GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
+        MultiTimelineEventHandlerST<DeferredFreeFunctor> deferredFrees;
 
         template<typename... Args>
         inline value_type try_multi_alloc(uint32_t count, value_type* outAddresses, const size_type* byteSizes, const Args&... args) noexcept
@@ -252,7 +248,6 @@ class CAsyncSingleBufferSubAllocatorST final : public core::IReferenceCounted, p
         template<typename... Args>
         CAsyncSingleBufferSubAllocatorST(Args&&... args) : Base(std::forward<Args>(args)...) {}
 };
-
 
 //MT version?
 

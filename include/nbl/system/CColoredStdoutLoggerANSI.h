@@ -9,10 +9,10 @@ namespace nbl::system
 {
 
 // logging using ANSI escape codes
-class NBL_API2 CColoredStdoutLoggerANSI : public IThreadsafeLogger
+class CColoredStdoutLoggerANSI : public IThreadsafeLogger
 {
   public:
-    CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+    inline CColoredStdoutLoggerANSI(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::DefaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
   private:
     // more info about how this works: https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
@@ -22,19 +22,19 @@ class NBL_API2 CColoredStdoutLoggerANSI : public IThreadsafeLogger
       switch (logLevel)
       {
         case ELL_DEBUG:
-          printf("\x1b[37m%s", str.data()); // White
+          printf("\x1b[37m%s\x1b[0m", str.data()); // White
           break;
         case ELL_INFO:
-          printf("\x1b[37m%s", str.data()); // White
+          printf("\x1b[37m%s\x1b[0m", str.data()); // White
           break;
         case ELL_WARNING:
-          printf("\x1b[33m%s", str.data()); // yellow
+          printf("\x1b[33m%s\x1b[0m", str.data()); // yellow
           break;
         case ELL_ERROR:
-          printf("\x1b[31m%s", str.data()); // red
+          printf("\x1b[31m%s\x1b[0m", str.data()); // red
           break;
         case ELL_PERFORMANCE:
-          printf("\x1b[34m%s", str.data()); // blue
+          printf("\x1b[34m%s\x1b[0m", str.data()); // blue
           break;
         case ELL_NONE:
           assert(false);

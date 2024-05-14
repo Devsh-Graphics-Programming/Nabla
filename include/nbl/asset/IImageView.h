@@ -6,13 +6,10 @@
 
 #include "nbl/asset/IImage.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-template<class ImageType>
-class IImageView : public IDescriptor
+class IImageViewBase : public IDescriptor
 {
 	public:
 		static inline constexpr uint32_t remaining_mip_levels = ~static_cast<uint32_t>(0u);
@@ -46,7 +43,7 @@ class IImageView : public IDescriptor
 		};
 		struct SComponentMapping
 		{
-			enum E_SWIZZLE
+			enum E_SWIZZLE : uint8_t
 			{
 				ES_IDENTITY = 0u,
 				ES_ZERO		= 1u,
@@ -77,6 +74,15 @@ class IImageView : public IDescriptor
 				return !operator==(rhs);
 			}
 		};
+
+		//!
+		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
+};
+
+template<class ImageType>
+class IImageView : public IImageViewBase
+{
+	public:
 		struct SCreationParams
 		{
 			E_CREATE_FLAGS							flags = static_cast<E_CREATE_FLAGS>(0);
@@ -91,6 +97,8 @@ class IImageView : public IDescriptor
 			E_FORMAT								format;
 			SComponentMapping						components = {};
 			IImage::SSubresourceRange				subresourceRange = {IImage::EAF_COLOR_BIT,0,remaining_mip_levels,0,remaining_array_layers};
+
+			inline const core::bitflag<IImage::E_USAGE_FLAGS> actualUsages() const {return subUsages!=IImage::EUF_NONE ? subUsages:image->getCreationParameters().usage;}
 		};
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)
@@ -102,21 +110,37 @@ class IImageView : public IDescriptor
 				return false;
 
 			const auto& imgParams = _params.image->getCreationParameters();
-			/* TODO: LAter
-			image must have been created with a usage value containing at least one of VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_IMAGE_USAGE_STORAGE_BIT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-			VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT, VK_IMAGE_USAGE_SHADING_RATE_IMAGE_BIT_NV, or VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT
-			if (imgParams.)
+			#if 0 // extremely annoying
+			const auto kValidUsages = IImage::EUF_SAMPLED_BIT|IImage::EUF_STORAGE_BIT|
+				IImage::EUF_RENDER_ATTACHMENT_BIT|IImage::EUF_TRANSIENT_ATTACHMENT_BIT|IImage::EUF_INPUT_ATTACHMENT_BIT|
+				IImage::EUF_SHADING_RATE_ATTACHMENT_BIT|IImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04441
+			if ((imgParams.usage.value&kValidUsages)==0u)
 				return false;
-			*/
+			#endif
 
-			// declared usages that are not a subset
-			if (!imgParams.usage.hasFlags(_params.subUsages))
+			const auto& subresourceRange = _params.subresourceRange;
+			// declared some usages but they are not a subset
+			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02663
+				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.stencilUsage.hasFlags(_params.subUsages))
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02664
+				if ((subresourceRange.aspectMask.value&(~IImage::EAF_STENCIL_BIT)) && !imgParams.usage.hasFlags(_params.subUsages))
+					return false;
+			}
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02087
+			if (_params.subUsages.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT) && _params.format!=EF_R8_UINT)
+				return false;
+
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-01585
+			// declared a subset of formats up-front that the views can be created with, current format not in the subset
+			if (!imgParams.viewFormats[_params.format] && imgParams.viewFormats.any())
 				return false;
 
 			const bool mutableFormat = imgParams.flags.hasFlags(IImage::ECF_MUTABLE_FORMAT_BIT);
 			const bool blockTexelViewCompatible = imgParams.flags.hasFlags(IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT);
-			const auto& subresourceRange = _params.subresourceRange;
 			if (mutableFormat)
 			{
 				// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageCreateInfo-flags-01573
@@ -131,7 +155,7 @@ class IImageView : public IDescriptor
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-image-07072
 					// If image was created with the VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT flag and
 					// format is a non-compressed format, the levelCount and layerCount members of subresourceRange must both be 1
-					if (!asset::isBlockCompressionFormat(_params.format) && (subresourceRange.levelCount!=1u || subresourceRange.layerCount!=1u))
+					if (!isBlockCompressionFormat(_params.format) && (subresourceRange.levelCount!=1u || subresourceRange.layerCount!=1u))
 						return false;
 				}
 				// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-image-01761
@@ -139,7 +163,7 @@ class IImageView : public IDescriptor
 				// and if the format of the image is not a multi-planar format, format must be compatible with the format used to create image
 				else if (getFormatClass(_params.format)!=getFormatClass(imgParams.format))
 					return false;
-				else if (asset::isBlockCompressionFormat(_params.format)!=asset::isBlockCompressionFormat(imgParams.format))
+				else if (isBlockCompressionFormat(_params.format)!=isBlockCompressionFormat(imgParams.format))
 					return false;
 
 				/*
@@ -149,24 +173,58 @@ class IImageView : public IDescriptor
 				as defined in Compatible formats of planes of multi-planar formats
 				*/
 			}
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-01762
 			else if (_params.format!=imgParams.format)
 			{
 				// TODO: multi-planar exceptions
 				return false;
 			}
+
+			switch (_params.viewType)
+			{
+				case ET_2D:
+					[[fallthrough]];
+				case ET_2D_ARRAY:
+					break;
+				default:
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04972
+					if (imgParams.samples!=IImage::ESCF_1_BIT)
+						return false;
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02086
+					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT))
+						return false;
+					break;
+			}
 			
 			//! sanity checks
 			
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-requiredbitmask
+			if (!subresourceRange.aspectMask.value)
+				return false;
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-01670
+			if (subresourceRange.aspectMask.hasFlags(IImage::EAF_COLOR_BIT) && (subresourceRange.aspectMask&(core::bitflag(IImage::EAF_PLANE_0_BIT)|IImage::EAF_PLANE_1_BIT|IImage::EAF_PLANE_2_BIT)).value)
+				return false;
+
 			// we have some layers
 			if (subresourceRange.layerCount==0u)
 				return false;
 
-			// mip level ranges
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-subresourceRange-01478
 			if (subresourceRange.baseMipLevel>=imgParams.mipLevels)
 				return false;
-			if (subresourceRange.levelCount!=remaining_mip_levels &&
-					(subresourceRange.levelCount==0u ||
-					subresourceRange.baseMipLevel+subresourceRange.levelCount>imgParams.mipLevels))
+
+			if (subresourceRange.levelCount!=remaining_mip_levels)
+			{
+				// sanity 
+				if (subresourceRange.levelCount==0u)
+					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-subresourceRange-01718
+				if (subresourceRange.baseMipLevel+subresourceRange.levelCount>imgParams.mipLevels)
+					return false;
+			}
+			
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02571
+			if (imgParams.usage.hasFlags(IImage::EUF_FRAGMENT_DENSITY_MAP_BIT) && subresourceRange.levelCount!=1u)
 				return false;
 
 			auto mipExtent = _params.image->getMipSize(subresourceRange.baseMipLevel);
@@ -184,7 +242,7 @@ class IImageView : public IDescriptor
 			}
 
 			// If image was created with the VK_IMAGE_CREATE_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT flag, ... or must be an uncompressed format
-			if (blockTexelViewCompatible && !asset::isBlockCompressionFormat(_params.format))
+			if (blockTexelViewCompatible && !isBlockCompressionFormat(_params.format))
 			{
 				// In this case, the resulting image view’s texel dimensions equal the dimensions of the selected mip level divided by the compressed texel block size and rounded up.
 				mipExtent = _params.image->getTexelBlockInfo().convertTexelsToBlocks(mipExtent);
@@ -194,6 +252,9 @@ class IImageView : public IDescriptor
 			const auto endLayer = actualLayerCount+subresourceRange.baseArrayLayer;
 
 			bool checkLayers = true;
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-subResourceRange-01021
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-imageViewType-04973
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-imageViewType-04974
 			switch (_params.viewType)
 			{
 				case ET_1D:
@@ -213,33 +274,42 @@ class IImageView : public IDescriptor
 				case ET_2D_ARRAY:
 					if (imgParams.type==IImage::ET_3D)
 					{
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-06723
+						// via [[fallthrough]] https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-06728
 						if (!sourceIs2DCompat)
 							return false;
-						checkLayers = false; // has compatible flag
 
+						// has compatible flag, different rules for subresource layer checking
+						checkLayers = false;
+
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04971
 						if (imgParams.flags.value&(IImage::ECF_SPARSE_BINDING_BIT|IImage::ECF_SPARSE_RESIDENCY_BIT|IImage::ECF_SPARSE_ALIASED_BIT))
 							return false;
 
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04970
 						if (subresourceRange.levelCount>1u)
 							return false;
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02724
 						if (subresourceRange.baseArrayLayer>=mipExtent.z)
 							return false;
+						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02725
 						if (endLayer>mipExtent.z)
 							return false;
 					}
 					break;
-				case ET_CUBE_MAP:
-					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02960
-					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02962
-					if (actualLayerCount!=6u)
-						return false;
-					[[fallthrough]];
 				case ET_CUBE_MAP_ARRAY:
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02961
 					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02963
 					if (actualLayerCount%6u)
 						return false;
+					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-01003
 					if (!imgParams.flags.hasFlags(IImage::ECF_CUBE_COMPATIBLE_BIT))
+						return false;
+					[[fallthrough]];
+				case ET_CUBE_MAP:
+					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02960
+					// https://registry.khronos.org/vulkan/specs/1.2/html/vkspec.html#VUID-VkImageViewCreateInfo-viewType-02962
+					if (actualLayerCount != 6u)
 						return false;
 					break;
 				case ET_3D:
@@ -252,8 +322,10 @@ class IImageView : public IDescriptor
 
 			if (checkLayers)
 			{
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-06724
 				if (subresourceRange.baseArrayLayer>=imgParams.arrayLayers)
 					return false;
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-subresourceRange-06725
 				if (endLayer>imgParams.arrayLayers)
 					return false;
 			}
@@ -261,21 +333,15 @@ class IImageView : public IDescriptor
 		}
 
 		//!
-		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
-
-
-		//!
 		const SCreationParams&	getCreationParameters() const { return params; }
 
 	protected:
-		IImageView() : params{static_cast<E_CREATE_FLAGS>(0u),nullptr,ET_COUNT,EF_UNKNOWN,{}} {}
 		IImageView(SCreationParams&& _params) : params(_params) {}
 		virtual ~IImageView() = default;
 
 		SCreationParams params;
 };
 
-}
 }
 
 #endif

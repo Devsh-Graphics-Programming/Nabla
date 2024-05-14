@@ -4,8 +4,8 @@
 namespace nbl::video
 {
 
-IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo)
-    : IBackendObject(std::move(dev)), m_creationParameters(std::move(createInfo)), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger() : nullptr)
+IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreateInfo& createInfo)
+    : IBackendObject(std::move(dev)), m_creationParameters(createInfo), m_logger(getOriginDevice()->getPhysicalDevice()->getDebugCallback() ? getOriginDevice()->getPhysicalDevice()->getDebugCallback()->getLogger():nullptr)
 {
     for (auto i = 0; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
         m_descriptorAllocators[i] = std::make_unique<allocator_state_t>(m_creationParameters.maxDescriptorCount[i], m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT));
@@ -30,43 +30,55 @@ IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& 
 
 uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
-    core::vector<SStorageOffsets> offsets;
-    offsets.reserve(count);
+    core::vector<uint32_t> reverseMap(count,count);
 
-    for (uint32_t i = 0u; i < count; ++i)
+    core::vector<const IGPUDescriptorSetLayout*> repackedLayouts;
+    core::vector<SStorageOffsets> offsets;
+    repackedLayouts.reserve(count);
+    offsets.reserve(count);
+    for (uint32_t i=0u; i<count; ++i)
     {
+        if (!layouts[i])
+        {
+            m_logger.log("Null descriptor set layout found at index %u, skipping!", system::ILogger::ELL_PERFORMANCE, i);
+            continue;
+        }
+
         if (!isCompatibleDevicewise(layouts[i]))
         {
-            m_logger.log("Device-Incompatible descriptor set layout found at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_ERROR, i);
-            break;
+            m_logger.log("Device-Incompatible descriptor set layout found at index %u.", system::ILogger::ELL_ERROR, i);
+            continue;
         }
         
-        if (!allocateStorageOffsets(offsets.emplace_back(), layouts[i]))
+        if (!allocateStorageOffsets(offsets.emplace_back(),layouts[i]))
         {
-            m_logger.log("Failed to allocate descriptor or descriptor set offsets in the pool's storage for descriptor set layout at index %u. Sets for the layouts following this index will not be created.", system::ILogger::ELL_WARNING, i);
+            m_logger.log("Failed to allocate descriptor or descriptor set offsets in the pool's storage for descriptor set layout at index %u.", system::ILogger::ELL_WARNING, i);
             offsets.pop_back();
-            break;
+            continue;
         }
+        reverseMap[i] = repackedLayouts.size();
+        repackedLayouts.push_back(layouts[i]);
     }
-
     auto successCount = offsets.size();
 
-    const bool creationSuccess = createDescriptorSets_impl(successCount, layouts, offsets.data(), output);
+    const bool creationSuccess = createDescriptorSets_impl(successCount,repackedLayouts.data(),offsets.data(),output);
     if (creationSuccess)
     {
-        for (uint32_t i = 0u; i < successCount; ++i)
+        for (uint32_t i=0u; i<successCount; ++i)
             m_allocatedDescriptorSets[offsets[i].getSetOffset()] = output[i].get();
+        // shuffle the outputs
+        for (int32_t i=count-1; i>=0; i--)
+            output[i] = reverseMap[i]<count ? output[reverseMap[i]]:nullptr;
     }
     else
     {
         // Free the allocated offsets for all the successfully allocated descriptor sets and the offset of the descriptor sets themselves.
-        rewindLastStorageAllocations(successCount, offsets.data(), layouts);
+        rewindLastStorageAllocations(successCount,offsets.data(),layouts);
+        std::fill_n(output,count,nullptr);
         successCount = 0;
     }
 
     assert(count >= successCount);
-    std::fill_n(output + successCount, count - successCount, nullptr);
-
     return successCount;
 }
 

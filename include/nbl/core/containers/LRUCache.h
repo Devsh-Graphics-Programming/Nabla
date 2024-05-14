@@ -28,17 +28,14 @@ namespace impl
 
 		protected:
 			list_t m_list;
-
-		private:
 			MapHash m_hash;
 			MapEquals m_equals;
-
-		protected:
 			const mutable Key* searchedKey;
 
-			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
-			{
-			}
+			LRUCacheBase() = default;
+
+			LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
+			{ }
 
 		public:
 			inline const Key& getReference(const uint32_t nodeAddr) const
@@ -59,7 +56,7 @@ namespace impl
 // Stores fixed size amount of elements. 
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename MapEquals=std::equal_to<Key> >
-class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
+class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
 		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
@@ -88,7 +85,6 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		};
 
 		// members
-		unordered_set<uint32_t,WrapHash,WrapEquals> m_shortcut_map;
 		using shortcut_iterator_t = typename unordered_set<uint32_t,WrapHash,WrapEquals>::const_iterator;
 		inline shortcut_iterator_t common_find(const Key& key) const
 		{
@@ -110,41 +106,32 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			return success ? (*iterator):invalid_iterator;
 		}
 
-		template<typename K,typename V>
-		inline void common_insert(K&& k, V&& v)
-		{
-			bool success;
-			shortcut_iterator_t iterator = common_find(k,success);
-			if (success)
-			{
-				const auto nodeAddr = *iterator;
-				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
-				base_t::m_list.moveToFront(nodeAddr);
-			}
-			else
-			{
-				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
-				if (overflow)
-				{
-					m_shortcut_map.erase(base_t::m_list.getLastAddress());
-					base_t::m_list.popBack();
-				}
-				base_t::m_list.pushFront(std::make_pair(std::forward<K>(k),std::forward<V>(v)));
-				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
-			}
-		}
-
 	public:
 		using disposal_func_t = typename base_t::disposal_func_t;
 		using assoc_t = typename base_t::list_value_t;
 
 		//Constructor
-		inline LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
+		LRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash=MapHash(), MapEquals&& _equals=MapEquals()) :
 			base_t(capacity,std::move(_hash),std::move(_equals),std::move(_df)),
 			m_shortcut_map(capacity>>2,WrapHash{this},WrapEquals{this}) // 4x less buckets than capacity seems reasonable
 		{
 			assert(capacity > 1);
 			m_shortcut_map.reserve(capacity);
+		}
+
+		LRUCache() = default;
+		
+		LRUCache& operator=(LRUCache&& other)
+		{
+			m_shortcut_map = std::move(other.m_shortcut_map);
+			base_t::m_list = std::move(other.m_list);
+			base_t::m_hash = std::move(other.m_hash);
+			base_t::m_equals = std::move(other.m_equals);
+			base_t::searchedKey = other.searchedKey;
+
+			// Nullify other
+			other.searchedKey = nullptr;
+			return *this;
 		}
 
 		inline void print(core::smart_refctd_ptr<system::ILogger> logger)
@@ -161,12 +148,41 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				node = base_t::m_list.get(node->prev);
 			}
 		}
+		
+		template<typename K, typename V, std::invocable<const Value&> EvictionCallback> requires std::is_constructible_v<Value,V> // && (std::is_same_v<Value,V> || std::is_assignable_v<Value,V>) // is_assignable_v<int, int&> returns false :(
+		inline Value* insert(K&& k, V&& v, EvictionCallback&& evictCallback)
+		{
+			bool success;
+			shortcut_iterator_t iterator = common_find(k,success);
+			if (success)
+			{
+				const auto nodeAddr = *iterator;
+				base_t::m_list.get(nodeAddr)->data.second = std::forward<V>(v);
+				base_t::m_list.moveToFront(nodeAddr);
+			}
+			else
+			{
+				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
+				if (overflow)
+				{
+					// evictCallback(base_t::m_list.getBack()->data.second);
+					m_shortcut_map.erase(base_t::m_list.getLastAddress());
+					base_t::m_list.popBack();
+				}
+				if constexpr (std::is_same_v<Value, V>)
+					base_t::m_list.emplaceFront(std::forward<K>(k), std::forward<V>(v));
+				else
+					base_t::m_list.emplaceFront(std::forward<K>(k), Value(std::forward<V>(v)) );
+				m_shortcut_map.insert(base_t::m_list.getFirstAddress());
+			}
+			return &base_t::m_list.getBegin()->data.second;
+		}
 
-		//insert an element into the cache, or update an existing one with the same key
-		inline void insert(Key&& k, Value&& v) { common_insert(std::move(k), std::move(v)); }
-		inline void insert(Key&& k, const Value& v) { common_insert(std::move(k), v); }
-		inline void insert(const Key& k, Value&& v) { common_insert(k, std::move(v)); }
-		inline void insert(const Key& k, const Value& v) { common_insert(k, v); }
+		template<typename K, typename V>
+		inline Value* insert(K&& k, V&& v)
+		{
+			return insert(std::forward<K>(k),std::forward<V>(v),[](const Value& ejected)->void{});
+		}
 
 		//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Marks the returned value as most recently used
 		inline Value* get(const Key& key)
@@ -210,6 +226,9 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				m_shortcut_map.erase(iterator);
 			}
 		}
+
+	protected:
+		unordered_set<uint32_t,WrapHash,WrapEquals> m_shortcut_map;
 };
 
 

@@ -15,27 +15,19 @@ namespace glsl
 template<typename T>
 T subgroupShuffle(T value, uint32_t invocationId)
 {
-    return spirv::groupShuffle<T>(3, value, invocationId);
+    return spirv::groupShuffle<T>(spv::ScopeSubgroup, value, invocationId);
 }
 
 template<typename T>
 T subgroupShuffleUp(T value, uint32_t delta)
 {
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
-    return spirv::groupShuffleUp<T>(3, value, delta);
-#else
-    return spirv::groupShuffle<T>(3, value, gl_SubgroupInvocationID() - delta);
-#endif
+    return spirv::groupShuffleUp<T>(spv::ScopeSubgroup, value, delta);
 }
 
 template<typename T>
 T subgroupShuffleDown(T value, uint32_t delta)
 {
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
-    return spirv::groupShuffleDown<T>(3, value, delta);
-#else
-    return spirv::groupShuffle<T>(3, value, gl_SubgroupInvocationID() + delta);
-#endif
+    return spirv::groupShuffleDown<T>(spv::ScopeSubgroup, value, delta);
 }
 
 

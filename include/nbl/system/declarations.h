@@ -16,6 +16,9 @@
 // files
 #include "nbl/system/IFile.h"
 
+// archives
+#include "nbl/system/CMountDirectoryArchive.h"
+
 // loggers
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/system/CFileLogger.h"

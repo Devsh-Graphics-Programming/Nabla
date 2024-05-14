@@ -38,6 +38,8 @@ class IWindow : public core::IReferenceCounted
             ECF_CAN_MAXIMIZE = 1u << 10,
             //! If disabled, the minimize button is grayed out
             ECF_CAN_MINIMIZE = 1u << 11,
+            //! If disabled, the window can't be resized via the UI, only programmatically
+            ECF_CAN_RESIZE = 1u << 12,
 
             ECF_NONE = 0
         };
@@ -161,6 +163,7 @@ class IWindow : public core::IReferenceCounted
                 NBL_API2 virtual void onGainedKeyboardFocus_impl() {}
                 NBL_API2 virtual void onLostKeyboardFocus_impl() {}
 
+                // TODO: change the signature of the disconnected calls to be `const T* const`
                 NBL_API2 virtual void onMouseConnected_impl(core::smart_refctd_ptr<IMouseEventChannel>&& mch) {}
                 NBL_API2 virtual void onMouseDisconnected_impl(IMouseEventChannel* mch) {}
                 NBL_API2 virtual void onKeyboardConnected_impl(core::smart_refctd_ptr<IKeyboardEventChannel>&& kbch) {}
@@ -170,17 +173,18 @@ class IWindow : public core::IReferenceCounted
         friend class IEventCallback;
         inline void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
 
-        inline bool isFullscreen()        { return (m_flags.value & ECF_FULLSCREEN); }
-        inline bool isHidden()            { return (m_flags.value & ECF_HIDDEN); }
-        inline bool isBorderless()        { return (m_flags.value & ECF_BORDERLESS); }
-        inline bool isResizable()         { return (m_flags.value & ECF_RESIZABLE); }
-        inline bool isMinimized()         { return (m_flags.value & ECF_MINIMIZED); }
-        inline bool isMaximized()         { return (m_flags.value & ECF_MAXIMIZED); }
-        inline bool hasMouseCaptured()    { return (m_flags.value & ECF_MOUSE_CAPTURE); }
-        inline bool hasInputFocus()       { return (m_flags.value & ECF_INPUT_FOCUS); }
-        inline bool hasMouseFocus()       { return (m_flags.value & ECF_MOUSE_FOCUS); }
-        inline bool isAlwaysOnTop()       { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
-        inline bool isMaximizable()       { return (m_flags.value & ECF_CAN_MAXIMIZE); }
+        inline bool isFullscreen()              { return (m_flags.value & ECF_FULLSCREEN); }
+        inline bool isHidden()                  { return (m_flags.value & ECF_HIDDEN); }
+        inline bool isBorderless()              { return (m_flags.value & ECF_BORDERLESS); }
+        inline bool canProgrammaticallyResize() { return (m_flags.value & ECF_RESIZABLE); }
+        inline bool isMinimized()               { return (m_flags.value & ECF_MINIMIZED); }
+        inline bool isMaximized()               { return (m_flags.value & ECF_MAXIMIZED); }
+        inline bool hasMouseCaptured()          { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+        inline bool hasInputFocus()             { return (m_flags.value & ECF_INPUT_FOCUS); }
+        inline bool hasMouseFocus()             { return (m_flags.value & ECF_MOUSE_FOCUS); }
+        inline bool isAlwaysOnTop()             { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isMaximizable()             { return (m_flags.value & ECF_CAN_MAXIMIZE); }
+        inline bool isResizable()               { return (m_flags.value & ECF_CAN_RESIZE); }
 
         inline core::bitflag<E_CREATE_FLAGS> getFlags() { return m_flags; }
 
@@ -202,10 +206,11 @@ class IWindow : public core::IReferenceCounted
             core::smart_refctd_ptr<IEventCallback> callback;
             int32_t x, y;
             uint32_t width = 0u, height = 0u;
-            E_CREATE_FLAGS flags = E_CREATE_FLAGS::ECF_NONE;
+            core::bitflag<E_CREATE_FLAGS> flags = E_CREATE_FLAGS::ECF_NONE;
             uint32_t eventChannelCapacityLog2[IInputEventChannel::ET_COUNT];
             std::string windowCaption;
         };
+
     protected:
         // TODO need to update constructors of all derived CWindow* classes
         inline IWindow(SCreationParams&& params) :
@@ -219,6 +224,8 @@ class IWindow : public core::IReferenceCounted
         int32_t m_x, m_y; // gonna add it here until further instructions XD
         core::bitflag<E_CREATE_FLAGS> m_flags = static_cast<E_CREATE_FLAGS>(0u);
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IWindow::E_CREATE_FLAGS);
 
 }
 

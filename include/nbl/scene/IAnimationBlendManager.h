@@ -81,7 +81,7 @@ class IAnimationBlendSystem : public virtual core::IReferenceCounted
 			inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const {return core::bitfieldExtract(keyframeOffset_type,0,32-TypeBits());}
 			inline E_TYPE getType() const {return static_cast<E_TYPE>(core::bitfieldExtract(keyframeOffset_type,32-TypeBits(),TypeBits()));}
 		private:
-			static inline int32_t TypeBits() {return core::findMSB(ET_COUNT);}
+			static inline int32_t TypeBits() {return hlsl::findMSB(ET_COUNT);}
 		};
 
 		// creation
@@ -217,7 +217,7 @@ class IAnimationBlendManager : public virtual core::IReferenceCounted
 				// TODO: what to set queue family indices to if we don't plan on a transfer by default?
 				uint32_t srcQueueFamilyIndex;
 				uint32_t dstQueueFamilyIndex;
-				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::EPSF_ALL_COMMANDS_BIT;
+				asset::E_PIPELINE_STAGE_FLAGS dstStages = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BIT;
 				asset::E_ACCESS_FLAGS dstAccessMask = asset::EAF_ALL_ACCESSES_BIT_DEVSH;
 			} finalBarrier = {};
 			asset::SBufferBinding<video::IGPUBuffer> outRelativeTFormUpdateIndirectParameters;

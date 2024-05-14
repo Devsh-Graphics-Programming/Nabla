@@ -17,16 +17,9 @@
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
 	url = git@github.com:Devsh-Graphics-Programming/libpng.git
-[submodule "3rdparty/openssl/openssl"]
-	path = 3rdparty/openssl/openssl
-	url = git@github.com:Devsh-Graphics-Programming/openssl.git
-	branch = OpenSSL_1_0_2-stable
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
 	url = git@github.com:Devsh-Graphics-Programming/libjpeg-turbo.git
-[submodule "3rdparty/bullet3"]
-	path = 3rdparty/bullet3
-	url = git@github.com:Devsh-Graphics-Programming/bullet3.git
 [submodule "3rdparty/portable-file-dialogs"]
 	path = 3rdparty/portable-file-dialogs
 	url = git@github.com:Devsh-Graphics-Programming/portable-file-dialogs.git
@@ -81,18 +74,24 @@
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
 	branch = devshFixes
-[submodule "3rdparty/tcpp"]
-	path = 3rdparty/tcpp
-	url = git@github.com:Erfan-Ahmadi/tcpp.git
 [submodule "3rdparty/imgui"]
 	path = 3rdparty/imgui
 	url = git@github.com:Devsh-Graphics-Programming/imgui.git
 [submodule "3rdparty/implot"]
 	path = 3rdparty/implot
 	url = git@github.com:Devsh-Graphics-Programming/implot.git
-[submodule "3rdparty/boost/preprocessor"]
-	path = 3rdparty/boost/preprocessor
-	url = git@github.com:Devsh-Graphics-Programming/preprocessor.git
 [submodule "tests"]
 	path = tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
+[submodule "3rdparty/boost/superproject"]
+	path = 3rdparty/boost/superproject
+	url = git@github.com:boostorg/boost.git
+[submodule "3rdparty/argparse"]
+	path = 3rdparty/argparse
+	url = git@github.com:p-ranav/argparse.git
+[submodule "3rdparty/nlohmann_json"]
+	path = 3rdparty/nlohmann_json
+	url = https://github.com/Devsh-Graphics-Programming/json
+[submodule "3rdparty/blake"]
+	path = 3rdparty/blake
+	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git

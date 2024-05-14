@@ -1,9 +1,12 @@
 #ifndef _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+#define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
 
 namespace nbl::video
 {
+
+#if 0 // TODO: port
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
 private:
@@ -23,7 +26,7 @@ public:
 	};
 
 	//! Set smemSize param to ~0u to use all the shared memory available.
-	static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
+	static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
 	{
 		auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
 
@@ -79,7 +82,7 @@ public:
 			m_availableSharedMemory = core::min(core::roundUp(smemSize, static_cast<uint32_t>(sizeof(float) * 64)), m_device->getPhysicalDevice()->getLimits().maxComputeSharedMemorySize);
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
+	inline core::smart_refctd_ptr<IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
 	{
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			return m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT];
@@ -87,12 +90,12 @@ public:
 			return m_blitDSLayout[EBT_REGULAR];
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultKernelWeightsDescriptorSetLayout() const
+	inline core::smart_refctd_ptr<IGPUDescriptorSetLayout> getDefaultKernelWeightsDescriptorSetLayout() const
 	{
 		return m_kernelWeightsDSLayout;
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultBlitPipelineLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
+	inline core::smart_refctd_ptr<IGPUPipelineLayout> getDefaultBlitPipelineLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
 	{
 		if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
 			return m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT];
@@ -100,15 +103,15 @@ public:
 			return m_blitPipelineLayout[EBT_REGULAR];
 	}
 
-	inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultCoverageAdjustmentPipelineLayout() const
+	inline core::smart_refctd_ptr<IGPUPipelineLayout> getDefaultCoverageAdjustmentPipelineLayout() const
 	{
 		return m_coverageAdjustmentPipelineLayout;
 	}
 
 	// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
+	core::smart_refctd_ptr<IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
+	core::smart_refctd_ptr<IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 		const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
@@ -126,10 +129,10 @@ public:
 	}
 
 	// @param `outFormat` dictates encoding.
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
+	core::smart_refctd_ptr<IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
 		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
+	core::smart_refctd_ptr<IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
 		const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 	{
 		const auto workgroupDims = getDefaultWorkgroupDims(imageType);
@@ -448,13 +451,13 @@ public:
 	{
 		constexpr auto MAX_DESCRIPTOR_COUNT = 3;
 
-		auto updateDS = [this, coverageAdjustmentScratchBuffer](video::IGPUDescriptorSet* ds, video::IGPUDescriptorSet::SDescriptorInfo* infos) -> bool
+		auto updateDS = [this, coverageAdjustmentScratchBuffer](IGPUDescriptorSet* ds, IGPUDescriptorSet::SDescriptorInfo* infos) -> bool
 		{
 			const auto bindingCount = ds->getLayout()->getTotalBindingCount();
 			if ((bindingCount == 3) && !coverageAdjustmentScratchBuffer)
 				return false;
 
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
+			IGPUDescriptorSet::SWriteDescriptorSet writes[MAX_DESCRIPTOR_COUNT] = {};
 
 			uint32_t infoIdx = 0;
 			uint32_t writeCount = 0;
@@ -488,11 +491,11 @@ public:
 			if (!inImageView || !outImageView)
 				return false;
 
-			video::IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
+			IGPUDescriptorSet::SDescriptorInfo infos[MAX_DESCRIPTOR_COUNT] = {};
 
 			if (!samplers[wrapU][wrapV][wrapW][borderColor])
 			{
-				video::IGPUSampler::SParams params = {};
+				IGPUSampler::SParams params = {};
 				params.TextureWrapU = wrapU;
 				params.TextureWrapV = wrapV;
 				params.TextureWrapW = wrapW;
@@ -510,11 +513,11 @@ public:
 			}
 			
 			infos[0].desc = inImageView;
-			infos[0].info.image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+			infos[0].info.image.imageLayout = IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
 			infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 			infos[1].desc = outImageView;
-			infos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+			infos[1].info.image.imageLayout = IGPUImage::LAYOUT::GENERAL;
 			infos[1].info.image.sampler = nullptr;
 
 			if (coverageAdjustmentScratchBuffer)
@@ -530,7 +533,7 @@ public:
 
 		if (kernelWeightsDS)
 		{
-			video::IGPUDescriptorSet::SDescriptorInfo info = {};
+			IGPUDescriptorSet::SDescriptorInfo info = {};
 			info.desc = kernelWeightsUTB;
 			info.info.buffer.offset = 0ull;
 			info.info.buffer.size = kernelWeightsUTB->getUnderlyingBuffer()->getSize();
@@ -585,7 +588,7 @@ public:
 			dispatch_info_t dispatchInfo;
 			buildBlitDispatchInfo<BlitUtilities>(dispatchInfo, inImageExtent, outImageExtent, inImageFormat, inImageType, kernels, workgroupSize, layersToBlit);
 
-			video::IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
+			IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
 			cmdbuf->bindComputePipeline(blitPipeline);
 			dispatchHelper(cmdbuf, blitPipeline->getLayout(), pushConstants, dispatchInfo);
@@ -599,30 +602,30 @@ public:
 
 			assert(coverageAdjustmentScratchBuffer);
 
+			IGPUCommandBuffer::SPipelineBarrierDependencyInfo depInfo = {};
 			// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-			video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
-			alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
-			alphaTestBarrier.srcQueueFamilyIndex = ~0u;
-			alphaTestBarrier.dstQueueFamilyIndex = ~0u;
-			alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
-			alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getSize();
-			alphaTestBarrier.offset = 0;
-
+			decltype(depInfo)::buffer_barrier_t alphaTestBarrier = {};
+			alphaTestBarrier.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			alphaTestBarrier.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::STORAGE_WRITE_BIT;
+			alphaTestBarrier.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			alphaTestBarrier.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::STORAGE_READ_BIT;
+			alphaTestBarrier.range = {0,coverageAdjustmentScratchBuffer->getSize(),coverageAdjustmentScratchBuffer};
+			depInfo.bufBarrierCount = 1u;
+			depInfo.bufBarriers = &alphaTestBarrier;
 			// Memory dependency to ensure that the previous compute pass has finished writing to the output image,
 			// also transitions the layout of said image: GENERAL -> SHADER_READ_ONLY_OPTIMAL
-			video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
-			readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
-			readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
-			readyForNorm.oldLayout = asset::IImage::EL_GENERAL;
-			readyForNorm.newLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
-			readyForNorm.srcQueueFamilyIndex = ~0u;
-			readyForNorm.dstQueueFamilyIndex = ~0u;
+			decltype(depInfo)::image_barrier_t readyForNorm = {};
+			readyForNorm.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			readyForNorm.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::STORAGE_WRITE_BIT;
+			readyForNorm.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			readyForNorm.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::STORAGE_READ_BIT;
+			readyForNorm.oldLayout = asset::IImage::LAYOUT::GENERAL;
+			readyForNorm.newLayout = asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
 			readyForNorm.image = normalizationInImage;
 			readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 			readyForNorm.subresourceRange.levelCount = 1u;
 			readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
-			cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
+			cmdbuf->pipelineBarrier(asset::EDF_NONE, depInfo);
 
 			cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 			cmdbuf->bindComputePipeline(normalizationPipeline);
@@ -632,19 +635,19 @@ public:
 
 	//! WARNING: This function blocks and stalls the GPU!
 	template <typename BlitUtilities, typename... Args>
-	inline void blit(video::IGPUQueue* computeQueue, Args&&... args)
+	inline void blit(IQueue* computeQueue, Args&&... args)
 	{
-		auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
-		core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
-		m_device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+		auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::NONE);
+		core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
+		m_device->createCommandBuffers(cmdpool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &cmdbuf);
 
-		auto fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
+		auto fence = m_device->createFence(IGPUFence::ECF_UNSIGNALED);
 
-		cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+		cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 		blit<BlitUtilities>(cmdbuf.get(), std::forward<Args>(args)...);
 		cmdbuf->end();
 
-		video::IGPUQueue::SSubmitInfo submitInfo = {};
+		IQueue::SSubmitInfo submitInfo = {};
 		submitInfo.commandBufferCount = 1u;
 		submitInfo.commandBuffers = &cmdbuf.get();
 		computeQueue->submit(1u, &submitInfo, fence.get());
@@ -729,13 +732,13 @@ private:
 		EBT_COUNT
 	};
 
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_blitDSLayout[EBT_COUNT];
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_kernelWeightsDSLayout;
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_blitDSLayout[EBT_COUNT];
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_kernelWeightsDSLayout;
 
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
+	core::smart_refctd_ptr<IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
+	core::smart_refctd_ptr<IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
 
-	core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
+	core::smart_refctd_ptr<IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
 
 	struct SNormalizationCacheKey
 	{
@@ -758,7 +761,7 @@ private:
 				std::hash<decltype(key.outFormat)>{}(key.outFormat);
 		}
 	};
-	core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;
+	core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;
 
 	struct SBlitCacheKey
 	{
@@ -788,27 +791,27 @@ private:
 				std::hash<decltype(key.coverageAdjustment)>{}(key.coverageAdjustment);
 		}
 	};
-	core::unordered_map<SBlitCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SBlitCacheHash> m_blitPipelines;
+	core::unordered_map<SBlitCacheKey, core::smart_refctd_ptr<IGPUComputePipeline>, SBlitCacheHash> m_blitPipelines;
 
 	uint32_t m_availableSharedMemory;
-	core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+	core::smart_refctd_ptr<ILogicalDevice> m_device;
 
-	core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
+	core::smart_refctd_ptr<IGPUSampler> samplers[IGPUSampler::ETC_COUNT][IGPUSampler::ETC_COUNT][IGPUSampler::ETC_COUNT][IGPUSampler::ETBC_COUNT] = { nullptr };
 
-	CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+	CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 
-	static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
+	static inline void dispatchHelper(IGPUCommandBuffer* cmdbuf, const IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
 	{
 		cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
 		cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 	}
 
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::IDescriptor::E_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::IDescriptor::E_TYPE* descriptorTypes, ILogicalDevice* logicalDevice) const
 	{
 		constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
 		assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
 
-		video::IGPUDescriptorSetLayout::SBinding bindings[MAX_DESCRIPTOR_COUNT] = {};
+		IGPUDescriptorSetLayout::SBinding bindings[MAX_DESCRIPTOR_COUNT] = {};
 
 		for (uint32_t i = 0u; i < descriptorCount; ++i)
 		{
@@ -887,6 +890,7 @@ private:
 		return paddedAlphaBinCount;
 	}
 };
+#endif
 }
 
 #define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_

@@ -26,7 +26,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
-    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DXC_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "dxc");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
     #endif
 }
@@ -138,7 +138,8 @@ bool ISystem::copy(const system::path& from, const system::path& to)
             createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
             if (auto readF=readFileFut.acquire())
             {
-                auto& readFptr = *readF;
+                // the consts here are super important
+                const core::smart_refctd_ptr<const IFile>& readFptr = *readF;
                 if (auto pSrc=readFptr->getMappedPointer())
                 {
                     IFile::success_t bytesWritten;
@@ -191,7 +192,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
         const auto found = findFileInArchive(filename);
         if (found.archive)
         {
-            auto file = found.archive->getFile(found.pathRelativeToArchive,accessToken);
+            auto file = found.archive->getFile(found.pathRelativeToArchive,flags,accessToken);
             if (file)
             {
                 future.set_result(std::move(file));
@@ -302,5 +303,28 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
         return false;
     else if (flags&IFile::ECF_COHERENT)
         return true;
-    return flushMapping_impl(file,offset,size);
+
+    const bool retval = flushMapping_impl(file,offset,size);
+    file->setLastWriteTime();
+    return retval;
+}
+
+void  ISystem::unmountBuiltins() {
+
+    auto removeByKey = [&, this](const char* s) {
+        auto range = m_cachedArchiveFiles.findRange(s);
+        std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
+        for (auto it = range.begin(); it != range.end(); ++it)
+        {
+            items_to_remove.push_back(it->second);
+        }
+        for (size_t i = 0; i < items_to_remove.size(); i++)
+        {
+            m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
+        }
+    };
+    removeByKey("nbl/builtin");
+    removeByKey("spirv");
+    removeByKey("boost");
+    
 }

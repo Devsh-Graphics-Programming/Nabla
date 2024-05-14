@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
@@ -15,12 +14,27 @@ namespace hlsl
 namespace subgroup
 {
 
-uint ElectedSubgroupInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint>(glsl::gl_SubgroupInvocationID());
+uint32_t LastSubgroupInvocation()
+{
+    // why this code was wrong before:
+    // - only compute can use SubgroupID
+    // - but there's no mapping of InvocationID to SubgroupID and Index
+    return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
 }
 
-uint ElectedLocalInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint>(gl_LocalInvocationIndex);
+bool ElectLast()
+{
+    return glsl::gl_SubgroupInvocationID()==LastSubgroupInvocation();
+}
+
+template<typename T>
+T BroadcastLast(T value)
+{
+    return glsl::subgroupBroadcast<T>(value,LastSubgroupInvocation());
+}
+
+uint32_t ElectedSubgroupInvocationID() {
+    return glsl::subgroupBroadcastFirst<uint32_t>(glsl::gl_SubgroupInvocationID());
 }
 
 }

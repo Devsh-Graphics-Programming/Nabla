@@ -11,6 +11,7 @@
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
+#define NBL_CONST_MEMBER_FUNC const
 
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
 template<typename... Args> \
@@ -30,17 +31,17 @@ using add_pointer = std::add_pointer<T>;
 
 }
 
-#define NBL_REF_ARG(T) typename nbl::hlsl::add_reference<T>::type
-#define NBL_CONST_REF_ARG(T) typename nbl::hlsl::add_reference<std::add_const_t<T>>::type
-
-// it includes vector and matrix
-#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
+// We need variadic macro in order to handle multi parameter templates because the 
+// preprocessor parses the template parameters as different macro parameters.
+#define NBL_REF_ARG(...) typename nbl::hlsl::add_reference<__VA_ARGS__ >::type
+#define NBL_CONST_REF_ARG(...) typename nbl::hlsl::add_reference<std::add_const_t<__VA_ARGS__ >>::type
 
 #else
 
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
+#define NBL_CONST_MEMBER_FUNC 
 
 namespace nbl
 {
@@ -63,9 +64,12 @@ struct add_pointer
 }
 }
 
-#define NBL_REF_ARG(T) inout T
-#define NBL_CONST_REF_ARG(T) const in T
+#define NBL_REF_ARG(...) inout __VA_ARGS__
+#define NBL_CONST_REF_ARG(...) const in __VA_ARGS__
 
 #endif
+
+// it includes vector and matrix
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.h>
 
 #endif
