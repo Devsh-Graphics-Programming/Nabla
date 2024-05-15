@@ -1,5 +1,3 @@
-template<typename T, typename U>
-T _static_cast(const U);
 
 using float32_t = float;
 //using emulated_float64_t = double;
@@ -117,13 +115,4 @@ namespace emulated
         emulated_float64_t* operator&() { return this; }
 #endif
     };
-}
-
-// upgrades float to a double
-template<>
-emulated::emulated_float64_t _static_cast(const float val)
-{
-    emulated::emulated_float64_t retval;
-    retval.data = val; // TODO: manually upgrade the `val` IEEE754 32bit pattern to 64bit
-    return retval;
 }
