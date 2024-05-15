@@ -34,7 +34,9 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		{".tese.hlsl",IShader::ESS_TESSELLATION_EVALUATION},
 		{".geom.hlsl",IShader::ESS_GEOMETRY},
 		{".frag.hlsl",IShader::ESS_FRAGMENT},
-		{".comp.hlsl",IShader::ESS_COMPUTE}
+		{".comp.hlsl",IShader::ESS_COMPUTE},
+		{".mesh.hlsl",IShader::ESS_MESH},
+		{".task.hlsl",IShader::ESS_TASK},
 	};
 	auto shaderStage = IShader::ESS_UNKNOWN;
 	for (auto& it : typeFromExt) {
@@ -47,8 +49,9 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		}
 	}
 
+	// TODO: allocate the source as an ICPUBuffer right away!
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), shaderStage, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
 
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
+	return SAssetBundle(nullptr,{std::move(shader)});
 } 

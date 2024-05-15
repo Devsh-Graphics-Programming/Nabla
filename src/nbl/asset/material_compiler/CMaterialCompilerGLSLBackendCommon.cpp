@@ -304,7 +304,7 @@ class ITraversalGenerator
 			subres.baseMipLevel = 0u;
 			const uint32_t mx = std::max(extent.width, extent.height);
 			const uint32_t round = core::roundUpToPoT<uint32_t>(mx);
-			const int32_t lsb = core::findLSB(round);
+			const int32_t lsb = hlsl::findLSB(round);
 			subres.levelCount = static_cast<uint32_t>(lsb + 1);
 
 			SContext::VT::alloc_t alloc;

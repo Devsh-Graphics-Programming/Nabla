@@ -1,20 +1,14 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED__
-#define __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_DESCRIPTOR_SET_H_INCLUDED_
 
 
 #include "nbl/asset/IDescriptorSet.h"
 
-#include "nbl/video/IGPUBuffer.h"
-#include "nbl/video/IGPUBufferView.h"
-#include "nbl/video/IGPUImageView.h"
-#include "nbl/video/IGPUSampler.h"
-#include "nbl/video/IGPUDescriptorSetLayout.h"
-
 #include "nbl/video/IDescriptorPool.h"
+
 
 namespace nbl::video
 {
@@ -36,8 +30,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t binding;
             uint32_t arrayElement;
             uint32_t count;
-            asset::IDescriptor::E_TYPE descriptorType;
-            SDescriptorInfo* info;
+            const SDescriptorInfo* info;
         };
 
         struct SCopyDescriptorSet
@@ -52,9 +45,30 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             uint32_t count;
         };
 
+        struct SDropDescriptorSet
+        {
+            IGPUDescriptorSet* dstSet;
+            uint32_t binding;
+            uint32_t arrayElement;
+            uint32_t count;
+        };
+
         inline uint64_t getVersion() const { return m_version.load(); }
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
+
+        // small utility
+        inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
+        {
+            for (auto t=0u; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
+            {
+                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
+                const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
+                if (bindingRedirect.getStorageOffset(redirect_t::binding_number_t{binding}).data!=redirect_t::Invalid)
+                    return type;
+            }
+            return asset::IDescriptor::E_TYPE::ET_COUNT;
+        }
 
 	protected:
         IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets&& offsets);
@@ -64,15 +78,17 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline void incrementVersion() { m_version.fetch_add(1ull); }
 
         friend class ILogicalDevice;
-        bool validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
-        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write);
+        asset::IDescriptor::E_TYPE validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
         bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
         void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+        void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
+        using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(redirect_t::binding_number_t{ binding }).data;
             if (localOffset == ~0)
                 return nullptr;
 
@@ -80,12 +96,12 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             if (!descriptors)
                 return nullptr;
 
-            return descriptors + localOffset;
+            return descriptors+localOffset;
         }
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplers(const uint32_t binding) const
         {
-            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getMutableSamplerRedirect().getStorageOffset(redirect_t::binding_number_t{ binding }).data;
             if (localOffset == getLayout()->getMutableSamplerRedirect().Invalid)
                 return nullptr;
 

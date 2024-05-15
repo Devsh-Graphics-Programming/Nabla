@@ -10,19 +10,51 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License
+
+include_guard(GLOBAL)
 
 include(ProcessorCount)
-set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
-# TODO: REDO THIS WHOLE THING AS FUNCTIONS
-# https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
+	if(NOT TARGET Nabla)
+		message(FATAL_ERROR "Internal error, Nabla target must be defined!")
+	endif()
+	
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+		
+		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+			_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+		)
+	endif()
+	
+	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+		_DXC_DLL_="${DXC_DLL}"
+	)
+endfunction()
+
+function(nbl_handle_runtime_lib_properties _TARGET_)
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+endfunction()
 
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
-	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
 	if(MSVC)
@@ -40,34 +72,35 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		)
 		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-			
-			if(WIN32 AND MSVC)				
-				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-			endif()
-		else()
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
 		
 		if(WIN32 AND MSVC)
+			if(NBL_DYNAMIC_MSVC_RUNTIME)
+				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
+			endif()
+			
 			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
 		endif()
 	endif()
 	
+	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
+
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
 	
 	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
+		
+		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
+			if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+				message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined to create an example target!")
+			endif()
+		
+			add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 		endif()
-	
-		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
@@ -108,8 +141,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif()
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
@@ -245,31 +277,13 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		)
 	endif()
 	
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		if(WIN32 AND MSVC)
-			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-			
-			target_compile_definitions(${LIB_NAME} PUBLIC 
-				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-			)
-		endif()
-	endif()
-
-	if(WIN32 AND MSVC)
-		target_compile_definitions(${LIB_NAME} PUBLIC 
-			_DXC_DLL_="${DXC_DLL}"
-		)
-	endif()
-	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+	
+	nbl_handle_dll_definitions(${LIB_NAME} PUBLIC)
+	nbl_handle_runtime_lib_properties(${LIB_NAME})
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -281,8 +295,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${LIB_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
 	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
@@ -360,6 +373,8 @@ endmacro()
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
+
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
 
 function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
@@ -952,11 +967,11 @@ endfunction()
 # @_BS_TARGET_@ is a builtin resource target
 
 function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
-	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	add_dependencies(${_TARGET_} ${_BS_TARGET_})
+	target_link_libraries(${_TARGET_} PUBLIC ${_BS_TARGET_})
 	
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	target_include_directories(${_TARGET_} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)
@@ -1264,168 +1279,3 @@ endmacro()
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()
-
-function(NBL_UPDATE_SUBMODULES)
-	ProcessorCount(_GIT_SUBMODULES_JOBS_AMOUNT_)
-	
-	if(NBL_CI_GIT_SUBMODULES_SHALLOW)
-		set(NBL_SHALLOW "--depth=1")
-	else()
-		set(NBL_SHALLOW "")
-	endif()
-	
-	if(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
-		set(NBL_FORCE "--force")
-	else()
-		set(NBL_FORCE "")
-	endif()
-	
-	if(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE OR NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
-		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}\" submodule sync --recursive\n")
-	endif()
-
-	macro(NBL_WRAPPER_COMMAND_EXCLUSIVE GIT_RELATIVE_ENTRY GIT_SUBMODULE_PATH SHOULD_RECURSIVE EXCLUDE_SUBMODULE_PATHS)
-		set(EXCLUDE_SUBMODULE_PATHS ${EXCLUDE_SUBMODULE_PATHS})
-		set(SHOULD_RECURSIVE ${SHOULD_RECURSIVE})
-		
-		if("${EXCLUDE_SUBMODULE_PATHS}" STREQUAL "")
-			set(NBL_EXCLUDE "")
-		else()
-			foreach(EXCLUDE_SUBMODULE_PATH ${EXCLUDE_SUBMODULE_PATHS})
-				string(APPEND NBL_EXCLUDE "-c submodule.\"${EXCLUDE_SUBMODULE_PATH}\".update=none ")
-			endforeach()
-			
-			string(STRIP "${NBL_EXCLUDE}" NBL_EXCLUDE)
-		endif()
-
-		if(SHOULD_RECURSIVE)
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
-		else()
-			string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}\n")
-		endif()
-		
-		unset(NBL_EXCLUDE)
-	endmacro()
-	
-	set(_NBL_UPDATE_SUBMODULES_CMD_NAME_ "nbl-update-submodules")
-	set(_NBL_UPDATE_SUBMODULES_CMD_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmd")
-	get_filename_component(_NBL_UPDATE_IMPL_CMAKE_FILE_ "${NBL_ROOT_PATH_BINARY}/${_NBL_UPDATE_SUBMODULES_CMD_NAME_}.cmake" ABSOLUTE)
-	
-	# Proxy script for inclusive submodule updating
-	string(APPEND NBL_IMPL_SCRIPT "set(NBL_ROOT_PATH \"${NBL_ROOT_PATH}\")\nset(_GIT_SUBMODULES_JOBS_AMOUNT_ ${_GIT_SUBMODULES_JOBS_AMOUNT_})\nset(GIT_EXECUTABLE \"${GIT_EXECUTABLE}\")\nset(NBL_SHALLOW \"${NBL_SHALLOW}\")\nset(NBL_FORCE \"${NBL_FORCE}\")\n\n")
-	string(APPEND NBL_IMPL_SCRIPT
-[=[
-if(NOT DEFINED GIT_RELATIVE_ENTRY)
-	message(FATAL_ERROR "GIT_RELATIVE_ENTRY must be defined to use this script!")
-endif()
-
-if(NOT DEFINED INCLUDE_SUBMODULE_PATHS)
-	message(FATAL_ERROR "INCLUDE_SUBMODULE_PATHS must be defined to use this script!")
-endif()
-
-# update an inclusive submodule first
-execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}" submodule update --init "${GIT_RELATIVE_ENTRY}")
-
-if("${INCLUDE_SUBMODULE_PATHS}" STREQUAL "")
-	set(NBL_SUBMODULE_UPDATE_CONFIG_ENTRY "")
-else()
-	execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}" config --file .gitmodules --get-regexp path
-		OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE
-	)
-
-	string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
-	
-	foreach(NBL_SUBMODULE_NAME ${NBL_SUBMODULE_CONFIG_LIST})
-		string(REGEX MATCH "submodule\\.(.*)\\.path" NBL_SUBMODULE_NAME "${NBL_SUBMODULE_NAME}")
-		list(APPEND NBL_ALL_SUBMODULES "${CMAKE_MATCH_1}")
-	endforeach()
-	
-	foreach(NBL_SUBMODULE_NAME ${NBL_ALL_SUBMODULES})		
-		list(FIND INCLUDE_SUBMODULE_PATHS "${NBL_SUBMODULE_NAME}" NBL_FOUND)
-		
-		if("${NBL_FOUND}" STREQUAL "-1")
-			list(APPEND NBL_CONFIG_SETUP_CMD "-c;submodule.${NBL_SUBMODULE_NAME}.update=none") # filter submodules - only those on the INCLUDE_SUBMODULE_PATHS list will be updated when recursive update is requested, all left will be skipped
-		endif()
-	endforeach()
-endif()
-
-execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} --recursive ${NBL_SHALLOW} ${NBL_FORCE}
-	WORKING_DIRECTORY "${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}"
-)
-]=]
-)
-	file(WRITE "${_NBL_UPDATE_IMPL_CMAKE_FILE_}" "${NBL_IMPL_SCRIPT}")
-	
-	macro(NBL_WRAPPER_COMMAND_INCLUSIVE GIT_RELATIVE_ENTRY INCLUDE_SUBMODULE_PATHS)
-		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "\"${CMAKE_COMMAND}\" \"-DGIT_RELATIVE_ENTRY=${GIT_RELATIVE_ENTRY}\" \"-DINCLUDE_SUBMODULE_PATHS=${INCLUDE_SUBMODULE_PATHS}\" -P \"${_NBL_UPDATE_IMPL_CMAKE_FILE_}\"\n")
-	endmacro()
-	
-	if(NBL_UPDATE_GIT_SUBMODULE)
-		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "All submodules are about to get updated and initialized in repository because NBL_UPDATE_GIT_SUBMODULE is turned ON!")
-		
-		include("${THIRD_PARTY_SOURCE_DIR}/boost/dep/wave.cmake")
-		
-		macro(NBL_IMPL_INIT_COMMON_SUBMODULES)
-			# 3rdparty except boost & gltf
-			set(NBL_3RDPARTY_MODULES_TO_SKIP
-				3rdparty/boost/superproject # a lot of submodules we don't use
-				3rdparty/glTFSampleModels # more then 2GB waste of space (disk + .gitmodules data)
-			)
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE "${NBL_3RDPARTY_MODULES_TO_SKIP}")
-			
-			# boost's 3rdparties, special case
-			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave numeric_conversion) # wave and all of its deps, numeric_conversion is nested in conversion submodule (for some reason boostdep tool doesn't output it properly)
-			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
-				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT ${NBL_TARGET})
-			endforeach()
-			NBL_WRAPPER_COMMAND_INCLUSIVE(3rdparty/boost/superproject "${NBL_BOOST_SUBMODULES_TO_INIT}")
-			
-			# tests
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./tests FALSE "")
-		endmacro()
-		
-		NBL_IMPL_INIT_COMMON_SUBMODULES()
-		
-		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests TRUE "")
-		else()
-			# NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./ci TRUE "") TODO: enable it once we merge Ditt, etc
-			
-			# examples and their media
-			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
-			NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
-		endif()
-				
-		file(WRITE "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}" "${_NBL_UPDATE_SUBMODULES_COMMANDS_}")
-
-		if(WIN32)
-			find_package(GitBash REQUIRED)
-		
-			execute_process(COMMAND "${GIT_BASH_EXECUTABLE}" "-c"
-[=[
->&2 echo ""
-clear
-./nbl-update-submodules.cmd 2>&1 | tee nbl-update-submodules.log
-sleep 1
-clear
-tput setaf 2; echo -e "Submodules have been updated! 
-Created nbl-update-submodules.log in your build directory."
-]=]
-				WORKING_DIRECTORY ${NBL_ROOT_PATH_BINARY}
-				OUTPUT_VARIABLE _NBL_TMP_OUTPUT_
-				RESULT_VARIABLE _NBL_TMP_RET_CODE_
-				OUTPUT_STRIP_TRAILING_WHITESPACE
-				ERROR_STRIP_TRAILING_WHITESPACE
-			)
-
-			unset(_NBL_TMP_OUTPUT_)
-			unset(_NBL_TMP_RET_CODE_)
-		else()
-			execute_process(COMMAND "${_NBL_UPDATE_SUBMODULES_CMD_FILE_}")
-		endif()
-		
-		message(STATUS "Submodules have been updated! Check \"${NBL_ROOT_PATH_BINARY}/nbl-update-submodules.log\" for more details.")
-	else()
-		execute_process(COMMAND ${CMAKE_COMMAND} -E echo "NBL_UPDATE_GIT_SUBMODULE is turned OFF therefore submodules won't get updated.")
-	endif()
-endfunction()

@@ -303,5 +303,28 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
         return false;
     else if (flags&IFile::ECF_COHERENT)
         return true;
-    return flushMapping_impl(file,offset,size);
+
+    const bool retval = flushMapping_impl(file,offset,size);
+    file->setLastWriteTime();
+    return retval;
+}
+
+void  ISystem::unmountBuiltins() {
+
+    auto removeByKey = [&, this](const char* s) {
+        auto range = m_cachedArchiveFiles.findRange(s);
+        std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
+        for (auto it = range.begin(); it != range.end(); ++it)
+        {
+            items_to_remove.push_back(it->second);
+        }
+        for (size_t i = 0; i < items_to_remove.size(); i++)
+        {
+            m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
+        }
+    };
+    removeByKey("nbl/builtin");
+    removeByKey("spirv");
+    removeByKey("boost");
+    
 }

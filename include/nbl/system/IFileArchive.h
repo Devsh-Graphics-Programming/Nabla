@@ -22,7 +22,7 @@ namespace nbl::system
 class IFile;
 
 //! The FileArchive manages archives and provides access to files inside them.
-class NBL_API2 IFileArchive : public core::IReferenceCounted
+class IFileArchive : public core::IReferenceCounted
 {
 	public:
 		enum E_ALLOCATOR_TYPE
@@ -76,8 +76,8 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 					public:
 						using type = refctd_storage_t::element_type::const_pointer;
 
-						found_t() = default;
-						found_t(refctd_storage_t&& _storage, type _iter) :	m_backingStorage(_storage), m_iter(_iter) {}
+						inline found_t() = default;
+						inline found_t(refctd_storage_t&& _storage, type _iter) :	m_backingStorage(_storage), m_iter(_iter) {}
 
 						explicit inline operator bool() const {return m_iter;}
 
@@ -91,14 +91,14 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 				using span_t = std::span<const SEntry>;
 				inline operator span_t() const {return m_span;}
 
-				SFileList(const SFileList&) = default;
-				SFileList(SFileList&&) = default;
-				SFileList& operator=(const SFileList&) = default;
-				SFileList& operator=(SFileList&&) = default;
+				inline SFileList(const SFileList&) = default;
+				inline SFileList(SFileList&&) = default;
+				inline SFileList& operator=(const SFileList&) = default;
+				inline SFileList& operator=(SFileList&&) = default;
 
 			private:
 				// default ctor full range
-				SFileList(refctd_storage_t _data) : m_data(_data), m_span(m_data->data(),m_data->data()+m_data->size()) {}
+				inline SFileList(refctd_storage_t _data) : m_data(_data), m_span(m_data->data(),m_data->data()+m_data->size()) {}
 
 				friend class IFileArchive;
 				refctd_storage_t m_data;
@@ -112,7 +112,7 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 		}
 
 		// List all files and directories in a specific dir of the archive
-		SFileList listAssets(path pathRelativeToArchive) const;
+		NBL_API2 SFileList listAssets(path pathRelativeToArchive) const;
 
 		//
 		inline core::smart_refctd_ptr<IFile> getFile(const path& pathRelativeToArchive, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, const std::string_view& password)
@@ -130,11 +130,12 @@ class NBL_API2 IFileArchive : public core::IReferenceCounted
 		}
 
 		//
-		const path& getDefaultAbsolutePath() const {return m_defaultAbsolutePath;}
+		inline const path& getDefaultAbsolutePath() const {return m_defaultAbsolutePath;}
 
 	protected:
-		IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
+		inline IFileArchive(path&& _defaultAbsolutePath, system::logger_opt_smart_ptr&& logger) :
 			m_defaultAbsolutePath(std::move(_defaultAbsolutePath.make_preferred())), m_logger(std::move(logger)) {}
+		virtual inline ~IFileArchive() = default;
 
 		//
 		virtual core::smart_refctd_ptr<IFile> getFile_impl(const SFileList::found_t& found, const core::bitflag<IFileBase::E_CREATE_FLAGS> flags, const std::string_view& password) = 0;

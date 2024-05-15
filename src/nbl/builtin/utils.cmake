@@ -120,7 +120,13 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
 			endforeach()
 		else()
-			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			get_source_file_property(NBL_BUILTIN_IS_GENERATED "${NBL_BUILTIN_RESOURCE_ABS_PATH}" GENERATED)
+			
+			if(NBL_BUILTIN_IS_GENERATED)
+				list(APPEND NBL_DEPENDENCY_FILES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
+			else()
+				message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist or is not marked with GENERATED property!")
+			endif()
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")
@@ -139,11 +145,17 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 
 	set(NBL_BUILTIN_RESOURCES_HEADER "${_OUTPUT_HEADER_DIRECTORY_}/${NBL_BS_HEADER_FILENAME}")
 	set(NBL_BUILTIN_RESOURCE_DATA_SOURCE "${_OUTPUT_SOURCE_DIRECTORY_}/${NBL_BS_DATA_SOURCE_FILENAME}")
+	
+	if(NBL_BR_FORCE_CONSTEXPR_HASH)
+		set(_NBL_BR_RUNTIME_HASH_ 0)
+	else()
+		set(_NBL_BR_RUNTIME_HASH_ 1)
+	endif()
 
 	add_custom_command(
 		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
 		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}" "${_SHARED_}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}" "$<${_NBL_BR_RUNTIME_HASH_}:$<TARGET_FILE:xxHash256>>"
 		COMMENT "Generating built-in resources"
 		DEPENDS ${NBL_DEPENDENCY_FILES}
 		VERBATIM
@@ -155,6 +167,30 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_SOURCE_DIRECTORY_}/CArchive.cpp"
 		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
 	)
+	
+	if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+	elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+	else()
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+	endif()
+	
+	set(_BR_CONSTEXPR_STEPS_ 696969696969)
+
+	if(MSVC)
+		list(APPEND _BR_COMPILE_OPTIONS_ /constexpr:steps${_BR_CONSTEXPR_STEPS_})
+	else()
+		list(APPEND _BR_COMPILE_OPTIONS_ -fconstexpr-steps=${_BR_CONSTEXPR_STEPS_})
+	endif()
+	
+	target_compile_options(${_TARGET_NAME_} PRIVATE
+		${_BR_COMPILE_OPTIONS_}
+	)
+	
+	set_target_properties(${_TARGET_NAME_} PROPERTIES
+        DISABLE_PRECOMPILE_HEADERS ON
+    )
 	
 	if(_LIB_TYPE_ STREQUAL SHARED)
 		target_compile_definitions(${_TARGET_NAME_} 
@@ -170,7 +206,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		endif()
 		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
-			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
+			target_link_libraries(${_TARGET_NAME_} Nabla)
 		endif()
 	endif()
 	

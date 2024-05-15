@@ -1,8 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/asset/ICPUMeshBuffer.h"
 
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/asset/utils/spvUtils.h"
@@ -15,454 +13,590 @@ namespace nbl::asset
 
 namespace
 {
-E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
-{
-    using namespace spv;
-    constexpr E_FORMAT convert[]
+    E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
     {
-        EF_UNKNOWN,
-        EF_R32G32B32A32_SFLOAT,
-        EF_R16G16B16A16_SFLOAT,
-        EF_R32_SFLOAT,
-        EF_R8G8B8A8_UNORM,
-        EF_R8G8B8A8_SNORM,
-        EF_R32G32_SFLOAT,
-        EF_R16G16_SFLOAT,
-        EF_B10G11R11_UFLOAT_PACK32,
-        EF_R16_SFLOAT,
-        EF_R16G16B16A16_UNORM,
-        EF_A2B10G10R10_UNORM_PACK32,
-        EF_R16G16_UNORM,
-        EF_R8G8_UNORM,
-        EF_R16G16_UNORM,
-        EF_R8_UNORM,
-        EF_R16G16B16A16_SNORM,
-        EF_R16G16_SNORM,
-        EF_R8G8_SNORM,
-        EF_R16_SNORM,
-        EF_R8_SNORM,
-        EF_R32G32B32A32_SINT,
-        EF_R16G16B16A16_SINT,
-        EF_R8G8B8A8_SINT,
-        EF_R32_SINT,
-        EF_R32G32_SINT,
-        EF_R16G16_SINT,
-        EF_R8G8_SINT,
-        EF_R16_SINT,
-        EF_R8_SINT,
-        EF_R32G32B32A32_UINT,
-        EF_R16G16B16A16_UINT,
-        EF_R8G8B8A8_UINT,
-        EF_R32_UINT,
-        EF_A2B10G10R10_UINT_PACK32,
-        EF_R32G32_UINT,
-        EF_R16G16_UINT,
-        EF_R8G8_UINT,
-        EF_R16_UINT,
-        EF_R8_UINT,
-        EF_UNKNOWN
+        using namespace spv;
+        constexpr E_FORMAT convert[]
+        {
+            EF_UNKNOWN,
+            EF_R32G32B32A32_SFLOAT,
+            EF_R16G16B16A16_SFLOAT,
+            EF_R32_SFLOAT,
+            EF_R8G8B8A8_UNORM,
+            EF_R8G8B8A8_SNORM,
+            EF_R32G32_SFLOAT,
+            EF_R16G16_SFLOAT,
+            EF_B10G11R11_UFLOAT_PACK32,
+            EF_R16_SFLOAT,
+            EF_R16G16B16A16_UNORM,
+            EF_A2B10G10R10_UNORM_PACK32,
+            EF_R16G16_UNORM,
+            EF_R8G8_UNORM,
+            EF_R16G16_UNORM,
+            EF_R8_UNORM,
+            EF_R16G16B16A16_SNORM,
+            EF_R16G16_SNORM,
+            EF_R8G8_SNORM,
+            EF_R16_SNORM,
+            EF_R8_SNORM,
+            EF_R32G32B32A32_SINT,
+            EF_R16G16B16A16_SINT,
+            EF_R8G8B8A8_SINT,
+            EF_R32_SINT,
+            EF_R32G32_SINT,
+            EF_R16G16_SINT,
+            EF_R8G8_SINT,
+            EF_R16_SINT,
+            EF_R8_SINT,
+            EF_R32G32B32A32_UINT,
+            EF_R16G16B16A16_UINT,
+            EF_R8G8B8A8_UINT,
+            EF_R32_UINT,
+            EF_A2B10G10R10_UINT_PACK32,
+            EF_R32G32_UINT,
+            EF_R16G16_UINT,
+            EF_R8G8_UINT,
+            EF_R16_UINT,
+            EF_R8_UINT,
+            EF_UNKNOWN
+        };
+        return convert[_imgfmt];
+    }
+
+    // TODO: delete when we are done testing
+    std::string_view getBaseTypeNameFromEnum(CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE varType)
+    {
+        constexpr std::string_view typeNames[] = {
+            "UNKNOWN_OR_STRUCT",
+            "U64",
+            "I64",
+            "U32",
+            "I32",
+            "U16",
+            "I16",
+            "U8",
+            "I8",
+            "F64",
+            "F32",
+            "F16"
+        };
+
+        return typeNames[static_cast<uint32_t>(varType)];
     };
-    return convert[_imgfmt];
-}
 }//anonymous ns
 
-core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntrospector::introspect(const SIntrospectionParams& params, bool insertToCache)
+static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType basetype)
 {
-    if (!params.cpuShader)
-        return nullptr;
-    if (params.cpuShader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
-        return nullptr;
-    auto introspectionData = m_introspectionCache.find(params);
-    if (introspectionData != m_introspectionCache.end())
+    switch (basetype)
     {
-        return introspectionData->second;
+    case spirv_cross::SPIRType::Int:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::I32;
+    case spirv_cross::SPIRType::UInt:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::U32;
+    case spirv_cross::SPIRType::Float:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::F32;
+    case spirv_cross::SPIRType::Int64:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::I64;
+    case spirv_cross::SPIRType::UInt64:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::U64;
+    case spirv_cross::SPIRType::Double:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::F64;
+    default:
+        return CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE::UNKNOWN_OR_STRUCT;
     }
-
-    const ICPUBuffer* spv = params.cpuShader->getContent();
-    spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-    auto introspection = doIntrospection(comp,params.entryPoint,params.cpuShader->getStage());
-    
-    if (insertToCache)
-        m_introspectionCache[params] = introspection;
-
-    return introspection;
 }
 
-bool CSPIRVIntrospector::introspectAllShaders(core::smart_refctd_ptr<const CIntrospectionData>* outIntrospections, const core::SRange<const ICPUSpecializedShader* const>& _shaders)
+core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
 {
-    auto it = outIntrospections;
-    for (auto shader : _shaders)
+    if (info.shader->getStage() != IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
+        return nullptr;
+
+    CStageIntrospectionData::SParams params;
+    params.entryPoint = info.entryPoint;
+    params.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+
+    auto introspection = introspect(params);
+
+    core::smart_refctd_ptr<CPipelineIntrospectionData> pplnIntrospectData = core::make_smart_refctd_ptr<CPipelineIntrospectionData>();
+    if (!pplnIntrospectData->merge(introspection.get()))
+        return nullptr;
+
+    if (layout)
     {
-        const auto& specInfo = shader->getSpecializationInfo();
-        SIntrospectionParams params = { specInfo.entryPoint, core::smart_refctd_ptr<const ICPUShader>(shader->getUnspecialized()) };
-        *it = introspect(params);
-        if (!*it++)
+        // regarding push constants we only need to validate if every range of push constants determined by the introspection is subset any push constants subset of predefined layout
+        core::smart_refctd_ptr<ICPUPipelineLayout> pplnIntrospectionLayout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+        const auto& introspectionPushConstantRanges = pplnIntrospectionLayout->getPushConstantRanges();
+        if (!introspectionPushConstantRanges.empty())
+        {
+            const auto& layoutPushConstantRanges = layout->getPushConstantRanges();
+            if (layoutPushConstantRanges.empty())
+                return nullptr;
+
+            for (auto& introPcRange : introspectionPushConstantRanges)
+            {
+                auto subsetRangeFound = std::find_if(
+                    layoutPushConstantRanges.begin(),
+                    layoutPushConstantRanges.end(),
+                    [&introPcRange](const SPushConstantRange& layoutPcRange)
+                    {
+                        const bool isIntrospectionPushConstantRangeSubset =
+                            introPcRange.offset <= layoutPcRange.offset &&
+                            introPcRange.offset + introPcRange.size <= layoutPcRange.offset + layoutPcRange.size;
+                        return isIntrospectionPushConstantRangeSubset;
+                    });
+
+                auto asdf = layoutPushConstantRanges.end();
+
+                if (subsetRangeFound == layoutPushConstantRanges.end())
+                    return nullptr;
+            }
+        }
+
+        // now validate if bindings of descriptor sets in `introspection` are also present in `layout` descriptor sets and validate their compatability
+        for (uint32_t dstSetIdx = 0; dstSetIdx < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++dstSetIdx)
+        {
+            const auto& layoutDescriptorSetLayout = layout->getDescriptorSetLayout(dstSetIdx);
+
+            const auto& introspectionDescriptorSetLayout = introspection->getDescriptorSetInfo(dstSetIdx);
+            if (!introspectionDescriptorSetLayout.empty())
+            {
+                auto dscLayout = pplnIntrospectionLayout->getDescriptorSetLayout(dstSetIdx);
+                if (!dscLayout)
+                    continue;
+                if (!dscLayout->isSubsetOf(layout->getDescriptorSetLayout(dstSetIdx)))
+                    return nullptr;
+            }
+        }
+    }
+    else
+    {
+        layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
+    }
+
+    ICPUComputePipeline::SCreationParams pplnCreationParams = { {.layout = layout.get()} };
+    pplnCreationParams.shader = info;
+    pplnCreationParams.layout = layout.get();
+    return ICPUComputePipeline::create(pplnCreationParams);
+}
+
+// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
+NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants)
+{
+    if (!stageData)
+        return false;
+
+    // validate if descriptors are compatible
+    DescriptorSetBindings descriptorsToMerge[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+    HighestBindingArray highestBindingsTmp = m_highestBindingNumbers;
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+        for (const auto& stageIntroBindingInfo : introBindingInfos)
+        {
+            CPipelineIntrospectionData::SDescriptorInfo descInfo;
+            descInfo.binding = stageIntroBindingInfo.binding;
+            descInfo.type = stageIntroBindingInfo.type;
+            descInfo.stageMask = stageData->m_shaderStage;
+            if (stageIntroBindingInfo.isArray())
+            {
+                if (stageIntroBindingInfo.isRunTimeSized())
+                {
+                    descInfo.count = stageIntroBindingInfo.count.count;
+                    descInfo.isRuntimeSizedFlag = true;
+                }
+                else
+                {
+                    const auto count = stageIntroBindingInfo.count;
+                    if (count.countMode == SDescriptorArrayInfo::DESCRIPTOR_COUNT::SPEC_CONSTANT)
+                    {
+                        if (!specConstants)
+                            return false;
+
+                        const auto& specConstantFound = specConstants->find(count.specID);
+                        if (specConstantFound == specConstants->end())
+                            return false;
+
+                        descInfo.count = specConstantFound->second;
+                    }
+                    else
+                    {
+                        descInfo.count = stageIntroBindingInfo.count.count;
+                    }
+
+                    if (descInfo.count == 0u)
+                        return false;
+
+                    descInfo.isRuntimeSizedFlag = false;
+                }
+            }
+            else
+            {
+                descInfo.count = 1u;
+                descInfo.isRuntimeSizedFlag = false;
+            }
+
+            const auto& selfIntersectionFound = descriptorsToMerge[i].find(descInfo);
+            if (selfIntersectionFound != descriptorsToMerge[i].end() && selfIntersectionFound->type != stageIntroBindingInfo.type)
+                return false;
+
+            const auto& pplnIntroDataFoundBinding = m_descriptorSetBindings[i].find(descInfo);
+            if (pplnIntroDataFoundBinding != m_descriptorSetBindings[i].end())
+            {
+                if (pplnIntroDataFoundBinding->type != stageIntroBindingInfo.type)
+                    return false;
+                descInfo.count = std::max(pplnIntroDataFoundBinding->count, descInfo.count);
+            }
+
+            highestBindingsTmp[i].binding = std::max<const int32_t>(highestBindingsTmp[i].binding, stageIntroBindingInfo.binding);
+            highestBindingsTmp[i].isRunTimeSized = descInfo.isRuntimeSized();
+            descriptorsToMerge[i].insert(descInfo);
+        }
+    }
+
+    // validate if only descriptors with the highest bindings are run-time sized
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const auto& introBindingInfos = stageData->getDescriptorSetInfo(i);
+
+        for (const auto& descriptor : descriptorsToMerge[i])
+        {
+            if (descriptor.binding < highestBindingsTmp[i].binding && descriptor.isRuntimeSized())
+                return false;
+        }
+
+        if (m_highestBindingNumbers[i].isRunTimeSized && m_highestBindingNumbers[i].binding < highestBindingsTmp[i].binding)
             return false;
     }
+
+    //// validation successfull, update `CPipelineIntrospectionData` contents
+    m_highestBindingNumbers = highestBindingsTmp;
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        m_descriptorSetBindings[i].merge(descriptorsToMerge[i]);
+
+    // can only be success now
+    const auto& pc = stageData->getPushConstants();
+    auto a = pc.size;
+    if (pc.present())
+    {
+        std::span<core::bitflag<ICPUShader::E_SHADER_STAGE>> pcRangesSpan = {
+            m_pushConstantBytes.data() + pc.offset,
+            pc.size
+        };
+
+        // iterate over all bytes used
+        const IShader::E_SHADER_STAGE shaderStage = stageData->getParams().shader->getStage();
+        for (auto it = pcRangesSpan.begin(); it != pcRangesSpan.end(); ++it)
+            *it |= shaderStage;
+    }
+
     return true;
 }
 
-
-template<E_SHADER_RESOURCE_TYPE restype>
-static std::pair<bool, IImageView<ICPUImage>::E_TYPE> imageInfoFromResource(const SShaderResource<restype>& _res)
+//
+NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    return {_res.shadow, _res.viewType};
-}
+    auto& pc = introspection->getPushConstants();
 
-std::pair<bool, IImageView<ICPUImage>::E_TYPE> CSPIRVIntrospector::getImageInfoFromIntrospection(uint32_t _set, uint32_t _binding, const core::SRange<const ICPUSpecializedShader* const>& _shaders)
-{
-    std::pair<bool, IImageView<ICPUImage>::E_TYPE> fail = { false, IImageView<ICPUImage>::ET_COUNT };
-
-    core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = {nullptr};
-    if (!introspectAllShaders(introspections,_shaders))
-        return fail;
-
-    for (auto i=0; i<_shaders.size(); i++)
-    {
-        for (const auto& bnd : introspections[i]->descriptorSetBindings[_set])
-        {
-            if (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER || bnd.type==ESRT_STORAGE_IMAGE)
-                return (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER) ? imageInfoFromResource(bnd.get<ESRT_COMBINED_IMAGE_SAMPLER>()) : imageInfoFromResource(bnd.get<ESRT_STORAGE_IMAGE>());
-        }
-    }
-
-    return fail;
-}
-
-core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::createPushConstantRangesFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
-{
-    core::vector<SPushConstantRange> ranges[MAX_STAGE_COUNT];
-    {
-        auto r = ranges;
-        auto introspection = introspections;
-        for (auto shader : shaders)
-        {
-            auto& pc = (*introspection)->pushConstant;
-            if (pc.present)
-            {
-                auto shaderStage = shader->getStage();
-
-                r->reserve(100u);
-                auto& members = pc.info.members;
-                r->push_back({shaderStage, members.array[0].offset, members.array[0].size});
-                for (uint32_t i = 1u; i < members.count; ++i)
-                {
-                    auto& last = r->back();
-                    if (members.array[i].offset == (last.offset + last.size))
-                        last.size += members.array[i].size;
-                    else
-                        r->push_back({shaderStage, members.array[i].offset, members.array[i].size});
-                }
-            }
-            r++;
-            introspection++;
-        }
-    }
-
-    core::vector<SPushConstantRange> merged;
-
-    SPushConstantRange rngToPush; rngToPush.offset = 0u; rngToPush.size = 0u;
-    uint32_t stageFlags = 0u;
-    for (uint32_t i = 0u; i < ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(uint32_t); i += sizeof(uint32_t))
-    {
-        SPushConstantRange curr; curr.offset = i; curr.size = sizeof(uint32_t);
-
-        uint32_t tmpFlags = 0u;
-        for (uint32_t stg=0u; stg<shaders.size(); stg++)
-            for (const SPushConstantRange& rng : ranges[stg])
-                if (curr.overlap(rng))
-                    tmpFlags |= rng.stageFlags;
-
-        if (!i)
-            stageFlags = tmpFlags;
-
-        if (!tmpFlags)
-            continue;
-        if (tmpFlags == stageFlags)
-            rngToPush.size += sizeof(uint32_t);
-        else
-        {
-            rngToPush.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
-            merged.push_back(rngToPush);
-            stageFlags = 0u;
-
-            rngToPush.offset = i;
-            rngToPush.size = sizeof(uint32_t);
-        }
-    }
-    if (stageFlags)
-    {
-        rngToPush.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
-        merged.push_back(rngToPush);
-    }
-
-    core::smart_refctd_dynamic_array<SPushConstantRange> rngsArray;
-    if (merged.size())
-    {
-        rngsArray = core::make_refctd_dynamic_array<decltype(rngsArray)>(merged.size());
-        memcpy(rngsArray->data(),merged.data(),rngsArray->size()*sizeof(SPushConstantRange));
-    }
-
-    return rngsArray;
-}
-
-core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
-{
-    uint32_t checkedDescsCnt[MAX_STAGE_COUNT]{};
-
-    core::vector<ICPUDescriptorSetLayout::SBinding> bindings;
-    bindings.reserve(100u); //preallocating mem for 100 bindings almost ensures no reallocs
-    while (1)
-    {
-        uint32_t stageFlags = 0u;
-        ICPUDescriptorSetLayout::SBinding binding;
-        binding.binding = ~0u;
-        binding.samplers = nullptr;
-
-        bool anyStageNotFinished = false;
-        for (auto i=0u; i<shaders.size(); i++)
-        {
-            auto& introBindings = introspections[i]->descriptorSetBindings[_set];
-            if (checkedDescsCnt[i] == introBindings.size())
-                continue;
-            anyStageNotFinished = true;
-
-            const auto& introBinding = introBindings[checkedDescsCnt[i]].binding;
-            if (introBinding < binding.binding)
-                binding.binding = introBinding;
-        }
-        if (!anyStageNotFinished) //all shader stages finished
-            break;
-
-        const ICPUSpecializedShader* refShader = nullptr;
-        uint32_t refIndex = ~0u;
-        core::smart_refctd_ptr<const CIntrospectionData> refIntro = nullptr;
-        {
-            auto checkedDescsCntIt = checkedDescsCnt;
-            auto introspectionIt = introspections;
-            for (auto shader : shaders)
-            {
-                auto& introBindings = (*introspectionIt)->descriptorSetBindings[_set];
-                if (*checkedDescsCntIt!=introBindings.size())
-                {
-                    const auto& introBinding = introBindings[*checkedDescsCntIt].binding;
-                    if (introBinding==binding.binding)
-                    {
-                        stageFlags |= shader->getStage();
-                        refIndex = (*checkedDescsCntIt)++;
-                        refIntro = *introspectionIt;
-                        refShader = shader;
-                    }
-                }
-                introspectionIt++;
-                checkedDescsCntIt++;
-            }
-        }
-
-        auto& introBnd = refIntro->descriptorSetBindings[_set][refIndex];
-        binding.type = resType2descType(introBnd.type);
-        binding.stageFlags = static_cast<ICPUShader::E_SHADER_STAGE>(stageFlags);
-        binding.count = introBnd.descriptorCount;
-        if (introBnd.descCountIsSpecConstant)
-        {
-            auto& specInfo = refShader->getSpecializationInfo();
-            auto val = specInfo.getSpecializationByteValue(binding.count);
-            assert(val.second == 4ull);
-            memcpy(&binding.count, val.first, 4ull);
-        }
-
-        bindings.push_back(binding);
-    }
-
-    if (bindings.size())
-        return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
-    return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
-}
-
-core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::createApproximatePipelineLayoutFromIntrospection_impl(core::smart_refctd_ptr<const CIntrospectionData>* const introspections, const core::SRange<const ICPUSpecializedShader* const>& shaders)
-{
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-        dsLayout[i] = createApproximateDescriptorSetLayoutFromIntrospection_impl(i,introspections,shaders);
-
-    auto pcRanges = createPushConstantRangesFromIntrospection_impl(introspections,shaders);
-
-    return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-        (pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
-        std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
-    );
-}
-
-static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
-{
-    static const E_FORMAT retval[6][4]
-    {
-        {EF_R64_UINT, EF_R64G64_UINT, EF_R64G64B64_UINT, EF_R64G64B64A64_UINT},
-        {EF_R64_SINT, EF_R64G64_SINT, EF_R64G64B64_SINT, EF_R64G64B64A64_SINT},
-        {EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT},
-        {EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT},
-        {EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT},
-        {EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}
+    core::vector<SPushConstantRange> tmp; 
+    tmp.reserve(MaxPushConstantsSize);
+    
+    SPushConstantRange prev = {
+        .stageFlags = m_pushConstantBytes[0].value,
+        .offset = 0,
+        .size = 0
     };
 
-    return retval[_t][_e];
+    SPushConstantRange current = {
+        .offset = 0,
+        .size = 0
+    };
+
+    // run-length encode m_pushConstantBytes
+    for (uint32_t currentByteOffset = 1u; currentByteOffset < MaxPushConstantsSize; ++currentByteOffset)
+    {
+        current.stageFlags = m_pushConstantBytes[currentByteOffset].value;
+        current.offset++;
+        current.size++;
+
+        if (current.stageFlags != prev.stageFlags)
+        {
+            if (prev.stageFlags)
+            {
+                prev.size = current.offset - prev.offset;
+                tmp.push_back(prev);
+            }
+            prev = current;
+            current.size = 0u;
+        }
+    }
+
+    if (prev.stageFlags)
+    {
+        prev.size = MaxPushConstantsSize - prev.offset;
+        tmp.push_back(prev);
+    }
+
+    if(tmp.size() == 0)
+        return nullptr;
+
+    return core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(tmp);
+}
+NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximateDescriptorSetLayoutFromIntrospection(const uint32_t setID)
+{
+    std::vector<ICPUDescriptorSetLayout::SBinding> outBindings;
+    outBindings.reserve(m_descriptorSetBindings[setID].size());
+
+    for (const auto& binding : m_descriptorSetBindings[setID])
+    {
+        auto& outBinding = outBindings.emplace_back();
+
+        outBinding.binding = binding.binding;
+        outBinding.count = binding.count;
+        outBinding.type = binding.type;
+        outBinding.stageFlags = binding.stageMask;
+        outBinding.createFlags = binding.isRuntimeSized() ? ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT : ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
+        // TODO: outBinding.samplers
+    }
+
+    if (outBindings.empty())
+        return nullptr;
+
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> output = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(outBindings.data(), outBindings.data() + outBindings.size());
+    return output;
 }
 
-core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CSPIRVIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(const core::SRange<ICPUSpecializedShader* const>& _shaders)
+NBL_API2 core::smart_refctd_ptr<ICPUPipelineLayout> CSPIRVIntrospector::CPipelineIntrospectionData::createApproximatePipelineLayoutFromIntrospection(
+    core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    core::smart_refctd_ptr<const CIntrospectionData> introspections[MAX_STAGE_COUNT] = { nullptr };
-    if (!introspectAllShaders(introspections,{_shaders.begin(),_shaders.end()}))
-        return nullptr;
+    const auto pcRanges = createPushConstantRangesFromIntrospection(introspection);
+    const std::span<const asset::SPushConstantRange> pcRangesSpan = {
+        pcRanges ? pcRanges->begin() : nullptr,
+        pcRanges ? pcRanges->end() : nullptr
+    };
 
-    auto vs_introspection = introspections;
-    for (auto shader : _shaders)
-    {
-        if (shader->getStage()==ICPUShader::ESS_VERTEX)
-            break;
-        vs_introspection++;
-    }
-    if (vs_introspection==introspections+_shaders.size())
-        return nullptr;
-
-    //
-    SVertexInputParams vtxInput;
-    {
-        uint32_t reloffset = 0u;
-        for (const auto& io : (*vs_introspection)->inputOutput)
-        {
-            if (io.type == ESIT_STAGE_INPUT)
-            {
-                auto& attr = vtxInput.attributes[io.location];
-                attr.binding = io.location; //assume attrib number = binding number
-                attr.format = glslType2E_FORMAT(io.glslType.basetype, io.glslType.elements);
-                attr.relativeOffset = reloffset;
-
-                //all formats returned by glslType2E_FORMAT() already are multiple-of-4 bytes so no need to pad
-                reloffset += getTexelOrBlockBytesize(static_cast<E_FORMAT>(attr.format));
-
-                vtxInput.enabledAttribFlags |= (1u << io.location);
-            }
-        }
-        vtxInput.enabledBindingFlags = vtxInput.enabledAttribFlags;
-
-        for (uint32_t i = 0u; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
-        {
-            if (vtxInput.enabledBindingFlags & (1u<<i))
-                vtxInput.bindings[i].stride = reloffset;
-        }
-    }
-
-    //all except vertex input are defaulted
-    SBlendParams blending;
-    SPrimitiveAssemblyParams primAssembly;
-    SRasterizationParams raster;
-
-    auto layout = createApproximatePipelineLayoutFromIntrospection_impl(introspections,{_shaders.begin(),_shaders.end()});
-
-    return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-        std::move(layout),_shaders.begin(),_shaders.end(),
-        vtxInput, blending,primAssembly, raster
+    return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+        pcRangesSpan,
+        createApproximateDescriptorSetLayoutFromIntrospection(0),
+        createApproximateDescriptorSetLayoutFromIntrospection(1),
+        createApproximateDescriptorSetLayoutFromIntrospection(2),
+        createApproximateDescriptorSetLayoutFromIntrospection(3)
     );
 }
 
-static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _basetype)
+CSPIRVIntrospector::CStageIntrospectionData::SDescriptorVarInfo<true>* CSPIRVIntrospector::CStageIntrospectionData::addResource(
+    const spirv_cross::Compiler& comp,
+    const spirv_cross::Resource& r,
+    IDescriptor::E_TYPE restype
+)
 {
-    switch (_basetype)
+    const uint32_t descSet = comp.get_decoration(r.id,spv::DecorationDescriptorSet);
+    if (descSet > DESCRIPTOR_SET_COUNT)
+        return nullptr; // TODO: log fail
+
+    const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
+    const size_t arrDim = type.array.size();
+    // acording to the Vulkan documentation (15.5.3) only 1D arrays are allowed
+    if (arrDim>1)
+        return nullptr; // TODO: log fail
+
+
+
+    const uint32_t descriptorArraySize = type.array.empty() ? 1u : *type.array.data();    
+    const bool isArrayTypeLiteral = type.array_size_literal.empty() ? true : type.array_size_literal[0];
+    CStageIntrospectionData::SDescriptorVarInfo<true> res = {
+        {
+            .binding = comp.get_decoration(r.id,spv::DecorationBinding),
+            .type = restype
+        },
+        /*.name = */addString(r.name),
+        /*.count = */addDescriptorCount(descriptorArraySize, isArrayTypeLiteral)
+    };
+
+    auto& ref = reinterpret_cast<core::vector<CStageIntrospectionData::SDescriptorVarInfo<true>>*>(m_descriptorSetBindings)[descSet].emplace_back(std::move(res));
+    return &ref;
+}
+
+void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(const spirv_cross::Compiler& comp, SMemoryBlock<true>* root, const spirv_cross::Resource& r)
+{
+    core::unordered_map<uint32_t/*spirv_cross::TypeID*/,type_ptr<true>> typeCache;
+    
+    struct StackElement
     {
-    case spirv_cross::SPIRType::Int:
-        return EGVT_I32;
-    case spirv_cross::SPIRType::UInt:
-        return EGVT_U32;
-    case spirv_cross::SPIRType::Float:
-        return EGVT_F32;
-    case spirv_cross::SPIRType::Int64:
-        return EGVT_I64;
-    case spirv_cross::SPIRType::UInt64:
-        return EGVT_U64;
-    case spirv_cross::SPIRType::Double:
-        return EGVT_F64;
-    default:
-        return EGVT_UNKNOWN_OR_STRUCT;
+        // the root type pointer backed by slightly different memory, so handle it specially when detected
+        bool isRoot() const {return !parentType;}
+
+        spirv_cross::TypeID selfTypeID;
+        spirv_cross::TypeID parentTypeID;
+        type_ptr<true> parentType = {};
+        uint32_t memberIndex = 0;
+    };
+    core::stack<StackElement> introspectionStack;
+
+    // NOTE: might need to lookup SPIRType based on `base_type_id` and forward to `SPIRType::type_alias` here instead
+    introspectionStack.emplace(r.base_type_id);
+
+    bool first = true;
+    while (!introspectionStack.empty())
+    {
+        const auto entry = introspectionStack.top();
+        introspectionStack.pop();
+
+        const spirv_cross::SPIRType& type = comp.get_type(entry.selfTypeID);
+
+        type_ptr<true> pType;
+        auto found = typeCache.find(entry.selfTypeID);
+        if (found!=typeCache.end())
+            pType = found->second;
+        else
+        {
+            const auto memberCount = type.member_types.size();
+            pType = addType(memberCount);
+            if (type.basetype==spirv_cross::SPIRType::Struct)
+            for (uint32_t i=0; i<memberCount; i++)
+                introspectionStack.emplace(type.member_types[i],entry.selfTypeID,pType,i);
+        }
+        // pointer might change after allocation of something new, so always access through this lambda
+        auto getTypeStore = [&]()->SType<true>*{return pType(m_memPool.data());};
+        
+        if (entry.isRoot())
+            root->type = pType;
+        else
+        {
+            auto getParentTypeStore = [&]()->auto {return entry.parentType(m_memPool.data());};
+            getParentTypeStore()->memberTypes()(m_memPool.data())[entry.memberIndex] = pType;
+            getParentTypeStore()->memberNames()(m_memPool.data())[entry.memberIndex] = addString(comp.get_member_name(entry.parentTypeID,entry.memberIndex));
+            const auto& parentType = comp.get_type(entry.parentTypeID);
+            getParentTypeStore()->memberSizes()(m_memPool.data())[entry.memberIndex] = comp.get_declared_struct_member_size(parentType,entry.memberIndex);
+            getParentTypeStore()->memberOffsets()(m_memPool.data())[entry.memberIndex] = comp.type_struct_member_offset(parentType,entry.memberIndex);
+            getParentTypeStore()->memberStrides()(m_memPool.data())[entry.memberIndex] = getTypeStore()->isArray() ? comp.type_struct_member_array_stride(parentType,entry.memberIndex):0u;
+
+            _NBL_DEBUG_BREAK_IF(parentType.columns > 1);
+
+            SType<true>::MatrixInfo matrixInfo = {
+                .rowMajor = static_cast<uint8_t>(comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor)),
+                .rows = static_cast<uint8_t>(parentType.vecsize),
+                .columns = static_cast<uint8_t>(parentType.columns)
+            };
+            std::memcpy(&getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex], &matrixInfo, sizeof(SType<true>::MatrixInfo));
+
+            /*getParentTypeStore()->memberMatrixInfos()(m_memPool.data())[entry.memberIndex] = {
+                .rowMajor = comp.get_member_decoration(parentType.self, entry.memberIndex, spv::DecorationRowMajor),
+                .rows = parentType.vecsize,
+                .columns = parentType.columns
+            };*/
+//          comp.get_declared_struct_size();
+//          comp.get_declared_struct_size_runtime_array();
+        }
+
+        // found in cache, then don't need to fill out the rest
+        if (found!=typeCache.end())
+            continue;
+
+        getTypeStore()->count = addCounts(type.array.size(),type.array.data(),type.array_size_literal.data());
+        if (!entry.isRoot())
+        {
+            const auto& parentType = comp.get_type(entry.parentTypeID);
+            auto memberId = parentType.member_types[entry.memberIndex];
+            auto memberBaseType = comp.get_type(memberId).basetype;
+
+            getTypeStore()->typeName = addString(getBaseTypeNameFromEnum(spvcrossType2E_TYPE(memberBaseType)));
+        }
+        else
+        {
+            getTypeStore()->typeName = addString("TODO");
+        }
+
+        {
+            auto typeEnum = VAR_TYPE::UNKNOWN_OR_STRUCT;
+            switch (type.basetype)
+            {
+                case spirv_cross::SPIRType::BaseType::SByte:
+                    typeEnum = VAR_TYPE::I8;
+                    break;
+                case spirv_cross::SPIRType::BaseType::UByte:
+                    typeEnum = VAR_TYPE::U8;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Short:
+                    typeEnum = VAR_TYPE::I16;
+                    break;
+                case spirv_cross::SPIRType::BaseType::UShort:
+                    typeEnum = VAR_TYPE::U16;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Int:
+                    typeEnum = VAR_TYPE::I32;
+                    break;
+                case spirv_cross::SPIRType::BaseType::UInt:
+                    typeEnum = VAR_TYPE::U32;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Int64:
+                    typeEnum = VAR_TYPE::I64;
+                    break;
+                case spirv_cross::SPIRType::BaseType::UInt64:
+                    typeEnum = VAR_TYPE::U64;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Half:
+                    typeEnum = VAR_TYPE::F16;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Float:
+                    typeEnum = VAR_TYPE::F32;
+                    break;
+                case spirv_cross::SPIRType::BaseType::Double:
+                    typeEnum = VAR_TYPE::F64;
+                    break;
+                default:
+                    // TODO: get name of the type ( https://github.com/Devsh-Graphics-Programming/Nabla/pull/677#discussion_r1574860622 )
+                    //        getTypeStore()->typeName = addString(comp.get_name(type));
+                    typeEnum = VAR_TYPE::UNKNOWN_OR_STRUCT;
+                    break;
+            }
+            if (typeEnum!=VAR_TYPE::UNKNOWN_OR_STRUCT)
+            {
+                // TODO: assign names of simple types
+                //getTypeStore()->typeName = m_typenames[typeEnum-VAR_TYPE::UNKNOWN_OR_STRUCT][lastRow][lastColumn];
+            }
+
+            auto& info = getTypeStore()->info;
+            {
+                info.lastRow = type.vecsize-1;
+                info.lastCol = type.columns-1;
+                info.rowMajor = comp.get_decoration(entry.selfTypeID,spv::DecorationRowMajor);
+                info.type = typeEnum;
+                info.restrict_ = comp.get_decoration(entry.selfTypeID,spv::DecorationRestrict);
+                info.aliased = comp.get_decoration(entry.selfTypeID,spv::DecorationAliased);
+            }
+        }
     }
 }
-static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cross::SPIRType::ImageType& _type)
-{
-    static constexpr std::array<IImageView<ICPUImage>::E_TYPE, 8> viewType = { {
-        IImageView<ICPUImage>::ET_1D,
-        IImageView<ICPUImage>::ET_1D_ARRAY,
-        IImageView<ICPUImage>::ET_2D,
-        IImageView<ICPUImage>::ET_2D_ARRAY,
-        IImageView<ICPUImage>::ET_3D,
-        IImageView<ICPUImage>::ET_3D,
-        IImageView<ICPUImage>::ET_CUBE_MAP,
-        IImageView<ICPUImage>::ET_CUBE_MAP_ARRAY
-    } };
 
-    return viewType[_type.dim*2u + _type.arrayed];
-}
-
-core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntrospector::doIntrospection(
-    spirv_cross::Compiler& _comp, const std::string& entryPoint, const IShader::E_SHADER_STAGE shaderStage) const
+NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionData> CSPIRVIntrospector::doIntrospection(const CSPIRVIntrospector::CStageIntrospectionData::SParams& params)
 {
+    const ICPUBuffer* spv = params.shader->getContent();
+    spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize() / 4u);
+    const IShader::E_SHADER_STAGE shaderStage = params.shader->getStage();
+
     spv::ExecutionModel stage = ESS2spvExecModel(shaderStage);
     if (stage == spv::ExecutionModelMax)
         return nullptr;
 
-    core::smart_refctd_ptr<CIntrospectionData> introData = core::make_smart_refctd_ptr<CIntrospectionData>();
-    introData->pushConstant.present = false;
-    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const mapId2SpecConst_t& _mapId2sconst) -> SShaderResourceVariant& {
-        const uint32_t descSet = _comp.get_decoration(r.id, spv::DecorationDescriptorSet);
-        assert(descSet < 4u);
-        introData->descriptorSetBindings[descSet].emplace_back();
+    core::smart_refctd_ptr<CStageIntrospectionData> stageIntroData = core::make_smart_refctd_ptr<CStageIntrospectionData>();
+    stageIntroData->m_params = params;
+    stageIntroData->m_shaderStage = shaderStage;
 
-        SShaderResourceVariant& res = introData->descriptorSetBindings[descSet].back();
-        res.name = r.name;
-        res.type = restype;
-        res.binding = _comp.get_decoration(r.id, spv::DecorationBinding);
-
-        res.descriptorCount = 1u;
-        res.descCountIsSpecConstant = false;
-        const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        // assuming only 1D arrays because i don't know how desc set layout binding is constructed when it's let's say 2D array (e.g. uniform sampler2D smplr[4][5]; is it even legal?)
-        if (type.array.size()) // is array
-        {
-            // the API for this spec constant checking is truly messed up
-            res.descriptorCount = type.array[0]; // ID of spec constant if size is spec constant
-            res.descCountIsSpecConstant = !type.array_size_literal[0];
-            if (res.descCountIsSpecConstant)
-            {
-                auto sc_itr = _mapId2sconst.find(res.descriptorCount);
-                assert(sc_itr!=_mapId2sconst.end());
-                auto sc = sc_itr->second;
-                res.count_specID = sc->id;
-            }
-        }
-
-        return res;
-    };
-    auto addInfo_common = [&introData, &_comp](const spirv_cross::Resource& r, E_SHADER_INFO_TYPE type) ->SShaderInfoVariant& {
-        introData->inputOutput.emplace_back();
-        SShaderInfoVariant& info = introData->inputOutput.back();
-        info.type = type;
-        info.location = _comp.get_decoration(r.id, spv::DecorationLocation);
-        return info;
-    };
-
-    _comp.set_entry_point(entryPoint, stage);
+    comp.set_entry_point(params.entryPoint, stage);
 
     // spec constants
-    spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
-    mapId2SpecConst_t mapId2SpecConst;
-    introData->specConstants.reserve(sconsts.size());
+        // TODO: hash map instead
+    spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = comp.get_specialization_constants();
+    stageIntroData->m_specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
-        CIntrospectionData::SSpecConstant specConst;
+        CSPIRVIntrospector::CStageIntrospectionData::SSpecConstant specConst;
         specConst.id = sconsts[i].constant_id;
-        specConst.name = _comp.get_name(sconsts[i].id);
+        specConst.name = comp.get_name(sconsts[i].id);
 
-        const spirv_cross::SPIRConstant& sconstval = _comp.get_constant(sconsts[i].id);
-        const spirv_cross::SPIRType& type = _comp.get_type(sconstval.constant_type);
-        specConst.byteSize = calcBytesizeforType(_comp, type);
+        const spirv_cross::SPIRConstant& sconstval = comp.get_constant(sconsts[i].id);
+        const spirv_cross::SPIRType& type = comp.get_type(sconstval.constant_type);
+        specConst.byteSize = calcBytesizeForType(comp, type);
         specConst.type = spvcrossType2E_TYPE(type.basetype);
 
         switch (type.basetype)
@@ -488,210 +622,276 @@ core::smart_refctd_ptr<const CSPIRVIntrospector::CIntrospectionData> CSPIRVIntro
         default: break;
         }
 
-        auto where = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        introData->specConstants.insert(where, specConst);
-    }
-    for (const auto& sc : sconsts)
-    {
-        CIntrospectionData::SSpecConstant dummy;
-        dummy.id = sc.constant_id;
-        auto it = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), dummy, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        if (it==introData->specConstants.end() || it->id!=dummy.id)
-            continue;
-        mapId2SpecConst.insert({sc.id,&*it});
+        stageIntroData->m_specConstants.insert(std::move(specConst));
     }
 
-    spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
+    spirv_cross::ShaderResources resources = comp.get_shader_resources(comp.get_active_interface_variables()/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, mapId2SpecConst);
-        shaderMemBlockIntrospection(_comp, res.get<ESRT_UNIFORM_BUFFER>(), r.base_type_id, r.id, mapId2SpecConst);
+        auto* res = stageIntroData->addResource(comp,r,IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+        if (!res)
+            return nullptr;
+        spirv_cross::Bitset flags = comp.get_buffer_block_flags(r.id);
+        res->storageBuffer.readonly = flags.get(spv::DecorationNonWritable);
+        res->storageBuffer.writeonly = flags.get(spv::DecorationNonReadable);
+        res->restrict_ = flags.get(spv::DecorationRestrict);
+        res->aliased = flags.get(spv::DecorationAliased);
+        stageIntroData->shaderMemBlockIntrospection(comp,&res->uniformBuffer,r);
+        res->uniformBuffer.size = comp.get_declared_struct_size(comp.get_type(r.type_id));
     }
     for (const spirv_cross::Resource& r : resources.storage_buffers)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, mapId2SpecConst);
-        shaderMemBlockIntrospection(_comp, res.get<ESRT_STORAGE_BUFFER>(), r.base_type_id, r.id, mapId2SpecConst);
+        auto* res = stageIntroData->addResource(comp,r,IDescriptor::E_TYPE::ET_STORAGE_BUFFER);
+        if (!res)
+            return nullptr;
+        spirv_cross::Bitset flags = comp.get_buffer_block_flags(r.id);
+        res->storageBuffer.readonly = flags.get(spv::DecorationNonWritable);
+        res->storageBuffer.writeonly = flags.get(spv::DecorationNonReadable);
+        res->restrict_ = flags.get(spv::DecorationRestrict);
+        res->aliased = flags.get(spv::DecorationAliased);
+        stageIntroData->shaderMemBlockIntrospection(comp,&res->storageBuffer,r);
+        res->storageBuffer.sizeWithoutLastMember = comp.get_declared_struct_size_runtime_array(comp.get_type(r.type_id),0);
     }
     for (const spirv_cross::Resource& r : resources.subpass_inputs)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_INPUT_ATTACHMENT, mapId2SpecConst);
-        res.get<ESRT_INPUT_ATTACHMENT>().inputAttachmentIndex = _comp.get_decoration(r.id, spv::DecorationInputAttachmentIndex);
+        auto* res = stageIntroData->addResource(comp,r,IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT);
+        if (!res)
+            return nullptr;
+        res->inputAttachment.index = comp.get_decoration(r.id,spv::DecorationInputAttachmentIndex);
     }
+    auto spvcrossImageType2ImageView = [](const spirv_cross::SPIRType::ImageType& img) -> IImageView<ICPUImage>::E_TYPE
+    {
+        switch (img.type)
+        {
+            case spv::Dim::Dim1D:
+                return img.arrayed ? ICPUImageView::ET_1D_ARRAY:ICPUImageView::ET_1D;
+            case spv::Dim::DimSubpassData: [[fallthrough]];
+            case spv::Dim::Dim2D:
+                return img.arrayed ? ICPUImageView::ET_2D_ARRAY:ICPUImageView::ET_2D;
+            case spv::Dim::Dim3D:
+                assert(!img.arrayed);
+                return ICPUImageView::ET_3D;
+            case spv::Dim::DimCube:
+                return img.arrayed ? ICPUImageView::ET_CUBE_MAP_ARRAY:ICPUImageView::ET_CUBE_MAP;
+        }
+        return ICPUImageView::ET_COUNT;
+    };
     for (const spirv_cross::Resource& r : resources.storage_images)
     {
-		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
+        const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
+        assert(!type.image.depth);
+        assert(type.image.sampled == 2);
+        const bool buffer = type.image.dim==spv::DimBuffer;
+        auto* res = stageIntroData->addResource(comp,r,buffer ? IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:IDescriptor::E_TYPE::ET_STORAGE_IMAGE);
+        if (!res)
+            return nullptr;
         if (!buffer)
         {
-            res.get<ESRT_STORAGE_IMAGE>().format = spvImageFormat2E_FORMAT(type.image.format);
-            res.get<ESRT_STORAGE_IMAGE>().viewType = spvcrossImageType2ImageView(type.image);
-            res.get<ESRT_STORAGE_IMAGE>().shadow = type.image.depth;
+            res->storageImage.readonly = type.image.access==spv::AccessQualifierReadOnly;
+            res->storageImage.writeonly = type.image.access==spv::AccessQualifierWriteOnly;
+            res->storageImage.viewType = spvcrossImageType2ImageView(type.image);
+            res->storageImage.shadow = type.image.depth;
+            res->storageImage.format = spvImageFormat2E_FORMAT(type.image.format);
+        }
+        else
+        {
+            res->storageTexelBuffer.readonly = type.image.access==spv::AccessQualifierReadOnly;
+            res->storageTexelBuffer.writeonly = type.image.access==spv::AccessQualifierWriteOnly;
         }
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
-		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
+        const spirv_cross::SPIRType& type = comp.get_type(r.type_id);
+        const bool buffer = type.image.dim==spv::DimBuffer;
+        auto* res = stageIntroData->addResource(comp,r,buffer ? IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+        if (!res)
+            return nullptr;
         if (!buffer)
         {
-            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
-            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
-            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
+            res->combinedImageSampler.viewType = spvcrossImageType2ImageView(type.image);
+            res->combinedImageSampler.shadow = type.image.depth;
+            res->combinedImageSampler.multisample = type.image.ms;
         }
     }
-    for (const spirv_cross::Resource& r : resources.separate_images)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLED_IMAGE, mapId2SpecConst);
-    }
-    for (const spirv_cross::Resource& r : resources.separate_samplers)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER, mapId2SpecConst);
-    }
-    for (auto& descSet : introData->descriptorSetBindings)
-        std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
+    // skip cause we don't support
+    //for (const spirv_cross::Resource& r : resources.separate_images) {}
+    //for (const spirv_cross::Resource& r : resources.separate_samplers) {}
+    for (auto& descSet : stageIntroData->m_descriptorSetBindings)
+        std::sort(descSet.begin(), descSet.end());
 
+    auto getStageIOtype = [&comp](CSPIRVIntrospector::CStageIntrospectionData::SInterface& glslType, uint32_t id, uint32_t base_type_id)
+        {
+            const auto& type = comp.get_type(base_type_id);
+            glslType.baseType = spvcrossType2E_TYPE(type.basetype);
+            glslType.elements = type.vecsize;
+            glslType.location = comp.get_decoration(id, spv::DecorationLocation);
 
-    auto getStageIOtype = [&_comp](uint32_t _base_type_id)
-    {
-        const auto& type = _comp.get_type(_base_type_id);
-        decltype(SShaderInfoVariant::glslType) glslType;
-        glslType.basetype = spvcrossType2E_TYPE(type.basetype);
-        glslType.elements = type.vecsize;
-
-        return glslType;
-    };
+            return glslType;
+        };
 
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
-        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
-        res.glslType = getStageIOtype(r.base_type_id);
+        CSPIRVIntrospector::CStageIntrospectionData::SInputInterface res;
+        getStageIOtype(res, r.id, r.base_type_id);
+        stageIntroData->m_input.insert(res);
     }
+
+    if (shaderStage == IShader::ESS_FRAGMENT)
+        stageIntroData->m_output = FragmentOutputVecT();
+    else
+        stageIntroData->m_output = OutputVecT();
+
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
-        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
-        res.glslType = getStageIOtype(r.base_type_id);
+        if (shaderStage == IShader::ESS_FRAGMENT)
+        {
+            CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
+                std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
+            getStageIOtype(res, r.id, r.base_type_id);
 
-        res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
+            res.colorIndex = comp.get_decoration(r.id, spv::DecorationIndex);
+        }
+        else
+        {
+            CSPIRVIntrospector::CStageIntrospectionData::SOutputInterface& res =
+                std::get<OutputVecT>(stageIntroData->m_output).emplace_back();
+
+            getStageIOtype(res, r.id, r.base_type_id);
+        }
     }
-    std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });
 
     // push constants
+    auto* pPushConstantsMutable = reinterpret_cast<CStageIntrospectionData::SPushConstantInfo<true>*>(&stageIntroData->m_pushConstants);
+    
     if (resources.push_constant_buffers.size())
     {
+        assert(resources.push_constant_buffers.size()==1);
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
-        introData->pushConstant.present = true;
-        introData->pushConstant.name = r.name;
-        shaderMemBlockIntrospection(_comp, introData->pushConstant.info, r.base_type_id, r.id, mapId2SpecConst);
+        pPushConstantsMutable->name = stageIntroData->addString(r.name);
+        stageIntroData->shaderMemBlockIntrospection(comp,pPushConstantsMutable,r);
+        // believe it or not you can declare an empty PC block
+        pPushConstantsMutable->size = comp.get_declared_struct_size(comp.get_type(r.type_id));
+
+        if (pPushConstantsMutable->offset + pPushConstantsMutable->size >= MaxPushConstantsSize)
+            return nullptr;
+
+        if (pPushConstantsMutable->size != 0)
+            pPushConstantsMutable->offset = comp.type_struct_member_offset(comp.get_type(r.type_id/*TODO: verify if this of base*/), 0);
     }
+    else
+        pPushConstantsMutable->type = {};
 
-    return introData;
+    // convert all Mutable to non-mutable
+    stageIntroData->finalize(shaderStage);
+
+    return stageIntroData;
 }
 
-namespace {
-    struct StackElement
-    {
-        impl::SShaderMemoryBlock::SMember::SMembers& membersDst;
-        const spirv_cross::SPIRType& parentType;
-        uint32_t baseOffset;
-    };
-    using mapId2SpecConst_t = core::unordered_map<uint32_t, const CSPIRVIntrospector::CIntrospectionData::SSpecConstant*>;
-}
-static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const mapId2SpecConst_t& _mapId2sconst, core::stack<StackElement>& _pushStack) {
-    using MembT = impl::SShaderMemoryBlock::SMember;
-
-    auto MemberDefault = [] {
-        MembT m;
-        m.count = 1u;
-        m.countIsSpecConstant = false;
-        m.offset = 0u;
-        m.size = 0u;
-        m.arrayStride = 0u;
-        m.mtxStride = 0u;
-        m.mtxRowCnt = m.mtxColCnt = 1u;
-        m.rowMajor = false;
-        m.type = EGVT_UNKNOWN_OR_STRUCT;
-        m.members.array = nullptr;
-        m.members.count = 0u;
-        return m;
-    };
-
-    const uint32_t memberCnt = _allMembersTypes.size();
-    _dstMembers.array = _NBL_NEW_ARRAY(MembT, memberCnt);
-    _dstMembers.count = memberCnt;
-    std::fill(_dstMembers.array, _dstMembers.array+memberCnt, MemberDefault());
-    for (uint32_t m = 0u; m < memberCnt; ++m)
-	{
-        MembT& member = _dstMembers.array[m];
-        const spirv_cross::SPIRType& mtype = _comp.get_type(_allMembersTypes[m]);
-
-        member.name = _comp.get_member_name(_parentType.self, m);
-        member.size = _comp.get_declared_struct_member_size(_parentType, m);
-        member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
-        member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);
-        member.type = spvcrossType2E_TYPE(mtype.basetype);
-        member.arrayStride = 0u;
-
-        // if array, then we can get array stride from decoration (via spirv-cross)
-        // otherwise arrayStride is left with value 0
-        if (mtype.array.size())
-        {
-            member.count = mtype.array[0];
-            member.arrayStride = _comp.type_struct_member_array_stride(_parentType, m);
-            member.countIsSpecConstant = !mtype.array_size_literal[0];
-            if (member.countIsSpecConstant)
-			{
-                auto sc_itr = _mapId2sconst.find(member.count);
-                assert(sc_itr!=_mapId2sconst.end());
-                auto sc = sc_itr->second;
-                member.count_specID = sc->id;
-            }
-        }
-
-        if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
-            _pushStack.push({member.members, mtype, member.offset});
-        else
-		{
-            member.mtxRowCnt = mtype.vecsize;
-            member.mtxColCnt = mtype.columns;
-            if (member.mtxColCnt > 1u)
-                member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
-        }
-    }
-}
-
-void CSPIRVIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const
+void CSPIRVIntrospector::CStageIntrospectionData::finalize(const IShader::E_SHADER_STAGE shaderStage)
 {
-    using MembT = impl::SShaderMemoryBlock::SMember;
+    auto* const basePtr = m_memPool.data();
+    auto addBaseAndConvertStringToImmutable = [basePtr](std::span<const char>& name)->void
+    {
+        name = reinterpret_cast<const core::based_span<char>&>(name)(basePtr);
+    };
+    auto addBaseAndConvertExtentToImmutable = [basePtr](std::span<const CIntrospectionData::SArrayInfo>& count)->void
+    {
+        count = reinterpret_cast<const core::based_span<CIntrospectionData::SArrayInfo>&>(count)(basePtr);
+    };
 
-    core::stack<StackElement> introspectionStack;
-    const spirv_cross::SPIRType& type = _comp.get_type(_blockBaseTypeID);
-    introspectionStack.push({_res.members, type, 0u});
-    while (!introspectionStack.empty()) {
-        StackElement e = introspectionStack.top();
-        introspectionStack.pop();
-        introspectStructType(_comp, e.membersDst, e.parentType, e.parentType.member_types, 0u, _sortedId2sconst, introspectionStack);
+    // const cast doesn't change hasher or operator==
+    for (auto& spec : m_specConstants)
+        addBaseAndConvertStringToImmutable(const_cast<std::span<const char>&>(spec.name));
+
+    auto addBaseAndConvertTypeToImmutable = [&](SType<true>* type)->void
+    {
+        auto* outImmutable = reinterpret_cast<SType<false>*>(type);
+        addBaseAndConvertStringToImmutable(outImmutable->typeName);
+        addBaseAndConvertExtentToImmutable(outImmutable->count);
+        // get these before they change
+        const auto memberTypes = type->memberTypes()(basePtr);
+        const auto memberNames = type->memberNames()(basePtr);
+        for (auto m=0; m<type->memberCount; m++)
+        {
+            reinterpret_cast<const SType<false>**>(memberTypes)[m] = reinterpret_cast<const SType<false>*>(memberTypes[m](basePtr));
+            reinterpret_cast<std::span<const char>*>(memberNames)[m] = memberNames[m](basePtr);
+        }
+        outImmutable->memberInfoStorage = type->memberInfoStorage(basePtr);
+    };
+    auto addBaseAndConvertBlockToImmutable = [&](SMemoryBlock<true>& block)->void
+    {
+        visitMemoryBlockPreOrderDFS(block,addBaseAndConvertTypeToImmutable);
+        auto& asImmutable = reinterpret_cast<SMemoryBlock<false>&>(block);
+        asImmutable.type = reinterpret_cast<SType<false>*>(block.type(basePtr));
+    };
+
+    addBaseAndConvertBlockToImmutable(reinterpret_cast<SPushConstantInfo<true>&>(m_pushConstants));
+    addBaseAndConvertStringToImmutable(m_pushConstants.name);
+
+    for (auto set=0; set < DESCRIPTOR_SET_COUNT; set++)
+    for (auto& descriptor : m_descriptorSetBindings[set])
+    {
+        addBaseAndConvertStringToImmutable(descriptor.name);
+        auto& asMutable = reinterpret_cast<SDescriptorVarInfo<true>&>(descriptor);
+        switch (descriptor.type)
+        {
+            // TODO: all descriptor types
+            case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+                addBaseAndConvertBlockToImmutable(asMutable.uniformBuffer);
+                break;
+            case IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+                addBaseAndConvertBlockToImmutable(asMutable.storageBuffer);
+                break;
+            default:
+                break;
+        }
     }
-
-    _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);
-    const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types.back());
-    if (lastType.array.size() && lastType.array_size_literal[0] && lastType.array[0] == 0u)
-        _res.rtSizedArrayOneElementSize += _res.members.array[_res.members.count-1u].arrayStride;
-
-    spirv_cross::Bitset flags = _comp.get_buffer_block_flags(_varID);
-    _res.restrict_ = flags.get(spv::DecorationRestrict);
-    _res.volatile_ = flags.get(spv::DecorationVolatile);
-    _res.coherent = flags.get(spv::DecorationCoherent);
-    _res.readonly = flags.get(spv::DecorationNonWritable);
-    _res.writeonly = flags.get(spv::DecorationNonReadable);
 }
 
-size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType & _type) const
+void CSPIRVIntrospector::CStageIntrospectionData::printExtents(std::ostringstream& out, const SArrayInfo& count)
+{
+    out << "[";
+    if (count.isSpecConstant)
+        out << "specID=" << count.specID;
+    else if (!count.isRuntimeSized())
+        out << count.value;
+    out << "]";
+}
+void CSPIRVIntrospector::CStageIntrospectionData::printType(std::ostringstream& out, const SType<false>* type, const uint32_t depth)
+{
+    assert(type);
+    // pre
+    auto indent = [&]() -> std::ostringstream&
+    {
+        for (auto i=0; i<depth; i++)
+            out << "\t";
+        return out;
+    };
+    indent() << type->typeName.data();
+    if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
+    {
+        out << "\n";
+        indent() << "{\n";
+    }
+
+    // in-order
+    const auto nextDepth = depth+1;
+    for (auto m=0; m<type->memberCount; m++)
+    {
+        printType(out,type->memberTypes()[m],nextDepth); out << " " << type->memberNames()[m].data() << "; // offset=" << type->memberOffsets()[m] << ",size=" << type->memberSizes()[m] << ",stride=" << type->memberStrides()[m] << "\n";
+    }
+
+    // post
+    if (type->info.type==VAR_TYPE::UNKNOWN_OR_STRUCT)
+        indent() << "}";
+   // printExtents(out,type->count);
+}
+
+size_t CSPIRVIntrospector::calcBytesizeForType(spirv_cross::Compiler& comp, const spirv_cross::SPIRType& type) const
 {
     size_t bytesize = 0u;
-    switch (_type.basetype)
+    switch (type.basetype)
     {
     case spirv_cross::SPIRType::Char:
     case spirv_cross::SPIRType::SByte:
@@ -703,8 +903,8 @@ size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& _comp, con
     case spirv_cross::SPIRType::Half:
         bytesize = 2u;
         break;
-    //Vulkan spec: "If the specialization constant is of type boolean, size must be the byte size of VkBool32"
-    //https://vulkan.lunarg.com/doc/view/1.0.30.0/linux/vkspec.chunked/ch09s07.html
+        //Vulkan spec: "If the specialization constant is of type boolean, size must be the byte size of VkBool32"
+        //https://vulkan.lunarg.com/doc/view/1.0.30.0/linux/vkspec.chunked/ch09s07.html
     case spirv_cross::SPIRType::Boolean:
     case spirv_cross::SPIRType::Int:
     case spirv_cross::SPIRType::UInt:
@@ -717,69 +917,99 @@ size_t CSPIRVIntrospector::calcBytesizeforType(spirv_cross::Compiler& _comp, con
         bytesize = 8u;
         break;
     case spirv_cross::SPIRType::Struct:
-        bytesize = _comp.get_declared_struct_size(_type);
-        assert(_type.columns > 1u || _type.vecsize > 1u); // something went wrong (cannot have matrix/vector of struct type)
+        bytesize = comp.get_declared_struct_size(type);
+        assert(type.columns > 1u || type.vecsize > 1u); // something went wrong (cannot have matrix/vector of struct type)
         break;
     default:
         assert(0);
         break;
     }
-    bytesize *= _type.vecsize * _type.columns; //vector or matrix
-    if (_type.array.size()) //array
-        bytesize *= _type.array[0];
+    bytesize *= type.vecsize * type.columns; //vector or matrix
+    if (type.array.size()) //array
+        bytesize *= type.array[0];
 
     return bytesize;
 }
 
-
-static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
+void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* logger) const
 {
-    using MembersT = impl::SShaderMemoryBlock::SMember::SMembers;
-    core::stack<MembersT> stack;
-    core::queue<MembersT> q;
-    if (_res.members.array)
-        q.push(_res.members);
-    while (!q.empty()) {//build stack
-        MembersT curr = q.front();
-        stack.push(curr);
-        q.pop();
-        for (uint32_t i = 0u; i < curr.count; ++i) {
-            const auto& m = curr.array[i];
-            if (m.members.array)
-                q.push(m.members);
-        }
-    }
-    while (!stack.empty()) {
-        MembersT m = stack.top();
-        stack.pop();
-        _NBL_DELETE_ARRAY(m.array, m.count);
-    }
-}
+    auto* const basePtr = m_memPool.data();
+    std::ostringstream debug = {};
 
-static void deinitIntrospectionData(CSPIRVIntrospector::CIntrospectionData* _data)
-{
-    for (auto& descSet : _data->descriptorSetBindings)
-        for (auto& res : descSet)
+    if (!m_specConstants.empty())
+    {
+        debug << "SPEC CONSTATS:\n";
+
+        for (auto& specConstant : m_specConstants)
         {
-            switch (res.type)
+            // TODO: it gives weird errors, debug
+            const std::string_view specConstantName = "SPEC_CONSTANT_NAME"; // std::string_view(specConstant.name.begin(), specConstant.name.end());
+
+            debug << " name: " << specConstantName << ' '
+                << "TODO: type "
+                << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
+        }    }
+
+    if (m_pushConstants.type)
+    {
+        debug << "PUSH CONSTANT BLOCK:\n";
+        printType(debug, m_pushConstants.type);
+        debug << "} " << m_pushConstants.name.data() << ";\n";
+    }
+
+    debug << "DESCRIPTOR SETS:\n";
+
+    for (auto set = 0; set < DESCRIPTOR_SET_COUNT; set++)
+        for (auto& descriptor : m_descriptorSetBindings[set])
+        {
+            debug << "(set=" << set << ",binding=" << descriptor.binding << ") ";
+            switch (descriptor.type)
             {
-            case ESRT_STORAGE_BUFFER:
-                deinitShdrMemBlock(res.get<ESRT_STORAGE_BUFFER>());
+            case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER:
+                printType(debug, descriptor.uniformBuffer.type);
                 break;
-            case ESRT_UNIFORM_BUFFER:
-                deinitShdrMemBlock(res.get<ESRT_UNIFORM_BUFFER>());
+            case IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
+                printType(debug, descriptor.storageBuffer.type);
                 break;
-            default: break;
+            default:
+                debug << "TODO_type"; // don't implement if not needed
+                break;
             }
+            debug << " " << descriptor.name.data();
+            //printExtents(debug, descriptor.count);
+            debug << ";\n";
         }
-    if (_data->pushConstant.present)
-        deinitShdrMemBlock(_data->pushConstant.info);
+
+    if (!m_input.empty())
+    {
+        debug << "INPUT VARIABLES:\n";
+        for (auto& inputEntity : m_input)
+            debug << "type: " << getBaseTypeNameFromEnum(inputEntity.baseType) << " name: " << "TODO" << " location: " << inputEntity.location << " elements: " << inputEntity.elements << '\n';
+    }
+
+    // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
+    if (m_shaderStage == IShader::ESS_FRAGMENT)
+    {
+        auto outputVec = std::get<FragmentOutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location : " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+    else
+    {
+        auto outputVec = std::get<OutputVecT>(m_output);
+        if (!outputVec.empty())
+        {
+            debug << "OUTPUT VARIABLES:\n";
+            for (auto& outputEntity : outputVec)
+                debug << "type: " << getBaseTypeNameFromEnum(outputEntity.baseType) << " location: " << outputEntity.location << " elements: " << outputEntity.elements << '\n';
+        }
+    }
+
+    logger->log(debug.str() + '\n');
 }
 
-CSPIRVIntrospector::CIntrospectionData::~CIntrospectionData()
-{
-    deinitIntrospectionData(this);
 }
-
-
-} // nbl:asset

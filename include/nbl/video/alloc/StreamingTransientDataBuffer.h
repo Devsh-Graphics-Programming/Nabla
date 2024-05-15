@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H_
@@ -14,7 +14,6 @@
 
 namespace nbl::video
 {
-    
 
 template<class HostAllocator=core::allocator<uint8_t>, class RecursiveLockable=std::recursive_mutex>
 class StreamingTransientDataBufferMT;
@@ -39,24 +38,31 @@ class StreamingTransientDataBuffer
         template<typename... Args>
         inline StreamingTransientDataBuffer(asset::SBufferRange<IGPUBuffer>&& _bufferRange, Args&&... args) : m_composed(std::move(_bufferRange),std::forward<Args>(args)...)
         {
-            assert(getBuffer()->getBoundMemory()->isMappable());
-            assert(getBuffer()->getBoundMemory()->getMappedPointer());
+            assert(getBuffer()->getBoundMemory().memory->isMappable());
+            assert(getBuffer()->getBoundMemory().memory->getMappedPointer());
             // we're suballocating from a buffer, whole buffer needs to be reachable from the mapped pointer
-            const auto mappedRange = getBuffer()->getBoundMemory()->getMappedRange();
-            assert(mappedRange.offset<=getBuffer()->getBoundMemoryOffset());
-            assert(mappedRange.offset+mappedRange.length>=getBuffer()->getBoundMemoryOffset()+getBuffer()->getSize());
+            const auto mappedRange = getBuffer()->getBoundMemory().memory->getMappedRange();
+            assert(mappedRange.offset<=getBuffer()->getBoundMemory().offset);
+            assert(mappedRange.offset+mappedRange.length>=getBuffer()->getBoundMemory().offset+getBuffer()->getSize());
         }
         virtual ~StreamingTransientDataBuffer() {}
 
         //
-        inline bool needsManualFlushOrInvalidate() const {return getBuffer()->getBoundMemory()->haveToMakeVisible();}
+        inline bool needsManualFlushOrInvalidate() const {return getBuffer()->getBoundMemory().memory->haveToMakeVisible();}
 
         // getters
         inline IGPUBuffer* getBuffer() noexcept {return m_composed.getBuffer();}
         inline const IGPUBuffer* getBuffer() const noexcept {return m_composed.getBuffer();}
 
         //
-        inline void* getBufferPointer() noexcept {return getBuffer()->getBoundMemory()->getMappedPointer();}
+        inline void* getBufferPointer() noexcept
+        {
+            const auto bound = getBuffer()->getBoundMemory();
+            return reinterpret_cast<uint8_t*>(bound.memory->getMappedPointer())+bound.offset;
+        }
+
+        //
+        inline size_type get_total_size() const noexcept {return m_composed.getAddressAllocator().get_total_size();}
 
         //
         inline uint32_t cull_frees() noexcept {return m_composed.cull_frees();}
@@ -99,7 +105,7 @@ class StreamingTransientDataBuffer
         template<typename... Args>
         inline size_type multi_place(uint32_t count, Args&&... args) noexcept
         {
-            return multi_place(GPUEventWrapper::default_wait(), count, std::forward<Args>(args)...);
+            return multi_place(TimelineEventHandlerBase::default_wait(),count,std::forward<Args>(args)...);
         }
 };
 }
@@ -141,7 +147,13 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return m_composed.needsManualFlushOrInvalidate();
         }
 
-        //!
+        //
+        inline size_type get_total_size() const noexcept
+        {
+            return m_composed.get_total_size();
+        }
+
+        //
         inline IGPUBuffer* getBuffer() noexcept
         {
             return m_composed.getBuffer();
@@ -151,7 +163,7 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return m_composed.getBuffer();
         }
 
-        //! you should really `this->get_lock()`  if you need the pointer to not become invalid while you use it
+        //
         inline void* getBufferPointer() noexcept
         {
             return m_composed.getBufferPointer();
@@ -206,7 +218,6 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return lock;
         }
 };
-
 
 }
 

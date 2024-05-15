@@ -14,6 +14,8 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
+#include "nbl/core/xxHash256.h"
+
 
 namespace nbl::wave
 {
@@ -46,8 +48,18 @@ struct load_to_string final
 
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
-    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions) 
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN) {}
+    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
+        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() 
+    {
+        hash_token_occurences = 0;
+    }
+
+    template <typename ContextT, typename TokenT>
+    bool found_directive(ContextT const& ctx, TokenT const& directive)
+    {
+        hash_token_occurences++;
+        return false;
+    }
 
     template <typename ContextT>
     bool locate_include_file(ContextT& ctx, std::string& file_path, bool is_system, char const* current_name, std::string& dir_path, std::string& native_name)
@@ -55,6 +67,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         assert(false); // should never be called
         return false;
     }
+
 
     // interpretation of #pragma's of the form 'wave option[(value)]'
     template <typename ContextT, typename ContainerT>
@@ -64,6 +77,7 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
         typename ContextT::token_type const& act_token
     )
     {
+        hash_token_occurences++;
         auto optionStr = option.get_value().c_str();
         if (strcmp(optionStr,"shader_stage")==0) 
         {
@@ -97,6 +111,37 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             m_pragmaStage = found->second;
             return true;
         }
+        
+        if (strcmp(optionStr, "dxc_compile_flags") == 0) {
+            if (hash_token_occurences != 1) {
+                m_logger.log("Pre-processor error: Encountered a \"#pragma wave dxc_compile_flags\" but it is not the first preprocessor directive.", system::ILogger::ELL_ERROR);
+                return false;
+            }
+            m_dxc_compile_flags_override.clear();
+            std::string arg = "";
+            for (auto valueIter = values.begin(); valueIter != values.end(); valueIter++) {
+                std::string compiler_option_s = std::string(valueIter->get_value().c_str());
+                // the compiler_option_s is a token thus can be only part of the actual argument, i.e. "-spirv" will be split into tokens [ "-", "spirv" ]
+                // for dxc_compile_flags just join the strings until it finds a whitespace or end of args
+
+                if (compiler_option_s == " ") 
+                {
+                    // push argument and reset
+                    m_dxc_compile_flags_override.push_back(arg);
+                    arg.clear();
+                }
+                else 
+                {
+                    // append string
+                    arg += compiler_option_s;
+                }
+            }
+            if(arg.size() > 0)
+                m_dxc_compile_flags_override.push_back(arg);
+        
+            return true;
+        }
+
         return false;
     }
 
@@ -114,6 +159,9 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     const IShaderCompiler::CIncludeFinder* m_includeFinder;
     system::logger_opt_ptr m_logger;
     IShader::E_SHADER_STAGE m_pragmaStage;
+    int hash_token_occurences;
+    std::vector<std::string> m_dxc_compile_flags_override;
+
 };
 
 class context : private boost::noncopyable
@@ -407,6 +455,14 @@ class context : private boost::noncopyable
             return current_relative_filename;
         }
 
+        void set_caching(bool b) {
+            cachingRequested = b;
+        }
+
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>&& get_dependencies() {
+            return std::move(dependencies);
+        }
+
     private:
         // the main input stream
         target_iterator_type first;         // underlying input stream
@@ -420,6 +476,9 @@ class context : private boost::noncopyable
         // these are temporaries!
         system::path current_dir;
         core::string located_include_content;
+        // Cache Additions 
+        bool cachingRequested = false;
+        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -447,12 +506,22 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
+    bool standardInclude;
+
     if (includeFinder)
     {
-        if (is_system)
-            result = includeFinder->getIncludeStandard(ctx.get_current_directory(),file_path);
-        else
-            result = includeFinder->getIncludeRelative(ctx.get_current_directory(),file_path);
+        if (is_system) {
+            result = includeFinder->getIncludeStandard(ctx.get_current_directory(), file_path);
+            standardInclude = true;
+        }
+        else {
+            result = includeFinder->getIncludeRelative(ctx.get_current_directory(), file_path);
+            standardInclude = false;
+        }
+    }
+    else {
+        ctx.get_hooks().m_logger.log("Pre-processor error: Include finder not assigned, preprocessor will not include file " + file_path, nbl::system::ILogger::ELL_ERROR);
+        return false;
     }
 
     if (!result)
@@ -460,6 +529,11 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
         ctx.get_hooks().m_logger.log("Pre-processor error: Bad include file.\n'%s' does not exist.", nbl::system::ILogger::ELL_ERROR, file_path.c_str());
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, bad_include_file, file_path.c_str(), act_pos);
         return false;
+    }
+
+    // If caching was requested, push a new SDependency onto dependencies
+    if (ctx.cachingRequested) {
+        ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, result.contents, standardInclude, std::move(result.hash));
     }
 
     ctx.located_include_content = std::move(result.contents);
@@ -501,4 +575,5 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     return true;
 }
+
 #endif

@@ -181,7 +181,7 @@ public:
         ICPUImage::SCreationParams paddedParams = params;
         paddedParams.extent = {paddedExtent,paddedExtent,1u};
         //in case of original extent being non-PoT, padding it to PoT gives us one extra mip level
-        paddedParams.mipLevels = core::findLSB(paddedExtent) + 1u;
+        paddedParams.mipLevels = hlsl::findLSB(paddedExtent) + 1u;
         auto paddedImg = ICPUImage::create(std::move(paddedParams));
         {
             const uint32_t texelBytesize = getTexelOrBlockBytesize(params.format);
@@ -544,7 +544,7 @@ public:
                 return false; // TODO: Log
 
             auto& info = pgtInfos.begin()[0];
-            info.info.image.imageLayout = IImage::EL_UNDEFINED;
+            info.info.image.imageLayout = IImage::LAYOUT::UNDEFINED;
             info.info.image.sampler = nullptr;
             info.desc = core::smart_refctd_ptr<ICPUImageView>(getPageTableView());
         }
@@ -560,7 +560,7 @@ public:
             {
                 auto& info = infos.begin()[i];
 
-                info.info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+                info.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
                 info.info.image.sampler = nullptr;
                 info.desc = views.begin()[i].view;
             }

@@ -16,6 +16,7 @@
 namespace nbl::video
 {
 
+#if 0 // TODO: port
 #define int int32_t
 #define uint uint32_t
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
@@ -184,9 +185,9 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		// `requests` will be consumed (destructively processed by sorting) and incremented by however many requests were fully processed
 		// return value tells you how many DWORDs are remaining in the new first batch pointed to by `requests`
 		[[nodiscard]] uint32_t transferProperties(
-			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IGPUQueue* const queue,
+			StreamingTransientDataBufferMT<>* const upBuff, IGPUCommandBuffer* const cmdbuf, IGPUFence* const fence, IQueue* const queue,
 			const asset::SBufferBinding<video::IGPUBuffer>& scratch, UpStreamingRequest*& requests, const uint32_t requestCount,
-			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::E_PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
+			uint32_t& waitSemaphoreCount, IGPUSemaphore* const*& semaphoresToWaitBeforeOverwrite, const asset::PIPELINE_STAGE_FLAGS*& stagesToWaitForPerSemaphore,
 			system::logger_opt_ptr logger, const std::chrono::steady_clock::time_point& maxWaitPoint=std::chrono::steady_clock::now()+std::chrono::microseconds(500u)
 		);
 
@@ -237,8 +238,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 		uint16_t m_maxPropertiesPerPass;
 		uint32_t m_alignment;
 };
-
+#endif
 
 }
-
 #endif

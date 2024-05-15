@@ -1,5 +1,5 @@
-#ifndef __NBL_I_GPU_RENDERPASS_H_INCLUDED__
-#define __NBL_I_GPU_RENDERPASS_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_RENDERPASS_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_RENDERPASS_H_INCLUDED_
 
 
 #include "nbl/asset/IRenderpass.h"
@@ -10,12 +10,12 @@
 namespace nbl::video
 {
 
-class IGPURenderpass : public asset::IRenderpass, public core::IReferenceCounted, public IBackendObject
+class IGPURenderpass : public IBackendObject, public asset::IRenderpass
 {
         using base_t = asset::IRenderpass;
 
     public:
-        IGPURenderpass(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params) : base_t(params), IBackendObject(std::move(dev)) {}
+        inline IGPURenderpass(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreationParams& params, const SCreationParamValidationResult& counts) : IBackendObject(std::move(dev)), base_t(params,counts) {}
 };
 
 }

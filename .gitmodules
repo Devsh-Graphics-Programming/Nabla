@@ -17,10 +17,6 @@
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
 	url = git@github.com:Devsh-Graphics-Programming/libpng.git
-[submodule "3rdparty/openssl/openssl"]
-	path = 3rdparty/openssl/openssl
-	url = git@github.com:Devsh-Graphics-Programming/openssl.git
-	branch = OpenSSL_1_0_2-stable
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
 	url = git@github.com:Devsh-Graphics-Programming/libjpeg-turbo.git
@@ -90,3 +86,12 @@
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
 	url = git@github.com:boostorg/boost.git
+[submodule "3rdparty/argparse"]
+	path = 3rdparty/argparse
+	url = git@github.com:p-ranav/argparse.git
+[submodule "3rdparty/nlohmann_json"]
+	path = 3rdparty/nlohmann_json
+	url = https://github.com/Devsh-Graphics-Programming/json
+[submodule "3rdparty/blake"]
+	path = 3rdparty/blake
+	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git

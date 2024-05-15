@@ -3,35 +3,30 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api) :
-    m_system(std::move(s)), m_api(api)
-{}
+IDebugCallback* IPhysicalDevice::getDebugCallback() const
+{
+    return m_initData.api->getDebugCallback();
+}
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    for (auto i=0u; i<params.queueParamsCount; i++)
+    for (auto i=0u; i<m_initData.qfamProperties->size(); i++)
     {
         const auto& qci = params.queueParams[i];
-        if (qci.familyIndex >= m_qfamProperties->size())
+
+        const auto& qfam = m_initData.qfamProperties->operator[](i);
+        if (qci.count>qfam.queueCount)
             return false;
 
-        const auto& qfam = (*m_qfamProperties)[qci.familyIndex];
-        if (qci.count == 0u)
-            return false;
-        if (qci.count > qfam.queueCount)
-            return false;
-
-        for (uint32_t i = 0u; i < qci.count; ++i)
+        for (uint32_t i=0u; i<qci.count; ++i)
         {
             const float priority = qci.priorities[i];
-            if (priority < 0.f)
-                return false;
-            if (priority > 1.f)
+            if (priority<0.f || priority>1.f)
                 return false;
         }
     }
     
-    if(!params.featuresToEnable.isSubsetOf(m_features))
+    if(!params.featuresToEnable.isSubsetOf(m_initData.features))
         return false; // Requested features are not all supported by physical device
 
     return true;
@@ -374,7 +369,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     return smallestTexelBlock;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req) const
 {
     assert(
         !asset::isBlockCompressionFormat(req.originalFormat) &&
@@ -386,7 +381,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     if (cached != buf_cache.end())
         return cached->second;
 
-    if (req.usages < getBufferFormatUsages()[req.originalFormat])
+    // don't need to promote
+    if ((req.usages&getBufferFormatUsages()[req.originalFormat])==req.usages)
     {
         buf_cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -417,10 +413,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getBufferFormatUsages()[f])
-        {
+        if ((req.usages&getBufferFormatUsages()[f])==req.usages)
             validFormats.insert(f);
-        }
     }
 
     auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
@@ -428,30 +422,17 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const
 {
-    format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
+    format_image_cache_t& cache = tiling==IGPUImage::TILING::LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
         : this->m_formatPromotionCache.optimalTilingImages;
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
 
-    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
-    {
-        switch (tiling)
-        {
-            case IGPUImage::E_TILING::ET_LINEAR:
-                return getImageFormatUsagesLinearTiling()[f];
-            case IGPUImage::E_TILING::ET_OPTIMAL:
-                return getImageFormatUsagesOptimalTiling()[f];
-            default:
-                assert(false); // Invalid tiling
-        }
-        return IPhysicalDevice::SFormatImageUsages::SUsage{}; // compiler please shut up
-    };
-
-    if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
+    // don't need to promote
+    if ((req.usages&getImageFormatUsages(tiling)[req.originalFormat])==req.usages)
     {
         cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -483,10 +464,8 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getImageFormatUsagesTiling(f))
-        {
+        if ((req.usages&getImageFormatUsages(tiling)[f])==req.usages)
             validFormats.insert(f);
-        }
     }
 
 

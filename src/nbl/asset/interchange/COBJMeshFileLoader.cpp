@@ -445,7 +445,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			const auto* cPpln = pipeline.first.get();
             if (hasUV)
             {
-                const auto& vtxParams = cPpln->getVertexInputParams();
+                const auto& vtxParams = cPpln->getCachedCreationParams().vertexInput;
                 assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
                 assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
                 assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));

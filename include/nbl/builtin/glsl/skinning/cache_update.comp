@@ -1,5 +1,5 @@
 #version 440 core
-layout(local_size_x=NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 #include <nbl/builtin/glsl/skinning/cache_descriptor_set.glsl>
 #include <nbl/builtin/glsl/skinning/update_descriptor_set.glsl>
@@ -15,7 +15,7 @@ void main()
         return;
 
     const uint totalJointCount = jointCountInclPrefixSum[skinCount-1u];
-    const uint dispatchSize = NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
+    const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
     for (uint jointIndex=gl_GlobalInvocationID.x; jointIndex<totalJointCount; jointIndex+=dispatchSize)
     {
         // TODO: implement via https://moderngpu.github.io/sortedsearch.html, find the upper and lower bounds of the workgroup, then go to town with sorted search

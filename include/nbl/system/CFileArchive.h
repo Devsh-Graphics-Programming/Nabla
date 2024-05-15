@@ -68,7 +68,7 @@ class CInnerArchiveFile : public CFileView<T>
 
 
 //!
-class NBL_API2 CFileArchive : public IFileArchive
+class CFileArchive : public IFileArchive
 {
 		static inline constexpr size_t SIZEOF_INNER_ARCHIVE_FILE = std::max(sizeof(CInnerArchiveFile<CPlainHeapAllocator>), sizeof(CInnerArchiveFile<VirtualMemoryAllocator>));
 		static inline constexpr size_t ALIGNOF_INNER_ARCHIVE_FILE = std::max(alignof(CInnerArchiveFile<CPlainHeapAllocator>), alignof(CInnerArchiveFile<VirtualMemoryAllocator>));
@@ -86,7 +86,7 @@ class NBL_API2 CFileArchive : public IFileArchive
 				m_fileFlags[i].clear();
 			memset(m_filesBuffer,0,fileCount*SIZEOF_INNER_ARCHIVE_FILE);
 		}
-		inline ~CFileArchive()
+		virtual inline ~CFileArchive()
 		{ 
 			_NBL_ALIGNED_FREE(m_filesBuffer);
 			_NBL_ALIGNED_FREE(m_fileFlags);
@@ -145,7 +145,8 @@ class NBL_API2 CFileArchive : public IFileArchive
 				new (file, &m_fileFlags[found->ID]) CInnerArchiveFile<Allocator>(
 					m_fileFlags+found->ID,
 					getDefaultAbsolutePath()/found->pathRelativeToArchive,
-					flags, 
+					flags,
+					fileBuffer.initialModified,
 					fileBuffer.buffer,
 					fileBuffer.size,
 					Allocator(fileBuffer.allocatorState) // no archive uses stateful allocators yet
@@ -161,6 +162,8 @@ class NBL_API2 CFileArchive : public IFileArchive
 			void* buffer;
 			size_t size;
 			void* allocatorState;
+			// TODO: Implement this !!!
+			IFileBase::time_point_t initialModified = std::chrono::utc_clock::now();
 		};
 		virtual file_buffer_t getFileBuffer(const SFileList::found_t& found) = 0;
 

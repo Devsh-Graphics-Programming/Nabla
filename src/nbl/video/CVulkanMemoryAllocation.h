@@ -1,44 +1,37 @@
-#ifndef __NBL_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED__
+#ifndef _NBL_VIDEO_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED_
+#define _NBL_VIDEO_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED_
+
 
 #include "nbl/video/IDeviceMemoryAllocation.h"
 
 #include <volk.h>
 
+
 namespace nbl::video
 {
-
-class ILogicalDevice;
+class CVulkanLogicalDevice;
 
 class CVulkanMemoryAllocation : public IDeviceMemoryAllocation
 {
-public:
-    CVulkanMemoryAllocation(
-        ILogicalDevice* dev,
-        size_t size,
-        bool isDedicated, 
-        VkDeviceMemory deviceMemoryHandle,
-        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> flags,
-        core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags)
-        : IDeviceMemoryAllocation(dev, flags, memoryPropertyFlags), m_size(size), m_isDedicated(isDedicated), m_deviceMemoryHandle(deviceMemoryHandle)
-    {}
+    public:
+        CVulkanMemoryAllocation(
+            const CVulkanLogicalDevice* dev, const size_t size,
+            const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags,
+            const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
+            const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
+        );
 
-    ~CVulkanMemoryAllocation();
+        inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
 
-    //! Whether the allocation was made for a specific resource and is supposed to only be bound to that resource.
-    bool isDedicated() const override { return m_isDedicated; }
+    private:
+        ~CVulkanMemoryAllocation();
 
-    //! Returns the size of the memory allocation
-    size_t getAllocationSize() const override { return m_size; }
+        void* map_impl(const MemoryRange& range, const core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> accessHint) override;
+        bool unmap_impl() override;
 
-    inline VkDeviceMemory getInternalObject() const { return m_deviceMemoryHandle; }
-
-private:
-    VkDeviceMemory m_deviceMemoryHandle;
-    const bool m_isDedicated;
-    const size_t m_size;
+        core::smart_refctd_ptr<const CVulkanLogicalDevice> m_vulkanDevice;
+        const VkDeviceMemory m_deviceMemoryHandle;
 };
 
 }
-
-#define __NBL_C_VULKAN_MEMORY_ALLOCATION_H_INCLUDED__
 #endif

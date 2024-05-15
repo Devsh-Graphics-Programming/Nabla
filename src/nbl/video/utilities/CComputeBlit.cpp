@@ -3,6 +3,7 @@
 using namespace nbl;
 using namespace video;
 
+#if 0 // TODO: port
 core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
@@ -51,3 +52,4 @@ core::smart_refctd_ptr<video::IGPUSpecializedShader> CComputeBlit::createNormali
 
 	return m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 }
+#endif
