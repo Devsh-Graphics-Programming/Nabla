@@ -31,6 +31,16 @@ class CSimpleResizeSurface final : public ISimpleManagedSurface
 			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
 		}
 
+		// Factory method so we can fail, requires a `_surface` created from a native surface
+		template<typename Surface> requires std::is_base_of_v<CSurfaceNative<typename Surface::window_t,typename Surface::immediate_base_t>,Surface>
+		static inline core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<Surface>&& _surface, ICallback* cb)
+		{
+			if (!_surface)
+				return nullptr;
+
+			return core::smart_refctd_ptr<this_t>(new this_t(std::move(_surface),cb),core::dont_grab);
+		}
+
 		//
 		inline bool init(CThreadSafeQueueAdapter* queue, std::unique_ptr<SwapchainResources>&& scResources, const ISwapchain::SSharedCreationParams& sharedParams={})
 		{
