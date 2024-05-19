@@ -133,6 +133,9 @@ template<class Window, class ImmediateBase> requires std::is_base_of_v<ISurface,
 class CSurfaceNative : public ImmediateBase
 {
     public:
+        using window_t = Window;
+        using immediate_base_t = ImmediateBase;
+
         inline const void* getNativeWindowHandle() const override final
         {
             return m_handle;
