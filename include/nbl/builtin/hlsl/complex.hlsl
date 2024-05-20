@@ -5,10 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
-
-
-#ifndef __HLSL_VERSION
-
+#include <nbl/builtin/hlsl/binops.hlsl>
 
 namespace nbl
 {
@@ -125,6 +122,24 @@ namespace hlsl
             
     };
 
+    // ---------------------- Compound assignment functors ----------------------
+    template <typename T>
+    struct CompoundHelper{              
+        using add = assign_add_t<complex_t<T> >;
+        using subtract = assign_subtract_t<complex_t<T> >;
+        using mul = assign_mul_t<complex_t<T> >;
+        using div = assign_div_t<complex_t<T> >;
+    };
+
+    template <typename T>
+    using assign_add_complex = typename CompoundHelper<T>::add;
+    template <typename T>
+    using assign_subtract_complex = typename CompoundHelper<T>::subtract;
+    template <typename T>
+    using assign_mul_complex = typename CompoundHelper<T>::mul;
+    template <typename T>
+    using assign_div_complex = typename CompoundHelper<T>::div;
+
     // ---------------------- Non-member functions -----------------------------    
     template<typename T>
     T real(const complex_t<T> c) {
@@ -172,7 +187,5 @@ namespace hlsl
 
 }
 }
-
-#endif
 
 #endif
