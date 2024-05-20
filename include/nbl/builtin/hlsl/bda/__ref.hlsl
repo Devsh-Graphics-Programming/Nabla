@@ -55,7 +55,7 @@ struct __base_ref
     }
 };
 
-template<typename T, uint32_t alignment/*=alignof(T)*/, bool _restrict = false>
+template<typename T, uint32_t alignment=nbl::hlsl::alignment_of_v<T>, bool _restrict = false>
 struct __ref : __base_ref<T,alignment,_restrict>
 {
     using base_t = __base_ref < T, alignment, _restrict>;
