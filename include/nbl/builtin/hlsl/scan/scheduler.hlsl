@@ -32,6 +32,11 @@ struct Scheduler
   template<class Accessor>
   bool getWork(NBL_REF_ARG(Accessor) accessor)
   {
+      
+glsl::memoryBarrierBuffer();
+if(scanScratchBuf[0u].workgroupsStarted >= schedParams.cumulativeWorkgroupCount[level])
+  return false;
+      
     if (workgroup::SubgroupContiguousIndex()==0u)
     {
       uberWorkgroupIndex = glsl::atomicAdd(scanScratchBuf[0u].workgroupsStarted,1u);
@@ -54,8 +59,10 @@ struct Scheduler
     {
       // The uberWorkgroupIndex is always increasing, even after we switch levels, but for each new level the workgroupSetFinishedIndex must reset
       const uint32_t workgroupSetFinishedIndex = levelWorkgroupIndex(level) / WorkgroupSize;
+      const uint32_t lastWorkgroupSetIndexForLevel = (level == 0u ? schedParams.cumulativeWorkgroupCount[level] : (schedParams.cumulativeWorkgroupCount[level] - schedParams.cumulativeWorkgroupCount[level-1u])) / WorkgroupSize;
       const uint32_t doneCount = glsl::atomicAdd(scanScratchBuf[0u].data[schedParams.workgroupFinishFlagsOffset[level]+workgroupSetFinishedIndex], 1u) + 1u;
-      if ((uberWorkgroupIndex != schedParams.cumulativeWorkgroupCount[level] - 1u ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
+      //if ((uberWorkgroupIndex != schedParams.cumulativeWorkgroupCount[level] - 1u ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
+      if ((uberWorkgroupIndex < lastWorkgroupSetIndexForLevel ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
       {
         level++;
       }
