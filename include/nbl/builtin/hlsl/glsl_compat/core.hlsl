@@ -97,7 +97,7 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 template<typename T, typename Ptr_T> // DXC Workaround
 typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicCompSwap(Ptr_T ptr, T value)
 {
-    return spirv::atomicCompExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 
 /**
