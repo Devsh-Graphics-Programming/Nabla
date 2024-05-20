@@ -17,21 +17,21 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=SCRATCH_SZ - 1> // (REVIEW): This should be externally defined. Maybe change the scratch buffer to RWByteAddressBuffer? Annoying to manage though...
+template<uint32_t scratchElementCount=SCRATCH_SZ - 1>
 struct Scratch
 {
     uint32_t workgroupsStarted;
     uint32_t data[scratchElementCount];
 };
 
-[[vk::binding(0 ,0)]] RWStructuredBuffer<uint32_t /*Storage_t*/> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
+[[vk::binding(0 ,0)]] RWStructuredBuffer<Storage_t> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
 [[vk::binding(1 ,0)]] RWStructuredBuffer<Scratch> /*globallycoherent (seems we can't use along with VMM)*/ scanScratchBuf; // (REVIEW): Check if globallycoherent can be used with Vulkan Mem Model
 
 template<typename Storage_t, bool isExclusive>
 void getData(
     NBL_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
-    NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
+    NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
     NBL_CONST_REF_ARG(uint32_t) treeLevel,
     NBL_CONST_REF_ARG(uint32_t) pseudoLevel
 )
@@ -46,8 +46,8 @@ void getData(
     if (pseudoLevel!=treeLevel) // downsweep
     {
         const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
-        if (bool(localWorkgroupIndex) && firstInvocationInGroup)
-            data = scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
+        if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
+            data = scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
 
         if (notFirstOrLastLevel)
         {
@@ -80,7 +80,7 @@ template<typename Storage_t>
 void setData(
     NBL_CONST_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
-    NBL_CONST_REF_ARG(uint32_t) localWorkgroupIndex,
+    NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
     NBL_CONST_REF_ARG(uint32_t) treeLevel,
     NBL_CONST_REF_ARG(uint32_t) pseudoLevel,
     NBL_CONST_REF_ARG(bool) inRange
@@ -91,7 +91,7 @@ void setData(
     {
         const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
         if (lastInvocationInGroup)
-            scanScratchBuf[0].data[localWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+            scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
     }
     else if (inRange)
     {

@@ -30,8 +30,9 @@ namespace scan
 
     struct DefaultSchedulerParameters_t
     {
-        uint32_t finishedFlagOffset[NBL_BUILTIN_MAX_SCAN_LEVELS-1];
         uint32_t cumulativeWorkgroupCount[NBL_BUILTIN_MAX_SCAN_LEVELS];
+        uint32_t workgroupFinishFlagsOffset[NBL_BUILTIN_MAX_SCAN_LEVELS];
+        uint32_t lastWorkgroupSetCountForLevel[NBL_BUILTIN_MAX_SCAN_LEVELS];
 
     };
     

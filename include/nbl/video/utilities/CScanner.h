@@ -212,14 +212,25 @@ class CScanner final : public core::IReferenceCounted
 		{
 			SchedulerParameters()
 			{
-				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
+				//std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
 				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
+				std::fill_n(workgroupFinishFlagsOffset, Parameters::MaxScanLevels, 0u);
+				std::fill_n(lastWorkgroupSetCountForLevel,Parameters::MaxScanLevels,0u);
 			}
                         // given the number of elements and workgroup size, figure out how many atomics we need
                         // also account for the fact that we will want to use the same scratch buffer both for the
                         // scheduler's atomics and the aux data storage
 			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t workgroupSize) : SchedulerParameters()
 			{
+				/*For 696969
+					We will launch 1362 WGs
+					CumulativeWGCountPerLvl will be :
+				[1362 + 3 + 1]
+					WGFinFlagOFfsets
+					inclusive_scan([0, roundUp(1362 / 512), roundUp(3 / 512)])
+					LastWorkgroupSetCountForLevel
+					[1362 & (WGSZ - 1), 3 & (WGSZ - 1), 1 & (WGSZ - 1)]*/
+
 				outScanParams = Parameters(_elementCount,workgroupSize);
 				const auto topLevel = outScanParams.topLevel;
 
@@ -228,16 +239,24 @@ class CScanner final : public core::IReferenceCounted
 					cumulativeWorkgroupCount[i] += 1u;
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 
-				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
+				for (auto i = 0u; i <= topLevel; i++) {
+					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize - 1u)) + 1;
+					lastWorkgroupSetCountForLevel[i] = cumulativeWorkgroupCount[i] & (workgroupSize - 1u);
+				}
+
+				/*std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
 				std::copy_n(cumulativeWorkgroupCount+topLevel,topLevel,finishedFlagOffset+topLevel);
 
 				const auto finishedFlagCount = sizeof(finishedFlagOffset)/sizeof(uint32_t);
 				const auto finishedFlagsSize = std::accumulate(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,0u);
-				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,finishedFlagOffset,0u);
+				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,finishedFlagOffset,0u);*/
+
+				const auto wgFinishedFlagsSize = std::accumulate(workgroupFinishFlagsOffset, workgroupFinishFlagsOffset + Parameters::MaxScanLevels, 0u);
+				std::exclusive_scan(workgroupFinishFlagsOffset, workgroupFinishFlagsOffset + Parameters::MaxScanLevels, workgroupFinishFlagsOffset, 0u);
 				for (auto i=0u; i<sizeof(Parameters::temporaryStorageOffset)/sizeof(uint32_t); i++)
-					outScanParams.temporaryStorageOffset[i] += finishedFlagsSize;
-					
-				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+Parameters::MaxScanLevels,cumulativeWorkgroupCount);
+					outScanParams.temporaryStorageOffset[i] += wgFinishedFlagsSize;
+				
+				std::inclusive_scan(cumulativeWorkgroupCount, cumulativeWorkgroupCount + Parameters::MaxScanLevels, cumulativeWorkgroupCount);
 			}
 		};
                 // push constants of the default direct scan pipeline provide both aux memory offset params and scheduling params
@@ -274,7 +293,9 @@ class CScanner final : public core::IReferenceCounted
 			};
 
 			m_ds_layout = m_device->createDescriptorSetLayout(bindings);
+			assert(m_ds_layout && "CScanner Descriptor Set Layout was not created successfully");
 			m_pipeline_layout = m_device->createPipelineLayout({ pc_range }, core::smart_refctd_ptr(m_ds_layout));
+			assert(m_pipeline_layout && "CScanner Pipeline Layout was not created successfully");
 		}
 
 		//

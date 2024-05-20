@@ -35,7 +35,7 @@ T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor, const uint
 template<typename T, class Accessor>
 T BroadcastFirst(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor)
 {
-    return Broadcast(val,0);
+    return Broadcast(val, accessor, 0);
 }
 
 }

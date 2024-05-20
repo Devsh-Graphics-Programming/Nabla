@@ -110,7 +110,7 @@ namespace scheduler
     /**
      * treeLevel - the current level in the Blelloch Scan
      * localWorkgroupIndex - the workgroup index the current invocation is a part of in the specific virtual dispatch. 
-     * For example, if we have dispatched 10 workgroups and we the virtual workgroup number is 35, then the localWorkgroupIndex should be 5.
+     * For example, if we have dispatched 10 workgroups and we the virtu    al workgroup number is 35, then the localWorkgroupIndex should be 5.
      */
     template<class Accessor>
     bool getWork(NBL_CONST_REF_ARG(DefaultSchedulerParameters_t) params, NBL_CONST_REF_ARG(uint32_t) topLevel, NBL_REF_ARG(uint32_t) treeLevel, NBL_REF_ARG(uint32_t) localWorkgroupIndex, NBL_REF_ARG(Accessor) sharedScratch)
@@ -128,7 +128,6 @@ namespace scheduler
 		}
 		sharedScratch.workgroupExecutionAndMemoryBarrier();
 		const uint32_t globalWorkgroupIndex = sharedScratch.get(0u);
-		treeLevel = sharedScratch.get(1u);
         
         treeLevel = sharedScratch.get(1u);
         if(treeLevel>lastLevel)
