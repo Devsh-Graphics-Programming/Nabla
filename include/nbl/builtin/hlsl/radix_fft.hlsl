@@ -37,6 +37,8 @@ void fft_radix2(complex_t<T> data[N])
     }
 
     // Cooley-Tukey
+    assign_mul_complex<T> mul_assign;
+    assign_div_complex<T> div_assign;
     for (uint32_t stride = 2; stride <= N; stride *= 2)
     {
         complex_t<T> twiddle_factor;
@@ -54,11 +56,11 @@ void fft_radix2(complex_t<T> data[N])
             for (uint32_t i = 0; i < stride / 2; ++i)
             {
                 complex_t<T> u = data[start + i];
-                complex_t<T> v = mul<T>(w, data[start + i + stride / 2]);
-                data[start + i] = plus<T>(u, v);
-                data[start + i + stride / 2] = minus<T>(u, v);
+                complex_t<T> v = w * data[start + i + stride / 2];
+                data[start + i] = u + v;
+                data[start + i + stride / 2] = u - v;
 
-                w = mul<T>(w, twiddle_factor);
+                mul_assign(w, twiddle_factor);
             }
         }
     }
@@ -67,7 +69,7 @@ void fft_radix2(complex_t<T> data[N])
     if (is_inverse)
     {
         for (uint32_t i = 0; i < N; ++i)
-            data[i] = div<T>(data[i], N);
+            div_assign(data[i], N);
     }
 }
 
