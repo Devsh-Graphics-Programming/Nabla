@@ -44,17 +44,31 @@ T atomicAnd(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+template<typename T, typename Ptr_T> // DXC Workaround
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicAnd(Ptr_T ptr, T value)
+{
+    return spriv::atomicAnd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
 template<typename T>
 T atomicOr(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicOr(Ptr_T ptr, T value)
+{
+    return spriv::atomicOr<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
 T atomicXor(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-
+template<typename T, typename Ptr_T> // DXC Workaround
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicXor(Ptr_T ptr, T value)
+{
+    return spriv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
 /* TODO: @Hazardu struct dispatchers like for `bitfieldExtract`
 template<typename T>
 T atomicMin(NBL_REF_ARG(T) ptr, T value)
@@ -70,10 +84,20 @@ T atomicExchange(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+template<typename T, typename Ptr_T> // DXC Workaround
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicExchange(Ptr_T ptr, T value)
+{
+    return spriv::atomicExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
 template<typename T>
 T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 {
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+typename nbl::hlsl::enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicCompSwap(Ptr_T ptr, T value)
+{
+    return spriv::atomicCompExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 
 /**
