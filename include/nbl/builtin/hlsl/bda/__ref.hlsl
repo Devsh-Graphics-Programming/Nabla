@@ -8,16 +8,6 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 
-namespace spirv
-{
-template<typename M, typename T, typename StorageClass>
-[[vk::ext_instruction(spv::OpAccessChain)]]
-vk::SpirvOpaqueType <spv::OpTypePointer,StorageClass,M> accessChain(
-    [[vk::ext_reference]] vk::SpirvOpaqueType <spv::OpTypePointer,StorageClass,T>base,
-    [[vk::ext_literal]] uint32_t index0
-);
-}
-
 namespace bda
 {
 template<typename T>
