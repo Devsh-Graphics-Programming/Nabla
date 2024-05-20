@@ -167,11 +167,6 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<class T> // DXC Workaround issue TODO https://github.com/microsoft/DirectXShaderCompiler/issues/6576
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-T bitcast(uint64_t);
-
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
 Unsigned bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
