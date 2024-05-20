@@ -8,6 +8,10 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_PTR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_PTR_INCLUDED_
 
+namespace nbl
+{
+namespace hlsl
+{
 namespace bda
 {
 template<typename T>
@@ -34,6 +38,8 @@ struct __ptr
     }
 };
 
+}
+}
 }
 
 #endif
