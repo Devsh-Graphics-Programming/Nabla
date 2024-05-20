@@ -27,7 +27,7 @@ struct __ptr
         return retval;
     }
 
-    template<uint64_t alignment=nbl::hlsl::alignment_of_v<T>>
+    template< uint64_t alignment=nbl::hlsl::alignment_of_v<T> >
     __ref<T,alignment,false> deref()
     {
         // TODO: assert(addr&uint64_t(alignment-1)==0);

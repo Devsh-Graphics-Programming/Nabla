@@ -387,6 +387,8 @@ struct enable_if<true, T> : type_identity<T> {};
 
 template<class T>
 struct alignment_of;
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE uint32_t alignment_of_v = alignment_of<T>::value;
 
 template<class>
 struct make_void { using type = void; };
@@ -730,9 +732,6 @@ NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 NBL_REGISTER_TYPES_FOR_SCALAR(float16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
-
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool alignment_of_v = alignment_of<T>::value;
 
 #undef NBL_REGISTER_MATRICES
 #undef NBL_REGISTER_TYPES_FOR_SCALAR
