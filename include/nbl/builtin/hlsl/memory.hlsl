@@ -15,7 +15,7 @@ namespace hlsl
 template<typename T, uint32_t Alignment, bool _restrict>
 bda::__ptr<T> pointer_to(bda::__ref<T,Alignment,_restrict>) {
     bda::__ptr<T> retval;
-    retval.addr = spirv::bitcast<uint64_t>(ptr);
+    retval.addr = spirv::bitcast<uint64_t>(__ref.get_ptr());
     return retval;    
 }
        
