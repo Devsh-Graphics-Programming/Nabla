@@ -36,6 +36,14 @@ struct __ptr
         retval.__init(nbl::hlsl::experimental::bitcast<typename retval_t::spv_ptr_t>(addr));
         return retval;
     }
+
+    __ptr operator +(int64_t i) {
+        return __ptr::create(addr + sizeof(T) * i);
+    }
+
+    __ptr operator-(int64_t i) {
+        return __ptr::create(addr - sizeof(T) * i);
+    }
 };
 
 }
