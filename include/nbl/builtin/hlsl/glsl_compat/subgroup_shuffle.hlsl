@@ -34,11 +34,7 @@ T subgroupShuffleDown(T value, uint32_t delta)
 template<typename T>
 T subgroupShuffleXor(T value, uint32_t delta)
 {
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
-    return spirv::groupShuffleXor<T>(3, value, delta);
-#else
-    return spirv::groupShuffle<T>(3, value, gl_SubgroupInvocationID() ^ delta);
-#endif
+    return spirv::groupShuffleXor<T>(spv::ScopeSubgroup, value, delta);
 }
 
 
