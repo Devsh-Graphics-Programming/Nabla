@@ -385,6 +385,9 @@ struct enable_if {};
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
 
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B, T>::type;
+
 template<class T>
 struct alignment_of;
 template<class T>

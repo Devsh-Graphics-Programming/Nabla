@@ -29,7 +29,7 @@ T atomicAdd(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicAdd(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
 {
     return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -39,7 +39,7 @@ T atomicAnd(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicAnd(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicAnd(Ptr_T ptr, T value)
 {
     return spirv::atomicAnd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -49,7 +49,7 @@ T atomicOr(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicOr(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicOr(Ptr_T ptr, T value)
 {
     return spirv::atomicOr<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -59,7 +59,7 @@ T atomicXor(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicXor(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
 {
     return spirv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -79,7 +79,7 @@ T atomicExchange(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicExchange(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, T value)
 {
     return spirv::atomicExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -89,7 +89,7 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-typename enable_if<is_spirv_type_v<Ptr_T>, T>::type atomicCompSwap(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T value)
 {
     return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
