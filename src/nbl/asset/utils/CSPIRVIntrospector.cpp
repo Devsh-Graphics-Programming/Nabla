@@ -984,7 +984,6 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
     {
         debug << "SPEC CONSTATS:\n";
 
-        std::string str;
         for (auto& specConstant : m_specConstants)
         {
             const std::string_view specConstantName = std::string_view(specConstant.name.begin(), specConstant.name.end() - 1);
