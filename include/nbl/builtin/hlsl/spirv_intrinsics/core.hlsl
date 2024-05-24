@@ -177,6 +177,21 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
+template<typename T, typename U>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
+
+template<typename T>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+uint64_t bitcast(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>);
+
+template<typename T>
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+[[vk::ext_instruction(spv::OpBitcast)]]
+pointer_t<spv::StorageClassPhysicalStorageBuffer,T> bitcast(uint64_t);
+
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
 Unsigned bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
@@ -187,31 +202,6 @@ Signed bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
 
 }
 
-// should be in `spirv` but would collide right now
-namespace experimental
-{
-using namespace spirv;
-
-template<typename T, typename U>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-T bitcast(U);
-
-template<typename T, uint32_t StorageClass>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-uint64_t bitcast(pointer_t<StorageClass,T>);
-
-template<typename T, uint32_t StorageClass>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-pointer_t<StorageClass,T> bitcast(uint64_t);
-
-template<typename T, typename U, uint32_t StorageClass>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
-[[vk::ext_instruction(spv::OpBitcast)]]
-pointer_t<StorageClass,T> bitcast(pointer_t<StorageClass,U>);
-}
 #endif
     }
 }

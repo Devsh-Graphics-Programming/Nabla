@@ -15,11 +15,7 @@ namespace hlsl
 namespace bda
 {
 template<typename T>
-using __spv_ptr_t = vk::SpirvOpaqueType<
-    spv::OpTypePointer,
-    vk::Literal< vk::integral_constant<uint, spv::StorageClassPhysicalStorageBuffer> >,
-    T
->;
+using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer, T>;
 
 template<typename T>
 struct __ptr;
@@ -35,7 +31,7 @@ struct __base_ref
 
     __spv_ptr_t<T> __get_spv_ptr()
     {
-        return nbl::hlsl::experimental::bitcast < __spv_ptr_t<T> > (ptr);
+        return spirv::bitcast < __spv_ptr_t<T> > (ptr);
     }
 
     // TODO: Would like to use `spv_ptr_t` or OpAccessChain result instead of `uint64_t`
@@ -46,16 +42,16 @@ struct __base_ref
 
     T load()
     {
-        return nbl::hlsl::spirv::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
+        return spirv::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
     }
 
     void store(const T val)
     {
-        nbl::hlsl::spirv::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
+        spirv::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
     }
 };
 
-template<typename T, uint32_t alignment=nbl::hlsl::alignment_of_v<T>, bool _restrict = false>
+template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict = false>
 struct __ref : __base_ref<T,alignment,_restrict>
 {
     using base_t = __base_ref < T, alignment, _restrict>;
