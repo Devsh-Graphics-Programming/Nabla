@@ -355,7 +355,7 @@ NBL_API2 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CSPIRVIntrospector::CPi
         outBinding.type = binding.type;
         outBinding.stageFlags = binding.stageMask;
         outBinding.createFlags = binding.isRuntimeSized() ? ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT : ICPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE;
-        // TODO: outBinding.samplers
+        // outBinding.samplers cannot be filled since spirv doesn't give any info about how such sampler should be filled
     }
 
     if (outBindings.empty())
@@ -503,6 +503,50 @@ void CSPIRVIntrospector::CStageIntrospectionData::shaderMemBlockIntrospection(co
         }
         else
         {
+            // TODO:
+            /*
+            You could actually find the name of a type because whenever one defines a type in SPIR-V they use OpType... which gives them a result ID (integer)
+                    in vec4 color1;
+                    in vec4 multiplier;
+                    noperspective in vec4 color2;
+                    out vec4 color;
+                    
+                    struct S {
+                        bool b;
+                        vec4 v[5];
+                        int i;
+                    };
+                    
+                    uniform blockName {
+                        S s;
+                        bool cond;
+                    };
+            this is the SPIR-V that generates them
+            
+                      %6 = OpTypeFloat 32                         ; 32-bit float
+                      %7 = OpTypeVector %6 4                      ; vec4
+            
+                     %10 = OpConstant %6 1
+                     %11 = OpConstant %6 2
+            
+                     %13 = OpTypeInt 32 0                         ; 32-bit int, sign-less
+                     %14 = OpConstant %13 5
+                     %15 = OpTypeArray %7 %14
+                     %16 = OpTypeInt 32 1
+                     %17 = OpTypeStruct %13 %15 %16
+                     %18 = OpTypeStruct %17 %13
+            and in the debug info you'll have
+            
+                           OpName %17 "S"
+                           OpMemberName %17 0 "b"
+                           OpMemberName %17 1 "v"
+                           OpMemberName %17 2 "i"
+                           OpName %18 "blockName"
+                           OpMemberName %18 0 "s"
+                           OpMemberName %18 1 "cond"
+
+            Note that depending on the compiler, anything thats an OpTypeFloat, OpTypeInt, OpTypeVector or OpTypeArray might not get debug names so we should probably build outselves.
+            */
             getTypeStore()->typeName = addString("TODO");
         }
 
@@ -590,9 +634,9 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
     stageIntroData->m_specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
-        CSPIRVIntrospector::CStageIntrospectionData::SSpecConstant specConst;
+        CSPIRVIntrospector::CStageIntrospectionData::SSpecConstant<true> specConst;
         specConst.id = sconsts[i].constant_id;
-        specConst.name = comp.get_name(sconsts[i].id);
+        specConst.name = stageIntroData->addString(comp.get_name(sconsts[i].id));
 
         const spirv_cross::SPIRConstant& sconstval = comp.get_constant(sconsts[i].id);
         const spirv_cross::SPIRType& type = comp.get_type(sconstval.constant_type);
@@ -622,7 +666,7 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         default: break;
         }
 
-        stageIntroData->m_specConstants.insert(std::move(specConst));
+        stageIntroData->m_specConstants.insert(std::move(reinterpret_cast<CStageIntrospectionData::SSpecConstant<false>&>(specConst)));
     }
 
     spirv_cross::ShaderResources resources = comp.get_shader_resources(comp.get_active_interface_variables()/*TODO: allow choice in Introspection Parameters, comp.get_active_interface_variables()*/);
@@ -942,13 +986,12 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
 
         for (auto& specConstant : m_specConstants)
         {
-            // TODO: it gives weird errors, debug
-            const std::string_view specConstantName = "SPEC_CONSTANT_NAME"; // std::string_view(specConstant.name.begin(), specConstant.name.end());
-
+            const std::string_view specConstantName = std::string_view(specConstant.name.begin(), specConstant.name.end() - 1);
             debug << " name: " << specConstantName << ' '
                 << "TODO: type "
                 << "id: " << specConstant.id << " byte size: " << "TODO: specConstant.defaultValue" << '\n';
-        }    }
+        }
+    }
 
     if (m_pushConstants.type)
     {
