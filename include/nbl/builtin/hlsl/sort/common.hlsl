@@ -12,16 +12,15 @@ namespace hlsl
 namespace sort
 {
 
-struct CountingPushData
+template<class Key>
+struct CountingParameters
 {
-    uint64_t inputKeyAddress;
-    uint64_t inputValueAddress;
-    uint64_t scratchAddress;
-    uint64_t outputKeyAddress;
-    uint64_t outputValueAddress;
+    static_assert(is_integral<Key>::value, "CountingParameters needs to be templated on integral type");
+
     uint32_t dataElementCount;
-    uint32_t minimum;
     uint32_t elementsPerWT;
+    Key minimum;
+    Key maximum;
 };
 
 

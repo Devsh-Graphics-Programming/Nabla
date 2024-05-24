@@ -32,7 +32,7 @@ struct ScratchProxy
 
     void workgroupExecutionAndMemoryBarrier()
     {
-        nbl::hlsl::glsl::barrier();
+        glsl::barrier();
     }
 };
 
@@ -40,19 +40,19 @@ static ScratchProxy arithmeticAccessor;
 
 groupshared uint32_t sdata[BucketCount];
 
-template<typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
+template<typename Key, typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
 struct counting
 {
-    void histogram(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, const nbl::hlsl::sort::CountingPushData data)
+    void histogram(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
     {
-        uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
+        uint32_t tid = workgroup::SubgroupContiguousIndex();
 
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
-            sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
+            sdata[WorkgroupSize * i + tid] = 0;
+        uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
-        nbl::hlsl::glsl::barrier();
+        glsl::barrier();
 
         for (int i = 0; i < data.elementsPerWT; i++)
         {
@@ -60,25 +60,25 @@ struct counting
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
-            nbl::hlsl::glsl::atomicAdd(sdata[k - data.minimum], (uint32_t) 1);
+            glsl::atomicAdd(sdata[k - data.minimum], (uint32_t) 1);
         }
 
-        nbl::hlsl::glsl::barrier();
+        glsl::barrier();
 
         uint32_t sum = 0;
         uint32_t scan_sum = 0;
 
         for (int i = 0; i < BucketsPerThread; i++)
         {
-            sum = nbl::hlsl::workgroup::exclusive_scan < nbl::hlsl::plus < uint32_t >, WorkgroupSize > ::
+            sum = workgroup::exclusive_scan < plus < uint32_t >, WorkgroupSize > ::
             template __call <ScratchProxy>
             (sdata[WorkgroupSize * i + tid], arithmeticAccessor);
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
-            nbl::hlsl::glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i + tid), sum);
+            glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i + tid), sum);
             if ((tid == WorkgroupSize - 1) && i > 0)
-                nbl::hlsl::glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i), scan_sum);
+                glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i), scan_sum);
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -90,16 +90,16 @@ struct counting
         }
     }
                 
-    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, const nbl::hlsl::sort::CountingPushData data)
+    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
     {
-        uint32_t tid = nbl::hlsl::workgroup::SubgroupContiguousIndex();
+        uint32_t tid = workgroup::SubgroupContiguousIndex();
 
         [unroll]
         for (int i = 0; i < BucketsPerThread; i++)
             sdata[BucketsPerThread * tid + i] = 0;
-        uint32_t index = (nbl::hlsl::glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
+        uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
-        nbl::hlsl::glsl::barrier();
+        glsl::barrier();
 
         [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
@@ -109,7 +109,7 @@ struct counting
                 break;
             uint32_t k = key.get(j);
             uint32_t v = val.get(j);
-            sdata[k - data.minimum] = nbl::hlsl::glsl::atomicAdd(scratch.get_ptr(k - data.minimum), (uint32_t) 1);
+            sdata[k - data.minimum] = glsl::atomicAdd(scratch.get_ptr(k - data.minimum), (uint32_t) 1);
             key.set(sdata[k - data.minimum], k);
             val.set(sdata[k - data.minimum], v);
         }
