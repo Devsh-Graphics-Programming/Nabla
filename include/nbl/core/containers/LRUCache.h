@@ -149,7 +149,7 @@ class LRUCache : protected impl::LRUCacheBase<Key,Value,MapHash,MapEquals>, publ
 				const bool overflow = m_shortcut_map.size()>=base_t::m_list.getCapacity();
 				if (overflow)
 				{
-					// evictCallback(base_t::m_list.getBack()->data.second);
+					evictCallback(base_t::m_list.getBack()->data.second);
 					m_shortcut_map.erase(base_t::m_list.getLastAddress());
 					base_t::m_list.popBack();
 				}
