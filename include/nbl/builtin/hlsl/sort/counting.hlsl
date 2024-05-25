@@ -31,7 +31,7 @@ struct counting
 
         uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
-        glsl::barrier();
+        sdata.workgroupExecutionAndMemoryBarrier();
 
         for (int i = 0; i < data.elementsPerWT; i++)
         {
@@ -43,7 +43,7 @@ struct counting
             sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
         }
 
-        glsl::barrier();
+        sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t sum = 0;
         uint32_t scan_sum = 0;
@@ -85,7 +85,7 @@ struct counting
 
         uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
-        glsl::barrier();
+        sdata.workgroupExecutionAndMemoryBarrier();
 
         [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
