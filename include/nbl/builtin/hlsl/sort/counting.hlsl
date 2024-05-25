@@ -76,9 +76,9 @@ struct counting
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
-            glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i + tid), sum);
+            scratch.atomicAdd(WorkgroupSize * i + tid, sum);
             if ((tid == WorkgroupSize - 1) && i > 0)
-                glsl::atomicAdd(scratch.get_ptr(WorkgroupSize * i), scan_sum);
+                scratch.atomicAdd(WorkgroupSize * i, scan_sum);
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -109,7 +109,7 @@ struct counting
                 break;
             uint32_t k = key.get(j);
             uint32_t v = val.get(j);
-            sdata[k - data.minimum] = glsl::atomicAdd(scratch.get_ptr(k - data.minimum), (uint32_t) 1);
+            sdata[k - data.minimum] = scratch.atomicAdd(k - data.minimum, (uint32_t) 1);
             key.set(sdata[k - data.minimum], k);
             val.set(sdata[k - data.minimum], v);
         }
