@@ -15,8 +15,6 @@ namespace hlsl
 namespace sort
 {
 
-NBL_CONSTEXPR uint32_t BucketsPerThread = ceil((float) BucketCount / WorkgroupSize);
-
 groupshared uint32_t prefixScratch[BucketCount];
 
 struct ScratchProxy
@@ -46,9 +44,10 @@ struct counting
     void histogram(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
+        uint32_t buckets_per_thread = (BucketCount + WorkgroupSize - 1) / WorkgroupSize;
 
         [unroll]
-        for (int i = 0; i < BucketsPerThread; i++) {
+        for (int i = 0; i < buckets_per_thread; i++) {
             uint32_t prev_bucket_count = WorkgroupSize * i;
             sdata[prev_bucket_count + tid] = 0;
         }
@@ -72,7 +71,7 @@ struct counting
         uint32_t sum = 0;
         uint32_t scan_sum = 0;
 
-        for (int i = 0; i < BucketsPerThread; i++)
+        for (int i = 0; i < buckets_per_thread; i++)
         {
             uint32_t prev_bucket_count = WorkgroupSize * i;
             sum = workgroup::exclusive_scan < plus < uint32_t >, WorkgroupSize > ::
@@ -85,7 +84,7 @@ struct counting
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
-            if ((tid == WorkgroupSize - 1) && i < (BucketsPerThread - 1))
+            if ((tid == WorkgroupSize - 1) && i < (buckets_per_thread - 1))
             {
                 scan_sum = sum + sdata[prev_bucket_count + tid];
                 sdata[prev_bucket_count + WorkgroupSize] += scan_sum;
@@ -96,9 +95,10 @@ struct counting
     void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
+        uint32_t buckets_per_thread = (BucketCount + WorkgroupSize - 1) / WorkgroupSize;
 
         [unroll]
-        for (int i = 0; i < BucketsPerThread; i++) {
+        for (int i = 0; i < buckets_per_thread; i++) {
             uint32_t prev_bucket_count = WorkgroupSize * i;
             sdata[prev_bucket_count + tid] = 0;
         }
