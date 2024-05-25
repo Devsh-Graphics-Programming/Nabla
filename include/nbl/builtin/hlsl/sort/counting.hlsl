@@ -48,15 +48,19 @@ struct counting
         uint32_t tid = workgroup::SubgroupContiguousIndex();
 
         [unroll]
-        for (int i = 0; i < BucketsPerThread; i++)
-            sdata[WorkgroupSize * i + tid] = 0;
+        for (int i = 0; i < BucketsPerThread; i++) {
+            uint32_t prev_bucket_count = WorkgroupSize * i;
+            sdata[prev_bucket_count + tid] = 0;
+        }
+
         uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
         glsl::barrier();
 
         for (int i = 0; i < data.elementsPerWT; i++)
         {
-            int j = index + i * WorkgroupSize + tid;
+            uint32_t prev_element_count = WorkgroupSize * i;
+            int j = index + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
@@ -70,20 +74,21 @@ struct counting
 
         for (int i = 0; i < BucketsPerThread; i++)
         {
+            uint32_t prev_bucket_count = WorkgroupSize * i;
             sum = workgroup::exclusive_scan < plus < uint32_t >, WorkgroupSize > ::
             template __call <ScratchProxy>
             (sdata[WorkgroupSize * i + tid], arithmeticAccessor);
 
-            scratch.atomicAdd(WorkgroupSize * i + tid, sum);
+            scratch.atomicAdd(prev_bucket_count + tid, sum);
             if ((tid == WorkgroupSize - 1) && i > 0)
-                scratch.atomicAdd(WorkgroupSize * i, scan_sum);
+                scratch.atomicAdd(prev_bucket_count, scan_sum);
 
             arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
 
             if ((tid == WorkgroupSize - 1) && i < (BucketsPerThread - 1))
             {
-                scan_sum = sum + sdata[WorkgroupSize * i + tid];
-                sdata[WorkgroupSize * (i + 1)] += scan_sum;
+                scan_sum = sum + sdata[prev_bucket_count + tid];
+                sdata[prev_bucket_count + WorkgroupSize] += scan_sum;
             }
         }
     }
@@ -93,8 +98,11 @@ struct counting
         uint32_t tid = workgroup::SubgroupContiguousIndex();
 
         [unroll]
-        for (int i = 0; i < BucketsPerThread; i++)
-            sdata[BucketsPerThread * tid + i] = 0;
+        for (int i = 0; i < BucketsPerThread; i++) {
+            uint32_t prev_bucket_count = WorkgroupSize * i;
+            sdata[prev_bucket_count + tid] = 0;
+        }
+
         uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
 
         glsl::barrier();
@@ -102,7 +110,8 @@ struct counting
         [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
         {
-            int j = index + i * WorkgroupSize + tid;
+            uint32_t prev_element_count = WorkgroupSize * i;
+            int j = index + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
