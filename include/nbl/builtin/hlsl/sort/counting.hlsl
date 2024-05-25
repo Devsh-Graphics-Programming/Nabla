@@ -29,14 +29,14 @@ struct counting
             sdata.set(prev_bucket_count + tid, 0);
         }
 
-        uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
         for (int i = 0; i < data.elementsPerWT; i++)
         {
             uint32_t prev_element_count = GroupSize * i;
-            int j = index + prev_element_count + tid;
+            int j = baseIndex + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
@@ -83,7 +83,7 @@ struct counting
             sdata.set(prev_bucket_count + tid, 0);
         }
 
-        uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
@@ -91,7 +91,7 @@ struct counting
         for (int i = 0; i < data.elementsPerWT; i++)
         {
             uint32_t prev_element_count = GroupSize * i;
-            int j = index + prev_element_count + tid;
+            int j = baseIndex + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
