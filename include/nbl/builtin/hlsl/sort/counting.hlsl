@@ -15,55 +15,32 @@ namespace hlsl
 namespace sort
 {
 
-groupshared uint32_t prefixScratch[BucketCount];
-
-struct ScratchProxy
-{
-    uint32_t get(const uint32_t ix)
-    {
-        return prefixScratch[ix];
-    }
-    void set(const uint32_t ix, const uint32_t value)
-    {
-        prefixScratch[ix] = value;
-    }
-
-    void workgroupExecutionAndMemoryBarrier()
-    {
-        glsl::barrier();
-    }
-};
-
-static ScratchProxy arithmeticAccessor;
-
-groupshared uint32_t sdata[BucketCount];
-
-template<typename Key, typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor>
+template<uint16_t GroupSize, uint16_t KeyBucketCount, typename Key, typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor, typename SharedAccessor>
 struct counting
 {
-    void histogram(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
+    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (BucketCount + WorkgroupSize - 1) / WorkgroupSize;
+        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
 
         [unroll]
         for (int i = 0; i < buckets_per_thread; i++) {
-            uint32_t prev_bucket_count = WorkgroupSize * i;
-            sdata[prev_bucket_count + tid] = 0;
+            uint32_t prev_bucket_count = GroupSize * i;
+            sdata.set(prev_bucket_count + tid, 0);
         }
 
-        uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
+        uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         glsl::barrier();
 
         for (int i = 0; i < data.elementsPerWT; i++)
         {
-            uint32_t prev_element_count = WorkgroupSize * i;
+            uint32_t prev_element_count = GroupSize * i;
             int j = index + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
-            glsl::atomicAdd(sdata[k - data.minimum], (uint32_t) 1);
+            sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
         }
 
         glsl::barrier();
@@ -73,52 +50,55 @@ struct counting
 
         for (int i = 0; i < buckets_per_thread; i++)
         {
-            uint32_t prev_bucket_count = WorkgroupSize * i;
-            sum = workgroup::exclusive_scan < plus < uint32_t >, WorkgroupSize > ::
-            template __call <ScratchProxy>
-            (sdata[WorkgroupSize * i + tid], arithmeticAccessor);
+            uint32_t prev_bucket_count = GroupSize * i;
+            uint32_t histogram_value = sdata.get(prev_bucket_count + tid);
+            sum = workgroup::exclusive_scan < plus < uint32_t >, GroupSize > ::
+            template __call <SharedAccessor>
+            (histogram_value, sdata);
 
             scratch.atomicAdd(prev_bucket_count + tid, sum);
-            if ((tid == WorkgroupSize - 1) && i > 0)
+            if ((tid == GroupSize - 1) && i > 0)
                 scratch.atomicAdd(prev_bucket_count, scan_sum);
 
-            arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
+            sdata.set(prev_bucket_count + tid, histogram_value);
 
-            if ((tid == WorkgroupSize - 1) && i < (buckets_per_thread - 1))
+            sdata.workgroupExecutionAndMemoryBarrier();
+
+            if ((tid == GroupSize - 1) && i < (buckets_per_thread - 1))
             {
-                scan_sum = sum + sdata[prev_bucket_count + tid];
-                sdata[prev_bucket_count + WorkgroupSize] += scan_sum;
+                scan_sum = sum + sdata.get(prev_bucket_count + tid);
+                sdata.atomicAdd(prev_bucket_count + GroupSize, scan_sum);
             }
         }
     }
                 
-    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, const CountingParameters<Key> data)
+    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (BucketCount + WorkgroupSize - 1) / WorkgroupSize;
+        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
 
         [unroll]
         for (int i = 0; i < buckets_per_thread; i++) {
-            uint32_t prev_bucket_count = WorkgroupSize * i;
-            sdata[prev_bucket_count + tid] = 0;
+            uint32_t prev_bucket_count = GroupSize * i;
+            sdata.set(prev_bucket_count + tid, 0);
         }
 
-        uint32_t index = (glsl::gl_WorkGroupID().x * WorkgroupSize) * data.elementsPerWT;
+        uint32_t index = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         glsl::barrier();
 
         [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
         {
-            uint32_t prev_element_count = WorkgroupSize * i;
+            uint32_t prev_element_count = GroupSize * i;
             int j = index + prev_element_count + tid;
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
             uint32_t v = val.get(j);
-            sdata[k - data.minimum] = scratch.atomicAdd(k - data.minimum, (uint32_t) 1);
-            key.set(sdata[k - data.minimum], k);
-            val.set(sdata[k - data.minimum], v);
+            sdata.set(k - data.minimum, scratch.atomicAdd(k - data.minimum, (uint32_t) 1));
+            key.set(sdata.get(k - data.minimum), k);
+            val.set(sdata.get(k - data.minimum), v);
         }
     }
 };
