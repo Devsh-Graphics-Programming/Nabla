@@ -74,8 +74,6 @@ struct counting
             template __call <ScratchProxy>
             (sdata[WorkgroupSize * i + tid], arithmeticAccessor);
 
-            arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
-
             scratch.atomicAdd(WorkgroupSize * i + tid, sum);
             if ((tid == WorkgroupSize - 1) && i > 0)
                 scratch.atomicAdd(WorkgroupSize * i, scan_sum);
