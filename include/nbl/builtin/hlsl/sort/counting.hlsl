@@ -24,18 +24,16 @@ struct counting
                 template __call <SharedAccessor>(value, sdata);
     }
 
-    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
-        [unroll]
         for (int i = 0; i < buckets_per_thread; i++) {
             uint32_t prev_bucket_count = GroupSize * i;
             sdata.set(prev_bucket_count + tid, 0);
         }
-
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
@@ -50,6 +48,14 @@ struct counting
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
+    }
+
+    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    {
+        uint32_t tid = workgroup::SubgroupContiguousIndex();
+        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
+
+        build_histogram(key, sdata, data);
 
         uint32_t histogram_value = sdata.get(tid);
 
@@ -80,27 +86,7 @@ struct counting
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
 
-        [unroll]
-        for (int i = 0; i < buckets_per_thread; i++) {
-            uint32_t prev_bucket_count = GroupSize * i;
-            sdata.set(prev_bucket_count + tid, 0);
-        }
-
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
-
-        sdata.workgroupExecutionAndMemoryBarrier();
-
-        for (int i = 0; i < data.elementsPerWT; i++)
-        {
-            uint32_t prev_element_count = GroupSize * i;
-            int j = baseIndex + prev_element_count + tid;
-            if (j >= data.dataElementCount)
-                break;
-            uint32_t k = key.get(j);
-            sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
-        }
-
-        sdata.workgroupExecutionAndMemoryBarrier();
+        build_histogram(key, sdata, data);
 
         for (int i = 0; i < buckets_per_thread; i++)
         {
@@ -112,6 +98,8 @@ struct counting
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
+
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
