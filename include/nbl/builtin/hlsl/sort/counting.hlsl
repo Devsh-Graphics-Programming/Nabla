@@ -90,7 +90,6 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        [unroll]
         for (int i = 0; i < data.elementsPerWT; i++)
         {
             uint32_t prev_element_count = GroupSize * i;
@@ -98,10 +97,34 @@ struct counting
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
-            uint32_t v = val.get(j);
-            sdata.set(k - data.minimum, scratch.atomicAdd(k - data.minimum, (uint32_t) -1) - 1);
-            key.set(sdata.get(k - data.minimum), k);
-            val.set(sdata.get(k - data.minimum), v);
+            sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
+        }
+
+        sdata.workgroupExecutionAndMemoryBarrier();
+
+        for (int i = 0; i < buckets_per_thread; i++)
+        {
+            uint32_t prev_bucket_count = GroupSize * i;
+            uint32_t index = prev_bucket_count + tid;
+            uint32_t exclusive_value = scratch.atomicSub(index, sdata.get(index)) - sdata.get(index);
+
+            sdata.set(index, exclusive_value);
+        }
+
+        sdata.workgroupExecutionAndMemoryBarrier();
+
+        [unroll]
+        for (int i = 0; i < data.elementsPerWT; i++)
+        {
+            uint32_t prev_element_count = GroupSize * i;
+            int j = baseIndex + prev_element_count + tid;
+            if (j >= data.dataElementCount)
+                break;
+            const Key k = key.get(j);
+            const uint32_t v = val.get(j);
+            const uint32_t sortedIx = sdata.atomicAdd(k - data.minimum, 1);
+            key.set(sortedIx, k);
+            val.set(sortedIx, v);
         }
     }
 };
