@@ -18,6 +18,12 @@ namespace sort
 template<uint16_t GroupSize, uint16_t KeyBucketCount, typename Key, typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor, typename SharedAccessor>
 struct counting
 {
+    uint32_t inclusive_scan(uint32_t value, NBL_REF_ARG(SharedAccessor) sdata)
+    {
+        return workgroup::inclusive_scan < plus < uint32_t >, GroupSize >::
+                template __call <SharedAccessor>(value, sdata);
+    }
+
     void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -45,30 +51,27 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t sum = 0;
-        uint32_t scan_sum = 0;
+        uint32_t histogram_value = sdata.get(tid);
 
-        for (int i = 0; i < buckets_per_thread; i++)
+        sdata.workgroupExecutionAndMemoryBarrier();
+
+        uint32_t sum = inclusive_scan(histogram_value, sdata);
+        scratch.atomicAdd(tid, sum);
+
+        for (int i = 1; i < buckets_per_thread; i++)
         {
             uint32_t prev_bucket_count = GroupSize * i;
-            uint32_t histogram_value = sdata.get(prev_bucket_count + tid);
-            sum = workgroup::exclusive_scan < plus < uint32_t >, GroupSize > ::
-            template __call <SharedAccessor>
-            (histogram_value, sdata);
 
-            scratch.atomicAdd(prev_bucket_count + tid, sum);
-            if ((tid == GroupSize - 1) && i > 0)
-                scratch.atomicAdd(prev_bucket_count, scan_sum);
-
-            sdata.set(prev_bucket_count + tid, histogram_value);
+            if (tid == GroupSize - 1) {
+                sdata.atomicAdd(prev_bucket_count, sum);
+            }
 
             sdata.workgroupExecutionAndMemoryBarrier();
 
-            if ((tid == GroupSize - 1) && i < (buckets_per_thread - 1))
-            {
-                scan_sum = sum + sdata.get(prev_bucket_count + tid);
-                sdata.atomicAdd(prev_bucket_count + GroupSize, scan_sum);
-            }
+            uint32_t index = prev_bucket_count + tid;
+            sum = inclusive_scan(sdata.get(index), sdata);
+
+            scratch.atomicAdd(prev_bucket_count + tid, sum);
         }
     }
                 
@@ -96,7 +99,7 @@ struct counting
                 break;
             uint32_t k = key.get(j);
             uint32_t v = val.get(j);
-            sdata.set(k - data.minimum, scratch.atomicAdd(k - data.minimum, (uint32_t) 1));
+            sdata.set(k - data.minimum, scratch.atomicAdd(k - data.minimum, (uint32_t) -1) - 1);
             key.set(sdata.get(k - data.minimum), k);
             val.set(sdata.get(k - data.minimum), v);
         }
