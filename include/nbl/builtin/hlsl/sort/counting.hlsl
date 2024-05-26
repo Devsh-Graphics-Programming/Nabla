@@ -15,7 +15,16 @@ namespace hlsl
 namespace sort
 {
 
-template<uint16_t GroupSize, uint16_t KeyBucketCount, typename Key, typename KeyAccessor, typename ValueAccessor, typename ScratchAccessor, typename SharedAccessor>
+template<
+    uint16_t GroupSize,
+    uint16_t KeyBucketCount,
+    typename Key,
+    typename KeyAccessor,
+    typename ValueAccessor,
+    typename ScratchAccessor,
+    typename SharedAccessor,
+    bool robust=false
+>
 struct counting
 {
     uint32_t inclusive_scan(uint32_t value, NBL_REF_ARG(SharedAccessor) sdata)
@@ -44,6 +53,8 @@ struct counting
             if (j >= data.dataElementCount)
                 break;
             uint32_t k = key.get(j);
+            if (robust && (k<data.minimum || k>data.maximum) )
+                continue;
             sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
         }
 
@@ -110,6 +121,8 @@ struct counting
                 break;
             const Key k = key.get(j);
             const uint32_t v = val.get(j);
+            if (robust && (k<data.minimum || k>data.maximum) )
+                continue;
             const uint32_t sortedIx = sdata.atomicAdd(k - data.minimum, 1);
             key.set(sortedIx, k);
             val.set(sortedIx, v);
