@@ -21,7 +21,7 @@ template<
     typename Key,
     typename KeyAccessor,
     typename ValueAccessor,
-    typename ScratchAccessor,
+    typename HistogramAccessor,
     typename SharedAccessor,
     bool robust=false
 >
@@ -61,7 +61,7 @@ struct counting
         sdata.workgroupExecutionAndMemoryBarrier();
     }
 
-    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
@@ -73,7 +73,7 @@ struct counting
         sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t sum = inclusive_scan(histogram_value, sdata);
-        scratch.atomicAdd(tid, sum);
+        histogram.atomicAdd(tid, sum);
 
         for (int i = 1; i < buckets_per_thread; i++)
         {
@@ -88,11 +88,11 @@ struct counting
             uint32_t index = prev_bucket_count + tid;
             sum = inclusive_scan(sdata.get(index), sdata);
 
-            scratch.atomicAdd(prev_bucket_count + tid, sum);
+            histogram.atomicAdd(prev_bucket_count + tid, sum);
         }
     }
                 
-    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(ScratchAccessor) scratch, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
@@ -103,7 +103,7 @@ struct counting
         {
             uint32_t prev_bucket_count = GroupSize * i;
             uint32_t index = prev_bucket_count + tid;
-            uint32_t exclusive_value = scratch.atomicSub(index, sdata.get(index)) - sdata.get(index);
+            uint32_t exclusive_value = histogram.atomicSub(index, sdata.get(index)) - sdata.get(index);
 
             sdata.set(index, exclusive_value);
         }
