@@ -19,8 +19,8 @@ namespace emulated
         nbl::hlsl::uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
         {
            nbl::hlsl::uint32_t2 output;
-           output.x = a1 + b1;
-           output.y = a0 + b0 + uint32_t(output.x < a1);
+           output.y = a1 + b1;
+           output.x = a0 + b0 + uint32_t(output.y < a1);
 
            return output;
         }
@@ -28,11 +28,13 @@ namespace emulated
         nbl::hlsl::uint32_t2 shortShift64Left(uint32_t a0, uint32_t a1, int count)
         {
             nbl::hlsl::uint32_t2 output;
-            output.x = a1 << count;
-            output.y = nbl::hlsl::lerp((a0 << count | (a1 >> ((-count) & 31))), a0, count == 0);
+            output.y = a1 << count;
+            output.x = nbl::hlsl::lerp((a0 << count | (a1 >> ((-count) & 31))), a0, count == 0);
+            
+            return output;
         };
         
-        nbl::hlsl::uint32_t4 mul64to128(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1, uint32_t z0Ptr)
+        nbl::hlsl::uint32_t4 mul64to128(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
         {
             uint32_t z0 = 0u;
             uint32_t z1 = 0u;
@@ -74,6 +76,133 @@ namespace emulated
             output.w = z3;
             return output;
         }
+        
+        nbl::hlsl::uint32_t3 shift64ExtraRightJamming(uint32_t a0, uint32_t a1, uint32_t a2, int count)
+        {
+           nbl::hlsl::uint32_t3 output;
+           output.x = 0u;
+           
+           int negCount = (-count) & 31;
+        
+           output.z = nbl::hlsl::lerp(uint32_t(a0 != 0u), a0, count == 64);
+           output.z = nbl::hlsl::lerp(output.z, a0 << negCount, count < 64);
+           output.z = nbl::hlsl::lerp(output.z, a1 << negCount, count < 32);
+        
+           output.y = nbl::hlsl::lerp(0u, (a0 >> (count & 31)), count < 64);
+           output.y = nbl::hlsl::lerp(output.y, (a0<<negCount) | (a1>>count), count < 32);
+        
+           a2 = nbl::hlsl::lerp(a2 | a1, a2, count < 32);
+           output.x = nbl::hlsl::lerp(output.x, a0 >> count, count < 32);
+           output.z |= uint32_t(a2 != 0u);
+        
+           output.x = nbl::hlsl::lerp(output.x, 0u, (count == 32));
+           output.y = nbl::hlsl::lerp(output.y, a0, (count == 32));
+           output.z = nbl::hlsl::lerp(output.z, a1, (count == 32));
+           output.x = nbl::hlsl::lerp(output.x, a0, (count == 0));
+           output.y = nbl::hlsl::lerp(output.y, a1, (count == 0));
+           output.z = nbl::hlsl::lerp(output.z, a2, (count == 0));
+           
+           return output;
+        }
+        
+        
+        uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
+        {
+           nbl::hlsl::uint32_t2 z;
+        
+           z.x = zSign + (uint32_t(zExp) << 20) + zFrac0;
+           z.y = zFrac1;
+           
+           uint64_t output = 0u;
+           output |= (uint64_t(z.x) << 32) & 0xFFFFFFFF00000000ull;
+           output |= uint64_t(z.y);
+           return  output;
+        }
+
+        
+        uint64_t roundAndPackFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1, uint32_t zFrac2)
+        {
+           bool roundNearestEven;
+           bool increment;
+        
+           roundNearestEven = true;
+           increment = int(zFrac2) < 0;
+           if (!roundNearestEven) 
+           {
+              if (false) //(FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO)
+              {
+                 increment = false;
+              } 
+              else
+              {
+                 if (false) //(zSign != 0u)
+                 {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) &&
+                    //   (zFrac2 != 0u);
+                 }
+                 else
+                 {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) &&
+                    //   (zFrac2 != 0u);
+                 }
+              }
+           }
+           if (0x7FD <= zExp)
+           {
+              if ((0x7FD < zExp) || ((zExp == 0x7FD) && (0x001FFFFFu == zFrac0 && 0xFFFFFFFFu == zFrac1) && increment))
+              {
+                 if (false) // ((FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO) ||
+                    // ((zSign != 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP)) ||
+                    // ((zSign == 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN)))
+                 {
+                    return packFloat64(zSign, 0x7FE, 0x000FFFFFu, 0xFFFFFFFFu);
+                 }
+                 
+                 return packFloat64(zSign, 0x7FF, 0u, 0u);
+              }
+           }
+        
+           if (zExp < 0)
+           {
+              nbl::hlsl::uint32_t3 shifted = shift64ExtraRightJamming(zFrac0, zFrac1, zFrac2, -zExp);
+              zFrac0 = shifted.x;
+              zFrac1 = shifted.y;
+              zFrac2 = shifted.z;
+              zExp = 0;
+              
+              if (roundNearestEven)
+              {
+                 increment = zFrac2 < 0u;
+              }
+              else
+              {
+                 if (zSign != 0u)
+                 {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) && (zFrac2 != 0u);
+                 }
+                 else
+                 {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) && (zFrac2 != 0u);
+                 }
+              }
+           }
+        
+           if (increment)
+           {
+              nbl::hlsl::uint32_t2 added = add64(zFrac0, zFrac1, 0u, 1u);
+              zFrac0 = added.x;
+              zFrac1 = added.y;
+              zFrac1 &= ~((zFrac2 + uint32_t(zFrac2 == 0u)) & uint32_t(roundNearestEven));
+           }
+           else
+           {
+              zExp = nbl::hlsl::lerp(zExp, 0, (zFrac0 | zFrac1) == 0u);
+           }
+           
+           return packFloat64(zSign, zExp, zFrac0, zFrac1);
+        }
+
+
     }
 
     struct emulated_float64_t
@@ -89,6 +218,14 @@ namespace emulated
         { 
             emulated_float64_t output;
             output.data = val;
+            return output;
+        }
+        
+        template<>
+        static emulated_float64_t create(double val)
+        {
+            emulated_float64_t output;
+            output.data = reinterpret_cast<uint64_t&>(val);
             return output;
         }
 
@@ -109,16 +246,17 @@ namespace emulated
 
         emulated_float64_t operator*(const emulated_float64_t rhs)
         {
-            emulated_float64_t retval;
-
-            uint32_t lhsLow = uint32_t(data);
-            uint32_t rhsLow = uint32_t(rhs.data);
+            emulated_float64_t retval = emulated_float64_t::create(0u);
+            
+            
+            uint32_t lhsLow = uint32_t(data & 0x00000000FFFFFFFFull);
+            uint32_t rhsLow = uint32_t(rhs.data & 0x00000000FFFFFFFFull);
             uint32_t lhsHigh = uint32_t((data & 0x000FFFFF00000000ull) >> 32);
             uint32_t rhsHigh = uint32_t((rhs.data & 0x000FFFFF00000000ull) >> 32);
             uint32_t lhsExp = uint32_t((data >> 52) & 0x7FFull);
             uint32_t rhsExp = uint32_t((rhs.data >> 52) & 0x7FFull);
 
-            int32_t exp = lhsExp + rhsExp - 0x400ull;
+            int32_t exp = int32_t(lhsExp + rhsExp) - 0x400u;
             uint64_t sign = (data ^ rhs.data) & 0x8000000000000000ull;
             
 
@@ -127,20 +265,16 @@ namespace emulated
             rhsHigh = shifted.x;
             rhsLow = shifted.y;
 
-            nbl::hlsl::uint64_t4 product = emulated::impl::mul64To128(lhsHigh, lhsLow, rhsHigh, rhsLow);
-            product.xy = emulated::impl::add64(product.x, product.y, lhsHigh, aLow);
-            product.z |= uint32_t(product.w != 0u);
-            if (0x00200000u <= product.x)
+            nbl::hlsl::uint32_t4 fracUnpacked = impl::mul64to128(lhsHigh, lhsLow, rhsHigh, rhsLow);
+            fracUnpacked.xy = emulated::impl::add64(fracUnpacked.x, fracUnpacked.y, lhsHigh, lhsLow);
+            fracUnpacked.z |= uint32_t(fracUnpacked.w != 0u);
+            if (0x00200000u <= fracUnpacked.x)
             {
-               //__shift64ExtraRightJamming(
-               //  zFrac0, zFrac1, zFrac2, 1, zFrac0, zFrac1, zFrac2);
-               ++zExp;
+               fracUnpacked = nbl::hlsl::uint32_t4(impl::shift64ExtraRightJamming(fracUnpacked.x, fracUnpacked.y, fracUnpacked.z, 1), 0u);
+               ++exp;
             }
-            //return __roundAndPackFloat64(zSign, zExp, zFrac0, zFrac1, zFrac2);
-
-            //uint32_t frac = 1;
-
-            return emulated_float64_t::create(sign | ((uint64_t(exp) + 1023ull) << 52) | (uint64_t(frac) & 0x000FFFFFFFFFFFFull));
+            
+            return emulated_float64_t::create(impl::roundAndPackFloat64(sign, exp, fracUnpacked.x, fracUnpacked.y, fracUnpacked.z));
         }
 
         emulated_float64_t operator/(const emulated_float64_t rhs)
