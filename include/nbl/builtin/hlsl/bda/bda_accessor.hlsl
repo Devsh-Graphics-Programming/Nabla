@@ -11,35 +11,33 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace bda
-{
 
 template<typename T>
 struct BdaAccessor
 {
-    static BdaAccessor<T> create(const uint64_t addr)
+    static BdaAccessor<T> create(const bda::__ptr<T> ptr)
     {
         BdaAccessor<T> accessor;
-        accessor.ptr = __ptr<T>::create(addr);
+        accessor.ptr = ptr;
         return accessor;
     }
 
     T get(const uint64_t index)
     {
-        __ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + index;
         return target.template deref().load();
     }
 
     void set(const uint64_t index, const T value)
     {
-        __ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + index;
         return target.template deref().store(value);
     }
 
     enable_if_t<is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
     atomicAdd(const uint64_t index, const T value)
     {
-        __ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + index;
         return nbl::hlsl::glsl::atomicAdd(target.template deref().get_ptr(), value);
     }
 
@@ -49,10 +47,9 @@ struct BdaAccessor
         return atomicAdd(index, (T) (-1 * value));
     }
 
-    __ptr<T> ptr;
+    bda::__ptr<T> ptr;
 };
 
-}
 }
 }
 
