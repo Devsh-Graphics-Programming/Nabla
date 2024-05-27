@@ -34,6 +34,16 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
     return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T>
+T atomicSub(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicISub<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicSub(Ptr_T ptr, T value)
+{
+    return spirv::atomicISub<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);

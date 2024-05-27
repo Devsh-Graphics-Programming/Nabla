@@ -38,13 +38,14 @@ struct BdaAccessor
     atomicAdd(const uint64_t index, const T value)
     {
         bda::__ptr<T> target = ptr + index;
-        return nbl::hlsl::glsl::atomicAdd(target.template deref().get_ptr(), value);
+        return glsl::atomicAdd(target.template deref().get_ptr(), value);
     }
 
     enable_if_t<is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
     atomicSub(const uint64_t index, const T value)
     {
-        return atomicAdd(index, (T) (-1 * value));
+        bda::__ptr<T> target = ptr + index;
+        return glsl::atomicSub(target.template deref().get_ptr(), value);
     }
 
     bda::__ptr<T> ptr;
