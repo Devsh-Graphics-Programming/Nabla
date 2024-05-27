@@ -2,8 +2,10 @@
     "headerGuard": "_NBL_VIDEO_S_PHYSICAL_DEVICE_LIMITS_H_INCLUDED_",
     "includePath": "nbl/asset/",
     "includes": [ "utils/CGLSLCompiler.h", "IImage.h", "IRenderpass.h" ],
+    "stlIncludes": ["type_traits"],
+    "namespace": "nbl::video",
     "structName": "SPhysicalDeviceLimits",
-    "structComment": "Struct is populated with Nabla Core Profile Limit Minimums",
+    "structComment": [ "Struct is populated with Nabla Core Profile Limit Minimums" ],
     "constexprs": [
         {
             "type": "uint32_t",
