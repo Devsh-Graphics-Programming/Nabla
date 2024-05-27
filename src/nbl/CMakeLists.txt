@@ -319,6 +319,11 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
+
+# JSON
+	${NBL_ROOT_PATH}/src/nbl/video/device_limits.json
+	${NBL_ROOT_PATH}/src/nbl/video/device_features.json
+	
 )
 
 set(NBL_SCENE_SOURCES
