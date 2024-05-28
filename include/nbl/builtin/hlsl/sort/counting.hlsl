@@ -121,9 +121,9 @@ struct counting
             if (j >= data.dataElementCount)
                 break;
             const Key k = key.get(j);
-            const uint32_t v = val.get(j);
             if (robust && (k<data.minimum || k>data.maximum) )
                 continue;
+            const uint32_t v = val.get(j);
             const uint32_t sortedIx = sdata.atomicAdd(k - data.minimum, 1);
             key.set(sortedIx, k);
             val.set(sortedIx, v);
