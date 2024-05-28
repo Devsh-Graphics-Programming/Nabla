@@ -72,19 +72,18 @@ struct counting
         histogram.atomicAdd(tid, sum);
 
         const bool is_last_wg_invocation = tid == (GroupSize - 1);
+        const uint16_t adjusted_key_bucket_count = KeyBucketCount + (GroupSize - KeyBucketCount % GroupSize);
 
-        for (int i = 1; i < buckets_per_thread; i++)
+        for (tid += GroupSize; tid < adjusted_key_bucket_count; tid += GroupSize)
         {
-            uint32_t prev_bucket_count = GroupSize * i;
-
             if (is_last_wg_invocation) {
-                sdata.set(prev_bucket_count, sdata.get(prev_bucket_count) + sum);
+                uint32_t startIndex = tid - tid % GroupSize;
+                sdata.set(startIndex, sdata.get(startIndex) + sum);
             }
 
-            uint32_t index = prev_bucket_count + tid;
-            sum = inclusive_scan(sdata.get(index), sdata);
+            sum = inclusive_scan(sdata.get(tid), sdata);
 
-            histogram.atomicAdd(prev_bucket_count + tid, sum);
+            histogram.atomicAdd(tid, sum);
         }
     }
                 
