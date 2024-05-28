@@ -12,14 +12,14 @@ namespace nbl
 namespace hlsl
 {
 
-    template<typename T>
+    template<typename Scalar>
     struct complex_t
     {
-        T m_real;
-        T m_imag;
+        Scalar m_real;
+        Scalar m_imag;
             
         // ------------------------- Constructors ---------------------------------------
-        static complex_t create(const T real, const T imag)
+        static complex_t create(const Scalar real, const Scalar imag)
         {
                 complex_t retVal = { real, imag };
                 return retVal;
@@ -31,21 +31,21 @@ namespace hlsl
         }
             
         // ------------------------- Member functions -------------------------------      
-        T real() {
+        Scalar real() {
             return m_real;
         }
             
-        void real(const T value)
+        void real(const Scalar value)
         {
             m_real = value;
         }
             
-        T imag()
+        Scalar imag()
         {
             return m_imag;
         }
             
-        void imag(const T value)
+        void imag(const Scalar value)
         {
             m_imag = value;
         }
@@ -80,7 +80,7 @@ namespace hlsl
         }
             
         // multiply by scalar
-        complex_t operator*(const T scalar)
+        complex_t operator*(const Scalar scalar)
         {
             complex_t result;
             result.m_real = m_real * scalar;
@@ -90,7 +90,7 @@ namespace hlsl
         }
             
         // Divide by scalar
-        complex_t operator/(const T scalar)
+        complex_t operator/(const Scalar scalar)
         {
             complex_t result;
             result.m_real = m_real / scalar;
@@ -123,65 +123,65 @@ namespace hlsl
     };
 
     // ---------------------- Compound assignment functors ----------------------
-    template <typename T>
-    struct CompoundHelper{              
-        using add = assign_add_t<complex_t<T> >;
-        using subtract = assign_subtract_t<complex_t<T> >;
-        using mul = assign_mul_t<complex_t<T> >;
-        using div = assign_div_t<complex_t<T> >;
+    template <typename Scalar>
+    struct ComplexCompoundHelper{              
+        using add = assign_add_t<complex_t<Scalar> >;
+        using subtract = assign_subtract_t<complex_t<Scalar> >;
+        using mul = assign_mul_t<complex_t<Scalar> >;
+        using div = assign_div_t<complex_t<Scalar> >;
     };
 
-    template <typename T>
-    using assign_add_complex = typename CompoundHelper<T>::add;
-    template <typename T>
-    using assign_subtract_complex = typename CompoundHelper<T>::subtract;
-    template <typename T>
-    using assign_mul_complex = typename CompoundHelper<T>::mul;
-    template <typename T>
-    using assign_div_complex = typename CompoundHelper<T>::div;
+    template <typename Scalar>
+    using assign_add_complex = typename ComplexCompoundHelper<Scalar>::add;
+    template <typename Scalar>
+    using assign_subtract_complex = typename ComplexCompoundHelper<Scalar>::subtract;
+    template <typename Scalar>
+    using assign_mul_complex = typename ComplexCompoundHelper<Scalar>::mul;
+    template <typename Scalar>
+    using assign_div_complex = typename ComplexCompoundHelper<Scalar>::div;
 
     // ---------------------- Non-member functions -----------------------------    
-    template<typename T>
-    T real(const complex_t<T> c) {
+    template<typename Scalar>
+    Scalar real(const complex_t<Scalar> c) {
         return c.m_real;
     }
     
-    template<typename T>
-    T imag(const complex_t<T> c) {
+    template<typename Scalar>
+    Scalar imag(const complex_t<Scalar> c) {
         return c.m_imag;
     }
     
-    template<typename T>
-    T norm(const complex_t<T> c) {
+    template<typename Scalar>
+    Scalar norm(const complex_t<Scalar> c) {
         return c.m_real * c.m_real + c.m_imag * c.m_imag;
     }
 
-    template<typename T>
-    T abs(const complex_t<T> c) {
+    template<typename Scalar>
+    Scalar abs(const complex_t<Scalar> c) {
         return sqrt(norm(c));
     }
 
-    template<typename T>
-    T arg(const complex_t<T> c) {
+    template<typename Scalar>
+    Scalar arg(const complex_t<Scalar> c) {
         return atan2(c.m_imag, c.m_real);
     }
 
-    template<typename T>
-    complex_t<T> conj(const complex_t<T> c) {
-        complex_t<T> retVal = {c.m_real, - c.m_imag};
+    template<typename Scalar>
+    complex_t<Scalar> conj(const complex_t<Scalar> c) {
+        complex_t<Scalar> retVal = {c.m_real, - c.m_imag};
         return retVal;
     }
 
-    template<typename T>
-    complex_t<T> proj(const complex_t<T> c) {
-        T den = norm(c) + T(1.0);
-        complex_t<T> retVal = { (T(2.0) * c.m_real) / den , (T(2.0) * c.m_imag) / den};
+    template<typename Scalar>
+    complex_t<Scalar> proj(const complex_t<Scalar> c) {
+        Scalar den = norm(c) + Scalar(1.0);
+        complex_t<Scalar> retVal = { (Scalar(2.0) * c.m_real) / den , (Scalar(2.0) * c.m_imag) / den};
         return retVal;
     }
 
-    template<typename T>
-    complex_t<T> polar(const T r, const T theta) {
-        complex_t<T> retVal = {r * cos(theta), r * sin(theta)};
+    template<typename Scalar>
+    complex_t<Scalar> polar(const Scalar r, const Scalar theta) {
+        complex_t<Scalar> retVal = {r * cos(theta), r * sin(theta)};
         return retVal;
     }
 

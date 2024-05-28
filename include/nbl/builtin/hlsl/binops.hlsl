@@ -7,7 +7,7 @@ namespace hlsl
 {
 
 #define COMPOUND_ASSIGN(NAME,OP) template<typename T> struct assign_ ## NAME ## _t { \
-    void operator()(inout NBL_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
+    void operator()(NBL_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
     { \
         lhs = lhs OP rhs; \
     } \
