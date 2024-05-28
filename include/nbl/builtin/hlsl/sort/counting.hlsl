@@ -108,7 +108,7 @@ struct counting
         uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT);
 
         [unroll]
-        for (; index < endIndex; index++)
+        for (; index < endIndex; index += GroupSize)
         {
             const Key k = key.get(index);
             if (robust && (k<params.minimum || k>params.maximum) )
