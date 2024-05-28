@@ -118,35 +118,35 @@ enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int3
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMin )]]
-enable_if_t<is_same_v<Signed,uint32_t> || is_same_v<Signed,int32_t>, Signed> atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMin)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<Signed,uint32_t> || is_same_v<Signed,int32_t>), Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMin )]]
-enable_if_t<is_same_v<Unsigned,uint32_t> || is_same_v<Unsigned,int32_t>, Unsigned> atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMin)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<Unsigned,uint32_t> || is_same_v<Unsigned,int32_t>), Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMax )]]
-enable_if_t<is_same_v<Signed,uint32_t> || is_same_v<Signed,int32_t>, Signed> atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMax)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<Signed,uint32_t> || is_same_v<Signed,int32_t>), Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMax )]]
-enable_if_t<is_same_v<Unsigned,uint32_t> || is_same_v<Unsigned,int32_t>, Unsigned> atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMax)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<Unsigned,uint32_t> || is_same_v<Unsigned,int32_t>), Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
