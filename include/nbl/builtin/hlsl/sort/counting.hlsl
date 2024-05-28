@@ -44,7 +44,7 @@ struct counting
         sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t index = params.workGroupIndex * GroupSize * params.elementsPerWT + tid % GroupSize;
-        uint32_t endIndex = index + GroupSize * params.elementsPerWT;
+        uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT);
 
         for (; index < endIndex; index += GroupSize)
         {
@@ -105,7 +105,7 @@ struct counting
         sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t index = params.workGroupIndex * GroupSize * params.elementsPerWT + tid % GroupSize;
-        uint32_t endIndex = index + GroupSize * params.elementsPerWT;
+        uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT);
 
         [unroll]
         for (; index < endIndex; index++)
