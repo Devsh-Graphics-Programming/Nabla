@@ -103,7 +103,8 @@ struct counting
         {
             uint32_t prev_bucket_count = GroupSize * i;
             uint32_t index = prev_bucket_count + tid;
-            uint32_t exclusive_value = histogram.atomicSub(index, sdata.get(index)) - sdata.get(index);
+            uint32_t bucket_value = sdata.get(index);
+            uint32_t exclusive_value = histogram.atomicSub(index, bucket_value) - bucket_value;
 
             sdata.set(index, exclusive_value);
         }
