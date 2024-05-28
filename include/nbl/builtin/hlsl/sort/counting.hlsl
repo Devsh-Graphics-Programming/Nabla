@@ -33,11 +33,11 @@ struct counting
                 template __call <SharedAccessor>(value, sdata);
     }
 
-    void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * params.elementsPerWT;
 
         for (int i = 0; i < buckets_per_thread; i++) {
             uint32_t prev_bucket_count = GroupSize * i;
@@ -46,27 +46,27 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        for (int i = 0; i < data.elementsPerWT; i++)
+        for (int i = 0; i < params.elementsPerWT; i++)
         {
             uint32_t prev_element_count = GroupSize * i;
             int j = baseIndex + prev_element_count + tid;
-            if (j >= data.dataElementCount)
+            if (j >= params.dataElementCount)
                 break;
             uint32_t k = key.get(j);
-            if (robust && (k<data.minimum || k>data.maximum) )
+            if (robust && (k<params.minimum || k>params.maximum) )
                 continue;
-            sdata.atomicAdd(k - data.minimum, (uint32_t) 1);
+            sdata.atomicAdd(k - params.minimum, (uint32_t) 1);
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
     }
 
-    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
 
-        build_histogram(key, sdata, data);
+        build_histogram(key, sdata, params);
 
         uint32_t histogram_value = sdata.get(tid);
 
@@ -92,12 +92,12 @@ struct counting
         }
     }
                 
-    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
+    void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
 
-        build_histogram(key, sdata, data);
+        build_histogram(key, sdata, params);
 
         for (int i = 0; i < buckets_per_thread; i++)
         {
@@ -111,20 +111,20 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
+        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * params.elementsPerWT;
 
         [unroll]
-        for (int i = 0; i < data.elementsPerWT; i++)
+        for (int i = 0; i < params.elementsPerWT; i++)
         {
             uint32_t prev_element_count = GroupSize * i;
             int j = baseIndex + prev_element_count + tid;
-            if (j >= data.dataElementCount)
+            if (j >= params.dataElementCount)
                 break;
             const Key k = key.get(j);
-            if (robust && (k<data.minimum || k>data.maximum) )
+            if (robust && (k<params.minimum || k>params.maximum) )
                 continue;
             const uint32_t v = val.get(j);
-            const uint32_t sortedIx = sdata.atomicAdd(k - data.minimum, 1);
+            const uint32_t sortedIx = sdata.atomicAdd(k - params.minimum, 1);
             key.set(sortedIx, k);
             val.set(sortedIx, v);
         }
