@@ -191,10 +191,6 @@ void controlBarrier(uint32_t executionScope, uint32_t memoryScope, uint32_t memo
 void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
-template<class T, class U>
-[[vk::ext_instruction(spv::OpBitcast)]]
-T bitcast(U);
-
 template<typename T, typename U>
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
@@ -209,6 +205,10 @@ template<typename T>
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 pointer_t<spv::StorageClassPhysicalStorageBuffer,T> bitcast(uint64_t);
+
+template<class T, class U>
+[[vk::ext_instruction(spv::OpBitcast)]]
+T bitcast(U);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
