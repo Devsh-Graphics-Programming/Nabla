@@ -19,6 +19,7 @@ struct CountingParameters
 
     uint32_t dataElementCount;
     uint32_t elementsPerWT;
+    uint32_t workGroupIndex;
     Key minimum;
     Key maximum;
 };

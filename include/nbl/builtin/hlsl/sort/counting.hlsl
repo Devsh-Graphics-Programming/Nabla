@@ -37,7 +37,6 @@ struct counting
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * params.elementsPerWT;
 
         for (int i = 0; i < buckets_per_thread; i++) {
             uint32_t prev_bucket_count = GroupSize * i;
@@ -45,6 +44,8 @@ struct counting
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
+
+        uint32_t baseIndex = params.workGroupIndex * GroupSize * params.elementsPerWT;
 
         for (int i = 0; i < params.elementsPerWT; i++)
         {
@@ -111,7 +112,7 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * params.elementsPerWT;
+        uint32_t baseIndex = params.workGroupIndex * GroupSize * params.elementsPerWT;
 
         [unroll]
         for (int i = 0; i < params.elementsPerWT; i++)
