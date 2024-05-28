@@ -33,6 +33,18 @@ struct counting
                 template __call <SharedAccessor>(value, sdata);
     }
 
+    uint32_t toroidal_histogram_add(uint32_t tid, uint32_t sum, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
+    {
+        sdata.workgroupExecutionAndMemoryBarrier();
+
+        sdata.set(tid % GroupSize, sum);
+        uint32_t shifted_tid = (tid + glsl::gl_SubgroupSize() * params.workGroupIndex) % GroupSize;
+
+        sdata.workgroupExecutionAndMemoryBarrier();
+
+        return histogram.atomicAdd((tid / GroupSize) * GroupSize + shifted_tid, sdata.get(shifted_tid));
+    }
+
     void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -59,51 +71,50 @@ struct counting
 
     void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
-        uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
-
         build_histogram(key, sdata, params);
 
+        uint32_t tid = workgroup::SubgroupContiguousIndex();
         uint32_t histogram_value = sdata.get(tid);
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t sum = inclusive_scan(histogram_value, sdata);
-        histogram.atomicAdd(tid, sum);
+        toroidal_histogram_add(tid, sum, histogram, sdata, params);
 
         const bool is_last_wg_invocation = tid == (GroupSize - 1);
-        const uint16_t adjusted_key_bucket_count = KeyBucketCount + (GroupSize - KeyBucketCount % GroupSize);
+        const uint16_t adjusted_key_bucket_count = ((KeyBucketCount - 1) / GroupSize + 1) * GroupSize;
 
         for (tid += GroupSize; tid < adjusted_key_bucket_count; tid += GroupSize)
         {
-            if (is_last_wg_invocation) {
+            if (is_last_wg_invocation)
+            {
                 uint32_t startIndex = tid - tid % GroupSize;
                 sdata.set(startIndex, sdata.get(startIndex) + sum);
             }
 
             sum = inclusive_scan(sdata.get(tid), sdata);
-
-            histogram.atomicAdd(tid, sum);
+            toroidal_histogram_add(tid, sum, histogram, sdata, params);
         }
     }
                 
     void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
-        uint32_t tid = workgroup::SubgroupContiguousIndex();
-
         build_histogram(key, sdata, params);
 
-        for (; tid < KeyBucketCount; tid += GroupSize)
-        {
-            uint32_t bucket_value = sdata.get(tid);
-            uint32_t exclusive_value = histogram.atomicSub(tid, bucket_value) - bucket_value;
+        uint32_t tid = workgroup::SubgroupContiguousIndex();
+        uint32_t shifted_tid = (tid + glsl::gl_SubgroupSize() * params.workGroupIndex) % GroupSize;
 
-            sdata.set(tid, exclusive_value);
+        for (; shifted_tid < KeyBucketCount; shifted_tid += GroupSize)
+        {
+            uint32_t bucket_value = sdata.get(shifted_tid);
+            uint32_t exclusive_value = histogram.atomicSub(shifted_tid, bucket_value) - bucket_value;
+
+            sdata.set(shifted_tid, exclusive_value);
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t index = params.workGroupIndex * GroupSize * params.elementsPerWT + tid % GroupSize;
+        uint32_t index = params.workGroupIndex * GroupSize * params.elementsPerWT + tid;
         uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT);
 
         [unroll]
