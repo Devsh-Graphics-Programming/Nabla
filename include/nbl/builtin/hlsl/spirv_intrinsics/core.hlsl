@@ -212,11 +212,11 @@ T bitcast(U);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-Unsigned bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-Signed bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
 
 }
 

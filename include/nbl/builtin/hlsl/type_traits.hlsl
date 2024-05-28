@@ -299,6 +299,8 @@ NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
 
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
 struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
@@ -306,8 +308,10 @@ struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
 
-template<class T> 
+template<class T>
 struct is_signed : impl::base_type_forwarder<impl::is_signed, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_signed_v = is_signed<T>::value;
 
 template<class T>
 struct is_scalar : bool_constant<
