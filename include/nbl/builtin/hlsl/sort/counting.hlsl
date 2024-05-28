@@ -36,7 +36,7 @@ struct counting
     void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
+        uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
         uint32_t baseIndex = (glsl::gl_WorkGroupID().x * GroupSize) * data.elementsPerWT;
 
         for (int i = 0; i < buckets_per_thread; i++) {
@@ -64,7 +64,7 @@ struct counting
     void histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
+        uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
 
         build_histogram(key, sdata, data);
 
@@ -95,7 +95,7 @@ struct counting
     void scatter(NBL_REF_ARG(KeyAccessor) key, NBL_REF_ARG(ValueAccessor) val, NBL_REF_ARG(HistogramAccessor) histogram, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> data)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (KeyBucketCount + GroupSize - 1) / GroupSize;
+        uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
 
         build_histogram(key, sdata, data);
 
