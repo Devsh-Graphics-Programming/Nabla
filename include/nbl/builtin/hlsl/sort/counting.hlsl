@@ -36,24 +36,19 @@ struct counting
     void build_histogram(NBL_REF_ARG( KeyAccessor) key, NBL_REF_ARG(SharedAccessor) sdata, const CountingParameters<Key> params)
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t buckets_per_thread = (KeyBucketCount - 1) / GroupSize + 1;
 
-        for (int i = 0; i < buckets_per_thread; i++) {
-            uint32_t prev_bucket_count = GroupSize * i;
-            sdata.set(prev_bucket_count + tid, 0);
+        for (; tid < KeyBucketCount; tid += GroupSize) {
+            sdata.set(tid, 0);
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
-        uint32_t baseIndex = params.workGroupIndex * GroupSize * params.elementsPerWT;
+        uint32_t index = params.workGroupIndex * GroupSize * params.elementsPerWT + tid % GroupSize;
+        uint32_t endIndex = index + GroupSize * params.elementsPerWT;
 
-        for (int i = 0; i < params.elementsPerWT; i++)
+        for (; index < endIndex; index += GroupSize)
         {
-            uint32_t prev_element_count = GroupSize * i;
-            int j = baseIndex + prev_element_count + tid;
-            if (j >= params.dataElementCount)
-                break;
-            uint32_t k = key.get(j);
+            uint32_t k = key.get(index);
             if (robust && (k<params.minimum || k>params.maximum) )
                 continue;
             sdata.atomicAdd(k - params.minimum, (uint32_t) 1);
