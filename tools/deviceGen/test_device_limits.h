@@ -38,7 +38,7 @@ struct SPhysicalDeviceLimits
     uint32_t maxMemoryAllocationCount = 4096;
     uint32_t maxSamplerAllocationCount = 4000;
     uint32_t bufferImageGranularity = 65536; // granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation
-    // size_t sparseAddressSpaceSize = -2; // [TODO LATER] when we support sparse
+    // size_t sparseAddressSpaceSize = 0; // [TODO LATER] when we support sparse
     // uint32_t maxBoundDescriptorSets = 4; // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
     uint32_t maxPerStageDescriptorSamplers = 16; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 15;
@@ -60,19 +60,19 @@ struct SPhysicalDeviceLimits
     // uint16_t maxVertexInputAttributeOffset = maxVertexInputBindingStride-3;
     // uint16_t maxVertexInputBindingStride = 2048;
     uint16_t maxVertexOutputComponents = 124;
-    uint16_t maxTessellationGenerationLevel = -2;
-    uint16_t maxTessellationPatchSize = -2;
-    uint16_t maxTessellationControlPerVertexInputComponents = -2;
-    uint16_t maxTessellationControlPerVertexOutputComponents = -2;
-    uint16_t maxTessellationControlPerPatchOutputComponents = -2;
-    uint16_t maxTessellationControlTotalOutputComponents = -2;
-    uint16_t maxTessellationEvaluationInputComponents = -2;
-    uint16_t maxTessellationEvaluationOutputComponents = -2;
-    uint16_t maxGeometryShaderInvocations = -2;
-    uint16_t maxGeometryInputComponents = -2;
-    uint16_t maxGeometryOutputComponents = -2;
-    uint16_t maxGeometryOutputVertices = -2;
-    uint16_t maxGeometryTotalOutputComponents = -2;
+    uint16_t maxTessellationGenerationLevel = 0;
+    uint16_t maxTessellationPatchSize = 0;
+    uint16_t maxTessellationControlPerVertexInputComponents = 0;
+    uint16_t maxTessellationControlPerVertexOutputComponents = 0;
+    uint16_t maxTessellationControlPerPatchOutputComponents = 0;
+    uint16_t maxTessellationControlTotalOutputComponents = 0;
+    uint16_t maxTessellationEvaluationInputComponents = 0;
+    uint16_t maxTessellationEvaluationOutputComponents = 0;
+    uint16_t maxGeometryShaderInvocations = 0;
+    uint16_t maxGeometryInputComponents = 0;
+    uint16_t maxGeometryOutputComponents = 0;
+    uint16_t maxGeometryOutputVertices = 0;
+    uint16_t maxGeometryTotalOutputComponents = 0;
     uint32_t maxFragmentInputComponents = 116;
     uint32_t maxFragmentOutputAttachments = 8;
     uint32_t maxFragmentDualSrcAttachments = 1;
@@ -90,18 +90,18 @@ struct SPhysicalDeviceLimits
     uint8_t maxSamplerAnisotropyLog2 = 4;
     uint8_t maxViewports = 16;
     uint16_t maxViewportDims[2] = {MinMaxImageDimension2D,MinMaxImageDimension3D};
-    float viewportBoundsRange[2] = { -MinMaxImageDimension2D*3u, MinMaxImageDimension3D*3u-2 };
-    uint32_t viewportSubPixelBits = -2;
+    float viewportBoundsRange[2] = { -MinMaxImageDimension2D*2u, MinMaxImageDimension3D*2u-1 };
+    uint32_t viewportSubPixelBits = 0;
     uint16_t minMemoryMapAlignment = 64;
     uint16_t bufferViewAlignment = 64;
     uint16_t minUBOAlignment = 256;
     uint16_t minSSBOAlignment = 64;
-    int8_t minTexelOffset = -10;
+    int8_t minTexelOffset = -8;
     uint8_t maxTexelOffset = 7;
-    int8_t minTexelGatherOffset = -10;
+    int8_t minTexelGatherOffset = -8;
     uint8_t maxTexelGatherOffset = 7;
-    float minInterpolationOffset = -2.6;
-    float maxInterpolationOffset = -2.4376;
+    float minInterpolationOffset = -0.5;
+    float maxInterpolationOffset = 0.4376;
     uint8_t subPixelInterpolationOffsetBits = MinSubPixelInterpolationOffsetBits;
     uint32_t maxFramebufferWidth = MinMaxImageDimension2D;
     uint32_t maxFramebufferHeight = MinMaxImageDimension2D;
@@ -129,18 +129,18 @@ struct SPhysicalDeviceLimits
     /*
        [REQUIRE] ROADMAP 2024 and good device support
     */
-    // bool timestampComputeAndGraphics = True;
+    // bool timestampComputeAndGraphics = true;
     float timestampPeriodInNanoSeconds = 83.335; // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
     uint8_t maxClipDistances = 8;
-    uint8_t maxCullDistances = -2;
+    uint8_t maxCullDistances = 0;
     uint8_t maxCombinedClipAndCullDistances = 8;
     uint32_t discreteQueuePriorities = 2;
     float pointSizeRange[2] = {1.f,65.f};
     float lineWidthRange[2] = {1.f,2.f};
     float pointSizeGranularity = 1;
     float lineWidthGranularity = 1;
-    bool strictLines = False; // old intels can't do this
-    bool standardSampleLocations = False; // Had to roll back from requiring, ROADMAP 2022 but some of our targets missing
+    bool strictLines = false; // old intels can't do this
+    bool standardSampleLocations = false; // Had to roll back from requiring, ROADMAP 2022 but some of our targets missing
     uint16_t optimalBufferCopyOffsetAlignment = 256;
     uint16_t optimalBufferCopyRowPitchAlignment = 128;
     uint16_t nonCoherentAtomSize = 256;
@@ -148,25 +148,25 @@ struct SPhysicalDeviceLimits
        TODO: later
        VkPhysicalDeviceSparseProperties
     */
-    bool residencyStandard2DBlockShape = True;
-    bool residencyStandard2DMultisampleBlockShape = False;
-    bool residencyStandard3DBlockShape = True;
-    bool residencyAlignedMipSize = False;
-    bool residencyNonResidentStrict = True;
+    bool residencyStandard2DBlockShape = true;
+    bool residencyStandard2DMultisampleBlockShape = false;
+    bool residencyStandard3DBlockShape = true;
+    bool residencyAlignedMipSize = false;
+    bool residencyNonResidentStrict = true;
     /*
        Vulkan 1.2 Core
     */
     uint16_t subgroupSize = 4;
     core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_COMPUTE | asset::IShader::ESS_ALL_GRAPHICS;
     bool shaderSubgroupClustered = false; // ROADMAP2022 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!
-    bool shaderSubgroupArithmetic = False; // candidates for promotion
-    bool shaderSubgroupQuad = False;
-    bool shaderSubgroupQuadAllStages = False; // bad Android support
+    bool shaderSubgroupArithmetic = false; // candidates for promotion
+    bool shaderSubgroupQuad = false;
+    bool shaderSubgroupQuadAllStages = false; // bad Android support
     enum E_POINT_CLIPPING_BEHAVIOR : uint8_t;
     E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
     uint8_t maxMultiviewViewCount = 6;
     uint32_t maxMultiviewInstanceIndex = 134217727;
-    // bool protectedNoFault = False;
+    // bool protectedNoFault = false;
     uint32_t maxPerSetDescriptors = 572;
     size_t maxMemoryAllocationSize = MinMaxSSBOSize;
     /*
@@ -174,21 +174,21 @@ struct SPhysicalDeviceLimits
     */
     // VkShaderFloatControlsIndependence denormBehaviorIndependence; // TODO: need to implement ways to set them
     // VkShaderFloatControlsIndependence roundingModeIndependence; // TODO: need to implement ways to set them
-    // bool shaderSignedZeroInfNanPreserveFloat16 = True;
-    // bool shaderSignedZeroInfNanPreserveFloat32 = True;
-    bool shaderSignedZeroInfNanPreserveFloat64 = False;
-    bool shaderDenormPreserveFloat16 = False;
-    bool shaderDenormPreserveFloat32 = False;
-    bool shaderDenormPreserveFloat64 = False;
-    bool shaderDenormFlushToZeroFloat16 = False;
-    bool shaderDenormFlushToZeroFloat32 = False;
-    bool shaderDenormFlushToZeroFloat64 = False;
-    bool shaderRoundingModeRTEFloat16 = False; // ROADMAP2024 but no good support yet
-    bool shaderRoundingModeRTEFloat32 = False; // ROADMAP2024 but no good support yet
-    bool shaderRoundingModeRTEFloat64 = False;
-    bool shaderRoundingModeRTZFloat16 = False;
-    bool shaderRoundingModeRTZFloat32 = False;
-    bool shaderRoundingModeRTZFloat64 = False;
+    // bool shaderSignedZeroInfNanPreserveFloat16 = true;
+    // bool shaderSignedZeroInfNanPreserveFloat32 = true;
+    bool shaderSignedZeroInfNanPreserveFloat64 = false;
+    bool shaderDenormPreserveFloat16 = false;
+    bool shaderDenormPreserveFloat32 = false;
+    bool shaderDenormPreserveFloat64 = false;
+    bool shaderDenormFlushToZeroFloat16 = false;
+    bool shaderDenormFlushToZeroFloat32 = false;
+    bool shaderDenormFlushToZeroFloat64 = false;
+    bool shaderRoundingModeRTEFloat16 = false; // ROADMAP2024 but no good support yet
+    bool shaderRoundingModeRTEFloat32 = false; // ROADMAP2024 but no good support yet
+    bool shaderRoundingModeRTEFloat64 = false;
+    bool shaderRoundingModeRTZFloat16 = false;
+    bool shaderRoundingModeRTZFloat32 = false;
+    bool shaderRoundingModeRTZFloat64 = false;
     /*
        expose in 2 phases
        -Update After Bindand nonUniformEXT shader qualifier:
@@ -197,13 +197,13 @@ struct SPhysicalDeviceLimits
        The whole 512k descriptor limits, runtime desc arrays, etc.will come later
     */
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = 1048576;
-    bool shaderUniformBufferArrayNonUniformIndexingNative = False;
-    bool shaderSampledImageArrayNonUniformIndexingNative = False; // promotion candidate
-    bool shaderStorageBufferArrayNonUniformIndexingNative = False;
-    bool shaderStorageImageArrayNonUniformIndexingNative = False; // promotion candidate
-    bool shaderInputAttachmentArrayNonUniformIndexingNative = False; // promotion candidate
-    bool robustBufferAccessUpdateAfterBind = False;
-    bool quadDivergentImplicitLod = False;
+    bool shaderUniformBufferArrayNonUniformIndexingNative = false;
+    bool shaderSampledImageArrayNonUniformIndexingNative = false; // promotion candidate
+    bool shaderStorageBufferArrayNonUniformIndexingNative = false;
+    bool shaderStorageImageArrayNonUniformIndexingNative = false; // promotion candidate
+    bool shaderInputAttachmentArrayNonUniformIndexingNative = false; // promotion candidate
+    bool robustBufferAccessUpdateAfterBind = false;
+    bool quadDivergentImplicitLod = false;
     uint32_t maxPerStageDescriptorUpdateAfterBindSamplers = 500000;
     uint32_t maxPerStageDescriptorUpdateAfterBindUBOs = 15;
     uint32_t maxPerStageDescriptorUpdateAfterBindSSBOs = 500000;
@@ -222,15 +222,15 @@ struct SPhysicalDeviceLimits
    using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
     core::bitflag<RESOLVE_MODE_FLAGS> supportedDepthResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
     core::bitflag<RESOLVE_MODE_FLAGS> supportedStencilResolveModes = RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT;
-    bool independentResolveNone = False;
-    bool independentResolve = False;
+    bool independentResolveNone = false;
+    bool independentResolve = false;
     // bool filterMinmaxSingleComponentFormats; // TODO: you'll be able to query this in format usage/feature reports
-    bool filterMinmaxImageComponentMapping = False;
+    bool filterMinmaxImageComponentMapping = false;
     uint64_t maxTimelineSemaphoreValueDifference = 2147483647; // [DO NOT EXPOSE] its high enough (207 days of uptime at 121 FPS)
     /*
        [DO NOT EXPOSE] because it might be different for every texture format and usage
     */
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(-2u);
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     /*
        Vulkan 1.4 Core
        or VK_EXT_subgroup_size_control:
@@ -248,36 +248,36 @@ struct SPhysicalDeviceLimits
     // uint32_t maxDescriptorSetInlineUniformBlocks = 4;
     // uint32_t  axDescriptorSetUpdateAfterBindInlineUniformBlocks = 4;
     // uint32_t maxInlineUniformTotalSize = MinInlineUniformBlockSize;
-    bool integerDotProduct8BitUnsignedAccelerated = False;
-    bool integerDotProduct8BitSignedAccelerated = False;
-    bool integerDotProduct8BitMixedSignednessAccelerated = False;
-    bool integerDotProduct4x9BitPackedUnsignedAccelerated = False;
-    bool integerDotProduct4x9BitPackedSignedAccelerated = False;
-    bool integerDotProduct4x9BitPackedMixedSignednessAccelerated = False;
-    bool integerDotProduct16BitUnsignedAccelerated = False;
-    bool integerDotProduct16BitSignedAccelerated = False;
-    bool integerDotProduct16BitMixedSignednessAccelerated = False;
-    bool integerDotProduct32BitUnsignedAccelerated = False;
-    bool integerDotProduct32BitSignedAccelerated = False;
-    bool integerDotProduct32BitMixedSignednessAccelerated = False;
-    bool integerDotProduct64BitUnsignedAccelerated = False;
-    bool integerDotProduct64BitSignedAccelerated = False;
-    bool integerDotProduct64BitMixedSignednessAccelerated = False;
-    bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating8BitSignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = False;
-    bool integerDotProductAccumulatingSaturating4x9BitPackedUnsignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating4x9BitPackedSignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating4x9BitPackedMixedSignednessAccelerated = False;
-    bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating16BitSignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = False;
-    bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating32BitSignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = False;
-    bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating64BitSignedAccelerated = False;
-    bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = False;
+    bool integerDotProduct8BitUnsignedAccelerated = false;
+    bool integerDotProduct8BitSignedAccelerated = false;
+    bool integerDotProduct8BitMixedSignednessAccelerated = false;
+    bool integerDotProduct4x9BitPackedUnsignedAccelerated = false;
+    bool integerDotProduct4x9BitPackedSignedAccelerated = false;
+    bool integerDotProduct4x9BitPackedMixedSignednessAccelerated = false;
+    bool integerDotProduct16BitUnsignedAccelerated = false;
+    bool integerDotProduct16BitSignedAccelerated = false;
+    bool integerDotProduct16BitMixedSignednessAccelerated = false;
+    bool integerDotProduct32BitUnsignedAccelerated = false;
+    bool integerDotProduct32BitSignedAccelerated = false;
+    bool integerDotProduct32BitMixedSignednessAccelerated = false;
+    bool integerDotProduct64BitUnsignedAccelerated = false;
+    bool integerDotProduct64BitSignedAccelerated = false;
+    bool integerDotProduct64BitMixedSignednessAccelerated = false;
+    bool integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating8BitSignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated = false;
+    bool integerDotProductAccumulatingSaturating4x9BitPackedUnsignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating4x9BitPackedSignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating4x9BitPackedMixedSignednessAccelerated = false;
+    bool integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating16BitSignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated = false;
+    bool integerDotProductAccumulatingSaturating32BitUnsignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating32BitSignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated = false;
+    bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating64BitSignedAccelerated = false;
+    bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false;
     /*
        or VK_EXT_texel_buffer_alignment:
        [DO NOT EXPOSE]: the single texel alignments, let people just overalign
@@ -298,24 +298,24 @@ struct SPhysicalDeviceLimits
        VK_EXT_shader_atomic_float
        [REQUIRE] Nabla Core Profile
     */
-    // bool shaderBufferFloat32Atomics = True;
-    bool shaderBufferFloat32AtomicAdd = False;
-    bool shaderBufferFloat64Atomics = False;
-    bool shaderBufferFloat64AtomicAdd = False;
+    // bool shaderBufferFloat32Atomics = true;
+    bool shaderBufferFloat32AtomicAdd = false;
+    bool shaderBufferFloat64Atomics = false;
+    bool shaderBufferFloat64AtomicAdd = false;
     /*
        [REQUIRE] Nabla Core Profile
     */
-    // bool shaderSharedFloat32Atomics = True;
-    bool shaderSharedFloat32AtomicAdd = False;
-    bool shaderSharedFloat64Atomics = False;
-    bool shaderSharedFloat64AtomicAdd = False;
+    // bool shaderSharedFloat32Atomics = true;
+    bool shaderSharedFloat32AtomicAdd = false;
+    bool shaderSharedFloat64Atomics = false;
+    bool shaderSharedFloat64AtomicAdd = false;
     /*
        [REQUIRE] Nabla Core Profile
     */
-    // bool shaderImageFloat32Atomics = True;
-    bool shaderImageFloat32AtomicAdd = False;
-    bool sparseImageFloat32Atomics = False;
-    bool sparseImageFloat32AtomicAdd = False;
+    // bool shaderImageFloat32Atomics = true;
+    bool shaderImageFloat32AtomicAdd = false;
+    bool sparseImageFloat32Atomics = false;
+    bool sparseImageFloat32AtomicAdd = false;
     /*
        Robustness2PropertiesEXT
        provided by VK_EXT_robustness3
@@ -325,155 +325,155 @@ struct SPhysicalDeviceLimits
     /*
        Vulkan Extensions
     */
-    bool shaderTrinaryMinmax = False; // VK_AMD_shader_trinary_minmax
-    bool shaderExplicitVertexParameter = False; // VK_AMD_shader_explicit_vertex_parameter
-    bool gpuShaderHalfFloatAMD = False; // VK_AMD_gpu_shader_half_float
-    bool shaderImageLoadStoreLod = False; // VK_AMD_shader_image_load_store_lod
+    bool shaderTrinaryMinmax = false; // VK_AMD_shader_trinary_minmax
+    bool shaderExplicitVertexParameter = false; // VK_AMD_shader_explicit_vertex_parameter
+    bool gpuShaderHalfFloatAMD = false; // VK_AMD_gpu_shader_half_float
+    bool shaderImageLoadStoreLod = false; // VK_AMD_shader_image_load_store_lod
     /*
        [TODO LATER] to expose but contingent on the TODO to implement one day
        PushDescriptorPropertiesKHR
        provided by VK_KHR_push_descriptor
     */
-    // uint32_t maxPushDescriptors = -2;
+    // uint32_t maxPushDescriptors = 0;
     /*
        [TODO] need impl
        VK_GOOGLE_display_timing
     */
-    bool displayTiming = False;
+    bool displayTiming = false;
     /*
        VK_EXT_discard_rectangles
        DiscardRectanglePropertiesEXT
     */
-    uint32_t maxDiscardRectangles = -2;
+    uint32_t maxDiscardRectangles = 0;
     /*
        VK_EXT_conservative_rasterization
        ConservativeRasterizationPropertiesEXT
     */
-    float primitiveOverestimationSize = -2;
-    float maxExtraPrimitiveOverestimationSize = -2;
+    float primitiveOverestimationSize = 0;
+    float maxExtraPrimitiveOverestimationSize = 0;
     float extraPrimitiveOverestimationSizeGranularity = std::numeric_limits<float>::infinity();
-    bool primitiveUnderestimation = False;
-    bool conservativePointAndLineRasterization = False;
-    bool degenerateTrianglesRasterized = False;
-    bool degenerateLinesRasterized = False;
-    bool fullyCoveredFragmentShaderInputVariable = False;
-    bool conservativeRasterizationPostDepthCoverage = False;
-    bool queueFamilyForeign = False; // VK_EXT_queue_family_foreign
-    bool shaderStencilExport = False; // VK_EXT_shader_stencil_export
+    bool primitiveUnderestimation = false;
+    bool conservativePointAndLineRasterization = false;
+    bool degenerateTrianglesRasterized = false;
+    bool degenerateLinesRasterized = false;
+    bool fullyCoveredFragmentShaderInputVariable = false;
+    bool conservativeRasterizationPostDepthCoverage = false;
+    bool queueFamilyForeign = false; // VK_EXT_queue_family_foreign
+    bool shaderStencilExport = false; // VK_EXT_shader_stencil_export
     /*
        VK_EXT_sample_locations
        SampleLocationsPropertiesEXT
     */
-    bool variableSampleLocations = False;
-    uint8_t sampleLocationSubPixelBits = -2;
-    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(-2u);
-    hlsl::uint32_t3 maxSampleLocationGridSize = { -2u, 1u };
+    bool variableSampleLocations = false;
+    uint8_t sampleLocationSubPixelBits = 0;
+    core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
+    hlsl::uint32_t2 maxSampleLocationGridSize = { 0u, 0u };
     float sampleLocationCoordinateRange[2] = { 1.f, 1.f };
     /*
        VK_KHR_acceleration_structure
        AccelerationStructurePropertiesKHR
     */
-    uint64_t maxAccelerationStructureGeometryCount = -2;
-    uint64_t maxAccelerationStructureInstanceCount = -2;
-    uint64_t maxAccelerationStructurePrimitiveCount = -2;
-    uint64_t maxPerStageDescriptorAccelerationStructures = -2;
-    uint64_t maxPerStageDescriptorUpdateAfterBindAccelerationStructures = -2;
-    uint64_t maxDescriptorSetAccelerationStructures = -2;
-    uint64_t maxDescriptorSetUpdateAfterBindAccelerationStructures = -2;
+    uint64_t maxAccelerationStructureGeometryCount = 0;
+    uint64_t maxAccelerationStructureInstanceCount = 0;
+    uint64_t maxAccelerationStructurePrimitiveCount = 0;
+    uint64_t maxPerStageDescriptorAccelerationStructures = 0;
+    uint64_t maxPerStageDescriptorUpdateAfterBindAccelerationStructures = 0;
+    uint64_t maxDescriptorSetAccelerationStructures = 0;
+    uint64_t maxDescriptorSetUpdateAfterBindAccelerationStructures = 0;
     uint64_t minAccelerationStructureScratchOffsetAlignment = 2147483648;
     /*
        VK_KHR_ray_tracing_pipeline
        RayTracingPipelinePropertiesKHR
     */
     // uint32_t shaderGroupHandleSize = 32; // `exact` limit type
-    uint32_t maxRayRecursionDepth = -2;
-    uint32_t maxShaderGroupStride = -2;
+    uint32_t maxRayRecursionDepth = 0;
+    uint32_t maxShaderGroupStride = 0;
     uint32_t shaderGroupBaseAlignment = 2147483648;
-    uint32_t maxRayDispatchInvocationCount = -2;
+    uint32_t maxRayDispatchInvocationCount = 0;
     uint32_t shaderGroupHandleAlignment = 2147483648;
-    uint32_t maxRayHitAttributeSize = -2;
+    uint32_t maxRayHitAttributeSize = 0;
     /*
        VK_NV_shader_sm_builtins
        ShaderSMBuiltinsFeaturesNV
     */
-    bool shaderSMBuiltins = False;
-    bool postDepthCoverage = False; // VK_EXT_post_depth_coverage
+    bool shaderSMBuiltins = false;
+    bool postDepthCoverage = false; // VK_EXT_post_depth_coverage
     /*
        VK_KHR_shader_clock
        ShaderClockFeaturesKHR
     */
-    bool shaderDeviceClock = False;
+    bool shaderDeviceClock = false;
     /*
        VK_NV_compute_shader_derivatives
        ComputeShaderDerivativesFeaturesNV
     */
-    bool computeDerivativeGroupQuads = False;
-    bool computeDerivativeGroupLinear = False;
+    bool computeDerivativeGroupQuads = false;
+    bool computeDerivativeGroupLinear = false;
     /*
        VK_NV_shader_image_footprint
        ShaderImageFootprintFeaturesNV
     */
-    bool imageFootprint = False;
+    bool imageFootprint = false;
     /*
        VK_INTEL_shader_integer_functions2
        ShaderIntegerFunctions3FeaturesINTEL
     */
-    bool shaderIntegerFunctions2 = False;
+    bool shaderIntegerFunctions2 = false;
     /*
        VK_EXT_pci_bus_info
        PCIBusInfoPropertiesEXT
     */
-    uint32_t pciDomain = ~-2u;
-    uint32_t pciBus = ~-2u;
-    uint32_t pciDevice = ~-2u;
-    uint32_t pciFunction = ~-2u;
+    uint32_t pciDomain = ~0u;
+    uint32_t pciBus = ~0u;
+    uint32_t pciDevice = ~0u;
+    uint32_t pciFunction = ~0u;
     /*
        VK_EXT_fragment_density_map
        FragmentDensityMapPropertiesEXT
     */
-    hlsl::uint32_t3 minFragmentDensityTexelSize = { ~-2u, ~1u };
-    hlsl::uint32_t3 maxFragmentDensityTexelSize = { -2u, 1u };
-    bool fragmentDensityInvocations = False;
-    bool decorateString = False; // VK_GOOGLE_decorate_string
+    hlsl::uint32_t2 minFragmentDensityTexelSize = { ~0u, ~0u };
+    hlsl::uint32_t2 maxFragmentDensityTexelSize = { 0u, 0u };
+    bool fragmentDensityInvocations = false;
+    bool decorateString = false; // VK_GOOGLE_decorate_string
     /*
        VK_EXT_shader_image_atomic_int64
        ShaderImageAtomicInt65FeaturesEXT
     */
-    bool shaderImageInt64Atomics = False;
-    bool sparseImageInt64Atomics = False;
+    bool shaderImageInt64Atomics = false;
+    bool sparseImageInt64Atomics = false;
     /*
        [TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT
        VK_EXT_line_rasterization
        LineRasterizationPropertiesEXT
     */
-    uint32_t lineSubPixelPrecisionBits = -2;
+    uint32_t lineSubPixelPrecisionBits = 0;
     /*
        VK_EXT_shader_atomic_float2
        ShaderAtomicFloat2FeaturesEXT
     */
-    bool shaderBufferFloat16Atomics = False;
-    bool shaderBufferFloat16AtomicAdd = False;
-    bool shaderBufferFloat16AtomicMinMax = False;
-    bool shaderBufferFloat32AtomicMinMax = False;
-    bool shaderBufferFloat64AtomicMinMax = False;
-    bool shaderSharedFloat16Atomics = False;
-    bool shaderSharedFloat16AtomicAdd = False;
-    bool shaderSharedFloat16AtomicMinMax = False;
-    bool shaderSharedFloat32AtomicMinMax = False;
-    bool shaderSharedFloat64AtomicMinMax = False;
-    bool shaderImageFloat32AtomicMinMax = False;
-    bool sparseImageFloat32AtomicMinMax = False;
+    bool shaderBufferFloat16Atomics = false;
+    bool shaderBufferFloat16AtomicAdd = false;
+    bool shaderBufferFloat16AtomicMinMax = false;
+    bool shaderBufferFloat32AtomicMinMax = false;
+    bool shaderBufferFloat64AtomicMinMax = false;
+    bool shaderSharedFloat16Atomics = false;
+    bool shaderSharedFloat16AtomicAdd = false;
+    bool shaderSharedFloat16AtomicMinMax = false;
+    bool shaderSharedFloat32AtomicMinMax = false;
+    bool shaderSharedFloat64AtomicMinMax = false;
+    bool shaderImageFloat32AtomicMinMax = false;
+    bool sparseImageFloat32AtomicMinMax = false;
     /*
        [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
        VK_NV_device_generated_commands
        DeviceGeneratedCommandsPropertiesNV
     */
-    // uint32_t maxGraphicsShaderGroupCount = -2;
-    // uint32_t maxIndirectSequenceCount = -2;
-    // uint32_t maxIndirectCommandsTokenCount = -2;
-    // uint32_t maxIndirectCommandsStreamCount = -2;
-    // uint32_t maxIndirectCommandsTokenOffset = -2;
-    // uint32_t maxIndirectCommandsStreamStride = -2;
+    // uint32_t maxGraphicsShaderGroupCount = 0;
+    // uint32_t maxIndirectSequenceCount = 0;
+    // uint32_t maxIndirectCommandsTokenCount = 0;
+    // uint32_t maxIndirectCommandsStreamCount = 0;
+    // uint32_t maxIndirectCommandsTokenOffset = 0;
+    // uint32_t maxIndirectCommandsStreamStride = 0;
     // uint32_t minSequencesCountBufferOffsetAlignment = 2147483648;
     // uint32_t minSequencesIndexBufferOffsetAlignment = 2147483648;
     // uint32_t minIndirectCommandsBufferOffsetAlignment = 2147483648;
@@ -482,44 +482,44 @@ struct SPhysicalDeviceLimits
        VK_EXT_device_memory_report
        DeviceMemoryReportFeaturesEXT
     */
-    bool deviceMemoryReport = False;
-    bool shaderNonSemanticInfo = False; // VK_KHR_shader_non_semantic_info
+    bool deviceMemoryReport = false;
+    bool shaderNonSemanticInfo = false; // VK_KHR_shader_non_semantic_info
     /*
        [TODO LATER] not in header (previous comment: too much effort)
        GraphicsPipelineLibraryPropertiesEXT
        provided by VK_EXT_graphics_pipeline_library
     */
-    // bool graphicsPipelineLibraryFastLinking = False;
-    // bool graphicsPipelineLibraryIndependentInterpolationDecoration = False;
-    bool shaderEarlyAndLateFragmentTests = False; // VK_AMD_shader_early_and_late_fragment_tests
-    bool fragmentShaderBarycentric = False; // VK_KHR_fragment_shader_barycentric
+    // bool graphicsPipelineLibraryFastLinking = false;
+    // bool graphicsPipelineLibraryIndependentInterpolationDecoration = false;
+    bool shaderEarlyAndLateFragmentTests = false; // VK_AMD_shader_early_and_late_fragment_tests
+    bool fragmentShaderBarycentric = false; // VK_KHR_fragment_shader_barycentric
     /*
        VK_KHR_shader_subgroup_uniform_control_flow
        ShaderSubgroupUniformControlFlowFeaturesKHR
     */
-    bool shaderSubgroupUniformControlFlow = False;
+    bool shaderSubgroupUniformControlFlow = false;
     /*
        provided by VK_EXT_fragment_density_map2
        FragmentDensityMap2PropertiesEXT
     */
-    bool subsampledLoads = False;
-    bool subsampledCoarseReconstructionEarlyAccess = False;
-    uint32_t maxSubsampledArrayLayers = -2;
-    uint32_t maxDescriptorSetSubsampledSamplers = -2;
+    bool subsampledLoads = false;
+    bool subsampledCoarseReconstructionEarlyAccess = false;
+    uint32_t maxSubsampledArrayLayers = 0;
+    uint32_t maxDescriptorSetSubsampledSamplers = 0;
     /*
        VK_KHR_workgroup_memory_explicit_layout
        WorkgroupMemoryExplicitLayoutFeaturesKHR
     */
-    bool workgroupMemoryExplicitLayout = False;
-    bool workgroupMemoryExplicitLayoutScalarBlockLayout = False;
-    bool workgroupMemoryExplicitLayout8BitAccess = False;
-    bool workgroupMemoryExplicitLayout16BitAccess = False;
+    bool workgroupMemoryExplicitLayout = false;
+    bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
+    bool workgroupMemoryExplicitLayout8BitAccess = false;
+    bool workgroupMemoryExplicitLayout16BitAccess = false;
     /*
        [TODO] need new commandbuffer methods, etc
        VK_EXT_color_write_enable
        ColorWriteEnableFeaturesEXT
     */
-    bool colorWriteEnable = False;
+    bool colorWriteEnable = false;
     /*
        CooperativeMatrixPropertiesKHR
        VK_KHR_cooperative_matrix
@@ -529,65 +529,65 @@ struct SPhysicalDeviceLimits
        Always enabled if available, reported as limits
        Core 2.1 Features
     */
-    bool logicOp = False; // mostly just desktops support this
-    bool vertexPipelineStoresAndAtomics = False; // All iOS GPUs don't support
-    bool fragmentStoresAndAtomics = False; // ROADMAP 2022 no support on iOS GPUs
-    bool shaderTessellationAndGeometryPointSize = False; // Candidate for promotion, just need to look into Linux and Android
-    bool shaderStorageImageMultisample = False; // Apple GPUs and some Intels don't support
-    bool shaderStorageImageReadWithoutFormat = False; // Intel is a special boy and doesn't support
-    bool shaderStorageImageArrayDynamicIndexing = False; // ROADMAP 2022 but no iOS GPU supports
-    bool shaderFloat64 = False; // Intel Gen12 and ARC are special-boy drivers (TM)
-    bool variableMultisampleRate = False; // poor support on Apple GPUs
+    bool logicOp = false; // mostly just desktops support this
+    bool vertexPipelineStoresAndAtomics = false; // All iOS GPUs don't support
+    bool fragmentStoresAndAtomics = false; // ROADMAP 2022 no support on iOS GPUs
+    bool shaderTessellationAndGeometryPointSize = false; // Candidate for promotion, just need to look into Linux and Android
+    bool shaderStorageImageMultisample = false; // Apple GPUs and some Intels don't support
+    bool shaderStorageImageReadWithoutFormat = false; // Intel is a special boy and doesn't support
+    bool shaderStorageImageArrayDynamicIndexing = false; // ROADMAP 2022 but no iOS GPU supports
+    bool shaderFloat64 = false; // Intel Gen12 and ARC are special-boy drivers (TM)
+    bool variableMultisampleRate = false; // poor support on Apple GPUs
     /*
        Core 1.2 Features or VK_KHR_17bit_storage
     */
-    bool storagePushConstant16 = False;
-    bool storageInputOutput16 = False;
+    bool storagePushConstant16 = false;
+    bool storageInputOutput16 = false;
     /*
        Core 1.2 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
     */
-    bool multiviewGeometryShader = False;
-    bool multiviewTessellationShader = False;
-    bool drawIndirectCount = False; // Vulkan 1.3 Core or VK_KHR_draw_indirect_count
-    bool storagePushConstant8 = False; // Vulkan 1.3 Core or VK_KHR_9bit_storage
+    bool multiviewGeometryShader = false;
+    bool multiviewTessellationShader = false;
+    bool drawIndirectCount = false; // Vulkan 1.3 Core or VK_KHR_draw_indirect_count
+    bool storagePushConstant8 = false; // Vulkan 1.3 Core or VK_KHR_9bit_storage
     /*
        Vulkan 1.3 Core or VK_KHR_shader_atomic_int65
     */
-    bool shaderBufferInt64Atomics = False;
-    bool shaderSharedInt64Atomics = False;
-    bool shaderFloat16 = False; // Vulkan 1.3 Core or VK_KHR_shader_float17_int9
+    bool shaderBufferInt64Atomics = false;
+    bool shaderSharedInt64Atomics = false;
+    bool shaderFloat16 = false; // Vulkan 1.3 Core or VK_KHR_shader_float17_int9
     /*
        Vulkan 1.3 Core or VK_EXT_descriptor_indexing
     */
-    bool shaderInputAttachmentArrayDynamicIndexing = False;
-    bool shaderUniformBufferArrayNonUniformIndexing = False;
-    bool shaderInputAttachmentArrayNonUniformIndexing = False;
-    bool descriptorBindingUniformBufferUpdateAfterBind = False;
+    bool shaderInputAttachmentArrayDynamicIndexing = false;
+    bool shaderUniformBufferArrayNonUniformIndexing = false;
+    bool shaderInputAttachmentArrayNonUniformIndexing = false;
+    bool descriptorBindingUniformBufferUpdateAfterBind = false;
     /*
        Vulkan 1.3 or VK_EXT_sampler_filter_minmax
     */
-    bool samplerFilterMinmax = False; // TODO: Actually implement the sampler flag enums
-    bool vulkanMemoryModelAvailabilityVisibilityChains = False; // Vulkan 1.4 requires but we make concessions for MoltenVK
+    bool samplerFilterMinmax = false; // TODO: Actually implement the sampler flag enums
+    bool vulkanMemoryModelAvailabilityVisibilityChains = false; // Vulkan 1.4 requires but we make concessions for MoltenVK
     /*
        Vulkan 1.3 Core or VK_EXT_shader_viewport_index_layer
     */
-    bool shaderOutputViewportIndex = False; // ALIAS: VK_EXT_shader_viewport_index_layer
-    bool shaderOutputLayer = False; // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputViewportIndex = false; // ALIAS: VK_EXT_shader_viewport_index_layer
+    bool shaderOutputLayer = false; // ALIAS: VK_EXT_shader_viewport_index_layer
     /*
        Vulkan 1.4 non-optional requires but poor support
     */
-    bool shaderDemoteToHelperInvocation = False; // or VK_EXT_shader_demote_to_helper_invocation
-    bool shaderTerminateInvocation = False; // or VK_KHR_shader_terminate_invocation
+    bool shaderDemoteToHelperInvocation = false; // or VK_EXT_shader_demote_to_helper_invocation
+    bool shaderTerminateInvocation = false; // or VK_KHR_shader_terminate_invocation
     /*
        Vulkan 1.4 non-optional requires but poor support
     */
-    bool shaderZeroInitializeWorkgroupMemory = False; // or VK_KHR_zero_initialize_workgroup_memory
+    bool shaderZeroInitializeWorkgroupMemory = false; // or VK_KHR_zero_initialize_workgroup_memory
     /*
        Nabla
     */
     uint32_t computeUnits = 0;
-    bool dispatchBase = False; // true in Vk, false in GL
-    bool allowCommandBufferQueryCopies = False;
+    bool dispatchBase = false; // true in Vk, false in GL
+    bool allowCommandBufferQueryCopies = false;
     uint32_t maxOptimallyResidentWorkgroupInvocations = 0; // its 1D because multidimensional workgroups are an illusion
     uint32_t maxResidentInvocations = 0; // These are maximum number of invocations you could expect to execute simultaneously on this device
     asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_8;
@@ -598,7 +598,7 @@ struct SPhysicalDeviceLimits
    inline uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint64_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection=1u) const
    {
        assert(elementCount!=0ull && "Input element count can't be 0!");
-       const uint64_t infinitelyWideDeviceWGCount:w = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;
+       const uint64_t infinitelyWideDeviceWGCount = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;
        const uint32_t maxResidentWorkgroups = maxResidentInvocations/workgroupSize;
        return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));
    }

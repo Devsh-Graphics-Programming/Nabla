@@ -27,6 +27,11 @@ def buildFunction(function, res):
         res.append(f"   {functionLine}")
     res.append(emptyline)
 
+def formatValue(value):
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return value
+
 def buildVariable(variable, res):
     declarationOnly = "declare" in variable and variable["declare"]
     expose = "expose" in variable and variable["expose"] or "expose" not in variable
@@ -35,7 +40,7 @@ def buildVariable(variable, res):
         line += "// "
     line += f"{variable['type']} {variable['name']}"
     if not declarationOnly:
-        line += f" = {variable['value']}"
+        line += f" = {formatValue(variable['value'])}"
     line += ";"
     if "comment" in variable:
         line += f" // {variable['comment']}" 

@@ -135,7 +135,7 @@
             {
                 "type": "size_t",
                 "name": "sparseAddressSpaceSize",
-                "value": -2,
+                "value": 0,
                 "expose": false,
                 "comment": "[TODO LATER] when we support sparse"
             },
@@ -257,67 +257,67 @@
             {
                 "type": "uint16_t",
                 "name": "maxTessellationGenerationLevel",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationPatchSize",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationControlPerVertexInputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationControlPerVertexOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationControlPerPatchOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationControlTotalOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationEvaluationInputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxTessellationEvaluationOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxGeometryShaderInvocations",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxGeometryInputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxGeometryOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxGeometryOutputVertices",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
                 "name": "maxGeometryTotalOutputComponents",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint32_t",
@@ -410,12 +410,12 @@
             {
                 "type": "float",
                 "name": "viewportBoundsRange[2]",
-                "value": "{ -MinMaxImageDimension2D*3u, MinMaxImageDimension3D*3u-2 }"
+                "value": "{ -MinMaxImageDimension2D*2u, MinMaxImageDimension3D*2u-1 }"
             },
             {
                 "type": "uint32_t",
                 "name": "viewportSubPixelBits",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint16_t",
@@ -440,7 +440,7 @@
             {
                 "type": "int8_t",
                 "name": "minTexelOffset",
-                "value": -10
+                "value": -8
             },
             {
                 "type": "uint8_t",
@@ -450,7 +450,7 @@
             {
                 "type": "int8_t",
                 "name": "minTexelGatherOffset",
-                "value": -10
+                "value": -8
             },
             {
                 "type": "uint8_t",
@@ -460,12 +460,12 @@
             {
                 "type": "float",
                 "name": "minInterpolationOffset",
-                "value": -2.6
+                "value": -0.5
             },
             {
                 "type": "float",
                 "name": "maxInterpolationOffset",
-                "value": -2.4376
+                "value": 0.4376
             },
             {
                 "type": "uint8_t",
@@ -589,7 +589,7 @@
             {
                 "type": "uint8_t",
                 "name": "maxCullDistances",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint8_t",
@@ -724,7 +724,7 @@
                 "type": "enum",
                 "name": "E_POINT_CLIPPING_BEHAVIOR : uint8_t",
                 "declarations": [
-                    "EPCB_ALL_CLIP_PLANES = -2",
+                    "EPCB_ALL_CLIP_PLANES = 0",
                     "EPCB_USER_CLIP_PLANES_ONLY = 2"
                 ]
             },
@@ -1035,7 +1035,7 @@
             {
                 "type": "core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>",
                 "name": "framebufferIntegerColorSampleCounts",
-                "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(-2u)"
+                "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(0u)"
             }
         ],
         "vulkan13core": [
@@ -1441,7 +1441,7 @@
             {
                 "type": "uint32_t",
                 "name": "maxPushDescriptors",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
@@ -1464,7 +1464,7 @@
             {
                 "type": "uint32_t",
                 "name": "maxDiscardRectangles",
-                "value": -2
+                "value": 0
             },
             {
                 "groupComment": [
@@ -1475,12 +1475,12 @@
             {
                 "type": "float",
                 "name": "primitiveOverestimationSize",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "float",
                 "name": "maxExtraPrimitiveOverestimationSize",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "float",
@@ -1543,17 +1543,17 @@
             {
                 "type": "uint8_t",
                 "name": "sampleLocationSubPixelBits",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>",
                 "name": "sampleLocationSampleCounts",
-                "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(-2u)"
+                "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(0u)"
             },
             {
-                "type": "hlsl::uint32_t3",
+                "type": "hlsl::uint32_t2",
                 "name": "maxSampleLocationGridSize",
-                "value": "{ -2u, 1u }"
+                "value": "{ 0u, 0u }"
             },
             {
                 "type": "float",
@@ -1569,37 +1569,37 @@
             {
                 "type": "uint64_t",
                 "name": "maxAccelerationStructureGeometryCount",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxAccelerationStructureInstanceCount",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxAccelerationStructurePrimitiveCount",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxPerStageDescriptorAccelerationStructures",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxPerStageDescriptorUpdateAfterBindAccelerationStructures",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxDescriptorSetAccelerationStructures",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
                 "name": "maxDescriptorSetUpdateAfterBindAccelerationStructures",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint64_t",
@@ -1622,12 +1622,12 @@
             {
                 "type": "uint32_t",
                 "name": "maxRayRecursionDepth",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint32_t",
                 "name": "maxShaderGroupStride",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint32_t",
@@ -1637,7 +1637,7 @@
             {
                 "type": "uint32_t",
                 "name": "maxRayDispatchInvocationCount",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint32_t",
@@ -1647,7 +1647,7 @@
             {
                 "type": "uint32_t",
                 "name": "maxRayHitAttributeSize",
-                "value": -2
+                "value": 0
             },
             {
                 "groupComment": [
@@ -1724,22 +1724,22 @@
             {
                 "type": "uint32_t",
                 "name": "pciDomain",
-                "value": "~-2u"
+                "value": "~0u"
             },
             {
                 "type": "uint32_t",
                 "name": "pciBus",
-                "value": "~-2u"
+                "value": "~0u"
             },
             {
                 "type": "uint32_t",
                 "name": "pciDevice",
-                "value": "~-2u"
+                "value": "~0u"
             },
             {
                 "type": "uint32_t",
                 "name": "pciFunction",
-                "value": "~-2u"
+                "value": "~0u"
             },
             {
                 "groupComment": [
@@ -1748,14 +1748,14 @@
                 ]
             },
             {
-                "type": "hlsl::uint32_t3",
+                "type": "hlsl::uint32_t2",
                 "name": "minFragmentDensityTexelSize",
-                "value": "{ ~-2u, ~1u }"
+                "value": "{ ~0u, ~0u }"
             },
             {
-                "type": "hlsl::uint32_t3",
+                "type": "hlsl::uint32_t2",
                 "name": "maxFragmentDensityTexelSize",
-                "value": "{ -2u, 1u }"
+                "value": "{ 0u, 0u }"
             },
             {
                 "type": "bool",
@@ -1794,7 +1794,7 @@
             {
                 "type": "uint32_t",
                 "name": "lineSubPixelPrecisionBits",
-                "value": -2
+                "value": 0
             },
             {
                 "groupComment": [
@@ -1872,37 +1872,37 @@
             {
                 "type": "uint32_t",
                 "name": "maxGraphicsShaderGroupCount",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
                 "type": "uint32_t",
                 "name": "maxIndirectSequenceCount",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
                 "type": "uint32_t",
                 "name": "maxIndirectCommandsTokenCount",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
                 "type": "uint32_t",
                 "name": "maxIndirectCommandsStreamCount",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
                 "type": "uint32_t",
                 "name": "maxIndirectCommandsTokenOffset",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
                 "type": "uint32_t",
                 "name": "maxIndirectCommandsStreamStride",
-                "value": -2,
+                "value": 0,
                 "expose": false
             },
             {
@@ -2002,12 +2002,12 @@
             {
                 "type": "uint32_t",
                 "name": "maxSubsampledArrayLayers",
-                "value": -2
+                "value": 0
             },
             {
                 "type": "uint32_t",
                 "name": "maxDescriptorSetSubsampledSamplers",
-                "value": -2
+                "value": 0
             },
             {
                 "groupComment": [
@@ -2320,7 +2320,7 @@
                     "inline uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint64_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection=1u) const",
                     "{",
                     "    assert(elementCount!=0ull && \"Input element count can't be 0!\");",
-                    "    const uint64_t infinitelyWideDeviceWGCount:w = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;",
+                    "    const uint64_t infinitelyWideDeviceWGCount = (elementCount-1ull)/(static_cast<uint64_t>(workgroupSize)*static_cast<uint64_t>(workgroupSpinningProtection))+1ull;",
                     "    const uint32_t maxResidentWorkgroups = maxResidentInvocations/workgroupSize;",
                     "    return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount,maxResidentWorkgroups));",
                     "}"
