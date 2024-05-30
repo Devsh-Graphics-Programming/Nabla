@@ -9,6 +9,13 @@
 namespace nbl::video
 {
 
+/*
+   Struct is populated with Nabla Core Profile Limit Minimums
+*/
+struct SPhysicalDeviceLimits
+{
+};
+
 } //nbl::video
 
 #endif

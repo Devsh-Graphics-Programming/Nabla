@@ -22,15 +22,29 @@ def buildDeviceHeader(device_json):
     res.append(emptyline)
     
     # Includes
-    for include in device_json['includes']:
-        res.append(f"#include \"{device_json['includePath']}{include}\"")
-    for include in device_json['stlIncludes']:
-        res.append(f"#include <{include}>")
+    if 'includes' in device_json and 'includePath' in device_json:
+        for include in device_json['includes']:
+            res.append(f"#include \"{device_json['includePath']}{include}\"")
+    if 'stlIncludes' in device_json:
+        for include in device_json['stlIncludes']:
+            res.append(f"#include <{include}>")
     res.append(emptyline)
 
     # Namespace
     res.append(f"namespace {device_json['namespace']}")
     res.append("{")
+    res.append(emptyline)
+
+    # Struct
+    res.append("/*")
+    for comment in device_json['structComment']:
+        res.append(f"   {comment}")
+    res.append("*/")
+    res.append(f"struct {device_json['structName']}")
+    res.append("{")
+
+    # Close Struct
+    res.append("};")
     res.append(emptyline)
 
     # Close Namespace
@@ -55,4 +69,9 @@ if __name__ == "__main__":
     writeDeviceHeader(
         buildPath(os.path.join('test_device_limits.h')),
         limits
+    )
+    features = loadJSON(buildPath(os.path.join('..', '..', 'src', 'nbl', 'video', 'device_features.json')))
+    writeDeviceHeader(
+        buildPath(os.path.join('test_device_features.h')),
+        features
     )
