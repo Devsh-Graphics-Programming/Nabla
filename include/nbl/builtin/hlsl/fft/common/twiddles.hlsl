@@ -4,6 +4,10 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/complex.hlsl"
 
+#define LOW_TWIDDLE_BITS 6
+#define MID_TWIDDLE_BITS 5
+#define HIGH_TWIDDLE_BITS 4 
+
 namespace nbl 
 {
 namespace hlsl

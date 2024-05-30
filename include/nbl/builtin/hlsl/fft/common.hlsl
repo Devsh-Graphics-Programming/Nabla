@@ -11,10 +11,10 @@ namespace hlsl
 {
 namespace fft::common {
 
-    template<typename Scalar, uint32_t log2FFTSize, uint32_t WorkgroupSize, uint32_t SubgroupSize, bool inverse> 
+    template<typename Scalar, bool inverse> 
     struct DIX {
         //Assumes I have precomputed twiddles, so just pass the index. 
-        void radix2_butterfly(NBL_CONST_REF_ARG(complex_t<Scalar>) twiddle, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi){
+        static void radix2Butterfly(NBL_CONST_REF_ARG(complex_t<Scalar>) twiddle, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi){
             //Decimation in time - inverse           
             if (inverse) {
                 complex_t<Scalar> wHi = twiddle * hi;
@@ -30,11 +30,13 @@ namespace fft::common {
         };                                              
     }
 
-    template<typename Scalar, uint32_t log2FFTSize, uint32_t WorkgroupSize, uint32_t SubgroupSize>
-    using DIT = DIX<Scalar, log2FFTSize, WorkgroupSize, SubgroupSize, true>;
+    /* 
+    template<typename Scalar>
+    using DIT = DIX<Scalar, true>;
 
-    template<typename Scalar, uint32_t log2FFTSize, uint32_t WorkgroupSize, uint32_t SubgroupSize>
-    using DIF = DIX<Scalar, log2FFTSize, WorkgroupSize, SubgroupSize, false>;
+    template<typename Scalar>
+    using DIF = DIX<Scalar, false>;
+    */
 }
 }
 }
