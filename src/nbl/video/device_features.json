@@ -11,6 +11,7 @@
         "## LogicalDevice creation enabled features shouldn't necessarily equal the ones it reports as enabled (superset)",
         "**RARE: Creating a physical device with all advertised features/extensions:**",
         "auto features = physicalDevice->getFeatures();",
+        "",
         "ILogicalDevice::SCreationParams params = {};",
         "params.queueParamsCount = ; // set queue stuff",
         "params.queueParams = ; // set queue stuff",
@@ -23,8 +24,10 @@
         "props.deviceTypeMask = ~IPhysicalDevice::ET_CPU;",
         "props.driverIDMask = ~(EDI_AMD_PROPRIETARY|EDI_INTEL_PROPRIETARY_WINDOWS); // would be goot to turn the enum into a mask",
         "props.conformanceVersion = 1.2;",
+        "",
         "SDeviceFeatures requiredFeatures = {};",
         "requiredFeatures.rayQuery = true;",
+        "",
         "SDeviceLimits minimumLimits = {}; // would default initialize to worst possible values (small values for maximum sizes, large values for alignments, etc.)"
     ],
     "content": {
