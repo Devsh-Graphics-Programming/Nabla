@@ -62,7 +62,7 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
 {
-    return glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+    return reinterpret_cast<matrix<T,N,M>&>(glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 
 NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
@@ -71,7 +71,7 @@ NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,M,N> transpose(const matrix<T,N,M>& m)
 {
-    return glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+    return reinterpret_cast<matrix<T,M,N>&>(glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 
 template<typename T>
