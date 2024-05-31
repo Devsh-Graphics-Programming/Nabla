@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_FFT_INCLUDED_
 
-#include "nbl/builtin/hlsl/fft/common"
+#include "nbl/builtin/hlsl/fft/common.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 

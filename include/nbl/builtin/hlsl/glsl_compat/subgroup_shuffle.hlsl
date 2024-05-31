@@ -19,6 +19,12 @@ T subgroupShuffle(T value, uint32_t invocationId)
 }
 
 template<typename T>
+T subgroupShuffleXor(T value, uint32_t delta)
+{
+    return spirv::groupShuffleXor<T>(spv::ScopeSubgroup, value, mask);
+}
+
+template<typename T>
 T subgroupShuffleUp(T value, uint32_t delta)
 {
     return spirv::groupShuffleUp<T>(spv::ScopeSubgroup, value, delta);
@@ -28,13 +34,6 @@ template<typename T>
 T subgroupShuffleDown(T value, uint32_t delta)
 {
     return spirv::groupShuffleDown<T>(spv::ScopeSubgroup, value, delta);
-}
-
-
-template<typename T>
-T subgroupShuffleXor(T value, uint32_t delta)
-{
-    return spirv::groupShuffleXor<T>(spv::ScopeSubgroup, value, delta);
 }
 
 
