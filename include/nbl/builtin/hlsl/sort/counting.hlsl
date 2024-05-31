@@ -52,8 +52,9 @@ struct counting
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
+        // Parallel reads must be coalesced
         uint32_t index = workGroupIndex * GroupSize * params.elementsPerWT + tid;
-        uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT);
+        uint32_t endIndex = min(params.dataElementCount, index + GroupSize * params.elementsPerWT); // implicitly breaks when params.dataElementCount is reached
 
         for (; index < endIndex; index += GroupSize)
         {
@@ -62,8 +63,6 @@ struct counting
                 continue;
             sdata.atomicAdd(k - params.minimum, (uint32_t) 1);
         }
-
-        sdata.workgroupExecutionAndMemoryBarrier();
     }
 
     void histogram(
@@ -75,7 +74,11 @@ struct counting
     {
         build_histogram(key, sdata, params);
 
+        // wait for the histogramming to finish
+        sdata.workgroupExecutionAndMemoryBarrier();
+
         uint32_t tid = workgroup::SubgroupContiguousIndex();
+        // because first chunk of histogram and workgroup scan scratch are aliased
         uint32_t histogram_value = sdata.get(tid);
 
         sdata.workgroupExecutionAndMemoryBarrier();
@@ -91,11 +94,16 @@ struct counting
             uint32_t keyBucketStart = GroupSize * i;
             uint32_t vid = tid + keyBucketStart;
 
+            // no if statement about the last iteration needed
             if (is_last_wg_invocation)
             {
                 sdata.set(keyBucketStart, sdata.get(keyBucketStart) + sum);
             }
 
+            // propagate last block tail to next block head and protect against subsequent scans stepping on each other's toes
+            sdata.workgroupExecutionAndMemoryBarrier();
+
+            // no aliasing anymore
             const uint32_t val = vid < KeyBucketCount ? sdata.get(vid) : 0;
             sum = inclusive_scan(val, sdata);
             histogram.atomicAdd(vid, sum);
@@ -112,15 +120,20 @@ struct counting
     {
         build_histogram(key, sdata, params);
 
+        // wait for the histogramming to finish
+        sdata.workgroupExecutionAndMemoryBarrier();
+
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        uint32_t shifted_tid = (tid + glsl::gl_SubgroupSize() * workGroupIndex) % GroupSize;
+        const uint32_t shift = glsl::gl_SubgroupSize() * workGroupIndex;
 
-        for (; shifted_tid < KeyBucketCount; shifted_tid += GroupSize)
+        for (uint32_t vtid=tid; vtid<KeyBucketCount; vtid+=GroupSize)
         {
-            uint32_t bucket_value = sdata.get(shifted_tid);
-            uint32_t exclusive_value = histogram.atomicSub(shifted_tid, bucket_value) - bucket_value;
+            // have to use modulo operator in case `KeyBucketCount<=2*GroupSize`, better hope KeyBucketCount is Power of Two
+            const uint32_t shifted_tid = (vtid + shift) % KeyBucketCount;
+            const uint32_t bucket_value = sdata.get(shifted_tid);
+            const uint32_t firstOutputIndex = histogram.atomicSub(shifted_tid, bucket_value) - bucket_value;
 
-            sdata.set(shifted_tid, exclusive_value);
+            sdata.set(shifted_tid, firstOutputIndex);
         }
 
         sdata.workgroupExecutionAndMemoryBarrier();
