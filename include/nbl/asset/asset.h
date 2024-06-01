@@ -41,7 +41,6 @@
 
 // shaders
 #include "nbl/asset/ICPUShader.h"
-#include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CSPIRVIntrospector.h"

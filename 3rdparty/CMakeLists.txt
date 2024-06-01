@@ -160,6 +160,8 @@ add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
+# blake3
+add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
@@ -368,6 +370,7 @@ set(NBL_3RDPARTY_TARGETS
 				Iex
 				IlmThread
 				Imath
+				blake3
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
