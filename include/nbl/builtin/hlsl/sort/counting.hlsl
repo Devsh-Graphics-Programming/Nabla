@@ -104,8 +104,8 @@ struct counting
             sdata.workgroupExecutionAndMemoryBarrier();
 
             // no aliasing anymore
+            sum = inclusive_scan(sdata.get(vid), sdata);
             if (vid < KeyBucketCount) {
-                sum = inclusive_scan(sdata.get(vid), sdata);
                 histogram.atomicAdd(vid, sum);
             }
         }
