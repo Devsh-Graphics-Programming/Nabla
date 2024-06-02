@@ -290,8 +290,17 @@ struct is_signed : bool_constant<
 
 }
 
+template<class T>
+struct is_spirv_type : false_type {};
+template<class T, class Storage>
+struct is_spirv_type< vk::SpirvOpaqueType</*spv::OpTypePointer*/ 32, Storage, T> > : true_type {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
 struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
@@ -299,8 +308,10 @@ struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
 
-template<class T> 
+template<class T>
 struct is_signed : impl::base_type_forwarder<impl::is_signed, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_signed_v = is_signed<T>::value;
 
 template<class T>
 struct is_scalar : bool_constant<
@@ -378,8 +389,13 @@ struct enable_if {};
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
 
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B, T>::type;
+
 template<class T>
 struct alignment_of;
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE uint32_t alignment_of_v = alignment_of<T>::value;
 
 template<class>
 struct make_void { using type = void; };
