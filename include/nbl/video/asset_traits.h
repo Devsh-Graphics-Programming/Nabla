@@ -33,8 +33,8 @@ struct asset_traits<asset::ICPUShader>
 {
 	// the asset type
 	using asset_t = asset::ICPUShader;
-	// the value cache type
-	using video_t = core::smart_refctd_ptr<IGPUShader>;
+	// the video type
+	using video_t = IGPUShader;
 };
 
 template<>
@@ -42,8 +42,8 @@ struct asset_traits<asset::ICPUDescriptorSetLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUDescriptorSetLayout;
-	// the value cache type
-	using video_t = core::smart_refctd_ptr<IGPUDescriptorSetLayout>;
+	// the video type
+	using video_t = IGPUDescriptorSetLayout;
 };
 
 template<>
@@ -51,8 +51,8 @@ struct asset_traits<asset::ICPUPipelineLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUPipelineLayout;
-	// the value cache type
-	using video_t = core::smart_refctd_ptr<IGPUPipelineLayout>;
+	// the video type
+	using video_t = IGPUPipelineLayout;
 };
 /*
 /*
