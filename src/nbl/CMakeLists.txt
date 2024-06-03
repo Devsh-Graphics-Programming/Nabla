@@ -713,6 +713,7 @@ if(NOT NBL_STATIC_BUILD)
 endif()
 
 add_dependencies(Nabla DeviceHeaders)
+target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 if(NOT NBL_STATIC_BUILD)
