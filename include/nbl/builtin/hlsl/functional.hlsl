@@ -64,6 +64,36 @@ ALIAS_STD(less_equal,<=) };
 
 #undef ALIAS_STD
 
+// ------------------------ Compound assignment operators ----------------------
+
+#define COMPOUND_ASSIGN(NAME,OP) template<typename T> struct NAME##_assign { \
+    using type_t = T; \
+    \
+    void operator()(NBL_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
+    { \
+        lhs = lhs OP rhs; \
+    }
+
+
+COMPOUND_ASSIGN(plus,+)
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
+};        
+
+COMPOUND_ASSIGN(multiplies,*)
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
+}; 
+
+COMPOUND_ASSIGN(minus,-)
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
+}; 
+
+COMPOUND_ASSIGN(divides,/)
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
+}; 
+
+#undef COMPOUND_ASSIGN
+
+// ----------------- End of compound assignment ops ----------------
 
 // Min and Max don't use ALIAS_STD because they don't exist in STD
 // TODO: implement as mix(rhs<lhs,lhs,rhs) (SPIR-V intrinsic from the extended set & glm on C++)

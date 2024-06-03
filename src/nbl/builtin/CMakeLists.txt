@@ -259,6 +259,10 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/mpl.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/member_test_macros.hlsl")
 #device capability
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/device_capabilities_traits.hlsl")
+#Basic math constants
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/numbers.hlsl")
+#Complex math
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/complex.hlsl")
 #linear algebra
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/linalg/fast_affine.hlsl")
 # TODO: rename `equations` to `polynomials` probably
@@ -286,13 +290,15 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/ellipse.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/line.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/beziers.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/util.hlsl")
-
+#FFT
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/fft/common.hlsl")
 
 #subgroup
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/basic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/arithmetic_portability_impl.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/subgroup/fft.hlsl")
 #shared header between C++ and HLSL
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/surface_transform.h")
 #workgroup

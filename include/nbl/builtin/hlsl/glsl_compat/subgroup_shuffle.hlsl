@@ -19,7 +19,7 @@ T subgroupShuffle(T value, uint32_t invocationId)
 }
 
 template<typename T>
-T subgroupShuffleXor(T value, uint32_t delta)
+T subgroupShuffleXor(T value, uint32_t mask)
 {
     return spirv::groupShuffleXor<T>(spv::ScopeSubgroup, value, mask);
 }

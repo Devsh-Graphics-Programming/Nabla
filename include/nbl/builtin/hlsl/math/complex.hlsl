@@ -5,7 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
-#include <nbl/builtin/hlsl/binops.hlsl>
+#include "nbl/builtin/hlsl/functional.hlsl"
 
 namespace nbl
 {
@@ -23,11 +23,6 @@ struct complex_t
     {
             complex_t retVal = { real, imag };
             return retVal;
-    }
-            
-    static complex_t create(const complex_t other)
-    {
-            return other;
     }
             
     // ------------------------- Member functions -------------------------------      
@@ -103,7 +98,7 @@ struct complex_t
     {
         complex_t result;
 
-        T denominator = rhs.m_real * rhs.m_real + rhs.m_imag * rhs.m_imag;
+        Scalar denominator = rhs.m_real * rhs.m_real + rhs.m_imag * rhs.m_imag;
         result.m_real = (m_real * rhs.m_real + m_imag * rhs.m_imag) / denominator;
         result.m_imag = (m_imag * rhs.m_real - m_real * rhs.m_imag) / denominator;
 
@@ -113,32 +108,54 @@ struct complex_t
     // ----------------- Relational operators -----------------------------
     bool operator==(const complex_t rhs)
     {
-            return !(uint64_t(m_real) ^ uint64_t(rhs.m_real)) && !(uint64_t(m_imag) ^ uint64_t(rhs.m_imag));
+            return m_real == rhs.m_real && m_imag == rhs.m_imag;
     }
     bool operator!=(const complex_t rhs)
     {
-            return uint64_t(m_real) ^ uint64_t(rhs.m_real) || uint64_t(m_imag) ^ uint64_t(rhs.m_imag);
+            return m_real != rhs.m_real || m_imag != rhs.m_imag;
     }
-            
 };
 
-// ---------------------- Compound assignment functors ----------------------
-template <typename Scalar>
-struct ComplexCompoundHelper{              
-    using add = assign_add_t<complex_t<Scalar> >;
-    using subtract = assign_subtract_t<complex_t<Scalar> >;
-    using mul = assign_mul_t<complex_t<Scalar> >;
-    using div = assign_div_t<complex_t<Scalar> >;
+// ---------------------- Compound assign operators ------------------------
+// Specializations of the structs found in functional.hlsl
+// TODO: Figure out a way of making them have an identity (const static member struct doesn't compile on Godbolt)
+
+template<typename Scalar> 
+struct plus_assign< complex_t<Scalar> > {
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) {
+        lhs = lhs + rhs;                                                             
+    }                                          
 };
 
-template <typename Scalar>
-using assign_add_complex = typename ComplexCompoundHelper<Scalar>::add;
-template <typename Scalar>
-using assign_subtract_complex = typename ComplexCompoundHelper<Scalar>::subtract;
-template <typename Scalar>
-using assign_mul_complex = typename ComplexCompoundHelper<Scalar>::mul;
-template <typename Scalar>
-using assign_div_complex = typename ComplexCompoundHelper<Scalar>::div;
+template<typename Scalar> 
+struct multiplies_assign< complex_t<Scalar> > {
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) {
+        lhs = lhs * rhs;                                                             
+    }
+
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) {
+        lhs = lhs * rhs;                                                             
+    }                                          
+};
+
+template<typename Scalar> 
+struct minus_assign< complex_t<Scalar> > {
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) {
+        lhs = lhs - rhs;                                                             
+    }                                          
+};
+
+template<typename Scalar> 
+struct divides_assign< complex_t<Scalar> > {
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) {
+        lhs = lhs / rhs;                                                             
+    }
+
+    void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) {
+        lhs = lhs / rhs;                                                             
+    }                                          
+};
+
 
 // ---------------------- Non-member functions -----------------------------    
 template<typename Scalar>
