@@ -150,6 +150,7 @@ endforeach()
 
 unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 #
+
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
 )
@@ -319,11 +320,6 @@ set(NBL_VIDEO_SOURCES
 # CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
-
-# JSON
-	${NBL_ROOT_PATH}/src/nbl/video/device_limits.json
-	${NBL_ROOT_PATH}/src/nbl/video/device_features.json
-	
 )
 
 set(NBL_SCENE_SOURCES
@@ -715,6 +711,8 @@ if(NOT NBL_STATIC_BUILD)
 	
 	add_dependencies(Nabla generate_nabla_defines)
 endif()
+
+add_dependencies(Nabla DeviceHeaders)
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 if(NOT NBL_STATIC_BUILD)

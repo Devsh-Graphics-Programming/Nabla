@@ -3,9 +3,6 @@ import os
 
 emptyline = f""
 
-def buildPath(file_path):
-    return os.path.abspath(os.path.join(os.path.dirname( __file__ ), file_path))
-
 def loadJSON(file_path):
     try:
         with open(file_path) as file:

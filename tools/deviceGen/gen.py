@@ -1,13 +1,26 @@
 from DeviceGen import *
+from argparse import ArgumentParser
+from sys import exit
 
 if __name__ == "__main__":
-    limits = loadJSON(buildPath(os.path.join('..', '..', 'src', 'nbl', 'video', 'device_limits.json')))
+    parser = ArgumentParser(description="Generate Header Files")
+
+    parser.add_argument("limits_json_path", type=str, help="The path to the device_limits.json file")
+    parser.add_argument("features_json_path", type=str, help="The path to the device_features.json file")
+    parser.add_argument("limits_output_path", type=str, help="The output path for the test_device_limits.h file")
+    parser.add_argument("features_output_path", type=str, help="The output path for the test_device_features.h file")
+
+    args = parser.parse_args()
+
+    limits = loadJSON(args.limits_json_path)
     writeDeviceHeader(
-        buildPath(os.path.join('test_device_limits.h')),
+        args.limits_output_path,
         limits
     )
-    features = loadJSON(buildPath(os.path.join('..', '..', 'src', 'nbl', 'video', 'device_features.json')))
+    features = loadJSON(args.features_json_path)
     writeDeviceHeader(
-        buildPath(os.path.join('test_device_features.h')),
+        args.features_output_path,
         features
     )
+
+    exit(0)
