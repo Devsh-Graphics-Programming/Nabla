@@ -286,7 +286,7 @@ class GeneralpurposeAddressAllocatorBase
                     if (block.startOffset>=bufferSize)
                         continue;
                     #ifdef _NBL_DEBUG
-                    assert(block.endOffset>bufferSize);
+                    assert(block.endOffset>=bufferSize);
                     #endif // _NBL_DEBUG
                     insertFreeBlock({block.startOffset,bufferSize});
                     #ifndef _NBL_DEBUG
