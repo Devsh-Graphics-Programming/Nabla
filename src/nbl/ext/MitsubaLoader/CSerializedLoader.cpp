@@ -330,6 +330,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			{
 				size_t vertexIx = std::distance(reinterpret_cast<decltype(&nml)>(ptr),&nml);
 				core::vectorSIMDf simdNormal(nml.pointer[0],nml.pointer[1],nml.pointer[2]);
+				simdNormal = core::normalize(simdNormal);
 				normalPtr[vertexIx] = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(simdNormal);
 			};
 			const bool read = flags&MF_PER_VERTEX_NORMALS;
