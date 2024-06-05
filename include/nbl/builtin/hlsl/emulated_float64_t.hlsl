@@ -303,9 +303,19 @@ namespace emulated
         template <typename T>
         static emulated_float64_t create(T val)
         {
+#ifndef __HLSL_VERSION
             emulated_float64_t output;
-            output.data = val;
+            output.data = reinterpret_cast<storage_t&>(val);
             return output;
+#else
+            uint32_t lowBits;
+            uint32_t highBits;
+            asuint(val, lowBits, highBits);
+            
+            emulated_float64_t output;
+            output.data = (uint64_t(highBits) << 32) | uint64_t(lowBits);
+            return output;
+#endif
         }
         
         static emulated_float64_t createEmulatedFloat64PreserveBitPattern(uint64_t val)
@@ -316,6 +326,7 @@ namespace emulated
         }
         
         // TODO: won't not work for uints with msb of index > 52
+#ifndef __HLSL_VERSION
         template<>
         static emulated_float64_t create(uint64_t val)
         {
@@ -330,7 +341,7 @@ namespace emulated
             output.data = exp | mantissa;
             return output;
         }
-        
+#endif        
         // TODO: temporary, remove
 #ifndef __HLSL_VERSION
         template<>
@@ -438,7 +449,7 @@ namespace emulated
                        EXCHANGE(lhsHigh, rhsHigh);
                        EXCHANGE(lhsLow, rhsLow);
                        EXCHANGE(lhsExp, rhsExp);
-                       lhsSign ^= 0x80000000u; // smth not right about that
+                       lhsSign ^= 0x80000000u; // TODO: smth not right about that
                     }
                     
                     //if (lhsExp == 0x7FF)
@@ -540,14 +551,12 @@ namespace emulated
         // TODO
         emulated_float64_t operator/(const emulated_float64_t rhs)
         {
-            emulated_float64_t retval;
-            retval.data = data / rhs.data;
-            return retval;
+            return createEmulatedFloat64PreserveBitPattern(0xdeadbeefbadcaffeull);
         }
 
         // relational operators
-        bool operator==(const emulated_float64_t rhs) { return !(uint64_t(data) ^ uint64_t(rhs.data)); }
-        bool operator!=(const emulated_float64_t rhs) { return uint64_t(data) ^ uint64_t(rhs.data); }
+        bool operator==(const emulated_float64_t rhs) { return !(data ^ rhs.data); }
+        bool operator!=(const emulated_float64_t rhs) { return data ^ rhs.data; }
         bool operator<(const emulated_float64_t rhs) { return data < rhs.data; }
         bool operator>(const emulated_float64_t rhs) { return data > rhs.data; }
         bool operator<=(const emulated_float64_t rhs) { return data <= rhs.data; }
