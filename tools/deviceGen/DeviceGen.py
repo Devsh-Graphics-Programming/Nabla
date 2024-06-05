@@ -24,6 +24,14 @@ def buildFunction(function, res):
         res.append(f"   {functionLine}")
     res.append(emptyline)
 
+def buildEnum(dict, res):
+    res.append(dict['name'])
+    res.append("{")
+    for declaration in dict['declarations']:
+        res.append(declaration)
+    res.append("};")
+    res.append(emptyline)
+
 def formatValue(value):
     if isinstance(value, bool):
         return "true" if value else "false"
@@ -56,9 +64,10 @@ def buildDeviceHeader(device_json):
                 buildStatement(dict, res)
             elif dict['type'] == "function":
                 buildFunction(dict, res)
+            elif dict['type'] == "enum":
+                buildEnum(dict, res)
             else:
                 buildVariable(dict, res, sectionName)
-                pass
 
     return res
 

@@ -224,7 +224,7 @@
         {
             "type": "uint16_t",
             "name": "maxVertexInputAttributeOffset",
-            "value": "maxVertexInputBindingStride-3",
+            "value": "maxVertexInputBindingStride-1",
             "expose": false
         },
         {
@@ -359,9 +359,9 @@
             "value": "4"
         },
         {
+            "declare": true,
             "type": "uint32_t",
             "name": "maxDrawIndexedIndexValue",
-            "value": null,
             "expose": false,
             "comment": "[DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint33 so this must be 1xffFFffFFu"
         },
@@ -562,7 +562,7 @@
         {
             "type": "float",
             "name": "timestampPeriodInNanoSeconds",
-            "value": 83.335,
+            "value": 83.334,
             "comment": "timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future"
         },
         {
@@ -588,12 +588,12 @@
         {
             "type": "float",
             "name": "pointSizeRange[2]",
-            "value": "{1.f,65.f}"
+            "value": "{1.f,64.f}"
         },
         {
             "type": "float",
             "name": "lineWidthRange[2]",
-            "value": "{1.f,2.f}"
+            "value": "{1.f,1.f}"
         },
         {
             "type": "float",
@@ -641,33 +641,42 @@
         {
             "type": "bool",
             "name": "residencyStandard2DBlockShape",
-            "value": true
+            "value": true,
+            "expose": false
         },
         {
             "type": "bool",
             "name": "residencyStandard2DMultisampleBlockShape",
-            "value": false
+            "value": false,
+            "expose": false
+
         },
         {
             "type": "bool",
             "name": "residencyStandard3DBlockShape",
-            "value": true
+            "value": true,
+            "expose": false
+
         },
         {
             "type": "bool",
             "name": "residencyAlignedMipSize",
-            "value": false
+            "value": false,
+            "expose": false
+
         },
         {
             "type": "bool",
             "name": "residencyNonResidentStrict",
-            "value": true
+            "value": true,
+            "expose": false
+
         }
     ],
     "vulkan11core": [
         {
             "groupComment": [
-                "Vulkan 1.2 Core"
+                "Vulkan 1.1 Core"
             ]
         },
         {
@@ -704,12 +713,11 @@
             "comment": "bad Android support"
         },
         {
-            "declare": true,
             "type": "enum",
             "name": "E_POINT_CLIPPING_BEHAVIOR : uint8_t",
             "declarations": [
                 "EPCB_ALL_CLIP_PLANES = 0",
-                "EPCB_USER_CLIP_PLANES_ONLY = 2"
+                "EPCB_USER_CLIP_PLANES_ONLY = 1"
             ]
         },
         {
@@ -747,7 +755,7 @@
     "vulkan12core": [
         {
             "groupComment": [
-                "Vulkan 1.3 Core"
+                "Vulkan 1.2 Core"
             ]
         },
         {
@@ -1009,6 +1017,7 @@
             "type": "uint64_t",
             "name": "maxTimelineSemaphoreValueDifference",
             "value": 2147483647,
+            "expose": false,
             "comment": "[DO NOT EXPOSE] its high enough (207 days of uptime at 121 FPS)"
         },
         {
@@ -1019,13 +1028,14 @@
         {
             "type": "core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS>",
             "name": "framebufferIntegerColorSampleCounts",
-            "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(0u)"
+            "value": "asset::IImage::E_SAMPLE_COUNT_FLAGS(0u)",
+            "expose": false
         }
     ],
     "vulkan13core": [
         {
             "groupComment": [
-                "Vulkan 1.4 Core",
+                "Vulkan 1.3 Core",
                 "or VK_EXT_subgroup_size_control:"
             ]
         },
@@ -1377,12 +1387,12 @@
         {
             "type": "size_t",
             "name": "robustStorageBufferAccessSizeAlignment",
-            "value": 9223372036854776001
+            "value": 9223372036854775808
         },
         {
             "type": "size_t",
             "name": "robustUniformBufferAccessSizeAlignment",
-            "value": 9223372036854776001
+            "value": 9223372036854775808
         }
     ],
     "vulkanext": [
@@ -1542,7 +1552,7 @@
         {
             "type": "float",
             "name": "sampleLocationCoordinateRange[2]",
-            "value": "{ 1.f, 1.f }"
+            "value": "{ 1.f, 0.f }"
         },
         {
             "groupComment": [
@@ -2043,11 +2053,11 @@
             "value": "asset::IShader::ESS_UNKNOWN"
         }
     ],
-    "core2": [
+    "core10": [
         {
             "groupComment": [
                 "Always enabled if available, reported as limits",
-                "Core 2.1 Features"
+                "Core 1.0 Features"
             ]
         },
         {
@@ -2106,7 +2116,7 @@
         },
         {
             "groupComment": [
-                "Core 1.2 Features or VK_KHR_17bit_storage"
+                "Core 1.1 Features or VK_KHR_16bit_storage"
             ]
         },
         {
@@ -2121,7 +2131,7 @@
         },
         {
             "groupComment": [
-                "Core 1.2 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these"
+                "Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these"
             ]
         },
         {
@@ -2138,17 +2148,17 @@
             "type": "bool",
             "name": "drawIndirectCount",
             "value": false,
-            "comment": "Vulkan 1.3 Core or VK_KHR_draw_indirect_count"
+            "comment": "Vulkan 1.2 Core or VK_KHR_draw_indirect_count"
         },
         {
             "type": "bool",
             "name": "storagePushConstant8",
             "value": false,
-            "comment": "Vulkan 1.3 Core or VK_KHR_9bit_storage"
+            "comment": "Vulkan 1.2 Core or VK_KHR_9bit_storage"
         },
         {
             "groupComment": [
-                "Vulkan 1.3 Core or VK_KHR_shader_atomic_int65"
+                "Vulkan 1.2 Core or VK_KHR_shader_atomic_int65"
             ]
         },
         {
@@ -2165,11 +2175,11 @@
             "type": "bool",
             "name": "shaderFloat16",
             "value": false,
-            "comment": "Vulkan 1.3 Core or VK_KHR_shader_float17_int9"
+            "comment": "Vulkan 1. Core or VK_KHR_shader_float17_int9"
         },
         {
             "groupComment": [
-                "Vulkan 1.3 Core or VK_EXT_descriptor_indexing"
+                "Vulkan 1.2 Core or VK_EXT_descriptor_indexing"
             ]
         },
         {
@@ -2194,7 +2204,7 @@
         },
         {
             "groupComment": [
-                "Vulkan 1.3 or VK_EXT_sampler_filter_minmax"
+                "Vulkan 1.2 or VK_EXT_sampler_filter_minmax"
             ]
         },
         {
@@ -2207,11 +2217,11 @@
             "type": "bool",
             "name": "vulkanMemoryModelAvailabilityVisibilityChains",
             "value": false,
-            "comment": "Vulkan 1.4 requires but we make concessions for MoltenVK"
+            "comment": "Vulkan 1.3 requires but we make concessions for MoltenVK"
         },
         {
             "groupComment": [
-                "Vulkan 1.3 Core or VK_EXT_shader_viewport_index_layer"
+                "Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer"
             ]
         },
         {
@@ -2228,7 +2238,7 @@
         },
         {
             "groupComment": [
-                "Vulkan 1.4 non-optional requires but poor support"
+                "Vulkan 1.3 non-optional requires but poor support"
             ]
         },
         {
@@ -2245,7 +2255,7 @@
         },
         {
             "groupComment": [
-                "Vulkan 1.4 non-optional requires but poor support"
+                "Vulkan 1.3 non-optional requires but poor support"
             ]
         },
         {
