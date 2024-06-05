@@ -29,12 +29,14 @@ def formatValue(value):
         return "true" if value else "false"
     return value
 
-def buildVariable(variable, res):
+def buildVariable(variable, res, sectionName):
     declarationOnly = "declare" in variable and variable["declare"]
     expose = "expose" in variable and variable["expose"] or "expose" not in variable
     line = "    "
     if not expose:
         line += "// "
+    if sectionName == "constexprs":
+        line += "constexpr static inline "
     line += f"{variable['type']} {variable['name']}"
     if not declarationOnly:
         line += f" = {formatValue(variable['value'])}"
@@ -46,35 +48,7 @@ def buildVariable(variable, res):
 def buildDeviceHeader(device_json):
     res = []
 
-    # Header Guard
-    res.append(f"#ifndef {device_json['headerGuard']}")
-    res.append(f"#define {device_json['headerGuard']}")
-    res.append(emptyline)
-    
-    # Includes
-    if 'includes' in device_json and 'includePath' in device_json:
-        for include in device_json['includes']:
-            res.append(f"#include \"{device_json['includePath']}{include}\"")
-    if 'stlIncludes' in device_json:
-        for include in device_json['stlIncludes']:
-            res.append(f"#include <{include}>")
-    res.append(emptyline)
-
-    # Namespace
-    res.append(f"namespace {device_json['namespace']}")
-    res.append("{")
-    res.append(emptyline)
-
-    # Struct
-    res.append("/*")
-    for comment in device_json['structComment']:
-        res.append(f"   {comment}")
-    res.append("*/")
-    res.append(f"struct {device_json['structName']}")
-    res.append("{")
-
-    # Content
-    for _, sectionContent in device_json['content'].items():
+    for sectionName, sectionContent in device_json.items():
         for dict in sectionContent:
             if 'groupComment' in dict:
                 buildComment(dict, res)
@@ -83,25 +57,8 @@ def buildDeviceHeader(device_json):
             elif dict['type'] == "function":
                 buildFunction(dict, res)
             else:
-                buildVariable(dict, res)
+                buildVariable(dict, res, sectionName)
                 pass
-
-    # Close Struct
-    res.append("};")
-    res.append(emptyline)
-
-    # Extra
-    if "extra" in device_json:
-        for line in device_json['extra']:
-            res.append(line)
-        res.append(emptyline)
-
-    # Close Namespace
-    res.append("}" + f" //{device_json['namespace']}")
-    res.append(emptyline)
-
-    # Close Header Guard
-    res.append(f"#endif")
 
     return res
 
