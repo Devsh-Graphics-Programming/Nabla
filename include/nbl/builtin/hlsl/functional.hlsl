@@ -50,8 +50,17 @@ ALIAS_STD(plus,+)
     NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
 };
 
+ALIAS_STD(minus,-)
+
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
+};
 
 ALIAS_STD(multiplies,*)
+
+    NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
+};
+
+ALIAS_STD(divides,/)
 
     NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
 };
@@ -66,30 +75,22 @@ ALIAS_STD(less_equal,<=) };
 
 // ------------------------ Compound assignment operators ----------------------
 
-#define COMPOUND_ASSIGN(NAME,OP) template<typename T> struct NAME##_assign { \
+#define COMPOUND_ASSIGN(NAME) template<typename T> struct NAME##_assign { \
     using type_t = T; \
+    using base_t = NAME <type_t>; \
+    base_t baseOp; \
     \
     void operator()(NBL_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
     { \
-        lhs = lhs OP rhs; \
-    }
+        lhs = baseOp(lhs, rhs); \
+    }\
+    NBL_CONSTEXPR_STATIC_INLINE T identity = base_t::identity; \
+};
 
-
-COMPOUND_ASSIGN(plus,+)
-    NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
-};        
-
-COMPOUND_ASSIGN(multiplies,*)
-    NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
-}; 
-
-COMPOUND_ASSIGN(minus,-)
-    NBL_CONSTEXPR_STATIC_INLINE T identity = T(0);
-}; 
-
-COMPOUND_ASSIGN(divides,/)
-    NBL_CONSTEXPR_STATIC_INLINE T identity = T(1);
-}; 
+COMPOUND_ASSIGN(plus)
+COMPOUND_ASSIGN(minus)         
+COMPOUND_ASSIGN(multiplies) 
+COMPOUND_ASSIGN(divides) 
 
 #undef COMPOUND_ASSIGN
 

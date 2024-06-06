@@ -260,9 +260,9 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/member_test_macros.hlsl")
 #device capability
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/device_capabilities_traits.hlsl")
 #Basic math constants
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/numbers.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/numbers.hlsl")
 #Complex math
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/complex.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/complex.hlsl")
 #linear algebra
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/linalg/fast_affine.hlsl")
 # TODO: rename `equations` to `polynomials` probably
