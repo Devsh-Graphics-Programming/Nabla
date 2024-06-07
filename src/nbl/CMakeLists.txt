@@ -497,27 +497,6 @@ else()
 endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 
-# Freetype
-add_dependencies(Nabla freetype)
-if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE freetype)
-else()
-	target_link_libraries(Nabla PRIVATE freetype)
-endif()
-target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:freetype,INCLUDE_DIRECTORIES>)
-
-# msdfgen
-add_dependencies(Nabla ${NBL_MSDFGEN_TARGETS})
-if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE ${NBL_MSDFGEN_TARGETS})
-else()
-	target_link_libraries(Nabla PRIVATE ${NBL_MSDFGEN_TARGETS})
-endif()
-
-foreach(NBL_TARGET IN LISTS NBL_MSDFGEN_TARGETS)
-	target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
-endforeach()
-
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)
@@ -765,10 +744,6 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(OSDependent)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)
-	nbl_install_lib(freetype)
-	foreach(NBL_TARGET IN LISTS NBL_MSDFGEN_TARGETS)
-		nbl_install_lib(${NBL_TARGET})
-	endforeach()
 	nbl_install_lib(volk)
 	
 	if(_NBL_BUILD_DPL_)
