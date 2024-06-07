@@ -25,11 +25,11 @@ def buildFunction(function, res):
     res.append(emptyline)
 
 def buildEnum(dict, res):
-    res.append(dict['name'])
-    res.append("{")
+    res.append("    enum " + dict['name'])
+    res.append("    {")
     for declaration in dict['declarations']:
-        res.append(declaration)
-    res.append("};")
+        res.append("    " + declaration + ",")
+    res.append("    };")
     res.append(emptyline)
 
 def formatValue(value):
@@ -56,6 +56,9 @@ def buildVariable(variable, res, sectionName):
 def buildDeviceHeader(device_json):
     res = []
 
+    res.append("namespace nbl::video")
+    res.append("{")
+
     for sectionName, sectionContent in device_json.items():
         for dict in sectionContent:
             if 'groupComment' in dict:
@@ -68,6 +71,8 @@ def buildDeviceHeader(device_json):
                 buildEnum(dict, res)
             else:
                 buildVariable(dict, res, sectionName)
+
+    res.append("}")
 
     return res
 

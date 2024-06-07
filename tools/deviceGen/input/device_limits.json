@@ -17,12 +17,12 @@
         },
         {
             "type": "uint32_t",
-            "name": "MinMaxWorkGroupCount",
+            "name": "MinMaxWorkgroupCount",
             "value": 65535
         },
         {
             "type": "uint32_t",
-            "name": "MinMaxWorkGroupInvocations",
+            "name": "MinMaxWorkgroupInvocations",
             "value": 256
         },
         {
@@ -389,12 +389,12 @@
         {
             "type": "uint16_t",
             "name": "maxViewportDims[2]",
-            "value": "{MinMaxImageDimension2D,MinMaxImageDimension3D}"
+            "value": "{MinMaxImageDimension2D,MinMaxImageDimension2D}"
         },
         {
             "type": "float",
             "name": "viewportBoundsRange[2]",
-            "value": "{ -MinMaxImageDimension2D*2u, MinMaxImageDimension3D*2u-1 }"
+            "value": "{ -MinMaxImageDimension2D*2u, MinMaxImageDimension2D*2u-1 }"
         },
         {
             "type": "uint32_t",
@@ -2302,7 +2302,7 @@
         {
             "type": "asset::CGLSLCompiler::E_SPIRV_VERSION",
             "name": "spirvVersion",
-            "value": "asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_8"
+            "value": "asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6"
         },
         {
             "type": "function",

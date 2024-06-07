@@ -16,7 +16,7 @@ namespace nbl::video
 // Struct is populated with Nabla Core Profile Limit Minimums
 struct SPhysicalDeviceLimits
 {
-#include "nbl/video/test_device_limits.h"
+	#include "nbl/video/test_device_limits.h"
 };
 
 } // nbl::video
