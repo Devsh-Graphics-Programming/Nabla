@@ -30,7 +30,7 @@ namespace nbl::video
 
 struct SPhysicalDeviceFeatures
 {
-#include "nbl/video/test_device_features.h"
+    #include "nbl/video/test_device_features.h"
 };
 
 template<typename T>
