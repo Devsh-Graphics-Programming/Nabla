@@ -88,5 +88,5 @@ DefaultSchedulerParameters_t getSchedulerParameters()
 [numthreads(WORKGROUP_SIZE,1,1)]
 void main()
 {
-    nbl::hlsl::scan::main<BINOP<Storage_t>, Storage_t, true, uint16_t(WORKGROUP_SIZE), WGScratchProxy<0> >(accessor);
+    nbl::hlsl::scan::main<BINOP<Storage_t>, Storage_t, IS_SCAN, IS_EXCLUSIVE, uint16_t(WORKGROUP_SIZE), WGScratchProxy<0> >(accessor);
 }

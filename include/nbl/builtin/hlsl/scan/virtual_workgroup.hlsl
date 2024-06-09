@@ -13,7 +13,7 @@ namespace hlsl
 {
 namespace scan
 {
-    template<class Binop, typename Storage_t, bool isExclusive, uint16_t WorkgroupSize, class Accessor, class device_capabilities=void>
+    template<class Binop, typename Storage_t, bool isScan, bool isExclusive, uint16_t WorkgroupSize, class Accessor, class device_capabilities=void>
     void virtualWorkgroup(NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex, NBL_REF_ARG(Accessor) accessor)
     {
         const Parameters_t params = getParameters();
@@ -38,7 +38,9 @@ namespace scan
             getData<Storage_t, isExclusive>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel);
         }
 
-        if(treeLevel < params.topLevel) 
+        bool doReduce = isScan ? treeLevel < params.topLevel : treeLevel <= params.topLevel;
+
+        if(doReduce)
         {
             data = workgroup::reduction<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
         }
@@ -54,11 +56,11 @@ namespace scan
         {
             data = workgroup::exclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
         }
-        setData(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel, inRange);
+        setData<Storage_t, isScan>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel, inRange);
     }
 
     DefaultSchedulerParameters_t getSchedulerParameters(); // this is defined in the final shader that assembles all the SCAN operation components
-    template<class Binop, typename Storage_t, bool isExclusive, uint16_t WorkgroupSize, class Accessor>
+    template<class Binop, typename Storage_t, bool isScan, bool isExclusive, uint16_t WorkgroupSize, class Accessor>
     void main(NBL_REF_ARG(Accessor) accessor)
     {
         const Parameters_t params = getParameters();
@@ -72,7 +74,7 @@ namespace scan
                 return;
             }
 
-            virtualWorkgroup<Binop, Storage_t, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
+            virtualWorkgroup<Binop, Storage_t, isScan, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
             accessor.workgroupExecutionAndMemoryBarrier();
             scheduler.markDone(accessor);
         }

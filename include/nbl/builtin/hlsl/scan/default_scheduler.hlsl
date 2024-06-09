@@ -47,7 +47,7 @@ namespace scheduler
         _scanParams.lastElement[0] = elementCount-1u;
         _scanParams.topLevel = firstbithigh(_scanParams.lastElement[0]) / workgroupSizeLog2;
         
-        for (uint32_t i=0; i<NBL_BUILTIN_MAX_SCAN_LEVELS/2;)
+        for (uint32_t i=0; i<NBL_BUILTIN_MAX_LEVELS/2;)
         {
             const uint32_t next = i+1;
             _scanParams.lastElement[next] = _scanParams.lastElement[i]>>workgroupSizeLog2;
@@ -100,7 +100,7 @@ namespace scheduler
                 break;
             default:
                 break;
-#if NBL_BUILTIN_MAX_SCAN_LEVELS>7
+#if NBL_BUILTIN_MAX_LEVELS>7
 #error "Switch needs more cases"
 #endif
         }

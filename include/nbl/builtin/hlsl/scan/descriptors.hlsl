@@ -76,7 +76,7 @@ void getData(
     }
 }
 
-template<typename Storage_t>
+template<typename Storage_t, bool isScan>
 void setData(
     NBL_CONST_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
@@ -95,13 +95,19 @@ void setData(
     }
     else if (inRange)
     {
-        if (bool(pseudoLevel))
+        if (!isScan && treeLevel == params.topLevel)
+        {
+            scanBuffer[levelInvocationIndex] = data;
+        }
+        else if (bool(pseudoLevel))
         {
             const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
             scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
         }
         else
+        {
             scanBuffer[levelInvocationIndex] = data;
+        }
     }
 }
 

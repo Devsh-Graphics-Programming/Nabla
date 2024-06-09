@@ -1,85 +1,52 @@
 #include "nbl/video/utilities/CScanner.h"
 
-using namespace nbl;
-using namespace video;
-
-core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
+namespace nbl::video
 {
-	auto system = m_device->getPhysicalDevice()->getSystem();
-	core::smart_refctd_ptr<const system::IFile> hlsl;
-	{
-		auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
-		{
-			nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
-			system->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
-			if (future.wait())
-				return future.copy();
-			return nullptr;
-		};
+    
+asset::ICPUShader* CScanner::getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
+{
+    if (!m_shaders[scanType][dataType][op])
+        m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op,scratchSz);
+    return m_shaders[scanType][dataType][op].get();
+}
 
-		if(indirect)
-			hlsl = loadBuiltinData("nbl/builtin/hlsl/scan/indirect.hlsl");
-		else
-			hlsl = loadBuiltinData("nbl/builtin/hlsl/scan/direct.hlsl");
-	}
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hlsl->getSize());
-	memcpy(buffer->getPointer(), hlsl->getMappedPointer(), hlsl->getSize());
-	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "????");
+IGPUShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
+{
+    if (!m_specialized_shaders[scanType][dataType][op])
+    {
+        auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op,scratchSz));
+        cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
+        cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
-	// (REVIEW): All of the below, that rely on enumerations, should probably be changed to take advantage of HLSL-CPP compatibility.
-	// Issue is that CScanner caches all shaders for all permutations of scanType-dataType-operator and it's not clear how to 
-	// do this without enums
-	const char* storageType = nullptr;
-	switch (dataType)
-	{
-		case EDT_UINT:
-			storageType = "uint32_t";
-			break;
-		case EDT_INT:
-			storageType = "int32_t";
-			break;
-		case EDT_FLOAT:
-			storageType = "float32_t";
-			break;
-		default:
-			assert(false);
-			break;
-	}
+        auto gpushader = m_device->createShader(cpuShader.get());
 
-	const char* isExclusive = scanType == EST_EXCLUSIVE ? "true" : "false";
+        m_specialized_shaders[scanType][dataType][op] = gpushader;
+    }
+    return m_specialized_shaders[scanType][dataType][op].get();
+}
 
-	const char* binop = nullptr;
-	switch (op)
-	{
-		case EO_AND:
-			binop = "bit_and";
-			break;
-		case EO_OR:
-			binop = "bit_or";
-			break;
-		case EO_XOR:
-			binop = "bit_xor";
-			break;
-		case EO_ADD:
-			binop = "plus";
-			break;
-		case EO_MUL:
-			binop = "multiplies";
-			break;
-		case EO_MAX:
-			binop = "maximum";
-			break;
-		case EO_MIN:
-			binop = "minimum";
-			break;
-		default:
-			assert(false);
-			break;
-	}
-	
-	return asset::CHLSLCompiler::createOverridenCopy(
-		cpushader.get(),
-		"#define WORKGROUP_SIZE %d\ntypedef %s Storage_t;\n#define BINOP nbl::hlsl::%s\n#define SCRATCH_SZ %d\n",
-		m_workgroupSize, storageType, binop, scratchSz
-	);
+IGPUComputePipeline* CScanner::getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
+{
+    // ondemand
+    if (!m_pipelines[scanType][dataType][op]) {
+        IGPUComputePipeline::SCreationParams params = {};
+        params.layout = m_pipeline_layout.get();
+        // Theoretically a blob of SPIR-V can contain multiple named entry points and one has to be chosen, in practice most compilers only support outputting one (and glslang used to require it be called "main")
+        params.shader.entryPoint = "main";
+        params.shader.shader = getDefaultSpecializedShader(scanType, dataType, op, scratchSz);
+
+        m_device->createComputePipelines(
+            nullptr, { &params,1 },
+            & m_pipelines[scanType][dataType][op]
+        );
+    }
+    return m_pipelines[scanType][dataType][op].get();
+}
+    
+core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const char* shaderFile, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
+{
+    core::smart_refctd_ptr<asset::ICPUShader> base = createBaseShader("nbl/builtin/hlsl/scan/direct.hlsl", dataType, op, scratchSz);
+    return asset::CHLSLCompiler::createOverridenCopy(base.get(), "#define IS_EXCLUSIVE %s\n#define IS_SCAN %s\n", scanType == EST_EXCLUSIVE ? "true" : "false", "true");
+}
+
 }
