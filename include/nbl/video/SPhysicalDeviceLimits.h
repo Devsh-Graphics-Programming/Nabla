@@ -16,7 +16,7 @@ namespace nbl::video
 // Struct is populated with Nabla Core Profile Limit Minimums
 struct SPhysicalDeviceLimits
 {
-	#include "nbl/video/test_device_limits.h"
+	#include "nbl/video/SPhysicalDeviceLimits_members.h"
 
     // utility functions
     // In the cases where the workgroups synchronise with each other such as work DAGs (i.e. `CScanner`),
@@ -31,8 +31,13 @@ struct SPhysicalDeviceLimits
     }
 
 	inline bool isSubsetOf(const SPhysicalDeviceLimits& _rhs) const {
-		// STUB
-		return false;
+        // don't compare certain things, they don't make your device better or worse
+        // uint32_t  pciDomain = ~0u;
+        // uint32_t  pciBus = ~0u;
+        // uint32_t  pciDevice = ~0u;
+        // uint32_t  pciFunction = ~0u;
+
+        #include "nbl/video/SPhysicalDeviceLimits_subset.h"
 	}
 };
 

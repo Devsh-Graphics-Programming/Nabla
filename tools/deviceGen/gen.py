@@ -14,7 +14,11 @@ if __name__ == "__main__":
 
     limits = loadJSON(args.limits_json_path)
     writeDeviceHeader(
-        args.limits_output_path,
+        args.limits_output_path + "members.h",
+        limits
+    )
+    writeSubsetMethod(
+        args.limits_output_path + "subset.h",
         limits
     )
     features = loadJSON(args.features_json_path)

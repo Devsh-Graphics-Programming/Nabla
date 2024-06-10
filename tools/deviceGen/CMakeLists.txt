@@ -14,7 +14,7 @@ set(INPUT_JSONS
 )
 
 # outputs
-set(OUTPUT_DL_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/test_device_limits.h")
+set(OUTPUT_DL_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceLimits_")
 set(OUTPUT_DF_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/test_device_features.h")
 
 set(OUTPUT_HEADERS 
