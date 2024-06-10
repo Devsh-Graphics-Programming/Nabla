@@ -56,9 +56,6 @@ def buildVariable(variable, res, sectionName):
 def buildDeviceHeader(device_json):
     res = []
 
-    res.append("namespace nbl::video")
-    res.append("{")
-
     for sectionName, sectionContent in device_json.items():
         for dict in sectionContent:
             if 'groupComment' in dict:
@@ -71,8 +68,6 @@ def buildDeviceHeader(device_json):
                 buildEnum(dict, res)
             else:
                 buildVariable(dict, res, sectionName)
-
-    res.append("}")
 
     return res
 
