@@ -41,7 +41,7 @@ using add_pointer = std::add_pointer<T>;
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
-#define NBL_CONST_MEMBER_FUNC 
+#define NBL_CONST_MEMBER_FUNC
 
 namespace nbl
 {

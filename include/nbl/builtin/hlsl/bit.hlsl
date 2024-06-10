@@ -33,11 +33,11 @@ namespace nbl
 namespace hlsl
 {
 
-template<class T, class U>
-T bit_cast(U val)
+template<class To, class From>
+To bit_cast(From val)
 {
-    static_assert(sizeof(T) <= sizeof(U));
-    return spirv::bitcast<T, U>(val);
+    static_assert(sizeof(To) <= sizeof(From));
+    return spirv::bitcast<To, From>(val);
 }
 
 template<typename T, typename S>

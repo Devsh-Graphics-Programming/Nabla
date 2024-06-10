@@ -38,6 +38,11 @@ namespace emulated
             output.y = uint32_t(product & 0x00000000FFFFFFFFull);
             return output;
         }
+        
+        bool isNaN64(uint64_t val)
+        {
+            return bool((0x7FF0000000000000ull & val) && (0x000FFFFFFFFFFFFFull & val));
+        }
 
         nbl::hlsl::uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
         {
@@ -47,7 +52,8 @@ namespace emulated
 
            return output;
         }
-        
+
+
         nbl::hlsl::uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
         {
             nbl::hlsl::uint32_t2 output;
@@ -66,6 +72,24 @@ namespace emulated
             return 31 - firstbithigh(val);
 #endif
         }
+        
+        uint64_t propagateFloat64NaN(uint64_t a, uint64_t b)
+        {
+        #if defined RELAXED_NAN_PROPAGATION
+            return a | b;
+        #else
+        
+            bool aIsNaN = isNaN64(a);
+            bool bIsNaN = isNaN64(b);
+            a |= 0x0008000000000000ull;
+            b |= 0x0008000000000000ull;
+        
+            // TODO:
+            //return LERP(b, LERP(a, b, nbl::hlsl::float32_t2(bIsNaN, bIsNaN)), nbl::hlsl::float32_t2(aIsNaN, aIsNaN));
+            return 0xdeadbeefbadcaffeull;
+        #endif
+        }
+
 
 
         nbl::hlsl::uint32_t2 shortShift64Left(uint32_t a0, uint32_t a1, int count)
@@ -289,7 +313,10 @@ namespace emulated
            exp -= shiftCount;
            return roundAndPackFloat64(sign, exp, frac.x, frac.y, frac.z);
         }
-
+        
+        static const uint64_t SIGN_MASK = 0x8000000000000000ull;
+        static const uint64_t EXP_MASK = 0x7FF0000000000000ull;
+        static const uint64_t MANTISA_MASK = 0x000FFFFFFFFFFFFFull;
     }
 
     struct emulated_float64_t
@@ -357,7 +384,7 @@ namespace emulated
         emulated_float64_t operator+(const emulated_float64_t rhs)
         {
             emulated_float64_t retval = createEmulatedFloat64PreserveBitPattern(0u);
-            
+
             uint32_t lhsSign = uint32_t((data & 0x8000000000000000ull) >> 32);
             uint32_t rhsSign = uint32_t((rhs.data & 0x8000000000000000ull) >> 32);
 
@@ -380,9 +407,10 @@ namespace emulated
                 {
                    //if (lhsExp == 0x7FF)
                    //{
-                   //   bool propagate = ((lhsHigh | rhsHigh) | (lhsLow| rhsLow)) != 0u;
-                   //   return nbl::hlsl::lerp(a, propagateFloat64NaN(a, b), propagate);
+                   //   bool propagate = (lhsMantissa | rhsMantissa) != 0u;
+                   //   return createEmulatedFloat64PreserveBitPattern(LERP(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
                    //}
+                   
                    frac.xy = impl::add64(lhsHigh, lhsLow, rhsHigh, rhsLow);
                    if (lhsExp == 0)
                       return createEmulatedFloat64PreserveBitPattern(impl::packFloat64(lhsSign, 0, frac.x, frac.y));
@@ -398,13 +426,14 @@ namespace emulated
                         EXCHANGE(lhsHigh, rhsHigh);
                         EXCHANGE(lhsLow, rhsLow);
                         EXCHANGE(lhsExp, rhsExp);
+                        EXCHANGE(lhsExp, rhsExp);
                      }
 
-                     //if (lhsExp == 0x7FF)
-                     //{
-                     //   bool propagate = (lhsHigh | lhsLow) != 0u;
-                     //   return nbl::hlsl::lerp(__packFloat64(lhsSign, 0x7ff, 0u, 0u), __propagateFloat64NaN(a, b), propagate);
-                     //}
+                     if (lhsExp == 0x7FF)
+                     {
+                        bool propagate = (lhsHigh | lhsLow) != 0u;
+                        return createEmulatedFloat64PreserveBitPattern(LERP(0x7FF0000000000000ull | (uint64_t(lhsSign) << 32), impl::propagateFloat64NaN(data, rhs.data), propagate));
+                     }
 
                      expDiff = LERP(ABS(expDiff), ABS(expDiff) - 1, rhsExp == 0);
                      rhsHigh = LERP(rhsHigh | 0x00100000u, rhsHigh, rhsExp == 0);
@@ -449,7 +478,7 @@ namespace emulated
                        EXCHANGE(lhsHigh, rhsHigh);
                        EXCHANGE(lhsLow, rhsLow);
                        EXCHANGE(lhsExp, rhsExp);
-                       lhsSign ^= 0x80000000u; // TODO: smth not right about that
+                       lhsSign ^= 0x80000000u;
                     }
                     
                     //if (lhsExp == 0x7FF)
@@ -589,6 +618,11 @@ namespace emulated
         {
             const uint64_t flippedSign = ((~data) & 0x8000000000000000ull);
             return createEmulatedFloat64PreserveBitPattern(flippedSign | (data & 0x7FFFFFFFFFFFFFFFull));
+        }
+        
+        bool isNaN()
+        {
+            return impl::isNaN64(data);
         }
     };
     
