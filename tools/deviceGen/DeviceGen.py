@@ -65,6 +65,48 @@ def buildDeviceHeader(device_json):
 
     return res
 
+def SubsetMethodHelper(dict, res):
+    expose = "expose" in dict and dict["expose"] or "expose" not in dict
+    if 'compareSkip' in dict and dict['compareSkip'] or not expose:
+        return
+    line = "    "
+    if 'compareExpose' in dict and not dict['compareExpose']:
+        line += "// "
+    numeric_types = ['uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'size_t', 'int8_t', 'int32_t', 'float', 'asset::CGLSLCompiler::E_SPIRV_VERSION']
+    if dict['type'] in numeric_types:
+        is_array = "[" in dict['name']
+        array_size = int(search(r'\[\d+\]', dict['name']).group(0)[1:-1]) if is_array else 0
+        is_range = "Range" in dict['name']
+        if is_array:
+            array_size_count = len(str(array_size))
+            array_name = dict['name'][:-(array_size_count + 2)]
+            if is_range:
+                line += f"if ({array_name}[0] < _rhs.{array_name}[0] || {array_name}[1] > _rhs.{array_name}[1]) return false;"
+            else:
+                lines = [line] * array_size
+                for i in range(array_size):
+                    lines[i] += f"if ({array_name}[{i}] > _rhs.{array_name}[{i}]) return false;"
+                line = "\n".join(lines)
+        else:
+            signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
+            line += f"if ({dict['name']} {signDeclaration} _rhs.{dict['name']}) return false;"
+    elif dict['type'].startswith("core::bitflag<"):
+        line += f"if (!_rhs.{dict['name']}.hasFlags({dict['name']})) return false;"
+    elif dict['type'] == "bool":
+        line += f"if ({dict['name']} && !_rhs.{dict['name']}) return false;"
+    elif dict['type'] == "E_POINT_CLIPPING_BEHAVIOR":
+        line += f"if ({dict['name']}==EPCB_ALL_CLIP_PLANES && _rhs.{dict['name']}==EPCB_USER_CLIP_PLANES_ONLY) return false;"
+    elif dict['type'].startswith("hlsl"):
+        lines = [line, line]
+        for i in range(2):
+            componentDeclaration = ".x" if (i == 0) else ".y"
+            signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
+            lines[i] = f"if ({dict['name']}{componentDeclaration} {signDeclaration} _rhs.{dict['name']}{componentDeclaration}) return false;"
+        line = "\n".join(lines)
+
+    res.append(line)
+
+
 def buildSubsetMethod(device_json):
     res = []
 
@@ -73,45 +115,7 @@ def buildSubsetMethod(device_json):
             continue
         for dict in sectionContent:
             if 'type' in dict:
-                expose = "expose" in dict and dict["expose"] or "expose" not in dict
-                if 'compareSkip' in dict and dict['compareSkip'] or not expose:
-                    continue
-                line = "    "
-                if 'compareExpose' in dict and not dict['compareExpose']:
-                    line += "// "
-                numeric_types = ['uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'size_t', 'int8_t', 'int32_t', 'float', 'asset::CGLSLCompiler::E_SPIRV_VERSION']
-                if dict['type'] in numeric_types:
-                    is_array = "[" in dict['name']
-                    array_size = int(search(r'\[\d+\]', dict['name']).group(0)[1:-1]) if is_array else 0
-                    is_range = "Range" in dict['name']
-                    if is_array:
-                        array_size_count = len(str(array_size))
-                        array_name = dict['name'][:-(array_size_count + 2)]
-                        if is_range:
-                            line += f"if ({array_name}[0] < _rhs.{array_name}[0] || {array_name}[1] > _rhs.{array_name}[1]) return false;"
-                        else:
-                            lines = [line] * array_size
-                            for i in range(array_size):
-                                lines[i] += f"if ({array_name}[{i}] > _rhs.{array_name}[{i}]) return false;"
-                            line = "\n".join(lines)
-                    else:
-                        signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
-                        line += f"if ({dict['name']} {signDeclaration} _rhs.{dict['name']}) return false;"
-                elif dict['type'].startswith("core::bitflag<"):
-                    line += f"if (!_rhs.{dict['name']}.hasFlags({dict['name']})) return false;"
-                elif dict['type'] == "bool":
-                    line += f"if ({dict['name']} && !_rhs.{dict['name']}) return false;"
-                elif dict['type'] == "E_POINT_CLIPPING_BEHAVIOR":
-                    line += f"if ({dict['name']}==EPCB_ALL_CLIP_PLANES && _rhs.{dict['name']}==EPCB_USER_CLIP_PLANES_ONLY) return false;"
-                elif dict['type'].startswith("hlsl"):
-                    lines = [line, line]
-                    for i in range(2):
-                        componentDeclaration = ".x" if (i == 0) else ".y"
-                        signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
-                        lines[i] = f"if ({dict['name']}{componentDeclaration} {signDeclaration} _rhs.{dict['name']}{componentDeclaration}) return false;"
-                    line = "\n".join(lines)
-
-                res.append(line)
+                SubsetMethodHelper(dict, res)
 
     res.append(emptyline)
     res.append("    return true;")
