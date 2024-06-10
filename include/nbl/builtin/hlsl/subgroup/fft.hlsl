@@ -48,9 +48,8 @@ namespace subgroup
         if (inverse){
             fft::DIT<Scalar>::radix2(fft::twiddle<Scalar, true>(glsl::gl_SubgroupID(), doubleSubgroupSize), lo, hi);
             divides_assign< complex_t<Scalar> > divAss;
-            complex_t<Scalar> dsg_c = {doubleSubgroupSize, 0.f};
             divAss(lo, doubleSubgroupSize);
-            divAss(hi, dsg_c);            
+            divAss(hi, doubleSubgroupSize);            
         }
     }   
 
