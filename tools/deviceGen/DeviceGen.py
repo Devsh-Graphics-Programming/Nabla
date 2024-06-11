@@ -47,10 +47,10 @@ def buildVariable(variable, res, sectionName):
     line = f"    {commentDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};{trailingCommentDeclaration}"
     res.append(line)
 
-def buildDeviceHeader(device_json):
+def buildDeviceHeader(**params):
     res = []
 
-    for sectionName, sectionContent in device_json.items():
+    for sectionName, sectionContent in params['json'].items():
         for dict in sectionContent:
             if 'groupComment' in dict:
                 buildComment(dict, res)
@@ -107,10 +107,10 @@ def SubsetMethodHelper(dict, res):
     res.append(line)
 
 
-def buildSubsetMethod(device_json):
+def buildSubsetMethod(**params):
     res = []
 
-    for sectionName, sectionContent in device_json.items():
+    for sectionName, sectionContent in params['json'].items():
         if sectionName == "constexprs":
             continue
         for dict in sectionContent:
@@ -119,7 +119,7 @@ def buildSubsetMethod(device_json):
 
     return res
 
-def buildFeaturesMethod(device_json, op):
+def buildFeaturesMethod(**params):
     res = []
 
     sectionHeaders = {
@@ -131,7 +131,7 @@ def buildFeaturesMethod(device_json, op):
         "vulkanext": "Extensions"
     }
 
-    for sectionName, sectionContent in device_json.items():
+    for sectionName, sectionContent in params['json'].items():
         if sectionName == "nabla":
             continue
         res.append(f"   // {sectionHeaders[sectionName]}")
@@ -140,43 +140,21 @@ def buildFeaturesMethod(device_json, op):
                 expose = "expose" in dict and dict["expose"] or "expose" not in dict
                 if not expose:
                     continue
-                line = f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
+                line = f"    res.{dict['name']} {params['op']}= _rhs.{dict['name']};"
                 res.append(line)
 
     return res
 
-def writeDeviceHeader(file_path, device_json):
+def buildTraitsHeader(**params):
+    res = []
+
+    return res
+
+def writeHeader(file_path, header_builder, **params):
     try:
         with open(file_path, mode="w") as file:
-            device_header = buildDeviceHeader(device_json)
+            device_header = header_builder(**params)
             for line in device_header:
-                file.write(line + '\n')
-    except Exception as ex:
-        print(f"Error while writing to file: {file_path}\nException: {ex}")
-
-def writeSubsetMethod(file_path, device_json):
-    try:
-        with open(file_path, mode="w") as file:
-            limits_method = buildSubsetMethod(device_json)
-            for line in limits_method:
-                file.write(line + '\n')
-    except Exception as ex:
-        print(f"Error while writing to file: {file_path}\nException: {ex}")
-
-def writeUnionMethod(file_path, device_json):
-    try:
-        with open(file_path, mode="w") as file:
-            features_method = buildFeaturesMethod(device_json, "|")
-            for line in features_method:
-                file.write(line + '\n')
-    except Exception as ex:
-        print(f"Error while writing to file: {file_path}\nException: {ex}")
-
-def writeIntersectMethod(file_path, device_json):
-    try:
-        with open(file_path, mode="w") as file:
-            features_method = buildFeaturesMethod(device_json, "&")
-            for line in features_method:
                 file.write(line + '\n')
     except Exception as ex:
         print(f"Error while writing to file: {file_path}\nException: {ex}")

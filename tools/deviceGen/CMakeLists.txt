@@ -16,10 +16,12 @@ set(INPUT_JSONS
 # outputs
 set(OUTPUT_DL_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceLimits_")
 set(OUTPUT_DF_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceFeatures_")
+set(OUTPUT_DT_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/device_capabilities_traits_members.h")
 
 set(OUTPUT_HEADERS 
   "${OUTPUT_DL_HEADER}"
   "${OUTPUT_DF_HEADER}"
+  "${OUTPUT_DT_HEADER}"
 )
 
 # python script
@@ -27,7 +29,13 @@ set(NBL_GEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/gen.py")
 
 # custom command
 set(NBL_COMMAND
-  "${_Python3_EXECUTABLE}" "${NBL_GEN_PY}" "${INPUT_DL_JSON}" "${INPUT_DF_JSON}" "${OUTPUT_DL_HEADER}" "${OUTPUT_DF_HEADER}"
+  "${_Python3_EXECUTABLE}"
+  "${NBL_GEN_PY}"
+  "${INPUT_DL_JSON}"
+  "${INPUT_DF_JSON}"
+  "${OUTPUT_DL_HEADER}"
+  "${OUTPUT_DF_HEADER}"
+  "${OUTPUT_DT_HEADER}"
 )
 
 add_custom_command(OUTPUT ${OUTPUT_HEADERS}
