@@ -23,7 +23,15 @@ if __name__ == "__main__":
     )
     features = loadJSON(args.features_json_path)
     writeDeviceHeader(
-        args.features_output_path,
+        args.features_output_path + "members.h",
+        features
+    )
+    writeUnionMethod(
+        args.features_output_path + "union.h",
+        features
+    )
+    writeIntersectMethod(
+        args.features_output_path + "intersect.h",
         features
     )
 

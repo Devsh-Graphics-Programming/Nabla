@@ -117,8 +117,31 @@ def buildSubsetMethod(device_json):
             if 'type' in dict:
                 SubsetMethodHelper(dict, res)
 
-    res.append(emptyline)
-    res.append("    return true;")
+    return res
+
+def buildFeaturesMethod(device_json, op):
+    res = []
+
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0 Core",
+        "vulkan11core": "VK 1.1 Everything is either a Limit or Required",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "vulkanext": "Extensions"
+    }
+
+    for sectionName, sectionContent in device_json.items():
+        if sectionName == "nabla":
+            continue
+        res.append(f"   // {sectionHeaders[sectionName]}")
+        for dict in sectionContent:
+            if 'type' in dict:
+                expose = "expose" in dict and dict["expose"] or "expose" not in dict
+                if not expose:
+                    continue
+                line = f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
+                res.append(line)
 
     return res
 
@@ -135,8 +158,25 @@ def writeSubsetMethod(file_path, device_json):
     try:
         with open(file_path, mode="w") as file:
             limits_method = buildSubsetMethod(device_json)
-            print(limits_method)
             for line in limits_method:
+                file.write(line + '\n')
+    except Exception as ex:
+        print(f"Error while writing to file: {file_path}\nException: {ex}")
+
+def writeUnionMethod(file_path, device_json):
+    try:
+        with open(file_path, mode="w") as file:
+            features_method = buildFeaturesMethod(device_json, "|")
+            for line in features_method:
+                file.write(line + '\n')
+    except Exception as ex:
+        print(f"Error while writing to file: {file_path}\nException: {ex}")
+
+def writeIntersectMethod(file_path, device_json):
+    try:
+        with open(file_path, mode="w") as file:
+            features_method = buildFeaturesMethod(device_json, "&")
+            for line in features_method:
                 file.write(line + '\n')
     except Exception as ex:
         print(f"Error while writing to file: {file_path}\nException: {ex}")

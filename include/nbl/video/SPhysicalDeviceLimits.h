@@ -38,6 +38,8 @@ struct SPhysicalDeviceLimits
         // uint32_t  pciFunction = ~0u;
 
         #include "nbl/video/SPhysicalDeviceLimits_subset.h"
+
+        return true;
 	}
 };
 

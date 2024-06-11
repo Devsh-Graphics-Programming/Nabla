@@ -30,7 +30,36 @@ namespace nbl::video
 
 struct SPhysicalDeviceFeatures
 {
-    #include "nbl/video/test_device_features.h"
+    #include "nbl/video/SPhysicalDeviceFeatures_members.h"
+
+    inline bool operator==(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        return memcmp(this, &_rhs, sizeof(SPhysicalDeviceFeatures)) == 0u;
+    }
+
+    inline bool isSubsetOf(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        const auto& intersection = intersectWith(_rhs);
+        return intersection == *this;
+    }
+
+    inline SPhysicalDeviceFeatures unionWith(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        SPhysicalDeviceFeatures res = *this;
+
+        #include "nbl/video/SPhysicalDeviceFeatures_union.h"
+
+        return res;
+    }
+
+    inline SPhysicalDeviceFeatures intersectWith(const SPhysicalDeviceFeatures& _rhs) const
+    {
+        SPhysicalDeviceFeatures res = *this;
+
+        #include "nbl/video/SPhysicalDeviceFeatures_intersect.h"
+
+        return res;
+    }
 };
 
 template<typename T>
