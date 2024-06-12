@@ -60,13 +60,14 @@ if __name__ == "__main__":
         features_json=features,
         format_params=["name", "type", "value"]
     )
- 
-    '''
     writeHeader(
         args.traits_output_path + "members.h",
         buildTraitsHeader,
+        type="Members",
+        template="NBL_CONSTEXPR_STATIC_INLINE {} {} = impl::get_or_default_{}<device_capabilities>::value;",
         limits_json=limits,
-        features_json=features
+        features_json=features,
+        format_params=["type", "name", "name"]
     )
-    '''
+
     exit(0)
