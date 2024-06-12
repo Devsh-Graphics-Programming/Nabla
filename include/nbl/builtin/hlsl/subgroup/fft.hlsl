@@ -33,7 +33,7 @@ namespace subgroup
         const uint32_t doubleSubgroupSize = SubgroupSize << 1;
         // special first iteration
         if (! inverse)
-            fft::DIF<Scalar>::radix2(fft::twiddle<Scalar, false>(glsl::gl_SubgroupID(), doubleSubgroupSize), lo, hi);                                                                                   
+            fft::DIF<Scalar>::radix2(fft::twiddle<Scalar, false>(glsl::gl_SubgroupID(), doubleSubgroupSize), lo, hi);                                                                               
         
         // Decimation in Time
         if (inverse)
@@ -50,7 +50,7 @@ namespace subgroup
             divides_assign< complex_t<Scalar> > divAss;
             divAss(lo, doubleSubgroupSize);
             divAss(hi, doubleSubgroupSize);            
-        }
+        } 
     }   
 
 }
