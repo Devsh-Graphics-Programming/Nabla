@@ -16,7 +16,7 @@ set(INPUT_JSONS
 # outputs
 set(OUTPUT_DL_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceLimits_")
 set(OUTPUT_DF_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceFeatures_")
-set(OUTPUT_DT_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/device_capabilities_traits_members.h")
+set(OUTPUT_DT_HEADER "${NBL_DEVICE_GEN_OUTPUT_DIR}/device_capabilities_traits_")
 
 set(OUTPUT_HEADERS 
   "${OUTPUT_DL_HEADER}"

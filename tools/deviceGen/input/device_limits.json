@@ -1309,7 +1309,7 @@
             "comment": "or VK_KHR_maintenance4"
         }
     ],
-    "nablacoreext": [
+    "nablacore": [
         {
             "groupComment": [
                 "Nabla Core Profile Extensions",

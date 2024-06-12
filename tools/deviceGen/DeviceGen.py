@@ -145,10 +145,47 @@ def buildFeaturesMethod(**params):
 
     return res
 
-def buildTraitsHeader(**params):
+def buildTesterHeaderHelper(res, name, json_name, **params):
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0",
+        "vulkan11core": "VK 1.1",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
+    }
+
+    res.append(f"// {name}")
+    for sectionName, sectionContent in params[json_name].items():
+        if sectionName == "constexprs":
+            continue
+        if sectionName in sectionHeaders:
+            res.append(f"// {sectionHeaders[sectionName]}")
+        for dict in sectionContent:
+            if 'type' in dict:
+                expose = "expose" in dict and dict["expose"] or "expose" not in dict
+                if not expose:
+                    continue
+
+                line = f"NBL_GENERATE_MEMBER_TESTER({dict['name']});"
+                res.append(line)
+
+
+def buildTesterHeader(**params):
     res = []
 
+    buildTesterHeaderHelper(res, "Limits Testers", "limits_json", **params)
+    res.append(emptyline)
+    buildTesterHeaderHelper(res, "Features Testers", "features_json", **params)
+
     return res
+
+def buildDefaultsHeader(**params):
+    return []
+
+def buildTraitsHeader(**params):
+    return []
 
 def writeHeader(file_path, header_builder, **params):
     try:

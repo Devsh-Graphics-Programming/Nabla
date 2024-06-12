@@ -43,7 +43,19 @@ if __name__ == "__main__":
         op="&"
     )
     writeHeader(
-        args.traits_output_path,
+        args.traits_output_path + "testers.h",
+        buildTesterHeader,
+        limits_json=limits,
+        features_json=features
+    )
+    writeHeader(
+        args.traits_output_path + "defaults.h",
+        buildDefaultsHeader,
+        limits_json=limits,
+        features_json=features
+    )
+    writeHeader(
+        args.traits_output_path + "members.h",
         buildTraitsHeader,
         limits_json=limits,
         features_json=features
