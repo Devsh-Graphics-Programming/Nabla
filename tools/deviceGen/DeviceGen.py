@@ -3,6 +3,9 @@ from re import search
 
 emptyline = f""
 
+class ContinueEx(Exception):
+    pass
+
 def loadJSON(file_path):
     try:
         with open(file_path) as file:
@@ -145,7 +148,7 @@ def buildFeaturesMethod(**params):
 
     return res
 
-def buildTesterHeaderHelper(res, name, json_name, **params):
+def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_params):
     sectionHeaders = {
         "vulkan10core": "VK 1.0",
         "vulkan11core": "VK 1.1",
@@ -157,35 +160,48 @@ def buildTesterHeaderHelper(res, name, json_name, **params):
     }
 
     res.append(f"// {name}")
-    for sectionName, sectionContent in params[json_name].items():
+    for sectionName, sectionContent in json_data.items():
         if sectionName == "constexprs":
             continue
         if sectionName in sectionHeaders:
             res.append(f"// {sectionHeaders[sectionName]}")
         for dict in sectionContent:
             if 'type' in dict:
-                expose = "expose" in dict and dict["expose"] or "expose" not in dict
-                if not expose:
+                try:
+                    expose = "expose" in dict and dict["expose"] or "expose" not in dict
+                    if not expose:
+                        continue
+
+                    for param in line_format_params:
+                        if param not in dict:
+                            raise ContinueEx
+
+                    line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
+                    res.append(line)
+                except ContinueEx:
                     continue
 
-                line = f"NBL_GENERATE_MEMBER_TESTER({dict['name']});"
-                res.append(line)
-
-
-def buildTesterHeader(**params):
-    res = []
-
-    buildTesterHeaderHelper(res, "Limits Testers", "limits_json", **params)
-    res.append(emptyline)
-    buildTesterHeaderHelper(res, "Features Testers", "features_json", **params)
-
-    return res
-
-def buildDefaultsHeader(**params):
-    return []
 
 def buildTraitsHeader(**params):
-    return []
+    res = []
+
+    buildTraitsHeaderHelper(
+        res,
+        f"Limits {params['type']}",
+        params["limits_json"],
+        params["template"],
+        *params['format_params']
+    )
+    res.append(emptyline)
+    buildTraitsHeaderHelper(
+        res,
+        f"Features {params['type']}",
+        params["features_json"],
+        params["template"],
+        *params['format_params']
+    )
+
+    return res
 
 def writeHeader(file_path, header_builder, **params):
     try:

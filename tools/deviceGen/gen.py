@@ -44,21 +44,29 @@ if __name__ == "__main__":
     )
     writeHeader(
         args.traits_output_path + "testers.h",
-        buildTesterHeader,
+        buildTraitsHeader,
+        type="Testers",
+        template="NBL_GENERATE_MEMBER_TESTER({});",
         limits_json=limits,
-        features_json=features
+        features_json=features,
+        format_params=["name"]
     )
     writeHeader(
         args.traits_output_path + "defaults.h",
-        buildDefaultsHeader,
+        buildTraitsHeader,
+        type="Defaults",
+        template="NBL_GENERATE_GET_OR_DEFAULT({}, {}, {});",
         limits_json=limits,
-        features_json=features
+        features_json=features,
+        format_params=["name", "type", "value"]
     )
+ 
+    '''
     writeHeader(
         args.traits_output_path + "members.h",
         buildTraitsHeader,
         limits_json=limits,
         features_json=features
     )
-
+    '''
     exit(0)
