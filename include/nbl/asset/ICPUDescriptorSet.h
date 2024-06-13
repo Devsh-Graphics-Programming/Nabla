@@ -43,8 +43,8 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 				m_descriptorInfos[t] = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo>>(count);
 			}
 		}
+		_NBL_STATIC_INLINE_CONSTEXPR E_TYPE AssetType = ET_DESCRIPTOR_SET;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() 
@@ -54,12 +54,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		}
 
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
-
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return m_layout->canBeRestoredFrom(other->m_layout.get());
-		}
 
 		inline size_t conservativeSizeEstimate() const override
 		{
@@ -89,12 +83,58 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;
-
+		
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override;
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert) override;
 
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
+		virtual uint32_t getDependencyCount() const override {
+			uint32_t sum = 0;
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+			{
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
+				auto descriptorCount = m_layout->getTotalDescriptorCount(type);
+				const auto category = getCategoryFromType(type);
+				if (category == IDescriptor::EC_IMAGE)
+					descriptorCount *= 2;
+				sum += descriptorCount;
+			}
+			return sum;
+		}
+
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+			{
+				const auto type = static_cast<IDescriptor::E_TYPE>(t);
+				auto descriptorCount = m_layout->getTotalDescriptorCount(type);
+				if (descriptorCount == 0ull)
+					continue;
+				
+				const auto category = getCategoryFromType(type);
+				if(category == IDescriptor::EC_IMAGE) descriptorCount *= 2;
+				if (index >= descriptorCount)
+				{
+					index -= descriptorCount;
+					continue;
+				}
+
+				auto descriptorInfos = m_descriptorInfos[t]->begin();
+				if (category == IDescriptor::EC_IMAGE) {
+
+					if ((index & 1))
+						return descriptorInfos[index / 2].info.image.sampler;
+					else
+						return descriptorInfos[index / 2].desc;
+				}
+				return descriptorInfos[index].desc;
+			}
+			return nullptr;
+		}
+
+		inline bool compatible(const IAsset* _other) const { return true; }
+
+		void hash_impl(size_t& seed) const override {}
+
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override;
 
 		virtual ~ICPUDescriptorSet() = default;
 
@@ -131,7 +171,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			}
 			return category;
 		}
-
+		
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 };
 

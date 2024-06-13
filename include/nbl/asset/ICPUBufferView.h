@@ -1,8 +1,9 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED_
-#define _NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED_
+
+#ifndef __NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED__
 
 
 #include <utility>
@@ -11,32 +12,26 @@
 #include "nbl/asset/IBufferView.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 {
 	public:
-		ICPUBufferView(const SBufferRange<ICPUBuffer>& _underlying, const E_FORMAT _format) : IBufferView<ICPUBuffer>(_underlying,_format) {}
+		ICPUBufferView(const SBufferRange<ICPUBuffer>& _underlying, const E_FORMAT _format) : IBufferView<ICPUBuffer>(_underlying, _format) {}
 
 		size_t conservativeSizeEstimate() const override { return sizeof(IBufferView<ICPUBuffer>); }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto buf = (_depth > 0u && m_buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_buffer->clone(_depth-1u)) : m_buffer;
-			auto cp = core::make_smart_refctd_ptr<ICPUBufferView>(SBufferRange<ICPUBuffer>{m_offset,m_size,m_buffer},m_format);
+			auto cp = core::make_smart_refctd_ptr<ICPUBufferView>(SBufferRange<ICPUBuffer>{m_offset, m_size, m_buffer}, m_format);
             clone_common(cp.get());
 
             return cp;
         }
-
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
@@ -59,8 +54,10 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
+
+	protected:
+
+		bool compatible(const IAsset* _other) const override {
 			auto* other = static_cast<const ICPUBufferView*>(_other);
 			if (m_size != other->m_size)
 				return false;
@@ -68,30 +65,26 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				return false;
 			if (m_format != other->m_format)
 				return false;
-			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
-				return false;
-
 			return true;
+
 		}
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUBufferView*>(_other);
+        virtual uint32_t getDependencyCount() const override { return  1; }
 
-			if (_levelsBelow)
-			{
-				restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow-1u);
-			}
-		}
+        virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+                return index == 0 ? m_buffer : nullptr;
+        }
 
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			return m_buffer->isAnyDependencyDummy(_levelsBelow-1u);
+		void hash_impl(size_t& seed) const override {
+			core::hash_combine(seed, m_size);
+			core::hash_combine(seed, m_offset);
+			core::hash_combine(seed, m_format);
 		}
 
 		virtual ~ICPUBufferView() = default;
 };
 
 }
+}
+
 #endif

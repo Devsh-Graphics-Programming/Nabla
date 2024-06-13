@@ -48,11 +48,7 @@ class ICPUPipelineCache final : public IAsset
 
 		// `IAsset` methods
 		size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-		{
-			if (canBeConvertedToDummy())
-				m_cache.clear();
-		}
+		
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
@@ -64,7 +60,14 @@ class ICPUPipelineCache final : public IAsset
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+	protected:
+		void convertToDummyObject_impl(uint32_t referenceLevelsBelowToConvert = 0u) override
+		{
+			if (canBeConvertedToDummy())
+				m_cache.clear();
+		}
+
+		bool compatible(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUPipelineCache*>(_other);
 			if (m_cache.size() != other->m_cache.size())
@@ -72,9 +75,13 @@ class ICPUPipelineCache final : public IAsset
 
 			return true;
 		}
+		virtual uint32_t getDependencyCount() const override { return 0; }
 
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		virtual core::smart_refctd_ptr<IAsset> getDependency(uint32_t index) const override {
+			return nullptr;
+		}
+
+		void restoreFromDummy_impl_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUPipelineCache*>(_other);
 			const bool restorable = willBeRestoredFrom(_other);
