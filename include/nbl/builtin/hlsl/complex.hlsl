@@ -6,6 +6,7 @@
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
 #include "nbl/builtin/hlsl/functional.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 
 namespace nbl
 {
@@ -182,16 +183,22 @@ struct divides< complex_t<Scalar> >
 
 #define COMPLEX_ARITHMETIC_IDENTITIES(SCALAR) \
 template<> \
-const static complex_t< SCALAR > plus< complex_t< SCALAR > >::identity = { SCALAR (0), SCALAR (0)}; \
+const static complex_t< SCALAR > plus< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(0), promote< SCALAR , uint32_t>(0)}; \
 template<> \
-const static complex_t< SCALAR > minus< complex_t< SCALAR > >::identity = { SCALAR (0),  SCALAR (0)}; \
+const static complex_t< SCALAR > minus< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(0),  promote< SCALAR , uint32_t>(0)}; \
 template<> \
-const static complex_t< SCALAR > multiplies< complex_t< SCALAR > >::identity = { SCALAR (1),  SCALAR (0)}; \
+const static complex_t< SCALAR > multiplies< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(1),  promote< SCALAR , uint32_t>(0)}; \
 template<> \
-const static complex_t< SCALAR > divides< complex_t< SCALAR > >::identity = { SCALAR (1),  SCALAR (0)};
+const static complex_t< SCALAR > divides< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(1),  promote< SCALAR , uint32_t>(0)};
 
-COMPLEX_ARITHMETIC_IDENTITIES(float32_t)  
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t2)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t3)
+COMPLEX_ARITHMETIC_IDENTITIES(float32_t4)  
 COMPLEX_ARITHMETIC_IDENTITIES(float64_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t2)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t3)
+COMPLEX_ARITHMETIC_IDENTITIES(float64_t4)
 
 #undef COMPLEX_ARITHMETIC_IDENTITIES
 
@@ -281,7 +288,13 @@ COMPLEX_COMPOUND_ASSIGN_IDENTITY(multiplies, SCALAR) \
 COMPLEX_COMPOUND_ASSIGN_IDENTITY(divides, SCALAR)
 
 COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t2)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t3)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t4)
 COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float64_t)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float64_t2)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float64_t3)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float64_t4)
 
 #undef COMPLEX_COMPOUND_ASSIGN_IDENTITIES
 #undef COMPLEX_COMPOUND_ASSIGN_IDENTITY
