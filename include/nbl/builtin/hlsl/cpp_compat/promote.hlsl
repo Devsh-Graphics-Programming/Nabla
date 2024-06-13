@@ -24,18 +24,18 @@ struct Promote
 template<typename U>
 struct Promote<float32_t1,U>
 {
-    float32_t3 operator()(U v)
+    float32_t1 operator()(U v)
     {
-        return float32_t3(v);
+        return float32_t1(v);
     }
 };
 
 template<typename U>
 struct Promote<float32_t2, U>
 {
-    float32_t3 operator()(U v)
+    float32_t2 operator()(U v)
     {
-        return float32_t3(v, v);
+        return float32_t2(v, v);
     }
 };
 
@@ -51,9 +51,45 @@ struct Promote<float32_t3, U>
 template<typename U>
 struct Promote<float32_t4, U>
 {
-    float32_t3 operator()(U v)
+    float32_t4 operator()(U v)
     {
-        return float32_t3(v, v, v, v);
+        return float32_t4(v, v, v, v);
+    }
+};
+
+template<typename U>
+struct Promote<float64_t1,U>
+{
+    float64_t1 operator()(U v)
+    {
+        return float64_t1(v);
+    }
+};
+
+template<typename U>
+struct Promote<float64_t2, U>
+{
+    float64_t2 operator()(U v)
+    {
+        return float64_t2(v, v);
+    }
+};
+
+template<typename U>
+struct Promote<float64_t3, U>
+{
+    float64_t3 operator()(U v)
+    {
+        return float64_t3(v, v, v);
+    }
+};
+
+template<typename U>
+struct Promote<float64_t4, U>
+{
+    float64_t4 operator()(U v)
+    {
+        return float64_t4(v, v, v, v);
     }
 };
 
