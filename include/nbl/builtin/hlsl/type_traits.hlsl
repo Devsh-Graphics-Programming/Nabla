@@ -661,6 +661,30 @@ struct unsigned_integer_of_size<8>
     using type = uint64_t;
 };
 
+template<uint16_t bytesize>
+struct float_of_size
+{
+    using type = void;
+};
+
+template<>
+struct float_of_size<2>
+{
+    using type = float16_t;
+};
+
+template<>
+struct float_of_size<4>
+{
+    using type = float32_t;
+};
+
+template<>
+struct float_of_size<8>
+{
+    using type = uint64_t;
+};
+
 }
 }
 

@@ -19,6 +19,20 @@ constexpr To bit_cast(const From& from)
     return std::bit_cast<To,From>(from);
 }
 
+template <typename T>
+NBL_FORCE_INLINE constexpr T bitfield_insert(T base, T insert, int32_t offset, int32_t bits)
+{
+    NBL_CONSTEXPR T one = static_cast<T>(1);
+    const T mask = (one << bits) - one;
+    const T shifted_mask = mask << offset;
+
+    insert &= mask;
+    base &= (~shifted_mask);
+    base |= (insert << offset);
+
+    return base;
+}
+
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotl, rotl);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::rotr, rotr);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
