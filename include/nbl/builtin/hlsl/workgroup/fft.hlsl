@@ -77,8 +77,6 @@ void FFT(NBL_REF_ARG(Accessor) sharedmemAccessor, NBL_REF_ARG(complex_t<Scalar>)
         // special last iteration
         fft::DIT<Scalar>::radix2(fft::twiddle<Scalar, true>(threadID, doubleWorkgroupSize), lo, hi); 
         divides_assign< complex_t<Scalar> > divAss;
-        //divAss(lo, doubleWorkgroupSize);
-        //divAss(hi, doubleWorkgroupSize);
         divAss(lo, WorkgroupSize / SubgroupSize);
         divAss(hi, WorkgroupSize / SubgroupSize);
     }
