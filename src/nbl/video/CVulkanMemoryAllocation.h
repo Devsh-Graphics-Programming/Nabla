@@ -6,7 +6,6 @@
 
 #include <volk.h>
 
-
 namespace nbl::video
 {
 class CVulkanLogicalDevice;
