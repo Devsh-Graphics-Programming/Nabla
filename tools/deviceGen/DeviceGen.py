@@ -69,6 +69,7 @@ def buildDeviceHeader(**params):
     return res
 
 def SubsetMethodHelper(dict, res):
+    # its in gen.py
     expose = "expose" in dict and dict["expose"] or "expose" not in dict
     if 'compareSkip' in dict and dict['compareSkip'] or not expose:
         return
