@@ -356,4 +356,18 @@ complex_t<Scalar> polar(const Scalar r, const Scalar theta)
 }
 }
 
+// due to lack of alignof and typeid in DXC, need C++03 style tricks
+NBL_REGISTER_OBJ_TYPE(complex_t<float16_t>,alignof(float16_t))
+NBL_REGISTER_OBJ_TYPE(complex_t<float16_t2>,alignof(float16_t2))
+NBL_REGISTER_OBJ_TYPE(complex_t<float16_t3>,alignof(float16_t3))
+NBL_REGISTER_OBJ_TYPE(complex_t<float16_t4>,alignof(float16_t4))
+NBL_REGISTER_OBJ_TYPE(complex_t<float32_t>,alignof(float32_t))
+NBL_REGISTER_OBJ_TYPE(complex_t<float32_t2>,alignof(float32_t2))
+NBL_REGISTER_OBJ_TYPE(complex_t<float32_t3>,alignof(float32_t3))
+NBL_REGISTER_OBJ_TYPE(complex_t<float32_t4>,alignof(float32_t4))
+NBL_REGISTER_OBJ_TYPE(complex_t<float64_t>,alignof(float64_t))
+NBL_REGISTER_OBJ_TYPE(complex_t<float64_t2>,alignof(float64_t2))
+NBL_REGISTER_OBJ_TYPE(complex_t<float64_t3>,alignof(float64_t3))
+NBL_REGISTER_OBJ_TYPE(complex_t<float64_t4>,alignof(float64_t4))
+
 #endif
