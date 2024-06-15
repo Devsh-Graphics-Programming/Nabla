@@ -5,11 +5,11 @@ from sys import exit
 if __name__ == "__main__":
     parser = ArgumentParser(description="Generate Header Files")
 
-    parser.add_argument("limits_json_path", type=str, help="The path to the device_limits.json file")
-    parser.add_argument("features_json_path", type=str, help="The path to the device_features.json file")
-    parser.add_argument("limits_output_path", type=str, help="The output path for SPhysicalDeviceLimits_")
-    parser.add_argument("features_output_path", type=str, help="The output path for SPhysicalDeviceFeatures_")
-    parser.add_argument("traits_output_path", type=str, help="The output path for the device_capabilities_traits_members.h")
+    parser.add_argument("--limits_json_path", type=str, help="The path to the device_limits.json file")
+    parser.add_argument("--features_json_path", type=str, help="The path to the device_features.json file")
+    parser.add_argument("--limits_output_path", type=str, help="The output path for SPhysicalDeviceLimits_")
+    parser.add_argument("--features_output_path", type=str, help="The output path for SPhysicalDeviceFeatures_")
+    parser.add_argument("--traits_output_path", type=str, help="The output path for the device_capabilities_traits_members.h")
 
     args = parser.parse_args()
 
