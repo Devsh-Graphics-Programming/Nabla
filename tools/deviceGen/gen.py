@@ -43,7 +43,7 @@ if __name__ == "__main__":
         op="&"
     )
     writeHeader(
-        args.traits_output_path + "testers.h",
+        args.traits_output_path + "testers.hlsl",
         buildTraitsHeader,
         type="Testers",
         template="NBL_GENERATE_MEMBER_TESTER({});",
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         format_params=["name"]
     )
     writeHeader(
-        args.traits_output_path + "defaults.h",
+        args.traits_output_path + "defaults.hlsl",
         buildTraitsHeader,
         type="Defaults",
         template="NBL_GENERATE_GET_OR_DEFAULT({}, {}, {});",
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         format_params=["name", "type", "value"]
     )
     writeHeader(
-        args.traits_output_path + "members.h",
+        args.traits_output_path + "members.hlsl",
         buildTraitsHeader,
         type="Members",
         template="NBL_CONSTEXPR_STATIC_INLINE {} {} = impl::get_or_default_{}<device_capabilities>::value;",
