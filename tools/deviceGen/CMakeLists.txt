@@ -63,8 +63,8 @@ add_custom_command(OUTPUT ${OUTPUT_HEADERS}
 add_custom_target(DeviceHeaders DEPENDS ${OUTPUT_HEADERS})
 
 LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_members.hlsl" GENERATED)
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl" GENERATED)
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl" GENERATED)
+#LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl" GENERATED)
+#LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl" GENERATED)
 
 get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/include" ABSOLUTE)
 get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/src" ABSOLUTE)

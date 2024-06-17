@@ -5,8 +5,6 @@
 #define _NBL_BUILTIN_HLSL_DEVICE_CAPABILITIES_TRAITS_INCLUDED_
 
 #include <nbl/builtin/hlsl/member_test_macros.hlsl>
-#include "nbl/video/SPhysicalDeviceLimits.h"
-#include "nbl/video/SPhysicalDeviceFeatures.h"
 
 #ifdef __HLSL_VERSION
 

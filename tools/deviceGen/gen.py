@@ -70,4 +70,4 @@ if __name__ == "__main__":
         format_params=["type", "name", "name"]
     )
 
-:while    exit(0)
+    exit(0)
