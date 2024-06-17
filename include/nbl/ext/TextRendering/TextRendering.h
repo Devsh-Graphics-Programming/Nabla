@@ -86,10 +86,39 @@ public:
 			return face->glyph;
 		}
 		FT_Face& getFreetypeFace() { return face; }
+
+		size_t getHash() { return hash; }
 	protected:
 		FT_Face face;
 		size_t hash;
 	};
+
+	struct GlyphBox
+	{
+		float64_t2 topLeft;
+		float64_t2 dirU;
+		float64_t2 dirV;
+		uint32_t glyphIdx;
+	};
+
+	class SingleLineText
+	{
+	public:
+		// constructs and fills the `glyphBoxes`
+		SingleLineText(core::smart_refctd_ptr<Face>&& face, std::string text, float64_t3x3 transformation);
+		// SingleLineText(core::smart_refctd_ptr<Face>&& face, std::string text, float64_t2 translation, float64_t2 scale, float64_t rotateAngle = 0);
+
+		// iterates over `glyphBoxes` generates textures msdfs if failed to add to cache (through that lambda you put)
+		// void Draw(DrawResourcesFiller& drawResourcesFiller, SIntendedSubmitInfo& intendedNextSubmit);
+
+		std::span<GlyphBox> getGlyphBoxes() { return std::span<GlyphBox>(glyphBoxes);  }
+
+	protected:
+
+		std::vector<GlyphBox> glyphBoxes;
+		core::smart_refctd_ptr<Face> m_face;
+	};
+
 
 	TextRenderer(uint32_t in_msdfPixelRange) : msdfPixelRange(in_msdfPixelRange) {
 		auto error = FT_Init_FreeType(&m_ftLibrary);

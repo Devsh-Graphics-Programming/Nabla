@@ -146,6 +146,45 @@ TextRenderer::MsdfTextureUploadInfo TextRenderer::Face::generateGlyphUploadInfo(
 	return uploadInfo;
 }
 
+TextRenderer::SingleLineText::SingleLineText(core::smart_refctd_ptr<TextRenderer::Face>&& face, std::string text, float64_t3x3 transformation)
+{
+	m_face = std::move(face);
+	glyphBoxes.reserve(text.length());
+
+	auto mulMatrix3 = [](float64_t3x3 transform, float64_t3 vector)
+	{
+		// TODO: Was getting compilation error when doing transform * vector directly, once
+		// we can get that to work use it instead
+		glm::highp_mat3x3 glmTransform;
+		memcpy(&glmTransform, &transform, sizeof(float64_t3x3));
+		auto result = glmTransform * vector;
+		return float64_t2(result.x, result.y);
+	};
+
+	// Position transform
+	float64_t2 currentBaselineStart = mulMatrix3(transformation, float32_t3(0.0, 0.0, 1.0));
+	for (uint32_t i = 0; i < text.length(); i++)
+	{
+		wchar_t k = wchar_t(text.at(i));
+		auto glyphIndex = m_face->getGlyphIndex(k);
+		const auto glyphMetrics = m_face->getGlyphMetrics(glyphIndex);
+		const float64_t2 baselineStart = currentBaselineStart;
+
+		// Vector transform
+		currentBaselineStart += mulMatrix3(transformation, float32_t3(glyphMetrics.advance, 0.0));
+
+		if (glyphIndex == 0) continue;
+
+		TextRenderer::GlyphBox glyphBbox = {
+			.topLeft = baselineStart + mulMatrix3(transformation, float32_t3(glyphMetrics.horizontalBearing.x, glyphMetrics.horizontalBearing.y, 0.0)),
+			.dirU = mulMatrix3(transformation, float64_t3(glyphMetrics.size.x, 0.0, 0.0)),
+			.dirV = mulMatrix3(transformation, float64_t3(0.0, -glyphMetrics.size.y, 0.0)),
+		};
+
+		glyphBoxes.push_back(glyphBbox);
+	}
+}
+
 }
 }
 }
