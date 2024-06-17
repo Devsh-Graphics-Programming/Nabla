@@ -30,325 +30,37 @@ namespace ext
 namespace TextRendering
 {
 
-constexpr char FirstGeneratedCharacter = ' ';
-constexpr char LastGeneratedCharacter = '~';
-constexpr uint32_t AsciiAtlasCharacterCount = (int(LastGeneratedCharacter) - int(FirstGeneratedCharacter)) + 1;
-
-struct SPixelCoord
-{
-	uint16_t x, y;
-};
-
-struct FontAtlasGlyphMip {
-	SPixelCoord position;
-};
-
-struct FontAtlasGlyph {
-	std::vector<FontAtlasGlyphMip> mips;
-	uint16_t width, height; // Size of the glyph in the atlas at the lowest mip 
-};
-
-class FontAtlas
+class TextRenderer : public nbl::core::IReferenceCounted
 {
 public:
-	FontAtlas(video::IQueue* queue, ILogicalDevice* device, const std::string& fontFilename, uint32_t glyphWidth, uint32_t glyphHeight, uint32_t charsPerRow, uint32_t padding);
-
-	FT_Library library;
-	FT_Face face;
-
-	std::array<FontAtlasGlyph, AsciiAtlasCharacterCount> characterAtlasPosition;
-	core::smart_refctd_ptr<video::IGPUImage> atlasImage;
-};
-
-struct SGlyphData 
-{
-	SPixelCoord offsetFromStringMin;
-	uint16_t textureAtlasGlyphIndex;
-};
-
-struct StringBoundingBox
-{
-	SPixelCoord min, max;
-};
-
-class TextRenderer
-{
-public:
-	typedef typename uint32_t size_type;
-
-	static asset::IImage::SBufferCopy copyGlyphShapeToImage(
-		IGPUBuffer* scratchBuffer, uint32_t scratchBufferOffset,
-		uint32_t glyphWidth, uint32_t glyphHeight,
-		msdfgen::Shape shape
-	);
-
-	TextRenderer(FontAtlas* atlas, core::smart_refctd_ptr<ILogicalDevice>&& device, uint32_t maxGlyphCount, uint32_t maxStringCount, uint32_t maxGlyphsPerString);
-
-	using pool_size_t = uint32_t;
-
-	using glyph_geometry_pool_t = video::CPropertyPool<core::allocator, uint64_t>;
-	// Data stored as SoA in property pool:
-	// - Glyph offset
-	// - String bounding box 
-	// - MVP
-	using string_pool_t = video::CPropertyPool<core::allocator, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>;
-
-	struct string_handle_t
+	struct Face
 	{
-		pool_size_t stringAddr = core::address_type_traits<pool_size_t>::invalid_address;
-		pool_size_t glyphDataAddr = core::address_type_traits<pool_size_t>::invalid_address;
-		pool_size_t glyphCount = 0u;
+		FT_Face face;
 	};
 
-	template<class Clock = typename std::chrono::steady_clock>
-	uint32_t allocateStrings(
-		IQueue* queue,
-		const std::chrono::time_point<Clock>& maxWaitPoint, // lets have also a version without this (default)
-		const uint32_t count, // how many strings
-		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
-		const char* const* stringData,
-		const core::matrix3x4SIMD* transformMatricies,
-		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
-	)
+	// ! return index to be used later in hatch fill style or text glyph object
+	struct MsdfTextureUploadInfo 
 	{
-		auto fence = m_device->createSemaphore(0);
-		auto commandPool = m_device->createCommandPool(queue->getFamilyIndex(), nbl::video::IGPUCommandPool::CREATE_FLAGS::NONE);
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUCommandBuffer> commandBuffer;
-		commandPool->createCommandBuffers(nbl::video::IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { &commandBuffer, 1 });
+		core::smart_refctd_ptr<ICPUBuffer> cpuBuffer;
+		uint64_t bufferOffset;
+		uint32_t3 imageExtent;
+	};
 
-		commandBuffer->begin(nbl::video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 
-		std::vector<std::tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>> stringDataTuples;
-		std::vector<uint32_t> stringIndices;
-		std::vector<uint64_t> glyphData;
-		std::vector<uint32_t> glyphDataIndices;
-		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> glyphDataBuffers;
+	MsdfTextureUploadInfo generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
 
-		stringDataTuples.resize(count);
-		stringIndices.resize(count);
-		glyphDataBuffers.resize(count);
-
-		for (uint32_t i = 0; i < count; i++)
-		{
-			const char* string = stringData[i];
-			core::matrix3x4SIMD matrix = transformMatricies ? transformMatricies[i] : core::matrix3x4SIMD();
-			StringBoundingBox bbox = wrappingBoxes ? wrappingBoxes[i] : StringBoundingBox{ { 0, 0 }, { std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max() } };
-
-			// TODO: Font size parameter
-			auto error = FT_Set_Pixel_Sizes(m_fontAtlas->face, 0, 1);
-
-			uint32_t x = bbox.min.x;
-			uint32_t y = bbox.min.y;
-			for (const char* stringIt = string; *stringIt != '\0'; stringIt++)
-			{
-				char k = *stringIt;
-				wchar_t unicode = wchar_t(k);
-				uint32_t glyphIndex = FT_Get_Char_Index(m_fontAtlas->face, unicode);
-
-				if (glyphIndex == 0 || k < ' ' || k > '~') continue;
-								
-				auto& atlasGlyph = m_fontAtlas->characterAtlasPosition[int(k) - int(' ')];
-				if (atlasGlyph.mips.size() == 0) continue;
-				// TODO mip selection
-				SPixelCoord glyphTableOffset = atlasGlyph.mips[0].position;
-
-				error = FT_Load_Glyph(m_fontAtlas->face, glyphIndex, FT_LOAD_NO_BITMAP);
-				assert(!error);
-
-				auto& glyph = m_fontAtlas->face->glyph;
-
-				uint32_t offsetX = x + glyph->bitmap_left;
-				uint32_t offsetY = y + glyph->bitmap_top;
-				uint32_t extentX = glyph->bitmap.width;
-				uint32_t extentY = glyph->bitmap.rows;
-
-				// [TODO] Allocate from suballocatedbuffer
-				// glyph value:
-				// - 12 bit offset X, 12 bit offset Y
-				// - 8 bit extent X, 8 bit extent Y
-				// - 12 bit atlas UV X, 12 bit atlas UV Y
-				uint64_t gp = 0;
-				gp |= uint64_t(offsetX) << 52;
-				gp |= uint64_t(offsetY) << 40;
-				gp |= uint64_t(extentX) << 32;
-				gp |= uint64_t(extentY) << 24;
-				gp |= uint64_t(glyphTableOffset.x) << 12;
-				gp |= uint64_t(glyphTableOffset.y);
-				glyphData.push_back(gp);
-				glyphDataIndices.push_back(0);
-
-				x += glyph->advance.x >> 6;
-			} 
-
-			pool_size_t glyphCount = glyphData.size();
-
-			// [TODO]: Use the upload utilities here
-			video::IGPUBuffer::SCreationParams bufParams;
-			bufParams.size = glyphCount * sizeof(uint64_t);
-			bufParams.usage = asset::IBuffer::EUF_TRANSFER_SRC_BIT;
-
-			auto data = m_device->createBuffer(std::move(bufParams));
-			auto bufreqs = data->getMemoryReqs();
-			bufreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-			auto mem = m_device->allocate(bufreqs, data.get());
-
-			video::IDeviceMemoryAllocation::MemoryRange mappedMemoryRange(data->getBoundMemory().offset, bufParams.size);
-			void* mappedPtr = data->getBoundMemory().memory->map(mappedMemoryRange, video::IDeviceMemoryAllocation::EMCAF_READ);
-			assert(data->getBoundMemory().memory->getMappedPointer() == mappedPtr);
-			
-			memcpy(
-				reinterpret_cast<char*>(data->getBoundMemory().memory->getMappedPointer()),
-				reinterpret_cast<char*>(&glyphData[0]), 
-				bufParams.size
-			);
-
-			bool res = m_stringDataPropertyPool->allocateProperties(&glyphDataIndices[0], &glyphDataIndices[glyphDataIndices.size()]);
-			assert(res);
-			pool_size_t glyphAllocationIx = glyphDataIndices[0];
-
-			video::IGPUCommandBuffer::SBufferCopy region;
-			region.srcOffset = 0;
-			region.dstOffset = glyphAllocationIx * sizeof(uint64_t) + m_geomDataBuffer->getPropertyMemoryBlock(0).offset;
-			region.size = bufParams.size;
-			commandBuffer->copyBuffer(data.get(), m_geomDataBuffer->getPropertyMemoryBlock(0).buffer.get(), 1, &region);
-
-			glyphData.clear();
-			glyphDataIndices.clear();
-
-			glyphDataBuffers[i] = std::move(data);
-			stringDataTuples[i] = std::make_tuple<pool_size_t, pool_size_t, StringBoundingBox, core::matrix3x4SIMD>(
-				std::move(glyphAllocationIx), 
-				std::move(glyphCount),
-				std::move(bbox), 
-				std::move(matrix)
-			);
-			stringIndices[i] = string_pool_t::invalid;
-		}
-
-		bool res = m_stringDataPropertyPool->allocateProperties(&stringIndices[0], &stringIndices[stringIndices.size()]);
-		assert(res);
-
-		for (uint32_t i = 0; i < count; i++)
-		{
-			// Write the properties that were allocated
-			// [TODO]: Use the upload utilities here
-			auto [ glyphAllocationIx, glyphCount, bbox, matrix ] = stringDataTuples[i];
-			uint32_t index = stringIndices[i];
-
-			auto writeProperty = [&](uint32_t propIx, uint32_t dataSize, const void* pData)
-			{
-				auto& buf = m_stringDataPropertyPool->getPropertyMemoryBlock(propIx);
-				commandBuffer->updateBuffer({ buf.offset + index * dataSize, dataSize, core::smart_refctd_ptr<video::IGPUBuffer>(buf.buffer) }, pData);
-			};
-
-			writeProperty(0, sizeof(pool_size_t), &glyphAllocationIx);
-			writeProperty(1, sizeof(StringBoundingBox), &bbox);
-			writeProperty(2, sizeof(core::matrix3x4SIMD), &matrix);
-
-			// Output string_handle_t
-			string_handle_t handle;
-			handle.stringAddr = stringIndices[i];
-			handle.glyphDataAddr = glyphAllocationIx;
-			handle.glyphCount = glyphCount;
-			handles[i] = handle;
-		}
-
-		commandBuffer->end();
-
-		nbl::video::IQueue::SSubmitInfo submit;
-		{
-			nbl::video::IQueue::SSubmitInfo::SCommandBufferInfo commandBufInfo = { commandBuffer.get()};
-			submit.commandBuffers = { &commandBufInfo, 1 };
-
-			nbl::video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo = { fence.get(), 1u };
-			submit.signalSemaphores = { &signalInfo, 1 };
-
-			queue->submit({ &submit, 1 });
-		}
-
-		video::ISemaphore::SWaitInfo waitInfos = { fence.get(), 1u };
-		m_device->blockForSemaphores({ &waitInfos, 1 });
+	TextRenderer(uint32_t in_msdfPixelRange) : msdfPixelRange(in_msdfPixelRange) {
+		auto error = FT_Init_FreeType(&m_ftLibrary);
+		assert(!error);
 	}
 
-	inline uint32_t allocateStrings(
-		IQueue* queue,
-		const uint32_t count, // how many strings
-		string_handle_t* handles, // output handles, if `glyphDataAddr` was not primed with invalid_address, allocation will not happen, likewise for `stringDataAddr`
-		const char* const* stringData,
-		const core::matrix3x4SIMD* transformMatricies,
-		const StringBoundingBox* wrappingBoxes = nullptr // optional, to wrap paragraphs
-	)
-	{
-		return allocateStrings(queue, video::TimelineEventHandlerBase::default_wait(), count, handles, stringData, transformMatricies, wrappingBoxes);
-	}
+	const FT_Library& getFreetypeLibrary() const { return m_ftLibrary; }
+	FT_Library& getFreetypeLibrary() { return m_ftLibrary; }
 
-	void freeStrings(
-		const uint32_t count, // how many strings
-		const string_handle_t* handles,
-		core::smart_refctd_ptr<ISemaphore>&& fence // for a deferred free
-	);
+protected:
+	uint32_t msdfPixelRange;
+	FT_Library m_ftLibrary;
 
-	// One of the sets would be our global DS, and the other would be the user provided visible strings DS
-	// layout(set=0, binding=0) Glyph geometry data
-	// layout(set=0, binding=1) Index buffer
-	// layout(set=1, binding=0) Visible string MVPs
-	// layout(set=1, binding=1) Visible string glyph count
-	// layout(set=1, binding=2) Cummulative visible string glyph count
-	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
-		nbl::system::ILogger* logger,
-		nbl::asset::IAssetManager* assetManager,
-		core::smart_refctd_ptr<video::IGPURenderpass> renderpass,
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> visibleStringLayout
-	);
-
-	// Visible strings are provided by the user's culling system
-	void updateVisibleStringDS(
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS,
-		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringMvps,
-		core::smart_refctd_ptr<video::IGPUBuffer> visibleStringGlyphCounts,
-		core::smart_refctd_ptr<video::IGPUBuffer> cumulativeGlyphCount
-	);
-
-	// now doing aggregate append
-	//void prefixSumHelper(
-	//	core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf, 
-	//	core::smart_refctd_ptr<video::IGPUDescriptorSet> visibleStringDS, 
-	//	core::smart_refctd_ptr<video::IGPUDescriptorSet> indirectDrawDS
-	//);
-	
-	void drawText(
-		video::IGPUCommandBuffer* cmdbuf,
-		video::IGPUDescriptorSet* visibleStringDS,
-		video::IGPUBuffer* indirectDrawArgs,
-		video::IGPUPipelineLayout* pipelineLayout
-	);
-
-	void drawTextIndexed(
-		video::IGPUCommandBuffer* cmdbuf,
-		video::IGPUDescriptorSet* visibleStringDS,
-		video::IGPUBuffer* indirectDrawArgs,
-		video::IGPUPipelineLayout* pipelineLayout
-	);
-
-	// TODO should be internal TextRendering.cpp thing
-
-private:
-
-private:
-	core::smart_refctd_ptr<ILogicalDevice> m_device;
-
-	core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_globalStringDSLayout;
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalStringDS;
-
-	core::smart_refctd_ptr<glyph_geometry_pool_t> m_geomDataBuffer;
-	core::smart_refctd_ptr<string_pool_t> m_stringDataPropertyPool;
-
-	// - 30 bits global glyph ID
-	// - 2 bits quad indices (0-3 per glyph)
-	core::smart_refctd_ptr<video::IGPUBuffer> m_glyphIndexBuffer;
-
-	core::smart_refctd_ptr<video::IGPUComputePipeline> m_expansionPipeline;
-	FontAtlas* m_fontAtlas;
 };
 
 // Helper class for building an msdfgen shape from a glyph
