@@ -54,7 +54,97 @@ TextRenderer::MsdfTextureUploadInfo TextRenderer::generateMsdfForShape(msdfgen::
 	};
 }
 
+constexpr double FreeTypeFontScaling = 1.0 / 64.0;
 
+TextRenderer::GlyphMetric TextRenderer::Face::getGlyphMetrics(uint32_t glyphId)
+{
+	auto slot = getGlyphSlot(glyphId);
+
+	return {
+		.advance = float64_t2(slot->advance.x, 0.0) * FreeTypeFontScaling,
+		.horizontalBearing = float64_t2(slot->metrics.horiBearingX, slot->metrics.horiBearingY) * FreeTypeFontScaling,
+		.size = float64_t2(slot->metrics.width, slot->metrics.height) * FreeTypeFontScaling,
+	};
+}
+
+float64_t2 ftPoint2(const FT_Vector& vector) {
+	return float64_t2(FreeTypeFontScaling * vector.x, FreeTypeFontScaling * vector.y);
+}
+
+int ftMoveToMsdf(const FT_Vector* to, void* user) {
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->moveTo(ftPoint2(*to));
+	return 0;
+}
+
+int ftLineToMsdf(const FT_Vector* to, void* user) {
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->lineTo(ftPoint2(*to));
+	return 0;
+}
+
+int ftConicToMsdf(const FT_Vector* control, const FT_Vector* to, void* user) {
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->quadratic(ftPoint2(*control), ftPoint2(*to));
+	return 0;
+}
+
+int ftCubicToMsdf(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
+	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
+	context->cubic(ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*to));
+	return 0;
+}
+
+msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
+{
+	auto slot = getGlyphSlot(glyphId);
+	
+	msdfgen::Shape shape;
+	nbl::ext::TextRendering::GlyphShapeBuilder builder(shape);
+	FT_Outline_Funcs ftFunctions;
+	ftFunctions.move_to = &ftMoveToMsdf;
+	ftFunctions.line_to = &ftLineToMsdf;
+	ftFunctions.conic_to = &ftConicToMsdf;
+	ftFunctions.cubic_to = &ftCubicToMsdf;
+	ftFunctions.shift = 0;
+	ftFunctions.delta = 0;
+	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &builder);
+	if (error)
+		return msdfgen::Shape();
+
+	builder.finish();
+	return shape;
+}
+
+TextRenderer::MsdfTextureUploadInfo TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
+{
+	auto shape = generateGlyphShape(glyphId);
+
+	if (shape.contours.empty())
+	{
+		return {
+			.cpuBuffer = nullptr,
+		};
+	}
+
+	auto shapeBounds = shape.getBounds();
+
+	auto expansionAmount = textRenderer->msdfPixelRange;
+	float32_t2 frameSize = float32_t2(
+		(shapeBounds.r - shapeBounds.l),
+		(shapeBounds.t - shapeBounds.b)
+	);
+	float32_t2 scale = float32_t2(
+		float(msdfExtents.x - 2.0 * expansionAmount) / (frameSize.x),
+		float(msdfExtents.y - 2.0 * expansionAmount) / (frameSize.y)
+	);
+	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
+
+	TextRenderer::MsdfTextureUploadInfo uploadInfo = textRenderer->generateMsdfForShape(
+		shape, msdfExtents, scale, translate);
+
+	return uploadInfo;
+}
 
 }
 }

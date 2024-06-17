@@ -33,9 +33,16 @@ namespace TextRendering
 class TextRenderer : public nbl::core::IReferenceCounted
 {
 public:
-	struct Face
+	struct GlyphMetric
 	{
-		FT_Face face;
+		// These already have the scaling from FreeType's em (1.0 / 64.0) applied
+
+		// Offset that should be applied to the current baseline after this glyph is placed
+		float64_t2 advance;
+		// Offset that the image of the glyph should be placed from the current baseline start
+		float64_t2 horizontalBearing;
+		// Size of the glyph in the text line
+		float64_t2 size;
 	};
 
 	// ! return index to be used later in hatch fill style or text glyph object
@@ -46,8 +53,43 @@ public:
 		uint32_t3 imageExtent;
 	};
 
-
 	MsdfTextureUploadInfo generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+
+	struct Face : public nbl::core::IReferenceCounted
+	{
+	public:
+		Face(TextRenderer* textRenderer, std::string path)
+		{
+			auto error = FT_New_Face(textRenderer->getFreetypeLibrary(), path.c_str(), 0, &face);
+			assert(!error);
+
+			hash = std::hash<std::string>{}(path);
+		}
+
+		uint32_t getGlyphIndex(wchar_t unicode)
+		{
+			return FT_Get_Char_Index(face, unicode);
+		}
+
+
+		GlyphMetric getGlyphMetrics(uint32_t glyphId);
+
+		msdfgen::Shape generateGlyphShape(uint32_t glyphId);
+
+		MsdfTextureUploadInfo generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
+
+		// TODO: Should be private
+		FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
+		{
+			auto error = FT_Load_Glyph(face, glyphId, FT_LOAD_NO_SCALE);
+			assert(!error);
+			return face->glyph;
+		}
+		FT_Face& getFreetypeFace() { return face; }
+	protected:
+		FT_Face face;
+		size_t hash;
+	};
 
 	TextRenderer(uint32_t in_msdfPixelRange) : msdfPixelRange(in_msdfPixelRange) {
 		auto error = FT_Init_FreeType(&m_ftLibrary);
