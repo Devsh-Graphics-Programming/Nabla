@@ -20,7 +20,7 @@ namespace scan
 template<uint32_t scratchElementCount=SCRATCH_SZ - 1>
 struct Scratch
 {
-    uint32_t workgroupsStarted;
+    uint32_t workgroupsStarted[NBL_BUILTIN_MAX_LEVELS];
     uint32_t data[scratchElementCount];
 };
 
@@ -95,6 +95,7 @@ void setData(
     }
     else if (inRange)
     {
+        // REVIEW: Check if we have to add levelInvocationIndex in offset or levelWorkgroupIndex as above
         if (!isScan && treeLevel == params.topLevel)
         {
             scanBuffer[levelInvocationIndex] = data;

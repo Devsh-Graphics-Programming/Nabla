@@ -58,16 +58,16 @@ class CArithmeticOps : public core::IReferenceCounted
 
 				lastElement[0u] = _elementCount-1u;
 				for (topLevel=0u; lastElement[topLevel]>=workgroupSize;)
-					temporaryStorageOffset[topLevel-1u] = lastElement[++topLevel] = lastElement[topLevel]/workgroupSize;
+					temporaryStorageOffset[topLevel-1u] = lastElement[++topLevel] = std::ceil(lastElement[topLevel] / double(workgroupSize));
 				
 				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
 			}
-            // given already computed tables of lastElement indices per level, number of levels, and storage offsets, tell us total auxillary buffer size needed
+            // given already computed tables of lastElement indice	s per level, number of levels, and storage offsets, tell us total auxillary buffer size needed
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
-				uint32_t uint_count = 1u; // workgroup enumerator
+				uint32_t uint_count = MaxLevels; // workgroup enumerator
 				uint_count += temporaryStorageOffset[MaxLevels/2u-1u]; // last scratch offset
-				uint_count += lastElement[topLevel]+1u; // and its size
+				uint_count += lastElement[topLevel]+1u; // starting from the last storage offset, we also need slots equal to the top level's elementCount (add 1u because 0u based)
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
 			}
 		};
@@ -91,13 +91,11 @@ class CArithmeticOps : public core::IReferenceCounted
 				const auto topLevel = outScanParams.topLevel;
 
 				std::copy_n(outScanParams.lastElement+1u,topLevel,cumulativeWorkgroupCount);
-				for (auto i=0u; i<=topLevel; i++)
-					cumulativeWorkgroupCount[i] += 1u;
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
-
+				cumulativeWorkgroupCount[topLevel] = 1u; // the top level will always end up with 1 workgroup to do the final reduction
 				for (auto i = 0u; i <= topLevel; i++) {
-					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize - 1u)) + 1;
-					lastWorkgroupSetCountForLevel[i] = cumulativeWorkgroupCount[i] & (workgroupSize - 1u);
+					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize - 1u)) + 1; // RECHECK: findMSB(511) == 8u !! Here we assume it's 9u !!
+					lastWorkgroupSetCountForLevel[i] = (cumulativeWorkgroupCount[i] - 1u) & (workgroupSize - 1u);
 				}
 
 				const auto wgFinishedFlagsSize = std::accumulate(workgroupFinishFlagsOffset, workgroupFinishFlagsOffset + Parameters::MaxLevels, 0u);
@@ -127,6 +125,7 @@ class CArithmeticOps : public core::IReferenceCounted
 			{
 				constexpr auto workgroupSpinningProtection = 4u; // to prevent first workgroup starving/idling on level 1 after finishing level 0 early
 				wg_count = limits.computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,workgroupSpinningProtection);
+				assert(wg_count >= elementCount / workgroupSize^2 + 1 && "Too few workgroups! The workgroup count must be at least the elementCount/(wgSize^2)");
 			}
 
 			uint32_t wg_count;

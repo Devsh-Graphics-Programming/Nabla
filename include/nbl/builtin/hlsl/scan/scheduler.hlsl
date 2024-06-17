@@ -30,54 +30,64 @@ struct Scheduler
   }
     
   template<class Accessor>
-  bool getWork(NBL_REF_ARG(Accessor) accessor)
+  bool getWork(NBL_REF_ARG(Accessor) accessor)  // rename to hasWork()
   {
       
-glsl::memoryBarrierBuffer();
-if(scanScratchBuf[0u].workgroupsStarted >= schedParams.cumulativeWorkgroupCount[level])
-  return false;
-      
+    // This part ensures that each workgroup that was not chosen to run the next level 
+    // will exit once all the work for the current level is finished
+    glsl::memoryBarrierBuffer();
+    if(scanScratchBuf[0u].workgroupsStarted[level] >= totalWorkgroupsPerLevel(level))
+      return false;
+
     if (workgroup::SubgroupContiguousIndex()==0u)
     {
-      uberWorkgroupIndex = glsl::atomicAdd(scanScratchBuf[0u].workgroupsStarted,1u);
+      uberWorkgroupIndex = glsl::atomicAdd(scanScratchBuf[0u].workgroupsStarted[level],1u);
     }
     uberWorkgroupIndex = workgroup::BroadcastFirst(uberWorkgroupIndex, accessor);
     // nothing really happens, we just check if there's a workgroup in the level to grab
-    return uberWorkgroupIndex <= schedParams.cumulativeWorkgroupCount[level] - 1u;
+    return uberWorkgroupIndex < totalWorkgroupsPerLevel(level);
   }
 
   template<class Accessor>
-  void markDone(NBL_REF_ARG(Accessor) accessor)
+  bool markDone(NBL_REF_ARG(Accessor) accessor)
   {
     if (level==(params.topLevel)) // check if we reached the lastLevel
     {
+        // not even sure this is needed
       uberWorkgroupIndex = ~0u;
-      return;
+      return true;
     }
 
+    uint32_t prevLevel = level;
     if (workgroup::SubgroupContiguousIndex()==0u)
     {
       // The uberWorkgroupIndex is always increasing, even after we switch levels, but for each new level the workgroupSetFinishedIndex must reset
       const uint32_t workgroupSetFinishedIndex = levelWorkgroupIndex(level) / WorkgroupSize;
-      const uint32_t lastWorkgroupSetIndexForLevel = (level == 0u ? schedParams.cumulativeWorkgroupCount[level] : (schedParams.cumulativeWorkgroupCount[level] - schedParams.cumulativeWorkgroupCount[level-1u])) / WorkgroupSize;
-      const uint32_t doneCount = glsl::atomicAdd(scanScratchBuf[0u].data[schedParams.workgroupFinishFlagsOffset[level]+workgroupSetFinishedIndex], 1u) + 1u;
+      const uint32_t lastWorkgroupSetIndexForLevel = totalWorkgroupsPerLevel(level) / WorkgroupSize;
+      const uint32_t doneCount = glsl::atomicAdd(scanScratchBuf[0u].data[schedParams.workgroupFinishFlagsOffset[level]+workgroupSetFinishedIndex], 1u);
       //if ((uberWorkgroupIndex != schedParams.cumulativeWorkgroupCount[level] - 1u ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
-      if ((uberWorkgroupIndex < lastWorkgroupSetIndexForLevel ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
+      if (((uberWorkgroupIndex/WorkgroupSize) < lastWorkgroupSetIndexForLevel  ? (WorkgroupSize-1u) : schedParams.lastWorkgroupSetCountForLevel[level])==doneCount)
       {
         level++;
       }
     }
     level = workgroup::BroadcastFirst(level, accessor);
+    return level == 0 ? false : level == prevLevel; // on level 0 never exit early but on higher levels each workgroup is allowed one operation and exits except if promoted to next level
   }
 
-  uint32_t levelWorkgroupIndex(NBL_CONST_REF_ARG(uint32_t) level)
+  uint32_t levelWorkgroupIndex(const in uint32_t level)
   {
-      return level == 0u ? uberWorkgroupIndex : (uberWorkgroupIndex - schedParams.cumulativeWorkgroupCount[level-1u]);
+      return uberWorkgroupIndex;
   }
+
+    uint32_t totalWorkgroupsPerLevel(const in uint32_t level)
+    {
+        return level == 0 ? schedParams.cumulativeWorkgroupCount[level] : schedParams.cumulativeWorkgroupCount[level] - schedParams.cumulativeWorkgroupCount[level-1u];
+    }
 
   Parameters_t params;
   DefaultSchedulerParameters_t schedParams;
-  uint32_t uberWorkgroupIndex;
+  uint32_t uberWorkgroupIndex; // rename to virtualWorkgroupIndex
   uint16_t level;
 };
 

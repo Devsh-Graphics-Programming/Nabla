@@ -76,7 +76,10 @@ namespace scan
 
             virtualWorkgroup<Binop, Storage_t, isScan, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
             accessor.workgroupExecutionAndMemoryBarrier();
-            scheduler.markDone(accessor);
+            if(scheduler.markDone(accessor))
+			{
+				return;
+			}
         }
     }
 }
