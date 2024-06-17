@@ -69,5 +69,12 @@ if __name__ == "__main__":
         features_json=features,
         format_params=["type", "name", "name"]
     )
-
+    writeHeader(
+        args.traits_output_path + "jit_members.hlsl",
+        buildJITTraitsHeader,
+        type="JIT Members",
+        limits_json=limits,
+        features_json=features,
+        format_params=["type", "name", "json_type", "name"]
+    )
     exit(0)

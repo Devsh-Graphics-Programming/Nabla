@@ -8,7 +8,7 @@
 
 #ifdef __HLSL_VERSION
 
-#include "nbl/video/device_capabilities_traits_testers.h"
+#include "nbl/video/device_capabilities_traits_testers.hlsl"
 
 #define NBL_GENERATE_GET_OR_DEFAULT(field, ty, default) \
 template<typename S, bool = has_member_##field<S>::value> struct get_or_default_##field : integral_constant<ty,S::field> {}; \
@@ -21,7 +21,7 @@ namespace hlsl
 
 namespace impl
 {
-    #include "nbl/video/device_capabilities_traits_defaults.h"
+    #include "nbl/video/device_capabilities_traits_defaults.hlsl"
 }
 
 template<typename device_capabilities>
@@ -38,7 +38,7 @@ struct device_capabilities_traits
 	    return computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,1u);
     }
 
-    #include "nbl/video/device_capabilities_traits_members.h"
+    #include "nbl/video/device_capabilities_traits_members.hlsl"
 };
 #undef NBL_GENERATE_GET_OR_DEFAULT
 }

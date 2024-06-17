@@ -182,6 +182,45 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
                 except ContinueEx:
                     continue
 
+def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_params):
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0",
+        "vulkan11core": "VK 1.1",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
+    }
+
+
+    res.append(f"// {name}")
+    for sectionName, sectionContent in json_data.items():
+        if sectionName == "constexprs":
+            continue
+        if sectionName in sectionHeaders:
+            res.append(f"// {sectionHeaders[sectionName]}")
+        for dict in sectionContent:
+            line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + std::to_string({}.{}) + R\"===(;"
+            if 'type' in dict:
+                try:
+                    dict["json_type"] = json_type 
+                    expose = "expose" in dict and dict["expose"] or "expose" not in dict
+                    if not expose:
+                        continue
+
+                    for param in line_format_params:
+                        if param not in dict:
+                            raise ContinueEx
+                    if dict['name'].startswith("E_POINT_CLIPPING_BEHAVIOR"):
+                        continue
+                    if dict['type'].startswith("core::bitflag"):
+                        line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + std::to_string({}.{}.value) + R\"===(;"
+                    line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
+                    res.append(line)
+                except ContinueEx:
+                    continue
+
 
 def buildTraitsHeader(**params):
     res = []
@@ -201,6 +240,32 @@ def buildTraitsHeader(**params):
         params["template"],
         *params['format_params']
     )
+
+    return res
+
+def buildJITTraitsHeader(**params):
+    res = [
+        "using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;",
+        "std::string jit_traits = R\"===("
+    ]
+
+    buildJITTraitsHeaderHelper(
+        res,
+        f"Limits {params['type']}",
+        params["limits_json"],
+        "limits",
+        *params['format_params']
+    )
+    res.append(emptyline)
+    buildJITTraitsHeaderHelper(
+        res,
+        f"Features {params['type']}",
+        params["features_json"],
+        "features",
+        *params['format_params']
+    )
+
+    res.append("\\n;)===")
 
     return res
 
