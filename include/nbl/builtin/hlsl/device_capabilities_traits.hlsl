@@ -29,6 +29,17 @@ namespace impl
 template<typename device_capabilities>
 struct device_capabilities_traits
 {
+    uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint32_t elementCount, const uint32_t workgroupSize, const uint32_t workgroupSpinningProtection)
+    {
+	    const uint32_t infinitelyWideDeviceWGCount = (elementCount - 1u) / (workgroupSize * workgroupSpinningProtection) + 1u; // need thtat divAndRoundUp
+	    return min(infinitelyWideDeviceWGCount,maxResidentInvocations/maxOptimallyResidentWorkgroupInvocations);
+    }
+
+    uint32_t computeOptimalPersistentWorkgroupDispatchSize(const uint32_t elementCount, const uint32_t workgroupSize)
+    {
+	    return computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,1u);
+    }
+
     #include "nbl/video/device_capabilities_traits_members.h"
 };
 #undef NBL_GENERATE_GET_OR_DEFAULT
