@@ -37,7 +37,7 @@ if __name__ == "__main__":
         op="|"
     )
     writeHeader(
-        args.features_output_path + "union.h",
+        args.features_output_path + "intersect.h",
         buildFeaturesMethod,
         json=features,
         op="&"
@@ -70,4 +70,4 @@ if __name__ == "__main__":
         format_params=["type", "name", "name"]
     )
 
-    exit(0)
+:while    exit(0)

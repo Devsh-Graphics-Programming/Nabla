@@ -712,9 +712,6 @@ if(NOT NBL_STATIC_BUILD)
 	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
-add_dependencies(Nabla DeviceHeaders)
-target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
-
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 if(NOT NBL_STATIC_BUILD)
 	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
