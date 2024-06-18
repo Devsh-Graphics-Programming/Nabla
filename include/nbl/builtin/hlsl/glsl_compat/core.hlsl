@@ -15,6 +15,81 @@ namespace hlsl
 namespace glsl
 {
 
+template <typename T>
+T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
+{
+    NBL_CONSTEXPR T one = typename unsigned_integer_of_size<sizeof(T)>::type(1);
+    const T mask = (one << bits) - one;
+    const T shifted_mask = mask << offset;
+
+    insert &= mask;
+    base &= (~shifted_mask);
+    base |= (insert << offset);
+
+    return base;
+}
+
+namespace impl
+{
+
+    template<typename T, bool isSigned, bool isIntegral>
+    struct bitfieldExtract {};
+
+    template<typename T, bool isSigned>
+    struct bitfieldExtract<T, isSigned, false>
+    {
+        static T __call(T val, uint32_t offsetBits, uint32_t numBits)
+        {
+            static_assert(is_integral<T>::value, "T is not an integral type!");
+            return val;
+        }
+    };
+
+#ifndef __HLSL_VERSION
+    template<typename T>
+    T _bitfieldExtract(T val, uint32_t offsetBits, uint32_t numBits)
+    {
+        const T mask = (T(0x1) << numBits) - 1;
+        const T shiftedMask = mask << offsetBits;
+        return (val & shiftedMask) >> offsetBits;
+    }
+#endif
+
+    template<typename T>
+    struct bitfieldExtract<T, true, true>
+    {
+        static T __call(T val, uint32_t offsetBits, uint32_t numBits)
+        {
+#ifdef __HLSL_VERSION
+            return spirv::bitFieldSExtract<T>(val, offsetBits, numBits);
+#else
+            return _bitfieldExtract<T>(val, offsetBits, numBits);
+#endif
+        }
+    };
+
+    template<typename T>
+    struct bitfieldExtract<T, false, true>
+    {
+        static T __call(T val, uint32_t offsetBits, uint32_t numBits)
+        {
+            
+#ifdef __HLSL_VERSION
+            return spirv::bitFieldUExtract<T>(val, offsetBits, numBits);
+#else
+            return _bitfieldExtract<T>(val, offsetBits, numBits);
+#endif
+        }
+    };
+
+}
+
+template<typename T>
+T bitfieldExtract(T val, uint32_t offsetBits, uint32_t numBits)
+{
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val, offsetBits, numBits);
+}
+
 #ifdef __HLSL_VERSION
 /**
 * Generic SPIR-V
@@ -110,48 +185,6 @@ void tess_ctrl_barrier() {
 
 void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
-}
-
-namespace impl 
-{
-
-template<typename T, bool isSigned, bool isIntegral>
-struct bitfieldExtract {};
-
-template<typename T, bool isSigned>
-struct bitfieldExtract<T, isSigned, false>
-{
-    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
-    {
-        static_assert( is_integral<T>::value, "T is not an integral type!" );
-        return val;
-    }
-};
-
-template<typename T>
-struct bitfieldExtract<T, true, true>
-{
-    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
-    {
-        return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
-    }
-};
-
-template<typename T>
-struct bitfieldExtract<T, false, true>
-{
-    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
-    {
-        return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
-    } 
-};
-
-}
-
-template<typename T>
-T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
-{
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
 }
 
 #endif
