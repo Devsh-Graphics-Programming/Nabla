@@ -14,7 +14,7 @@ namespace fft
 
 // Computes the kth element in the group of N roots of unity
 // Notice 0 <= k < N/2, rotating counterclockwise in the forward (DIF) transform and clockwise in the inverse (DIT)
-template<typename Scalar, bool inverse>
+template<bool inverse, typename Scalar>
 complex_t<Scalar> twiddle(uint32_t k, uint32_t N)
 {
     complex_t<Scalar> retVal;
@@ -27,7 +27,7 @@ complex_t<Scalar> twiddle(uint32_t k, uint32_t N)
     return retVal;                         
 }
 
-template<typename Scalar, bool inverse> 
+template<bool inverse, typename Scalar> 
 struct DIX 
 { 
     static void radix2(NBL_CONST_REF_ARG(complex_t<Scalar>) twiddle, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
@@ -49,10 +49,10 @@ struct DIX
 };
 
 template<typename Scalar>
-using DIT = DIX<Scalar, true>;
+using DIT = DIX<true, Scalar>;
 
 template<typename Scalar>
-using DIF = DIX<Scalar, false>;
+using DIF = DIX<false, Scalar>;
 }
 }
 }
