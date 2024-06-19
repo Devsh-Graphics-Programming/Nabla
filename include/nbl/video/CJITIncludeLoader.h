@@ -8,28 +8,12 @@
 
 #include <string>
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
+
+#include "glm/gtx/string_cast.hpp"
 
 namespace nbl::video
 {
-
-namespace impl
-{
-    template<typename T>
-    struct to_string
-    {
-        inline std::string operator()(const T& object) { return std::to_string(object); }
-    };
-
-    template<core::Bitflag T>
-    struct to_string<T>
-    {
-        inline std::string operator()(const T& object) {
-            return "Test";
-            //return std::to_string(static_cast<T::UNDERLYING_TYPE>(object.value)); 
-        }
-    };
-}
-
 class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
 {
     public:
@@ -40,6 +24,37 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
 
         found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
 
+    protected:
+        template<typename T>
+        struct to_string_impl
+        {
+            inline std::string operator()(const T& object) { return std::to_string(object); }
+        };
+
+        template<typename T> requires core::Bitflag<std::remove_cvref_t<T>>
+        struct to_string_impl<T>
+        {
+            inline std::string operator()(const T& object) {
+                return std::to_string(object.value);
+            }
+        };
+
+        template<typename T> requires is_scoped_enum<std::remove_cvref_t<T>>
+            struct to_string_impl<T>
+        {
+            inline std::string operator()(const T& object) {
+                return std::to_string(static_cast<int>(object));
+            }
+        };
+
+        template<typename T> requires nbl::hlsl::is_vector_v<std::remove_cvref_t<T>>
+        struct to_string_impl<T>
+        {
+            inline std::string operator()(const T& object) {
+                return glm::to_string(object);
+            }
+        };
+
     private:
         core::unordered_map<system::path,std::string> m_includes;
         std::string collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features);
@@ -47,7 +62,7 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
         template<typename T>
         static inline std::string to_string(T&& object)
         {
-            return impl::to_string<T>()(std::forward<T>(object));
+            return to_string_impl<T>()(std::forward<T>(object));
         }
 
 };

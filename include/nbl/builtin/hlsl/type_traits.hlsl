@@ -7,6 +7,9 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
+
+template<typename E>
+concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
 
