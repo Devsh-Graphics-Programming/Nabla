@@ -192,6 +192,38 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
 }
 
+template<Unsigned>
+enable_if_t<is_unsigned_v<Unsigned>,Unsigned> bitfieldInsert(Unsigned base, Unsigned value, uint16_t offset, uint16_t count){
+    const Unsigned allOnes = ~ Unsigned(0);
+    // Produce a mask with `count` ones starting at the `offset` bit (counting from LSB), everything else is 0
+    Unsigned mask = ~(allOnes << count) << offset;
+    // Offset `value` by `offset`, then `&` with the mask. This puts the value's first `count` LSB starting at the offset, everything else is 0
+    value = (value << offset) & mask 
+    // Next invert the mask so all those positions are 0, and `&` the base with the new mask to set those bits in the base to 0
+    base &= ~mask;
+    // Finally, insert the bits
+    return base | value;
+}
+
+// ---------------- Marked for deletion -----------------------------
+/*
+namespace impl {
+uint32_t bitfieldInsert(uint32_t base, uint32_t shifted_masked_value, uint32_t lo, uint32_t count)
+{
+    const uint32_t hi = base^lo;
+    return (hi<<count)|shifted_masked_value|lo;
+}
+
+} //namespace impl
+
+uint32_t bitfieldInsert(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
+{
+    const uint32_t shifted_masked_value = (value&((1u<<count)-1))<<offset;
+    return impl::bitfieldInsert(base,shifted_masked_value,base&((1u<<offset)-1),count);
+}
+*/
+// ---------------- End mark -----------------------------
+
 #endif
 
 }

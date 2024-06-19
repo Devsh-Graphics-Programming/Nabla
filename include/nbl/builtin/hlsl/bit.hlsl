@@ -102,22 +102,6 @@ uint16_t countl_zero(T n)
     return impl::clz<sizeof(T)*8>(n);
 }
 
-
-namespace impl {
-uint32_t bitfieldInsert(uint32_t base, uint32_t shifted_masked_value, uint32_t lo, uint32_t count)
-{
-    const uint32_t hi = base^lo;
-    return (hi<<count)|shifted_masked_value|lo;
-}
-
-} //namespace impl
-
-uint32_t bitfieldInsert(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
-{
-    const uint32_t shifted_masked_value = (value&((1u<<count)-1))<<offset;
-    return impl::bitfieldInsert(base,shifted_masked_value,base&((1u<<offset)-1),count);
-}
-
 }
 }
 #endif
