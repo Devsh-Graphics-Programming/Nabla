@@ -20,7 +20,7 @@ namespace TextRendering
 
 // extents is the size of the MSDF that is generated (probably 32x32)
 // glyphExtents is the area of the "image" that msdf will consider (used as resizing, for fill patterns should be 8x8)
-TextRenderer::MsdfTextureUploadInfo TextRenderer::generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
+core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
@@ -47,11 +47,7 @@ TextRenderer::MsdfTextureUploadInfo TextRenderer::generateMsdfForShape(msdfgen::
 		}
 	}
 
-	return {
-		.cpuBuffer = std::move(cpuBuf),
-		.bufferOffset = 0ull,
-		.imageExtent = { glyphW, glyphH, 1 },
-	};
+	return std::move(cpuBuf);
 }
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
@@ -116,16 +112,12 @@ msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
 	return shape;
 }
 
-TextRenderer::MsdfTextureUploadInfo TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
+core::smart_refctd_ptr<ICPUBuffer> TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
 {
 	auto shape = generateGlyphShape(glyphId);
 
-	if (shape.contours.empty())
-	{
-		return {
-			.cpuBuffer = nullptr,
-		};
-	}
+	// Empty shapes should've been filtered sooner
+	assert(!shape.contours.empty());
 
 	auto shapeBounds = shape.getBounds();
 
@@ -140,49 +132,8 @@ TextRenderer::MsdfTextureUploadInfo TextRenderer::Face::generateGlyphUploadInfo(
 	);
 	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
 
-	TextRenderer::MsdfTextureUploadInfo uploadInfo = textRenderer->generateMsdfForShape(
+	return textRenderer->generateMsdfForShape(
 		shape, msdfExtents, scale, translate);
-
-	return uploadInfo;
-}
-
-TextRenderer::SingleLineText::SingleLineText(core::smart_refctd_ptr<TextRenderer::Face>&& face, std::string text, float64_t3x3 transformation)
-{
-	m_face = std::move(face);
-	glyphBoxes.reserve(text.length());
-
-	auto mulMatrix3 = [](float64_t3x3 transform, float64_t3 vector)
-	{
-		// TODO: Was getting compilation error when doing transform * vector directly, once
-		// we can get that to work use it instead
-		glm::highp_mat3x3 glmTransform;
-		memcpy(&glmTransform, &transform, sizeof(float64_t3x3));
-		auto result = glmTransform * vector;
-		return float64_t2(result.x, result.y);
-	};
-
-	// Position transform
-	float64_t2 currentBaselineStart = mulMatrix3(transformation, float32_t3(0.0, 0.0, 1.0));
-	for (uint32_t i = 0; i < text.length(); i++)
-	{
-		wchar_t k = wchar_t(text.at(i));
-		auto glyphIndex = m_face->getGlyphIndex(k);
-		const auto glyphMetrics = m_face->getGlyphMetrics(glyphIndex);
-		const float64_t2 baselineStart = currentBaselineStart;
-
-		// Vector transform
-		currentBaselineStart += mulMatrix3(transformation, float32_t3(glyphMetrics.advance, 0.0));
-
-		if (glyphIndex == 0) continue;
-
-		TextRenderer::GlyphBox glyphBbox = {
-			.topLeft = baselineStart + mulMatrix3(transformation, float32_t3(glyphMetrics.horizontalBearing.x, glyphMetrics.horizontalBearing.y, 0.0)),
-			.dirU = mulMatrix3(transformation, float64_t3(glyphMetrics.size.x, 0.0, 0.0)),
-			.dirV = mulMatrix3(transformation, float64_t3(0.0, -glyphMetrics.size.y, 0.0)),
-		};
-
-		glyphBoxes.push_back(glyphBbox);
-	}
 }
 
 }

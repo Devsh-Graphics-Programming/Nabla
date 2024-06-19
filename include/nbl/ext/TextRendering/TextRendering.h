@@ -45,15 +45,7 @@ public:
 		float64_t2 size;
 	};
 
-	// ! return index to be used later in hatch fill style or text glyph object
-	struct MsdfTextureUploadInfo 
-	{
-		core::smart_refctd_ptr<ICPUBuffer> cpuBuffer;
-		uint64_t bufferOffset;
-		uint32_t3 imageExtent;
-	};
-
-	MsdfTextureUploadInfo generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+	core::smart_refctd_ptr<ICPUBuffer> generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
 
 	struct Face : public nbl::core::IReferenceCounted
 	{
@@ -76,7 +68,7 @@ public:
 
 		msdfgen::Shape generateGlyphShape(uint32_t glyphId);
 
-		MsdfTextureUploadInfo generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
+		core::smart_refctd_ptr<ICPUBuffer> generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
 
 		// TODO: Should be private
 		FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
@@ -101,31 +93,13 @@ public:
 		uint32_t glyphIdx;
 	};
 
-	class SingleLineText
-	{
-	public:
-		// constructs and fills the `glyphBoxes`
-		SingleLineText(core::smart_refctd_ptr<Face>&& face, std::string text, float64_t3x3 transformation);
-		// SingleLineText(core::smart_refctd_ptr<Face>&& face, std::string text, float64_t2 translation, float64_t2 scale, float64_t rotateAngle = 0);
-
-		// iterates over `glyphBoxes` generates textures msdfs if failed to add to cache (through that lambda you put)
-		// void Draw(DrawResourcesFiller& drawResourcesFiller, SIntendedSubmitInfo& intendedNextSubmit);
-
-		std::span<GlyphBox> getGlyphBoxes() { return std::span<GlyphBox>(glyphBoxes);  }
-
-	protected:
-
-		std::vector<GlyphBox> glyphBoxes;
-		core::smart_refctd_ptr<Face> m_face;
-	};
-
-
 	TextRenderer(uint32_t in_msdfPixelRange) : msdfPixelRange(in_msdfPixelRange) {
 		auto error = FT_Init_FreeType(&m_ftLibrary);
 		assert(!error);
 	}
 
 	const FT_Library& getFreetypeLibrary() const { return m_ftLibrary; }
+
 	FT_Library& getFreetypeLibrary() { return m_ftLibrary; }
 
 protected:
