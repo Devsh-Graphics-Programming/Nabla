@@ -12,6 +12,24 @@
 namespace nbl::video
 {
 
+namespace impl
+{
+    template<typename T>
+    struct to_string
+    {
+        inline std::string operator()(const T& object) { return std::to_string(object); }
+    };
+
+    template<core::Bitflag T>
+    struct to_string<T>
+    {
+        inline std::string operator()(const T& object) {
+            return "Test";
+            //return std::to_string(static_cast<T::UNDERLYING_TYPE>(object.value)); 
+        }
+    };
+}
+
 class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
 {
     public:
@@ -25,6 +43,12 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
     private:
         core::unordered_map<system::path,std::string> m_includes;
         std::string collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features);
+
+        template<typename T>
+        static inline std::string to_string(T&& object)
+        {
+            return impl::to_string<T>()(std::forward<T>(object));
+        }
 
 };
 

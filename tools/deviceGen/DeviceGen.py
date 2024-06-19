@@ -193,7 +193,6 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
         "nabla": "Nabla"
     }
 
-
     res.append(f"// {name}")
     for sectionName, sectionContent in json_data.items():
         if sectionName == "constexprs":
@@ -201,7 +200,7 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
         if sectionName in sectionHeaders:
             res.append(f"// {sectionHeaders[sectionName]}")
         for dict in sectionContent:
-            line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + std::to_string({}.{}) + R\"===(;"
+            line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + CJITIncludeLoader::to_string({}.{}) + R\"===(;"
             if 'type' in dict:
                 try:
                     dict["json_type"] = json_type 
@@ -212,10 +211,6 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
                     for param in line_format_params:
                         if param not in dict:
                             raise ContinueEx
-                    if dict['name'].startswith("E_POINT_CLIPPING_BEHAVIOR"):
-                        continue
-                    if dict['type'].startswith("core::bitflag"):
-                        line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + std::to_string({}.{}.value) + R\"===(;"
                     line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
                     res.append(line)
                 except ContinueEx:
@@ -245,7 +240,6 @@ def buildTraitsHeader(**params):
 
 def buildJITTraitsHeader(**params):
     res = [
-        "using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;",
         "std::string jit_traits = R\"===("
     ]
 
@@ -265,7 +259,7 @@ def buildJITTraitsHeader(**params):
         *params['format_params']
     )
 
-    res.append("\\n;)===")
+    res.append(")===\";")
 
     return res
 

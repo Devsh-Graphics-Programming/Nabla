@@ -733,14 +733,6 @@
             "comment": "bad Android support"
         },
         {
-            "type": "enum",
-            "name": "E_POINT_CLIPPING_BEHAVIOR : uint8_t",
-            "declarations": [
-                "EPCB_ALL_CLIP_PLANES = 0",
-                "EPCB_USER_CLIP_PLANES_ONLY = 1"
-            ]
-        },
-        {
             "type": "E_POINT_CLIPPING_BEHAVIOR",
             "name": "pointClippingBehavior",
             "value": "EPCB_USER_CLIP_PLANES_ONLY"
