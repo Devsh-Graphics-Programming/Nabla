@@ -1,5 +1,3 @@
 add_subdirectory(nsc)
 add_subdirectory(xxHash256)
 add_subdirectory(deviceGen)
-add_dependencies(Nabla DeviceHeaders)
-target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
