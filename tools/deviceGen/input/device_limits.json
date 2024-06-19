@@ -118,7 +118,7 @@
             "comment": "granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation"
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "sparseAddressSpaceSize",
             "value": 0,
             "expose": false,
@@ -759,7 +759,7 @@
             "value": "572"
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "maxMemoryAllocationSize",
             "value": "MinMaxSSBOSize"
         }
@@ -1270,9 +1270,9 @@
             ]
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "storageTexelBufferOffsetAlignmentBytes",
-            "value": "std::numeric_limits<size_t>::max()",
+            "value": "std::numeric_limits<uint64_t>::max()",
             "compareFlipped": true
 
         },
@@ -1283,9 +1283,9 @@
             "expose": false
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "uniformTexelBufferOffsetAlignmentBytes",
-            "value": "std::numeric_limits<size_t>::max()",
+            "value": "std::numeric_limits<uint64_t>::max()",
             "compareFlipped": true
         },
         {
@@ -1295,7 +1295,7 @@
             "expose": false
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "maxBufferSize",
             "value": "MinMaxSSBOSize",
             "comment": "or VK_KHR_maintenance4"
@@ -1402,13 +1402,13 @@
             ]
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "robustStorageBufferAccessSizeAlignment",
             "value": 9223372036854775808,
             "compareFlipped": true
         },
         {
-            "type": "size_t",
+            "type": "uint64_t",
             "name": "robustUniformBufferAccessSizeAlignment",
             "value": 9223372036854775808,
             "compareFlipped": true
