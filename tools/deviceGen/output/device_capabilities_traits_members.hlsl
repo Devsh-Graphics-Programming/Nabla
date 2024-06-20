@@ -96,12 +96,11 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClustered = impl::get_or_default_
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupArithmetic = impl::get_or_default_shaderSubgroupArithmetic<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupQuad = impl::get_or_default_shaderSubgroupQuad<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupQuadAllStages = impl::get_or_default_shaderSubgroupQuadAllStages<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE enum E_POINT_CLIPPING_BEHAVIOR : uint8_t = impl::get_or_default_E_POINT_CLIPPING_BEHAVIOR : uint8_t<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = impl::get_or_default_pointClippingBehavior<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxMultiviewViewCount = impl::get_or_default_maxMultiviewViewCount<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxMultiviewInstanceIndex = impl::get_or_default_maxMultiviewInstanceIndex<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxPerSetDescriptors = impl::get_or_default_maxPerSetDescriptors<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t maxMemoryAllocationSize = impl::get_or_default_maxMemoryAllocationSize<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t maxMemoryAllocationSize = impl::get_or_default_maxMemoryAllocationSize<device_capabilities>::value;
 // VK 1.2
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSignedZeroInfNanPreserveFloat64 = impl::get_or_default_shaderSignedZeroInfNanPreserveFloat64<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderDenormPreserveFloat16 = impl::get_or_default_shaderDenormPreserveFloat16<device_capabilities>::value;
@@ -179,9 +178,9 @@ NBL_CONSTEXPR_STATIC_INLINE bool integerDotProductAccumulatingSaturating32BitMix
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProductAccumulatingSaturating64BitUnsignedAccelerated = impl::get_or_default_integerDotProductAccumulatingSaturating64BitUnsignedAccelerated<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProductAccumulatingSaturating64BitSignedAccelerated = impl::get_or_default_integerDotProductAccumulatingSaturating64BitSignedAccelerated<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = impl::get_or_default_integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t storageTexelBufferOffsetAlignmentBytes = impl::get_or_default_storageTexelBufferOffsetAlignmentBytes<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t uniformTexelBufferOffsetAlignmentBytes = impl::get_or_default_uniformTexelBufferOffsetAlignmentBytes<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t maxBufferSize = impl::get_or_default_maxBufferSize<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t storageTexelBufferOffsetAlignmentBytes = impl::get_or_default_storageTexelBufferOffsetAlignmentBytes<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t uniformTexelBufferOffsetAlignmentBytes = impl::get_or_default_uniformTexelBufferOffsetAlignmentBytes<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t maxBufferSize = impl::get_or_default_maxBufferSize<device_capabilities>::value;
 // Nabla Core Extensions
 NBL_CONSTEXPR_STATIC_INLINE uint32_t minImportedHostPointerAlignment = impl::get_or_default_minImportedHostPointerAlignment<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderBufferFloat32AtomicAdd = impl::get_or_default_shaderBufferFloat32AtomicAdd<device_capabilities>::value;
@@ -193,8 +192,8 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderSharedFloat64AtomicAdd = impl::get_or_def
 NBL_CONSTEXPR_STATIC_INLINE bool shaderImageFloat32AtomicAdd = impl::get_or_default_shaderImageFloat32AtomicAdd<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool sparseImageFloat32Atomics = impl::get_or_default_sparseImageFloat32Atomics<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool sparseImageFloat32AtomicAdd = impl::get_or_default_sparseImageFloat32AtomicAdd<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t robustStorageBufferAccessSizeAlignment = impl::get_or_default_robustStorageBufferAccessSizeAlignment<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE size_t robustUniformBufferAccessSizeAlignment = impl::get_or_default_robustUniformBufferAccessSizeAlignment<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t robustStorageBufferAccessSizeAlignment = impl::get_or_default_robustStorageBufferAccessSizeAlignment<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint64_t robustUniformBufferAccessSizeAlignment = impl::get_or_default_robustUniformBufferAccessSizeAlignment<device_capabilities>::value;
 // Extensions
 NBL_CONSTEXPR_STATIC_INLINE bool shaderTrinaryMinmax = impl::get_or_default_shaderTrinaryMinmax<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderExplicitVertexParameter = impl::get_or_default_shaderExplicitVertexParameter<device_capabilities>::value;

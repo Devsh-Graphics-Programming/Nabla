@@ -22,7 +22,7 @@
     uint32_t maxMemoryAllocationCount = 4096;
     uint32_t maxSamplerAllocationCount = 4000;
     uint32_t bufferImageGranularity = 65536; // granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation
-    // size_t sparseAddressSpaceSize = 0; // [TODO LATER] when we support sparse
+    // uint64_t sparseAddressSpaceSize = 0; // [TODO LATER] when we support sparse
     // uint32_t maxBoundDescriptorSets = 4; // [DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently
     uint32_t maxPerStageDescriptorSamplers = 16; // Descriptors with a type of IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER count against this limit
     uint32_t maxPerStageDescriptorUBOs = 15;
@@ -146,18 +146,12 @@
     bool shaderSubgroupArithmetic = false; // candidates for promotion
     bool shaderSubgroupQuad = false;
     bool shaderSubgroupQuadAllStages = false; // bad Android support
-    enum E_POINT_CLIPPING_BEHAVIOR : uint8_t
-    {
-    EPCB_ALL_CLIP_PLANES = 0,
-    EPCB_USER_CLIP_PLANES_ONLY = 1,
-    };
-
     E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
     uint8_t maxMultiviewViewCount = 6;
     uint32_t maxMultiviewInstanceIndex = 134217727;
     // bool protectedNoFault = false;
     uint32_t maxPerSetDescriptors = 572;
-    size_t maxMemoryAllocationSize = MinMaxSSBOSize;
+    uint64_t maxMemoryAllocationSize = MinMaxSSBOSize;
     /*
        Vulkan 1.2 Core
     */
@@ -271,11 +265,11 @@
        or VK_EXT_texel_buffer_alignment:
        [DO NOT EXPOSE]: the single texel alignments, let people just overalign
     */
-    size_t storageTexelBufferOffsetAlignmentBytes = std::numeric_limits<size_t>::max();
+    uint64_t storageTexelBufferOffsetAlignmentBytes = std::numeric_limits<uint64_t>::max();
     // bool storageTexelBufferOffsetSingleTexelAlignment;
-    size_t uniformTexelBufferOffsetAlignmentBytes = std::numeric_limits<size_t>::max();
+    uint64_t uniformTexelBufferOffsetAlignmentBytes = std::numeric_limits<uint64_t>::max();
     // bool uniformTexelBufferOffsetSingleTexelAlignment;
-    size_t maxBufferSize = MinMaxSSBOSize; // or VK_KHR_maintenance4
+    uint64_t maxBufferSize = MinMaxSSBOSize; // or VK_KHR_maintenance4
     /*
        Nabla Core Profile Extensions
        VK_EXT_external_memory_host
@@ -309,8 +303,8 @@
        Robustness2PropertiesEXT
        provided by VK_EXT_robustness3
     */
-    size_t robustStorageBufferAccessSizeAlignment = 9223372036854775808;
-    size_t robustUniformBufferAccessSizeAlignment = 9223372036854775808;
+    uint64_t robustStorageBufferAccessSizeAlignment = 9223372036854775808;
+    uint64_t robustUniformBufferAccessSizeAlignment = 9223372036854775808;
     /*
        Vulkan Extensions
     */

@@ -98,7 +98,6 @@
     if (shaderSubgroupArithmetic && !_rhs.shaderSubgroupArithmetic) return false;
     if (shaderSubgroupQuad && !_rhs.shaderSubgroupQuad) return false;
     if (shaderSubgroupQuadAllStages && !_rhs.shaderSubgroupQuadAllStages) return false;
-    
     if (pointClippingBehavior==EPCB_ALL_CLIP_PLANES && _rhs.pointClippingBehavior==EPCB_USER_CLIP_PLANES_ONLY) return false;
     if (maxMultiviewViewCount > _rhs.maxMultiviewViewCount) return false;
     if (maxMultiviewInstanceIndex > _rhs.maxMultiviewInstanceIndex) return false;

@@ -100,7 +100,7 @@ NBL_GENERATE_GET_OR_DEFAULT(pointClippingBehavior, E_POINT_CLIPPING_BEHAVIOR, EP
 NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewViewCount, uint8_t, 6);
 NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewInstanceIndex, uint32_t, 134217727);
 NBL_GENERATE_GET_OR_DEFAULT(maxPerSetDescriptors, uint32_t, 572);
-NBL_GENERATE_GET_OR_DEFAULT(maxMemoryAllocationSize, size_t, MinMaxSSBOSize);
+NBL_GENERATE_GET_OR_DEFAULT(maxMemoryAllocationSize, uint64_t, MinMaxSSBOSize);
 // VK 1.2
 NBL_GENERATE_GET_OR_DEFAULT(shaderSignedZeroInfNanPreserveFloat64, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderDenormPreserveFloat16, bool, false);
@@ -178,9 +178,9 @@ NBL_GENERATE_GET_OR_DEFAULT(integerDotProductAccumulatingSaturating32BitMixedSig
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProductAccumulatingSaturating64BitUnsignedAccelerated, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProductAccumulatingSaturating64BitSignedAccelerated, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(storageTexelBufferOffsetAlignmentBytes, size_t, std::numeric_limits<size_t>::max());
-NBL_GENERATE_GET_OR_DEFAULT(uniformTexelBufferOffsetAlignmentBytes, size_t, std::numeric_limits<size_t>::max());
-NBL_GENERATE_GET_OR_DEFAULT(maxBufferSize, size_t, MinMaxSSBOSize);
+NBL_GENERATE_GET_OR_DEFAULT(storageTexelBufferOffsetAlignmentBytes, uint64_t, std::numeric_limits<uint64_t>::max());
+NBL_GENERATE_GET_OR_DEFAULT(uniformTexelBufferOffsetAlignmentBytes, uint64_t, std::numeric_limits<uint64_t>::max());
+NBL_GENERATE_GET_OR_DEFAULT(maxBufferSize, uint64_t, MinMaxSSBOSize);
 // Nabla Core Extensions
 NBL_GENERATE_GET_OR_DEFAULT(minImportedHostPointerAlignment, uint32_t, 2147483648);
 NBL_GENERATE_GET_OR_DEFAULT(shaderBufferFloat32AtomicAdd, bool, false);
@@ -192,8 +192,8 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderSharedFloat64AtomicAdd, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderImageFloat32AtomicAdd, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sparseImageFloat32Atomics, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sparseImageFloat32AtomicAdd, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(robustStorageBufferAccessSizeAlignment, size_t, 9223372036854775808);
-NBL_GENERATE_GET_OR_DEFAULT(robustUniformBufferAccessSizeAlignment, size_t, 9223372036854775808);
+NBL_GENERATE_GET_OR_DEFAULT(robustStorageBufferAccessSizeAlignment, uint64_t, 9223372036854775808);
+NBL_GENERATE_GET_OR_DEFAULT(robustUniformBufferAccessSizeAlignment, uint64_t, 9223372036854775808);
 // Extensions
 NBL_GENERATE_GET_OR_DEFAULT(shaderTrinaryMinmax, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderExplicitVertexParameter, bool, false);
