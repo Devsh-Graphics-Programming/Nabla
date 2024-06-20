@@ -63,6 +63,7 @@ set(NBL_COMMAND
 add_custom_command(OUTPUT ${OUTPUT_HEADERS}
     DEPENDS ${INPUT_JSONS}
     COMMAND ${NBL_COMMAND}
+    VERBATIM
 )
 
 add_custom_target(DeviceHeaders DEPENDS ${OUTPUT_HEADERS})

@@ -12,6 +12,7 @@ def loadJSON(file_path):
             return json.load(file)
     except Exception as ex:
         print(f"Error while reading file: {file_path}\nException: {ex}")
+        raise ex
 
 def buildComment(comment, res):
     res.append("    /*")
@@ -271,3 +272,4 @@ def writeHeader(file_path, header_builder, **params):
                 file.write(line + '\n')
     except Exception as ex:
         print(f"Error while writing to file: {file_path}\nException: {ex}")
+        raise ex
