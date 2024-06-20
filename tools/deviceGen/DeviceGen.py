@@ -14,41 +14,27 @@ def loadJSON(file_path):
         print(f"Error while reading file: {file_path}\nException: {ex}")
         raise ex
 
-def buildComment(comment, res):
-    res.append("    /*")
-    for commentLine in comment['groupComment']:
-        res.append(f"       {commentLine}")
-    res.append("    */")
-
-def buildStatement(statement, res):
-    res.append(f"   {statement['statement']}")
-
-def buildFunction(function, res):
-    for functionLine in function["function"]:
-        res.append(f"   {functionLine}")
-    res.append(emptyline)
-
-def buildEnum(dict, res):
-    res.append("    enum " + dict['name'])
-    res.append("    {")
-    for declaration in dict['declarations']:
-        res.append("    " + declaration + ",")
-    res.append("    };")
-    res.append(emptyline)
-
 def formatValue(value):
     if isinstance(value, bool):
         return "true" if value else "false"
     return value
 
+def buildComment(comment, res, sectionName):
+    for commentLine in comment['comment']:
+        res.append(f"    // {commentLine}")
+    if "entries" in comment:
+        for entry in comment['entries']:
+            buildVariable(entry, res, sectionName)
+
 def buildVariable(variable, res, sectionName):
-    declarationOnly = "declare" in variable and variable["declare"]
-    expose = "expose" in variable and variable["expose"] or "expose" not in variable
-    commentDeclaration = "// " if not expose else ""
+    if "comment" in variable:
+        res.append("    // " + variable['comment'])
+
+    expose = variable["expose"] if "expose" in variable else "DEFAULT"
+    commentDeclaration = "// " if expose != "DEFAULT" else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
-    valueDeclaration = f" = {formatValue(variable['value'])}" if not declarationOnly else ""
-    trailingCommentDeclaration = f" // {variable['comment']}" if "comment" in variable else ""
-    line = f"    {commentDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};{trailingCommentDeclaration}"
+    valueDeclaration = f" = {formatValue(variable['value'])}" if variable['value'] != None else ""
+    line = f"    {commentDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};"
     res.append(line)
 
 def buildDeviceHeader(**params):
@@ -56,16 +42,11 @@ def buildDeviceHeader(**params):
 
     for sectionName, sectionContent in params['json'].items():
         for dict in sectionContent:
-            if 'groupComment' in dict:
-                buildComment(dict, res)
-            elif "statement" in dict:
-                buildStatement(dict, res)
-            elif dict['type'] == "function":
-                buildFunction(dict, res)
-            elif dict['type'] == "enum":
-                buildEnum(dict, res)
-            else:
+            if "type" in dict:
                 buildVariable(dict, res, sectionName)
+            else:
+                buildComment(dict, res, sectionName)
+            res.append(emptyline)
 
     return res
 
@@ -124,6 +105,13 @@ def buildSubsetMethod(**params):
 
     return res
 
+def transformFeaturesMethod(dict, op):
+    expose = dict['expose'] if "expose" in dict else "DEFAULT"
+    if expose != "DEFAULT":
+        raise ContinueEx
+    return f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
+
+
 def buildFeaturesMethod(**params):
     res = []
 
@@ -142,11 +130,16 @@ def buildFeaturesMethod(**params):
         res.append(f"   // {sectionHeaders[sectionName]}")
         for dict in sectionContent:
             if 'type' in dict:
-                expose = "expose" in dict and dict["expose"] or "expose" not in dict
-                if not expose:
+                try:
+                    res.append(transformFeaturesMethod(dict, params['op']))
+                except ContinueEx:
                     continue
-                line = f"    res.{dict['name']} {params['op']}= _rhs.{dict['name']};"
-                res.append(line)
+            if "entries" in dict:
+                for entry in dict['entries']:
+                    try:
+                        res.append(transformFeaturesMethod(entry, params['op']))
+                    except ContinueEx:
+                        continue
 
     return res
 
