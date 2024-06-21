@@ -13,7 +13,7 @@ namespace subgroup
 {
 
 // -----------------------------------------------------------------------------------------------------------------------------------------------------------------
-template<uint16_t K, bool Inverse, typename Scalar, class device_capabilities=void>
+template<bool Inverse, typename Scalar, class device_capabilities=void>
 struct FFT
 {
     static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi);
@@ -22,11 +22,11 @@ struct FFT
 // ---------------------------------------- Radix 2 forward transform - DIF -------------------------------------------------------
 
 template<typename Scalar, class device_capabilities>
-struct FFT<2, false, Scalar, device_capabilities>
+struct FFT<false, Scalar, device_capabilities>
 {
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
     {
-        const bool topHalf = (glsl::gl_SubgroupInvocationID() & stride) != 0;
+        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & stride);
         const vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> > (toTrade, stride);
         if (topHalf)
@@ -39,17 +39,16 @@ struct FFT<2, false, Scalar, device_capabilities>
             hi.real(exchanged.x);
             hi.imag(exchanged.y);
         }
-        // Get twiddle with k = subgroupInvocation mod stride, N = 2 * stride
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride << 1), lo, hi); 
+        // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi); 
     }
 
     static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi) 
     {
         const uint32_t subgroupSize = glsl::gl_SubgroupSize();  //This is N/2
-        const uint32_t doubleSubgroupSize = subgroupSize << 1;  //This is N
     
         // special first iteration
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), doubleSubgroupSize), lo, hi);                                                                                   
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);                                                                                   
         
         // Decimation in Frequency
         for (uint32_t stride = subgroupSize >> 1; stride > 0; stride >>= 1)
@@ -61,14 +60,14 @@ struct FFT<2, false, Scalar, device_capabilities>
 // ---------------------------------------- Radix 2 inverse transform - DIT -------------------------------------------------------
 
 template<typename Scalar, class device_capabilities>
-struct FFT<2, true, Scalar, device_capabilities>
+struct FFT<true, Scalar, device_capabilities>
 {
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
     {
-        // Get twiddle with k = subgroupInvocation mod stride, N = 2 * stride
-        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride << 1), lo, hi);   
+        // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
+        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi);   
 
-        const bool topHalf = (glsl::gl_SubgroupInvocationID() & stride) != 0;
+        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & stride);
         const vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> > (toTrade, stride);
         if (topHalf)
@@ -93,7 +92,7 @@ struct FFT<2, true, Scalar, device_capabilities>
             FFT_loop(stride, lo, hi);
         
         // special last iteration 
-        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), doubleSubgroupSize), lo, hi);
+        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);
         divides_assign< complex_t<Scalar> > divAss;
         divAss(lo, doubleSubgroupSize);
         divAss(hi, doubleSubgroupSize);

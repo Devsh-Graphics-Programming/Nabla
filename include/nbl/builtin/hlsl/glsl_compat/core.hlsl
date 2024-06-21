@@ -210,7 +210,7 @@ struct bitfieldInsert
 template<typename T>
 T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
 {
-    return impl::bitfieldExtract<T>::template  __call(base, insert, offset, count);
+    return impl::bitfieldInsert<T>::template  __call(base, insert, offset, count);
 }
 
 #endif

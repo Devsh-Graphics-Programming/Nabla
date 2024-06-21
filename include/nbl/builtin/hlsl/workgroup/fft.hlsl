@@ -111,7 +111,7 @@ void FFT(NBL_REF_ARG(Accessor) sharedmemAccessor, NBL_REF_ARG(complex_t<Scalar>)
 
 // ----------------------------------------- ABOVE MARKED FOR DELETION -----------------------------------------------------
 
-template<uint16_t K, bool Inverse, typneame Scalar, class device_capabilities=void>
+template<uint16_t ElementsPerInvocation, bool Inverse, typneame Scalar, class device_capabilities=void>
 struct FFT;
 
 // For the FFT methods below, we assume:
@@ -125,7 +125,7 @@ struct FFT<2,false,device_capabilities>
     template<typename SharedMemoryAccessor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
     {
-        const bool topHalf = (threadID & stride) != 0;
+        const bool topHalf = bool(threadID & stride);
         vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         
         // Block memory writes until all threads are done with previous work
@@ -146,8 +146,8 @@ struct FFT<2,false,device_capabilities>
             hi.real(toTrade.x);
             hi.imag(toTrade.y);
         }
-        // Get twiddle with k = threadID mod stride, N = 2 * stride
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID & (stride - 1), stride << 1), lo, hi);    
+        // Get twiddle with k = threadID mod stride, halfN = stride
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID & (stride - 1), stride), lo, hi);    
     }
 
 
@@ -170,7 +170,8 @@ struct FFT<2,false,device_capabilities>
         complex_t<Scalar> hi = {loHiPacked.z, loHiPacked.w};
 
         // special first iteration
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_ << 1), lo, hi); 
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
+            fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
 
         // Run bigger steps until Subgroup-sized
         for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
@@ -182,6 +183,10 @@ struct FFT<2,false,device_capabilities>
         // Put values back in global mem
         loHiPacked = vector <Scalar, 4>(lo.real(), lo.imag(), hi.real(), hi.imag());
         memAdaptor.set(threadID, loHiPacked);
+
+        // Update state for accessors
+        accessor = memAdaptor.accessor;
+        sharedmemAccessor = sharedmemAdaptor.accessor;
     }
 };
 
@@ -194,10 +199,10 @@ struct FFT<2,true,device_capabilities>
     template<typename SharedMemoryAccessor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
     {
-        // Get twiddle with k = threadID mod stride, N = 2 * stride
-        fft::DIF<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID & (stride - 1), stride << 1), lo, hi);     
+        // Get twiddle with k = threadID mod stride, halfN = stride
+        fft::DIF<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID & (stride - 1), stride), lo, hi);     
     
-        const bool topHalf = (threadID & stride) != 0;
+        const bool topHalf = bool(threadID & stride);
         vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         
         // Block memory writes until all threads are sync'd
@@ -247,14 +252,21 @@ struct FFT<2,true,device_capabilities>
             FFT_loop<SharedMemoryAccessor>(stride, lo, hi, threadID, sharedmemAdaptor);
 
         // special last iteration
-        fft::DIT<Scalar>::radix2(fft::twiddle<Scalar, true>(threadID, _NBL_HLSL_WORKGROUP_SIZE_ << 1), lo, hi); 
-        divides_assign< complex_t<Scalar> > divAss;
-        divAss(lo, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
-        divAss(hi, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
+        {
+            fft::DIT<Scalar>::radix2(fft::twiddle<Scalar, true>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
+            divides_assign< complex_t<Scalar> > divAss;
+            divAss(lo, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
+            divAss(hi, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
+        }
         
         // Put values back in global mem
         loHiPacked = vector <Scalar, 4>(lo.real(), lo.imag(), hi.real(), hi.imag());
         memAdaptor.set(threadID, loHiPacked);
+
+        // Update state for accessors
+        accessor = memAdaptor.accessor;
+        sharedmemAccessor = sharedmemAdaptor.accessor;
     }
 };
 

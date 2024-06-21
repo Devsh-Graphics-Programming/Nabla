@@ -15,10 +15,10 @@ namespace fft
 // Computes the kth element in the group of N roots of unity
 // Notice 0 <= k < N/2, rotating counterclockwise in the forward (DIF) transform and clockwise in the inverse (DIT)
 template<bool inverse, typename Scalar>
-complex_t<Scalar> twiddle(uint32_t k, uint32_t N)
+complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
 {
     complex_t<Scalar> retVal;
-    const Scalar kthRootAngleRadians = 2.f * numbers::pi<Scalar> * Scalar(k) / Scalar(N);
+    const Scalar kthRootAngleRadians = numbers::pi<Scalar> * Scalar(k) / Scalar(halfN);
     retVal.real( cos(kthRootAngleRadians) );
     if (! inverse)
         retVal.imag( sin(kthRootAngleRadians) );
