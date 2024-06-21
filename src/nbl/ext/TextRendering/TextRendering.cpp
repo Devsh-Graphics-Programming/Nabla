@@ -20,7 +20,7 @@ namespace TextRendering
 
 // extents is the size of the MSDF that is generated (probably 32x32)
 // glyphExtents is the area of the "image" that msdf will consider (used as resizing, for fill patterns should be 8x8)
-core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
+core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMSDFForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
@@ -67,25 +67,25 @@ float64_t2 ftPoint2(const FT_Vector& vector) {
 	return float64_t2(FreeTypeFontScaling * vector.x, FreeTypeFontScaling * vector.y);
 }
 
-int ftMoveToMsdf(const FT_Vector* to, void* user) {
+int ftMoveToMSDF(const FT_Vector* to, void* user) {
 	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
 	context->moveTo(ftPoint2(*to));
 	return 0;
 }
 
-int ftLineToMsdf(const FT_Vector* to, void* user) {
+int ftLineToMSDF(const FT_Vector* to, void* user) {
 	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
 	context->lineTo(ftPoint2(*to));
 	return 0;
 }
 
-int ftConicToMsdf(const FT_Vector* control, const FT_Vector* to, void* user) {
+int ftConicToMSDF(const FT_Vector* control, const FT_Vector* to, void* user) {
 	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
 	context->quadratic(ftPoint2(*control), ftPoint2(*to));
 	return 0;
 }
 
-int ftCubicToMsdf(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
+int ftCubicToMSDF(const FT_Vector* control1, const FT_Vector* control2, const FT_Vector* to, void* user) {
 	GlyphShapeBuilder* context = reinterpret_cast<GlyphShapeBuilder*>(user);
 	context->cubic(ftPoint2(*control1), ftPoint2(*control2), ftPoint2(*to));
 	return 0;
@@ -98,10 +98,10 @@ msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
 	msdfgen::Shape shape;
 	nbl::ext::TextRendering::GlyphShapeBuilder builder(shape);
 	FT_Outline_Funcs ftFunctions;
-	ftFunctions.move_to = &ftMoveToMsdf;
-	ftFunctions.line_to = &ftLineToMsdf;
-	ftFunctions.conic_to = &ftConicToMsdf;
-	ftFunctions.cubic_to = &ftCubicToMsdf;
+	ftFunctions.move_to = &ftMoveToMSDF;
+	ftFunctions.line_to = &ftLineToMSDF;
+	ftFunctions.conic_to = &ftConicToMSDF;
+	ftFunctions.cubic_to = &ftCubicToMSDF;
 	ftFunctions.shift = 0;
 	ftFunctions.delta = 0;
 	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &builder);
@@ -132,8 +132,7 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::Face::generateGlyphUploadInfo(T
 	);
 	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
 
-	return textRenderer->generateMsdfForShape(
-		shape, msdfExtents, scale, translate);
+	return textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate);
 }
 
 }

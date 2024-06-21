@@ -45,7 +45,7 @@ public:
 		float64_t2 size;
 	};
 
-	core::smart_refctd_ptr<ICPUBuffer> generateMsdfForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+	core::smart_refctd_ptr<ICPUBuffer> generateMSDFForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
 
 	struct Face : public nbl::core::IReferenceCounted
 	{
