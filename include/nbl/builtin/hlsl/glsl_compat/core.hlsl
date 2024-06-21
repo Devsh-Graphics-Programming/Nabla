@@ -87,7 +87,8 @@ namespace impl
 template<typename T>
 T bitfieldExtract(T val, uint32_t offsetBits, uint32_t numBits)
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val, offsetBits, numBits);
+    impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value> extractStruct;
+    return extractStruct.__call(val, offsetBits, numBits);
 }
 
 #ifdef __HLSL_VERSION

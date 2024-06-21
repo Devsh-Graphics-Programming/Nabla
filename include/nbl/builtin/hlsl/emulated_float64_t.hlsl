@@ -38,12 +38,14 @@ namespace impl
     template <typename T>
     uint64_t promoteToUint64(T val)
     {
-        using AsFloat = unsigned_integer_of_size<sizeof(T)>;
+        using AsFloat = typename float_of_size<sizeof(T)>::type;
         uint64_t asUint = ieee754::impl::castToUintType(val);
 
-        const uint64_t sign = (uint64_t(ieee754::getSignMask<T>()) | asUint) << (sizeof(uint64_t) - sizeof(T) - 2);
-        const uint64_t exp = (uint64_t(ieee754::getExponentMask<T>()) | asUint) << (ieee754::getMantissaBitCnt<uint64_t>() - ieee754::getMantissaBitCnt<T>() + ieee754::getExponentBitCnt<T>());
-        const uint64_t mantissa = (uint64_t(ieee754::getMantissaMask<T>()) | asUint) << (ieee754::getMantissaBitCnt<uint64_t>() - ieee754::getMantissaBitCnt<T>());
+        const uint64_t sign = (uint64_t(ieee754::getSignMask<AsFloat>()) & asUint) << (sizeof(float64_t) - sizeof(T));
+        const int64_t newExponent = ieee754::extractExponent(val) + ieee754::getExponentBias<float64_t>();
+
+        const uint64_t exp = (uint64_t(ieee754::extractExponent(val)) + ieee754::getExponentBias<float64_t>()) << (ieee754::getMantissaBitCnt<float64_t>());
+        const uint64_t mantissa = (uint64_t(ieee754::getMantissaMask<AsFloat>()) & asUint) << (ieee754::getMantissaBitCnt<float64_t>() - ieee754::getMantissaBitCnt<AsFloat>());
 
         return sign | exp | mantissa;
     };
@@ -351,6 +353,9 @@ namespace impl
 
         static emulated_float64_t create(uint32_t val)
         {
+#ifndef __HLSL_VERSION
+            std::cout << val;
+#endif
             return emulated_float64_t(impl::promoteToUint64(val));
         }
 
@@ -372,14 +377,6 @@ namespace impl
         static emulated_float64_t create(float32_t val)
         {
             return emulated_float64_t(impl::promoteToUint64(val));
-        }
-
-        //TODO do i need that?
-        static emulated_float64_t createEmulatedFloat64PreserveBitPattern(uint64_t val)
-        {
-            emulated_float64_t output;
-            output.data = val;
-            return output;
         }
         
         // TODO: won't not work for uints with msb of index > 52
@@ -403,7 +400,7 @@ namespace impl
         // arithmetic operators
         emulated_float64_t operator+(const emulated_float64_t rhs)
         {
-            emulated_float64_t retval = createEmulatedFloat64PreserveBitPattern(0u);
+            emulated_float64_t retval = create(0u);
 
             uint32_t lhsSign = uint32_t((data & 0x8000000000000000ull) >> 32);
             uint32_t rhsSign = uint32_t((rhs.data & 0x8000000000000000ull) >> 32);
@@ -428,12 +425,12 @@ namespace impl
                    //if (lhsExp == 0x7FF)
                    //{
                    //   bool propagate = (lhsMantissa | rhsMantissa) != 0u;
-                   //   return createEmulatedFloat64PreserveBitPattern(LERP(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                   //   return create(LERP(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
                    //}
                    
                    frac.xy = impl::add64(lhsHigh, lhsLow, rhsHigh, rhsLow);
                    if (lhsExp == 0)
-                      return createEmulatedFloat64PreserveBitPattern(impl::packFloat64(lhsSign, 0, frac.x, frac.y));
+                      return create(impl::packFloat64(lhsSign, 0, frac.x, frac.y));
                    frac.z = 0u;
                    frac.x |= 0x00200000u;
                    exp = lhsExp;
@@ -446,13 +443,12 @@ namespace impl
                         EXCHANGE(lhsHigh, rhsHigh);
                         EXCHANGE(lhsLow, rhsLow);
                         EXCHANGE(lhsExp, rhsExp);
-                        EXCHANGE(lhsExp, rhsExp);
                      }
 
                      if (lhsExp == 0x7FF)
                      {
                         bool propagate = (lhsHigh | lhsLow) != 0u;
-                        return createEmulatedFloat64PreserveBitPattern(LERP(0x7FF0000000000000ull | (uint64_t(lhsSign) << 32), impl::propagateFloat64NaN(data, rhs.data), propagate));
+                        return create(LERP(0x7FF0000000000000ull | (uint64_t(lhsSign) << 32), impl::propagateFloat64NaN(data, rhs.data), propagate));
                      }
 
                      expDiff = LERP(ABS(expDiff), ABS(expDiff) - 1, rhsExp == 0);
@@ -472,11 +468,11 @@ namespace impl
                          ++exp;
                      }
                      
-                     return createEmulatedFloat64PreserveBitPattern(impl::roundAndPackFloat64(lhsSign, exp, frac.x, frac.y, frac.z));
+                     return create(impl::roundAndPackFloat64(lhsSign, exp, frac.x, frac.y, frac.z));
                 }
                 
                 // cannot happen but compiler cries about not every path returning value
-                return createEmulatedFloat64PreserveBitPattern(0xdeadbeefbadcaffeull);
+                return create(0xdeadbeefbadcaffeull);
             }
             else
             {
@@ -516,7 +512,7 @@ namespace impl
                     frac.xy = impl::sub64(lhsHigh, lhsLow, rhsHigh, rhsLow);
                     exp = lhsExp;
                     --exp;
-                    return createEmulatedFloat64PreserveBitPattern(impl::normalizeRoundAndPackFloat64(lhsSign, exp - 10, frac.x, frac.y));
+                    return create(impl::normalizeRoundAndPackFloat64(lhsSign, exp - 10, frac.x, frac.y));
                 }
                 //if (lhsExp == 0x7FF)
                 //{
@@ -552,13 +548,13 @@ namespace impl
                 lhsSign ^= signOfDifference;
                 uint64_t retval_0 = impl::packFloat64(uint32_t(FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) << 31, 0, 0u, 0u);
                 uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, exp - 11, frac.x, frac.y);
-                return createEmulatedFloat64PreserveBitPattern(LERP(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
+                return create(LERP(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
             }
         }
 
         emulated_float64_t operator-(emulated_float64_t rhs)
         {
-            emulated_float64_t lhs = createEmulatedFloat64PreserveBitPattern(data);
+            emulated_float64_t lhs = create(data);
             emulated_float64_t rhsFlipped = rhs.flipSign();
             
             return lhs + rhsFlipped;
@@ -594,13 +590,13 @@ namespace impl
                ++exp;
             }
             
-            return createEmulatedFloat64PreserveBitPattern(impl::roundAndPackFloat64(sign, exp, fracUnpacked.x, fracUnpacked.y, fracUnpacked.z));
+            return create(impl::roundAndPackFloat64(sign, exp, fracUnpacked.x, fracUnpacked.y, fracUnpacked.z));
         }
 
         // TODO
         emulated_float64_t operator/(const emulated_float64_t rhs)
         {
-            return createEmulatedFloat64PreserveBitPattern(0xdeadbeefbadcaffeull);
+            return create(0xdeadbeefbadcaffeull);
         }
 
         // relational operators
@@ -625,7 +621,7 @@ namespace impl
         emulated_float64_t flipSign()
         {
             const uint64_t flippedSign = ((~data) & 0x8000000000000000ull);
-            return createEmulatedFloat64PreserveBitPattern(flippedSign | (data & 0x7FFFFFFFFFFFFFFFull));
+            return create(flippedSign | (data & 0x7FFFFFFFFFFFFFFFull));
         }
         
         bool isNaN()

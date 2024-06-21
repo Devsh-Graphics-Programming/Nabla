@@ -698,7 +698,7 @@ struct float_of_size<4>
 template<>
 struct float_of_size<8>
 {
-    using type = uint64_t;
+    using type = float64_t;
 };
 
 }

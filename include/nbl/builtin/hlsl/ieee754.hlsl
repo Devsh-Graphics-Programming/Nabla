@@ -5,6 +5,18 @@
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
 
+// TODO: delete
+#ifdef __HLSL_VERSION
+#define staticAssertTmp(...) ;
+#else
+void dbgBreakIf(bool condition)
+{
+	if (!condition)
+		__debugbreak();
+}
+#define staticAssertTmp(x, ...) dbgBreakIf(x);
+#endif
+
 namespace nbl
 {
 namespace hlsl
@@ -47,13 +59,13 @@ namespace impl
 }
 
 	template <typename T>
-	int getExponentBitCnt() { return 0xdeadbeefu; }
+	int getExponentBitCnt() { staticAssertTmp(false); return 0xdeadbeefu; }
 	template<> int getExponentBitCnt<float16_t>() { return 5; }
 	template<> int getExponentBitCnt<float32_t>() { return 8; }
 	template<> int getExponentBitCnt<float64_t>() { return 11; }
 
 	template <typename T>
-	int getMantissaBitCnt() { return 0xdeadbeefu; }
+	int getMantissaBitCnt() { staticAssertTmp(false); return 0xdeadbeefu; /*TODO: add static assert fail to every 0xdeadbeef, fix all static asserts*/ }
 	template<> int getMantissaBitCnt<float16_t>() { return 10; }
 	template<> int getMantissaBitCnt<float32_t>() { return 23; }
 	template<> int getMantissaBitCnt<float64_t>() { return 52; }
@@ -61,26 +73,26 @@ namespace impl
 	template <typename T>
 	int getExponentBias()
 	{
-		//static_assert(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
+		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
 		return (0x1 << (getExponentBitCnt<typename float_of_size<sizeof(T)>::type>() - 1)) - 1;
 	}
 
 	template<typename T>
 	typename unsigned_integer_of_size<sizeof(T)>::type getSignMask()
 	{
-		//static_assert(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
+		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
 		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 		return AsUint(0x1) << (sizeof(T) * 4 - 1);
 	}
 
 	template <typename T>
-	typename unsigned_integer_of_size<sizeof(T)>::type getExponentMask() { return 0xdeadbeefu; }
+	typename unsigned_integer_of_size<sizeof(T)>::type getExponentMask() { staticAssertTmp(false); return 0xdeadbeefu; }
 	template<> unsigned_integer_of_size<2>::type getExponentMask<float16_t>() { return 0x7C00; }
 	template<> unsigned_integer_of_size<4>::type getExponentMask<float32_t>() { return 0x7F800000u; }
 	template<> unsigned_integer_of_size<8>::type getExponentMask<float64_t>() { return 0x7FF0000000000000ull; }
 
 	template <typename T>
-	typename  unsigned_integer_of_size<sizeof(T)>::type getMantissaMask() { return 0xdeadbeefu; }
+	typename  unsigned_integer_of_size<sizeof(T)>::type getMantissaMask() { staticAssertTmp(false); return 0xdeadbeefu; }
 	template<> unsigned_integer_of_size<2>::type getMantissaMask<float16_t>() { return 0x03FF; }
 	template<> unsigned_integer_of_size<4>::type getMantissaMask<float32_t>() { return 0x007FFFFFu; }
 	template<> unsigned_integer_of_size<8>::type getMantissaMask<float64_t>() { return 0x000FFFFFFFFFFFFFull; }
@@ -95,13 +107,13 @@ namespace impl
 	template <typename T>
 	int extractExponent(T x)
 	{
-		return int(extractBiasedExponent(x) - getExponentBias<T>());
+		return int(extractBiasedExponent(x)) - int(getExponentBias<T>());
 	}
 
 	template <typename T>
 	T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
 	{
-		//static_assert(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
+		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
 		return impl::castBackToFloatType<T>(glsl::bitfieldInsert(impl::castToUintType(x), biasedExp, getMantissaBitCnt<T>(), getExponentBitCnt<T>()));
 	}
 
