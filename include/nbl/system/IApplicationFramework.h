@@ -36,7 +36,7 @@ class IApplicationFramework : public core::IReferenceCounted
                     const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path() });
                 #endif
 
-                if (dxcLoad == E_FAIL)
+                if (FAILED(dxcLoad))
                     return false;
                 
                 #ifdef _NBL_SHARED_BUILD_
@@ -54,7 +54,7 @@ class IApplicationFramework : public core::IReferenceCounted
                         const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_ });
                     #endif
 
-                    if (nablaLoad == E_FAIL)
+                    if (FAILED(nablaLoad))
                         return false;
                 #endif // _NBL_SHARED_BUILD_
             #else

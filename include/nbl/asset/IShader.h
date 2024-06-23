@@ -154,10 +154,10 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			{
 				// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
 				if (entryPoint.empty())
-					return -1;
+					return INVALID_SPEC_INFO;
 					
 				if (!shader)
-					return -1;
+					return INVALID_SPEC_INFO;
 				const auto stage = shader->getStage();
 
 				// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
@@ -170,7 +170,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					case E_SHADER_STAGE::ESS_MESH:
 						break;
 					default:
-						return -1;
+						return INVALID_SPEC_INFO;
 						break;
 				}
 				// Impossible to efficiently check anything from:
@@ -187,11 +187,11 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 				for (const auto& entry : *entries)
 				{
 					if (!entry.second)
-						return -1;
+						return INVALID_SPEC_INFO;
 					specData += entry.second.size;
 				}
 				if (specData>0x7fffffff)
-					return -1;
+					return INVALID_SPEC_INFO;
 				return static_cast<int32_t>(specData);
 			}
 
@@ -247,6 +247,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
 			// Valid only for Compute, Mesh and Task shaders
 			uint8_t requireFullSubgroups : 1 = false;
+			static constexpr int32_t INVALID_SPEC_INFO = -1;
 		};
 
 	protected:

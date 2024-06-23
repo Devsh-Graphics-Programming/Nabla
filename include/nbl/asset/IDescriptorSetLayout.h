@@ -291,6 +291,52 @@ public:
 		}
 	}
 
+	bool isSubsetOf(const IDescriptorSetLayout<sampler_type>* other) const
+	{
+		if (!other || getTotalBindingCount() > other->getTotalBindingCount())
+			return false;
+
+		for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
+		{
+			const auto& bindingRedirects = m_descriptorRedirects[t];
+			const auto& otherBindingRedirects = other->m_descriptorRedirects[t];
+
+			const uint32_t bindingCnt = bindingRedirects.getBindingCount();
+			const uint32_t otherBindingCnt = otherBindingRedirects.getBindingCount();
+			if (bindingCnt > otherBindingCnt)
+				return false;
+
+			for (uint32_t b = 0u; b < bindingCnt; ++b)
+			{
+				uint32_t bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b].data;
+				uint32_t otherBindingNumber = CBindingRedirect::Invalid;
+				// TODO: std::find instead?
+				for (uint32_t ob = 0u; ob < otherBindingCnt; ++ob)
+				{
+					if (bindingNumber == other->m_descriptorRedirects[t].m_bindingNumbers[ob].data)
+					{
+						otherBindingNumber = ob;
+						break;
+					}
+				}
+
+				if (otherBindingNumber == CBindingRedirect::Invalid)
+					return false;
+
+				
+				const auto storageOffset = bindingRedirects.getStorageOffset(bindingRedirects.findBindingStorageIndex(bindingNumber));
+				const auto otherStorageOffset = otherBindingRedirects.getStorageOffset(otherBindingRedirects.findBindingStorageIndex(otherBindingNumber));
+
+				// validate counts
+				if (storageOffset.data != otherStorageOffset.data)
+					return false;
+
+				// TODO[Przemek]: validate samplers	
+			}
+		}
+		return true;
+	}
+
 	bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
 	{
 		if (!_other || getTotalBindingCount() != _other->getTotalBindingCount())

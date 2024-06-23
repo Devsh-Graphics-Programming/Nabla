@@ -1047,11 +1047,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
                 return nullptr;
             }
-            if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
-            {
-                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
-            }
+            // We encountered a GTX1660 device contrary to vulkan spec so disabling this temporarily
+            // if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
+            // {
+            //     logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+            //     return nullptr;
+            // }
             features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
 
@@ -1230,8 +1231,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     {
         core::vector<VkQueueFamilyProperties2> qfamprops;
         {
-            uint32_t qfamCount = 0u;
+            uint32_t qfamCount = 0;
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, nullptr);
+            if (qfamCount>ILogicalDevice::MaxQueueFamilies)
+                qfamCount = ILogicalDevice::MaxQueueFamilies;
             qfamprops.resize(qfamCount, { VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr });
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, qfamprops.data());
         }

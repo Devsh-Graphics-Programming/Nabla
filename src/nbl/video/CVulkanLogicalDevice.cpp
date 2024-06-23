@@ -1294,7 +1294,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
                     outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
                     outInputBinding++;
                 }
-                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
+                outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
                 outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
                 for (auto l=0u; l<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
                 if (vertexInputParams.enabledAttribFlags&(1<<l))

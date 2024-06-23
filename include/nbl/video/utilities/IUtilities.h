@@ -31,7 +31,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
     public:
         IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger=nullptr, const uint32_t downstreamSize=0x4000000u, const uint32_t upstreamSize=0x4000000u)
-            : m_device(std::move(device)), m_logger(std::move(logger))
+            : m_device(core::smart_refctd_ptr(device)), m_logger(nbl::system::logger_opt_smart_ptr(logger))
         {
             auto physicalDevice = m_device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();
@@ -228,24 +228,28 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             
             // patch the commandbuffers if needed
             core::vector<IQueue::SSubmitInfo::SCommandBufferInfo> patchedCmdBufs;
-            if (auto* candidateScratch=patchedSubmit.getScratchCommandBuffer(); candidateScratch && candidateScratch->isResettable())
+            auto patchCmdBuf = [&]()->void{patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);};
+            if (auto* candidateScratch=patchedSubmit.getScratchCommandBuffer(); candidateScratch)
             switch(candidateScratch->getState())
             {
                 case IGPUCommandBuffer::STATE::INITIAL:
-                    if (candidateScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                case IGPUCommandBuffer::STATE::INVALID:
+                    if (candidateScratch->isResettable() && candidateScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
                         break;
-                    [[fallthrough]];
+                    patchCmdBuf();
+                    break;
                 case IGPUCommandBuffer::STATE::RECORDING:
-                    if (candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                    if (candidateScratch->isResettable() && candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
                         break;
                     candidateScratch->end();
-                    [[fallthrough]];
+                    patchCmdBuf();
+                    break;
                 default:
-                    patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);
+                    patchCmdBuf();
                     break;
             }
             else
-                patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);
+                patchCmdBuf();
 
             core::smart_refctd_ptr<IGPUCommandBuffer> newScratch;
             if (!patchedCmdBufs.empty())
@@ -271,6 +275,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     }
                 }
                 patchedCmdBufs[origCmdBufs.size()] = {newScratch.get()};
+                patchedSubmit.commandBuffers = patchedCmdBufs;
             }
 
             if (!patchedSubmit.valid())

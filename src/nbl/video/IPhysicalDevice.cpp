@@ -10,7 +10,7 @@ IDebugCallback* IPhysicalDevice::getDebugCallback() const
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    for (auto i=0u; i<ILogicalDevice::MaxQueueFamilies; i++)
+    for (auto i=0u; i<m_initData.qfamProperties->size(); i++)
     {
         const auto& qci = params.queueParams[i];
 
