@@ -20,21 +20,40 @@ def formatValue(value):
     return value
 
 def buildComment(comment, res, sectionName):
-    for commentLine in comment['comment']:
-        res.append(f"    // {commentLine}")
+    temp_res = []
+    require = False
     if "entries" in comment:
         for entry in comment['entries']:
-            buildVariable(entry, res, sectionName)
+            returnObj = buildVariable(entry, temp_res, sectionName, True)
+            if "require" in returnObj:
+                require = require or returnObj["require"]
 
-def buildVariable(variable, res, sectionName):
-    if "comment" in variable:
-        res.append("    // " + variable['comment'])
+    for commentLine in comment['comment']:
+        temp_res.insert(0, f"    // {"[REQUIRE]" if require else ""}{commentLine}")
+    for line in temp_res:
+        res.append(line)
 
+def buildVariable(variable, res, sectionName, insideComment = False):
     expose = variable["expose"] if "expose" in variable else "DEFAULT"
-    commentDeclaration = "// " if expose != "DEFAULT" else ""
+    formattedValue = formatValue(variable['value'])
+    exposeDeclaration = "// " if expose != "DEFAULT" else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
-    valueDeclaration = f" = {formatValue(variable['value'])}" if variable['value'] != None else ""
-    line = f"    {commentDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};"
+    valueDeclaration = f" = {formattedValue}" if variable['value'] != None else ""
+    commentDeclaration = variable["comment"] if "comment" in variable else ""
+    returnObj = {}
+    if expose == "DISABLE" and formattedValue:
+        if insideComment:
+            if not commentDeclaration:
+                commentDeclaration = "[REQUIRE]"
+            else:
+                commentDeclaration = "[REQUIRE] " + commentDeclaration
+        else:
+            returnObj["require"] = True
+
+    if commentDeclaration:
+        res.append("    // " + commentDeclaration)
+
+    line = f"    {exposeDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};"
     res.append(line)
 
 def buildDeviceHeader(**params):

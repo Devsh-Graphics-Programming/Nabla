@@ -13,7 +13,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
+                "Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
             ],
             "entries": [
                 {
@@ -58,14 +58,14 @@
             "name": "sampleRateShading",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2022 and good device support"
+            "comment": "ROADMAP 2022 and good device support"
         },
         {
             "type": "bool",
             "name": "dualSrcBlend",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device support"
+            "comment": "good device support"
         },
         {
             "type": "bool",
@@ -76,7 +76,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
+                "Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
             ],
             "entries": [
                 {
@@ -110,7 +110,7 @@
             "name": "fillModeNonSolid",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device support"
+            "comment": "good device support"
         },
         {
             "type": "bool",
@@ -141,14 +141,14 @@
             "name": "multiViewport",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device support"
+            "comment": "good device support"
         },
         {
             "type": "bool",
             "name": "samplerAnisotropy",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] Roadmap 2022 requires support for these, device support is ubiquitous"
+            "comment": "Roadmap 2022 requires support for these, device support is ubiquitous"
         },
         {
             "comment": [
@@ -180,7 +180,7 @@
             "name": "occlusionQueryPrecise",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2022 and good device support"
+            "comment": "ROADMAP 2022 and good device support"
         },
         {
             "type": "bool",
@@ -217,14 +217,14 @@
             "name": "shaderImageGatherExtended",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2024 good device support"
+            "comment": "ROADMAP 2024 good device support"
         },
         {
             "type": "bool",
             "name": "shaderStorageImageExtendedFormats",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2024 good device support"
+            "comment": "ROADMAP 2024 good device support"
         },
         {
             "type": "bool",
@@ -252,11 +252,11 @@
             "name": "shaderStorageImageWriteWithoutFormat",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device support"
+            "comment": "good device support"
         },
         {
             "comment": [
-                "[REQUIRE] ROADMAP 2022 and good device support"
+                "ROADMAP 2022 and good device support"
             ],
             "entries": [
                 {
@@ -291,7 +291,7 @@
             "name": "shaderClipDistance",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device support"
+            "comment": "good device support"
         },
         {
             "type": "bool",
@@ -310,14 +310,14 @@
             "name": "shaderInt64",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE]"
+            "comment": ""
         },
         {
             "type": "bool",
             "name": "shaderInt16",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2024"
+            "comment": "ROADMAP 2024"
         },
         {
             "comment": [
@@ -409,7 +409,7 @@
             "name": "inheritedQueries",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] Always enabled, good device support."
+            "comment": "Always enabled, good device support."
         }
     ],
     "vulkan11core": [
@@ -423,14 +423,14 @@
             "name": "storageBuffer16BitAccess",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRED] ROADMAP 2024"
+            "comment": "ROADMAP 2024"
         },
         {
             "type": "bool",
             "name": "uniformAndStorageBuffer16BitAccess",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRED] Force Enabled : ALIAS VK_KHR_16bit_storage"
+            "comment": "Force Enabled : ALIAS VK_KHR_16bit_storage"
         },
         {
             "comment": [
@@ -456,7 +456,7 @@
             "name": "multiview",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] Required to be present when Vulkan 1.1 is supported"
+            "comment": "Required to be present when Vulkan 1.1 is supported"
         },
         {
             "comment": [
@@ -479,7 +479,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Will eventually be required by HLSL202x if it implements references or pointers (even the non-generic type)"
+                "Will eventually be required by HLSL202x if it implements references or pointers (even the non-generic type)"
             ],
             "entries": [
                 {
@@ -515,7 +515,7 @@
             "name": "shaderDrawParameters",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP2024 and Force Enabled : VK_KHR_shader_draw_parameters"
+            "comment": "ROADMAP2024 and Force Enabled : VK_KHR_shader_draw_parameters"
         }
     ],
     "vulkan12core": [
@@ -526,7 +526,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] ROADMAP 2022 and device support ubiquitous"
+                "ROADMAP 2022 and device support ubiquitous"
             ],
             "entries": [
                 {
@@ -555,7 +555,7 @@
         {
             "comment": [
                 "or VK_KHR_8bit_storage:",
-                "[REQUIRE] ROADMAP 2024 and good device coverage"
+                "ROADMAP 2024 and good device coverage"
             ],
             "entries": [
                 {
@@ -571,7 +571,7 @@
             "name": "uniformAndStorageBuffer8BitAccess",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] good device coverage"
+            "comment": "good device coverage"
         },
         {
             "type": "bool",
@@ -618,14 +618,14 @@
             "name": "shaderInt8",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2024 good device coverage"
+            "comment": "ROADMAP 2024 good device coverage"
         },
         {
             "type": "bool",
             "name": "descriptorIndexing",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2022"
+            "comment": "ROADMAP 2022"
         },
         {
             "type": "bool",
@@ -636,7 +636,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] because we also require `descriptorIndexing`"
+                "because we also require `descriptorIndexing`"
             ],
             "entries": [
                 {
@@ -662,7 +662,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] because we also require `descriptorIndexing`"
+                "because we also require `descriptorIndexing`"
             ],
             "entries": [
                 {
@@ -685,7 +685,7 @@
             "name": "shaderStorageImageArrayNonUniformIndexing",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2022"
+            "comment": "ROADMAP 2022"
         },
         {
             "type": "bool",
@@ -699,14 +699,14 @@
             "name": "shaderUniformTexelBufferArrayNonUniformIndexing",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] because we also require `descriptorIndexing`"
+            "comment": "because we also require `descriptorIndexing`"
         },
         {
             "type": "bool",
             "name": "shaderStorageTexelBufferArrayNonUniformIndexing",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRE] ROADMAP 2022 and good device support"
+            "comment": "ROADMAP 2022 and good device support"
         },
         {
             "comment": [
@@ -724,7 +724,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] because we also require `descriptorIndexing`"
+                "because we also require `descriptorIndexing`"
             ],
             "entries": [
                 {
@@ -773,7 +773,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] ROADMAP 2022 and good device support"
+                "ROADMAP 2022 and good device support"
             ],
             "entries": [
                 {
@@ -806,7 +806,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance"
+                "Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance"
             ],
             "entries": [
                 {
@@ -834,7 +834,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Vulkan 1.2 requires these"
+                "Vulkan 1.2 requires these"
             ],
             "entries": [
                 {
@@ -877,7 +877,7 @@
         {
             "comment": [
                 "or VK_KHR_buffer_device_address:",
-                "[REQUIRE] Vulkan 1.3 requires"
+                "Vulkan 1.3 requires"
             ],
             "entries": [
                 {
@@ -902,7 +902,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model"
+                "ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model"
             ],
             "entries": [
                 {
@@ -952,7 +952,7 @@
             "name": "subgroupBroadcastDynamicId",
             "value": true,
             "expose": "DISABLE",
-            "comment": "[REQUIRED] ubiquitous device support"
+            "comment": "ubiquitous device support"
         }
     ],
     "vulkan13core": [
@@ -1002,7 +1002,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl"
+                "Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl"
             ],
             "entries": [
                 {
@@ -1050,7 +1050,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control"
+                "Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control"
             ],
             "entries": [
                 {
@@ -1069,7 +1069,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] REQUIRE"
+                "REQUIRE"
             ],
             "entries": [
                 {
@@ -1125,7 +1125,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway"
+                "Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway"
             ],
             "entries": [
                 {
@@ -2952,12 +2952,14 @@
                 "[TODO] need impl",
                 "IndexTypeUint8FeaturesEXT",
                 "VK_EXT_index_type_uint8"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "indexTypeUint8",
+                    "value": false
+                }
             ]
-        },
-        {
-            "type": "bool",
-            "name": "indexTypeUint8",
-            "value": false
         },
         {
             "comment": [

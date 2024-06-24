@@ -561,7 +561,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] ROADMAP 2024 and good device support"
+                "ROADMAP 2024 and good device support"
             ],
             "entries": [
                 {
@@ -1336,7 +1336,7 @@
             "comment": [
                 "ShaderAtomicFloatFeaturesEXT",
                 "VK_EXT_shader_atomic_float",
-                "[REQUIRE] Nabla Core Profile"
+                "Nabla Core Profile"
             ],
             "entries": [
                 {
@@ -1364,7 +1364,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Nabla Core Profile"
+                "Nabla Core Profile"
             ],
             "entries": [
                 {
@@ -1392,7 +1392,7 @@
         },
         {
             "comment": [
-                "[REQUIRE] Nabla Core Profile"
+                "Nabla Core Profile"
             ],
             "entries": [
                 {
