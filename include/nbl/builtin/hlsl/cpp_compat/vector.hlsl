@@ -4,7 +4,6 @@
 // stuff for C++
 #ifndef __HLSL_VERSION 
 #include <stdint.h>
-#include <type_traits>
 #include <half.h>
 
 #define GLM_FORCE_SWIZZLE
@@ -72,20 +71,6 @@ NBL_TYPEDEF_VECTORS(uint64_t);
 NBL_TYPEDEF_VECTORS(float16_t);
 NBL_TYPEDEF_VECTORS(float32_t);
 NBL_TYPEDEF_VECTORS(float64_t);
-
-#ifndef __HLSL_VERSION
-template<typename T>
-concept is_vector_v =
-            std::is_same_v<T, int16_t1> || std::is_same_v<T, int16_t2> || std::is_same_v<T, int16_t3> || std::is_same_v<T, int16_t4>            ||
-            std::is_same_v<T, int32_t1> || std::is_same_v<T, int32_t2> || std::is_same_v<T, int32_t3> || std::is_same_v<T, int32_t4>            ||
-            std::is_same_v<T, int64_t1> || std::is_same_v<T, int64_t2> || std::is_same_v<T, int64_t3> || std::is_same_v<T, int64_t4>            ||
-            std::is_same_v<T, uint16_t1> || std::is_same_v<T, uint16_t2> || std::is_same_v<T, uint16_t3> || std::is_same_v<T, uint16_t4>        ||
-            std::is_same_v<T, uint32_t1> || std::is_same_v<T, uint32_t2> || std::is_same_v<T, uint32_t3> || std::is_same_v<T, uint32_t4>        ||
-            std::is_same_v<T, uint64_t1> || std::is_same_v<T, uint64_t2> || std::is_same_v<T, uint64_t3> || std::is_same_v<T, uint64_t4>        ||
-            std::is_same_v<T, float16_t1> || std::is_same_v<T, float16_t2> || std::is_same_v<T, float16_t3> || std::is_same_v<T, float16_t4>    ||
-            std::is_same_v<T, float32_t1> || std::is_same_v<T, float32_t2> || std::is_same_v<T, float32_t3> || std::is_same_v<T, float32_t4>    ||
-            std::is_same_v<T, float64_t1> || std::is_same_v<T, float64_t2> || std::is_same_v<T, float64_t3> || std::is_same_v<T, float64_t4>;
-#endif
 
 #undef NBL_TYPEDEF_VECTORS
 }
