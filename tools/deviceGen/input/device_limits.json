@@ -999,9 +999,6 @@
             "value": "MinMaxColorAttachments"
         },
         {
-            "statement": "using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;"
-        },
-        {
             "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
             "name": "supportedDepthResolveModes",
             "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT"
