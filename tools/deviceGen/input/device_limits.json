@@ -3,12 +3,12 @@
         {
             "type": "uint32_t",
             "name": "MinMaxImageDimension2D",
-            "value": 16384
+            "value": "1 << 14"
         },
         {
             "type": "uint32_t",
             "name": "MinMaxSSBOSize",
-            "value": 1073741820
+            "value": "0x1u << 30u - 4"
         },
         {
             "type": "uint16_t",
@@ -18,7 +18,7 @@
         {
             "type": "uint32_t",
             "name": "MinMaxWorkgroupCount",
-            "value": 65535
+            "value": "1 << 12"
         },
         {
             "type": "uint32_t",
@@ -68,7 +68,7 @@
         {
             "type": "uint32_t",
             "name": "maxImageDimension3D",
-            "value": 2048
+            "value": "1 << 11"
         },
         {
             "type": "uint32_t",
@@ -78,17 +78,17 @@
         {
             "type": "uint32_t",
             "name": "maxImageArrayLayers",
-            "value": 2048
+            "value": "1 << 11"
         },
         {
             "type": "uint32_t",
             "name": "maxBufferViewTexels",
-            "value": 33554432
+            "value": "1u << 25"
         },
         {
             "type": "uint32_t",
             "name": "maxUBOSize",
-            "value": 65536
+            "value": "1u << 16"
         },
         {
             "type": "uint32_t",
@@ -103,7 +103,7 @@
         {
             "type": "uint32_t",
             "name": "maxMemoryAllocationCount",
-            "value": 4096
+            "value": "1 << 12"
         },
         {
             "type": "uint32_t",
@@ -113,7 +113,7 @@
         {
             "type": "uint32_t",
             "name": "bufferImageGranularity",
-            "value": 65536,
+            "value": "1u << 16",
             "compareFlipped": true,
             "comment": "granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation"
         },
@@ -231,7 +231,7 @@
         {
             "type": "uint16_t",
             "name": "maxVertexInputBindingStride",
-            "value": 2048,
+            "value": "1 << 11",
             "expose": "DISABLE"
         },
         {
@@ -327,7 +327,7 @@
         {
             "type": "uint32_t",
             "name": "maxComputeSharedMemorySize",
-            "value": 32768
+            "value": "1 << 15"
         },
         {
             "type": "uint32_t",
@@ -369,7 +369,7 @@
         {
             "type": "uint32_t",
             "name": "maxDrawIndirectCount",
-            "value": 1073741824,
+            "value": "0x1u << 30",
             "comment": "This is different to `maxDrawIndirectCount`, this is NOT about whether you can source the MDI count from a buffer, just about how many you can have"
         },
         {
@@ -476,7 +476,7 @@
         {
             "type": "uint32_t",
             "name": "maxFramebufferLayers",
-            "value": 1024
+            "value": "1 << 10"
         },
         {
             "comment": [
@@ -883,7 +883,7 @@
         {
             "type": "uint32_t",
             "name": "maxUpdateAfterBindDescriptorsInAllPools",
-            "value": 1048576
+            "value": "0x1u << 20"
         },
         {
             "type": "bool",
@@ -1039,7 +1039,7 @@
         {
             "type": "uint64_t",
             "name": "maxTimelineSemaphoreValueDifference",
-            "value": 2147483647,
+            "value": "0x1ull << 31 - 1",
             "expose": "DISABLE",
             "comment": "[DO NOT EXPOSE] its high enough (207 days of uptime at 121 FPS)"
         },
@@ -1327,7 +1327,7 @@
                 {
                     "type": "uint32_t",
                     "name": "minImportedHostPointerAlignment",
-                    "value": 2147483648,
+                    "value": "0x1 << 31",
                     "compareFlipped": true
                 }
             ]
@@ -1427,13 +1427,13 @@
                 {
                     "type": "uint64_t",
                     "name": "robustStorageBufferAccessSizeAlignment",
-                    "value": 9223372036854775808,
+                    "value": "0x1ull << 63",
                     "compareFlipped": true
                 },
                 {
                     "type": "uint64_t",
                     "name": "robustUniformBufferAccessSizeAlignment",
-                    "value": 9223372036854775808,
+                    "value": "0x1ull << 63",
                     "compareFlipped": true
                 }
             ]
@@ -1653,7 +1653,7 @@
                 {
                     "type": "uint64_t",
                     "name": "minAccelerationStructureScratchOffsetAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "compareFlipped": true
                 }
             ]
@@ -1684,7 +1684,7 @@
                 {
                     "type": "uint32_t",
                     "name": "shaderGroupBaseAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "compareFlipped": true
                 },
                 {
@@ -1695,7 +1695,7 @@
                 {
                     "type": "uint32_t",
                     "name": "shaderGroupHandleAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "compareFlipped": true
                 },
                 {
@@ -1992,19 +1992,19 @@
                 {
                     "type": "uint32_t",
                     "name": "minSequencesCountBufferOffsetAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "expose": "DISABLE"
                 },
                 {
                     "type": "uint32_t",
                     "name": "minSequencesIndexBufferOffsetAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "expose": "DISABLE"
                 },
                 {
                     "type": "uint32_t",
                     "name": "minIndirectCommandsBufferOffsetAlignment",
-                    "value": 2147483648,
+                    "value": "0x1u << 31u",
                     "expose": "DISABLE"
                 }
             ]
