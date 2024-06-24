@@ -114,7 +114,7 @@
             "type": "uint32_t",
             "name": "bufferImageGranularity",
             "value": "1u << 16",
-            "compareFlipped": true,
+            "compare": "REVERSE",
             "comment": "granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation"
         },
         {
@@ -431,25 +431,25 @@
             "type": "uint16_t",
             "name": "bufferViewAlignment",
             "value": 64,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "uint16_t",
             "name": "minUBOAlignment",
             "value": 256,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "uint16_t",
             "name": "minSSBOAlignment",
             "value": 64,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "int8_t",
             "name": "minTexelOffset",
             "value": -8,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "uint8_t",
@@ -460,7 +460,7 @@
             "type": "int8_t",
             "name": "minTexelGatherOffset",
             "value": -8,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "uint8_t",
@@ -471,7 +471,7 @@
             "type": "float",
             "name": "minInterpolationOffset",
             "value": -0.5,
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "float",
@@ -594,8 +594,8 @@
                     "type": "float",
                     "name": "timestampPeriodInNanoSeconds",
                     "value": 83.334,
-                    "compareFlipped": true,
-                    "compareExpose": false,
+                    "compare": "REVERSE",
+                    "compareExpose": "DISABLE",
                     "comment": "timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future"
                 }
             ]
@@ -634,14 +634,13 @@
             "type": "float",
             "name": "pointSizeGranularity",
             "value": "1",
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "float",
             "name": "lineWidthGranularity",
             "value": "1",
-            "compareFlipped": true
-
+            "compare": "REVERSE"
         },
         {
             "type": "bool",
@@ -659,22 +658,19 @@
             "type": "uint16_t",
             "name": "optimalBufferCopyOffsetAlignment",
             "value": 256,
-            "compareFlipped": true
-
+            "compare": "REVERSE"
         },
         {
             "type": "uint16_t",
             "name": "optimalBufferCopyRowPitchAlignment",
             "value": 128,
-            "compareFlipped": true
-
+            "compare": "REVERSE"
         },
         {
             "type": "uint16_t",
             "name": "nonCoherentAtomSize",
             "value": 256,
-            "compareFlipped": true
-
+            "compare": "REVERSE"
         },
         {
             "comment": [
@@ -729,7 +725,7 @@
             "type": "uint16_t",
             "name": "subgroupSize",
             "value": "4",
-            "compareExpose": false
+            "compareExpose": "DISABLE"
 
         },
         {
@@ -1082,7 +1078,7 @@
             "type": "uint8_t",
             "name": "minSubgroupSize",
             "value": "64",
-            "compareFlipped": true
+            "compare": "REVERSE"
         },
         {
             "type": "uint8_t",
@@ -1302,8 +1298,7 @@
                     "type": "uint64_t",
                     "name": "storageTexelBufferOffsetAlignmentBytes",
                     "value": "std::numeric_limits<uint64_t>::max()",
-                    "compareFlipped": true
-        
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "bool",
@@ -1315,7 +1310,7 @@
                     "type": "uint64_t",
                     "name": "uniformTexelBufferOffsetAlignmentBytes",
                     "value": "std::numeric_limits<uint64_t>::max()",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "bool",
@@ -1348,7 +1343,7 @@
                     "type": "uint32_t",
                     "name": "minImportedHostPointerAlignment",
                     "value": "0x1 << 31",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 }
             ]
         },
@@ -1448,13 +1443,13 @@
                     "type": "uint64_t",
                     "name": "robustStorageBufferAccessSizeAlignment",
                     "value": "0x1ull << 63",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "uint64_t",
                     "name": "robustUniformBufferAccessSizeAlignment",
                     "value": "0x1ull << 63",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 }
             ]
         } 
@@ -1550,7 +1545,7 @@
                     "type": "float",
                     "name": "extraPrimitiveOverestimationSizeGranularity",
                     "value": "std::numeric_limits<float>::infinity()",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "bool",
@@ -1674,7 +1669,7 @@
                     "type": "uint64_t",
                     "name": "minAccelerationStructureScratchOffsetAlignment",
                     "value": "0x1u << 31u",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 }
             ]
         },
@@ -1705,7 +1700,7 @@
                     "type": "uint32_t",
                     "name": "shaderGroupBaseAlignment",
                     "value": "0x1u << 31u",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "uint32_t",
@@ -1716,7 +1711,7 @@
                     "type": "uint32_t",
                     "name": "shaderGroupHandleAlignment",
                     "value": "0x1u << 31u",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "uint32_t",
@@ -1811,27 +1806,25 @@
                     "type": "uint32_t",
                     "name": "pciDomain",
                     "value": "~0u",
-                    "compareSkip": true
+                    "compare": "SKIP"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciBus",
                     "value": "~0u",
-                    "compareSkip": true
-        
+                    "compare": "SKIP"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciDevice",
                     "value": "~0u",
-                    "compareSkip": true
-        
+                    "compare": "SKIP"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciFunction",
                     "value": "~0u",
-                    "compareSkip": true
+                    "compare": "SKIP"
                 }
             ]
         },
@@ -1845,13 +1838,13 @@
                     "type": "hlsl::uint32_t2",
                     "name": "minFragmentDensityTexelSize",
                     "value": "{ ~0u, ~0u }",
-                    "compareFlipped": true
+                    "compare": "REVERSE"
                 },
                 {
                     "type": "hlsl::uint32_t2",
                     "name": "maxFragmentDensityTexelSize",
                     "value": "{ 0u, 0u }",
-                    "compareSkip": true
+                    "compare": "SKIP"
                 },
                 {
                     "type": "bool",

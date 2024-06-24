@@ -70,12 +70,13 @@ def buildDeviceHeader(**params):
     return res
 
 def SubsetMethodHelper(dict, res):
-    # its in gen.py
     expose = "DISABLE" if "expose" in dict else "DEFAULT"
-    if 'compareSkip' in dict and dict['compareSkip'] or expose == "DISABLE":
+    compareExpose = "DISABLE" if "compareExpose" in dict else "DEFAULT"
+    compare = dict['compare'] if "compare" in dict else "DEFAULT"
+    if compare == "SKIP" or expose == "DISABLE":
         return
     line = "    "
-    if 'compareExpose' in dict and not dict['compareExpose']:
+    if compareExpose == "DISABLE":
         line += "// "
     numeric_types = ['uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'size_t', 'int8_t', 'int32_t', 'float', 'asset::CGLSLCompiler::E_SPIRV_VERSION']
     if dict['type'] in numeric_types:
@@ -93,7 +94,7 @@ def SubsetMethodHelper(dict, res):
                     lines[i] += f"if ({array_name}[{i}] > _rhs.{array_name}[{i}]) return false;"
                 line = "\n".join(lines)
         else:
-            signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
+            signDeclaration = "<" if compare == "REVERSE" else ">"
             line += f"if ({dict['name']} {signDeclaration} _rhs.{dict['name']}) return false;"
     elif dict['type'].startswith("core::bitflag<"):
         line += f"if (!_rhs.{dict['name']}.hasFlags({dict['name']})) return false;"
@@ -105,7 +106,7 @@ def SubsetMethodHelper(dict, res):
         lines = [line, line]
         for i in range(2):
             componentDeclaration = ".x" if (i == 0) else ".y"
-            signDeclaration = "<" if 'compareFlipped' in dict and dict['compareFlipped'] else ">"
+            signDeclaration = "<" if compare == "REVERSE" else ">"
             lines[i] = f"if ({dict['name']}{componentDeclaration} {signDeclaration} _rhs.{dict['name']}{componentDeclaration}) return false;"
         line = "\n".join(lines)
 
