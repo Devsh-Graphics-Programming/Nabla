@@ -476,7 +476,7 @@
         {
             "type": "float",
             "name": "maxInterpolationOffset",
-            "value": "0.437500000"
+            "value": "0.5f-exp2f(-MinSubPixelInterpolationOffsetBits)"
         },
         {
             "type": "uint8_t",
