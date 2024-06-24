@@ -37,7 +37,7 @@ std::string CJITIncludeLoader::collectDeviceCaps(const SPhysicalDeviceLimits& li
 
     std::string end = R"===(    };
         
-        typedef nbl::hlsl::device_capabilities_traits<device_capabilities> device_capabilities_traits;
+        using device_capabilities_traits = nbl::hlsl::device_capabilities_traits<device_capabilities>;
         }
         }
         }

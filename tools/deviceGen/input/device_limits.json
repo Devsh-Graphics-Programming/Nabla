@@ -1027,8 +1027,7 @@
                     "type": "bool",
                     "name": "filterMinmaxSingleComponentFormats",
                     "value": null,
-                    "expose": "DISABLE",
-                    "comment": 
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
