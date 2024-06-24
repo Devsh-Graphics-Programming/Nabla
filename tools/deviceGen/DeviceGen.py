@@ -25,7 +25,7 @@ def buildComment(comment, res, sectionName):
     if "entries" in comment:
         for entry in comment['entries']:
             returnObj = buildVariable(entry, temp_res, sectionName, True)
-            if "require" in returnObj:
+            if returnObj and "require" in returnObj:
                 require = require or returnObj["require"]
 
     for commentLine in comment['comment']:

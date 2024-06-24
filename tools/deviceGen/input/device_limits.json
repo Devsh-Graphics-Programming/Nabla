@@ -336,8 +336,7 @@
                     "type": "uint32_t",
                     "name": "maxFragmentCombinedOutputResources",
                     "value": 16
-                },
-        
+                }
             ]
         },
         {

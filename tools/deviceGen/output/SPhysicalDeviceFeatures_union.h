@@ -6,25 +6,12 @@
     res.wideLines |= _rhs.wideLines;
     res.largePoints |= _rhs.largePoints;
     res.alphaToOne |= _rhs.alphaToOne;
-    res.textureCompressionETC2 |= _rhs.textureCompressionETC2;
-    res.textureCompressionASTC_LDR |= _rhs.textureCompressionASTC_LDR;
-    res.textureCompressionBC |= _rhs.textureCompressionBC;
     res.pipelineStatisticsQuery |= _rhs.pipelineStatisticsQuery;
-    res.vertexPipelineStoresAndAtomics |= _rhs.vertexPipelineStoresAndAtomics;
-    res.fragmentStoresAndAtomics |= _rhs.fragmentStoresAndAtomics;
-    res.shaderTessellationAndGeometryPointSize |= _rhs.shaderTessellationAndGeometryPointSize;
-    res.shaderStorageImageMultisample |= _rhs.shaderStorageImageMultisample;
-    res.shaderStorageImageReadWithoutFormat |= _rhs.shaderStorageImageReadWithoutFormat;
-    res.shaderStorageImageArrayDynamicIndexing |= _rhs.shaderStorageImageArrayDynamicIndexing;
     res.shaderCullDistance |= _rhs.shaderCullDistance;
-    res.shaderFloat64 |= _rhs.shaderFloat64;
     res.shaderResourceResidency |= _rhs.shaderResourceResidency;
     res.shaderResourceMinLod |= _rhs.shaderResourceMinLod;
    // VK 1.1 Everything is either a Limit or Required
    // VK 1.2
-    res.storagePushConstant8 |= _rhs.storagePushConstant8;
-    res.shaderUniformBufferArrayNonUniformIndexing |= _rhs.shaderUniformBufferArrayNonUniformIndexing;
-    res.shaderInputAttachmentArrayNonUniformIndexing |= _rhs.shaderInputAttachmentArrayNonUniformIndexing;
     res.bufferDeviceAddressMultiDevice |= _rhs.bufferDeviceAddressMultiDevice;
    // VK 1.3
     res.robustImageAccess |= _rhs.robustImageAccess;
