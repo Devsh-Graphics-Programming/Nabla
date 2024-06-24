@@ -10,6 +10,17 @@ namespace nbl
 {
 namespace hlsl
 {
+
+namespace glsl 
+{
+
+// Define this method from glsl_compat/core.hlsl 
+uint32_t3 gl_WorkGroupSize() {
+    return uint32_t3(_NBL_HLSL_WORKGROUP_SIZE_, 1, 1);
+}
+
+} //namespace glsl
+
 namespace workgroup
 {
 
@@ -156,7 +167,7 @@ struct FFT<2,true, Scalar, device_capabilities>
         // special last iteration
         if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
         {
-            fft::DIT<Scalar>::radix2(fft::twiddle<Scalar, true>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
+            fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
             divides_assign< complex_t<Scalar> > divAss;
             divAss(lo, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
             divAss(hi, _NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize());
