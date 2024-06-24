@@ -102,7 +102,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
             switch (type)
             {
             case asset::IDescriptor::E_TYPE::ET_SAMPLER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_MutableStandaloneSamplerStorage.get());
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_mutableStandaloneSamplerStorage.get());
                 break;
             case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
             case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
@@ -223,7 +223,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableCombinedSamplerStorage;
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_MutableStandaloneSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableStandaloneSamplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb

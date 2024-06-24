@@ -157,16 +157,18 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
     const auto descriptorType = getBindingType(drop.binding);
 
 	auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, drop.binding);
-	auto* dstSamplers = drop.dstSet->getMutableCombinedSamplers(drop.binding);
-
 	if (dstDescriptors)
 		for (uint32_t i = 0; i < drop.count; i++)
 			dstDescriptors[drop.arrayElement + i] = nullptr;
 
-	if (dstSamplers)
-		for (uint32_t i = 0; i < drop.count; i++)
-			dstSamplers[drop.arrayElement + i] = nullptr;
-
+    if (asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER == descriptorType)
+    {
+        auto* dstSamplers = drop.dstSet->getMutableCombinedSamplers(drop.binding);
+        if (dstSamplers)
+            for (uint32_t i = 0; i < drop.count; i++)
+                dstSamplers[drop.arrayElement + i] = nullptr;
+    }
+    
 	// we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
 	// so, only if we do the path that writes descriptors, do we want to increment version
     auto& bindingRedirect = m_layout->getDescriptorRedirect(descriptorType);
