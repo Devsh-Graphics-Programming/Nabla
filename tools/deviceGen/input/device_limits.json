@@ -240,104 +240,125 @@
             "value": 124
         },
         {
-            "type": "uint16_t",
-            "name": "maxTessellationGenerationLevel",
-            "value": 0
+            "comment": [],
+            "entries": [
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationGenerationLevel",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationPatchSize",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationControlPerVertexInputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationControlPerVertexOutputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationControlPerPatchOutputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationControlTotalOutputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationEvaluationInputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxTessellationEvaluationOutputComponents",
+                    "value": 0
+                }
+            ]
         },
         {
-            "type": "uint16_t",
-            "name": "maxTessellationPatchSize",
-            "value": 0
+            "comment": [],
+            "entries": [
+                {
+                    "type": "uint16_t",
+                    "name": "maxGeometryShaderInvocations",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxGeometryInputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxGeometryOutputComponents",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxGeometryOutputVertices",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxGeometryTotalOutputComponents",
+                    "value": 0
+                }
+            ]
         },
         {
-            "type": "uint16_t",
-            "name": "maxTessellationControlPerVertexInputComponents",
-            "value": 0
+            "comment": [],
+            "entries": [
+                {
+                    "type": "uint32_t",
+                    "name": "maxFragmentInputComponents",
+                    "value": 116
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxFragmentOutputAttachments",
+                    "value": 8
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxFragmentDualSrcAttachments",
+                    "value": 1
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxFragmentCombinedOutputResources",
+                    "value": 16
+                },
+        
+            ]
         },
         {
-            "type": "uint16_t",
-            "name": "maxTessellationControlPerVertexOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxTessellationControlPerPatchOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxTessellationControlTotalOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxTessellationEvaluationInputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxTessellationEvaluationOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxGeometryShaderInvocations",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxGeometryInputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxGeometryOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxGeometryOutputVertices",
-            "value": 0
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxGeometryTotalOutputComponents",
-            "value": 0
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxFragmentInputComponents",
-            "value": 116
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxFragmentOutputAttachments",
-            "value": 8
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxFragmentDualSrcAttachments",
-            "value": 1
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxFragmentCombinedOutputResources",
-            "value": 16
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxComputeSharedMemorySize",
-            "value": "1 << 15"
-        },
-        {
-            "type": "uint32_t",
-            "name": "maxComputeWorkGroupCount[3]",
-            "value": "{MinMaxWorkgroupCount,MinMaxWorkgroupCount,MinMaxWorkgroupCount}"
-        },
-        {
-            "type": "uint16_t",
-            "name": "maxComputeWorkGroupInvocations",
-            "value": "MinMaxWorkgroupInvocations"
+            "comment": [],
+            "entries": [
+                {
+                    "type": "uint32_t",
+                    "name": "maxComputeSharedMemorySize",
+                    "value": "1 << 15"
+                },
+                {
+                    "type": "uint32_t",
+                    "name": "maxComputeWorkGroupCount[3]",
+                    "value": "{MinMaxWorkgroupCount,MinMaxWorkgroupCount,MinMaxWorkgroupCount}"
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "maxComputeWorkGroupInvocations",
+                    "value": "MinMaxWorkgroupInvocations"
+                }
+            ]
         },
         {
             "type": "uint16_t",
@@ -753,7 +774,7 @@
         {
             "type": "uint32_t",
             "name": "maxMultiviewInstanceIndex",
-            "value": "134217727"
+            "value": "1u << 27 - 1"
         },
         {
             "type": "bool",
