@@ -68,7 +68,7 @@ struct FFT<2,false, Scalar, device_capabilities>
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         // Set up the MemAdaptors
-        MemoryAdaptor<Accessor> memAdaptor;
+        MemoryAdaptor<Accessor, _NBL_HLSL_WORKGROUP_SIZE_ << 1> memAdaptor;
         memAdaptor.accessor = accessor;
         MemoryAdaptor<SharedMemoryAccessor> sharedmemAdaptor;
         sharedmemAdaptor.accessor = sharedmemAccessor;
@@ -77,10 +77,12 @@ struct FFT<2,false, Scalar, device_capabilities>
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
 
         // Read lo, hi values from global memory
-        vector <Scalar, 4> loHiPacked;
-        memAdaptor.get(threadID, loHiPacked);
-        complex_t<Scalar> lo = {loHiPacked.x, loHiPacked.y};  
-        complex_t<Scalar> hi = {loHiPacked.z, loHiPacked.w};
+        vector <Scalar, 2> loVec;
+        vector <Scalar, 2> hiVec;
+        memAdaptor.get(threadID, loVec);
+        memAdaptor.get(threadID + _NBL_HLSL_WORKGROUP_SIZE_, hiVec);
+        complex_t<Scalar> lo = {loVec.x, loVec.y};  
+        complex_t<Scalar> hi = {hiVec.x, hiVec.y};
 
         // special first iteration
         if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
@@ -94,8 +96,10 @@ struct FFT<2,false, Scalar, device_capabilities>
         subgroup::FFT<false, Scalar, device_capabilities>::__call(lo, hi);
 
         // Put values back in global mem
-        loHiPacked = vector <Scalar, 4>(lo.real(), lo.imag(), hi.real(), hi.imag());
-        memAdaptor.set(threadID, loHiPacked);
+        loVec = vector <Scalar, 2>(lo.real(), lo.imag());
+        hiVec = vector <Scalar, 2>(hi.real(), hi.imag());
+        memAdaptor.set(threadID, loVec);
+        memAdaptor.set(threadID + _NBL_HLSL_WORKGROUP_SIZE_, hiVec);
 
         // Update state for accessors
         accessor = memAdaptor.accessor;
@@ -143,7 +147,7 @@ struct FFT<2,true, Scalar, device_capabilities>
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         // Set up the MemAdaptors
-        MemoryAdaptor<Accessor> memAdaptor;
+        MemoryAdaptor<Accessor, _NBL_HLSL_WORKGROUP_SIZE_ << 1> memAdaptor;
         memAdaptor.accessor = accessor;
         MemoryAdaptor<SharedMemoryAccessor> sharedmemAdaptor;
         sharedmemAdaptor.accessor = sharedmemAccessor;
@@ -152,10 +156,12 @@ struct FFT<2,true, Scalar, device_capabilities>
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
 
         // Read lo, hi values from global memory
-        vector <Scalar, 4> loHiPacked;
-        memAdaptor.get(threadID, loHiPacked);
-        complex_t<Scalar> lo = {loHiPacked.x, loHiPacked.y};  
-        complex_t<Scalar> hi = {loHiPacked.z, loHiPacked.w}; 
+        vector <Scalar, 2> loVec;
+        vector <Scalar, 2> hiVec;
+        memAdaptor.get(threadID, loVec);
+        memAdaptor.get(threadID + _NBL_HLSL_WORKGROUP_SIZE_, hiVec);
+        complex_t<Scalar> lo = {loVec.x, loVec.y};  
+        complex_t<Scalar> hi = {hiVec.x, hiVec.y}; 
 
         // Run a subgroup-sized FFT, then continue with bigger steps
         subgroup::FFT<true, Scalar, device_capabilities>::__call(lo, hi);
@@ -174,8 +180,10 @@ struct FFT<2,true, Scalar, device_capabilities>
         }
         
         // Put values back in global mem
-        loHiPacked = vector <Scalar, 4>(lo.real(), lo.imag(), hi.real(), hi.imag());
-        memAdaptor.set(threadID, loHiPacked);
+        loVec = vector <Scalar, 2>(lo.real(), lo.imag());
+        hiVec = vector <Scalar, 2>(hi.real(), hi.imag());
+        memAdaptor.set(threadID, loVec);
+        memAdaptor.set(threadID + _NBL_HLSL_WORKGROUP_SIZE_, hiVec);
 
         // Update state for accessors
         accessor = memAdaptor.accessor;
