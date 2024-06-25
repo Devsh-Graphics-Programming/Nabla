@@ -91,7 +91,7 @@ struct FFT<2,false, Scalar, device_capabilities>
         // Run bigger steps until Subgroup-sized
         for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
             FFT_loop<SharedMemoryAccessor>(stride, lo, hi, threadID, sharedmemAdaptor);
-  
+        
         // Subgroup-sized FFT
         subgroup::FFT<false, Scalar, device_capabilities>::__call(lo, hi);
 
