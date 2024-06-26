@@ -1297,7 +1297,7 @@
                 {
                     "type": "uint64_t",
                     "name": "storageTexelBufferOffsetAlignmentBytes",
-                    "value": "std::numeric_limits<uint64_t>::max()",
+                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max()",
                     "compare": "REVERSE"
                 },
                 {
@@ -1309,7 +1309,7 @@
                 {
                     "type": "uint64_t",
                     "name": "uniformTexelBufferOffsetAlignmentBytes",
-                    "value": "std::numeric_limits<uint64_t>::max()",
+                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max()",
                     "compare": "REVERSE"
                 },
                 {
@@ -1544,7 +1544,7 @@
                 {
                     "type": "float",
                     "name": "extraPrimitiveOverestimationSizeGranularity",
-                    "value": "std::numeric_limits<float>::infinity()",
+                    "value": "nbl::hlsl::numeric_limits<float>::infinity()",
                     "compare": "REVERSE"
                 },
                 {

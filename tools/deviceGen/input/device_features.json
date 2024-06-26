@@ -1023,6 +1023,7 @@
                     "type": "bool",
                     "name": "privateData",
                     "value": false,
+                    "expose":"DISABLE",
                     "comment": "or VK_EXT_private_data"
                 }
             ]
@@ -1141,7 +1142,7 @@
     "nablacore": [
         {
             "comment": [
-                "Nabla Core Profiles"
+                "Nabla Core Profile"
             ]
         },
         {

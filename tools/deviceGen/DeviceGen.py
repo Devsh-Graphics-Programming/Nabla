@@ -65,7 +65,6 @@ def buildDeviceHeader(**params):
                 buildVariable(dict, res, sectionName)
             else:
                 buildComment(dict, res, sectionName)
-            res.append(emptyline)
 
     return res
 
@@ -120,7 +119,16 @@ def buildSubsetMethod(**params):
             continue
         for dict in sectionContent:
             if 'type' in dict:
-                SubsetMethodHelper(dict, res)
+                try:
+                    SubsetMethodHelper(dict, res)
+                except ContinueEx:
+                    continue
+            if 'entries' in dict:
+                for entry in dict['entries']:
+                    try:
+                        SubsetMethodHelper(entry, res)
+                    except ContinueEx:
+                        continue
 
     return res
 
@@ -161,7 +169,7 @@ def buildFeaturesMethod(**params):
 
     return res
 
-def formatBitflagType(type):
+def formatEnumType(type):
     type = type.split("::")[-1]
     type_parts = ''.join([c for c in type if c.isupper() or c == '_']).split('_')
     resultant_type = type_parts[1].lower()
@@ -169,7 +177,7 @@ def formatBitflagType(type):
         resultant_type += type_part.capitalize()
     return resultant_type
 
-def formatBitflagValue(type, value):
+def formatEnumValue(type, value):
     value_parts = value.split(" ")
     temp_value_parts = []
     for value_part in value_parts:
@@ -210,9 +218,14 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
                         if param not in dict:
                             raise ContinueEx
                         if param == "type" and dict[param].startswith("core::bitflag"):
-                            resultant_type = formatBitflagType(dict[param])
+                            resultant_type = formatEnumType(dict[param])
                             if "value" in dict:
-                                dict["value"] = formatBitflagValue(resultant_type, dict["value"])
+                                dict["value"] = formatEnumValue(resultant_type, dict["value"])
+                            dict['type'] = resultant_type
+                        if param == "type" and dict[param].startswith("asset"):
+                            resultant_type = formatEnumType(dict[param])
+                            if "value" in dict:
+                                dict["value"] = formatEnumValue(resultant_type, dict["value"])
                             dict['type'] = resultant_type
 
                     line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
@@ -264,7 +277,6 @@ def buildTraitsHeader(**params):
         params["template"],
         *params['format_params']
     )
-    res.append(emptyline)
     buildTraitsHeaderHelper(
         res,
         f"Features {params['type']}",
@@ -287,7 +299,6 @@ def buildJITTraitsHeader(**params):
         "limits",
         *params['format_params']
     )
-    res.append(emptyline)
     buildJITTraitsHeaderHelper(
         res,
         f"Features {params['type']}",
