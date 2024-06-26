@@ -2,9 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
-
+#ifndef _NBL_BUILTIN_HLSL_ENUMS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_ENUMS_INCLUDED_
 
 namespace nbl
 {
