@@ -92,7 +92,7 @@ struct FFT<2,false, Scalar, device_capabilities>
         complex_t<Scalar> hi = {hiVec.x, hiVec.y};
 
         // special first iteration - only if workgroupsize > subgroupsize
-        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize())
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
             fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
 
         // Run bigger steps until Subgroup-sized
@@ -105,7 +105,7 @@ struct FFT<2,false, Scalar, device_capabilities>
         }
 
         // special last workgroup-shuffle - only if workgroupsize > subgroupsize
-        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize()) 
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize()) 
         {
             // Wait for all threads to be done with reads in the last loop before writing to shared mem      
             sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
@@ -168,7 +168,7 @@ struct FFT<2,true, Scalar, device_capabilities>
         subgroup::FFT<true, Scalar, device_capabilities>::__call(lo, hi);
         
         // special first workgroup-shuffle - only if workgroupsize > subgroupsize
-        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize()) 
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize()) 
         { 
             exchangeValues<SharedMemoryAccessor, Scalar>(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
         }
@@ -182,7 +182,7 @@ struct FFT<2,true, Scalar, device_capabilities>
         }
 
         // special last iteration - only if workgroupsize > subgroupsize
-        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize())
+        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
         {
             fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
             divides_assign< complex_t<Scalar> > divAss;
