@@ -40,13 +40,13 @@ struct FFT<false, Scalar, device_capabilities>
             hi.imag(exchanged.y);
         }
         // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi); 
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi);
     }
 
     static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi) 
     {
         const uint32_t subgroupSize = glsl::gl_SubgroupSize();  //This is N/2
-    
+
         // special first iteration
         fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);                                                                                   
         

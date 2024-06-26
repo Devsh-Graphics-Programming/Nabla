@@ -5,6 +5,7 @@
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/memory_accessor.hlsl"
+#include "nbl/builtin/hlsl/workgroup/shuffle.hlsl"
 
 namespace nbl 
 {
@@ -24,12 +25,37 @@ uint32_t3 gl_WorkGroupSize() {
 namespace workgroup
 {
 
+// ---------------------------------- Utils -----------------------------------------------
+
+template<typename SharedMemoryAccessor, typename Scalar>
+void exchangeValues(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
+{
+    const bool topHalf = bool(threadID & stride);
+    vector <Scalar, 2> toExchange = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
+    shuffleXor<SharedMemoryAccessor, Scalar, 2>(toExchange, stride, threadID, sharedmemAdaptor);
+    if (topHalf)
+    {
+        lo.real(toExchange.x);
+        lo.imag(toExchange.y);
+    }
+    else
+    {
+        hi.real(toExchange.x);
+        hi.imag(toExchange.y);
+    }   
+}
+
+// ----------------------------------- End Utils -----------------------------------------------
+
 template<uint16_t ElementsPerInvocation, bool Inverse, typename Scalar, class device_capabilities=void>
 struct FFT;
 
 // For the FFT methods below, we assume:
-//      - Accessor is a global memory accessor to an array fitting 2 * _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT
-//      - SharedMemoryAccessor accesses a shared memory array that can fit _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar> 
+//      - Accessor is a global memory accessor to an array fitting 2 * _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT,
+//        that is, one "lo" and one "hi" complex numbers per thread, essentially 4 Scalars per thread. The data layout is assumed to be a whole array of real parts 
+//        followed by a whole array of imaginary parts. So it would be something like
+//        [x_0, x_1, ..., x_{2 * _NBL_HLSL_WORKGROUP_SIZE_}, y_0, y_1, ..., y_{2 * _NBL_HLSL_WORKGROUP_SIZE_}] 
+//      - SharedMemoryAccessor accesses a shared memory array that can fit _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar>, so 2 * _NBL_HLSL_WORKGROUP_SIZE_ Scalars 
 
 // 2 items per invocation forward specialization
 template<typename Scalar, class device_capabilities>
@@ -38,27 +64,8 @@ struct FFT<2,false, Scalar, device_capabilities>
     template<typename SharedMemoryAccessor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
     {
-        const bool topHalf = bool(threadID & stride);
-        vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
+        exchangeValues<SharedMemoryAccessor, Scalar>(lo, hi, threadID, stride, sharedmemAdaptor);
         
-        // Block memory writes until all threads are done with previous work
-        sharedmemAdaptor.workgroupExecutionAndMemoryBarrier();
-        sharedmemAdaptor.set(threadID, toTrade);
-        
-        // Wait until all writes are done before reading
-        sharedmemAdaptor.workgroupExecutionAndMemoryBarrier();
-        sharedmemAdaptor.get(threadID ^ stride, toTrade);
-        
-        if (topHalf)
-        {
-            lo.real(toTrade.x);
-            lo.imag(toTrade.y);
-        }
-        else
-        {
-            hi.real(toTrade.x);
-            hi.imag(toTrade.y);
-        }
         // Get twiddle with k = threadID mod stride, halfN = stride
         fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID & (stride - 1), stride), lo, hi);    
     }
@@ -84,20 +91,34 @@ struct FFT<2,false, Scalar, device_capabilities>
         complex_t<Scalar> lo = {loVec.x, loVec.y};  
         complex_t<Scalar> hi = {hiVec.x, hiVec.y};
 
-        // special first iteration
-        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
+        // special first iteration - only if workgroupsize > subgroupsize
+        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize())
             fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
 
         // Run bigger steps until Subgroup-sized
         for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
+        {   
+            // If at least one loop was executed, we must wait for all threads to get their values before we write to shared mem again
+            if ( !(stride & (_NBL_HLSL_WORKGROUP_SIZE_ >> 1)) )
+                sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
             FFT_loop<SharedMemoryAccessor>(stride, lo, hi, threadID, sharedmemAdaptor);
-        
+        }
+
+        // special last workgroup-shuffle - only if workgroupsize > subgroupsize
+        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize()) 
+        {
+            // Wait for all threads to be done with reads in the last loop before writing to shared mem      
+            sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
+            exchangeValues<SharedMemoryAccessor, Scalar>(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+        }       
+
         // Subgroup-sized FFT
         subgroup::FFT<false, Scalar, device_capabilities>::__call(lo, hi);
 
         // Put values back in global mem
         loVec = vector <Scalar, 2>(lo.real(), lo.imag());
         hiVec = vector <Scalar, 2>(hi.real(), hi.imag());
+
         memAdaptor.set(threadID, loVec);
         memAdaptor.set(threadID + _NBL_HLSL_WORKGROUP_SIZE_, hiVec);
 
@@ -119,27 +140,7 @@ struct FFT<2,true, Scalar, device_capabilities>
         // Get twiddle with k = threadID mod stride, halfN = stride
         fft::DIF<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID & (stride - 1), stride), lo, hi);     
     
-        const bool topHalf = bool(threadID & stride);
-        vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
-        
-        // Block memory writes until all threads are sync'd
-        sharedmemAdaptor.workgroupExecutionAndMemoryBarrier();
-        sharedmemAdaptor.set(threadID, toTrade);
-        
-        // Wait until all writes are done before reading
-        sharedmemAdaptor.workgroupExecutionAndMemoryBarrier();
-        sharedmemAdaptor.get(threadID ^ stride, toTrade);
-        
-        if (topHalf)
-        {
-            lo.real(toTrade.x);
-            lo.imag(toTrade.y);
-        }
-        else
-        {
-            hi.real(toTrade.x);
-            hi.imag(toTrade.y);
-        }  
+        exchangeValues<SharedMemoryAccessor, Scalar>(lo, hi, threadID, stride, sharedmemAdaptor);
     }
 
 
@@ -166,12 +167,22 @@ struct FFT<2,true, Scalar, device_capabilities>
         // Run a subgroup-sized FFT, then continue with bigger steps
         subgroup::FFT<true, Scalar, device_capabilities>::__call(lo, hi);
         
+        // special first workgroup-shuffle - only if workgroupsize > subgroupsize
+        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize()) 
+        { 
+            exchangeValues<SharedMemoryAccessor, Scalar>(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+        }
+
         // The bigger steps
         for (uint32_t stride = glsl::gl_SubgroupSize() << 1; stride < _NBL_HLSL_WORKGROUP_SIZE_; stride <<= 1)
+        {   
+            // If we enter this for loop, then the special first workgroup shuffle went through, so wait on that
+            sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
             FFT_loop<SharedMemoryAccessor>(stride, lo, hi, threadID, sharedmemAdaptor);
+        }
 
-        // special last iteration
-        if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
+        // special last iteration - only if workgroupsize > subgroupsize
+        if (_NBL_HLSL_WORKGROUP_SIZE_ ^ glsl::gl_SubgroupSize())
         {
             fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi); 
             divides_assign< complex_t<Scalar> > divAss;
