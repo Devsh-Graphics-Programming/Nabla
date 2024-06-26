@@ -35,7 +35,7 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
         struct to_string_impl<T>
         {
             inline std::string operator()(const T& object) {
-                return std::to_string(object.value);
+                return std::to_string(static_cast<int>(object.value));
             }
         };
 
