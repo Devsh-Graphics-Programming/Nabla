@@ -242,8 +242,8 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
             if 'type' in dict:
                 try:
                     dict["json_type"] = json_type 
-                    expose = "expose" in dict and dict["expose"] or "expose" not in dict
-                    if not expose:
+                    expose = "DISABLE" if "expose" in dict else "DEFAULT"
+                    if expose == "DISABLE":
                         continue
 
                     for param in line_format_params:
