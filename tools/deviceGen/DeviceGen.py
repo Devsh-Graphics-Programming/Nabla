@@ -112,7 +112,6 @@ def SubsetMethodHelper(dict, res):
 
     res.append(line)
 
-
 def buildSubsetMethod(**params):
     res = []
 
@@ -130,7 +129,6 @@ def transformFeaturesMethod(dict, op):
     if expose != "DEFAULT":
         raise ContinueEx
     return f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
-
 
 def buildFeaturesMethod(**params):
     res = []
@@ -163,6 +161,27 @@ def buildFeaturesMethod(**params):
 
     return res
 
+def formatBitflagType(type):
+    type = type.split("::")[-1]
+    type_parts = ''.join([c for c in type if c.isupper() or c == '_']).split('_')
+    resultant_type = type_parts[1].lower()
+    for type_part in type_parts[2:]:
+        resultant_type += type_part.capitalize()
+    return resultant_type
+
+def formatBitflagValue(type, value):
+    value_parts = value.split(" ")
+    temp_value_parts = []
+    for value_part in value_parts:
+        while (index := value_part.find("::")) != -1:
+            value_part = value_part[index+2:]
+        temp_value_parts.append(value_part)
+    for i in range(len(temp_value_parts)):
+        if temp_value_parts[i] == '|' or temp_value_parts[i] == '&':
+            continue
+        temp_value_parts[i] = type + "::" + temp_value_parts[i]
+    return ' '.join(temp_value_parts)
+
 def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_params):
     sectionHeaders = {
         "vulkan10core": "VK 1.0",
@@ -183,13 +202,18 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
         for dict in sectionContent:
             if 'type' in dict:
                 try:
-                    expose = "expose" in dict and dict["expose"] or "expose" not in dict
-                    if not expose:
+                    expose = "DISABLE" if "expose" in dict else "DEFAULT"
+                    if expose == "DISABLE":
                         continue
 
                     for param in line_format_params:
                         if param not in dict:
                             raise ContinueEx
+                        if param == "type" and dict[param].startswith("core::bitflag"):
+                            resultant_type = formatBitflagType(dict[param])
+                            if "value" in dict:
+                                dict["value"] = formatBitflagValue(resultant_type, dict["value"])
+                            dict['type'] = resultant_type
 
                     line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
                     res.append(line)
@@ -229,7 +253,6 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
                     res.append(line)
                 except ContinueEx:
                     continue
-
 
 def buildTraitsHeader(**params):
     res = []

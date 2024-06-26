@@ -162,7 +162,7 @@
 
     float minInterpolationOffset = -0.5;
 
-    float maxInterpolationOffset = 0.437500000;
+    float maxInterpolationOffset = 0.5f-exp2f(-MinSubPixelInterpolationOffsetBits);
 
     uint8_t subPixelInterpolationOffsetBits = MinSubPixelInterpolationOffsetBits;
 
@@ -251,7 +251,7 @@
 
     uint16_t subgroupSize = 4;
 
-    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::ESS_COMPUTE | asset::IShader::ESS_ALL_GRAPHICS;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = asset::IShader::E_SHADER_STAGE::ESS_COMPUTE | asset::IShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS;
 
     // ROADMAP2022 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!
     bool shaderSubgroupClustered = false;
@@ -488,7 +488,7 @@
 
     // ExternalMemoryHostPropertiesEXT
     // VK_EXT_external_memory_host
-    uint32_t minImportedHostPointerAlignment = 0x1 << 31;
+    uint32_t minImportedHostPointerAlignment = 0x1u << 31;
 
     // Nabla Core Profile
     // VK_EXT_shader_atomic_float
@@ -721,7 +721,7 @@
 
     // VK_KHR_cooperative_matrix
     // CooperativeMatrixPropertiesKHR
-    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::ESS_UNKNOWN;
+    core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
     // Core 1.0 Features
     // Always enabled if available, reported as limits

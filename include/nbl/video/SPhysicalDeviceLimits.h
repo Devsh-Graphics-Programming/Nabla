@@ -20,6 +20,7 @@ struct SPhysicalDeviceLimits
         EPCB_ALL_CLIP_PLANES = 0,
         EPCB_USER_CLIP_PLANES_ONLY = 1,
     };
+    using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
 
 	#include "nbl/video/SPhysicalDeviceLimits_members.h"
 

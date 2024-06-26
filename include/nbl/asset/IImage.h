@@ -15,6 +15,8 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
 
+#include "nbl/builtin/hlsl/enums.hlsl"
+
 #include <bitset>
 #include <compare>
 
@@ -110,16 +112,7 @@ class IImage : public IDescriptor
 			ET_3D,
 			ET_COUNT
 		};
-		enum E_SAMPLE_COUNT_FLAGS : uint8_t
-		{
-			ESCF_1_BIT = 0x01,
-			ESCF_2_BIT = 0x02,
-			ESCF_4_BIT = 0x04,
-			ESCF_8_BIT = 0x08,
-			ESCF_16_BIT = 0x10,
-			ESCF_32_BIT = 0x20,
-			ESCF_64_BIT = 0x40
-		};
+		using E_SAMPLE_COUNT_FLAGS = nbl::hlsl::SampleCountFlags;
 		enum E_USAGE_FLAGS : uint16_t
 		{
 			EUF_NONE = 0x0000,
@@ -354,7 +347,7 @@ class IImage : public IDescriptor
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-08866
 				if (_params.arrayLayers < 6u)
 					return false;
-				if (_params.samples != ESCF_1_BIT)
+				if (_params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					return false;
 			}
 
@@ -433,7 +426,7 @@ class IImage : public IDescriptor
 					return false;
 			}
 
-			if (_params.samples != ESCF_1_BIT)
+			if (_params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02257
 				if (_params.type != ET_2D || _params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT) || _params.mipLevels == 1u)
@@ -476,7 +469,7 @@ class IImage : public IDescriptor
 
 			if (asset::isPlanarFormat(_params.format))
 			{
-				if (_params.mipLevels > 1u || _params.samples != ESCF_1_BIT || _params.type != ET_2D)
+				if (_params.mipLevels > 1u || _params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT || _params.type != ET_2D)
 					return false;
 			}
 			else if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
@@ -489,7 +482,7 @@ class IImage : public IDescriptor
 			if (_params.usage.hasFlags(EUF_SHADING_RATE_ATTACHMENT_BIT))
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-02082
-				if (_params.type!=ET_2D || _params.samples!=ESCF_1_BIT)
+				if (_params.type!=ET_2D || _params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					return false;
 			}
 
@@ -681,7 +674,7 @@ class IImage : public IDescriptor
 			}
 			else
 			{
-				if (m_creationParams.samples!=ESCF_1_BIT)
+				if (m_creationParams.samples!=E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					die = true;
 			}
 			
@@ -850,8 +843,6 @@ class IImage : public IDescriptor
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
-NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_SAMPLE_COUNT_FLAGS)
-
 } // end namespace nbl::asset
 
 #endif

@@ -731,7 +731,7 @@
         {
             "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
             "name": "subgroupOpsShaderStages",
-            "value": "asset::IShader::ESS_COMPUTE | asset::IShader::ESS_ALL_GRAPHICS"
+            "value": "asset::IShader::E_SHADER_STAGE::ESS_COMPUTE | asset::IShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS"
         },
         {
             "type": "bool",
@@ -1342,7 +1342,7 @@
                 {
                     "type": "uint32_t",
                     "name": "minImportedHostPointerAlignment",
-                    "value": "0x1 << 31",
+                    "value": "0x1u << 31",
                     "compare": "REVERSE"
                 }
             ]
@@ -2167,7 +2167,7 @@
                 {
                     "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
                     "name": "cooperativeMatrixSupportedStages",
-                    "value": "asset::IShader::ESS_UNKNOWN"
+                    "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN"
                 }
             ]
         }

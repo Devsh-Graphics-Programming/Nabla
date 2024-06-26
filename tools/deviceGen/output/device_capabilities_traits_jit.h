@@ -77,7 +77,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t optimalBufferCopyRowPitchAlignment = )===" 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t nonCoherentAtomSize = )===" + CJITIncludeLoader::to_string(limits.nonCoherentAtomSize) + R"===(;
 // VK 1.1
 NBL_CONSTEXPR_STATIC_INLINE uint16_t subgroupSize = )===" + CJITIncludeLoader::to_string(limits.subgroupSize) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IShader::E_SHADER_STAGE> subgroupOpsShaderStages = )===" + CJITIncludeLoader::to_string(limits.subgroupOpsShaderStages) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE shaderStage subgroupOpsShaderStages = )===" + CJITIncludeLoader::to_string(limits.subgroupOpsShaderStages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClustered = )===" + CJITIncludeLoader::to_string(limits.shaderSubgroupClustered) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupArithmetic = )===" + CJITIncludeLoader::to_string(limits.shaderSubgroupArithmetic) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupQuad = )===" + CJITIncludeLoader::to_string(limits.shaderSubgroupQuad) + R"===(;
@@ -129,8 +129,8 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindDynamicOffse
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindImages = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetUpdateAfterBindImages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindStorageImages = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetUpdateAfterBindStorageImages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetUpdateAfterBindInputAttachments = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetUpdateAfterBindInputAttachments) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE core::bitflag<RESOLVE_MODE_FLAGS> supportedDepthResolveModes = )===" + CJITIncludeLoader::to_string(limits.supportedDepthResolveModes) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE core::bitflag<RESOLVE_MODE_FLAGS> supportedStencilResolveModes = )===" + CJITIncludeLoader::to_string(limits.supportedStencilResolveModes) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE modeFlags supportedDepthResolveModes = )===" + CJITIncludeLoader::to_string(limits.supportedDepthResolveModes) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE modeFlags supportedStencilResolveModes = )===" + CJITIncludeLoader::to_string(limits.supportedStencilResolveModes) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool independentResolveNone = )===" + CJITIncludeLoader::to_string(limits.independentResolveNone) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool independentResolve = )===" + CJITIncludeLoader::to_string(limits.independentResolve) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxTimelineSemaphoreValueDifference = )===" + CJITIncludeLoader::to_string(limits.maxTimelineSemaphoreValueDifference) + R"===(;
@@ -139,7 +139,7 @@ NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> f
 NBL_CONSTEXPR_STATIC_INLINE uint8_t minSubgroupSize = )===" + CJITIncludeLoader::to_string(limits.minSubgroupSize) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSubgroupSize = )===" + CJITIncludeLoader::to_string(limits.maxSubgroupSize) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkgroupSubgroups = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkgroupSubgroups) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IShader::E_SHADER_STAGE> requiredSubgroupSizeStages = )===" + CJITIncludeLoader::to_string(limits.requiredSubgroupSizeStages) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE shaderStage requiredSubgroupSizeStages = )===" + CJITIncludeLoader::to_string(limits.requiredSubgroupSizeStages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProduct8BitUnsignedAccelerated = )===" + CJITIncludeLoader::to_string(limits.integerDotProduct8BitUnsignedAccelerated) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProduct8BitSignedAccelerated = )===" + CJITIncludeLoader::to_string(limits.integerDotProduct8BitSignedAccelerated) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool integerDotProduct8BitMixedSignednessAccelerated = )===" + CJITIncludeLoader::to_string(limits.integerDotProduct8BitMixedSignednessAccelerated) + R"===(;

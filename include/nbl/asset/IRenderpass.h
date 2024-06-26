@@ -58,7 +58,7 @@ class IRenderpass
                 struct SAttachmentDescriptionBase
                 {
                     E_FORMAT format = EF_UNKNOWN;
-                    IImage::E_SAMPLE_COUNT_FLAGS samples : 6 = IImage::ESCF_1_BIT;
+                    IImage::E_SAMPLE_COUNT_FLAGS samples : 6 = IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
                     uint8_t mayAlias : 1 = false;
 
                     auto operator<=>(const SAttachmentDescriptionBase&) const = default;
@@ -163,14 +163,7 @@ class IRenderpass
                     };
                     struct SDepthStencilAttachmentsRef final : SRenderAttachmentsRef<SDepthStencilAttachmentRef>
                     {
-                        enum class RESOLVE_MODE : uint8_t
-                        {
-                            NONE = 0,
-                            SAMPLE_ZERO_BIT = 0x00000001,
-                            AVERAGE_BIT = 0x00000002,
-                            MIN_BIT = 0x00000004,
-                            MAX_BIT = 0x00000008
-                        };
+                        using RESOLVE_MODE = nbl::hlsl::ResolveModeFlags;
                         struct ResolveMode
                         {
                             auto operator<=>(const ResolveMode&) const = default;

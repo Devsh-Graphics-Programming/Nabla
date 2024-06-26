@@ -212,7 +212,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::E_SHADER_STAGE::ESS_COMPUTE;
 				bindings[i].samplers = nullptr;
 			}
 			return device->createDescriptorSetLayout(bindings);
