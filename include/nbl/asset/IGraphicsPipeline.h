@@ -107,7 +107,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                         if (!extra(info))
                             return false;
                         const auto stage = info.shader->getStage();
-                        if (stage>ICPUShader::ESS_FRAGMENT)
+                        if (stage>ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT)
                             return false;
                         if (stagePresence.hasFlags(stage))
                             return false;

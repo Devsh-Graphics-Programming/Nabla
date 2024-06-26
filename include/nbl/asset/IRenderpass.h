@@ -713,12 +713,12 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachment
         const auto& renderAttachment = descs[render.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03066
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03179
-        if (renderAttachment.samples!=IImage::ESCF_1_BIT)
+        if (renderAttachment.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
             return true;
         const auto& resolveAttachment = descs[resolve.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03067
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03180
-        if (resolveAttachment.samples==IImage::ESCF_1_BIT)
+        if (resolveAttachment.samples==IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
             return true;
         if constexpr (attachment_ref_t::IsDepthStencil)
         {
