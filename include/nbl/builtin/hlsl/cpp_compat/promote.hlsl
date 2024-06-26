@@ -1,6 +1,8 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_PROMOTE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_PROMOTE_INCLUDED_
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
+
 namespace nbl
 {
 namespace hlsl
@@ -8,6 +10,7 @@ namespace hlsl
 
 namespace impl
 {
+
 // partial specialize this for `T=matrix<scalar_t,,>|vector<scalar_t,>` and `U=matrix<scalar_t,,>|vector<scalar_t,>|scalar_t`
 template<typename T, typename U>
 struct Promote
@@ -20,76 +23,43 @@ struct Promote
 
 #ifdef __HLSL_VERSION
 
-// TODO: write this scalar-type agnostic!
-template<typename U>
-struct Promote<float32_t1,U>
+template<typename Scalar, typename U>
+struct Promote<vector <Scalar, 1>, U>
 {
-    float32_t1 operator()(U v)
+    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 1> > operator()(U v)
     {
-        return float32_t1(v);
+        vector <Scalar, 1> promoted = {Scalar(v)};
+        return promoted;
     }
 };
 
-template<typename U>
-struct Promote<float32_t2, U>
+template<typename Scalar, typename U>
+struct Promote<vector <Scalar, 2>, U>
 {
-    float32_t2 operator()(U v)
+    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 2> > operator()(U v)
     {
-        return float32_t2(v, v);
+        vector <Scalar, 2> promoted = {Scalar(v), Scalar(v)};
+        return promoted;
     }
 };
 
-template<typename U>
-struct Promote<float32_t3, U>
+template<typename Scalar, typename U>
+struct Promote<vector <Scalar, 3>, U>
 {
-    float32_t3 operator()(U v)
+    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 3> > operator()(U v)
     {
-        return float32_t3(v, v, v);
+        vector <Scalar, 3> promoted = {Scalar(v), Scalar(v), Scalar(v)};
+        return promoted;
     }
 };
 
-template<typename U>
-struct Promote<float32_t4, U>
+template<typename Scalar, typename U>
+struct Promote<vector <Scalar, 4>, U>
 {
-    float32_t4 operator()(U v)
+    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 4> > operator()(U v)
     {
-        return float32_t4(v, v, v, v);
-    }
-};
-
-template<typename U>
-struct Promote<float64_t1,U>
-{
-    float64_t1 operator()(U v)
-    {
-        return float64_t1(v);
-    }
-};
-
-template<typename U>
-struct Promote<float64_t2, U>
-{
-    float64_t2 operator()(U v)
-    {
-        return float64_t2(v, v);
-    }
-};
-
-template<typename U>
-struct Promote<float64_t3, U>
-{
-    float64_t3 operator()(U v)
-    {
-        return float64_t3(v, v, v);
-    }
-};
-
-template<typename U>
-struct Promote<float64_t4, U>
-{
-    float64_t4 operator()(U v)
-    {
-        return float64_t4(v, v, v, v);
+        vector <Scalar, 4> promoted = {Scalar(v), Scalar(v), Scalar(v), Scalar(v)};
+        return promoted;
     }
 };
 
