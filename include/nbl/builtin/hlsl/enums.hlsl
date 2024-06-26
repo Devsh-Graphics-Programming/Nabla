@@ -52,9 +52,21 @@ enum class ResolveModeFlags : uint16_t
     MAX_BIT = 0x00000008
 };
 
+enum class SpirvVersion : uint32_t
+{
+    ESV_1_0 = 0x010000u,
+    ESV_1_1 = 0x010100u,
+    ESV_1_2 = 0x010200u,
+    ESV_1_3 = 0x010300u,
+    ESV_1_4 = 0x010400u,
+    ESV_1_5 = 0x010500u,
+    ESV_1_6 = 0x010600u,
+};
+
 NBL_ENUM_ADD_BITWISE_OPERATORS(ShaderStage)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SampleCountFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(ResolveModeFlags)
+NBL_ENUM_ADD_BITWISE_OPERATORS(SpirvVersion)
 
 }
 }
