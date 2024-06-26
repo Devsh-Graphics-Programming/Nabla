@@ -47,7 +47,7 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
             }
         };
 
-        template<typename T> requires nbl::hlsl::is_vector_v<std::remove_cvref_t<T>>
+        template<typename T> requires nbl::hlsl::Vector<std::remove_cvref_t<T>>
         struct to_string_impl<T>
         {
             inline std::string operator()(const T& object) {
