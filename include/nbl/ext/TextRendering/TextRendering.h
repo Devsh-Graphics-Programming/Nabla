@@ -102,6 +102,8 @@ public:
 
 	FT_Library& getFreetypeLibrary() { return m_ftLibrary; }
 
+	const uint32_t GetPixelRange() { return msdfPixelRange; }
+
 protected:
 	uint32_t msdfPixelRange;
 	FT_Library m_ftLibrary;

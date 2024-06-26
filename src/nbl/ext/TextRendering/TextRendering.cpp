@@ -121,16 +121,15 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::Face::generateGlyphUploadInfo(T
 
 	auto shapeBounds = shape.getBounds();
 
-	auto expansionAmount = textRenderer->msdfPixelRange;
 	float32_t2 frameSize = float32_t2(
 		(shapeBounds.r - shapeBounds.l),
 		(shapeBounds.t - shapeBounds.b)
 	);
 	float32_t2 scale = float32_t2(
-		float(msdfExtents.x - 2.0 * expansionAmount) / (frameSize.x),
-		float(msdfExtents.y - 2.0 * expansionAmount) / (frameSize.y)
+		float(msdfExtents.x) / (frameSize.x),
+		float(msdfExtents.y) / (frameSize.y)
 	);
-	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
+	float32_t2 translate = float32_t2(-shapeBounds.l, -shapeBounds.b);
 
 	return textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate);
 }
