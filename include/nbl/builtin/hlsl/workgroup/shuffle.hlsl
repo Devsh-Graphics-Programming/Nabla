@@ -18,8 +18,29 @@ namespace workgroup
 {
 
 
-template<typename SharedMemoryAccessor, typename Scalar, uint32_t N = 1>
-void shuffleXor(NBL_REF_ARG(vector <Scalar, N>) value, uint32_t mask, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
+template<typename SharedMemoryAccessor, typename T>
+struct shuffleXor
+{
+    static void __call(NBL_REF_ARG(T) value, uint32_t mask, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
+    {
+        sharedmemAdaptor.set(threadID, value);
+        
+        // Wait until all writes are done before reading
+        sharedmemAdaptor.workgroupExecutionAndMemoryBarrier();
+    
+        sharedmemAdaptor.get(threadID ^ mask, value);
+    }
+
+    static void __call(NBL_REF_ARG(T) value, uint32_t mask, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
+    {
+        __call(value, mask, uint32_t(SubgroupContiguousIndex()), sharedmemAdaptor);
+    }
+};
+
+/*
+
+template<typename SharedMemoryAccessor, typename T>
+void shuffleXor(NBL_REF_ARG(T) value, uint32_t mask, uint32_t threadID, NBL_REF_ARG(MemoryAdaptor<SharedMemoryAccessor>) sharedmemAdaptor)
 {
     sharedmemAdaptor.set(threadID, value);
         
@@ -29,6 +50,7 @@ void shuffleXor(NBL_REF_ARG(vector <Scalar, N>) value, uint32_t mask, uint32_t t
     sharedmemAdaptor.get(threadID ^ mask, value);
 }
 
+*/
 
 }
 }
