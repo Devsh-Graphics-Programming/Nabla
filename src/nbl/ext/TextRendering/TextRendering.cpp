@@ -112,7 +112,7 @@ msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
 	return shape;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
+TextRenderer::Face::GeneratedGlyphShape TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
 {
 	auto shape = generateGlyphShape(glyphId);
 
@@ -125,13 +125,24 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::Face::generateGlyphUploadInfo(T
 		(shapeBounds.r - shapeBounds.l),
 		(shapeBounds.t - shapeBounds.b)
 	);
+	uint32_t biggerAxis = frameSize.y > frameSize.x ? 1 : 0;
+	uint32_t smallerAxis = 1 - biggerAxis;
+
+	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
 	float32_t2 scale = float32_t2(
 		float(msdfExtents.x) / (frameSize.x),
 		float(msdfExtents.y) / (frameSize.y)
 	);
-	float32_t2 translate = float32_t2(-shapeBounds.l, -shapeBounds.b);
+	scale[smallerAxis] *= smallerSizeRatio;
 
-	return textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate);
+	float32_t2 translate = float32_t2(-shapeBounds.l, -shapeBounds.b);
+	translate[smallerAxis] += (1.0 - smallerSizeRatio) * 0.5 * float(msdfExtents[smallerAxis] - textRenderer->msdfPixelRange * 2.0);
+
+	return {
+		.msdfBitmap = textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate),
+		.smallerSizeRatio = smallerSizeRatio,
+		.biggerAxis = biggerAxis,
+	};
 }
 
 }

@@ -68,7 +68,13 @@ public:
 
 		msdfgen::Shape generateGlyphShape(uint32_t glyphId);
 
-		core::smart_refctd_ptr<ICPUBuffer> generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
+		struct GeneratedGlyphShape
+		{
+			core::smart_refctd_ptr<ICPUBuffer> msdfBitmap;
+			float32_t smallerSizeRatio;
+			uint32_t biggerAxis;
+		};
+		GeneratedGlyphShape generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
 
 		// TODO: Should be private
 		FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
