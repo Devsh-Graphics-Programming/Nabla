@@ -10,8 +10,8 @@ class ContinueEx(Exception):
 ExposeStatus = IntFlag("Expose", ["DEFAULT", "DISABLE", "MOVE_TO_LIMIT"])
 CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 
-def computeCompareStatus(compareString):
-    return eval(sub(r"\w+", lambda s: f"CompareStatus['{s.group(0)}']", compareString))
+def computeStatus(status, string):
+    return eval(sub(r"\w+", lambda s: f"{status[f"{s.group(0)}"]}", string))
 
 def loadJSON(file_path):
     try:
@@ -41,7 +41,7 @@ def buildComment(comment, res, sectionName):
         res.append(line)
 
 def buildVariable(variable, res, sectionName, insideComment = False):
-    expose = ExposeStatus[variable["expose"] if "expose" in variable else "DEFAULT"]
+    expose = computeStatus(ExposeStatus, variable["expose"] if "expose" in variable else "DEFAULT")
     formattedValue = formatValue(variable['value'])
     exposeDeclaration = "// " if expose != ExposeStatus.DEFAULT else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
@@ -76,8 +76,8 @@ def buildDeviceHeader(**params):
     return res
 
 def SubsetMethodHelper(dict, res):
-    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
-    compare = computeCompareStatus(dict['compare'] if "compare" in dict else "DEFAULT")
+    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
+    compare = computeStatus(CompareStatus, dict['compare'] if "compare" in dict else "DEFAULT")
     if CompareStatus.SKIP in compare  or expose == ExposeStatus.DISABLE:
         return
     line = "    "
@@ -139,7 +139,7 @@ def buildSubsetMethod(**params):
     return res
 
 def transformFeaturesMethod(dict, op):
-    expose = ExposeStatus[dict['expose'] if "expose" in dict else "DEFAULT"]
+    expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
     if expose != "DEFAULT":
         raise ContinueEx
     return f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
@@ -216,7 +216,7 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
         for dict in sectionContent:
             if 'type' in dict:
                 try:
-                    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
+                    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
                     if expose == ExposeStatus.DISABLE:
                         continue
 
@@ -261,7 +261,7 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
             if 'type' in dict:
                 try:
                     dict["json_type"] = json_type 
-                    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
+                    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
                     if expose == ExposeStatus.DISABLE:
                         continue
 
