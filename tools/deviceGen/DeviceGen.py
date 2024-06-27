@@ -1,10 +1,17 @@
 import json
-from re import search
+from re import search, sub
+from enum import IntFlag
 
 emptyline = f""
 
 class ContinueEx(Exception):
     pass
+
+ExposeStatus = IntFlag("Expose", ["DEFAULT", "DISABLE", "MOVE_TO_LIMIT"])
+CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
+
+def computeCompareStatus(compareString):
+    return eval(sub(r"\w+", lambda s: f"CompareStatus['{s.group(0)}']", compareString))
 
 def loadJSON(file_path):
     try:
@@ -34,14 +41,14 @@ def buildComment(comment, res, sectionName):
         res.append(line)
 
 def buildVariable(variable, res, sectionName, insideComment = False):
-    expose = variable["expose"] if "expose" in variable else "DEFAULT"
+    expose = ExposeStatus[variable["expose"] if "expose" in variable else "DEFAULT"]
     formattedValue = formatValue(variable['value'])
-    exposeDeclaration = "// " if expose != "DEFAULT" else ""
+    exposeDeclaration = "// " if expose != ExposeStatus.DEFAULT else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
     valueDeclaration = f" = {formattedValue}" if variable['value'] != None else ""
     commentDeclaration = variable["comment"] if "comment" in variable else ""
     returnObj = {}
-    if expose == "DISABLE" and formattedValue:
+    if expose == ExposeStatus.DISABLE and formattedValue:
         if insideComment:
             if not commentDeclaration:
                 commentDeclaration = "[REQUIRE]"
@@ -69,13 +76,12 @@ def buildDeviceHeader(**params):
     return res
 
 def SubsetMethodHelper(dict, res):
-    expose = "DISABLE" if "expose" in dict else "DEFAULT"
-    compareExpose = "DISABLE" if "compareExpose" in dict else "DEFAULT"
-    compare = dict['compare'] if "compare" in dict else "DEFAULT"
-    if compare == "SKIP" or expose == "DISABLE":
+    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
+    compare = computeCompareStatus(dict['compare'] if "compare" in dict else "DEFAULT")
+    if CompareStatus.SKIP in compare  or expose == ExposeStatus.DISABLE:
         return
     line = "    "
-    if compareExpose == "DISABLE":
+    if CompareStatus.DISABLE in compare:
         line += "// "
     numeric_types = ['uint8_t', 'uint16_t', 'uint32_t', 'uint64_t', 'size_t', 'int8_t', 'int32_t', 'float', 'asset::CGLSLCompiler::E_SPIRV_VERSION']
     if dict['type'] in numeric_types:
@@ -93,7 +99,7 @@ def SubsetMethodHelper(dict, res):
                     lines[i] += f"if ({array_name}[{i}] > _rhs.{array_name}[{i}]) return false;"
                 line = "\n".join(lines)
         else:
-            signDeclaration = "<" if compare == "REVERSE" else ">"
+            signDeclaration = "<" if CompareStatus.REVERSE in compare else ">"
             line += f"if ({dict['name']} {signDeclaration} _rhs.{dict['name']}) return false;"
     elif dict['type'].startswith("core::bitflag<"):
         line += f"if (!_rhs.{dict['name']}.hasFlags({dict['name']})) return false;"
@@ -105,7 +111,7 @@ def SubsetMethodHelper(dict, res):
         lines = [line, line]
         for i in range(2):
             componentDeclaration = ".x" if (i == 0) else ".y"
-            signDeclaration = "<" if compare == "REVERSE" else ">"
+            signDeclaration = "<" if CompareStatus.REVERSE in compare else ">"
             lines[i] = f"if ({dict['name']}{componentDeclaration} {signDeclaration} _rhs.{dict['name']}{componentDeclaration}) return false;"
         line = "\n".join(lines)
 
@@ -133,7 +139,7 @@ def buildSubsetMethod(**params):
     return res
 
 def transformFeaturesMethod(dict, op):
-    expose = dict['expose'] if "expose" in dict else "DEFAULT"
+    expose = ExposeStatus[dict['expose'] if "expose" in dict else "DEFAULT"]
     if expose != "DEFAULT":
         raise ContinueEx
     return f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
@@ -210,8 +216,8 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
         for dict in sectionContent:
             if 'type' in dict:
                 try:
-                    expose = "DISABLE" if "expose" in dict else "DEFAULT"
-                    if expose == "DISABLE":
+                    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
+                    if expose == ExposeStatus.DISABLE:
                         continue
 
                     for param in line_format_params:
@@ -255,8 +261,8 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
             if 'type' in dict:
                 try:
                     dict["json_type"] = json_type 
-                    expose = "DISABLE" if "expose" in dict else "DEFAULT"
-                    if expose == "DISABLE":
+                    expose = ExposeStatus["DISABLE" if "expose" in dict else "DEFAULT"]
+                    if expose == ExposeStatus.DISABLE:
                         continue
 
                     for param in line_format_params:

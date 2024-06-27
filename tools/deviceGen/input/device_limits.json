@@ -594,8 +594,7 @@
                     "type": "float",
                     "name": "timestampPeriodInNanoSeconds",
                     "value": 83.334,
-                    "compare": "REVERSE",
-                    "compareExpose": "DISABLE",
+                    "compare": "REVERSE | DISABLE",
                     "comment": "timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future"
                 }
             ]
@@ -725,7 +724,7 @@
             "type": "uint16_t",
             "name": "subgroupSize",
             "value": "4",
-            "compareExpose": "DISABLE"
+            "compare": "DISABLE"
 
         },
         {
@@ -1297,7 +1296,7 @@
                 {
                     "type": "uint64_t",
                     "name": "storageTexelBufferOffsetAlignmentBytes",
-                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max()",
+                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max",
                     "compare": "REVERSE"
                 },
                 {
@@ -1309,7 +1308,7 @@
                 {
                     "type": "uint64_t",
                     "name": "uniformTexelBufferOffsetAlignmentBytes",
-                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max()",
+                    "value": "nbl::hlsl::numeric_limits<uint64_t>::max",
                     "compare": "REVERSE"
                 },
                 {
@@ -1544,7 +1543,7 @@
                 {
                     "type": "float",
                     "name": "extraPrimitiveOverestimationSizeGranularity",
-                    "value": "nbl::hlsl::numeric_limits<float>::infinity()",
+                    "value": "nbl::hlsl::numeric_limits<float>::infinity",
                     "compare": "REVERSE"
                 },
                 {
