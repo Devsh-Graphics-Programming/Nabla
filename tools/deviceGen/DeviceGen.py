@@ -11,7 +11,7 @@ ExposeStatus = IntFlag("Expose", ["DEFAULT", "DISABLE", "MOVE_TO_LIMIT"])
 CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 
 def computeStatus(status, string):
-    return eval(sub(r"\w+", lambda s: f"{status[f"{s.group(0)}"]}", string))
+    return status(eval(sub(r"\w+", lambda s: f"{status[f"{s.group(0)}"]}", string)))
 
 def loadJSON(file_path):
     try:
@@ -46,22 +46,26 @@ def buildVariable(variable, res, sectionName, insideComment = False):
     exposeDeclaration = "// " if expose != ExposeStatus.DEFAULT else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
     valueDeclaration = f" = {formattedValue}" if variable['value'] != None else ""
-    commentDeclaration = variable["comment"] if "comment" in variable else ""
-    returnObj = {}
-    if expose == ExposeStatus.DISABLE and formattedValue:
-        if insideComment:
-            if not commentDeclaration:
-                commentDeclaration = "[REQUIRE]"
-            else:
-                commentDeclaration = "[REQUIRE] " + commentDeclaration
-        else:
-            returnObj["require"] = True
 
-    if commentDeclaration:
-        res.append("    // " + commentDeclaration)
+    commentDeclaration = []
+    returnObj = {}
+
+    if expose == ExposeStatus.DISABLE and formattedValue:
+        if not insideComment:
+            commentDeclaration.append("[REQUIRE]")
+        else:
+            returnObj['require'] = True
+    if "comment" in variable:
+        for comment in variable["comment"]:
+            commentDeclaration.append(comment)
+
+    for comment in commentDeclaration:
+        res.append("    // " + comment)
 
     line = f"    {exposeDeclaration}{constexprDeclaration}{variable['type']} {variable['name']}{valueDeclaration};"
     res.append(line)
+
+    return returnObj
 
 def buildDeviceHeader(**params):
     res = []
