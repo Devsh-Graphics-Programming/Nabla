@@ -7,6 +7,8 @@
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/IRenderpass.h"
 
+#include "nbl/builtin/hlsl/limits.hlsl"
+
 #include <type_traits>
 
 
