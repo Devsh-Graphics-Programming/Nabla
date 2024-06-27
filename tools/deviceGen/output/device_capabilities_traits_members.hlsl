@@ -189,8 +189,7 @@ NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = impl::get_or_default_dispatchBas
 NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = impl::get_or_default_allowCommandBufferQueryCopies<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = impl::get_or_default_maxOptimallyResidentWorkgroupInvocations<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = impl::get_or_default_maxResidentInvocations<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = impl::get_or_default_spirvVersion<device_capabilities>::value;
-
+NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = impl::get_or_default_spirvVersion<device_capabilities>::value;
 // Features Members
 // VK 1.0
 NBL_CONSTEXPR_STATIC_INLINE bool robustBufferAccess = impl::get_or_default_robustBufferAccess<device_capabilities>::value;

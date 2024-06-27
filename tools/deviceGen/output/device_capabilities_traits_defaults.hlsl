@@ -189,8 +189,7 @@ NBL_GENERATE_GET_OR_DEFAULT(dispatchBase, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(allowCommandBufferQueryCopies, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(maxOptimallyResidentWorkgroupInvocations, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxResidentInvocations, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(spirvVersion, asset::CGLSLCompiler::E_SPIRV_VERSION, asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6);
-
+NBL_GENERATE_GET_OR_DEFAULT(spirvVersion, spirvVersion, spirvVersion::ESV_1_6);
 // Features Defaults
 // VK 1.0
 NBL_GENERATE_GET_OR_DEFAULT(robustBufferAccess, bool, false);

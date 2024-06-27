@@ -190,7 +190,6 @@ NBL_GENERATE_MEMBER_TESTER(allowCommandBufferQueryCopies);
 NBL_GENERATE_MEMBER_TESTER(maxOptimallyResidentWorkgroupInvocations);
 NBL_GENERATE_MEMBER_TESTER(maxResidentInvocations);
 NBL_GENERATE_MEMBER_TESTER(spirvVersion);
-
 // Features Testers
 // VK 1.0
 NBL_GENERATE_MEMBER_TESTER(robustBufferAccess);

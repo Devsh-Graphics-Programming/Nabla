@@ -13,8 +13,6 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t maxPushConstantsSize = )===" + CJITIncludeL
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxMemoryAllocationCount = )===" + CJITIncludeLoader::to_string(limits.maxMemoryAllocationCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSamplerAllocationCount = )===" + CJITIncludeLoader::to_string(limits.maxSamplerAllocationCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t bufferImageGranularity = )===" + CJITIncludeLoader::to_string(limits.bufferImageGranularity) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint64_t sparseAddressSpaceSize = )===" + CJITIncludeLoader::to_string(limits.sparseAddressSpaceSize) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxBoundDescriptorSets = )===" + CJITIncludeLoader::to_string(limits.maxBoundDescriptorSets) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxPerStageDescriptorSamplers = )===" + CJITIncludeLoader::to_string(limits.maxPerStageDescriptorSamplers) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxPerStageDescriptorUBOs = )===" + CJITIncludeLoader::to_string(limits.maxPerStageDescriptorUBOs) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxPerStageDescriptorSSBOs = )===" + CJITIncludeLoader::to_string(limits.maxPerStageDescriptorSSBOs) + R"===(;
@@ -30,16 +28,11 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetDynamicOffsetSSBOs = )===" 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetImages = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetImages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetStorageImages = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetStorageImages) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDescriptorSetInputAttachments = )===" + CJITIncludeLoader::to_string(limits.maxDescriptorSetInputAttachments) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint8_t maxVertexInputAttributes = )===" + CJITIncludeLoader::to_string(limits.maxVertexInputAttributes) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint8_t maxVertexInputBindings = )===" + CJITIncludeLoader::to_string(limits.maxVertexInputBindings) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxVertexInputAttributeOffset = )===" + CJITIncludeLoader::to_string(limits.maxVertexInputAttributeOffset) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxVertexInputBindingStride = )===" + CJITIncludeLoader::to_string(limits.maxVertexInputBindingStride) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxVertexOutputComponents = )===" + CJITIncludeLoader::to_string(limits.maxVertexOutputComponents) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[3] = )===" + CJITIncludeLoader::to_string(limits.maxWorkgroupSize[3]) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subPixelPrecisionBits = )===" + CJITIncludeLoader::to_string(limits.subPixelPrecisionBits) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subTexelPrecisionBits = )===" + CJITIncludeLoader::to_string(limits.subTexelPrecisionBits) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t mipmapPrecisionBits = )===" + CJITIncludeLoader::to_string(limits.mipmapPrecisionBits) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDrawIndexedIndexValue = )===" + CJITIncludeLoader::to_string(limits.maxDrawIndexedIndexValue) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDrawIndirectCount = )===" + CJITIncludeLoader::to_string(limits.maxDrawIndirectCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE float maxSamplerLodBias = )===" + CJITIncludeLoader::to_string(limits.maxSamplerLodBias) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSamplerAnisotropyLog2 = )===" + CJITIncludeLoader::to_string(limits.maxSamplerAnisotropyLog2) + R"===(;
@@ -85,14 +78,9 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupQuadAllStages = )===" + CJITInclu
 NBL_CONSTEXPR_STATIC_INLINE E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = )===" + CJITIncludeLoader::to_string(limits.pointClippingBehavior) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxMultiviewViewCount = )===" + CJITIncludeLoader::to_string(limits.maxMultiviewViewCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxMultiviewInstanceIndex = )===" + CJITIncludeLoader::to_string(limits.maxMultiviewInstanceIndex) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool protectedNoFault = )===" + CJITIncludeLoader::to_string(limits.protectedNoFault) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxPerSetDescriptors = )===" + CJITIncludeLoader::to_string(limits.maxPerSetDescriptors) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxMemoryAllocationSize = )===" + CJITIncludeLoader::to_string(limits.maxMemoryAllocationSize) + R"===(;
 // VK 1.2
-NBL_CONSTEXPR_STATIC_INLINE VkShaderFloatControlsIndependence denormBehaviorIndependence = )===" + CJITIncludeLoader::to_string(limits.denormBehaviorIndependence) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE VkShaderFloatControlsIndependence roundingModeIndependence = )===" + CJITIncludeLoader::to_string(limits.roundingModeIndependence) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderSignedZeroInfNanPreserveFloat16 = )===" + CJITIncludeLoader::to_string(limits.shaderSignedZeroInfNanPreserveFloat16) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderSignedZeroInfNanPreserveFloat32 = )===" + CJITIncludeLoader::to_string(limits.shaderSignedZeroInfNanPreserveFloat32) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSignedZeroInfNanPreserveFloat64 = )===" + CJITIncludeLoader::to_string(limits.shaderSignedZeroInfNanPreserveFloat64) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderDenormPreserveFloat16 = )===" + CJITIncludeLoader::to_string(limits.shaderDenormPreserveFloat16) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderDenormPreserveFloat32 = )===" + CJITIncludeLoader::to_string(limits.shaderDenormPreserveFloat32) + R"===(;
@@ -133,8 +121,6 @@ NBL_CONSTEXPR_STATIC_INLINE modeFlags supportedDepthResolveModes = )===" + CJITI
 NBL_CONSTEXPR_STATIC_INLINE modeFlags supportedStencilResolveModes = )===" + CJITIncludeLoader::to_string(limits.supportedStencilResolveModes) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool independentResolveNone = )===" + CJITIncludeLoader::to_string(limits.independentResolveNone) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool independentResolve = )===" + CJITIncludeLoader::to_string(limits.independentResolve) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint64_t maxTimelineSemaphoreValueDifference = )===" + CJITIncludeLoader::to_string(limits.maxTimelineSemaphoreValueDifference) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = )===" + CJITIncludeLoader::to_string(limits.framebufferIntegerColorSampleCounts) + R"===(;
 // VK 1.3
 NBL_CONSTEXPR_STATIC_INLINE uint8_t minSubgroupSize = )===" + CJITIncludeLoader::to_string(limits.minSubgroupSize) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSubgroupSize = )===" + CJITIncludeLoader::to_string(limits.maxSubgroupSize) + R"===(;
@@ -204,59 +190,20 @@ NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = )===" + CJITIncludeLoader::to_st
 NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = )===" + CJITIncludeLoader::to_string(limits.allowCommandBufferQueryCopies) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = )===" + CJITIncludeLoader::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = )===" + CJITIncludeLoader::to_string(limits.maxResidentInvocations) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = )===" + CJITIncludeLoader::to_string(limits.spirvVersion) + R"===(;
-
+NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = )===" + CJITIncludeLoader::to_string(limits.spirvVersion) + R"===(;
 // Features JIT Members
 // VK 1.0
 NBL_CONSTEXPR_STATIC_INLINE bool robustBufferAccess = )===" + CJITIncludeLoader::to_string(features.robustBufferAccess) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool sampleRateShading = )===" + CJITIncludeLoader::to_string(features.sampleRateShading) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool dualSrcBlend = )===" + CJITIncludeLoader::to_string(features.dualSrcBlend) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool logicOp = )===" + CJITIncludeLoader::to_string(features.logicOp) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool fillModeNonSolid = )===" + CJITIncludeLoader::to_string(features.fillModeNonSolid) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool depthBounds = )===" + CJITIncludeLoader::to_string(features.depthBounds) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool wideLines = )===" + CJITIncludeLoader::to_string(features.wideLines) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool largePoints = )===" + CJITIncludeLoader::to_string(features.largePoints) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool alphaToOne = )===" + CJITIncludeLoader::to_string(features.alphaToOne) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool multiViewport = )===" + CJITIncludeLoader::to_string(features.multiViewport) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool samplerAnisotropy = )===" + CJITIncludeLoader::to_string(features.samplerAnisotropy) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool occlusionQueryPrecise = )===" + CJITIncludeLoader::to_string(features.occlusionQueryPrecise) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool pipelineStatisticsQuery = )===" + CJITIncludeLoader::to_string(features.pipelineStatisticsQuery) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderImageGatherExtended = )===" + CJITIncludeLoader::to_string(features.shaderImageGatherExtended) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageImageExtendedFormats = )===" + CJITIncludeLoader::to_string(features.shaderStorageImageExtendedFormats) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageImageMultisample = )===" + CJITIncludeLoader::to_string(features.shaderStorageImageMultisample) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageImageWriteWithoutFormat = )===" + CJITIncludeLoader::to_string(features.shaderStorageImageWriteWithoutFormat) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageImageArrayDynamicIndexing = )===" + CJITIncludeLoader::to_string(features.shaderStorageImageArrayDynamicIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderClipDistance = )===" + CJITIncludeLoader::to_string(features.shaderClipDistance) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderCullDistance = )===" + CJITIncludeLoader::to_string(features.shaderCullDistance) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderFloat64 = )===" + CJITIncludeLoader::to_string(features.shaderFloat64) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderInt64 = )===" + CJITIncludeLoader::to_string(features.shaderInt64) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderInt16 = )===" + CJITIncludeLoader::to_string(features.shaderInt16) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool variableMultisampleRate = )===" + CJITIncludeLoader::to_string(features.variableMultisampleRate) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool inheritedQueries = )===" + CJITIncludeLoader::to_string(features.inheritedQueries) + R"===(;
 // VK 1.1
-NBL_CONSTEXPR_STATIC_INLINE bool storageBuffer16BitAccess = )===" + CJITIncludeLoader::to_string(features.storageBuffer16BitAccess) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool uniformAndStorageBuffer16BitAccess = )===" + CJITIncludeLoader::to_string(features.uniformAndStorageBuffer16BitAccess) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool multiview = )===" + CJITIncludeLoader::to_string(features.multiview) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool protectedMemory = )===" + CJITIncludeLoader::to_string(features.protectedMemory) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool samplerYcbcrConversion = )===" + CJITIncludeLoader::to_string(features.samplerYcbcrConversion) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderDrawParameters = )===" + CJITIncludeLoader::to_string(features.shaderDrawParameters) + R"===(;
 // VK 1.2
-NBL_CONSTEXPR_STATIC_INLINE bool uniformAndStorageBuffer8BitAccess = )===" + CJITIncludeLoader::to_string(features.uniformAndStorageBuffer8BitAccess) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool storagePushConstant8 = )===" + CJITIncludeLoader::to_string(features.storagePushConstant8) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderInt8 = )===" + CJITIncludeLoader::to_string(features.shaderInt8) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool descriptorIndexing = )===" + CJITIncludeLoader::to_string(features.descriptorIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderInputAttachmentArrayDynamicIndexing = )===" + CJITIncludeLoader::to_string(features.shaderInputAttachmentArrayDynamicIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderUniformBufferArrayNonUniformIndexing = )===" + CJITIncludeLoader::to_string(features.shaderUniformBufferArrayNonUniformIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageImageArrayNonUniformIndexing = )===" + CJITIncludeLoader::to_string(features.shaderStorageImageArrayNonUniformIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderInputAttachmentArrayNonUniformIndexing = )===" + CJITIncludeLoader::to_string(features.shaderInputAttachmentArrayNonUniformIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderUniformTexelBufferArrayNonUniformIndexing = )===" + CJITIncludeLoader::to_string(features.shaderUniformTexelBufferArrayNonUniformIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool shaderStorageTexelBufferArrayNonUniformIndexing = )===" + CJITIncludeLoader::to_string(features.shaderStorageTexelBufferArrayNonUniformIndexing) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool bufferDeviceAddressCaptureReplay = )===" + CJITIncludeLoader::to_string(features.bufferDeviceAddressCaptureReplay) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool bufferDeviceAddressMultiDevice = )===" + CJITIncludeLoader::to_string(features.bufferDeviceAddressMultiDevice) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool vulkanMemoryModelAvailabilityVisibilityChains = )===" + CJITIncludeLoader::to_string(features.vulkanMemoryModelAvailabilityVisibilityChains) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool subgroupBroadcastDynamicId = )===" + CJITIncludeLoader::to_string(features.subgroupBroadcastDynamicId) + R"===(;
 // VK 1.3
-NBL_CONSTEXPR_STATIC_INLINE bool descriptorBindingInlineUniformBlockUpdateAfterBind = )===" + CJITIncludeLoader::to_string(features.descriptorBindingInlineUniformBlockUpdateAfterBind) + R"===(;
 // Nabla Core Extensions
 NBL_CONSTEXPR_STATIC_INLINE bool robustBufferAccess2 = )===" + CJITIncludeLoader::to_string(features.robustBufferAccess2) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool robustImageAccess2 = )===" + CJITIncludeLoader::to_string(features.robustImageAccess2) + R"===(;
