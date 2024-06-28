@@ -433,10 +433,6 @@
     // VK_EXT_post_depth_coverage
     bool postDepthCoverage = false;
 
-    // VK_KHR_shader_clock
-    // ShaderClockFeaturesKHR
-    bool shaderDeviceClock = false;
-
     // ComputeShaderDerivativesFeaturesNV
     // VK_NV_compute_shader_derivatives
     bool computeDerivativeGroupQuads = false;
@@ -445,10 +441,6 @@
     // VK_NV_shader_image_footprint
     // ShaderImageFootprintFeaturesNV
     bool imageFootprint = false;
-
-    // VK_INTEL_shader_integer_functions2
-    // ShaderIntegerFunctions3FeaturesINTEL
-    bool shaderIntegerFunctions2 = false;
 
     // PCIBusInfoPropertiesEXT
     // VK_EXT_pci_bus_info
@@ -518,9 +510,6 @@
     // bool graphicsPipelineLibraryFastLinking = false;
     // bool graphicsPipelineLibraryIndependentInterpolationDecoration = false;
 
-    // VK_AMD_shader_early_and_late_fragment_tests
-    bool shaderEarlyAndLateFragmentTests = false;
-
     // VK_KHR_fragment_shader_barycentric
     bool fragmentShaderBarycentric = false;
 
@@ -554,83 +543,40 @@
     // Core 1.0 Features
     // Always enabled if available, reported as limits
 
-    // mostly just desktops support this
     bool logicOp = false;
-
-    // All iOS GPUs don't support
     bool vertexPipelineStoresAndAtomics = false;
-
-    // ROADMAP 2022 no support on iOS GPUs
     bool fragmentStoresAndAtomics = false;
-
-    // Candidate for promotion, just need to look into Linux and Android
     bool shaderTessellationAndGeometryPointSize = false;
-
-    // Apple GPUs and some Intels don't support
     bool shaderStorageImageMultisample = false;
-
-    // Intel is a special boy and doesn't support
     bool shaderStorageImageReadWithoutFormat = false;
-
-    // ROADMAP 2022 but no iOS GPU supports
     bool shaderStorageImageArrayDynamicIndexing = false;
-
-    // Intel Gen12 and ARC are special-boy drivers (TM)
     bool shaderFloat64 = false;
-
-    // poor support on Apple GPUs
     bool variableMultisampleRate = false;
-
-    // Core 1.1 Features or VK_KHR_16bit_storage
     bool storagePushConstant16 = false;
     bool storageInputOutput16 = false;
-
-    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
     bool multiviewGeometryShader = false;
     bool multiviewTessellationShader = false;
-
-    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count
     bool drawIndirectCount = false;
-
-    // Vulkan 1.2 Core or VK_KHR_9bit_storage
     bool storagePushConstant8 = false;
-
-    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64
     bool shaderBufferInt64Atomics = false;
     bool shaderSharedInt64Atomics = false;
-
-    // Vulkan 1. Core or VK_KHR_shader_float17_int9
     bool shaderFloat16 = false;
-
-    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
     bool shaderInputAttachmentArrayDynamicIndexing = false;
     bool shaderUniformBufferArrayNonUniformIndexing = false;
     bool shaderInputAttachmentArrayNonUniformIndexing = false;
     bool descriptorBindingUniformBufferUpdateAfterBind = false;
-
-    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
-
-    // TODO: Actually implement the sampler flag enums
     bool samplerFilterMinmax = false;
-
-    // Vulkan 1.3 requires but we make concessions for MoltenVK
     bool vulkanMemoryModelAvailabilityVisibilityChains = false;
-
-    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
-    // ALIAS: VK_EXT_shader_viewport_index_layer
     bool shaderOutputViewportIndex = false;
-    // ALIAS: VK_EXT_shader_viewport_index_layer
     bool shaderOutputLayer = false;
-
-    // Vulkan 1.3 non-optional requires but poor support
-    // or VK_EXT_shader_demote_to_helper_invocation
     bool shaderDemoteToHelperInvocation = false;
-    // or VK_KHR_shader_terminate_invocation
     bool shaderTerminateInvocation = false;
-
-    // Vulkan 1.3 non-optional requires but poor support
-    // or VK_KHR_zero_initialize_workgroup_memory
     bool shaderZeroInitializeWorkgroupMemory = false;
+    bool shaderDeviceClock = false;
+    bool shaderSubgroupClock = false;
+    bool imageFootPrint = false;
+    bool shaderIntegerFunctions2 = false;
+    bool shaderEarlyAndLateFragmentTests = false;
 
     // Nabla
 

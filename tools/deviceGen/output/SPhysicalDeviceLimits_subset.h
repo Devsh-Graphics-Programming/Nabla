@@ -307,14 +307,10 @@ if (maxSampleLocationGridSize.y > _rhs.maxSampleLocationGridSize.y) return false
 
     if (postDepthCoverage && !_rhs.postDepthCoverage) return false;
 
-    if (shaderDeviceClock && !_rhs.shaderDeviceClock) return false;
-
     if (computeDerivativeGroupQuads && !_rhs.computeDerivativeGroupQuads) return false;
     if (computeDerivativeGroupLinear && !_rhs.computeDerivativeGroupLinear) return false;
 
     if (imageFootprint && !_rhs.imageFootprint) return false;
-
-    if (shaderIntegerFunctions2 && !_rhs.shaderIntegerFunctions2) return false;
 
 
 if (minFragmentDensityTexelSize.x < _rhs.minFragmentDensityTexelSize.x) return false;
@@ -347,8 +343,6 @@ if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return f
     if (shaderNonSemanticInfo && !_rhs.shaderNonSemanticInfo) return false;
 
 
-    if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
-
     if (fragmentShaderBarycentric && !_rhs.fragmentShaderBarycentric) return false;
 
     if (shaderSubgroupUniformControlFlow && !_rhs.shaderSubgroupUniformControlFlow) return false;
@@ -370,55 +364,39 @@ if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return f
    // Core 1.0
 
     if (logicOp && !_rhs.logicOp) return false;
-
     if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
-
     if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
-
     if (shaderTessellationAndGeometryPointSize && !_rhs.shaderTessellationAndGeometryPointSize) return false;
-
     if (shaderStorageImageMultisample && !_rhs.shaderStorageImageMultisample) return false;
-
     if (shaderStorageImageReadWithoutFormat && !_rhs.shaderStorageImageReadWithoutFormat) return false;
-
     if (shaderStorageImageArrayDynamicIndexing && !_rhs.shaderStorageImageArrayDynamicIndexing) return false;
-
     if (shaderFloat64 && !_rhs.shaderFloat64) return false;
-
     if (variableMultisampleRate && !_rhs.variableMultisampleRate) return false;
-
     if (storagePushConstant16 && !_rhs.storagePushConstant16) return false;
     if (storageInputOutput16 && !_rhs.storageInputOutput16) return false;
-
     if (multiviewGeometryShader && !_rhs.multiviewGeometryShader) return false;
     if (multiviewTessellationShader && !_rhs.multiviewTessellationShader) return false;
-
     if (drawIndirectCount && !_rhs.drawIndirectCount) return false;
-
     if (storagePushConstant8 && !_rhs.storagePushConstant8) return false;
-
     if (shaderBufferInt64Atomics && !_rhs.shaderBufferInt64Atomics) return false;
     if (shaderSharedInt64Atomics && !_rhs.shaderSharedInt64Atomics) return false;
-
     if (shaderFloat16 && !_rhs.shaderFloat16) return false;
-
     if (shaderInputAttachmentArrayDynamicIndexing && !_rhs.shaderInputAttachmentArrayDynamicIndexing) return false;
     if (shaderUniformBufferArrayNonUniformIndexing && !_rhs.shaderUniformBufferArrayNonUniformIndexing) return false;
     if (shaderInputAttachmentArrayNonUniformIndexing && !_rhs.shaderInputAttachmentArrayNonUniformIndexing) return false;
     if (descriptorBindingUniformBufferUpdateAfterBind && !_rhs.descriptorBindingUniformBufferUpdateAfterBind) return false;
-
-
     if (samplerFilterMinmax && !_rhs.samplerFilterMinmax) return false;
-
     if (vulkanMemoryModelAvailabilityVisibilityChains && !_rhs.vulkanMemoryModelAvailabilityVisibilityChains) return false;
-
     if (shaderOutputViewportIndex && !_rhs.shaderOutputViewportIndex) return false;
     if (shaderOutputLayer && !_rhs.shaderOutputLayer) return false;
-
     if (shaderDemoteToHelperInvocation && !_rhs.shaderDemoteToHelperInvocation) return false;
     if (shaderTerminateInvocation && !_rhs.shaderTerminateInvocation) return false;
-
     if (shaderZeroInitializeWorkgroupMemory && !_rhs.shaderZeroInitializeWorkgroupMemory) return false;
+    if (shaderDeviceClock && !_rhs.shaderDeviceClock) return false;
+    if (shaderSubgroupClock && !_rhs.shaderSubgroupClock) return false;
+    if (imageFootPrint && !_rhs.imageFootPrint) return false;
+    if (shaderIntegerFunctions2 && !_rhs.shaderIntegerFunctions2) return false;
+    if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
 
    // Nabla
 
