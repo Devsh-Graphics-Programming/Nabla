@@ -128,23 +128,115 @@ TextRenderer::Face::GeneratedGlyphShape TextRenderer::Face::generateGlyphUploadI
 	uint32_t biggerAxis = frameSize.y > frameSize.x ? 1 : 0;
 	uint32_t smallerAxis = 1 - biggerAxis;
 
-	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
 	auto expansionAmount = textRenderer->msdfPixelRange;
-	auto expansionFactor = expansionAmount / msdfExtents;
-	float32_t2 scale = float32_t2(
-		float(msdfExtents.x - 2.0 * expansionAmount) / (frameSize.x),
-		float(msdfExtents.y - 2.0 * expansionAmount) / (frameSize.y)
-	);
-	
-	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
-	scale[smallerAxis] *= smallerSizeRatio;
-	const float middlePoint = 0.5;
-	const float	centerOffset = middlePoint - smallerSizeRatio / 2.0;
-	const float translationValue = centerOffset * frameSize[biggerAxis] * (1.0 + expansionFactor[biggerAxis] * 2.0);
-	translate[smallerAxis] += translationValue;
+	auto expansionFactor = float32_t2(expansionAmount) / float32_t2(msdfExtents);
 
+	auto mulMatrix3 = [](float64_t3x3 a, float64_t3x3 b)
+	{
+		// TODO: Was getting compilation error when doing transform * vector directly, once
+		// we can get that to work use it instead
+		glm::highp_dmat3x3 glmA;
+		memcpy(&glmA, &a, sizeof(float64_t3x3));
+		glm::highp_dmat3x3 glmB;
+		memcpy(&glmB, &b, sizeof(float64_t3x3));
+		auto glmRes = glmB * glmA;
+		float64_t3x3 res;
+		memcpy(&res, &glmRes, sizeof(float64_t3x3));
+		return res;
+	};
+	auto mulMatrix3Vec = [](float64_t3x3 transformation, float64_t3 vector)
+	{
+		float64_t2 transfTranslate = float64_t2(transformation[0][2], transformation[1][2]);
+		float64_t2 transfScale = float64_t2(transformation[0][0], transformation[1][1]);
+
+		return (vector.xy + transfTranslate) * transfScale;
+	};
+	auto translate = [](float64_t2 translation)
+	{
+		auto transform = float64_t3x3();
+		transform[0][0] = 1.0;
+		transform[1][1] = 1.0;
+		transform[2][2] = 1.0;
+		
+		transform[0][2] = translation.x;
+		transform[1][2] = translation.y;
+		return transform;
+	};
+	auto scale = [](float64_t2 scale)
+	{
+		auto transform = float64_t3x3();
+		transform[0][0] = scale.x;
+		transform[1][1] = scale.y;
+		transform[2][2] = 1.0;
+		return transform;
+	};
+	auto logStateOfThings = [&](float64_t3x3 transformation, std::string desc)
+	{
+		auto topLeft = mulMatrix3Vec(transformation, float64_t3(shapeBounds.l, shapeBounds.b, 1.0));
+		auto topRight = mulMatrix3Vec(transformation, float64_t3(shapeBounds.r, shapeBounds.b, 1.0));
+		auto bottomLeft = mulMatrix3Vec(transformation, float64_t3(shapeBounds.l, shapeBounds.t, 1.0));
+		auto bottomRight = mulMatrix3Vec(transformation, float64_t3(shapeBounds.r, shapeBounds.t, 1.0));
+		auto center = mulMatrix3Vec(transformation, float64_t3((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.b + shapeBounds.t) * 0.5, 1.0));
+
+		float64_t2 transfTranslate = float64_t2(transformation[0][2], transformation[1][2]);
+		float64_t2 transfScale = float64_t2(transformation[0][0], transformation[1][1]);
+
+		printf("- Current step: %s\nTranslate: %f %f Scale: %f %f\nTop left: %f %f\nTop right: %f %f\nBottom left: %f %f\nBottom right: %f %f\nCenter: %f %f\n", 
+			desc.c_str(),
+			transfTranslate.x, transfTranslate.y, 
+			transfScale.x, transfScale.y, 
+			topLeft.x, topLeft.y, topRight.x, topRight.y,
+			bottomLeft.x, bottomLeft.y, bottomRight.x, bottomRight.y,
+			center.x, center.y);
+	};
+
+	auto generateTransformationMatrix = [&]()
+	{
+		// Object starts at (0,0)
+		float64_t3x3 transformation = translate(float64_t2(-shapeBounds.l, -shapeBounds.b));
+		logStateOfThings(transformation, "Object starts at (0,0)");
+		// Object is centered at (0,0)
+		transformation = mulMatrix3(transformation, translate(-float64_t2(frameSize) * 0.5));
+		logStateOfThings(transformation, "Object is centered at (0,0)");
+		// Object space is from (-1,-1) to (1,1)
+		transformation = mulMatrix3(transformation, scale(float64_t2(2.0 / max(frameSize.x, frameSize.y))));
+		logStateOfThings(transformation, "Object space is from (-1, -1) to (1,1)");
+		// Object space is from (-16,-16) to (16,16)
+		transformation = mulMatrix3(transformation, scale(float64_t2(msdfExtents) * 0.5));
+		logStateOfThings(transformation, "Object space is from (-16,-16) to (16,16)");
+		// Object space is from (-12,-12) to (12,12)
+		transformation = mulMatrix3(transformation, scale(1.0 - (float64_t2(expansionFactor) * 2.0)));
+		logStateOfThings(transformation, "Object space is from (-12,-12) to (12,12) ");
+		// Object space is from (4, 4) to (24, 24)
+		//transformation = mulMatrix3(transformation, translate(float64_t2(msdfExtents) * 0.5));
+		transformation = mulMatrix3(transformation, translate(float64_t2(-shapeBounds.l, -shapeBounds.b)));
+		transformation = mulMatrix3(transformation, translate(float64_t2(frameSize) * 0.5));
+		logStateOfThings(transformation, "Object space is from (4, 4) to (28, 28) ");
+		
+		return transformation;
+	};
+
+	printf("\n");
+	auto transformation = generateTransformationMatrix();
+
+	float32_t2 transfTranslate = float32_t2(transformation[0][2], transformation[1][2]);
+	float32_t2 transfScale = float32_t2(transformation[0][0], transformation[1][1]);
+
+	//float32_t2 translate = float32_t2(-shapeBounds.l, -shapeBounds.b);
+	//float32_t2 scale = (float32_t2(msdfExtents) / frameSize) * aspectRatioPreservingRatio;
+
+	// float32_t2 aspectRatioPreservingRatio = float32_t2(1.0);
+	// aspectRatioPreservingRatio[smallerAxis] = smallerSizeRatio;
+
+	//const float fullWidth = 1.0;
+	//const float objectWidth = smallerSizeRatio;
+	//const float centeringTranslation = fullWidth * 0.5 - objectWidth * 0.5;
+	//const float centeringTranslationObjectSpace = centeringTranslation * frameSize[biggerAxis];
+	//translate[smallerAxis] += centeringTranslationObjectSpace;
+
+	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
 	return {
-		.msdfBitmap = textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate),
+		.msdfBitmap = textRenderer->generateMSDFForShape(shape, msdfExtents, transfScale, transfTranslate),
 		.smallerSizeRatio = smallerSizeRatio,
 		.biggerAxis = biggerAxis,
 	};
