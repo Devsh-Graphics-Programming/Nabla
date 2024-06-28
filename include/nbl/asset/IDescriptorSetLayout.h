@@ -412,7 +412,7 @@ protected:
 					if (b.samplers)
 						buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 					else 
-						buildInfo_descriptors[IDescriptor::E_TYPE::ET_SAMPLER].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
+						buildInfo_descriptors[size_t(IDescriptor::E_TYPE::ET_SAMPLER)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 					break;
 				case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
 					if (b.samplers)

@@ -27,6 +27,10 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
 
         inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
 
+        static inline bool writeIncrementsVersion(const core::bitflag<SBinding::E_CREATE_FLAGS> bindingCreateFlags) {
+            return not (bindingCreateFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or bindingCreateFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT));
+        }
+
     protected:
         inline IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const SBinding> _bindings) : base_t(_bindings), IBackendObject(std::move(dev))
         {

@@ -45,15 +45,13 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 
 					auto operator<=>(const SBufferInfo&) const = default;
                 };
-                struct SImageInfo
-                {
+				struct SImageInfo
+				{
 					// If the binding is a SAMPLER, this field is ignored
 					IImage::LAYOUT imageLayout;
 					// If the binding is COMBINED, this will be ignored if the DS layout already has an immutable sampler specified for the binding
-					// If the binding is an immutable SAMPLER, whatever's here doesn't matter because the write validation will fail
-					// If the binding is a SAMPLER, this field is ignored: the only sampler being used will be desc
 					core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                };
+				};
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
 				union SBufferImageInfo
