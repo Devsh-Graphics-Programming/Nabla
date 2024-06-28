@@ -129,14 +129,19 @@ TextRenderer::Face::GeneratedGlyphShape TextRenderer::Face::generateGlyphUploadI
 	uint32_t smallerAxis = 1 - biggerAxis;
 
 	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
+	auto expansionAmount = textRenderer->msdfPixelRange;
+	auto expansionFactor = expansionAmount / msdfExtents;
 	float32_t2 scale = float32_t2(
-		float(msdfExtents.x) / (frameSize.x),
-		float(msdfExtents.y) / (frameSize.y)
+		float(msdfExtents.x - 2.0 * expansionAmount) / (frameSize.x),
+		float(msdfExtents.y - 2.0 * expansionAmount) / (frameSize.y)
 	);
+	
+	float32_t2 translate = float32_t2(-shapeBounds.l + expansionAmount / scale.x, -shapeBounds.b + expansionAmount / scale.y);
 	scale[smallerAxis] *= smallerSizeRatio;
-
-	float32_t2 translate = float32_t2(-shapeBounds.l, -shapeBounds.b);
-	translate[smallerAxis] += (1.0 - smallerSizeRatio) * 0.5 * float(msdfExtents[smallerAxis] - textRenderer->msdfPixelRange * 2.0);
+	const float middlePoint = 0.5;
+	const float	centerOffset = middlePoint - smallerSizeRatio / 2.0;
+	const float translationValue = centerOffset * frameSize[biggerAxis] * (1.0 + expansionFactor[biggerAxis] * 2.0);
+	translate[smallerAxis] += translationValue;
 
 	return {
 		.msdfBitmap = textRenderer->generateMSDFForShape(shape, msdfExtents, scale, translate),
