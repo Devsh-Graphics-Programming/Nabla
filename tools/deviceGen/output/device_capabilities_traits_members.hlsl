@@ -53,9 +53,13 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDualSrcAttachments = impl::get_o
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentCombinedOutputResources = impl::get_or_default_maxFragmentCombinedOutputResources<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeSharedMemorySize = impl::get_or_default_maxComputeSharedMemorySize<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCount[3] = impl::get_or_default_maxComputeWorkGroupCount[3]<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountX = impl::get_or_default_maxComputeWorkGroupCountX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountY = impl::get_or_default_maxComputeWorkGroupCountY<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountZ = impl::get_or_default_maxComputeWorkGroupCountZ<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxComputeWorkGroupInvocations = impl::get_or_default_maxComputeWorkGroupInvocations<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[3] = impl::get_or_default_maxWorkgroupSize[3]<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeX = impl::get_or_default_maxWorkgroupSizeX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeY = impl::get_or_default_maxWorkgroupSizeY<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeZ = impl::get_or_default_maxWorkgroupSizeZ<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subPixelPrecisionBits = impl::get_or_default_subPixelPrecisionBits<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subTexelPrecisionBits = impl::get_or_default_subTexelPrecisionBits<device_capabilities>::value;
@@ -67,8 +71,10 @@ NBL_CONSTEXPR_STATIC_INLINE float maxSamplerLodBias = impl::get_or_default_maxSa
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSamplerAnisotropyLog2 = impl::get_or_default_maxSamplerAnisotropyLog2<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxViewports = impl::get_or_default_maxViewports<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDims[2] = impl::get_or_default_maxViewportDims[2]<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRange[2] = impl::get_or_default_viewportBoundsRange[2]<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsX = impl::get_or_default_maxViewportDimsX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsY = impl::get_or_default_maxViewportDimsY<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRangeMin = impl::get_or_default_viewportBoundsRangeMin<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRangeMax = impl::get_or_default_viewportBoundsRangeMax<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportSubPixelBits = impl::get_or_default_viewportSubPixelBits<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t minMemoryMapAlignment = impl::get_or_default_minMemoryMapAlignment<device_capabilities>::value;
@@ -101,8 +107,10 @@ NBL_CONSTEXPR_STATIC_INLINE uint8_t maxCombinedClipAndCullDistances = impl::get_
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t discreteQueuePriorities = impl::get_or_default_discreteQueuePriorities<device_capabilities>::value;
 
-NBL_CONSTEXPR_STATIC_INLINE float pointSizeRange[2] = impl::get_or_default_pointSizeRange[2]<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE float lineWidthRange[2] = impl::get_or_default_lineWidthRange[2]<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float pointSizeRangeMin = impl::get_or_default_pointSizeRangeMin<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float pointSizeRangeMax = impl::get_or_default_pointSizeRangeMax<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float lineWidthRangeMin = impl::get_or_default_lineWidthRangeMin<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float lineWidthRangeMax = impl::get_or_default_lineWidthRangeMax<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE float pointSizeGranularity = impl::get_or_default_pointSizeGranularity<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE float lineWidthGranularity = impl::get_or_default_lineWidthGranularity<device_capabilities>::value;
 
@@ -264,8 +272,10 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderStencilExport = impl::get_or_default_shad
 NBL_CONSTEXPR_STATIC_INLINE bool variableSampleLocations = impl::get_or_default_variableSampleLocations<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSubPixelBits = impl::get_or_default_sampleLocationSubPixelBits<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE sampleCountFlags sampleLocationSampleCounts = impl::get_or_default_sampleLocationSampleCounts<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 maxSampleLocationGridSize = impl::get_or_default_maxSampleLocationGridSize<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRange[2] = impl::get_or_default_sampleLocationCoordinateRange[2]<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeX = impl::get_or_default_maxSampleLocationGridSizeX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeY = impl::get_or_default_maxSampleLocationGridSizeY<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRangeMin = impl::get_or_default_sampleLocationCoordinateRangeMin<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRangeMax = impl::get_or_default_sampleLocationCoordinateRangeMax<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureGeometryCount = impl::get_or_default_maxAccelerationStructureGeometryCount<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureInstanceCount = impl::get_or_default_maxAccelerationStructureInstanceCount<device_capabilities>::value;
@@ -297,8 +307,10 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t pciBus = impl::get_or_default_pciBus<device
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDevice = impl::get_or_default_pciDevice<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciFunction = impl::get_or_default_pciFunction<device_capabilities>::value;
 
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 minFragmentDensityTexelSize = impl::get_or_default_minFragmentDensityTexelSize<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 maxFragmentDensityTexelSize = impl::get_or_default_maxFragmentDensityTexelSize<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t minFragmentDensityTexelSizeX = impl::get_or_default_minFragmentDensityTexelSizeX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t minFragmentDensityTexelSizeY = impl::get_or_default_minFragmentDensityTexelSizeY<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDensityTexelSizeX = impl::get_or_default_maxFragmentDensityTexelSizeX<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDensityTexelSizeY = impl::get_or_default_maxFragmentDensityTexelSizeY<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool fragmentDensityInvocations = impl::get_or_default_fragmentDensityInvocations<device_capabilities>::value;
 
 NBL_CONSTEXPR_STATIC_INLINE bool decorateString = impl::get_or_default_decorateString<device_capabilities>::value;

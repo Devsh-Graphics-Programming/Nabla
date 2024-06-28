@@ -1,3 +1,4 @@
+// constexprs
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxImageDimension2D = 1 << 14;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxSSBOSize = 0x1u << 30u - 4;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t MaxMaxPushConstantsSize = 256;
@@ -61,9 +62,13 @@ NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDualSrcAttachments, uint32_t, 1);
 NBL_GENERATE_GET_OR_DEFAULT(maxFragmentCombinedOutputResources, uint32_t, 16);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeSharedMemorySize, uint32_t, 1 << 15);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCount[3], uint32_t, {MinMaxWorkgroupCount,MinMaxWorkgroupCount,MinMaxWorkgroupCount});
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountX, uint32_t, MinMaxWorkgroupCount);
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountY, uint32_t, MinMaxWorkgroupCount);
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountZ, uint32_t, MinMaxWorkgroupCoun);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupInvocations, uint16_t, MinMaxWorkgroupInvocations);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSize[3], uint16_t, {MinMaxWorkgroupInvocations,MinMaxWorkgroupInvocations,64u});
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeX, uint16_t, MinMaxWorkgroupInvocations);
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeY, uint16_t, MinMaxWorkgroupInvocations);
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeZ, uint16_t, 64);
 
 NBL_GENERATE_GET_OR_DEFAULT(subPixelPrecisionBits, uint8_t, 4);
 NBL_GENERATE_GET_OR_DEFAULT(subTexelPrecisionBits, uint8_t, 4);
@@ -75,8 +80,10 @@ NBL_GENERATE_GET_OR_DEFAULT(maxSamplerLodBias, float, 4);
 NBL_GENERATE_GET_OR_DEFAULT(maxSamplerAnisotropyLog2, uint8_t, 4);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxViewports, uint8_t, 16);
-NBL_GENERATE_GET_OR_DEFAULT(maxViewportDims[2], uint16_t, {MinMaxImageDimension2D,MinMaxImageDimension2D});
-NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRange[2], float, { -MinMaxImageDimension2D*2u, MinMaxImageDimension2D*2u-1 });
+NBL_GENERATE_GET_OR_DEFAULT(maxViewportDimsX, uint16_t, MinMaxImageDimension2D);
+NBL_GENERATE_GET_OR_DEFAULT(maxViewportDimsY, uint16_t, MinMaxImageDimension2);
+NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRangeMin, float, -MinMaxImageDimension2D*2u);
+NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRangeMax, float, MinMaxImageDimension2D*2u-1);
 NBL_GENERATE_GET_OR_DEFAULT(viewportSubPixelBits, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(minMemoryMapAlignment, uint16_t, 64);
@@ -109,8 +116,10 @@ NBL_GENERATE_GET_OR_DEFAULT(maxCombinedClipAndCullDistances, uint8_t, 8);
 
 NBL_GENERATE_GET_OR_DEFAULT(discreteQueuePriorities, uint32_t, 2);
 
-NBL_GENERATE_GET_OR_DEFAULT(pointSizeRange[2], float, {1.f,64.f});
-NBL_GENERATE_GET_OR_DEFAULT(lineWidthRange[2], float, {1.f,1.f});
+NBL_GENERATE_GET_OR_DEFAULT(pointSizeRangeMin, float, 1.f);
+NBL_GENERATE_GET_OR_DEFAULT(pointSizeRangeMax, float, 64.);
+NBL_GENERATE_GET_OR_DEFAULT(lineWidthRangeMin, float, 1.f);
+NBL_GENERATE_GET_OR_DEFAULT(lineWidthRangeMax, float, 1.);
 NBL_GENERATE_GET_OR_DEFAULT(pointSizeGranularity, float, 1);
 NBL_GENERATE_GET_OR_DEFAULT(lineWidthGranularity, float, 1);
 
@@ -272,8 +281,10 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderStencilExport, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(variableSampleLocations, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSubPixelBits, uint8_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCounts, sampleCountFlags, sampleCountFlags::E_SAMPLE_COUNT_FLAGS(0u));
-NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSize, hlsl::uint32_t2, { 0u, 0u });
-NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRange[2], float, { 1.f, 0.f });
+NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSizeX, uint32_t, 0u);
+NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSizeY, uint32_t, 0u);
+NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRangeMin, float, 1.f);
+NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRangeMax, float, 0.f);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxAccelerationStructureGeometryCount, uint64_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxAccelerationStructureInstanceCount, uint64_t, 0);
@@ -305,8 +316,10 @@ NBL_GENERATE_GET_OR_DEFAULT(pciBus, uint32_t, ~0u);
 NBL_GENERATE_GET_OR_DEFAULT(pciDevice, uint32_t, ~0u);
 NBL_GENERATE_GET_OR_DEFAULT(pciFunction, uint32_t, ~0u);
 
-NBL_GENERATE_GET_OR_DEFAULT(minFragmentDensityTexelSize, hlsl::uint32_t2, { ~0u, ~0u });
-NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDensityTexelSize, hlsl::uint32_t2, { 0u, 0u });
+NBL_GENERATE_GET_OR_DEFAULT(minFragmentDensityTexelSizeX, uint32_t, ~0u);
+NBL_GENERATE_GET_OR_DEFAULT(minFragmentDensityTexelSizeY, uint32_t, ~0u);
+NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDensityTexelSizeX, uint32_t, 0u);
+NBL_GENERATE_GET_OR_DEFAULT(maxFragmentDensityTexelSizeY, uint32_t, 0u);
 NBL_GENERATE_GET_OR_DEFAULT(fragmentDensityInvocations, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(decorateString, bool, false);

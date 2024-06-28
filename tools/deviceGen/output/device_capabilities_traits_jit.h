@@ -54,9 +54,13 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDualSrcAttachments = )===" + CJI
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentCombinedOutputResources = )===" + CJITIncludeLoader::to_string(limits.maxFragmentCombinedOutputResources) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeSharedMemorySize = )===" + CJITIncludeLoader::to_string(limits.maxComputeSharedMemorySize) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCount[3] = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkGroupCount[3]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountX = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkGroupCount[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountY = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkGroupCount[1]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxComputeWorkGroupCountZ = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkGroupCount[2]) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxComputeWorkGroupInvocations = )===" + CJITIncludeLoader::to_string(limits.maxComputeWorkGroupInvocations) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSize[3] = )===" + CJITIncludeLoader::to_string(limits.maxWorkgroupSize[3]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeX = )===" + CJITIncludeLoader::to_string(limits.maxWorkgroupSize[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeY = )===" + CJITIncludeLoader::to_string(limits.maxWorkgroupSize[1]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxWorkgroupSizeZ = )===" + CJITIncludeLoader::to_string(limits.maxWorkgroupSize[2]) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subPixelPrecisionBits = )===" + CJITIncludeLoader::to_string(limits.subPixelPrecisionBits) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t subTexelPrecisionBits = )===" + CJITIncludeLoader::to_string(limits.subTexelPrecisionBits) + R"===(;
@@ -68,8 +72,10 @@ NBL_CONSTEXPR_STATIC_INLINE float maxSamplerLodBias = )===" + CJITIncludeLoader:
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxSamplerAnisotropyLog2 = )===" + CJITIncludeLoader::to_string(limits.maxSamplerAnisotropyLog2) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint8_t maxViewports = )===" + CJITIncludeLoader::to_string(limits.maxViewports) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDims[2] = )===" + CJITIncludeLoader::to_string(limits.maxViewportDims[2]) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRange[2] = )===" + CJITIncludeLoader::to_string(limits.viewportBoundsRange[2]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsX = )===" + CJITIncludeLoader::to_string(limits.maxViewportDims[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsY = )===" + CJITIncludeLoader::to_string(limits.maxViewportDims[1]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRangeMin = )===" + CJITIncludeLoader::to_string(limits.viewportBoundsRange[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float viewportBoundsRangeMax = )===" + CJITIncludeLoader::to_string(limits.viewportBoundsRange[1]) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportSubPixelBits = )===" + CJITIncludeLoader::to_string(limits.viewportSubPixelBits) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t minMemoryMapAlignment = )===" + CJITIncludeLoader::to_string(limits.minMemoryMapAlignment) + R"===(;
@@ -102,8 +108,10 @@ NBL_CONSTEXPR_STATIC_INLINE uint8_t maxCombinedClipAndCullDistances = )===" + CJ
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t discreteQueuePriorities = )===" + CJITIncludeLoader::to_string(limits.discreteQueuePriorities) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE float pointSizeRange[2] = )===" + CJITIncludeLoader::to_string(limits.pointSizeRange[2]) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE float lineWidthRange[2] = )===" + CJITIncludeLoader::to_string(limits.lineWidthRange[2]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float pointSizeRangeMin = )===" + CJITIncludeLoader::to_string(limits.pointSizeRange[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float pointSizeRangeMax = )===" + CJITIncludeLoader::to_string(limits.pointSizeRange[1]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float lineWidthRangeMin = )===" + CJITIncludeLoader::to_string(limits.lineWidthRange[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float lineWidthRangeMax = )===" + CJITIncludeLoader::to_string(limits.lineWidthRange[1]) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE float pointSizeGranularity = )===" + CJITIncludeLoader::to_string(limits.pointSizeGranularity) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE float lineWidthGranularity = )===" + CJITIncludeLoader::to_string(limits.lineWidthGranularity) + R"===(;
 
@@ -265,8 +273,10 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderStencilExport = )===" + CJITIncludeLoader
 NBL_CONSTEXPR_STATIC_INLINE bool variableSampleLocations = )===" + CJITIncludeLoader::to_string(limits.variableSampleLocations) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint8_t sampleLocationSubPixelBits = )===" + CJITIncludeLoader::to_string(limits.sampleLocationSubPixelBits) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE sampleCountFlags sampleLocationSampleCounts = )===" + CJITIncludeLoader::to_string(limits.sampleLocationSampleCounts) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 maxSampleLocationGridSize = )===" + CJITIncludeLoader::to_string(limits.maxSampleLocationGridSize) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRange[2] = )===" + CJITIncludeLoader::to_string(limits.sampleLocationCoordinateRange[2]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeX = )===" + CJITIncludeLoader::to_string(limits.maxSampleLocationGridSize.x) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeY = )===" + CJITIncludeLoader::to_string(limits.maxSampleLocationGridSize.y) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRangeMin = )===" + CJITIncludeLoader::to_string(limits.sampleLocationCoordinateRange[0]) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE float sampleLocationCoordinateRangeMax = )===" + CJITIncludeLoader::to_string(limits.sampleLocationCoordinateRange[1]) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureGeometryCount = )===" + CJITIncludeLoader::to_string(limits.maxAccelerationStructureGeometryCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureInstanceCount = )===" + CJITIncludeLoader::to_string(limits.maxAccelerationStructureInstanceCount) + R"===(;
@@ -298,8 +308,10 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t pciBus = )===" + CJITIncludeLoader::to_stri
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDevice = )===" + CJITIncludeLoader::to_string(limits.pciDevice) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciFunction = )===" + CJITIncludeLoader::to_string(limits.pciFunction) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 minFragmentDensityTexelSize = )===" + CJITIncludeLoader::to_string(limits.minFragmentDensityTexelSize) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE hlsl::uint32_t2 maxFragmentDensityTexelSize = )===" + CJITIncludeLoader::to_string(limits.maxFragmentDensityTexelSize) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t minFragmentDensityTexelSizeX = )===" + CJITIncludeLoader::to_string(limits.minFragmentDensityTexelSize.x) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t minFragmentDensityTexelSizeY = )===" + CJITIncludeLoader::to_string(limits.minFragmentDensityTexelSize.y) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDensityTexelSizeX = )===" + CJITIncludeLoader::to_string(limits.maxFragmentDensityTexelSize.x) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFragmentDensityTexelSizeY = )===" + CJITIncludeLoader::to_string(limits.maxFragmentDensityTexelSize.y) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool fragmentDensityInvocations = )===" + CJITIncludeLoader::to_string(limits.fragmentDensityInvocations) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE bool decorateString = )===" + CJITIncludeLoader::to_string(limits.decorateString) + R"===(;
