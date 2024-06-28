@@ -76,6 +76,7 @@ def buildDeviceHeader(**params):
                 buildVariable(dict, res, sectionName)
             else:
                 buildComment(dict, res, sectionName)
+            res.append(emptyline)
 
     return res
 
@@ -124,9 +125,21 @@ def SubsetMethodHelper(dict, res):
 def buildSubsetMethod(**params):
     res = []
 
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0 Core",
+        "vulkan11core": "VK 1.1 Everything is either a Limit or Required",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "core10": "Core 1.0",
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
+    }
+
     for sectionName, sectionContent in params['json'].items():
         if sectionName == "constexprs":
             continue
+        res.append(f"   // {sectionHeaders[sectionName]}")
         for dict in sectionContent:
             if 'type' in dict:
                 try:
@@ -139,12 +152,13 @@ def buildSubsetMethod(**params):
                         SubsetMethodHelper(entry, res)
                     except ContinueEx:
                         continue
+            res.append(emptyline)
 
     return res
 
-def transformFeaturesMethod(dict, op):
+def transformFeatures(dict, op):
     expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
-    if expose != "DEFAULT":
+    if expose != ExposeStatus.DEFAULT:
         raise ContinueEx
     return f"    res.{dict['name']} {op}= _rhs.{dict['name']};"
 
@@ -157,7 +171,8 @@ def buildFeaturesMethod(**params):
         "vulkan12core": "VK 1.2",
         "vulkan13core": "VK 1.3",
         "nablacore": "Nabla Core Extensions",
-        "vulkanext": "Extensions"
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
     }
 
     for sectionName, sectionContent in params['json'].items():
@@ -165,17 +180,22 @@ def buildFeaturesMethod(**params):
             continue
         res.append(f"   // {sectionHeaders[sectionName]}")
         for dict in sectionContent:
-            if 'type' in dict:
-                try:
-                    res.append(transformFeaturesMethod(dict, params['op']))
-                except ContinueEx:
-                    continue
+            try:
+                if 'type' in dict:
+                    res.append(transformFeatures(dict, params['op']))
+                    res.append(emptyline)
+            except ContinueEx:
+                continue
             if "entries" in dict:
+                temp_res = []
                 for entry in dict['entries']:
                     try:
-                        res.append(transformFeaturesMethod(entry, params['op']))
+                        temp_res.append(transformFeatures(entry, params['op']))
                     except ContinueEx:
                         continue
+                if len(temp_res) > 0:
+                    res.extend(temp_res)
+                    res.append(emptyline)
 
     return res
 
@@ -200,6 +220,38 @@ def formatEnumValue(type, value):
         temp_value_parts[i] = type + "::" + temp_value_parts[i]
     return ' '.join(temp_value_parts)
 
+def transformTraits(dict, line_format, line_format_params):
+    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
+    if expose == ExposeStatus.DISABLE:
+        raise ContinueEx
+
+    for param in line_format_params:
+        if param not in dict:
+            raise ContinueEx
+        if param == "type" and dict[param].startswith("core::bitflag"):
+            resultant_type = formatEnumType(dict[param])
+            if "value" in dict:
+                dict["value"] = formatEnumValue(resultant_type, dict["value"])
+            dict['type'] = resultant_type
+        if param == "type" and dict[param].startswith("asset"):
+            resultant_type = formatEnumType(dict[param])
+            if "value" in dict:
+                dict["value"] = formatEnumValue(resultant_type, dict["value"])
+            dict['type'] = resultant_type
+
+    return line_format.format(*[formatValue(dict[param]) for param in line_format_params])  
+
+def transformJITTraits(dict, line_format, json_type, line_format_params):
+    dict["json_type"] = json_type 
+    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
+    if expose == ExposeStatus.DISABLE:
+        raise ContinueEx
+
+    for param in line_format_params:
+        if param not in dict:
+            raise ContinueEx
+    return line_format.format(*[formatValue(dict[param]) for param in line_format_params])  
+
 def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_params):
     sectionHeaders = {
         "vulkan10core": "VK 1.0",
@@ -220,30 +272,22 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, *line_format_para
         for dict in sectionContent:
             if 'type' in dict:
                 try:
-                    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
-                    if expose == ExposeStatus.DISABLE:
-                        continue
-
-                    for param in line_format_params:
-                        if param not in dict:
-                            raise ContinueEx
-                        if param == "type" and dict[param].startswith("core::bitflag"):
-                            resultant_type = formatEnumType(dict[param])
-                            if "value" in dict:
-                                dict["value"] = formatEnumValue(resultant_type, dict["value"])
-                            dict['type'] = resultant_type
-                        if param == "type" and dict[param].startswith("asset"):
-                            resultant_type = formatEnumType(dict[param])
-                            if "value" in dict:
-                                dict["value"] = formatEnumValue(resultant_type, dict["value"])
-                            dict['type'] = resultant_type
-
-                    line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
-                    res.append(line)
+                    res.append(transformTraits(dict, line_format, line_format_params))
+                    res.append(emptyline)
                 except ContinueEx:
                     continue
+            if 'entries' in dict:
+                temp_res = []
+                for entry in dict['entries']:
+                    try:
+                        temp_res.append(transformTraits(entry, line_format, line_format_params))
+                    except ContinueEx:
+                        continue
+                if len(temp_res) > 0:
+                    res.extend(temp_res)
+                    res.append(emptyline)
 
-def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_params):
+def buildJITTraitsHeaderHelper(res, name, json_data, line_format, json_type, *line_format_params):
     sectionHeaders = {
         "vulkan10core": "VK 1.0",
         "vulkan11core": "VK 1.1",
@@ -261,21 +305,22 @@ def buildJITTraitsHeaderHelper(res, name, json_data, json_type, *line_format_par
         if sectionName in sectionHeaders:
             res.append(f"// {sectionHeaders[sectionName]}")
         for dict in sectionContent:
-            line_format="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + CJITIncludeLoader::to_string({}.{}) + R\"===(;"
             if 'type' in dict:
                 try:
-                    dict["json_type"] = json_type 
-                    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
-                    if expose == ExposeStatus.DISABLE:
-                        continue
-
-                    for param in line_format_params:
-                        if param not in dict:
-                            raise ContinueEx
-                    line = line_format.format(*[formatValue(dict[param]) for param in line_format_params])
-                    res.append(line)
+                    res.append(transformJITTraits(dict, line_format, json_type, line_format_params))
+                    res.append(emptyline)
                 except ContinueEx:
                     continue
+            if 'entries' in dict:
+                temp_res = []
+                for entry in dict['entries']:
+                    try:
+                        temp_res.append(transformJITTraits(entry, line_format, json_type, line_format_params))
+                    except ContinueEx:
+                        continue
+                if len(temp_res) > 0:
+                    res.extend(temp_res)
+                    res.append(emptyline)
 
 def buildTraitsHeader(**params):
     res = []
@@ -306,6 +351,7 @@ def buildJITTraitsHeader(**params):
         res,
         f"Limits {params['type']}",
         params["limits_json"],
+        params["template"],
         "limits",
         *params['format_params']
     )
@@ -313,6 +359,7 @@ def buildJITTraitsHeader(**params):
         res,
         f"Features {params['type']}",
         params["features_json"],
+        params["template"],
         "features",
         *params['format_params']
     )

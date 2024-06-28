@@ -79,6 +79,7 @@ if __name__ == "__main__":
         args.jit_traits_output_path,
         buildJITTraitsHeader,
         type="JIT Members",
+        template="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + CJITIncludeLoader::to_string({}.{}) + R\"===(;",
         limits_json=limits,
         features_json=features,
         format_params=["type", "name", "json_type", "name"]
