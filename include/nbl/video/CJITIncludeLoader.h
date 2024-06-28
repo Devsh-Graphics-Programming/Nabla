@@ -10,8 +10,6 @@
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 
-#include "glm/gtx/string_cast.hpp"
-
 namespace nbl::video
 {
 class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
@@ -44,14 +42,6 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
         {
             inline std::string operator()(const T& object) {
                 return std::to_string(static_cast<int>(object));
-            }
-        };
-
-        template<typename T> requires nbl::hlsl::Vector<std::remove_cvref_t<T>>
-        struct to_string_impl<T>
-        {
-            inline std::string operator()(const T& object) {
-                return glm::to_string(object);
             }
         };
 

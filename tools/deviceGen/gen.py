@@ -93,11 +93,12 @@ if __name__ == "__main__":
     )
     writeHeader(
         args.jit_traits_output_path,
-        buildJITTraitsHeader,
+        buildTraitsHeader,
         type="JIT Members",
         template="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + CJITIncludeLoader::to_string({}.{}) + R\"===(;",
         limits_json=limits,
         features_json=features,
-        format_params=["type", "name", "json_type", "name"]
+        format_params=["type", "name", "json_type", "cpp_name"],
+        enable_jit=True
     )
     exit(0)
