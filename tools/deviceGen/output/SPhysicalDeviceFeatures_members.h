@@ -21,7 +21,8 @@
     // bool dualSrcBlend = true;
 
     // [EXPOSE AS A LIMIT] somewhat legacy features
-    // bool logicOp;
+    // mostly just desktops support this
+    // bool logicOp = false;
 
     // [REQUIRE]Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance
     // bool multiDrawIndirect = true;
@@ -64,9 +65,12 @@
     bool pipelineStatisticsQuery = false;
 
     // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits
-    // bool vertexPipelineStoresAndAtomics;
-    // bool fragmentStoresAndAtomics;
-    // bool shaderTessellationAndGeometryPointSize;
+    // All iOS GPUs don't support
+    // bool vertexPipelineStoresAndAtomics = false;
+    // ROADMAP 2022 no supporton iOS GPUs
+    // bool fragmentStoresAndAtomics = false;
+    // Candidate for promotion, just need to look into Linux and Android
+    // bool shaderTessellationAndGeometryPointSize = false;
 
     // [REQUIRE]
     // ROADMAP 2024 good device support
@@ -77,11 +81,12 @@
     // bool shaderStorageImageExtendedFormats = true;
 
     // [EXPOSE AS LIMIT] Cannot be always enabled cause Intel ARC is handicapped
-    // bool shaderStorageImageMultisample;
+    // Apple GPUs and some Intels don't support
+    // bool shaderStorageImageMultisample = false;
 
     // TODO: format feature reporting unimplemented yet for both of the below! (should we move to usage reporting?)
     // [EXPOSE AS LIMIT] always enable, shouldn't cause overhead by just being enabled
-    // bool shaderStorageImageReadWithoutFormat;
+    // bool shaderStorageImageReadWithoutFormat = false;
 
     // [REQUIRE]
     // good device support
@@ -93,7 +98,8 @@
     // bool shaderStorageBufferArrayDynamicIndexing = true;
 
     // [EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support
-    // bool shaderStorageImageArrayDynamicIndexing;
+    // ROADMAP 2022 but no iOS GPU supports
+    // bool shaderStorageImageArrayDynamicIndexing = false;
 
     // [REQUIRE]
     // good device support
@@ -102,7 +108,8 @@
     bool shaderCullDistance = false;
 
     // [EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped
-    // bool shaderFloat64;
+    // Intel Gen12 and ARC are special-boy drivers (TM)
+    // bool shaderFloat64 = false;
 
     // 
     // bool shaderInt64 = true;
@@ -125,7 +132,7 @@
     // bool sparseResidencyAliased;
 
     // [EXPOSE AS LIMIT] poor support on Apple GPUs
-    // bool variableMultisampleRate;
+    // bool variableMultisampleRate = false;
 
     // [REQUIRE]
     // Always enabled, good device support.
@@ -138,17 +145,19 @@
     // Force Enabled : ALIAS VK_KHR_16bit_storage
     // bool uniformAndStorageBuffer16BitAccess = true;
 
+    // Core 1.1 Features or VK_KHR_16bit_storage
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage
-    // bool storagePushConstant16;
-    // bool storageInputOutput16;
+    // bool storagePushConstant16 = false;
+    // bool storageInputOutput16 = false;
 
     // [REQUIRE]
     // Required to be present when Vulkan 1.1 is supported
     // bool multiview = true;
 
+    // Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these
     // [EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these
-    // bool multiviewGeometryShader;
-    // bool multiviewTessellationShader;
+    // bool multiviewGeometryShader = false;
+    // bool multiviewTessellationShader = false;
 
     // [REQUIRE]Will eventually be required by HLSL202x if it implements references or pointers (even the non-generic type)
     // bool variablePointers = true;
@@ -178,7 +187,8 @@
     // [EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support
     // exposed as a limit `drawIndirectCount`
     // ALIAS: VK_KHR_draw_indirect_count
-    // bool drawIndirectCount;
+    // Vulkan 1.2 Core or VK_KHR_draw_indirect_count
+    // bool drawIndirectCount = false;
 
     // [REQUIRE]or VK_KHR_8bit_storage:
     // ROADMAP 2022 and device support ubiquitous
@@ -186,41 +196,45 @@
     // good device coverage
     // bool uniformAndStorageBuffer8BitAccess = true;
     // [EXPOSE AS LIMIT] not great support yet
-    // bool storagePushConstant8;
+    // Vulkan 1.2 Core or VK_KHR_9bit_storage
+    // bool storagePushConstant8 = false;
 
+    // Vulkan 1.2 Core or VK_KHR_shader_atomic_int64
     // [EXPOSE AS LIMIT] or VK_KHR_shader_atomic_int64
-    // bool shaderBufferInt64Atomics;
-    // bool shaderSharedInt64Atomics;
+    // bool shaderBufferInt64Atomics = false;
+    // bool shaderSharedInt64Atomics = false;
 
     // [REQUIRE]or VK_KHR_shader_float16_int8:
     // [EXPOSE AS LIMIT] ROADMAP 2024 but not great support yet
-    // bool shaderFloat16;
+    // Vulkan 1.2 Core or VK_KHR_shader_float16_int8
+    // bool shaderFloat16 = false;
     // ROADMAP 2024 good device coverage
     // bool shaderInt8 = true;
 
     // ROADMAP 2022
     // bool descriptorIndexing = true;
     // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
-    // bool shaderInputAttachmentArrayDynamicIndexing;
+    // Vulkan 1.2 Core or VK_EXT_descriptor_indexing
+    // bool shaderInputAttachmentArrayDynamicIndexing = false;
     // because we also require `descriptorIndexing`
     // bool shaderUniformTexelBufferArrayDynamicIndexing = true;
     // bool shaderStorageTexelBufferArrayDynamicIndexing = true;
     // [EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support
-    // bool shaderUniformBufferArrayNonUniformIndexing;
+    // bool shaderUniformBufferArrayNonUniformIndexing = false;
     // because we also require `descriptorIndexing`
     // bool shaderSampledImageArrayNonUniformIndexing = true;
     // bool shaderStorageBufferArrayNonUniformIndexing = true;
     // ROADMAP 2022
     // bool shaderStorageImageArrayNonUniformIndexing = true;
     // [EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability
-    // bool shaderInputAttachmentArrayNonUniformIndexing;
+    // bool shaderInputAttachmentArrayNonUniformIndexing = false;
     // because we also require `descriptorIndexing`
     // bool shaderUniformTexelBufferArrayNonUniformIndexing = true;
     // ROADMAP 2022 and good device support
     // bool shaderStorageTexelBufferArrayNonUniformIndexing = true;
     // We have special bits on the Descriptor Layout Bindings and those should decide the overhead, not the enablement of a feature like the following
     // [EXPOSE AS A LIMIT] not great coverage but still can enable when available
-    // bool descriptorBindingUniformBufferUpdateAfterBind;
+    // bool descriptorBindingUniformBufferUpdateAfterBind = false;
     // because we also require `descriptorIndexing`
     // bool descriptorBindingSampledImageUpdateAfterBind = true;
     // bool descriptorBindingStorageImageUpdateAfterBind = true;
@@ -235,7 +249,9 @@
 
     // [EXPOSE AS A LIMIT]
     // ALIAS: VK_EXT_sampler_filter_minmax
-    // bool samplerFilterMinmax;
+    // Vulkan 1.2 or VK_EXT_sampler_filter_minmax
+    // TODO: Actually implement the sampler flag enums
+    // bool samplerFilterMinmax = false;
 
     // [REQUIRE]
     // Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance
@@ -271,13 +287,15 @@
     // bool vulkanMemoryModelDeviceScope = true;
 
     // [EXPOSE AS A LIMIT] ROADMAP2022 wants them, but device support low
-    // bool vulkanMemoryModelAvailabilityVisibilityChains;
+    // Vulkan 1.3 requires but we make concessions for MoltenVK
+    // bool vulkanMemoryModelAvailabilityVisibilityChains = false;
 
+    // Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer
     // [EXPOSE AS A LIMIT]
     // ALIAS: VK_EXT_shader_viewport_index_layer
-    // bool shaderOutputViewportIndex;
+    // bool shaderOutputViewportIndex = false;
     // ALIAS: VK_EXT_shader_viewport_index_layer
-    // bool shaderOutputLayer;
+    // bool shaderOutputLayer = false;
 
     // [REQUIRE]
     // ubiquitous device support
@@ -310,11 +328,12 @@
     // or VK_EXT_private_data
     // bool privateData = false;
 
+    // Vulkan 1.3 non-optional requires but poor support
     // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
     // or VK_EXT_shader_demote_to_helper_invocation
-    // bool shaderDemoteToHelperInvocation;
+    // bool shaderDemoteToHelperInvocation = false;
     // or VK_KHR_shader_terminate_invocation
-    // bool shaderTerminateInvocation;
+    // bool shaderTerminateInvocation = false;
 
     // [REQUIRE]Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control
     // bool subgroupSizeControl = true;
@@ -331,7 +350,7 @@
 
     // [EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support
     // or VK_KHR_zero_initialize_workgroup_memory
-    // bool shaderZeroInitializeWorkgroupMemory;
+    // bool shaderZeroInitializeWorkgroupMemory = false;
 
     // [REQUIRE]
     // [DO NOT EXPOSE] EVIL
@@ -912,8 +931,8 @@
     // VK_KHR_shader_clock
     // ShaderClockFeaturesKHR
     // [EXPOSE AS LIMIT]
-    // bool shaderDeviceClock;
-    // bool shaderSubgroupClock = shaderDeviceClock;
+    // bool shaderDeviceClock = false;
+    // bool shaderSubgroupClock = false;
 
     // VK_AMD_extension_183
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
@@ -985,7 +1004,7 @@
     // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits
     // ShaderImageFootprintFeaturesNV
     // VK_NV_shader_image_footprint
-    // bool imageFootPrint;
+    // bool imageFootPrint = false;
 
     // [TODO LATER] requires extra API work to use
     // GL Hint: in GL/GLES this is NV_scissor_exclusive
@@ -1358,7 +1377,7 @@
 
     // [EXPOSE AS A LIMIT]
     // VK_AMD_shader_early_and_late_fragment_tests
-    // bool shaderEarlyAndLateFragmentTests;
+    // bool shaderEarlyAndLateFragmentTests = false;
 
     // VK_KHR_fragment_shader_barycentric
     // [EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits

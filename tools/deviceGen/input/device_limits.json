@@ -1821,15 +1821,6 @@
             "comment": ["VK_EXT_post_depth_coverage"]
         },
         {
-            "type": "bool",
-            "name": "shaderDeviceClock",
-            "value": false,
-            "comment": [
-                "VK_KHR_shader_clock",
-                "ShaderClockFeaturesKHR"
-            ]
-        },
-        {
             "comment": [
                 "VK_NV_compute_shader_derivatives",
                 "ComputeShaderDerivativesFeaturesNV"
@@ -1854,15 +1845,6 @@
             "comment": [
                 "VK_NV_shader_image_footprint",
                 "ShaderImageFootprintFeaturesNV"
-            ]
-        },
-        {
-            "type": "bool",
-            "name": "shaderIntegerFunctions2",
-            "value": false,
-            "comment": [
-                "VK_INTEL_shader_integer_functions2",
-                "ShaderIntegerFunctions3FeaturesINTEL"
             ]
         },
         {
@@ -2126,12 +2108,6 @@
         },
         {
             "type": "bool",
-            "name": "shaderEarlyAndLateFragmentTests",
-            "value": false,
-            "comment": ["VK_AMD_shader_early_and_late_fragment_tests"]
-        },
-        {
-            "type": "bool",
             "name": "fragmentShaderBarycentric",
             "value": false,
             "comment": ["VK_KHR_fragment_shader_barycentric"]
@@ -2226,224 +2202,6 @@
             "comment": [
                 "Always enabled if available, reported as limits",
                 "Core 1.0 Features"
-            ]
-        },
-        {
-            "type": "bool",
-            "name": "logicOp",
-            "value": false,
-            "comment": ["mostly just desktops support this"]
-        },
-        {
-            "type": "bool",
-            "name": "vertexPipelineStoresAndAtomics",
-            "value": false,
-            "comment": ["All iOS GPUs don't support"]
-        },
-        {
-            "type": "bool",
-            "name": "fragmentStoresAndAtomics",
-            "value": false,
-            "comment": ["ROADMAP 2022 no support on iOS GPUs"]
-        },
-        {
-            "type": "bool",
-            "name": "shaderTessellationAndGeometryPointSize",
-            "value": false,
-            "comment": ["Candidate for promotion, just need to look into Linux and Android"]
-        },
-        {
-            "type": "bool",
-            "name": "shaderStorageImageMultisample",
-            "value": false,
-            "comment": ["Apple GPUs and some Intels don't support"]
-        },
-        {
-            "type": "bool",
-            "name": "shaderStorageImageReadWithoutFormat",
-            "value": false,
-            "comment": ["Intel is a special boy and doesn't support"]
-        },
-        {
-            "type": "bool",
-            "name": "shaderStorageImageArrayDynamicIndexing",
-            "value": false,
-            "comment": ["ROADMAP 2022 but no iOS GPU supports"]
-        },
-        {
-            "type": "bool",
-            "name": "shaderFloat64",
-            "value": false,
-            "comment": ["Intel Gen12 and ARC are special-boy drivers (TM)"]
-        },
-        {
-            "type": "bool",
-            "name": "variableMultisampleRate",
-            "value": false,
-            "comment": ["poor support on Apple GPUs"]
-        },
-        {
-            "comment": [
-                "Core 1.1 Features or VK_KHR_16bit_storage"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "storagePushConstant16",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "storageInputOutput16",
-                    "value": false
-                }
-            ]
-        },
-        {
-            "comment": [
-                "Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "multiviewGeometryShader",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "multiviewTessellationShader",
-                    "value": false
-                }
-            ]
-        },
-        {
-            "type": "bool",
-            "name": "drawIndirectCount",
-            "value": false,
-            "comment": ["Vulkan 1.2 Core or VK_KHR_draw_indirect_count"]
-        },
-        {
-            "type": "bool",
-            "name": "storagePushConstant8",
-            "value": false,
-            "comment": ["Vulkan 1.2 Core or VK_KHR_9bit_storage"]
-        },
-        {
-            "comment": [
-                "Vulkan 1.2 Core or VK_KHR_shader_atomic_int64"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "shaderBufferInt64Atomics",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "shaderSharedInt64Atomics",
-                    "value": false
-                }
-            ]
-        },
-        {
-            "type": "bool",
-            "name": "shaderFloat16",
-            "value": false,
-            "comment": ["Vulkan 1. Core or VK_KHR_shader_float17_int9"]
-        },
-        {
-            "comment": [
-                "Vulkan 1.2 Core or VK_EXT_descriptor_indexing"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "shaderInputAttachmentArrayDynamicIndexing",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "shaderUniformBufferArrayNonUniformIndexing",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "shaderInputAttachmentArrayNonUniformIndexing",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "descriptorBindingUniformBufferUpdateAfterBind",
-                    "value": false
-                }
-            ]
-        },
-        {
-            "comment": [
-                "Vulkan 1.2 or VK_EXT_sampler_filter_minmax"
-            ]
-        },
-        {
-            "type": "bool",
-            "name": "samplerFilterMinmax",
-            "value": false,
-            "comment": ["TODO: Actually implement the sampler flag enums"]
-        },
-        {
-            "type": "bool",
-            "name": "vulkanMemoryModelAvailabilityVisibilityChains",
-            "value": false,
-            "comment": ["Vulkan 1.3 requires but we make concessions for MoltenVK"]
-        },
-        {
-            "comment": [
-                "Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "shaderOutputViewportIndex",
-                    "value": false,
-                    "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
-                },
-                {
-                    "type": "bool",
-                    "name": "shaderOutputLayer",
-                    "value": false,
-                    "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
-                }
-            ]
-        },
-        {
-            "comment": [
-                "Vulkan 1.3 non-optional requires but poor support"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "shaderDemoteToHelperInvocation",
-                    "value": false,
-                    "comment": ["or VK_EXT_shader_demote_to_helper_invocation"]
-                },
-                {
-                    "type": "bool",
-                    "name": "shaderTerminateInvocation",
-                    "value": false,
-                    "comment": ["or VK_KHR_shader_terminate_invocation"]
-                }
-            ]
-        },
-        {
-            "comment": [
-                "Vulkan 1.3 non-optional requires but poor support"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "shaderZeroInitializeWorkgroupMemory",
-                    "value": false,
-                    "comment": ["or VK_KHR_zero_initialize_workgroup_memory"]
-                }
             ]
         }
    ],

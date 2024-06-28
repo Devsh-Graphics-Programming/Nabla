@@ -19,17 +19,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    limits = loadJSON(args.limits_json_path)
-    writeHeader(
-        args.limits_output_members_path,
-        buildDeviceHeader,
-        json=limits
-    )
-    writeHeader(
-        args.limits_output_subset_path,
-        buildSubsetMethod,
-        json=limits
-    )
     features = loadJSON(args.features_json_path)
     writeHeader(
         args.features_output_members_path,
@@ -47,6 +36,32 @@ if __name__ == "__main__":
         buildFeaturesMethod,
         json=features,
         op="&"
+    )
+
+    limits = loadJSON(args.limits_json_path)
+    limits['core10'].append(dict(
+        comment=list(),
+        entries=list()
+    ))
+
+    for limit in MovedLimits:
+        limits['core10'][-1]['entries'].append(
+            dict(
+                type=limit['type'],
+                name=limit['name'],
+                value=limit['value']
+            )
+        )
+
+    writeHeader(
+        args.limits_output_members_path,
+        buildDeviceHeader,
+        json=limits
+    )
+    writeHeader(
+        args.limits_output_subset_path,
+        buildSubsetMethod,
+        json=limits
     )
     writeHeader(
         args.traits_output_testers_path,

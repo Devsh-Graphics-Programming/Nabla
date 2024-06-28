@@ -10,6 +10,8 @@ class ContinueEx(Exception):
 ExposeStatus = IntFlag("Expose", ["DEFAULT", "DISABLE", "MOVE_TO_LIMIT"])
 CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 
+MovedLimits = []
+
 def computeStatus(status, string):
     return status(eval(sub(r"\w+", lambda s: f"{status[f"{s.group(0)}"]}", string)))
 
@@ -42,6 +44,9 @@ def buildComment(comment, res, sectionName):
 
 def buildVariable(variable, res, sectionName, insideComment = False):
     expose = computeStatus(ExposeStatus, variable["expose"] if "expose" in variable else "DEFAULT")
+    if expose == ExposeStatus.MOVE_TO_LIMIT:
+        MovedLimits.append(variable)
+
     formattedValue = formatValue(variable['value'])
     exposeDeclaration = "// " if expose != ExposeStatus.DEFAULT else ""
     constexprDeclaration = "constexpr static inline " if sectionName == "constexprs" else ""
