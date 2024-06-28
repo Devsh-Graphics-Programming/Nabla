@@ -328,7 +328,14 @@ def buildJITTraitsHeaderHelper(res, name, json_data, line_format, json_type, *li
                     res.append(emptyline)
 
 def buildTraitsHeader(**params):
-    res = []
+    res = ['// constexprs']
+
+    if 'enable_constexprs' in params and params['enable_constexprs']:
+        for entry in params["limits_json"]["constexprs"][0]["entries"]:
+            expose = computeStatus(ExposeStatus, entry['expose'] if 'expose' in entry else "DEFAULT")
+            if expose == ExposeStatus.DEFAULT:
+                res.append(f"NBL_CONSTEXPR_STATIC_INLINE {entry['type']} {entry['name']} = {entry['value']};")
+        res.append(emptyline)
 
     buildTraitsHeaderHelper(
         res,

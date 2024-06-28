@@ -79,7 +79,8 @@ if __name__ == "__main__":
         template="NBL_GENERATE_GET_OR_DEFAULT({}, {}, {});",
         limits_json=limits,
         features_json=features,
-        format_params=["name", "type", "value"]
+        format_params=["name", "type", "value"],
+        enable_constexprs=True
     )
     writeHeader(
         args.traits_output_members_path,
