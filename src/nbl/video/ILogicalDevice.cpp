@@ -442,6 +442,8 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
+    core::vector<uint32_t> writeDescriptorRedirectIndices(descriptorWrites.size()), writeMutableSamplerRedirectIndices(descriptorWrites.size());
+    auto i = 0u;
     for (const auto& write : descriptorWrites)
     {
         auto* ds = write.dstSet;
@@ -449,7 +451,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
             return false;
 
         const auto writeCount = write.count;
-        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write)))
+        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write, writeDescriptorRedirectIndices[i], writeMutableSamplerRedirectIndices[i])))
         {
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
@@ -469,8 +471,13 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 return false;
         }
         outCategory++;
+        i++;
     }
 
+    core::vector<uint32_t> copySrcDescriptorRedirectIndices(descriptorCopies.size()), copySrcMutableSamplerRedirectIndices(descriptorCopies.size());
+    core::vector<uint32_t> copyDstDescriptorRedirectIndices(descriptorCopies.size()), copyDstMutableSamplerRedirectIndices(descriptorCopies.size());
+    core::vector<asset::IDescriptor::E_TYPE> copyTypes(descriptorCopies.size());
+    i = 0;
     for (const auto& copy : descriptorCopies)
     {
         const auto* srcDS = copy.srcSet;
@@ -480,17 +487,17 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
-        if (!dstDS->validateCopy(copy))
+        if (!dstDS->validateCopy(copy, copyTypes[i], copySrcDescriptorRedirectIndices[i], copyDstDescriptorRedirectIndices[i], copySrcMutableSamplerRedirectIndices[i], copyDstMutableSamplerRedirectIndices[i]))
             return false;
     }
 
     for (auto i=0; i<descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
-        write.dstSet->processWrite(write,params.pWriteTypes[i]);
+        write.dstSet->processWrite(write,params.pWriteTypes[i], writeDescriptorRedirectIndices[i], writeMutableSamplerRedirectIndices[i]);
     }
     for (const auto& copy : descriptorCopies)
-        copy.dstSet->processCopy(copy);
+        copy.dstSet->processCopy(copy, copyTypes[i], copySrcDescriptorRedirectIndices[i], copyDstDescriptorRedirectIndices[i], copySrcMutableSamplerRedirectIndices[i], copyDstMutableSamplerRedirectIndices[i]);
 
     updateDescriptorSets_impl(params);
 

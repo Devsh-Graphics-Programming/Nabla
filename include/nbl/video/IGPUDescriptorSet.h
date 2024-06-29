@@ -92,10 +92,10 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline void incrementVersion() { m_version.fetch_add(1ull); }
 
         friend class ILogicalDevice;
-        asset::IDescriptor::E_TYPE validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
-        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
-        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
-        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+        asset::IDescriptor::E_TYPE validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, uint32_t& descriptorRedirectBindingIndex, uint32_t& mutableSamplerRedirectBindingIndex) const;
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type, const uint32_t descriptorRedirectBindingIndex, const uint32_t mutableSamplerRedirectBindingIndex);
+        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, asset::IDescriptor::E_TYPE& type, uint32_t& srcDescriptorRedirectBindingIndex, uint32_t& dstDescriptorRedirectBindingIndex, uint32_t& srcMutableSamplerRedirectBindingIndex, uint32_t& dstMutableSamplerRedirectBindingIndex) const;
+        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const asset::IDescriptor::E_TYPE type, const uint32_t srcDescriptorRedirectBindingIndex, const uint32_t dstDescriptorRedirectBindingIndex, const uint32_t srcMutableSamplerRedirectBindingIndex, const uint32_t dstMutableSamplerRedirectBindingIndex);
         void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
