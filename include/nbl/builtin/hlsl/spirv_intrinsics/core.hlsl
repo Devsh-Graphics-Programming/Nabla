@@ -218,6 +218,10 @@ template<typename Signed>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
 enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
 
+template<typename Integral>
+[[vk::ext_instruction( spv::OpBitFieldInsert )]]
+Integral bitFieldInsert( Integral base, Integral insert, uint32_t offset, uint32_t count );
+
 }
 
 #endif
