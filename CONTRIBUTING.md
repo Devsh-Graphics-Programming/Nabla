@@ -42,7 +42,7 @@ We welcome pull requests for new features! See the [Free Tasks to Take](#free-ta
 
 ### Free Tasks to Take, DO ANY - WE CAN HIRE YOU :)
 
-Below are some tasks that are open for contribution. If you start working on a task, please open an issue to let us know. *We can hire contributors if a pull request for the task is opened and merged by us*. Requirements are described in [Implementing Features](#implementing-features). The list may get updated, new tasks may be added and already completed deleted, so before you start working on any please make sure it's still free.
+Below are some tasks that are open for contribution. If you start working on a task, please open an issue to let us know. *We can hire contributors if a pull request for the task is opened and merged by us*. Follow [Pull Request Process](#pull-request-process) if you decide to contribute. The list may get updated, new tasks may be added and already completed deleted, so before you start working on any please make sure it's still free.
 
 - Extend `nbl::system` to download textures and meshes over HTTP/URL
 - Mesh Shader Pipeline implementation and demo
