@@ -10,6 +10,12 @@ function(nbl_adjust_definitions)
 		BOOST_ALL_NO_LIB
 	)
 	
+	if(MSVC)
+		add_compile_definitions(
+			_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+		)
+	endif()
+	
 	if(ANDROID)
 		add_compile_definitions(
 			NBL_ANDROID_TOOLCHAIN
