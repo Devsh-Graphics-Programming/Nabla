@@ -69,7 +69,7 @@
 	branch = main
 [submodule "examples_tests"]
 	path = examples_tests
-	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+	url = git@github.com:kpentaris/Nabla-Examples-and-Tests.git
 	branch = master
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
