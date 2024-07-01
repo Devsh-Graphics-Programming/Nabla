@@ -265,7 +265,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         type_ext = parsed_type
         name_ext = [parsed_name[:index1] + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z", ])]
         cpp_name_ext = [parsed_name[:index1] + ext for ext in ["[0]", "[1]", "[2]", "[3]"]]
-        value_ext = split(", |,", parsed_value[1:-2].strip())
+        value_ext = split(", |,", parsed_value[1:-1].strip())
 
         param_values = [
             {
@@ -302,6 +302,7 @@ def buildTraitsHeaderHelper(res, name, json_data, line_format, json_type, *line_
 
     res.append(f"// {name}")
     for sectionName, sectionContent in json_data.items():
+        # constexprs are handled specifically in buildTraitsHeader
         if sectionName == "constexprs":
             continue
         if sectionName in sectionHeaders:
@@ -334,6 +335,7 @@ def buildTraitsHeader(**params):
         for entry in params["limits_json"]["constexprs"][0]["entries"]:
             expose = computeStatus(ExposeStatus, entry['expose'] if 'expose' in entry else "DEFAULT")
             if expose == ExposeStatus.DEFAULT:
+                entry['type'] = sub("int8_t", "int16_t", entry['type'])
                 res.append(f"NBL_CONSTEXPR_STATIC_INLINE {entry['type']} {entry['name']} = {entry['value']};")
         res.append(emptyline)
 
