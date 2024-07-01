@@ -686,9 +686,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
                     outWrite->pImageInfo = outImageInfo;
                     for (auto j = 0u; j < write.count; j++, outImageInfo++)
                     {
-                        const auto& imageInfo = infos[j].info.image;
-                        // Write was validated so we can just get the sampler
-                        outImageInfo->sampler = static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject();
+                        outImageInfo->sampler = static_cast<const CVulkanSampler*>(infos[j].desc.get())->getInternalObject();
                     }
                 } break;
                 case asset::IDescriptor::EC_BUFFER:
@@ -707,7 +705,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
                     outWrite->pImageInfo = outImageInfo;
                     for (auto j=0u; j<write.count; j++,outImageInfo++)
                     {
-                        const auto& imageInfo = infos[j].info.image;
+                        const auto& imageInfo = infos[j].info.combinedImageSampler;
                         outImageInfo->sampler = imageInfo.sampler ? static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject():VK_NULL_HANDLE;
                         outImageInfo->imageView = static_cast<const CVulkanImageView*>(infos[j].desc.get())->getInternalObject();
                         outImageInfo->imageLayout = getVkImageLayoutFromImageLayout(imageInfo.imageLayout);
@@ -776,7 +774,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
 		for (auto i=0; i<drops.size(); i++)
 		{
 			const auto& write = drops[i];
-			auto descriptorType = write.dstSet->getBindingType(write.binding);
+			auto descriptorType = write.dstSet->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(write.binding));
 
 			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
 			outWrite->dstBinding = write.binding;

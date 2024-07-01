@@ -70,19 +70,22 @@ public:
 
 		struct binding_number_t
 		{
-			inline binding_number_t(const uint32_t d) : data(d) {}
+			explicit inline binding_number_t(const uint32_t d) : data(d) {}
+			inline binding_number_t() : data(0) {}
 			uint32_t data;
 		};
 
 		struct storage_offset_t
 		{
-			inline storage_offset_t(const uint32_t d) : data(d) {}
+			explicit inline storage_offset_t(const uint32_t d) : data(d) {}
+			inline storage_offset_t() : data(0) {}
 			uint32_t data;
 		};
 
 		struct storage_range_index_t
 		{
-			inline storage_range_index_t(const uint32_t d) : data(d) {}
+			explicit inline storage_range_index_t(const uint32_t d) : data(d) {}
+			inline storage_range_index_t() : data(0) {}
 			uint32_t data;
 		};
 
@@ -93,18 +96,18 @@ public:
 		inline storage_range_index_t findBindingStorageIndex(const binding_number_t binding) const
 		{
 			if (!m_bindingNumbers)
-				return { Invalid };
+				return storage_range_index_t(Invalid);
 
 			assert(m_storageOffsets && (m_count != 0u));
 
 			auto found = std::lower_bound(m_bindingNumbers, m_bindingNumbers + m_count, binding, [](binding_number_t a, binding_number_t b) -> bool {return a.data < b.data; });
 
 			if ((found >= m_bindingNumbers + m_count) || (found->data != binding.data))
-				return { Invalid };
+				return storage_range_index_t(Invalid);
 
 			const uint32_t foundIndex = found - m_bindingNumbers;
 			assert(foundIndex < m_count);
-			return { foundIndex };
+			return storage_range_index_t(foundIndex);
 		}
 
 		inline binding_number_t getBinding(const storage_range_index_t index) const
@@ -134,7 +137,7 @@ public:
 		inline storage_offset_t getStorageOffset(const storage_range_index_t index) const
 		{
 			assert(index.data < m_count);
-			return (index.data == 0u) ? 0u : m_storageOffsets[index.data - 1];
+			return storage_offset_t((index.data == 0u) ? 0u : m_storageOffsets[index.data - 1].data);
 		}
 
 		// The following are merely convenience functions for one off use.
@@ -162,7 +165,7 @@ public:
 		{
 			const auto index = findBindingStorageIndex(binding);
 			if (index.data == Invalid)
-				return { Invalid };
+				return storage_offset_t(Invalid);
 
 			return getStorageOffset(index);
 		}
@@ -308,19 +311,19 @@ public:
 
 			for (uint32_t b = 0u; b < bindingCnt; ++b)
 			{
-				uint32_t bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b].data;
-				uint32_t otherBindingNumber = CBindingRedirect::Invalid;
+				auto bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b];
+				CBindingRedirect::template binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
 				// TODO: std::find instead?
 				for (uint32_t ob = 0u; ob < otherBindingCnt; ++ob)
 				{
-					if (bindingNumber == other->m_descriptorRedirects[t].m_bindingNumbers[ob].data)
+					if (bindingNumber.data == other->m_descriptorRedirects[t].m_bindingNumbers[ob].data)
 					{
-						otherBindingNumber = ob;
+						otherBindingNumber.data = ob;
 						break;
 					}
 				}
 
-				if (otherBindingNumber == CBindingRedirect::Invalid)
+				if (otherBindingNumber.data == CBindingRedirect::Invalid)
 					return false;
 
 				

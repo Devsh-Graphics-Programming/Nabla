@@ -38,16 +38,18 @@ IGPUDescriptorSet::~IGPUDescriptorSet()
         m_pool->deleteSetStorage(m_storageOffsets.getSetOffset());
 }
 
-asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, uint32_t& descriptorRedirectBindingIndex, uint32_t& mutableSamplerRedirectBindingIndex) const
+asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, redirect_t::storage_range_index_t& descriptorRedirectBindingIndex, redirect_t::storage_range_index_t& mutableSamplerRedirectBindingIndex) const
 {
     assert(write.dstSet == this);
 
     const char* debugName = getDebugName();
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
+    const redirect_t::binding_number_t bindingNumber(write.binding);
 
     // screw it, we'll need to replace the descriptor writing with update templates of descriptor buffer soon anyway
-    const auto descriptorType = getBindingType(write.binding, descriptorRedirectBindingIndex);
+    const auto descriptorType = getBindingType(bindingNumber, descriptorRedirectBindingIndex);
 
-    auto* descriptors = getDescriptorsIndexed(descriptorType, descriptorRedirectBindingIndex);
+    auto* descriptors = getDescriptors(descriptorType, descriptorRedirectBindingIndex);
     if (!descriptors)
     {
         if (debugName)
@@ -59,7 +61,7 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
     }
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
-    if (descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER or (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER and write.info->info.image.sampler))
+    if (descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER or (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER and write.info->info.combinedImageSampler.sampler))
     {
         if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
         {
@@ -81,7 +83,7 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
 
                 return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
-            auto* sampler = descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER ? reinterpret_cast<IGPUSampler*>(write.info[i].desc.get()) : write.info[i].info.image.sampler.get();
+            auto* sampler = descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER ? reinterpret_cast<IGPUSampler*>(write.info[i].desc.get()) : write.info[i].info.combinedImageSampler.sampler.get();
             if (not sampler) {
                 if (debugName)
                     m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%s, %p). All writes should provide a sampler.", system::ILogger::ELL_ERROR, debugName, write.dstSet);
@@ -100,8 +102,9 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
         }
 
         if (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) {
-            mutableSamplerRedirectBindingIndex = getLayout()->getMutableCombinedSamplerRedirect().findBindingStorageIndex(write.binding).data;
-            mutableSamplers = getMutableCombinedSamplersIndexed(mutableSamplerRedirectBindingIndex);
+            mutableSamplerRedirectBindingIndex = getLayout()->getMutableCombinedSamplerRedirect().findBindingStorageIndex(bindingNumber);
+            mutableSamplers = getMutableCombinedSamplers(mutableSamplerRedirectBindingIndex);
+
             // Should never reach here, the GetTypeCategory check earlier should ensure that
             if (!mutableSamplers)
             {
@@ -118,18 +121,18 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
     return descriptorType;
 }
 
-void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type, const uint32_t descriptorRedirectBindingIndex, const uint32_t mutableSamplerRedirectBindingIndex)
+void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t descriptorRedirectBindingIndex, const redirect_t::storage_range_index_t mutableSamplerRedirectBindingIndex)
 {
     assert(write.dstSet == this);
 
-    auto* descriptors = getDescriptorsIndexed(type, descriptorRedirectBindingIndex);
+    auto* descriptors = getDescriptors(type, descriptorRedirectBindingIndex);
     assert(descriptors);
 
     core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
     if (type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER
-        and write.info->info.image.sampler)
+        and write.info->info.combinedImageSampler.sampler)
     {
-        mutableSamplers = getMutableCombinedSamplersIndexed(mutableSamplerRedirectBindingIndex);
+        mutableSamplers = getMutableCombinedSamplers(mutableSamplerRedirectBindingIndex);
         assert(mutableSamplers);
     }
 
@@ -138,7 +141,7 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
         descriptors[j] = write.info[j].desc;
 
         if (mutableSamplers)
-            mutableSamplers[j] = write.info[j].info.image.sampler;
+            mutableSamplers[j] = write.info[j].info.combinedImageSampler.sampler;
     }
     auto& bindingRedirect = m_layout->getDescriptorRedirect(type);
     auto bindingCreateFlags = bindingRedirect.getCreateFlags(redirect_t::storage_range_index_t{ descriptorRedirectBindingIndex });
@@ -150,17 +153,19 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
 {
     assert(drop.dstSet == this);
 
-    uint32_t descriptorRedirectBindingIndex;
-    const auto descriptorType = getBindingType(drop.binding, descriptorRedirectBindingIndex);
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
+    const redirect_t::binding_number_t bindingNumber(drop.binding);
+    redirect_t::storage_range_index_t descriptorRedirectBindingIndex;
+    const auto descriptorType = getBindingType(bindingNumber, descriptorRedirectBindingIndex);
 
-    auto* dstDescriptors = drop.dstSet->getDescriptorsIndexed(descriptorType, descriptorRedirectBindingIndex);
+    auto* dstDescriptors = drop.dstSet->getDescriptors(descriptorType, descriptorRedirectBindingIndex);
     if (dstDescriptors)
         for (uint32_t i = 0; i < drop.count; i++)
             dstDescriptors[drop.arrayElement + i] = nullptr;
 
     if (asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER == descriptorType)
     {
-        auto* dstSamplers = drop.dstSet->getMutableCombinedSamplers(drop.binding);
+        auto* dstSamplers = drop.dstSet->getMutableCombinedSamplers(bindingNumber);
         if (dstSamplers)
             for (uint32_t i = 0; i < drop.count; i++)
                 dstSamplers[drop.arrayElement + i] = nullptr;
@@ -174,9 +179,13 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
         incrementVersion();
 }
 
-bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, asset::IDescriptor::E_TYPE& type, uint32_t& srcDescriptorRedirectBindingIndex, uint32_t& dstDescriptorRedirectBindingIndex, uint32_t& srcMutableSamplerRedirectBindingIndex, uint32_t& dstMutableSamplerRedirectBindingIndex) const
+bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, asset::IDescriptor::E_TYPE& type, redirect_t::storage_range_index_t& srcDescriptorRedirectBindingIndex, redirect_t::storage_range_index_t& dstDescriptorRedirectBindingIndex, redirect_t::storage_range_index_t& srcMutableSamplerRedirectBindingIndex, redirect_t::storage_range_index_t& dstMutableSamplerRedirectBindingIndex) const
 {
     assert(copy.dstSet == this);
+
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
+    redirect_t::binding_number_t srcBindingNumber(copy.srcBinding);
+    redirect_t::binding_number_t dstBindingNumber(copy.dstBinding);
 
     const char* srcDebugName = copy.srcSet->getDebugName();
     const char* dstDebugName = copy.dstSet->getDebugName();
@@ -188,10 +197,10 @@ bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet
     {
         type = static_cast<asset::IDescriptor::E_TYPE>(t);
 
-        srcDescriptorRedirectBindingIndex = srcLayout->getDescriptorRedirect(type).findBindingStorageIndex(copy.srcBinding).data;
-        dstDescriptorRedirectBindingIndex = dstLayout->getDescriptorRedirect(type).findBindingStorageIndex(copy.dstBinding).data;
-        auto* srcDescriptors = copy.srcSet->getDescriptorsIndexed(type, srcDescriptorRedirectBindingIndex);
-        auto* dstDescriptors = copy.dstSet->getDescriptorsIndexed(type, dstDescriptorRedirectBindingIndex);
+        srcDescriptorRedirectBindingIndex = srcLayout->getDescriptorRedirect(type).findBindingStorageIndex(srcBindingNumber);
+        dstDescriptorRedirectBindingIndex = dstLayout->getDescriptorRedirect(type).findBindingStorageIndex(dstBindingNumber);
+        auto* srcDescriptors = copy.srcSet->getDescriptors(type, srcDescriptorRedirectBindingIndex);
+        auto* dstDescriptors = copy.dstSet->getDescriptors(type, dstDescriptorRedirectBindingIndex);
 
         if (!srcDescriptors)
         {
@@ -203,10 +212,10 @@ bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet
         core::smart_refctd_ptr<IGPUSampler> *srcSamplers = nullptr, *dstSamplers = nullptr;
         if (asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER == type)
         {
-            srcMutableSamplerRedirectBindingIndex = srcLayout->getMutableCombinedSamplerRedirect().findBindingStorageIndex(copy.srcBinding).data;
-            dstMutableSamplerRedirectBindingIndex = dstLayout->getMutableCombinedSamplerRedirect().findBindingStorageIndex(copy.dstBinding).data;
-            srcSamplers = copy.srcSet->getMutableCombinedSamplersIndexed(srcMutableSamplerRedirectBindingIndex);
-            dstSamplers = copy.dstSet->getMutableCombinedSamplersIndexed(dstMutableSamplerRedirectBindingIndex);
+            srcMutableSamplerRedirectBindingIndex = srcLayout->getMutableCombinedSamplerRedirect().findBindingStorageIndex(srcBindingNumber);
+            dstMutableSamplerRedirectBindingIndex = dstLayout->getMutableCombinedSamplerRedirect().findBindingStorageIndex(dstBindingNumber);
+            srcSamplers = copy.srcSet->getMutableCombinedSamplers(srcMutableSamplerRedirectBindingIndex);
+            dstSamplers = copy.dstSet->getMutableCombinedSamplers(dstMutableSamplerRedirectBindingIndex);
         }
 
         if ((!srcDescriptors != !dstDescriptors) || (!srcSamplers != !dstSamplers))
@@ -223,19 +232,18 @@ bool IGPUDescriptorSet::validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet
     return true;
 }
 
-void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const asset::IDescriptor::E_TYPE type, const uint32_t srcDescriptorRedirectBindingIndex, const uint32_t dstDescriptorRedirectBindingIndex, const uint32_t srcMutableSamplerRedirectBindingIndex, const uint32_t dstMutableSamplerRedirectBindingIndex)
+void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t srcDescriptorRedirectBindingIndex, const redirect_t::storage_range_index_t dstDescriptorRedirectBindingIndex, const redirect_t::storage_range_index_t srcMutableSamplerRedirectBindingIndex, const redirect_t::storage_range_index_t dstMutableSamplerRedirectBindingIndex)
 {
     assert(copy.dstSet == this);
 
     auto& bindingRedirect = m_layout->getDescriptorRedirect(type);
 
-    auto* srcDescriptors = copy.srcSet->getDescriptorsIndexed(type, srcDescriptorRedirectBindingIndex);
-    auto* dstDescriptors = copy.dstSet->getDescriptorsIndexed(type, dstDescriptorRedirectBindingIndex);
+    auto* srcDescriptors = copy.srcSet->getDescriptors(type, srcDescriptorRedirectBindingIndex);
+    auto* dstDescriptors = copy.dstSet->getDescriptors(type, dstDescriptorRedirectBindingIndex);
 
-    auto* srcSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.srcSet->getMutableCombinedSamplersIndexed(srcMutableSamplerRedirectBindingIndex);
-    auto* dstSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.dstSet->getMutableCombinedSamplersIndexed(dstMutableSamplerRedirectBindingIndex);
-
-        
+    auto* srcSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.srcSet->getMutableCombinedSamplers(srcMutableSamplerRedirectBindingIndex);
+    auto* dstSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.dstSet->getMutableCombinedSamplers(dstMutableSamplerRedirectBindingIndex);
+       
     auto bindingCreateFlags = bindingRedirect.getCreateFlags(redirect_t::storage_range_index_t{ dstDescriptorRedirectBindingIndex });
     if (IGPUDescriptorSetLayout::writeIncrementsVersion(bindingCreateFlags))
         incrementVersion();

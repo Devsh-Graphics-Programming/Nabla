@@ -47,9 +47,10 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
                 };
 				struct SImageInfo
 				{
-					// If the binding is a SAMPLER, this field is ignored
 					IImage::LAYOUT imageLayout;
-					// If the binding is COMBINED, this will be ignored if the DS layout already has an immutable sampler specified for the binding
+				};
+				struct SCombinedImageSamplerInfo : SImageInfo
+				{
 					core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
 				};
                     
@@ -58,13 +59,14 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				{
 					SBufferImageInfo()
 					{
-						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
+						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(combinedImageSampler)));
 					};
 
 					~SBufferImageInfo() {};
 
 					SBufferInfo buffer;
 					SImageInfo image;
+					SCombinedImageSamplerInfo combinedImageSampler;
 				} info;
 
 				SDescriptorInfo() {}
@@ -93,34 +95,32 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				}
 				~SDescriptorInfo()
 				{
-					if (desc and (desc->getTypeCategory()==IDescriptor::EC_IMAGE or desc->getTypeCategory() == IDescriptor::EC_SAMPLER))
-						info.image.sampler = nullptr;
 				}
 
 				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
 				{
-					if (desc and (desc->getTypeCategory()==IDescriptor::EC_IMAGE or desc->getTypeCategory() == IDescriptor::EC_SAMPLER))
-						info.image.sampler = nullptr;
+					if (desc and desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						info.combinedImageSampler.sampler = nullptr;
 					desc = other.desc;
 					const auto type = desc->getTypeCategory();
-					if (type!=IDescriptor::EC_IMAGE and type!=IDescriptor::EC_SAMPLER)
+					if (type!=IDescriptor::EC_IMAGE)
 						info.buffer = other.info.buffer;
 					else
-						info.image = other.info.image;
+						info.combinedImageSampler = other.info.combinedImageSampler;
 					return *this;
 				}
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
-					if (desc and (desc->getTypeCategory() == IDescriptor::EC_IMAGE or desc->getTypeCategory() == IDescriptor::EC_SAMPLER))
-						info.image = {nullptr,IImage::LAYOUT::UNDEFINED};
+					if (desc and desc->getTypeCategory() == IDescriptor::EC_IMAGE)
+						info.combinedImageSampler = {IImage::LAYOUT::UNDEFINED, nullptr};
 					desc = std::move(other.desc);
 					if (desc)
 					{
 						const auto type = desc->getTypeCategory();
-						if (type!=IDescriptor::EC_IMAGE and type!=IDescriptor::EC_SAMPLER)
+						if (type!=IDescriptor::EC_IMAGE)
 							info.buffer = other.info.buffer;
 						else
-							info.image = other.info.image;
+							info.combinedImageSampler = other.info.combinedImageSampler;
 					}
 					return *this;
 				}

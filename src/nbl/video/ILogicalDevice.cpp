@@ -438,11 +438,12 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
     SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
-    core::vector<uint32_t> writeDescriptorRedirectIndices(descriptorWrites.size()), writeMutableSamplerRedirectIndices(descriptorWrites.size());
+    core::vector<redirect_t::storage_range_index_t> writeDescriptorRedirectIndices(descriptorWrites.size()), writeMutableSamplerRedirectIndices(descriptorWrites.size());
     auto i = 0u;
     for (const auto& write : descriptorWrites)
     {
@@ -474,8 +475,8 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         i++;
     }
 
-    core::vector<uint32_t> copySrcDescriptorRedirectIndices(descriptorCopies.size()), copySrcMutableSamplerRedirectIndices(descriptorCopies.size());
-    core::vector<uint32_t> copyDstDescriptorRedirectIndices(descriptorCopies.size()), copyDstMutableSamplerRedirectIndices(descriptorCopies.size());
+    core::vector<redirect_t::storage_range_index_t> copySrcDescriptorRedirectIndices(descriptorCopies.size()), copySrcMutableSamplerRedirectIndices(descriptorCopies.size());
+    core::vector<redirect_t::storage_range_index_t> copyDstDescriptorRedirectIndices(descriptorCopies.size()), copyDstMutableSamplerRedirectIndices(descriptorCopies.size());
     core::vector<asset::IDescriptor::E_TYPE> copyTypes(descriptorCopies.size());
     i = 0;
     for (const auto& copy : descriptorCopies)
@@ -513,7 +514,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
-        auto bindingType = ds->getBindingType(drop.binding);
+        auto bindingType = ds->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(drop.binding));
         auto writeCount = drop.count;
         switch (asset::IDescriptor::GetTypeCategory(bindingType))
         {
