@@ -57,32 +57,28 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         inline IDescriptorPool* getPool() const { return m_pool.get(); }
         inline bool isZombie() const { return (m_pool.get() == nullptr); }
 
-        // small utility
-        inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding) const
-        {
-            for (auto t=0u; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
-            {
-                const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
-                const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
-                if (bindingRedirect.getStorageOffset(redirect_t::binding_number_t{binding}).data!=redirect_t::Invalid)
-                    return type;
-            }
-            return asset::IDescriptor::E_TYPE::ET_COUNT;
-        }
-
-        // Same as above, but also retrieving the binding's storage index for its corresponsing redirect
-        inline asset::IDescriptor::E_TYPE getBindingType(const uint32_t binding, uint32_t& bindingStorageIndex) const
+        // Get the type of a binding + the binding's storage index for its corresponding redirect
+        inline asset::IDescriptor::E_TYPE getBindingType(const IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t& bindingStorageIndex) const
         {
             for (auto t = 0u; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); t++)
             {
                 const auto type = static_cast<asset::IDescriptor::E_TYPE>(t);
                 const auto& bindingRedirect = getLayout()->getDescriptorRedirect(type);
-                bindingStorageIndex = bindingRedirect.findBindingStorageIndex(binding).data;
-                if (bindingStorageIndex != redirect_t::Invalid)
+                bindingStorageIndex = bindingRedirect.findBindingStorageIndex(binding);
+                if (bindingStorageIndex.data != redirect_t::Invalid)
                     return type;
             }
             return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
+
+        // If you only need the type
+        inline asset::IDescriptor::E_TYPE getBindingType(const IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding) const
+        {
+            IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t dummy(0);
+            return getBindingType(binding, dummy);
+        }
+
+        
 
 	protected:
         IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets&& offsets);
@@ -100,9 +96,9 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
-        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const uint32_t binding) const
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const redirect_t::binding_number_t binding) const
         {
-            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(redirect_t::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(binding).data;
             if (localOffset == ~0)
                 return nullptr;
 
@@ -113,10 +109,10 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             return descriptors+localOffset;
         }
 
-        // Same as above, but amortizes lookup if you already have an index
-        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorsIndexed(const asset::IDescriptor::E_TYPE type, const uint32_t bindingStorageIndex) const
+        // Same as above, but amortizes lookup if you already have an index into the type's redirect
+        inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t bindingStorageIndex) const
         {
-            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(redirect_t::storage_range_index_t{ bindingStorageIndex }).data;
+            const auto localOffset = getLayout()->getDescriptorRedirect(type).getStorageOffset(bindingStorageIndex).data;
             if (localOffset == ~0)
                 return nullptr;
 
@@ -127,9 +123,9 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             return descriptors + localOffset;
         }
 
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplers(const uint32_t binding) const
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplers(const redirect_t::binding_number_t binding) const
         {
-            const auto localOffset = getLayout()->getMutableCombinedSamplerRedirect().getStorageOffset(redirect_t::binding_number_t{ binding }).data;
+            const auto localOffset = getLayout()->getMutableCombinedSamplerRedirect().getStorageOffset(binding).data;
             if (localOffset == getLayout()->getMutableCombinedSamplerRedirect().Invalid)
                 return nullptr;
 
@@ -141,9 +137,9 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
         }
 
         // Same as above, but amortizes lookup if you already have an index
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplersIndexed(const uint32_t bindingStorageIndex) const
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplers(const redirect_t::storage_range_index_t bindingStorageIndex) const
         {
-            const auto localOffset = getLayout()->getMutableCombinedSamplerRedirect().getStorageOffset(redirect_t::storage_range_index_t{ bindingStorageIndex }).data;
+            const auto localOffset = getLayout()->getMutableCombinedSamplerRedirect().getStorageOffset(bindingStorageIndex).data;
             if (localOffset == getLayout()->getMutableCombinedSamplerRedirect().Invalid)
                 return nullptr;
 

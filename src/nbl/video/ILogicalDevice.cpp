@@ -506,7 +506,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
-        auto bindingType = ds->getBindingType(drop.binding);
+        auto bindingType = ds->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(drop.binding));
         auto writeCount = drop.count;
         switch (asset::IDescriptor::GetTypeCategory(bindingType))
         {
