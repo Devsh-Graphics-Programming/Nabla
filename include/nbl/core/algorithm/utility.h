@@ -1,23 +1,28 @@
 #ifndef _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 #define _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 
+
 namespace nbl::core
 {
 
-namespace impl
+// I only thought if I could, not if I should
+template<template<class> class X, typename Tuple>
+struct tuple_transform
 {
-    template<typename T, typename F, std::size_t... Is>
-    inline void for_each(T&& t, F f, std::index_sequence<Is...>)
-    {
-        auto l = { (f(std::get<Is>(t)), 0)... };
-    }
-}
+	private:
+		template<typename... T>
+		static std::tuple<X<T>...> _impl(const std::tuple<T...>&);
 
-template<typename... Ts, typename F>
-inline void for_each_in_tuple(std::tuple<Ts...> const& t, F f)
+	public:
+		using type = decltype(_impl(std::declval<Tuple>()));
+};
+template<template<class> class X, typename Tuple>
+using tuple_transform_t = tuple_transform<X,Tuple>::type;
+
+template<typename Tuple, typename F>
+constexpr void for_each_in_tuple(Tuple& t, F&& f) noexcept
 {
-    constexpr std::size_t N = std::tuple_size<std::remove_reference_t<decltype(t)>>::value;
-    impl::for_each(t, f, std::make_index_sequence<N>());
+	std::apply([&f](auto& ...x){(..., f(x));},t);
 }
 
 template <class T>
