@@ -14,6 +14,12 @@ struct blake3_hash_t
 
 	uint8_t data[BLAKE3_OUT_LEN];
 };
+
+template<typename T>
+void blake3_hasher_update(blake3_hasher* self, const T& input)
+{
+	blake3_hasher_update(self,&input,sizeof(input));
+}
 }
 
 
