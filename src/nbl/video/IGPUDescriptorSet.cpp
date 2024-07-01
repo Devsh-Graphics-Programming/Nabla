@@ -144,7 +144,7 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
             mutableSamplers[j] = write.info[j].info.combinedImageSampler.sampler;
     }
     auto& bindingRedirect = m_layout->getDescriptorRedirect(type);
-    auto bindingCreateFlags = bindingRedirect.getCreateFlags(redirect_t::storage_range_index_t{ descriptorRedirectBindingIndex });
+    auto bindingCreateFlags = bindingRedirect.getCreateFlags(descriptorRedirectBindingIndex);
     if (IGPUDescriptorSetLayout::writeIncrementsVersion(bindingCreateFlags))
         incrementVersion();
 }
@@ -174,7 +174,7 @@ void IGPUDescriptorSet::dropDescriptors(const IGPUDescriptorSet::SDropDescriptor
     // we only increment the version to detect UPDATE-AFTER-BIND and automagically invalidate descriptor sets
     // so, only if we do the path that writes descriptors, do we want to increment version
     auto& bindingRedirect = m_layout->getDescriptorRedirect(descriptorType);
-    auto bindingCreateFlags = bindingRedirect.getCreateFlags(redirect_t::storage_range_index_t{ descriptorRedirectBindingIndex });
+    auto bindingCreateFlags = bindingRedirect.getCreateFlags(descriptorRedirectBindingIndex);
     if (IGPUDescriptorSetLayout::writeIncrementsVersion(bindingCreateFlags))
         incrementVersion();
 }
@@ -244,7 +244,7 @@ void IGPUDescriptorSet::processCopy(const IGPUDescriptorSet::SCopyDescriptorSet&
     auto* srcSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.srcSet->getMutableCombinedSamplers(srcMutableSamplerRedirectBindingIndex);
     auto* dstSamplers = type != asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER ? nullptr : copy.dstSet->getMutableCombinedSamplers(dstMutableSamplerRedirectBindingIndex);
        
-    auto bindingCreateFlags = bindingRedirect.getCreateFlags(redirect_t::storage_range_index_t{ dstDescriptorRedirectBindingIndex });
+    auto bindingCreateFlags = bindingRedirect.getCreateFlags(dstDescriptorRedirectBindingIndex);
     if (IGPUDescriptorSetLayout::writeIncrementsVersion(bindingCreateFlags))
         incrementVersion();
 
