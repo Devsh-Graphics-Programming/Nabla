@@ -361,8 +361,16 @@ if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return f
 
     if (!_rhs.cooperativeMatrixSupportedStages.hasFlags(cooperativeMatrixSupportedStages)) return false;
 
-   // Core 1.0
+   // Nabla
 
+    if (computeUnits > _rhs.computeUnits) return false;
+    if (dispatchBase && !_rhs.dispatchBase) return false;
+    if (allowCommandBufferQueryCopies && !_rhs.allowCommandBufferQueryCopies) return false;
+    if (maxOptimallyResidentWorkgroupInvocations > _rhs.maxOptimallyResidentWorkgroupInvocations) return false;
+    if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
+    if (spirvVersion > _rhs.spirvVersion) return false;
+
+   // Core 1.0
     if (logicOp && !_rhs.logicOp) return false;
     if (vertexPipelineStoresAndAtomics && !_rhs.vertexPipelineStoresAndAtomics) return false;
     if (fragmentStoresAndAtomics && !_rhs.fragmentStoresAndAtomics) return false;
@@ -397,13 +405,4 @@ if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return f
     if (imageFootPrint && !_rhs.imageFootPrint) return false;
     if (shaderIntegerFunctions2 && !_rhs.shaderIntegerFunctions2) return false;
     if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
-
-   // Nabla
-
-    if (computeUnits > _rhs.computeUnits) return false;
-    if (dispatchBase && !_rhs.dispatchBase) return false;
-    if (allowCommandBufferQueryCopies && !_rhs.allowCommandBufferQueryCopies) return false;
-    if (maxOptimallyResidentWorkgroupInvocations > _rhs.maxOptimallyResidentWorkgroupInvocations) return false;
-    if (maxResidentInvocations > _rhs.maxResidentInvocations) return false;
-    if (spirvVersion > _rhs.spirvVersion) return false;
 

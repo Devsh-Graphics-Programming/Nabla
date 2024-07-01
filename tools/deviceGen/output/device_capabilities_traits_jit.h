@@ -356,6 +356,14 @@ NBL_CONSTEXPR_STATIC_INLINE bool colorWriteEnable = )===" + CJITIncludeLoader::t
 
 NBL_CONSTEXPR_STATIC_INLINE shaderStage cooperativeMatrixSupportedStages = )===" + CJITIncludeLoader::to_string(limits.cooperativeMatrixSupportedStages) + R"===(;
 
+// Nabla
+NBL_CONSTEXPR_STATIC_INLINE uint32_t computeUnits = )===" + CJITIncludeLoader::to_string(limits.computeUnits) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = )===" + CJITIncludeLoader::to_string(limits.dispatchBase) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = )===" + CJITIncludeLoader::to_string(limits.allowCommandBufferQueryCopies) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = )===" + CJITIncludeLoader::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = )===" + CJITIncludeLoader::to_string(limits.maxResidentInvocations) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = )===" + CJITIncludeLoader::to_string(limits.spirvVersion) + R"===(;
+
 NBL_CONSTEXPR_STATIC_INLINE bool logicOp = )===" + CJITIncludeLoader::to_string(limits.logicOp) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool vertexPipelineStoresAndAtomics = )===" + CJITIncludeLoader::to_string(limits.vertexPipelineStoresAndAtomics) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool fragmentStoresAndAtomics = )===" + CJITIncludeLoader::to_string(limits.fragmentStoresAndAtomics) + R"===(;
@@ -390,14 +398,6 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClock = )===" + CJITIncludeLoader
 NBL_CONSTEXPR_STATIC_INLINE bool imageFootPrint = )===" + CJITIncludeLoader::to_string(limits.imageFootPrint) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderIntegerFunctions2 = )===" + CJITIncludeLoader::to_string(limits.shaderIntegerFunctions2) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderEarlyAndLateFragmentTests = )===" + CJITIncludeLoader::to_string(limits.shaderEarlyAndLateFragmentTests) + R"===(;
-
-// Nabla
-NBL_CONSTEXPR_STATIC_INLINE uint32_t computeUnits = )===" + CJITIncludeLoader::to_string(limits.computeUnits) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = )===" + CJITIncludeLoader::to_string(limits.dispatchBase) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = )===" + CJITIncludeLoader::to_string(limits.allowCommandBufferQueryCopies) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = )===" + CJITIncludeLoader::to_string(limits.maxOptimallyResidentWorkgroupInvocations) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = )===" + CJITIncludeLoader::to_string(limits.maxResidentInvocations) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = )===" + CJITIncludeLoader::to_string(limits.spirvVersion) + R"===(;
 
 // Features JIT Members
 // VK 1.0

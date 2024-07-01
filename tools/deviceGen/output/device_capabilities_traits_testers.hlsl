@@ -355,6 +355,14 @@ NBL_GENERATE_MEMBER_TESTER(colorWriteEnable);
 
 NBL_GENERATE_MEMBER_TESTER(cooperativeMatrixSupportedStages);
 
+// Nabla
+NBL_GENERATE_MEMBER_TESTER(computeUnits);
+NBL_GENERATE_MEMBER_TESTER(dispatchBase);
+NBL_GENERATE_MEMBER_TESTER(allowCommandBufferQueryCopies);
+NBL_GENERATE_MEMBER_TESTER(maxOptimallyResidentWorkgroupInvocations);
+NBL_GENERATE_MEMBER_TESTER(maxResidentInvocations);
+NBL_GENERATE_MEMBER_TESTER(spirvVersion);
+
 NBL_GENERATE_MEMBER_TESTER(logicOp);
 NBL_GENERATE_MEMBER_TESTER(vertexPipelineStoresAndAtomics);
 NBL_GENERATE_MEMBER_TESTER(fragmentStoresAndAtomics);
@@ -389,14 +397,6 @@ NBL_GENERATE_MEMBER_TESTER(shaderSubgroupClock);
 NBL_GENERATE_MEMBER_TESTER(imageFootPrint);
 NBL_GENERATE_MEMBER_TESTER(shaderIntegerFunctions2);
 NBL_GENERATE_MEMBER_TESTER(shaderEarlyAndLateFragmentTests);
-
-// Nabla
-NBL_GENERATE_MEMBER_TESTER(computeUnits);
-NBL_GENERATE_MEMBER_TESTER(dispatchBase);
-NBL_GENERATE_MEMBER_TESTER(allowCommandBufferQueryCopies);
-NBL_GENERATE_MEMBER_TESTER(maxOptimallyResidentWorkgroupInvocations);
-NBL_GENERATE_MEMBER_TESTER(maxResidentInvocations);
-NBL_GENERATE_MEMBER_TESTER(spirvVersion);
 
 // Features Testers
 // VK 1.0

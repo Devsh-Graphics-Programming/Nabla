@@ -540,9 +540,20 @@
     // VK_KHR_cooperative_matrix
     core::bitflag<asset::IShader::E_SHADER_STAGE> cooperativeMatrixSupportedStages = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
+    // Nabla
+
+    uint32_t computeUnits = 0;
+    // true in Vk, false in GL
+    bool dispatchBase = false;
+    bool allowCommandBufferQueryCopies = false;
+    // its 1D because multidimensional workgroups are an illusion
+    uint32_t maxOptimallyResidentWorkgroupInvocations = 0;
+    // These are maximum number of invocations you could expect to execute simultaneously on this device
+    uint32_t maxResidentInvocations = 0;
+    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
+
     // Core 1.0 Features
     // Always enabled if available, reported as limits
-
     bool logicOp = false;
     bool vertexPipelineStoresAndAtomics = false;
     bool fragmentStoresAndAtomics = false;
@@ -577,16 +588,4 @@
     bool imageFootPrint = false;
     bool shaderIntegerFunctions2 = false;
     bool shaderEarlyAndLateFragmentTests = false;
-
-    // Nabla
-
-    uint32_t computeUnits = 0;
-    // true in Vk, false in GL
-    bool dispatchBase = false;
-    bool allowCommandBufferQueryCopies = false;
-    // its 1D because multidimensional workgroups are an illusion
-    uint32_t maxOptimallyResidentWorkgroupInvocations = 0;
-    // These are maximum number of invocations you could expect to execute simultaneously on this device
-    uint32_t maxResidentInvocations = 0;
-    asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 

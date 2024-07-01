@@ -355,6 +355,14 @@ NBL_CONSTEXPR_STATIC_INLINE bool colorWriteEnable = impl::get_or_default_colorWr
 
 NBL_CONSTEXPR_STATIC_INLINE shaderStage cooperativeMatrixSupportedStages = impl::get_or_default_cooperativeMatrixSupportedStages<device_capabilities>::value;
 
+// Nabla
+NBL_CONSTEXPR_STATIC_INLINE uint32_t computeUnits = impl::get_or_default_computeUnits<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = impl::get_or_default_dispatchBase<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = impl::get_or_default_allowCommandBufferQueryCopies<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = impl::get_or_default_maxOptimallyResidentWorkgroupInvocations<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = impl::get_or_default_maxResidentInvocations<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = impl::get_or_default_spirvVersion<device_capabilities>::value;
+
 NBL_CONSTEXPR_STATIC_INLINE bool logicOp = impl::get_or_default_logicOp<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool vertexPipelineStoresAndAtomics = impl::get_or_default_vertexPipelineStoresAndAtomics<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool fragmentStoresAndAtomics = impl::get_or_default_fragmentStoresAndAtomics<device_capabilities>::value;
@@ -389,14 +397,6 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClock = impl::get_or_default_shad
 NBL_CONSTEXPR_STATIC_INLINE bool imageFootPrint = impl::get_or_default_imageFootPrint<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderIntegerFunctions2 = impl::get_or_default_shaderIntegerFunctions2<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderEarlyAndLateFragmentTests = impl::get_or_default_shaderEarlyAndLateFragmentTests<device_capabilities>::value;
-
-// Nabla
-NBL_CONSTEXPR_STATIC_INLINE uint32_t computeUnits = impl::get_or_default_computeUnits<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE bool dispatchBase = impl::get_or_default_dispatchBase<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE bool allowCommandBufferQueryCopies = impl::get_or_default_allowCommandBufferQueryCopies<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxOptimallyResidentWorkgroupInvocations = impl::get_or_default_maxOptimallyResidentWorkgroupInvocations<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxResidentInvocations = impl::get_or_default_maxResidentInvocations<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE spirvVersion spirvVersion = impl::get_or_default_spirvVersion<device_capabilities>::value;
 
 // Features Members
 // VK 1.0

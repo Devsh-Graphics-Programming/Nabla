@@ -5,7 +5,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t MaxMaxPushConstantsSize = 256;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxWorkgroupCount = 1 << 12;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxWorkgroupInvocations = 256;
 NBL_CONSTEXPR_STATIC_INLINE int32_t MinSubPixelInterpolationOffsetBits = 4;
-NBL_CONSTEXPR_STATIC_INLINE uint8_t MinMaxColorAttachments = 8;
+NBL_CONSTEXPR_STATIC_INLINE uint16_t MinMaxColorAttachments = 8;
 
 // Limits Defaults
 // VK 1.0
@@ -364,6 +364,14 @@ NBL_GENERATE_GET_OR_DEFAULT(colorWriteEnable, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(cooperativeMatrixSupportedStages, shaderStage, shaderStage::ESS_UNKNOWN);
 
+// Nabla
+NBL_GENERATE_GET_OR_DEFAULT(computeUnits, uint32_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(dispatchBase, bool, false);
+NBL_GENERATE_GET_OR_DEFAULT(allowCommandBufferQueryCopies, bool, false);
+NBL_GENERATE_GET_OR_DEFAULT(maxOptimallyResidentWorkgroupInvocations, uint32_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(maxResidentInvocations, uint32_t, 0);
+NBL_GENERATE_GET_OR_DEFAULT(spirvVersion, spirvVersion, spirvVersion::ESV_1_6);
+
 NBL_GENERATE_GET_OR_DEFAULT(logicOp, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(vertexPipelineStoresAndAtomics, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(fragmentStoresAndAtomics, bool, false);
@@ -398,14 +406,6 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupClock, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(imageFootPrint, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderIntegerFunctions2, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderEarlyAndLateFragmentTests, bool, false);
-
-// Nabla
-NBL_GENERATE_GET_OR_DEFAULT(computeUnits, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(dispatchBase, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(allowCommandBufferQueryCopies, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(maxOptimallyResidentWorkgroupInvocations, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(maxResidentInvocations, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(spirvVersion, spirvVersion, spirvVersion::ESV_1_6);
 
 // Features Defaults
 // VK 1.0
