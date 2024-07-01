@@ -21,8 +21,6 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         using this_t = ICPUPipeline<PipelineNonAssetBase,MaxShaderStageCount>;
 
     public:
-        inline size_t conservativeSizeEstimate() const override final {return sizeof(PipelineNonAssetBase)+sizeof(ICPUShader*)*MaxShaderStageCount;}
-
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override final
 	    {
             convertToDummyObject_common(referenceLevelsBelowToConvert);

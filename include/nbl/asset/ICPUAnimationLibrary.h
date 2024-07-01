@@ -1,19 +1,16 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_CPU_ANIMATION_LIBRARY_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_ANIMATION_LIBRARY_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_ANIMATION_LIBRARY_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_ANIMATION_LIBRARY_H_INCLUDED_
 
 #include "nbl/asset/IAnimationLibrary.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public IAsset
 {
 	public:
 		using base_t = IAnimationLibrary<ICPUBuffer>;
@@ -83,17 +80,6 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 			base_t::clearAnimationNames();
 		}
 
-		//! Serializes animation library to blob for *.nbl file format.
-		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
-			@param _stackSize Size of stack memory pointed by _stackPtr.
-			@returns Pointer to memory on which blob was written.
-		* TODO
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
-		{
-			return CorrespondingBlobTypeFor<ICPUAnimationLibrary>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-		}
-		*/
-
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			SBufferBinding<ICPUBuffer> _keyframeStorageBinding = {m_keyframeStorageBinding.offset,_depth>0u ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_keyframeStorageBinding.buffer->clone(_depth-1u)):m_keyframeStorageBinding.buffer};
@@ -122,17 +108,6 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_ANIMATION_LIBRARY;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		virtual size_t conservativeSizeEstimate() const override
-		{
-			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>)*2ull;
-			estimate += sizeof(SBufferRange<ICPUBuffer>);
-			estimate += sizeof(uint32_t);
-			estimate += m_stringPool.size();
-			estimate += m_nameToAnimation.size()*sizeof(std::pair<uint32_t,uint32_t>);
-			// do we add other things to the size estimate?
-			return estimate;
-		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
@@ -193,6 +168,4 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, /*TODO:
 };
 
 }
-}
-
 #endif

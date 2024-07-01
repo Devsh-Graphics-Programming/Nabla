@@ -27,10 +27,6 @@
 #include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #endif
 
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
-#endif
-
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 #include "nbl/asset/interchange/CGLTFLoader.h"
 #endif
@@ -61,10 +57,6 @@
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
-#endif
-
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
@@ -153,9 +145,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
 #endif
@@ -179,9 +168,6 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
     addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif

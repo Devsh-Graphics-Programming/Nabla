@@ -61,12 +61,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			return m_layout->canBeRestoredFrom(other->m_layout.get());
 		}
 
-		inline size_t conservativeSizeEstimate() const override
-		{
-			assert(!"Invalid code path.");
-			return 0xdeadbeefull;
-		}
-
 		inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 		{
 			// TODO: @Hazardu

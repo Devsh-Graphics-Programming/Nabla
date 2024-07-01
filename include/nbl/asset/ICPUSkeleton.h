@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 {
 	public:
 		using base_t = ISkeleton<ICPUBuffer>;
@@ -60,17 +60,6 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			return reinterpret_cast<const base_t::joint_id_t*>(ptr+m_parentJointIDs.offset)[jointID];
 		}
 
-		//! Serializes skeleton to blob for *.nbl file format.
-		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
-			@param _stackSize Size of stack memory pointed by _stackPtr.
-			@returns Pointer to memory on which blob was written.
-		* TODO
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
-		{
-			return CorrespondingBlobTypeFor<ICPUSkeleton>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-		}
-		*/
-
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			SBufferBinding<ICPUBuffer> _parentJointIDsBinding = {m_parentJointIDs.offset,_depth>0u&&m_parentJointIDs.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_parentJointIDs.buffer->clone(_depth-1u)):m_parentJointIDs.buffer};
@@ -101,16 +90,6 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		virtual size_t conservativeSizeEstimate() const override
-		{
-			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>)*2ull;
-			estimate += sizeof(uint16_t);
-			estimate += m_stringPoolSize;
-			estimate += m_nameToJointID.size()*sizeof(std::pair<uint32_t,joint_id_t>);
-			// do we add other things to the size estimate?
-			return estimate;
-		}
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{

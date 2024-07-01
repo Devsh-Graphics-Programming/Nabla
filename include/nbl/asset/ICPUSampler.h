@@ -69,7 +69,6 @@ class ICPUSampler : public ISampler, public IAsset
             return cp;
         }
 
-		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override 
         {
             convertToDummyObject_common(referenceLevelsBelowToConvert);

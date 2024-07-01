@@ -54,12 +54,6 @@ class ICPUImage final : public IImage, public IAsset
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-        virtual size_t conservativeSizeEstimate() const override
-		{
-			assert(regions);
-			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
-		}
-
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
 		{
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);

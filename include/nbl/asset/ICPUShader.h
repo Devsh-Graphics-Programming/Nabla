@@ -44,13 +44,6 @@ class ICPUShader : public IAsset, public IShader
 		constexpr static inline auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		size_t conservativeSizeEstimate() const override 
-		{
-			size_t estimate = m_code->getSize();
-			estimate += getFilepathHint().size();
-			return estimate;
-		}
-
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;

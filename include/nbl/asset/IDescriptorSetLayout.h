@@ -265,8 +265,6 @@ public:
 			return result;
 		}
 
-		inline size_t conservativeSizeEstimate() const { return getRequiredMemorySize() + sizeof(*this); }
-
 		uint32_t m_count = 0u;
 
 		binding_number_t* m_bindingNumbers = nullptr;

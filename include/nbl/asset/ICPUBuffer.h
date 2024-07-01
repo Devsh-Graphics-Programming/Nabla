@@ -11,7 +11,6 @@
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IDescriptor.h"
-#include "nbl/asset/bawformat/blobs/RawBufferBlob.h"
 
 namespace nbl::asset
 {
@@ -62,8 +61,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
-
-        size_t conservativeSizeEstimate() const override final { return getSize(); }
 
         //! Returns pointer to data.
         const void* getPointer() const {return data;}

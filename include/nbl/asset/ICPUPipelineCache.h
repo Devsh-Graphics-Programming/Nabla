@@ -47,7 +47,6 @@ class ICPUPipelineCache final : public IAsset
 		const auto& getEntries() const {return m_cache;}
 
 		// `IAsset` methods
-		size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 		{
 			if (canBeConvertedToDummy())

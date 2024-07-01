@@ -45,7 +45,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		}
 
 		// IAsset implementations
-		size_t conservativeSizeEstimate() const override { return sizeof(base_t)+sizeof(m_layout)+sizeof(ICPUShader::SSpecInfo)*5; }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert)

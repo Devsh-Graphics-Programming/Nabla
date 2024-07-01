@@ -8,8 +8,6 @@
 #include "nbl/asset/IMeshBuffer.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-#include "nbl/asset/bawformat/blobs/MeshBufferBlob.h"
-#include "nbl/asset/bawformat/BlobSerializable.h"
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/asset/format/encodePixels.h"
 
@@ -55,7 +53,7 @@ namespace impl
     }
 }
 
-class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
+class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>, public IAsset
 {
         using base_t = IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICPURenderpassIndependentPipeline>;
         // knowing the position attribute ID is important for AABB computations etc.
@@ -84,15 +82,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             normalAttrId = MAX_VERTEX_ATTRIB_COUNT;
             jointIDAttrId = MAX_VERTEX_ATTRIB_COUNT;
             jointWeightAttrId = MAX_VERTEX_ATTRIB_COUNT;
-        }
-        
-        virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
-        {
-#ifdef OLD_SHADERS
-            return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-#else
-            return nullptr;
-#endif
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -179,8 +168,6 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
         inline E_TYPE getAssetType() const override { return AssetType; }
-
-        inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(uint32_t); }
         
         inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
         {

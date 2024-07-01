@@ -54,19 +54,6 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return cp;
         }
 
-		size_t conservativeSizeEstimate() const override
-        {
-            size_t result = 0ull;
-            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-                result += m_descriptorRedirects[t].conservativeSizeEstimate();
-            result += m_immutableSamplerRedirect.conservativeSizeEstimate();
-            result += m_mutableSamplerRedirect.conservativeSizeEstimate();
-
-            result += m_samplers->size() * sizeof(void*);
-
-            return result;
-        }
-
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
             convertToDummyObject_common(referenceLevelsBelowToConvert);

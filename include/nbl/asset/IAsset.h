@@ -158,17 +158,6 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
 
-		//! Returns correct size reserved associated with an Asset and its data
-		/**
-			Some containers like std::vector reserves usually more memory than they actually need. 
-			Similar behaviour appears here and it is actually necessary to reserve the correct amount of memory when writing to file.
-			The value returned can be greater than memory actually needed and that symbolizes the name "conservative".
-
-			Additionally the size is used to determine compression level while writing process is performed.
-			As you expect, the bigger the size returned the more likely it is to be compressed with a more expensive (slower) algorithm.
-		*/
-		virtual size_t conservativeSizeEstimate() const = 0; // TODO: this shouldn't be a method of IAsset but BlobSerializable ?
-
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 

@@ -107,12 +107,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		//!
-		inline size_t conservativeSizeEstimate() const override
-		{
-			return sizeof(ICPUBottomLevelAccelerationStructure)+(m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT) ? sizeof(AABBs<ICPUBuffer>):sizeof(Triangles<ICPUBuffer>))*getGeometryCount();
-		}
-
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			auto cp = core::make_smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>();
@@ -339,12 +333,6 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		//!
 		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
-
-		//!
-		inline size_t conservativeSizeEstimate() const override
-		{
-			return sizeof(ICPUBottomLevelAccelerationStructure)+sizeof(PolymorphicInstance)*m_instances->size();
-		}
 
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{

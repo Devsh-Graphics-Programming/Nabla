@@ -36,12 +36,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		}
 		ICPUImageView(SCreationParams&& _params) : IImageView<ICPUImage>(std::move(_params)) {}
 
-		//!
-		size_t conservativeSizeEstimate() const override
-		{
-			return sizeof(SCreationParams);
-		}
-
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto par = params;

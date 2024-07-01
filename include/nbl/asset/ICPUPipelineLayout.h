@@ -64,8 +64,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
             return cp;
         }
-
-		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
+        
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
             convertToDummyObject_common(referenceLevelsBelowToConvert);
