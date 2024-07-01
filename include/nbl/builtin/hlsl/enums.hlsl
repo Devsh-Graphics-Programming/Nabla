@@ -13,7 +13,7 @@ namespace hlsl
 // TODO: make this enum class
 enum ShaderStage : uint32_t
 {
-            ESS_UNKNOWN = 0,
+    ESS_UNKNOWN = 0,
     ESS_VERTEX = 1 << 0,
     ESS_TESSELLATION_CONTROL = 1 << 1,
     ESS_TESSELLATION_EVALUATION = 1 << 2,
@@ -34,7 +34,7 @@ enum ShaderStage : uint32_t
 
 enum SampleCountFlags : uint16_t
 {
-            ESCF_1_BIT = 0x01,
+    ESCF_1_BIT = 0x01,
 	ESCF_2_BIT = 0x02,
 	ESCF_4_BIT = 0x04,
 	ESCF_8_BIT = 0x08,
@@ -43,7 +43,7 @@ enum SampleCountFlags : uint16_t
 	ESCF_64_BIT = 0x40
 };
         
-enum class ResolveModeFlags : uint16_t
+enum ResolveModeFlags : uint16_t
 {
     NONE = 0,
     SAMPLE_ZERO_BIT = 0x00000001,
@@ -52,7 +52,7 @@ enum class ResolveModeFlags : uint16_t
     MAX_BIT = 0x00000008
 };
 
-enum class SpirvVersion : uint32_t
+enum SpirvVersion : uint32_t
 {
     ESV_1_0 = 0x010000u,
     ESV_1_1 = 0x010100u,
@@ -63,10 +63,12 @@ enum class SpirvVersion : uint32_t
     ESV_1_6 = 0x010600u,
 };
 
+#ifndef __HLSL_VERSION
 NBL_ENUM_ADD_BITWISE_OPERATORS(ShaderStage)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SampleCountFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(ResolveModeFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SpirvVersion)
+#endif
 
 }
 }
