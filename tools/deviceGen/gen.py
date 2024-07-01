@@ -39,13 +39,18 @@ if __name__ == "__main__":
     )
 
     limits = loadJSON(args.limits_json_path)
-    limits['core10'].append(dict(
-        comment=list(),
-        entries=list()
-    ))
+    limits['core10'] = [
+        {
+            "comment": [
+                "Always enabled if available, reported as limits",
+                "Core 1.0 Features"
+            ],
+            "entries": []
+        }
+    ]
 
     for limit in MovedLimits:
-        limits['core10'][-1]['entries'].append(
+        limits['core10'][0]['entries'].append(
             dict(
                 type=limit['type'],
                 name=limit['name'],

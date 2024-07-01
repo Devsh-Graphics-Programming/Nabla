@@ -11,7 +11,7 @@
                 {
                     "type": "uint32_t",
                     "name": "MinMaxSSBOSize",
-                    "value": "0x1u << 30u - 4"
+                    "value": "(0x1u << 30u) - 4"
                 },
                 {
                     "type": "uint16_t",
@@ -851,7 +851,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxMultiviewInstanceIndex",
-                    "value": "1u << 27 - 1"
+                    "value": "(1u << 27) - 1"
                 }
             ]
         },
@@ -1159,7 +1159,7 @@
         {
             "type": "uint64_t",
             "name": "maxTimelineSemaphoreValueDifference",
-            "value": "0x1ull << 31 - 1",
+            "value": "(0x1ull << 31) - 1",
             "expose": "DISABLE",
             "comment": ["[DO NOT EXPOSE] its high enough (207 days of uptime at 121 FPS)"]
         },
@@ -2197,14 +2197,6 @@
             ]
         }
     ],
-    "core10": [
-        {
-            "comment": [
-                "Always enabled if available, reported as limits",
-                "Core 1.0 Features"
-            ]
-        }
-   ],
     "nabla": [
         {
             "comment": [
