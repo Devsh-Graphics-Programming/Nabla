@@ -7,7 +7,7 @@
 
 
 #include "aabbox3d.h"
-#include "nbl/core/xxHash256.h"
+#include "nbl/core/hash/xxHash256.h"
 #include "nbl/asset/bawformat/Blob.h"
 #include "nbl/asset/bawformat/BlobSerializable.h"
 #include "nbl/asset/bawformat/blobs/RawBufferBlob.h"
