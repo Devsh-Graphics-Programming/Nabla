@@ -55,7 +55,7 @@ def buildVariable(variable, res, sectionName, insideComment = False):
     commentDeclaration = []
     returnObj = {}
 
-    if expose == ExposeStatus.DISABLE and formattedValue:
+    if expose == ExposeStatus.DISABLE and formattedValue == "true":
         if not insideComment:
             commentDeclaration.append("[REQUIRE]")
         else:
