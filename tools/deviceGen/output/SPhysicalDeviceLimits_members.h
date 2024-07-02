@@ -1,5 +1,5 @@
     constexpr static inline uint32_t MinMaxImageDimension2D = 1 << 14;
-    constexpr static inline uint32_t MinMaxSSBOSize = 0x1u << 30u - 4;
+    constexpr static inline uint32_t MinMaxSSBOSize = (0x1u << 30u) - 4;
     constexpr static inline uint16_t MaxMaxPushConstantsSize = 256;
     constexpr static inline uint32_t MinMaxWorkgroupCount = 1 << 12;
     constexpr static inline uint32_t MinMaxWorkgroupInvocations = 256;
@@ -117,17 +117,17 @@
     uint32_t maxFramebufferHeight = MinMaxImageDimension2D;
     uint32_t maxFramebufferLayers = 1 << 10;
 
-    // [REQUIRE][DO NOT EXPOSE] because it might be different for every texture format and usage
-    // [REQUIRE]https://www.khronos.org/registry/vulkan/specs/1.4-extensions/man/html/VkImageFormatProperties.html
-    // [REQUIRE]- it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
-    // [REQUIRE]- Spec states minimum supported value should be at least ESCF_1_BIT
+    // [DO NOT EXPOSE] because it might be different for every texture format and usage
+    // https://www.khronos.org/registry/vulkan/specs/1.4-extensions/man/html/VkImageFormatProperties.html
+    // - it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
+    // - Spec states minimum supported value should be at least ESCF_1_BIT
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferNoAttachmentsSampleCounts = NoMSor4Samples;
     uint8_t maxColorAttachments = MinMaxColorAttachments;
 
-    // [REQUIRE][DO NOT EXPOSE] because it might be different for every texture format and usage
+    // [DO NOT EXPOSE] because it might be different for every texture format and usage
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageColorSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageIntegerSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampledImageDepthSampleCounts = NoMSor4Samples;
@@ -162,8 +162,8 @@
     uint16_t optimalBufferCopyRowPitchAlignment = 128;
     uint16_t nonCoherentAtomSize = 256;
 
-    // [REQUIRE]VkPhysicalDeviceSparseProperties
-    // [REQUIRE]TODO: later
+    // VkPhysicalDeviceSparseProperties
+    // TODO: later
     // bool residencyStandard2DBlockShape = true;
     // bool residencyStandard2DMultisampleBlockShape = false;
     // bool residencyStandard3DBlockShape = true;
@@ -185,9 +185,8 @@
     E_POINT_CLIPPING_BEHAVIOR pointClippingBehavior = EPCB_USER_CLIP_PLANES_ONLY;
 
     uint8_t maxMultiviewViewCount = 6;
-    uint32_t maxMultiviewInstanceIndex = 1u << 27 - 1;
+    uint32_t maxMultiviewInstanceIndex = (1u << 27) - 1;
 
-    // [REQUIRE]
     // bool protectedNoFault = false;
 
     uint32_t maxPerSetDescriptors = 572;
@@ -259,11 +258,9 @@
     // bool filterMinmaxSingleComponentFormats;
     bool filterMinmaxImageComponentMapping = false;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] its high enough (207 days of uptime at 121 FPS)
-    // uint64_t maxTimelineSemaphoreValueDifference = 0x1ull << 31 - 1;
+    // uint64_t maxTimelineSemaphoreValueDifference = (0x1ull << 31) - 1;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] because it might be different for every texture format and usage
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferIntegerColorSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
 
@@ -275,7 +272,7 @@
     uint32_t maxComputeWorkgroupSubgroups = 16;
     core::bitflag<asset::IShader::E_SHADER_STAGE> requiredSubgroupSizeStages = asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
-    // [REQUIRE][DO NOT EXPOSE]: we won't expose inline uniform blocks right now
+    // [DO NOT EXPOSE]: we won't expose inline uniform blocks right now
     // uint32_t maxInlineUniformBlockSize = MinInlineUniformBlockSize;
     // uint32_t maxPerStageDescriptorInlineUniformBlocks = 4;
     // uint32_t maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks = 4;
@@ -415,8 +412,8 @@
     uint64_t maxDescriptorSetUpdateAfterBindAccelerationStructures = 0;
     uint64_t minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
 
-    // [REQUIRE]RayTracingPipelinePropertiesKHR
-    // [REQUIRE]VK_KHR_ray_tracing_pipeline
+    // RayTracingPipelinePropertiesKHR
+    // VK_KHR_ray_tracing_pipeline
     // `exact` limit type
     // uint32_t shaderGroupHandleSize = 32;
     uint32_t maxRayRecursionDepth = 0;
@@ -483,9 +480,9 @@
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
 
-    // [REQUIRE]DeviceGeneratedCommandsPropertiesNV
-    // [REQUIRE]VK_NV_device_generated_commands
-    // [REQUIRE][DO NOT EXPOSE] won't expose right now, will do if we implement the extension
+    // DeviceGeneratedCommandsPropertiesNV
+    // VK_NV_device_generated_commands
+    // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
     // uint32_t maxGraphicsShaderGroupCount = 0;
     // uint32_t maxIndirectSequenceCount = 0;
     // uint32_t maxIndirectCommandsTokenCount = 0;
@@ -504,9 +501,9 @@
     // VK_KHR_shader_non_semantic_info
     bool shaderNonSemanticInfo = false;
 
-    // [REQUIRE]provided by VK_EXT_graphics_pipeline_library
-    // [REQUIRE]GraphicsPipelineLibraryPropertiesEXT
-    // [REQUIRE][TODO LATER] not in header (previous comment: too much effort)
+    // provided by VK_EXT_graphics_pipeline_library
+    // GraphicsPipelineLibraryPropertiesEXT
+    // [TODO LATER] not in header (previous comment: too much effort)
     // bool graphicsPipelineLibraryFastLinking = false;
     // bool graphicsPipelineLibraryIndependentInterpolationDecoration = false;
 

@@ -1,6 +1,6 @@
 // constexprs
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxImageDimension2D = 1 << 14;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxSSBOSize = 0x1u << 30u - 4;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxSSBOSize = (0x1u << 30u) - 4;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t MaxMaxPushConstantsSize = 256;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxWorkgroupCount = 1 << 12;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t MinMaxWorkgroupInvocations = 256;
@@ -64,11 +64,11 @@ NBL_GENERATE_GET_OR_DEFAULT(maxFragmentCombinedOutputResources, uint32_t, 16);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeSharedMemorySize, uint32_t, 1 << 15);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountX, uint32_t, MinMaxWorkgroupCount);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountY, uint32_t, MinMaxWorkgroupCount);
-NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountZ, uint32_t, MinMaxWorkgroupCoun);
+NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupCountZ, uint32_t, MinMaxWorkgroupCount);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkGroupInvocations, uint16_t, MinMaxWorkgroupInvocations);
 NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeX, uint16_t, MinMaxWorkgroupInvocations);
 NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeY, uint16_t, MinMaxWorkgroupInvocations);
-NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeZ, uint16_t, 64);
+NBL_GENERATE_GET_OR_DEFAULT(maxWorkgroupSizeZ, uint16_t, 64u);
 
 NBL_GENERATE_GET_OR_DEFAULT(subPixelPrecisionBits, uint8_t, 4);
 NBL_GENERATE_GET_OR_DEFAULT(subTexelPrecisionBits, uint8_t, 4);
@@ -81,7 +81,7 @@ NBL_GENERATE_GET_OR_DEFAULT(maxSamplerAnisotropyLog2, uint8_t, 4);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxViewports, uint8_t, 16);
 NBL_GENERATE_GET_OR_DEFAULT(maxViewportDimsX, uint16_t, MinMaxImageDimension2D);
-NBL_GENERATE_GET_OR_DEFAULT(maxViewportDimsY, uint16_t, MinMaxImageDimension2);
+NBL_GENERATE_GET_OR_DEFAULT(maxViewportDimsY, uint16_t, MinMaxImageDimension2D);
 NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRangeMin, float, -MinMaxImageDimension2D*2u);
 NBL_GENERATE_GET_OR_DEFAULT(viewportBoundsRangeMax, float, MinMaxImageDimension2D*2u-1);
 NBL_GENERATE_GET_OR_DEFAULT(viewportSubPixelBits, uint32_t, 0);
@@ -117,9 +117,9 @@ NBL_GENERATE_GET_OR_DEFAULT(maxCombinedClipAndCullDistances, uint8_t, 8);
 NBL_GENERATE_GET_OR_DEFAULT(discreteQueuePriorities, uint32_t, 2);
 
 NBL_GENERATE_GET_OR_DEFAULT(pointSizeRangeMin, float, 1.f);
-NBL_GENERATE_GET_OR_DEFAULT(pointSizeRangeMax, float, 64.);
+NBL_GENERATE_GET_OR_DEFAULT(pointSizeRangeMax, float, 64.f);
 NBL_GENERATE_GET_OR_DEFAULT(lineWidthRangeMin, float, 1.f);
-NBL_GENERATE_GET_OR_DEFAULT(lineWidthRangeMax, float, 1.);
+NBL_GENERATE_GET_OR_DEFAULT(lineWidthRangeMax, float, 1.f);
 NBL_GENERATE_GET_OR_DEFAULT(pointSizeGranularity, float, 1);
 NBL_GENERATE_GET_OR_DEFAULT(lineWidthGranularity, float, 1);
 
@@ -142,7 +142,7 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupQuadAllStages, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(pointClippingBehavior, E_POINT_CLIPPING_BEHAVIOR, EPCB_USER_CLIP_PLANES_ONLY);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewViewCount, uint8_t, 6);
-NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewInstanceIndex, uint32_t, 1u << 27 - 1);
+NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewInstanceIndex, uint32_t, (1u << 27) - 1);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxPerSetDescriptors, uint32_t, 572);
 NBL_GENERATE_GET_OR_DEFAULT(maxMemoryAllocationSize, uint64_t, MinMaxSSBOSize);

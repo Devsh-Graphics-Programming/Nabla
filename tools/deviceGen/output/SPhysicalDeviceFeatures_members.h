@@ -163,12 +163,10 @@
     // bool variablePointers = true;
     // bool variablePointersStorageBuffer = true;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] not gonna expose until we have a need to
     // or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1
     // bool protectedMemory = false;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] ROADMAP 2022 Enables certain formats in Vulkan
     // we just enable them if available or else we need to make format support query functions in LogicalDevice as well
     // bool samplerYcbcrConversion = false;
@@ -258,7 +256,6 @@
     // or VK_EXT_scalar_block_layout
     // bool scalarBlockLayout = true;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378
     // or VK_KHR_imageless_framebuffer
     // bool imagelessFramebuffer = false;
@@ -312,7 +309,7 @@
     // or VK_EXT_image_robustness
     bool robustImageAccess = false;
 
-    // [REQUIRE][DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
+    // [DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?
     // Vulkan 1.3, Nabla Core Profile:
     // bool inlineUniformBlock = false;
     // ROADMAP 2022, Nabla Core Profile:
@@ -323,7 +320,6 @@
     // or VK_EXT_pipeline_creation_cache_control
     // bool pipelineCreationCacheControl = true;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?
     // or VK_EXT_private_data
     // bool privateData = false;
@@ -352,7 +348,6 @@
     // or VK_KHR_zero_initialize_workgroup_memory
     // bool shaderZeroInitializeWorkgroupMemory = false;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] EVIL
     // or VK_KHR_dynamic_rendering
     // bool dynamicRendering = false;
@@ -819,12 +814,11 @@
     bool accelerationStructureIndirectBuild = false;
     bool accelerationStructureHostCommands = false;
 
-    // [REQUIRE]
     // [DO NOT EXPOSE] implied by `accelerationStructure`
     // bool descriptorBindingAccelerationStructureUpdateAfterBind = accelerationStructure;
 
-    // [REQUIRE]VK_KHR_ray_tracing_pipeline
-    // [REQUIRE]RayTracingPipelineFeaturesKHR
+    // VK_KHR_ray_tracing_pipeline
+    // RayTracingPipelineFeaturesKHR
     bool rayTracingPipeline = false;
     // [DO NOT EXPOSE] for capture tools
     // bool rayTracingPipelineShaderGroupHandleCaptureReplay;
@@ -1148,7 +1142,6 @@
     // CooperativeMatrixFeaturesNV
     // [DEPRECATED] replaced by VK_KHR_cooperative_matrix
 
-    // [REQUIRE]
     // [TODO] need impl or waaay too vendor specific?
     // CoverageReductionModeFeaturesNV
     // VK_NV_coverage_reduction_mode
