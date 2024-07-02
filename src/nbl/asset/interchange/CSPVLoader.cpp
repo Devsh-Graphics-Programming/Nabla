@@ -22,38 +22,38 @@ inline IShader::E_SHADER_STAGE getShaderStageFromSPIRVCrossExecutionModel(spv::E
     switch (model)
     {
     case spv::ExecutionModelVertex:
-        shaderStage = IShader::ESS_VERTEX; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_VERTEX; break;
     case spv::ExecutionModelTessellationControl:
-        shaderStage = IShader::ESS_TESSELLATION_CONTROL; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL; break;
     case spv::ExecutionModelTessellationEvaluation:
-        shaderStage = IShader::ESS_TESSELLATION_EVALUATION; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION; break;
     case spv::ExecutionModelGeometry:
-        shaderStage = IShader::ESS_GEOMETRY; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_GEOMETRY; break;
     case spv::ExecutionModelFragment:
-        shaderStage = IShader::ESS_FRAGMENT; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_FRAGMENT; break;
     case spv::ExecutionModelGLCompute:
-        shaderStage = IShader::ESS_COMPUTE; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_COMPUTE; break;
     case spv::ExecutionModelTaskNV:
-        shaderStage = IShader::ESS_TASK; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_TASK; break;
     case spv::ExecutionModelMeshNV:
-        shaderStage = IShader::ESS_MESH; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_MESH; break;
     case spv::ExecutionModelRayGenerationKHR:
-        shaderStage = IShader::ESS_RAYGEN; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_RAYGEN; break;
     case spv::ExecutionModelIntersectionKHR:
-        shaderStage = IShader::ESS_INTERSECTION; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_INTERSECTION; break;
     case spv::ExecutionModelAnyHitKHR:
-        shaderStage = IShader::ESS_ANY_HIT; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_ANY_HIT; break;
     case spv::ExecutionModelClosestHitKHR:
-        shaderStage = IShader::ESS_MISS; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_MISS; break;
     case spv::ExecutionModelMissKHR:
-        shaderStage = IShader::ESS_MISS; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_MISS; break;
     case spv::ExecutionModelCallableKHR:
-        shaderStage = IShader::ESS_CALLABLE; break;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_CALLABLE; break;
     case spv::ExecutionModelKernel:
     case spv::ExecutionModelMax:
     default:
         assert(!"Shader stage not supported!");
-        shaderStage = IShader::ESS_UNKNOWN;
+        shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
         break;
     }
     return shaderStage;

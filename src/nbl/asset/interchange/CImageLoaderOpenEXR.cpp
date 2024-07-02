@@ -334,7 +334,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
 			params.type = ICPUImage::ET_2D;;
 			params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
-			params.samples = ICPUImage::ESCF_1_BIT;
+			params.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 			params.extent.depth = 1u;
 			params.mipLevels = 1u;
 			params.arrayLayers = 1u;

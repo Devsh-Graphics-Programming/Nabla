@@ -24,7 +24,7 @@ class CDefaultSwapchainFramebuffers : public ISimpleManagedSurface::ISwapchainRe
 				{{
 					{
 						.format = format,
-						.samples = IGPUImage::ESCF_1_BIT,
+						.samples = IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT,
 						.mayAlias = false
 					},
 					/*.loadOp = */IGPURenderpass::LOAD_OP::CLEAR,

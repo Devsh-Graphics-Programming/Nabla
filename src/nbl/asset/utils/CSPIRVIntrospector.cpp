@@ -108,7 +108,7 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
 
 core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
 {
-    if (info.shader->getStage() != IShader::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
+    if (info.shader->getStage() != IShader::E_SHADER_STAGE::ESS_COMPUTE || info.valid() == ICPUShader::SSpecInfo::INVALID_SPEC_INFO)
         return nullptr;
 
     CStageIntrospectionData::SParams params;
@@ -781,14 +781,14 @@ NBL_API2 core::smart_refctd_ptr<const CSPIRVIntrospector::CStageIntrospectionDat
         stageIntroData->m_input.insert(res);
     }
 
-    if (shaderStage == IShader::ESS_FRAGMENT)
+    if (shaderStage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
         stageIntroData->m_output = FragmentOutputVecT();
     else
         stageIntroData->m_output = OutputVecT();
 
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
-        if (shaderStage == IShader::ESS_FRAGMENT)
+        if (shaderStage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
         {
             CSPIRVIntrospector::CStageIntrospectionData::SFragmentOutputInterface res =
                 std::get<FragmentOutputVecT>(stageIntroData->m_output).emplace_back();
@@ -1031,7 +1031,7 @@ void CSPIRVIntrospector::CStageIntrospectionData::debugPrint(system::ILogger* lo
     }
 
     // duplicated code which can be replaced with template trickery, but this is temporary code for testing purpose so who cares
-    if (m_shaderStage == IShader::ESS_FRAGMENT)
+    if (m_shaderStage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
     {
         auto outputVec = std::get<FragmentOutputVecT>(m_output);
         if (!outputVec.empty())

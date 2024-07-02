@@ -38,8 +38,8 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         // provide default arg
-        inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::ESS_COMPUTE);}
-        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::ESS_COMPUTE);}
+        inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
+        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
 
     protected:
         using base_t::base_t;
@@ -51,7 +51,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         }
         inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
         {
-            return stage!=ICPUShader::ESS_COMPUTE ? (-1):0;
+            return stage!=ICPUShader::E_SHADER_STAGE::ESS_COMPUTE ? (-1):0;
         }
 };
 

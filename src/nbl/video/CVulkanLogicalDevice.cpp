@@ -1066,7 +1066,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         const auto stage = specInfo.shader->getStage();
         if (specInfo.requireFullSubgroups)
         {
-            assert(stage==IGPUShader::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
+            assert(stage==IGPUShader::E_SHADER_STAGE::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
             retval.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT;
         }
         // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
@@ -1308,7 +1308,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         if (spec.shader)
         {
             const auto stage = spec.shader->getStage();
-            if (stage==IGPUShader::ESS_TESSELLATION_CONTROL || stage==IGPUShader::ESS_TESSELLATION_EVALUATION)
+            if (stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL || stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)
             {
                 outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
                 outCreateInfo->pTessellationState = outTessellation++;
