@@ -20,19 +20,19 @@
                     "type": "bool",
                     "name": "fullDrawIndexUint32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "imageCubeArray",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "independentBlend",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -57,14 +57,14 @@
             "type": "bool",
             "name": "sampleRateShading",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ROADMAP 2022 and good device support"]
         },
         {
             "type": "bool",
             "name": "dualSrcBlend",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["good device support"]
         },
         {
@@ -86,25 +86,25 @@
                     "type": "bool",
                     "name": "multiDrawIndirect",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "drawIndirectFirstInstance",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "depthClamp",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "depthBiasClamp",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -112,7 +112,7 @@
             "type": "bool",
             "name": "fillModeNonSolid",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["good device support"]
         },
         {
@@ -148,14 +148,14 @@
             "type": "bool",
             "name": "multiViewport",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["good device support"]
         },
         {
             "type": "bool",
             "name": "samplerAnisotropy",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["Roadmap 2022 requires support for these, device support is ubiquitous"]
         },
         {
@@ -187,7 +187,7 @@
             "type": "bool",
             "name": "occlusionQueryPrecise",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ROADMAP 2022 and good device support"]
         },
         {
@@ -233,14 +233,14 @@
             "type": "bool",
             "name": "shaderImageGatherExtended",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ROADMAP 2024 good device support"]
         },
         {
             "type": "bool",
             "name": "shaderStorageImageExtendedFormats",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ROADMAP 2024 good device support"]
         },
         {
@@ -267,7 +267,7 @@
             "type": "bool",
             "name": "shaderStorageImageWriteWithoutFormat",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["good device support"]
         },
         {
@@ -279,19 +279,19 @@
                     "type": "bool",
                     "name": "shaderUniformBufferArrayDynamicIndexing",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSampledImageArrayDynamicIndexing",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayDynamicIndexing",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -309,7 +309,7 @@
             "type": "bool",
             "name": "shaderClipDistance",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["good device support"]
         },
         {
@@ -334,14 +334,14 @@
                     "type": "bool",
                     "name": "shaderInt64",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": [""]
                 },
                 {
                     "type": "bool",
                     "name": "shaderInt16",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2024"]
                 }
             ]
@@ -436,7 +436,7 @@
             "type": "bool",
             "name": "inheritedQueries",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["Always enabled, good device support."]
         }
     ],
@@ -453,14 +453,14 @@
                     "type": "bool",
                     "name": "storageBuffer16BitAccess",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2024"]
                 },
                 {
                     "type": "bool",
                     "name": "uniformAndStorageBuffer16BitAccess",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["Force Enabled : ALIAS VK_KHR_16bit_storage"]
                 }
             ]
@@ -489,7 +489,7 @@
             "type": "bool",
             "name": "multiview",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["Required to be present when Vulkan 1.1 is supported"]
         },
         {
@@ -521,13 +521,13 @@
                     "type": "bool",
                     "name": "variablePointers",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "variablePointersStorageBuffer",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -555,7 +555,7 @@
             "type": "bool",
             "name": "shaderDrawParameters",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ROADMAP2024 and Force Enabled : VK_KHR_shader_draw_parameters"]
         }
     ],
@@ -569,7 +569,7 @@
             "type": "bool",
             "name": "samplerMirrorClampToEdge",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": [
                 "ROADMAP 2022 and device support ubiquitous",
                 "ALIAS: VK_KHR_sampler_mirror_clamp_to_edge"
@@ -596,14 +596,14 @@
                     "type": "bool",
                     "name": "storageBuffer8BitAccess",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2022 and device support ubiquitous"]
                 },
                 {
                     "type": "bool",
                     "name": "uniformAndStorageBuffer8BitAccess",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["good device coverage"]
                 },
                 {
@@ -657,7 +657,7 @@
                     "type": "bool",
                     "name": "shaderInt8",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2024 good device coverage"]
                 }
             ]
@@ -669,7 +669,7 @@
                     "type": "bool",
                     "name": "descriptorIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2022"]
                 },
                 {
@@ -686,14 +686,14 @@
                     "type": "bool",
                     "name": "shaderUniformTexelBufferArrayDynamicIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["because we also require `descriptorIndexing`"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageTexelBufferArrayDynamicIndexing",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -706,20 +706,20 @@
                     "type": "bool",
                     "name": "shaderSampledImageArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["because we also require `descriptorIndexing`"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageImageArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2022"]
                 },
                 {
@@ -733,14 +733,14 @@
                     "type": "bool",
                     "name": "shaderUniformTexelBufferArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["because we also require `descriptorIndexing`"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageTexelBufferArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2022 and good device support"]
                 },
                 {
@@ -757,57 +757,57 @@
                     "type": "bool",
                     "name": "descriptorBindingSampledImageUpdateAfterBind",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["because we also require `descriptorIndexing`"]
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingStorageImageUpdateAfterBind",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingStorageBufferUpdateAfterBind",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingUniformTexelBufferUpdateAfterBind",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingStorageTexelBufferUpdateAfterBind",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingUpdateUnusedWhilePending",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingPartiallyBound",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "descriptorBindingVariableDescriptorCount",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["ROADMAP 2022 and good device support"]
                 },
                 {
                     "type": "bool",
                     "name": "runtimeDescriptorArray",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -827,7 +827,7 @@
             "type": "bool",
             "name": "scalarBlockLayout",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": [
                 "Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance",
                 "or VK_EXT_scalar_block_layout"
@@ -852,35 +852,35 @@
                     "type": "bool",
                     "name": "uniformBufferStandardLayout",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["or VK_KHR_uniform_buffer_standard_layout"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderSubgroupExtendedTypes",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["or VK_KHR_shader_subgroup_extended_types"]
                 },
                 {
                     "type": "bool",
                     "name": "separateDepthStencilLayouts",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["or VK_KHR_separate_depth_stencil_layouts"]
                 },
                 {
                     "type": "bool",
                     "name": "hostQueryReset",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["or VK_EXT_host_query_reset [TODO Implement]"]
                 },
                 {
                     "type": "bool",
                     "name": "timelineSemaphore",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": ["or VK_KHR_timeline_semaphore [TODO Implement]"]
                 }
             ]
@@ -892,7 +892,7 @@
                     "type": "bool",
                     "name": "bufferDeviceAddress",
                     "value": true,
-                    "expose": "DISABLE",
+                    "expose": "REQUIRE",
                     "comment": [
                         "or VK_KHR_buffer_device_address:",
                         "Vulkan 1.3 requires"
@@ -921,13 +921,13 @@
                     "type": "bool",
                     "name": "vulkanMemoryModel",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "vulkanMemoryModelDeviceScope",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -967,7 +967,7 @@
             "type": "bool",
             "name": "subgroupBroadcastDynamicId",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": ["ubiquitous device support"]
         }
     ],
@@ -1016,7 +1016,7 @@
             "type": "bool",
             "name": "pipelineCreationCacheControl",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": [
                 "Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl",
                 "or VK_EXT_pipeline_creation_cache_control"
@@ -1063,13 +1063,13 @@
                     "type": "bool",
                     "name": "subgroupSizeControl",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "computeFullSubgroups",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -1077,7 +1077,7 @@
             "type": "bool",
             "name": "synchronization2",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": [
                 "REQUIRE",
                 "or VK_KHR_synchronization2"
@@ -1117,7 +1117,7 @@
             "type": "bool",
             "name": "shaderIntegerDotProduct",
             "value": true,
-            "expose": "DISABLE",
+            "expose": "REQUIRE",
             "comment": [
                 "Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway",
                 "or VK_KHR_shader_integer_dot_product"

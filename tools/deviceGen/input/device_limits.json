@@ -648,7 +648,7 @@
                     "type": "bool",
                     "name": "timestampComputeAndGraphics",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "float",
@@ -1469,7 +1469,7 @@
                     "type": "bool",
                     "name": "shaderBufferFloat32Atomics",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -1490,7 +1490,7 @@
                     "type": "bool",
                     "name": "shaderSharedFloat32Atomics",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -1511,7 +1511,7 @@
                     "type": "bool",
                     "name": "shaderImageFloat32Atomics",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",

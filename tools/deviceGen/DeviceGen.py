@@ -7,7 +7,7 @@ emptyline = f""
 class ContinueEx(Exception):
     pass
 
-ExposeStatus = IntFlag("Expose", ["DEFAULT", "DISABLE", "MOVE_TO_LIMIT"])
+ExposeStatus = IntFlag("Expose", ["DEFAULT", "REQUIRE", "DISABLE", "MOVE_TO_LIMIT"])
 CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 
 MovedLimits = []
@@ -55,7 +55,7 @@ def buildVariable(variable, res, sectionName, insideComment = False):
     commentDeclaration = []
     returnObj = {}
 
-    if expose == ExposeStatus.DISABLE and formattedValue == "true":
+    if expose == ExposeStatus.REQUIRE:
         if not insideComment:
             commentDeclaration.append("[REQUIRE]")
         else:
@@ -86,9 +86,9 @@ def buildDeviceHeader(**params):
     return res
 
 def SubsetMethodHelper(dict, res):
-    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
+    expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
     compare = computeStatus(CompareStatus, dict['compare'] if "compare" in dict else "DEFAULT")
-    if CompareStatus.SKIP in compare  or expose == ExposeStatus.DISABLE:
+    if CompareStatus.SKIP in compare  or expose == ExposeStatus.DISABLE or expose == ExposeStatus.REQUIRE:
         return
     line = "    "
     if CompareStatus.DISABLE in compare:
@@ -226,8 +226,8 @@ def formatEnumValue(type, value):
     return ' '.join(temp_value_parts)
 
 def transformTraits(dict, line_format, json_type, line_format_params):
-    expose = computeStatus(ExposeStatus, "DISABLE" if "expose" in dict else "DEFAULT")
-    if expose == ExposeStatus.DISABLE:
+    expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
+    if expose != ExposeStatus.DEFAULT:
         raise ContinueEx
     if "type" not in dict or "value" not in dict or "name" not in dict:
         raise ContinueEx
