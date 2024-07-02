@@ -112,7 +112,15 @@ class IImage : public IDescriptor
 			ET_3D,
 			ET_COUNT
 		};
-		using E_SAMPLE_COUNT_FLAGS = nbl::hlsl::SampleCountFlags;
+		enum E_SAMPLE_COUNT_FLAGS : uint8_t {
+			ESCF_1_BIT = nbl::hlsl::SampleCountFlags::ESCF_1_BIT,
+			ESCF_2_BIT = nbl::hlsl::SampleCountFlags::ESCF_2_BIT,
+			ESCF_4_BIT = nbl::hlsl::SampleCountFlags::ESCF_4_BIT,
+			ESCF_8_BIT = nbl::hlsl::SampleCountFlags::ESCF_8_BIT,
+			ESCF_16_BIT = nbl::hlsl::SampleCountFlags::ESCF_16_BIT,
+			ESCF_32_BIT = nbl::hlsl::SampleCountFlags::ESCF_32_BIT,
+			ESCF_64_BIT = nbl::hlsl::SampleCountFlags::ESCF_64_BIT
+		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
 			EUF_NONE = 0x0000,
