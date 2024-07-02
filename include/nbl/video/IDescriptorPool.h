@@ -55,7 +55,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
                 return data[idx];
             }
 
-            inline uint32_t getMutableSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
+            inline uint32_t getMutableCombinedSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
 
             inline uint32_t getSetOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
             inline uint32_t& getSetOffset() { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
@@ -101,7 +101,11 @@ class NBL_API2 IDescriptorPool : public IBackendObject
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
             switch (type)
             {
+            case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_mutableStandaloneSamplerStorage.get());
+                break;
             case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
                 break;
             case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
@@ -139,9 +143,9 @@ class NBL_API2 IDescriptorPool : public IBackendObject
             return baseAddress;
         }
 
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplerStorage() const
         {
-            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_mutableSamplerStorage.get());
+            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_mutableCombinedSamplerStorage.get());
         }
 
         friend class IGPUDescriptorSet;
@@ -218,7 +222,8 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         std::unique_ptr<IGPUDescriptorSet* []> m_allocatedDescriptorSets = nullptr; // This array might be sparse.
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableCombinedSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableStandaloneSamplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb

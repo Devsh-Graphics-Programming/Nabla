@@ -728,7 +728,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
         return false;
 
     for (uint32_t i=0u; i<descriptorSetCount; ++i)
-    if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
+    if (pDescriptorSets[i] && pDescriptorSets[i]->getLayout()->versionChangeInvalidatesCommandBuffer())
     {
         const auto currentVersion = pDescriptorSets[i]->getVersion();
 

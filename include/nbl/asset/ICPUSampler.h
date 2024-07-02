@@ -77,7 +77,7 @@ class ICPUSampler : public ISampler, public IAsset
 
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
-		inline E_TYPE getAssetType() const override { return AssetType; }
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		bool canBeRestoredFrom(const IAsset* _other) const override
 		{

@@ -12,7 +12,7 @@ namespace nbl
 namespace asset
 {
 
-class ISampler : public virtual core::IReferenceCounted
+class ISampler : public IDescriptor
 {
 	public:
 		//! Texture coord clamp mode outside [0.0, 1.0]
@@ -119,6 +119,8 @@ class ISampler : public virtual core::IReferenceCounted
 			inline bool operator!=(const SParams& rhs) const { return !((*this)==rhs); }
 		} PACK_STRUCT;
 	#include "nbl/nblunpack.h"
+
+		E_CATEGORY getTypeCategory() const override { return EC_SAMPLER; }
 
 	protected:
 		ISampler(const SParams& _params) : m_params(_params) {}
