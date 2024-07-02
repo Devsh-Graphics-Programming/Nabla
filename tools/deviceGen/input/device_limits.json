@@ -428,7 +428,7 @@
                 {
                     "type": "float",
                     "name": "maxSamplerLodBias",
-                    "value": 4
+                    "value": "4.f"
                 },
                 {
                     "type": "uint8_t",
@@ -523,7 +523,7 @@
                 {
                     "type": "float",
                     "name": "minInterpolationOffset",
-                    "value": -0.5,
+                    "value": "-0.5f",
                     "compare": "REVERSE"
                 },
                 {
@@ -653,7 +653,7 @@
                 {
                     "type": "float",
                     "name": "timestampPeriodInNanoSeconds",
-                    "value": 83.334,
+                    "value": "83.334f",
                     "compare": "REVERSE | DISABLE",
                     "comment": ["timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future"]
                 }
@@ -700,13 +700,13 @@
                 {
                     "type": "float",
                     "name": "pointSizeGranularity",
-                    "value": "1",
+                    "value": "1.f",
                     "compare": "REVERSE"
                 },
                 {
                     "type": "float",
                     "name": "lineWidthGranularity",
-                    "value": "1",
+                    "value": "1.f",
                     "compare": "REVERSE"
                 }
             ]
@@ -1619,12 +1619,12 @@
                 {
                     "type": "float",
                     "name": "primitiveOverestimationSize",
-                    "value": 0
+                    "value": "0.f"
                 },
                 {
                     "type": "float",
                     "name": "maxExtraPrimitiveOverestimationSize",
-                    "value": 0
+                    "value": "0.f"
                 },
                 {
                     "type": "float",

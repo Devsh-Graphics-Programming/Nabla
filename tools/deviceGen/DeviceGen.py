@@ -234,7 +234,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
 
     parsed_type = dict['type']
     parsed_name = dict['name']
-    parsed_value = dict['value']
+    parsed_value = str(dict['value'])
 
     if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset"):
         resultant_type = formatEnumType(dict["type"])
