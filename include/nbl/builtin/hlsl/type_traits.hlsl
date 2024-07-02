@@ -293,8 +293,17 @@ struct is_signed : bool_constant<
 
 }
 
+template<class T>
+struct is_spirv_type : false_type {};
+template<class T, class Storage>
+struct is_spirv_type< vk::SpirvOpaqueType</*spv::OpTypePointer*/ 32, Storage, T> > : true_type {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
 struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
@@ -302,8 +311,10 @@ struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
 
-template<class T> 
+template<class T>
 struct is_signed : impl::base_type_forwarder<impl::is_signed, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_signed_v = is_signed<T>::value;
 
 template<class T>
 struct is_scalar : bool_constant<
@@ -381,8 +392,13 @@ struct enable_if {};
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
 
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B, T>::type;
+
 template<class T>
 struct alignment_of;
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE uint32_t alignment_of_v = alignment_of<T>::value;
 
 template<class>
 struct make_void { using type = void; };
@@ -684,13 +700,13 @@ struct unsigned_integer_of_size<8>
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
 // Found a bug in Boost.Wave, try to avoid multi-line macros https://github.com/boostorg/wave/issues/195
-#define NBL_IMPL_SPECIALIZE_TYPE_ID(T) namespace impl { template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; }
+#define NBL_IMPL_SPECIALIZE_TYPE_ID(T) namespace impl { template<> struct typeid_t<T > : integral_constant<uint32_t,__COUNTER__> {}; }
 
 #define NBL_REGISTER_OBJ_TYPE(T,A) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(T) \
-    template<> struct alignment_of<T> : integral_constant<uint32_t,A> {}; \
-    template<> struct alignment_of<const T> : integral_constant<uint32_t,A> {}; \
-    template<> struct alignment_of<typename impl::add_lvalue_reference<T>::type> : integral_constant<uint32_t,A> {}; \
-    template<> struct alignment_of<typename impl::add_lvalue_reference<const T>::type> : integral_constant<uint32_t,A> {}; \
+    template<> struct alignment_of<T > : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<const T > : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<typename impl::add_lvalue_reference<T >::type> : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<typename impl::add_lvalue_reference<const T >::type> : integral_constant<uint32_t,A > {}; \
 }}
 
 // TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
