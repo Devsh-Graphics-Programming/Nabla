@@ -131,7 +131,12 @@ TextRenderer::Face::GeneratedGlyphShape TextRenderer::Face::generateGlyphUploadI
 	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
 
 	const float32_t2 transfScale = float32_t2(
-		float32_t2(msdfExtents) - float32_t2(textRenderer->msdfPixelRange) / max(frameSize.x, frameSize.y));
+		(float32_t2(msdfExtents) - float32_t2(textRenderer->msdfPixelRange * 2)) / max(frameSize.x, frameSize.y));
+	// Center before: ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
+	// Center after: msdfExtents / 2.0
+	// Transformation implementation: Center after = (Center before + Translation) * Scale
+	// Plugging in the values and solving for translate yields:
+	// Translate = (msdfExtents / (2 * scale)) - ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
 	const float32_t2 transfTranslate = float32_t2(msdfExtents) / (float32_t2(2.0) * transfScale) - 
 		float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
 
