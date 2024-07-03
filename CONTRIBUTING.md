@@ -51,9 +51,9 @@ Below are some tasks that are open for contribution. If you start working on a t
 - Compute Frustum Culling in HLSL with Nabla Chad Append
 - Merge Sort (Vulkan Compute)
 - Radix Sort (Vulkan Compute)
-- Counting Sort (Vulkan Compute)
 - Bitonic Sort (Vulkan Compute)
 - Merge Path (Vulkan Compute)
+- [GPU flip fluid simulation task idea](https://www.youtube.com/watch?v=okQzAJM7LcE) -> discord [thread](https://discord.com/channels/318590007881236480/374061825454768129/1257988553112027186) for more info  
 
  **[Issues](https://github.com/Devsh-Graphics-Programming/Nabla/issues) also count as free tasks.** We also have old issues from previous generation **[here](https://github.com/buildaworldnet/IrrlichtBAW/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)**.
 
