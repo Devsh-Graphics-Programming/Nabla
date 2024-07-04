@@ -26,6 +26,11 @@ def loadJSON(file_path):
 def formatValue(value):
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, str):
+        if value == "True":
+            return "true"
+        if value == "False":
+            return "false"
     return value
 
 def buildComment(comment, res, sectionName):
