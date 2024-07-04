@@ -53,7 +53,8 @@ Below are some tasks that are open for contribution. If you start working on a t
 - Radix Sort (Vulkan Compute)
 - Bitonic Sort (Vulkan Compute)
 - Merge Path (Vulkan Compute)
-- [GPU flip fluid simulation task idea](https://www.youtube.com/watch?v=okQzAJM7LcE) -> discord [thread](https://discord.com/channels/318590007881236480/374061825454768129/1257988553112027186) for more info  
+- [GPU flip fluid simulation task idea](https://www.youtube.com/watch?v=okQzAJM7LcE) -> discord [thread](https://discord.com/channels/318590007881236480/374061825454768129/1257988553112027186) for more info
+- [Exact Distance Transform on a GPU](https://docs.google.com/document/d/1iUF0ilFbWVWr5JfPtR8D8z7OdmbhUJXK-eoR_7u4-50/edit)
 
  **[Issues](https://github.com/Devsh-Graphics-Programming/Nabla/issues) also count as free tasks.** We also have old issues from previous generation **[here](https://github.com/buildaworldnet/IrrlichtBAW/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)**.
 
