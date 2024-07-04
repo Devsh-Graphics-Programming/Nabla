@@ -8,10 +8,12 @@
 
 #ifdef __HLSL_VERSION
 
+#include "nbl/builtin/hlsl/enums.hlsl"
 #include "nbl/video/device_capabilities_traits_testers.hlsl"
 
+// TODO: has_member_ has to be improved. It should be detecting present, static and constant
 #define NBL_GENERATE_GET_OR_DEFAULT(field, ty, default) \
-template<typename S, bool = has_member_##field<S>::value> struct get_or_default_##field : integral_constant<ty,S::field> {}; \
+template<typename S, bool = has_member_##field<S>::value == (e_member_presence::is_present | e_member_presence::is_static)> struct get_or_default_##field : integral_constant<ty,S::field> {}; \
 template<typename S> struct get_or_default_##field<S,false> : integral_constant<ty,default> {};
 
 namespace nbl
