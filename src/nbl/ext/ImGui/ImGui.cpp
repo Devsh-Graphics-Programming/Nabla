@@ -766,7 +766,7 @@ namespace nbl::ext::imgui
 		for (auto const& subscriber : m_subscribers)
 			subscriber.listener();
 
-		ImGui::Render();
+		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call - open the function def for more details
 	}
 
 	void UI::BeginWindow(char const* windowName)
