@@ -1,23 +1,42 @@
 #ifndef _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 #define _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 
+#include <tuple>
+#include <variant>
 
 namespace nbl::core
 {
 
 // I only thought if I could, not if I should
-template<template<class> class X, typename Tuple>
+template<template<class> class X, typename TupleOrVariant>
 struct tuple_transform
 {
 	private:
 		template<typename... T>
 		static std::tuple<X<T>...> _impl(const std::tuple<T...>&);
+		template<typename... T>
+		static std::tuple<X<T>...> _impl(const std::variant<T...>&);
 
 	public:
-		using type = decltype(_impl(std::declval<Tuple>()));
+		using type = decltype(_impl(std::declval<TupleOrVariant>()));
 };
-template<template<class> class X, typename Tuple>
-using tuple_transform_t = tuple_transform<X,Tuple>::type;
+template<template<class> class X, typename TupleOrVariant>
+using tuple_transform_t = tuple_transform<X,TupleOrVariant>::type;
+
+template<template<class> class X, typename TupleOrVariant>
+struct variant_transform
+{
+	private:
+		template<typename... T>
+		static std::variant<X<T>...> _impl(const std::tuple<T...>&);
+		template<typename... T>
+		static std::variant<X<T>...> _impl(const std::variant<T...>&);
+
+	public:
+		using type = decltype(_impl(std::declval<TupleOrVariant>()));
+};
+template<template<class> class X, typename TupleOrVariant>
+using variant_transform_t = variant_transform<X, TupleOrVariant>::type;
 
 template<typename Tuple, typename F>
 constexpr void for_each_in_tuple(Tuple& t, F&& f) noexcept

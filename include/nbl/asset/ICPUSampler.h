@@ -75,6 +75,8 @@ class ICPUSampler : public ISampler, public IAsset
         }
 
 
+		constexpr static inline bool HasDependents = false;
+
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
