@@ -10,7 +10,6 @@
 namespace nbl::video
 {
 
-#if 0 // TODO: port
 class CDumbPresentationOracle : public IPresentationOracle
 {
 	public:
@@ -19,8 +18,7 @@ class CDumbPresentationOracle : public IPresentationOracle
 			reset();
 		}
 
-		~CDumbPresentationOracle() {
-		}
+		~CDumbPresentationOracle() {}
 
 		inline void reportBeginFrameRecord() override
 		{
@@ -53,16 +51,16 @@ class CDumbPresentationOracle : public IPresentationOracle
 
 		inline double getDeltaTimeInMicroSeconds() const {return dt;}
 
-		inline std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, IGPUSemaphore* acquireSemaphore, IGPUFence* fence, uint32_t* imageNumber) override
+		inline std::chrono::microseconds acquireNextImage(ISwapchain* swapchain, ISwapchain::SAcquireInfo info, uint32_t* imageNumber) override
 		{
-			swapchain->acquireNextImage(acquireSemaphore,fence,imageNumber);
+			swapchain->acquireNextImage(info, imageNumber);
 			reportEndFrameRecord();
 			const auto retval = getNextPresentationTimeStamp();
 			reportBeginFrameRecord();
 			return retval;
 		}
 
-		inline void present(ILogicalDevice* device, ISwapchain* swapchain, IQueue* queue, IGPUSemaphore* renderFinishedSemaphore, const uint32_t imageNumber) override
+		inline void present(ILogicalDevice* device, ISwapchain* swapchain, ISwapchain::SAcquireInfo info, const uint32_t imageNumber) override
 		{
 			// literally cant do anything here in this dumb algorithm
 		}
@@ -89,7 +87,6 @@ class CDumbPresentationOracle : public IPresentationOracle
 		std::chrono::steady_clock::time_point lastTime;
 		std::chrono::microseconds nextPresentationTimeStamp;
 };
-#endif
 
 }
 
