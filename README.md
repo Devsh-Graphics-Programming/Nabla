@@ -14,7 +14,7 @@ If you are a programmer with a passion for High Performance Computing, Mathemati
 
 If you can be in charge of your own time managment and work 4-day work weeks 100% remotely
 
-Then make something impressive using **Nabla**, open a PR and contact us (`jobs@devsh.eu` or **[discord](https://discord.gg/4MTCVaN)**) with your CV.
+Then make something impressive using **Nabla**, open a PR and contact us (`jobs@devsh.eu` or **[discord](https://discord.gg/4MTCVaN)**) with your CV. *Check our [Free Task List](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/CONTRIBUTING.md#free-tasks-to-take-do-any---we-can-hire-you-) for contribution ideas!*
 
 We would also be happy to sponsor your master or bachelor thesis as long as:
 - You are an above average student with an interest in Graphics
