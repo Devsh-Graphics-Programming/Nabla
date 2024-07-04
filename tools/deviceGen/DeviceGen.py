@@ -241,6 +241,9 @@ def transformTraits(dict, line_format, json_type, line_format_params):
     parsed_name = dict['name']
     parsed_value = str(dict['value'])
 
+    if parsed_type.endswith('int8_t'):
+        parsed_type = parsed_type[:-3] + "16_t"
+
     if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset"):
         resultant_type = formatEnumType(dict["type"])
         parsed_value = formatEnumValue(resultant_type, parsed_value)
@@ -259,7 +262,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
                 'type': type_ext,
                 'name': name_ext[i],
                 'cpp_name': cpp_name_ext[i],
-                'value': value_ext[i],
+                'value': formatValue(value_ext[i]),
                 'json_type': json_type
             } for i in range(size)]
 
@@ -277,7 +280,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
                 'type': type_ext,
                 'name': name_ext[i],
                 'cpp_name': cpp_name_ext[i],
-                'value': value_ext[i],
+                'value': formatValue(value_ext[i]),
                 'json_type': json_type
             } for i in range(size)]
 
@@ -287,14 +290,20 @@ def transformTraits(dict, line_format, json_type, line_format_params):
                 'type': parsed_type,
                 'name': parsed_name,
                 'cpp_name': parsed_name,
-                'value': parsed_value,
+                'value': formatValue(parsed_value),
                 'json_type': json_type
             }
         ]
 
-    return [line_format.format(*[formatValue(param_value[param]) for param in line_format_params]) for param_value in param_values]
+    return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
 
-def buildTraitsHeaderHelper(res, name, json_data, line_format, json_type, *line_format_params):
+def buildTraitsHeaderHelper(
+        res,
+        name,
+        json_data,
+        line_format,
+        json_type,
+        *line_format_params):
     sectionHeaders = {
         "vulkan10core": "VK 1.0",
         "vulkan11core": "VK 1.1",
