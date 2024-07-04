@@ -239,10 +239,19 @@ def transformTraits(dict, line_format, json_type, line_format_params):
 
     parsed_type = dict['type']
     parsed_name = dict['name']
+    parsed_cpp_name = parsed_name
+    parsed_json_type = json_type
     parsed_value = str(dict['value'])
 
     if parsed_type.endswith('int8_t'):
         parsed_type = parsed_type[:-3] + "16_t"
+
+    if parsed_type == "float" and parsed_name.find("Range") == -1 and parsed_name.find(r"[") == -1:
+        parsed_type = "uint32_t"
+        parsed_name += "BitPattern"
+        parsed_value = f"asuint({parsed_value})"
+        parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
+        parsed_cpp_name = parsed_cpp_name + r")"
 
     if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset"):
         resultant_type = formatEnumType(dict["type"])
@@ -254,7 +263,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         size = int(parsed_type[index + 2:])
         type_ext = parsed_type[6: index + 2]
         name_ext = [parsed_name + ext for ext in ["X", "Y", "Z", "W"]]
-        cpp_name_ext = [parsed_name + ext for ext in [".x", ".y", ".z", ".w"]]
+        cpp_name_ext = [parsed_cpp_name + ext for ext in [".x", ".y", ".z", ".w"]]
         value_ext = split(", |,", parsed_value[1:-2].strip())
 
         param_values = [
@@ -263,7 +272,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
                 'name': name_ext[i],
                 'cpp_name': cpp_name_ext[i],
                 'value': formatValue(value_ext[i]),
-                'json_type': json_type
+                'json_type': parsed_json_type
             } for i in range(size)]
 
     elif (index1:= parsed_name.find('[')) != -1:
@@ -272,7 +281,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         size = int(parsed_name[index1 + 1: index2])
         type_ext = parsed_type
         name_ext = [parsed_name[:index1] + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z", ])]
-        cpp_name_ext = [parsed_name[:index1] + ext for ext in ["[0]", "[1]", "[2]", "[3]"]]
+        cpp_name_ext = [parsed_cpp_name[:index1] + ext for ext in ["[0]", "[1]", "[2]", "[3]"]]
         value_ext = split(", |,", parsed_value[1:-1].strip())
 
         param_values = [
@@ -281,7 +290,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
                 'name': name_ext[i],
                 'cpp_name': cpp_name_ext[i],
                 'value': formatValue(value_ext[i]),
-                'json_type': json_type
+                'json_type': parsed_json_type
             } for i in range(size)]
 
     else:
@@ -289,11 +298,39 @@ def transformTraits(dict, line_format, json_type, line_format_params):
             {
                 'type': parsed_type,
                 'name': parsed_name,
-                'cpp_name': parsed_name,
+                'cpp_name': parsed_cpp_name,
                 'value': formatValue(parsed_value),
-                'json_type': json_type
+                'json_type': parsed_json_type
             }
         ]
+
+    return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
+
+def transformFloatTraits(dict, line_format, json_type, line_format_params):
+    expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
+    if expose != ExposeStatus.DEFAULT:
+        raise ContinueEx
+    if "type" not in dict or "value" not in dict or "name" not in dict:
+        raise ContinueEx
+
+    parsed_type = dict['type']
+    parsed_name = dict['name']
+    parsed_value = str(dict['value'])
+
+    if parsed_type != "float":
+        raise ContinueEx
+    if parsed_name.find("Range") != -1 or parsed_name.find(r"[") != -1:
+        raise ContinueEx
+
+    param_values = [
+        {
+            'type': parsed_type,
+            'name': parsed_name,
+            'cpp_name': parsed_name,
+            'value': formatValue(parsed_value),
+            'json_type': json_type
+        }
+    ]
 
     return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
 
@@ -341,6 +378,50 @@ def buildTraitsHeaderHelper(
                     res.extend(temp_res)
                     res.append(emptyline)
 
+def buildTraitsFloatHeaderHelper(
+        res,
+        name,
+        json_data,
+        line_format,
+        json_type,
+        *line_format_params):
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0",
+        "vulkan11core": "VK 1.1",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
+    }
+
+    res.append(f"// {name}")
+    for sectionName, sectionContent in json_data.items():
+        # constexprs are handled specifically in buildTraitsHeader
+        if sectionName == "constexprs":
+            continue
+        if sectionName in sectionHeaders:
+            res.append(f"// {sectionHeaders[sectionName]}")
+        for dict in sectionContent:
+            if 'type' in dict:
+                try:
+                    for line in transformFloatTraits(dict, line_format, json_type, line_format_params):
+                        res.append(line)
+                    res.append(emptyline)
+                except ContinueEx:
+                    continue
+            if 'entries' in dict:
+                temp_res = []
+                for entry in dict['entries']:
+                    try:
+                        for line in transformFloatTraits(entry, line_format, json_type, line_format_params):
+                            temp_res.append(line)
+                    except ContinueEx:
+                        continue
+                if len(temp_res) > 0:
+                    res.extend(temp_res)
+                    res.append(emptyline)
+
 def buildTraitsHeader(**params):
     res = []
 
@@ -375,6 +456,28 @@ def buildTraitsHeader(**params):
 
     if 'enable_jit' in params and params['enable_jit']:
         res.append(")===\";")
+
+    return res
+
+def buildTraitsFloatHeader(**params):
+    res = []
+
+    buildTraitsFloatHeaderHelper(
+        res,
+        f"Limits {params['type']}",
+        params["limits_json"],
+        params["template"],
+        "limits",
+        *params['format_params']
+    )
+    buildTraitsFloatHeaderHelper(
+        res,
+        f"Features {params['type']}",
+        params["features_json"],
+        params["template"],
+        "features",
+        *params['format_params']
+    )
 
     return res
 
