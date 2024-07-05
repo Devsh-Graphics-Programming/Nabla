@@ -455,6 +455,15 @@ else()
 endif()
 target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
+# blake3
+add_dependencies(Nabla blake3)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:blake3,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE blake3)
+else()
+	target_link_libraries(Nabla PRIVATE blake3)
+endif()
+
 # shaderc
 add_dependencies(Nabla shaderc)
 if(NBL_STATIC_BUILD)

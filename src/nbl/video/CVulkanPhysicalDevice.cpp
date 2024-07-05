@@ -1047,11 +1047,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
                 return nullptr;
             }
-            if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
-            {
-                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
-            }
+            // We encountered a GTX1660 device contrary to vulkan spec so disabling this temporarily
+            // if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
+            // {
+            //     logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+            //     return nullptr;
+            // }
             features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
 
