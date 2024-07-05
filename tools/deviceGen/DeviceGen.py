@@ -13,7 +13,7 @@ CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 MovedLimits = []
 
 def computeStatus(status, string):
-    return status(eval(sub(r"\w+", lambda s: f"{status[f"{s.group(0)}"]}", string)))
+    return status(eval(sub(r"\w+", lambda s: f"{status[s.group(0)]}", string)))
 
 def loadJSON(file_path):
     try:
@@ -43,7 +43,7 @@ def buildComment(comment, res, sectionName):
                 require = require or returnObj["require"]
 
     for commentLine in comment['comment']:
-        temp_res.insert(0, f"    // {"[REQUIRE]" if require else ""}{commentLine}")
+        temp_res.insert(0, f"    // {'[REQUIRE]' if require else ''}{commentLine}")
     for line in temp_res:
         res.append(line)
 

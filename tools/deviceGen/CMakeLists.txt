@@ -44,6 +44,7 @@ set(OUTPUT_HEADERS
 
 # python script
 set(NBL_GEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/gen.py")
+set(NBL_DGEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/DeviceGen.py")
 
 # custom command
 set(NBL_COMMAND
@@ -63,8 +64,14 @@ set(NBL_COMMAND
   "--jit_traits_output_path" "${OUTPUT_DT_JIT}"
 )
 
+set(NBL_DEPENDS
+  ${INPUT_JSONS}
+  "${NBL_GEN_PY}"
+  "${NBL_DGEN_PY}"
+)
+
 add_custom_command(OUTPUT ${OUTPUT_HEADERS}
-    DEPENDS ${INPUT_JSONS}
+    DEPENDS ${NBL_DEPENDS}
     COMMAND ${NBL_COMMAND}
     VERBATIM
 )
