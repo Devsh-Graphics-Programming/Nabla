@@ -2,7 +2,7 @@
 
 [[vk::push_constant]] struct PushConstants pc;
 
-PSInput VSMain(VSInput input)
+PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
     PSInput output;
     output.color = input.color;

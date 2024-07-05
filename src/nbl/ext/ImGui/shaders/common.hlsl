@@ -17,11 +17,29 @@
 	{
 		float2 scale;
 		float2 translate;
+		float4 viewport;
+		uint drawsCount;
+		
+		uint padding[3];
+	};
+	
+	struct PerObjectData 
+	{
+		float4 scissor;
+		uint texId;
 	};
 #else
 	struct PushConstants
 	{
 		float scale[2];
 		float translate[2];
+		float viewport[4];
+		size_t drawsCount;
+	};
+	
+	struct PerObjectData
+	{
+	  VkRect2D scissor;
+	  uint32_t texId = 0;
 	};
 #endif // __HLSL_VERSION

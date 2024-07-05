@@ -6,10 +6,10 @@ namespace nbl::ext::imgui
 class UI final : public core::IReferenceCounted
 {
 	public:
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
+		UI(core::smart_refctd_ptr<video::ILogicalDevice> device, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
 		~UI() override;
 
-		bool Render(nbl::video::IGPUCommandBuffer* commandBuffer, int frameIndex);
+		bool Render(nbl::video::IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex);
 		void Update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
 		void BeginWindow(char const* windowName);
 		void EndWindow();
@@ -42,7 +42,7 @@ class UI final : public core::IReferenceCounted
 
 		void CreatePipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
 		void CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void UpdateDescriptorSets();
+		void UpdateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie = {});
 		void createSystem();
 		void CreateFontSampler();
 		void CreateDescriptorPool();
@@ -60,8 +60,9 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontTexture;
 		core::smart_refctd_ptr<ui::IWindow> m_window;
-		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_vertexBuffers, m_indexBuffers;
+		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_mdiBuffers;
 		bool hasFocus = false;
+		uint32_t maxFramesInFlight;
 
 		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
 		struct Subscriber {

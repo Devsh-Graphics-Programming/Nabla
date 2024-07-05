@@ -11,7 +11,6 @@
 #include "shaders/common.hlsl"
 #include "ext/imgui/spirv/builtin/builtinResources.h"
 #include "ext/imgui/spirv/builtin/CArchive.h"
-
 // 3rdparty
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
@@ -27,12 +26,19 @@ namespace nbl::ext::imgui
 	{
 		nbl::video::IGPUDescriptorSetLayout::SBinding bindings[] = {
 			{
-				.binding = 0,
+				.binding = 0u,
 				.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
 				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
 				.stageFlags = IShader::ESS_FRAGMENT,
 				.count = 1,
 				.samplers = nullptr // TODO: m_fontSampler?
+			},
+			{
+				.binding = 1u,
+				.type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,
+				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+				.stageFlags = asset::IShader::ESS_VERTEX | asset::IShader::ESS_FRAGMENT,
+				.count = 1u
 			}
 		};
 
@@ -44,7 +50,7 @@ namespace nbl::ext::imgui
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = {
 			{
-				.stageFlags = IShader::ESS_VERTEX,
+				.stageFlags = IShader::ESS_VERTEX | IShader::ESS_FRAGMENT,
 				.offset = 0,
 				.size = sizeof(PushConstants)
 			}
@@ -323,23 +329,36 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::UpdateDescriptorSets()
+	void UI::UpdateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie)
 	{
-		IGPUDescriptorSet::SDescriptorInfo info;
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_RESOURCES_AMOUNT = 2u;
+
+		IGPUDescriptorSet::SDescriptorInfo info[NBL_RESOURCES_AMOUNT];
 		{
-			info.desc = m_fontTexture;
-			info.info.image.sampler = m_fontSampler;
-			info.info.image.imageLayout = nbl::asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
+			auto& font = info[0u];
+			font.desc = m_fontTexture;
+			font.info.image.sampler = m_fontSampler;
+			font.info.image.imageLayout = nbl::asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
+
+			auto& ssbo = info[1u];
+			ssbo.desc = mdie.buffer;
+			ssbo.info.buffer.size = mdie.size;
+			ssbo.info.buffer.offset = mdie.offset;
 		}
 
-		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet{};
-		writeDescriptorSet.dstSet = m_gpuDescriptorSet.get();
-		writeDescriptorSet.binding = 0;
-		writeDescriptorSet.arrayElement = 0;
-		writeDescriptorSet.count = 1;
-		writeDescriptorSet.info = &info;
+		IGPUDescriptorSet::SWriteDescriptorSet write[NBL_RESOURCES_AMOUNT];
+		for (auto i = 0u; i < NBL_RESOURCES_AMOUNT; ++i)
+		{
+			auto& w = write[i];
 
-		m_device->updateDescriptorSets(1, &writeDescriptorSet, 0, nullptr);
+			w.dstSet = m_gpuDescriptorSet.get();
+			w.binding = 0;
+			w.arrayElement = 0;
+			w.count = 1;
+			w.info = info + i;
+		}
+
+		m_device->updateDescriptorSets(mdie.buffer ? NBL_RESOURCES_AMOUNT : 1u, write, 0, nullptr);
 	}
 
 	void UI::CreateFontSampler()
@@ -358,9 +377,9 @@ namespace nbl::ext::imgui
 
 	void UI::CreateDescriptorPool()
 	{
-		static constexpr int TotalSetCount = 1;
 		IDescriptorPool::SCreateInfo createInfo = {};
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = TotalSetCount;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = 1u;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] = 1u;
 		createInfo.maxSets = 1;
 		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
 
@@ -412,8 +431,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window))
+	UI::UI(smart_refctd_ptr<ILogicalDevice> device, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
+		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window)), maxFramesInFlight(_maxFramesInFlight)
 	{
 		createSystem();
 		struct
@@ -498,8 +517,7 @@ namespace nbl::ext::imgui
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-		m_vertexBuffers.resize(maxFramesInFlight);
-		m_indexBuffers.resize(maxFramesInFlight);
+		m_mdiBuffers.resize(maxFramesInFlight);
 	}
 
 	UI::~UI() = default;
@@ -546,8 +564,15 @@ namespace nbl::ext::imgui
 		//}
 	//}
 
-	bool UI::Render(IGPUCommandBuffer* commandBuffer, int const frameIndex)
+	bool UI::Render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
 	{
+		const bool validFramesRange = frameIndex >= 0 && frameIndex < maxFramesInFlight;
+		if (!validFramesRange)
+		{
+			logger->log("Requested frame index is OOB!", system::ILogger::ELL_ERROR);
+			assert(false);
+		}
+
 		ImGuiIO& io = ImGui::GetIO();
 
 		if (!io.Fonts->IsBuilt())
@@ -570,82 +595,221 @@ namespace nbl::ext::imgui
 		float const frameBufferHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
 		if (frameBufferWidth > 0 && frameBufferHeight > 0 && drawData->TotalVtxCount > 0)
 		{
-			// Create or resize the vertex/index buffers
-			size_t const vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-			size_t const indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
-
-			IGPUBuffer::SCreationParams vertexCreationParams = {};
-			vertexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			vertexCreationParams.size = vertexSize;
-
-			auto & vertexBuffer = m_vertexBuffers[frameIndex];
-
-			if (static_cast<bool>(vertexBuffer) == false || vertexBuffer->getSize() < vertexSize)
+			const struct
 			{
-				vertexBuffer = m_device->createBuffer(std::move(vertexCreationParams));
+				ImVec2 off;			// (0,0) unless using multi-viewports
+				ImVec2 scale;		// (1,1) unless using retina display which are often (2,2)
+				ImVec2 framebuffer; // width, height
 
-				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = vertexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-				auto memOffset = m_device->allocate(memReq, vertexBuffer.get());
-				assert(memOffset.isValid());
-			}
-
-			IGPUBuffer::SCreationParams indexCreationParams = {};
-			indexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT
-				| nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			indexCreationParams.size = indexSize;
-
-			auto & indexBuffer = m_indexBuffers[frameIndex];
-
-			if (static_cast<bool>(indexBuffer) == false || indexBuffer->getSize() < indexSize)
-			{
-				indexBuffer = m_device->createBuffer(std::move(indexCreationParams));
-
-				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = indexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-				auto memOffset = m_device->allocate(memReq, indexBuffer.get());
-				assert(memOffset.isValid());
-			}
-
-			{
-				auto vBinding = vertexBuffer->getBoundMemory();
-				auto iBinding = indexBuffer->getBoundMemory();
-
+				// Project scissor/clipping rectangles into frame-buffer space
+				ImVec4 getClipRectangle(const ImDrawCmd* cmd) const
 				{
-					if (!vBinding.memory->map({ 0ull, vBinding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory for vertex buffer data!", system::ILogger::ELL_WARNING);
+					assert(cmd);
 
-					assert(vBinding.memory->isCurrentlyMapped());
+					ImVec4 rectangle;
+					rectangle.x = (cmd->ClipRect.x - off.x) * scale.x;
+					rectangle.y = (cmd->ClipRect.y - off.y) * scale.y;
+					rectangle.z = (cmd->ClipRect.z - off.x) * scale.x;
+					rectangle.w = (cmd->ClipRect.w - off.y) * scale.y;
+
+					return rectangle;
 				}
 
+				VkRect2D getScissor(ImVec4 clipRectangle) const
 				{
-					if (!iBinding.memory->map({ 0ull, iBinding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory for index buffer data!", system::ILogger::ELL_WARNING);
-				
-					assert(iBinding.memory->isCurrentlyMapped());
+					// Negative offsets are illegal for vkCmdSetScissor
+					if (clipRectangle.x < 0.0f)
+						clipRectangle.x = 0.0f;
+					if (clipRectangle.y < 0.0f)
+						clipRectangle.y = 0.0f;
+
+					{// Apply scissor/clipping rectangle
+						VkRect2D scissor {};
+						scissor.offset.x = static_cast<int32_t>(clipRectangle.x);
+						scissor.offset.y = static_cast<int32_t>(clipRectangle.y);
+						scissor.extent.width = static_cast<uint32_t>(clipRectangle.z - clipRectangle.x);
+						scissor.extent.height = static_cast<uint32_t>(clipRectangle.w - clipRectangle.y);
+						
+						return scissor;
+					}
 				}
 
-				auto* vertex_ptr = static_cast<ImDrawVert*>(vBinding.memory->getMappedPointer());
-				auto* index_ptr = static_cast<ImDrawIdx*>(iBinding.memory->getMappedPointer());
+				bool prepass(const ImDrawCmd* cmd) const
+				{
+					const auto rectangle = getClipRectangle(cmd);
+
+					return prepass(rectangle);
+				}
+
+				bool prepass(const ImVec4& clipRectangle) const
+				{
+					return clipRectangle.x < framebuffer.x && clipRectangle.y < framebuffer.y && clipRectangle.z >= 0.0f && clipRectangle.w >= 0.0f;
+				}
+
+			} clip { .off = drawData->DisplayPos, .scale = drawData->FramebufferScale, .framebuffer = { frameBufferWidth, frameBufferHeight } };
+			
+			struct
+			{
+				// sizes in bytes
+				size_t vBufferSize = {}, iBufferSize = {}, 
+				vPadding = {}; // indicies can break our alignment so small padding may be required before vertices in memory
+
+				std::vector<VkDrawIndexedIndirectCommand> indirects;
+				std::vector<PerObjectData> elements;
+
+				// buffer layout is [Draw Indirect structures] [Element Data] [All the Indices] [All the vertices]
+				size_t getMDIBufferSize() const
+				{
+					return getVerticesOffset() + vBufferSize;
+				}
+
+				size_t getIndicesOffset() const
+				{
+					return getElementsOffset() + elements.size() * sizeof(PerObjectData);
+				}
+
+				size_t getVerticesOffset() const
+				{
+					return getIndicesOffset() + iBufferSize + vPadding;
+				}
+
+				size_t getVkDrawIndexedIndirectCommandOffset() const
+				{
+					return 0u;
+				}
+
+				size_t getElementsOffset() const
+				{
+					return elements.size() * sizeof(VkDrawIndexedIndirectCommand);
+				}
+
+				bool validate() const
+				{
+					return indirects.size() == elements.size();
+				}
+
+			} requestData;
+
+			{
+				/*
+					IMGUI Render command lists.
+					Wwe merged all buffers into a single one so we maintain our own offset into them, 
+					we pre-loop to get request data for MDI buffer alocation request/update.
+				*/
+
+				size_t global_idx_offset = {}, global_vtx_offset = {}, drawID = {};
 
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
-					const ImDrawList* cmd = drawData->CmdLists[n];
-					::memcpy(vertex_ptr, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
-					::memcpy(index_ptr, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
-					vertex_ptr += cmd->VtxBuffer.Size;
-					index_ptr += cmd->IdxBuffer.Size;
+					const auto* cmd_list = drawData->CmdLists[n];
+					for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+					{
+						const auto* pcmd = &cmd_list->CmdBuffer[cmd_i];
+
+						const auto clipRectangle = clip.getClipRectangle(pcmd);
+
+						// count draw invocations and allocate cpu indirect + element data for mdi buffer
+						if (clip.prepass(clipRectangle))
+						{
+							// TODO: I guess we waste a lot of time on this emplace, we should reserve memory first or use some nice allocator probably?
+							auto& indirect = requestData.indirects.emplace_back();
+							auto& element = requestData.elements.emplace_back();
+
+							indirect.firstIndex = pcmd->IdxOffset + global_idx_offset;
+							indirect.firstInstance = drawID; // use base instance as draw ID
+							indirect.indexCount = pcmd->ElemCount;
+							indirect.instanceCount = 1u;
+							indirect.vertexOffset = pcmd->VtxOffset + global_vtx_offset;
+
+							element.scissor = clip.getScissor(clipRectangle);
+							// element.texId = 0; // use defaults from constructor
+
+							++drawID;
+						}
+					}
+
+					global_idx_offset += cmd_list->IdxBuffer.Size;
+					global_vtx_offset += cmd_list->VtxBuffer.Size;
 				}
 
-				vBinding.memory->unmap();
-				iBinding.memory->unmap();
+				requestData.iBufferSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+				requestData.vBufferSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
+				requestData.vPadding = requestData.getVerticesOffset() % 4u;
+				assert(requestData.validate());
+			}
+			
+			IGPUBuffer::SCreationParams mdiCreationParams = {};
+			mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			mdiCreationParams.size = requestData.getMDIBufferSize();
+
+			auto mdiBuffer = m_mdiBuffers[frameIndex];
+			const auto drawCount = requestData.elements.size();
+			const auto mdicBSize = drawCount * sizeof(VkDrawIndexedIndirectCommand);
+			const auto elementsBSize = drawCount * sizeof(PerObjectData);
+
+			// create or resize the mdi buffer
+			if (!static_cast<bool>(mdiBuffer) || mdiBuffer->getSize() < mdiCreationParams.size)
+			{
+				mdiBuffer = m_device->createBuffer(std::move(mdiCreationParams));
+
+				auto mReqs = mdiBuffer->getMemoryReqs();
+				mReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+
+				auto memOffset = m_device->allocate(mReqs, mdiBuffer.get());
+				assert(memOffset.isValid());
+
+				SBufferRange<IGPUBuffer> mdie = { .offset = requestData.getElementsOffset(), .size = elementsBSize, .buffer = mdiBuffer };
+
+				UpdateDescriptorSets(mdie);
+			}
+
+			// update mdi buffer
+			{
+				auto binding = mdiBuffer->getBoundMemory();
+
+				{
+					if (!binding.memory->map({ 0ull, binding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
+						logger->log("Could not map device memory!", system::ILogger::ELL_WARNING);
+
+					assert(binding.memory->isCurrentlyMapped());
+				}
+
+				auto* mdiPointer = binding.memory->getMappedPointer();
+
+				auto getMDIPointer = [&mdiPointer]<typename T>(auto bOffset)
+				{
+					return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(mdiPointer) + bOffset);
+				};
+
+				auto* const indirectPointer = getMDIPointer.template operator() < VkDrawIndexedIndirectCommand > (requestData.getVkDrawIndexedIndirectCommandOffset());
+				auto* const elementPointer = getMDIPointer.template operator() < PerObjectData > (requestData.getElementsOffset());
+				auto* indicesPointer = getMDIPointer.template operator() < ImDrawIdx > (requestData.getIndicesOffset());
+				auto* verticesPointer = getMDIPointer.template operator() < ImDrawVert > (requestData.getVerticesOffset());
+
+				// fill indirect/element data
+				::memcpy(indirectPointer, requestData.indirects.data(), mdicBSize);
+				::memcpy(elementPointer, requestData.elements.data(), elementsBSize);
+
+				// fill vertex/index data
+				for (int n = 0; n < drawData->CmdListsCount; n++)
+				{
+					const auto* cmd = drawData->CmdLists[n];
+
+					::memcpy(verticesPointer, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
+					::memcpy(indicesPointer, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+					verticesPointer += cmd->VtxBuffer.Size;
+					indicesPointer += cmd->IdxBuffer.Size;
+				}
+
+				binding.memory->unmap();
 			}
 
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
-					.offset = 0,
-					.buffer = core::smart_refctd_ptr(indexBuffer)
+					.offset = requestData.getIndicesOffset(),
+					.buffer = core::smart_refctd_ptr(mdiBuffer)
 				};
 
 				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
@@ -659,8 +823,8 @@ namespace nbl::ext::imgui
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
 				{
 					{
-						.offset = 0,
-						.buffer = core::smart_refctd_ptr(vertexBuffer)
+						.offset = requestData.getVerticesOffset(),
+						.buffer = core::smart_refctd_ptr(mdiBuffer)
 					}
 				};
 
@@ -669,7 +833,6 @@ namespace nbl::ext::imgui
 					logger->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
 					assert(false);
 				}
-
 			}
 
 			SViewport const viewport
@@ -681,6 +844,7 @@ namespace nbl::ext::imgui
 				.minDepth = 0.0f,
 				.maxDepth = 1.0f,
 			};
+
 			commandBuffer->setViewport(0, 1, &viewport);
 
 			// Setup scale and translation:
@@ -691,62 +855,21 @@ namespace nbl::ext::imgui
 				constants.scale[1] = 2.0f / drawData->DisplaySize.y;
 				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
 				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
+				constants.viewport[0] = viewport.x;
+				constants.viewport[1] = viewport.x;
+				constants.viewport[2] = viewport.width;
+				constants.viewport[3] = viewport.height;
 
 				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
 			}
 
-			// Will project scissor/clipping rectangles into frame-buffer space
-			ImVec2 const clip_off = drawData->DisplayPos;         // (0,0) unless using multi-viewports
-			ImVec2 const clip_scale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-			// Render command lists
-			// (Because we merged all buffers into a single one, we maintain our own offset into them)
-			int global_vtx_offset = 0;
-			int global_idx_offset = 0;
-			for (int n = 0; n < drawData->CmdListsCount; n++)
+			const asset::SBufferBinding<const video::IGPUBuffer> binding =
 			{
-				const ImDrawList* cmd_list = drawData->CmdLists[n];
-				for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
-				{
-					const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+				.offset = requestData.getVkDrawIndexedIndirectCommandOffset(),
+				.buffer = core::smart_refctd_ptr(mdiBuffer)
+			};
 
-					// Project scissor/clipping rectangles into frame-buffer space
-					ImVec4 clip_rect;
-					clip_rect.x = (pcmd->ClipRect.x - clip_off.x) * clip_scale.x;
-					clip_rect.y = (pcmd->ClipRect.y - clip_off.y) * clip_scale.y;
-					clip_rect.z = (pcmd->ClipRect.z - clip_off.x) * clip_scale.x;
-					clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
-
-					if (clip_rect.x < frameBufferWidth && clip_rect.y < frameBufferHeight && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
-					{
-						// Negative offsets are illegal for vkCmdSetScissor
-						if (clip_rect.x < 0.0f)
-							clip_rect.x = 0.0f;
-						if (clip_rect.y < 0.0f)
-							clip_rect.y = 0.0f;
-
-						{// Apply scissor/clipping rectangle
-							VkRect2D scissor{};
-							scissor.offset.x = static_cast<int32_t>(clip_rect.x);
-							scissor.offset.y = static_cast<int32_t>(clip_rect.y);
-							scissor.extent.width = static_cast<uint32_t>(clip_rect.z - clip_rect.x);
-							scissor.extent.height = static_cast<uint32_t>(clip_rect.w - clip_rect.y);
-							commandBuffer->setScissor(0, 1, &scissor);
-						}
-
-						// Draw
-						commandBuffer->drawIndexed(
-							pcmd->ElemCount,
-							1,
-							pcmd->IdxOffset + global_idx_offset,
-							pcmd->VtxOffset + global_vtx_offset,
-							0
-						);
-					}
-				}
-				global_idx_offset += cmd_list->IdxBuffer.Size;
-				global_vtx_offset += cmd_list->VtxBuffer.Size;
-			}
+			commandBuffer->drawIndexedIndirect(binding, drawCount, sizeof(VkDrawIndexedIndirectCommand));
 		}
 
 		return true;
