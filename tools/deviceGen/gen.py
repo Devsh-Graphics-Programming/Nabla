@@ -92,10 +92,10 @@ if __name__ == "__main__":
         args.traits_output_floats_path,
         buildTraitsFloatHeader,
         type="Floats",
-        template="static float {}() {{ return asfloat({}BitPattern); }}",
+        template="static float {}() {{ return asfloat({}); }}",
         limits_json=limits,
         features_json=features,
-        format_params=["name", "name"]
+        format_params=["name", "cpp_name"]
     )
     writeHeader(
         args.traits_output_members_path,

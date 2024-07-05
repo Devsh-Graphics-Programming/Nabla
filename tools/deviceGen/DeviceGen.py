@@ -212,8 +212,11 @@ def buildFeaturesMethod(**params):
 def formatEnumType(type):
     type = type.split("::")[-1]
     type_parts = ''.join([c for c in type if c.isupper() or c == '_']).split('_')
-    resultant_type = type_parts[1].lower()
-    for type_part in type_parts[2:]:
+    index = 0
+    if type_parts[index] == "E":
+        index += 1
+    resultant_type = type_parts[index].capitalize()
+    for type_part in type_parts[index + 1:]:
         resultant_type += type_part.capitalize()
     return resultant_type
 
@@ -223,11 +226,16 @@ def formatEnumValue(type, value):
     for value_part in value_parts:
         while (index := value_part.find("::")) != -1:
             value_part = value_part[index+2:]
+        if (index := value_part.find('(')) != -1:
+            value_part = value_part[index:]
         temp_value_parts.append(value_part)
     for i in range(len(temp_value_parts)):
         if temp_value_parts[i] == '|' or temp_value_parts[i] == '&':
             continue
-        temp_value_parts[i] = type + "::" + temp_value_parts[i]
+        if temp_value_parts[i][0] == '(':
+            temp_value_parts[i] = type + temp_value_parts[i]
+        else:
+            temp_value_parts[i] = type + "::" + temp_value_parts[i]
     return ' '.join(temp_value_parts)
 
 def transformTraits(dict, line_format, json_type, line_format_params):
@@ -253,7 +261,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
         parsed_cpp_name = parsed_cpp_name + r")"
 
-    if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset"):
+    if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset") or parsed_type.startswith("E_"):
         resultant_type = formatEnumType(dict["type"])
         parsed_value = formatEnumValue(resultant_type, parsed_value)
         parsed_type = resultant_type
@@ -288,8 +296,8 @@ def transformTraits(dict, line_format, json_type, line_format_params):
             parsed_name = parsed_name[:index1] + "BitPattern"
             parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
             parsed_cpp_name = parsed_cpp_name[:index1] + r")"
-            for value in value_ext:
-                value = "asuint(" + value + ")"
+            for j, value in enumerate(value_ext):
+                value_ext[j] = "asuint(" + value + ")"
             cpp_name_ext = [parsed_cpp_name[:-1] + ext + r")" for ext in ["[0]", "[1]", "[2]", "[3]"]]
         else:
             parsed_name = parsed_name[:index1]
@@ -342,17 +350,18 @@ def transformFloatTraits(dict, line_format, json_type, line_format_params):
         type_ext = parsed_type
         value_ext = split(", |,", parsed_value[1:-1].strip())
 
-        parsed_name = parsed_name[:index1] + "BitPattern"
-        for value in value_ext:
-            value = "asuint(" + value + ")"
+        parsed_name = parsed_name[:index1]
+        for j, value in enumerate(value_ext):
+            value_ext[j] = "asuint(" + value + ")"
 
         name_ext = [parsed_name + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z"])]
+        cpp_name_ext = [parsed_name + "BitPattern" + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z"])]
 
         param_values = [
             {
                 'type': type_ext,
                 'name': name_ext[i],
-                'cpp_name': name_ext[i],
+                'cpp_name': cpp_name_ext[i],
                 'value': formatValue(value_ext[i]),
                 'json_type': json_type
             } for i in range(size)]
@@ -361,7 +370,7 @@ def transformFloatTraits(dict, line_format, json_type, line_format_params):
             {
                 'type': parsed_type,
                 'name': parsed_name,
-                'cpp_name': parsed_name,
+                'cpp_name': parsed_name + "BitPattern",
                 'value': formatValue(parsed_value),
                 'json_type': json_type
             }
