@@ -279,10 +279,24 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         is_range = parsed_name.find('Range') != -1
         index2 = parsed_name.find(']')
         size = int(parsed_name[index1 + 1: index2])
+
         type_ext = parsed_type
-        name_ext = [parsed_name[:index1] + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z", ])]
-        cpp_name_ext = [parsed_cpp_name[:index1] + ext for ext in ["[0]", "[1]", "[2]", "[3]"]]
         value_ext = split(", |,", parsed_value[1:-1].strip())
+
+        if parsed_type == 'float':
+            type_ext = "uint32_t"
+            parsed_name = parsed_name[:index1] + "BitPattern"
+            parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
+            parsed_cpp_name = parsed_cpp_name[:index1] + r")"
+            for value in value_ext:
+                value = "asuint(" + value + ")"
+            cpp_name_ext = [parsed_cpp_name[:-1] + ext + r")" for ext in ["[0]", "[1]", "[2]", "[3]"]]
+        else:
+            parsed_name = parsed_name[:index1]
+            parsed_cpp_name = parsed_cpp_name[:index1]
+            cpp_name_ext = [parsed_cpp_name + ext for ext in ["[0]", "[1]", "[2]", "[3]"]]
+
+        name_ext = [parsed_name + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z"])]
 
         param_values = [
             {
@@ -319,18 +333,39 @@ def transformFloatTraits(dict, line_format, json_type, line_format_params):
 
     if parsed_type != "float":
         raise ContinueEx
-    if parsed_name.find("Range") != -1 or parsed_name.find(r"[") != -1:
-        raise ContinueEx
 
-    param_values = [
-        {
-            'type': parsed_type,
-            'name': parsed_name,
-            'cpp_name': parsed_name,
-            'value': formatValue(parsed_value),
-            'json_type': json_type
-        }
-    ]
+    if (index1:= parsed_name.find(r"[")) != -1:
+        is_range = parsed_name.find('Range') != -1
+        index2 = parsed_name.find(']')
+        size = int(parsed_name[index1 + 1: index2])
+
+        type_ext = parsed_type
+        value_ext = split(", |,", parsed_value[1:-1].strip())
+
+        parsed_name = parsed_name[:index1] + "BitPattern"
+        for value in value_ext:
+            value = "asuint(" + value + ")"
+
+        name_ext = [parsed_name + ext for ext in (["Min", "Max"] if is_range else ["X", "Y", "Z"])]
+
+        param_values = [
+            {
+                'type': type_ext,
+                'name': name_ext[i],
+                'cpp_name': name_ext[i],
+                'value': formatValue(value_ext[i]),
+                'json_type': json_type
+            } for i in range(size)]
+    else:
+        param_values = [
+            {
+                'type': parsed_type,
+                'name': parsed_name,
+                'cpp_name': parsed_name,
+                'value': formatValue(parsed_value),
+                'json_type': json_type
+            }
+        ]
 
     return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
 
