@@ -6,37 +6,30 @@
 
 namespace nbl::core
 {
-
 // I only thought if I could, not if I should
-template<template<class> class X, typename TupleOrVariant>
-struct tuple_transform
+template<typename... T>
+struct type_list
+{
+};
+template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
+struct list_transform
 {
 	private:
-		template<typename... T>
-		static std::tuple<X<T>...> _impl(const std::tuple<T...>&);
-		template<typename... T>
-		static std::tuple<X<T>...> _impl(const std::variant<T...>&);
-
+		template<template<class...> class ListLikeInT, typename... T>
+		static ListLikeOutT<X<T>...> _impl(const ListLikeInT<T...>&);
+		
 	public:
-		using type = decltype(_impl(std::declval<TupleOrVariant>()));
+		using type = decltype(_impl(std::declval<ListLike>()));
 };
-template<template<class> class X, typename TupleOrVariant>
-using tuple_transform_t = tuple_transform<X,TupleOrVariant>::type;
+template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
+using list_transform_t = list_transform<ListLikeOutT,X,ListLike>::type;
 
-template<template<class> class X, typename TupleOrVariant>
-struct variant_transform
-{
-	private:
-		template<typename... T>
-		static std::variant<X<T>...> _impl(const std::tuple<T...>&);
-		template<typename... T>
-		static std::variant<X<T>...> _impl(const std::variant<T...>&);
+template<template<class> class X, typename ListLike>
+using tuple_transform_t = list_transform_t<std::tuple,X,ListLike>;
 
-	public:
-		using type = decltype(_impl(std::declval<TupleOrVariant>()));
-};
-template<template<class> class X, typename TupleOrVariant>
-using variant_transform_t = variant_transform<X, TupleOrVariant>::type;
+template<template<class> class X, typename ListLike>
+using variant_transform_t = list_transform_t<std::variant,X,ListLike>;
+
 
 template<typename Tuple, typename F>
 constexpr void for_each_in_tuple(Tuple& t, F&& f) noexcept

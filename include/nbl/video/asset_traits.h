@@ -61,30 +61,24 @@ struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = IGPU
 
 template<>
 struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = IGPUComputePipeline; };
-
+*/
 
 template<>
 struct asset_traits<asset::ICPUBuffer>
 {
 	using asset_t = asset::ICPUBuffer;
-	struct input_t
-	{
-		asset::SBufferRange<asset_t> range;
-	};
-	struct cache_t
-	{
-		void* initialContents;
-		IBuffer::SCreationParams creationParams;
-		// TODO: concurrent sharing queue set
-	};
 	using video_t = asset::SBufferRange<IGPUBuffer>;
 };
 
 template<>
 struct asset_traits<asset::ICPUBufferView>
 {
+	// the asset type
+	using asset_t = asset::ICPUBufferView;
+	// the video type
+	using video_t = IGPUBufferView;
 };
-*/
+
 
 /*
 template<>
