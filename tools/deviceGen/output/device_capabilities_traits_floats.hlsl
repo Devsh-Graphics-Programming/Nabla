@@ -2,18 +2,18 @@
 // VK 1.0
 static float maxSamplerLodBias() { return asfloat(maxSamplerLodBiasBitPattern); }
 
-static float viewportBoundsRangeBitPatternMin() { return asfloat(viewportBoundsRangeBitPatternMinBitPattern); }
-static float viewportBoundsRangeBitPatternMax() { return asfloat(viewportBoundsRangeBitPatternMaxBitPattern); }
+static float viewportBoundsRangeMin() { return asfloat(viewportBoundsRangeBitPatternMin); }
+static float viewportBoundsRangeMax() { return asfloat(viewportBoundsRangeBitPatternMax); }
 
 static float minInterpolationOffset() { return asfloat(minInterpolationOffsetBitPattern); }
 static float maxInterpolationOffset() { return asfloat(maxInterpolationOffsetBitPattern); }
 
 static float timestampPeriodInNanoSeconds() { return asfloat(timestampPeriodInNanoSecondsBitPattern); }
 
-static float pointSizeRangeBitPatternMin() { return asfloat(pointSizeRangeBitPatternMinBitPattern); }
-static float pointSizeRangeBitPatternMax() { return asfloat(pointSizeRangeBitPatternMaxBitPattern); }
-static float lineWidthRangeBitPatternMin() { return asfloat(lineWidthRangeBitPatternMinBitPattern); }
-static float lineWidthRangeBitPatternMax() { return asfloat(lineWidthRangeBitPatternMaxBitPattern); }
+static float pointSizeRangeMin() { return asfloat(pointSizeRangeBitPatternMin); }
+static float pointSizeRangeMax() { return asfloat(pointSizeRangeBitPatternMax); }
+static float lineWidthRangeMin() { return asfloat(lineWidthRangeBitPatternMin); }
+static float lineWidthRangeMax() { return asfloat(lineWidthRangeBitPatternMax); }
 static float pointSizeGranularity() { return asfloat(pointSizeGranularityBitPattern); }
 static float lineWidthGranularity() { return asfloat(lineWidthGranularityBitPattern); }
 
@@ -26,8 +26,8 @@ static float primitiveOverestimationSize() { return asfloat(primitiveOverestimat
 static float maxExtraPrimitiveOverestimationSize() { return asfloat(maxExtraPrimitiveOverestimationSizeBitPattern); }
 static float extraPrimitiveOverestimationSizeGranularity() { return asfloat(extraPrimitiveOverestimationSizeGranularityBitPattern); }
 
-static float sampleLocationCoordinateRangeBitPatternMin() { return asfloat(sampleLocationCoordinateRangeBitPatternMinBitPattern); }
-static float sampleLocationCoordinateRangeBitPatternMax() { return asfloat(sampleLocationCoordinateRangeBitPatternMaxBitPattern); }
+static float sampleLocationCoordinateRangeMin() { return asfloat(sampleLocationCoordinateRangeBitPatternMin); }
+static float sampleLocationCoordinateRangeMax() { return asfloat(sampleLocationCoordinateRangeBitPatternMax); }
 
 // Nabla
 // Features Floats

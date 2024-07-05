@@ -91,7 +91,7 @@
     // This is different to `maxDrawIndirectCount`, this is NOT about whether you can source the MDI count from a buffer, just about how many you can have
     uint32_t maxDrawIndirectCount = 0x1u << 30;
 
-    float maxSamplerLodBias = 4;
+    float maxSamplerLodBias = 4.f;
     uint8_t maxSamplerAnisotropyLog2 = 4;
 
     uint8_t maxViewports = 16;
@@ -109,7 +109,7 @@
     int8_t minTexelGatherOffset = -8;
     uint8_t maxTexelGatherOffset = 7;
 
-    float minInterpolationOffset = -0.5;
+    float minInterpolationOffset = -0.5f;
     float maxInterpolationOffset = 0.5f-exp2f(-MinSubPixelInterpolationOffsetBits);
     uint8_t subPixelInterpolationOffsetBits = MinSubPixelInterpolationOffsetBits;
 
@@ -139,7 +139,7 @@
     // [REQUIRE]ROADMAP 2024 and good device support
     // bool timestampComputeAndGraphics = true;
     // timestampPeriod is the number of nanoseconds required for a timestamp query to be incremented by 1 (a float because vulkan reports), use core::rational in the future
-    float timestampPeriodInNanoSeconds = 83.334;
+    float timestampPeriodInNanoSeconds = 83.334f;
 
     uint8_t maxClipDistances = 8;
     uint8_t maxCullDistances = 0;
@@ -149,8 +149,8 @@
 
     float pointSizeRange[2] = {1.f,64.f};
     float lineWidthRange[2] = {1.f,1.f};
-    float pointSizeGranularity = 1;
-    float lineWidthGranularity = 1;
+    float pointSizeGranularity = 1.f;
+    float lineWidthGranularity = 1.f;
 
     // old intels can't do this
     bool strictLines = false;
@@ -377,8 +377,8 @@
 
     // ConservativeRasterizationPropertiesEXT
     // VK_EXT_conservative_rasterization
-    float primitiveOverestimationSize = 0;
-    float maxExtraPrimitiveOverestimationSize = 0;
+    float primitiveOverestimationSize = 0.f;
+    float maxExtraPrimitiveOverestimationSize = 0.f;
     float extraPrimitiveOverestimationSizeGranularity = nbl::hlsl::numeric_limits<float>::infinity;
     bool primitiveUnderestimation = false;
     bool conservativePointAndLineRasterization = false;

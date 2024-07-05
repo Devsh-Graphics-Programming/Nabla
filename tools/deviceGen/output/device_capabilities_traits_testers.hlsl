@@ -67,14 +67,14 @@ NBL_GENERATE_MEMBER_TESTER(mipmapPrecisionBits);
 
 NBL_GENERATE_MEMBER_TESTER(maxDrawIndirectCount);
 
-NBL_GENERATE_MEMBER_TESTER(maxSamplerLodBias);
+NBL_GENERATE_MEMBER_TESTER(maxSamplerLodBiasBitPattern);
 NBL_GENERATE_MEMBER_TESTER(maxSamplerAnisotropyLog2);
 
 NBL_GENERATE_MEMBER_TESTER(maxViewports);
 NBL_GENERATE_MEMBER_TESTER(maxViewportDimsX);
 NBL_GENERATE_MEMBER_TESTER(maxViewportDimsY);
-NBL_GENERATE_MEMBER_TESTER(viewportBoundsRangeMin);
-NBL_GENERATE_MEMBER_TESTER(viewportBoundsRangeMax);
+NBL_GENERATE_MEMBER_TESTER(viewportBoundsRangeBitPatternMin);
+NBL_GENERATE_MEMBER_TESTER(viewportBoundsRangeBitPatternMax);
 NBL_GENERATE_MEMBER_TESTER(viewportSubPixelBits);
 
 NBL_GENERATE_MEMBER_TESTER(minMemoryMapAlignment);
@@ -87,8 +87,8 @@ NBL_GENERATE_MEMBER_TESTER(maxTexelOffset);
 NBL_GENERATE_MEMBER_TESTER(minTexelGatherOffset);
 NBL_GENERATE_MEMBER_TESTER(maxTexelGatherOffset);
 
-NBL_GENERATE_MEMBER_TESTER(minInterpolationOffset);
-NBL_GENERATE_MEMBER_TESTER(maxInterpolationOffset);
+NBL_GENERATE_MEMBER_TESTER(minInterpolationOffsetBitPattern);
+NBL_GENERATE_MEMBER_TESTER(maxInterpolationOffsetBitPattern);
 NBL_GENERATE_MEMBER_TESTER(subPixelInterpolationOffsetBits);
 
 NBL_GENERATE_MEMBER_TESTER(maxFramebufferWidth);
@@ -99,7 +99,7 @@ NBL_GENERATE_MEMBER_TESTER(maxColorAttachments);
 
 NBL_GENERATE_MEMBER_TESTER(maxSampleMaskWords);
 
-NBL_GENERATE_MEMBER_TESTER(timestampPeriodInNanoSeconds);
+NBL_GENERATE_MEMBER_TESTER(timestampPeriodInNanoSecondsBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(maxClipDistances);
 NBL_GENERATE_MEMBER_TESTER(maxCullDistances);
@@ -107,12 +107,12 @@ NBL_GENERATE_MEMBER_TESTER(maxCombinedClipAndCullDistances);
 
 NBL_GENERATE_MEMBER_TESTER(discreteQueuePriorities);
 
-NBL_GENERATE_MEMBER_TESTER(pointSizeRangeMin);
-NBL_GENERATE_MEMBER_TESTER(pointSizeRangeMax);
-NBL_GENERATE_MEMBER_TESTER(lineWidthRangeMin);
-NBL_GENERATE_MEMBER_TESTER(lineWidthRangeMax);
-NBL_GENERATE_MEMBER_TESTER(pointSizeGranularity);
-NBL_GENERATE_MEMBER_TESTER(lineWidthGranularity);
+NBL_GENERATE_MEMBER_TESTER(pointSizeRangeBitPatternMin);
+NBL_GENERATE_MEMBER_TESTER(pointSizeRangeBitPatternMax);
+NBL_GENERATE_MEMBER_TESTER(lineWidthRangeBitPatternMin);
+NBL_GENERATE_MEMBER_TESTER(lineWidthRangeBitPatternMax);
+NBL_GENERATE_MEMBER_TESTER(pointSizeGranularityBitPattern);
+NBL_GENERATE_MEMBER_TESTER(lineWidthGranularityBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(strictLines);
 
@@ -255,9 +255,9 @@ NBL_GENERATE_MEMBER_TESTER(displayTiming);
 
 NBL_GENERATE_MEMBER_TESTER(maxDiscardRectangles);
 
-NBL_GENERATE_MEMBER_TESTER(primitiveOverestimationSize);
-NBL_GENERATE_MEMBER_TESTER(maxExtraPrimitiveOverestimationSize);
-NBL_GENERATE_MEMBER_TESTER(extraPrimitiveOverestimationSizeGranularity);
+NBL_GENERATE_MEMBER_TESTER(primitiveOverestimationSizeBitPattern);
+NBL_GENERATE_MEMBER_TESTER(maxExtraPrimitiveOverestimationSizeBitPattern);
+NBL_GENERATE_MEMBER_TESTER(extraPrimitiveOverestimationSizeGranularityBitPattern);
 NBL_GENERATE_MEMBER_TESTER(primitiveUnderestimation);
 NBL_GENERATE_MEMBER_TESTER(conservativePointAndLineRasterization);
 NBL_GENERATE_MEMBER_TESTER(degenerateTrianglesRasterized);
@@ -274,8 +274,8 @@ NBL_GENERATE_MEMBER_TESTER(sampleLocationSubPixelBits);
 NBL_GENERATE_MEMBER_TESTER(sampleLocationSampleCounts);
 NBL_GENERATE_MEMBER_TESTER(maxSampleLocationGridSizeX);
 NBL_GENERATE_MEMBER_TESTER(maxSampleLocationGridSizeY);
-NBL_GENERATE_MEMBER_TESTER(sampleLocationCoordinateRangeMin);
-NBL_GENERATE_MEMBER_TESTER(sampleLocationCoordinateRangeMax);
+NBL_GENERATE_MEMBER_TESTER(sampleLocationCoordinateRangeBitPatternMin);
+NBL_GENERATE_MEMBER_TESTER(sampleLocationCoordinateRangeBitPatternMax);
 
 NBL_GENERATE_MEMBER_TESTER(maxAccelerationStructureGeometryCount);
 NBL_GENERATE_MEMBER_TESTER(maxAccelerationStructureInstanceCount);
