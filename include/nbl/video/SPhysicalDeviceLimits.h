@@ -8,6 +8,7 @@
 #include "nbl/asset/IRenderpass.h"
 
 #include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <type_traits>
 
@@ -19,8 +20,8 @@ namespace nbl::video
 struct SPhysicalDeviceLimits
 {
     enum E_POINT_CLIPPING_BEHAVIOR : uint8_t {
-        EPCB_ALL_CLIP_PLANES = 0,
-        EPCB_USER_CLIP_PLANES_ONLY = 1,
+        EPCB_ALL_CLIP_PLANES = nbl::hlsl::PointClippingBehavior::EPCB_ALL_CLIP_PLANES,
+        EPCB_USER_CLIP_PLANES_ONLY = nbl::hlsl::PointClippingBehavior::EPCB_USER_CLIP_PLANES_ONLY
     };
     using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
 

@@ -63,11 +63,23 @@ enum SpirvVersion : uint32_t
     ESV_1_6 = 0x010600u,
 };
 
+enum PointClippingBehavior : uint16_t {
+    EPCB_ALL_CLIP_PLANES = 0,
+    EPCB_USER_CLIP_PLANES_ONLY = 1,
+};
+
+enum SwapchainMode : uint16_t {
+    ESM_NONE = 0,
+    ESM_SURFACE = 0x01
+};
+
 #ifndef __HLSL_VERSION
 NBL_ENUM_ADD_BITWISE_OPERATORS(ShaderStage)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SampleCountFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(ResolveModeFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SpirvVersion)
+NBL_ENUM_ADD_BITWISE_OPERATORS(PointClippingBehavior)
+NBL_ENUM_ADD_BITWISE_OPERATORS(SwapchainMode)
 #endif
 
 }
