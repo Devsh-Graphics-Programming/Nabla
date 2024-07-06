@@ -86,10 +86,18 @@ struct asset_traits<asset::ICPUImage> { using GPUObjectType = IGPUImage; };
 
 template<>
 struct asset_traits<asset::ICPUImageView> { using GPUObjectType = IGPUImageView; };
+*/
 
 template<>
-struct asset_traits<asset::ICPUSampler> { using GPUObjectType = IGPUSampler; };
+struct asset_traits<asset::ICPUSampler>
+{
+	// the asset type
+	using asset_t = asset::ICPUSampler;
+	// the video type
+	using video_t = IGPUSampler;
+};
 
+/*
 template<>
 struct asset_traits<asset::ICPUShader> { using GPUObjectType = IGPUShader; };
 

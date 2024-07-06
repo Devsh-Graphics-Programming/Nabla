@@ -69,7 +69,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			}
 		}
 
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
+        constexpr static inline bool HasDependents = true;
+
+        constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         bool canBeRestoredFrom(const IAsset* _other) const override
