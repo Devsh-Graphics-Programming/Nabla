@@ -196,6 +196,27 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
 }
 
+
+namespace impl 
+{
+
+template<typename T>
+struct bitfieldInsert
+{
+    enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
+    {
+        return spirv::bitFieldInsert<T>( base, insert, offset, count );
+    }
+};
+
+} //namespace impl
+
+template<typename T>
+T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
+{
+    return impl::bitfieldInsert<T>::template  __call(base, insert, offset, count);
+}
+
 #endif
 
 }
