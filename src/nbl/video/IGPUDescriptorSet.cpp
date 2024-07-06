@@ -74,7 +74,6 @@ IGPUDescriptorSet::SWriteValidationResult IGPUDescriptorSet::validateWrite(const
         return validationResult;
     }
 
-    // Possible TODO: ensure the types are the same, not just categories! Requires IDescriptor to provide a virtual getType() method
     for (uint32_t i = 0; i < write.count; ++i)
     {
         if (asset::IDescriptor::GetTypeCategory(descriptorType) != write.info[i].desc->getTypeCategory())
