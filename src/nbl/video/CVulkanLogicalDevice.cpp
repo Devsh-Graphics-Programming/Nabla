@@ -551,13 +551,13 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.samplers and binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers and binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
             const uint32_t samplerOffset = vk_samplers.size();
             for (uint32_t i=0u; i<binding.count; ++i)
-                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.samplers[i].get())->getInternalObject());
+                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.immutableSamplers[i].get())->getInternalObject());
             vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
         }
     }

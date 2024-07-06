@@ -245,7 +245,7 @@ void IAssetManager::insertBuiltinAssets()
     binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
-    binding3.samplers = nullptr;
+    binding3.immutableSamplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far

@@ -57,9 +57,9 @@ public:
 		core::bitflag<E_CREATE_FLAGS> createFlags;
 		core::bitflag<IShader::E_SHADER_STAGE> stageFlags;
 		uint32_t count;
-		// Use this if you want an immutable sampler that is baked into the DS layout itself.
-		// If its `nullptr` then the sampler used is mutable and can be specified while writing the image descriptor to a binding while updating the DS.
-		const core::smart_refctd_ptr<sampler_type>* samplers;
+		// Use this if you want immutable samplers that are baked into the DS layout itself.
+		// If it's `nullptr` then the samplers used are mutable and can be specified while writing the image descriptor to a binding while updating the DS.
+		const core::smart_refctd_ptr<sampler_type>* immutableSamplers;
 	};
 
 	// Maps a binding to a local (to descriptor set layout) offset.
@@ -412,13 +412,13 @@ protected:
 		{
 			switch (b.type) {
 				case IDescriptor::E_TYPE::ET_SAMPLER:
-					if (b.samplers)
+					if (b.immutableSamplers)
 						buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 					else 
 						buildInfo_descriptors[size_t(IDescriptor::E_TYPE::ET_SAMPLER)].emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 					break;
 				case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
-					if (b.samplers)
+					if (b.immutableSamplers)
 						buildInfo_immutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
 					else
 						buildInfo_mutableSamplers.emplace_back(b.binding, b.createFlags, b.stageFlags, b.count);
@@ -440,13 +440,13 @@ protected:
 
 		for (const auto& b : _bindings)
 		{
-			if ((b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and b.samplers)
+			if ((b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and b.immutableSamplers)
 			{
 				const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
 				assert(localOffset != m_immutableSamplerRedirect.Invalid);
 
 				auto* dst = m_immutableSamplers->begin() + localOffset;
-				std::copy_n(b.samplers, b.count, dst);
+				std::copy_n(b.immutableSamplers, b.count, dst);
 			}
 		}
 	}

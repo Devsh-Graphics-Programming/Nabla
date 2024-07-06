@@ -394,9 +394,9 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
         // If binding comes with samplers, we're specifying that this binding corresponds to immutable samplers
-        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.samplers)
+        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
         {
-            auto* samplers = binding.samplers;
+            auto* samplers = binding.immutableSamplers;
             for (uint32_t i=0u; i<binding.count; ++i)
             if ((not samplers[i]) or (not samplers[i]->wasCreatedBy(this)))
                 return nullptr;

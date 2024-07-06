@@ -49,8 +49,18 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
     // screw it, we'll need to replace the descriptor writing with update templates of descriptor buffer soon anyway
     redirect_t::storage_range_index_t descriptorRedirectBindingIndex;
     const auto descriptorType = getBindingType(bindingNumber, descriptorRedirectBindingIndex);
+    if (asset::IDescriptor::E_TYPE::ET_COUNT == descriptorType)
+    {
+        if (debugName)
+            m_pool->m_logger.log("Descriptor set (%s, %p) has no binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+        else
+            m_pool->m_logger.log("Descriptor set (%p) has no binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
+        return asset::IDescriptor::E_TYPE::ET_COUNT;
+    }
 
     auto* descriptors = getDescriptors(descriptorType, descriptorRedirectBindingIndex);
+    // Left this check, but if the above passed then this should never be nullptr I believe
     if (!descriptors)
     {
         if (debugName)
@@ -61,49 +71,52 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
         return asset::IDescriptor::E_TYPE::ET_COUNT;
     }
 
-    core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = nullptr;
+    // Possible TODO: ensure the types are the same, not just categories! Requires IDescriptor to provide a virtual getType() method
+    for (uint32_t i = 0; i < write.count; ++i)
+    {
+        if (asset::IDescriptor::GetTypeCategory(descriptorType) != write.info[i].desc->getTypeCategory())
+        {
+            if (debugName)
+                m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+            else
+                m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
+
+            return asset::IDescriptor::E_TYPE::ET_COUNT;
+        }
+    }
+
     if (descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER or (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER and write.info->info.combinedImageSampler.sampler))
     {
         if (m_layout->getImmutableSamplerRedirect().getCount(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t{ write.binding }) != 0)
         {
             if (debugName)
-                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%s, %p), but those are immutable.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
+                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%s, %p), but those are immutable.", system::ILogger::ELL_ERROR, write.binding, debugName, this);
             else
-                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%p), but those are immutable.", system::ILogger::ELL_ERROR, this, write.binding);
+                m_pool->m_logger.log("Trying to write samplers at binding %u of Descriptor set (%p), but those are immutable.", system::ILogger::ELL_ERROR, write.binding, this);
             return asset::IDescriptor::E_TYPE::ET_COUNT;
         }
 
         for (uint32_t i=0; i<write.count; ++i)
         {
-            if (asset::IDescriptor::GetTypeCategory(descriptorType) != write.info[i].desc->getTypeCategory())
-            {
-                if (debugName)
-                    m_pool->m_logger.log("Descriptor set (%s, %p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
-                else
-                    m_pool->m_logger.log("Descriptor set (%p) doesn't allow descriptor of such type category at binding %u.", system::ILogger::ELL_ERROR, this, write.binding);
-
-                return asset::IDescriptor::E_TYPE::ET_COUNT;
-            }
             auto* sampler = descriptorType == asset::IDescriptor::E_TYPE::ET_SAMPLER ? reinterpret_cast<IGPUSampler*>(write.info[i].desc.get()) : write.info[i].info.combinedImageSampler.sampler.get();
             if (not sampler) {
                 if (debugName)
-                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%s, %p). All writes should provide a sampler.", system::ILogger::ELL_ERROR, debugName, write.dstSet);
+                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%s, %p) at binding %u. All writes should provide a sampler.", system::ILogger::ELL_ERROR, debugName, this, write.binding);
                 else
-                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%p). All writes should provide a sampler.", system::ILogger::ELL_ERROR, write.dstSet);
+                    m_pool->m_logger.log("Null sampler provided when trying to write descriptor set (%p) at binding %u. All writes should provide a sampler.", system::ILogger::ELL_ERROR, this, write.binding);
                 return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
-            else if (not sampler->isCompatibleDevicewise(write.dstSet)) {
+            if (not sampler->isCompatibleDevicewise(write.dstSet)) {
                 const char* samplerDebugName = sampler->getDebugName();
                 if (samplerDebugName && debugName)
-                    m_pool->m_logger.log("Sampler (%s, %p) does not exist or is not device-compatible with descriptor set (%s, %p).", system::ILogger::ELL_ERROR, samplerDebugName, sampler, debugName, write.dstSet);
+                    m_pool->m_logger.log("Sampler (%s, %p) does not exist or is not device-compatible with descriptor set (%s, %p).", system::ILogger::ELL_ERROR, samplerDebugName, sampler, debugName, this);
                 else
-                    m_pool->m_logger.log("Sampler (%p) does not exist or is not device-compatible with descriptor set (%p).", system::ILogger::ELL_ERROR, sampler, write.dstSet);
+                    m_pool->m_logger.log("Sampler (%p) does not exist or is not device-compatible with descriptor set (%p).", system::ILogger::ELL_ERROR, sampler, this);
                 return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
         }
-
         if (descriptorType == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) {
-            mutableSamplers = getMutableCombinedSamplers(bindingNumber);
+            core::smart_refctd_ptr<video::IGPUSampler>* mutableSamplers = getMutableCombinedSamplers(bindingNumber);
             // Should never reach here, the GetTypeCategory check earlier should ensure that
             if (!mutableSamplers)
             {
@@ -114,6 +127,20 @@ asset::IDescriptor::E_TYPE IGPUDescriptorSet::validateWrite(const IGPUDescriptor
 
                 return asset::IDescriptor::E_TYPE::ET_COUNT;
             }
+        }
+    }
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#descriptorsets-combinedimagesampler
+    if (asset::IDescriptor::GetTypeCategory(descriptorType) == asset::IDescriptor::EC_IMAGE)
+    for (uint32_t i = 0; i < write.count; ++i)
+    {
+        auto layout = write.info[i].info.image.imageLayout;
+        if (not (asset::IImage::LAYOUT::GENERAL == layout or asset::IImage::LAYOUT::SHARED_PRESENT == layout or asset::IImage::LAYOUT::READ_ONLY_OPTIMAL == layout))
+        {
+            if (debugName)
+                m_pool->m_logger.log("When writing to descriptor set (%s, %p), an image was provided with a layout that isn't GENERAL, SHARED_PRESENT or READ_ONLY_OPTIMAL", system::ILogger::ELL_ERROR, debugName, this);
+            else
+                m_pool->m_logger.log("When writing to descriptor set (%p), an image was provided with a layout that isn't GENERAL, SHARED_PRESENT or READ_ONLY_OPTIMAL", system::ILogger::ELL_ERROR, this);
         }
     }
 
