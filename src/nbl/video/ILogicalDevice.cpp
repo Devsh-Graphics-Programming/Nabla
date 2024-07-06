@@ -394,9 +394,9 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
         // If binding comes with samplers, we're specifying that this binding corresponds to immutable samplers
-        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.samplers)
+        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
         {
-            auto* samplers = binding.samplers;
+            auto* samplers = binding.immutableSamplers;
             for (uint32_t i=0u; i<binding.count; ++i)
             if ((not samplers[i]) or (not samplers[i]->wasCreatedBy(this)))
                 return nullptr;
@@ -443,16 +443,17 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
-    core::vector<redirect_t::storage_range_index_t> writeDescriptorRedirectIndices(descriptorWrites.size()), writeMutableSamplerRedirectIndices(descriptorWrites.size());
-    auto i = 0u;
-    for (const auto& write : descriptorWrites)
+    core::vector<IGPUDescriptorSet::SWriteValidationResult> writeValidationResults(descriptorWrites.size());
+    for (auto i = 0u; i < descriptorWrites.size(); i++)
     {
+        const auto& write = descriptorWrites[i];
         auto* ds = write.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
         const auto writeCount = write.count;
-        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write, writeDescriptorRedirectIndices[i], writeMutableSamplerRedirectIndices[i])))
+        writeValidationResults[i] = ds->validateWrite(write);
+        switch (asset::IDescriptor::GetTypeCategory(*outCategory = writeValidationResults[i].type))
         {
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
@@ -475,12 +476,10 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         i++;
     }
 
-    core::vector<redirect_t::storage_range_index_t> copySrcDescriptorRedirectIndices(descriptorCopies.size()), copySrcMutableSamplerRedirectIndices(descriptorCopies.size());
-    core::vector<redirect_t::storage_range_index_t> copyDstDescriptorRedirectIndices(descriptorCopies.size()), copyDstMutableSamplerRedirectIndices(descriptorCopies.size());
-    core::vector<asset::IDescriptor::E_TYPE> copyTypes(descriptorCopies.size());
-    i = 0;
-    for (const auto& copy : descriptorCopies)
+    core::vector<IGPUDescriptorSet::SCopyValidationResult> copyValidationResults(descriptorCopies.size());
+    for (auto i = 0; i < descriptorCopies.size(); i++)
     {
+        const auto& copy = descriptorCopies[i];
         const auto* srcDS = copy.srcSet;
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
         if (!dstDS || !dstDS->wasCreatedBy(this))
@@ -488,18 +487,23 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
-        if (!dstDS->validateCopy(copy, copyTypes[i], copySrcDescriptorRedirectIndices[i], copyDstDescriptorRedirectIndices[i], copySrcMutableSamplerRedirectIndices[i], copyDstMutableSamplerRedirectIndices[i]))
+        copyValidationResults[i] = dstDS->validateCopy(copy);
+        if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
             return false;
+        i++;
     }
 
     for (auto i=0; i<descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
-        write.dstSet->processWrite(write,params.pWriteTypes[i], writeDescriptorRedirectIndices[i], writeMutableSamplerRedirectIndices[i]);
+        write.dstSet->processWrite(write, writeValidationResults[i]);
     }
-    for (const auto& copy : descriptorCopies)
-        copy.dstSet->processCopy(copy, copyTypes[i], copySrcDescriptorRedirectIndices[i], copyDstDescriptorRedirectIndices[i], copySrcMutableSamplerRedirectIndices[i], copyDstMutableSamplerRedirectIndices[i]);
-
+    for (auto i = 0; i < descriptorCopies.size(); i++)
+    {
+        const auto& copy = descriptorCopies[i];
+        copy.dstSet->processCopy(copy, copyValidationResults[i]);
+    }
+    
     updateDescriptorSets_impl(params);
 
     return true;

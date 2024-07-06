@@ -57,7 +57,7 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 			const auto& srcDescriptorInfo = m_descriptorInfos[t]->begin()[i];
 			auto& dstDescriptorInfo = cp->m_descriptorInfos[t]->begin()[i];
 
-			auto category = getCategoryFromType(type);
+			auto category = IDescriptor::GetTypeCategory(type);
 			
 			if (category == IDescriptor::E_CATEGORY::EC_IMAGE)
 				dstDescriptorInfo.info.combinedImageSampler = srcDescriptorInfo.info.combinedImageSampler;
@@ -127,7 +127,7 @@ void ICPUDescriptorSet::convertToDummyObject(uint32_t referenceLevelsBelowToConv
 			auto descriptorInfos = m_descriptorInfos[t]->begin();
 			assert(descriptorInfos);
 
-			const auto category = getCategoryFromType(type);
+			const auto category = IDescriptor::GetTypeCategory(type);
 			for (uint32_t i = 0u; i < descriptorCount; ++i)
 			{
 				switch (category)
@@ -183,7 +183,7 @@ void ICPUDescriptorSet::restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBe
 
 			auto otherDescriptorInfos = other->m_descriptorInfos[t]->begin();
 
-			const auto category = getCategoryFromType(type);
+			const auto category = IDescriptor::GetTypeCategory(type);
 			for (uint32_t i = 0u; i < descriptorCount; ++i)
 			{
 				switch (category)
@@ -234,7 +234,7 @@ bool ICPUDescriptorSet::isAnyDependencyDummy_impl(uint32_t _levelsBelow) const
 			auto descriptorInfos = m_descriptorInfos[t]->begin();
 			assert(descriptorInfos);
 
-			const auto category = getCategoryFromType(type);
+			const auto category = IDescriptor::GetTypeCategory(type);
 			for (uint32_t i = 0u; i < descriptorCount; ++i)
 			{
 				switch (category)

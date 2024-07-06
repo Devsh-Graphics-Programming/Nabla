@@ -99,10 +99,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		virtual ~ICPUDescriptorSet() = default;
 
 	private:
-		static inline IDescriptor::E_CATEGORY getCategoryFromType(const IDescriptor::E_TYPE type)
-		{
-			return IDescriptor::GetTypeCategory(type);
-		}
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 };

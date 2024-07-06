@@ -95,6 +95,8 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				}
 				~SDescriptorInfo()
 				{
+					if (desc && desc->getTypeCategory() == IDescriptor::EC_IMAGE)
+						info.combinedImageSampler.sampler = nullptr;
 				}
 
 				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
@@ -102,11 +104,14 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 					if (desc and desc->getTypeCategory()==IDescriptor::EC_IMAGE)
 						info.combinedImageSampler.sampler = nullptr;
 					desc = other.desc;
-					const auto type = desc->getTypeCategory();
-					if (type!=IDescriptor::EC_IMAGE)
-						info.buffer = other.info.buffer;
-					else
-						info.combinedImageSampler = other.info.combinedImageSampler;
+					if (desc)
+					{
+						const auto type = desc->getTypeCategory();
+						if (type != IDescriptor::EC_IMAGE)
+							info.buffer = other.info.buffer;
+						else
+							info.combinedImageSampler = other.info.combinedImageSampler;
+					}
 					return *this;
 				}
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)

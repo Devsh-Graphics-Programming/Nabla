@@ -89,10 +89,29 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 
         using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         friend class ILogicalDevice;
-        asset::IDescriptor::E_TYPE validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, redirect_t::storage_range_index_t& descriptorRedirectBindingIndex, redirect_t::storage_range_index_t& mutableSamplerRedirectBindingIndex) const;
-        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t descriptorRedirectBindingIndex, const redirect_t::storage_range_index_t mutableSamplerRedirectBindingIndex);
-        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, asset::IDescriptor::E_TYPE& type, redirect_t::storage_range_index_t& srcDescriptorRedirectBindingIndex, redirect_t::storage_range_index_t& dstDescriptorRedirectBindingIndex, redirect_t::storage_range_index_t& srcMutableSamplerRedirectBindingIndex, redirect_t::storage_range_index_t& dstMutableSamplerRedirectBindingIndex) const;
-        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const asset::IDescriptor::E_TYPE type, const redirect_t::storage_range_index_t srcDescriptorRedirectBindingIndex, const redirect_t::storage_range_index_t dstDescriptorRedirectBindingIndex, const redirect_t::storage_range_index_t srcMutableSamplerRedirectBindingIndex, const redirect_t::storage_range_index_t dstMutableSamplerRedirectBindingIndex);
+
+        struct SWriteValidationResult
+        {
+            asset::IDescriptor::E_TYPE type;
+            redirect_t::storage_range_index_t descriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t mutableSamplerRedirectBindingIndex;
+        };
+
+        SWriteValidationResult validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const SWriteValidationResult& validationResult);
+        
+        struct SCopyValidationResult
+        {
+            asset::IDescriptor::E_TYPE type;
+            redirect_t::storage_range_index_t srcDescriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t dstDescriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t srcMutableSamplerRedirectBindingIndex;
+            redirect_t::storage_range_index_t dstMutableSamplerRedirectBindingIndex;
+        };
+        
+        SCopyValidationResult validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
+        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const SCopyValidationResult& validationResult);
+        
         void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
