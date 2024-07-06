@@ -438,18 +438,22 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
     SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
-    for (const auto& write : descriptorWrites)
+    core::vector<IGPUDescriptorSet::SWriteValidationResult> writeValidationResults(descriptorWrites.size());
+    for (auto i = 0u; i < descriptorWrites.size(); i++)
     {
+        const auto& write = descriptorWrites[i];
         auto* ds = write.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
         const auto writeCount = write.count;
-        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write)))
+        writeValidationResults[i] = ds->validateWrite(write);
+        switch (asset::IDescriptor::GetTypeCategory(*outCategory = writeValidationResults[i].type))
         {
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
@@ -469,10 +473,13 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 return false;
         }
         outCategory++;
+        i++;
     }
 
-    for (const auto& copy : descriptorCopies)
+    core::vector<IGPUDescriptorSet::SCopyValidationResult> copyValidationResults(descriptorCopies.size());
+    for (auto i = 0; i < descriptorCopies.size(); i++)
     {
+        const auto& copy = descriptorCopies[i];
         const auto* srcDS = copy.srcSet;
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
         if (!dstDS || !dstDS->wasCreatedBy(this))
@@ -480,18 +487,23 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
-        if (!dstDS->validateCopy(copy))
+        copyValidationResults[i] = dstDS->validateCopy(copy);
+        if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
             return false;
+        i++;
     }
 
     for (auto i=0; i<descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
-        write.dstSet->processWrite(write,params.pWriteTypes[i]);
+        write.dstSet->processWrite(write, writeValidationResults[i]);
     }
-    for (const auto& copy : descriptorCopies)
-        copy.dstSet->processCopy(copy);
-
+    for (auto i = 0; i < descriptorCopies.size(); i++)
+    {
+        const auto& copy = descriptorCopies[i];
+        copy.dstSet->processCopy(copy, copyValidationResults[i]);
+    }
+    
     updateDescriptorSets_impl(params);
 
     return true;

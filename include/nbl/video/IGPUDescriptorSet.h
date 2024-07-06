@@ -87,14 +87,33 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
 	private:
         inline void incrementVersion() { m_version.fetch_add(1ull); }
 
+        using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         friend class ILogicalDevice;
-        asset::IDescriptor::E_TYPE validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
-        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const asset::IDescriptor::E_TYPE type);
-        bool validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
-        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy);
+
+        struct SWriteValidationResult
+        {
+            asset::IDescriptor::E_TYPE type;
+            redirect_t::storage_range_index_t descriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t mutableSamplerRedirectBindingIndex;
+        };
+
+        SWriteValidationResult validateWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write) const;
+        void processWrite(const IGPUDescriptorSet::SWriteDescriptorSet& write, const SWriteValidationResult& validationResult);
+        
+        struct SCopyValidationResult
+        {
+            asset::IDescriptor::E_TYPE type;
+            redirect_t::storage_range_index_t srcDescriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t dstDescriptorRedirectBindingIndex;
+            redirect_t::storage_range_index_t srcMutableSamplerRedirectBindingIndex;
+            redirect_t::storage_range_index_t dstMutableSamplerRedirectBindingIndex;
+        };
+        
+        SCopyValidationResult validateCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy) const;
+        void processCopy(const IGPUDescriptorSet::SCopyDescriptorSet& copy, const SCopyValidationResult& validationResult);
+        
         void dropDescriptors(const IGPUDescriptorSet::SDropDescriptorSet& drop);
 
-        using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
         // This assumes that descriptors of a particular type in the set will always be contiguous in pool's storage memory, regardless of which binding in the set they belong to.
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptors(const asset::IDescriptor::E_TYPE type, const redirect_t::binding_number_t binding) const
         {
