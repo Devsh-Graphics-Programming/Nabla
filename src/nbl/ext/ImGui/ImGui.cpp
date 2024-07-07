@@ -32,13 +32,6 @@ namespace nbl::ext::imgui
 				.stageFlags = IShader::ESS_FRAGMENT,
 				.count = 1,
 				.samplers = nullptr // TODO: m_fontSampler?
-			},
-			{
-				.binding = 1u,
-				.type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER,
-				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-				.stageFlags = asset::IShader::ESS_VERTEX | asset::IShader::ESS_FRAGMENT,
-				.count = 1u
 			}
 		};
 
@@ -263,7 +256,8 @@ namespace nbl::ext::imgui
 				.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
 			};
 
-			const SMemoryBarrier toTransferBarrier = {
+			const SMemoryBarrier toTransferBarrier = 
+			{
 				.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
 				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
 			};
@@ -330,9 +324,9 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::updateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie)
+	void UI::updateDescriptorSets()
 	{
-		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_RESOURCES_AMOUNT = 2u;
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_RESOURCES_AMOUNT = 1u;
 
 		IGPUDescriptorSet::SDescriptorInfo info[NBL_RESOURCES_AMOUNT];
 		{
@@ -340,11 +334,6 @@ namespace nbl::ext::imgui
 			font.desc = m_fontTexture;
 			font.info.image.sampler = m_fontSampler;
 			font.info.image.imageLayout = nbl::asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
-
-			auto& ssbo = info[1u];
-			ssbo.desc = mdie.buffer;
-			ssbo.info.buffer.size = mdie.size;
-			ssbo.info.buffer.offset = mdie.offset;
 		}
 
 		IGPUDescriptorSet::SWriteDescriptorSet write[NBL_RESOURCES_AMOUNT];
@@ -359,7 +348,7 @@ namespace nbl::ext::imgui
 			w.info = info + i;
 		}
 
-		m_device->updateDescriptorSets(mdie.buffer ? NBL_RESOURCES_AMOUNT : 1u, write, 0u, nullptr);
+		m_device->updateDescriptorSets(NBL_RESOURCES_AMOUNT, write, 0u, nullptr);
 	}
 
 	void UI::createFontSampler()
@@ -455,6 +444,7 @@ namespace nbl::ext::imgui
 
 			logger->log(onError.data(), system::ILogger::ELL_ERROR);
 			assert(false);
+			return uint8_t(0); // silent warnings
 		};
 
 		// get & validate families' capabilities
@@ -571,10 +561,6 @@ namespace nbl::ext::imgui
 			logger->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
 			assert(false);
 		}
-
-		auto* rawPipeline = pipeline.get();
-		commandBuffer->bindGraphicsPipeline(rawPipeline);
-		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 		
 		auto const* drawData = ImGui::GetDrawData();
 
@@ -728,13 +714,14 @@ namespace nbl::ext::imgui
 			}
 			
 			IGPUBuffer::SCreationParams mdiCreationParams = {};
-			mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT  | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
 			mdiCreationParams.size = requestData.getMDIBufferSize();
 
 			auto mdiBuffer = m_mdiBuffers[frameIndex];
-			const auto drawCount = requestData.elements.size();
+			const uint32_t drawCount = requestData.elements.size();
 			const auto mdicBSize = drawCount * sizeof(VkDrawIndexedIndirectCommand);
 			const auto elementsBSize = drawCount * sizeof(PerObjectData);
+			const uint64_t elementsBOffset = requestData.getElementsOffset();
 
 			// create or resize the mdi buffer
 			if (!static_cast<bool>(mdiBuffer) || mdiBuffer->getSize() < mdiCreationParams.size)
@@ -743,14 +730,14 @@ namespace nbl::ext::imgui
 
 				auto mReqs = mdiBuffer->getMemoryReqs();
 				mReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-
-				auto memOffset = m_device->allocate(mReqs, mdiBuffer.get());
+				
+				auto memOffset = m_device->allocate(mReqs, mdiBuffer.get(), core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_DEVICE_ADDRESS_BIT));
 				assert(memOffset.isValid());
-
-				SBufferRange<IGPUBuffer> mdie = { .offset = requestData.getElementsOffset(), .size = elementsBSize, .buffer = mdiBuffer };
-
-				updateDescriptorSets(mdie);
 			}
+
+			auto* rawPipeline = pipeline.get();
+			commandBuffer->bindGraphicsPipeline(rawPipeline);
+			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 
 			// update mdi buffer
 			{
@@ -771,7 +758,7 @@ namespace nbl::ext::imgui
 				};
 
 				auto* const indirectPointer = getMDIPointer.template operator() < VkDrawIndexedIndirectCommand > (requestData.getVkDrawIndexedIndirectCommandOffset());
-				auto* const elementPointer = getMDIPointer.template operator() < PerObjectData > (requestData.getElementsOffset());
+				auto* const elementPointer = getMDIPointer.template operator() < PerObjectData > (elementsBOffset);
 				auto* indicesPointer = getMDIPointer.template operator() < ImDrawIdx > (requestData.getIndicesOffset());
 				auto* verticesPointer = getMDIPointer.template operator() < ImDrawVert > (requestData.getVerticesOffset());
 
@@ -779,7 +766,18 @@ namespace nbl::ext::imgui
 				::memcpy(indirectPointer, requestData.indirects.data(), mdicBSize);
 				::memcpy(elementPointer, requestData.elements.data(), elementsBSize);
 
-				// fill vertex/index data
+				// flush elements data range if required
+				{
+					auto eData = mdiBuffer->getBoundMemory();
+
+					//if (eData.memory->haveToMakeVisible())
+					{
+						const ILogicalDevice::MappedMemoryRange range(eData.memory, eData.offset, mdiBuffer->getSize());
+						m_device->flushMappedMemoryRanges(1, &range);
+					}
+				}
+
+				// fill vertex/index data, no flush request
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
 					const auto* cmd = drawData->CmdLists[n];
@@ -835,6 +833,10 @@ namespace nbl::ext::imgui
 			};
 
 			commandBuffer->setViewport(0, 1, &viewport);
+			{
+				VkRect2D scissor[] = { {.offset = {(int32_t)viewport.x, (int32_t)viewport.y}, .extent = {(uint32_t)viewport.width, (uint32_t)viewport.height}} };
+				commandBuffer->setScissor(scissor); // cover whole viewport (only to not throw validation errors)
+			}
 
 			/*
 				Setup scale and translation, our visible imgui space lies from draw_data->DisplayPps (top left) to 
@@ -842,17 +844,16 @@ namespace nbl::ext::imgui
 			*/
 
 			{
-				PushConstants constants{};
-				constants.scale[0] = 2.0f / drawData->DisplaySize.x;
-				constants.scale[1] = 2.0f / drawData->DisplaySize.y;
-				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
-				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
-				constants.viewport[0] = viewport.x;
-				constants.viewport[1] = viewport.x;
-				constants.viewport[2] = viewport.width;
-				constants.viewport[3] = viewport.height;
+				PushConstants constants
+				{
+					.elementBDA = { mdiBuffer->getDeviceAddress() + elementsBOffset },
+					.elementCount = { drawCount },
+					.scale = { 2.0f / drawData->DisplaySize.x, 2.0f / drawData->DisplaySize.y },
+					.translate = { -1.0f - drawData->DisplayPos.x * constants.scale[0u], -1.0f - drawData->DisplayPos.y * constants.scale[1u] },
+					.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
+				};
 
-				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
+				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX | IShader::ESS_FRAGMENT, 0u, sizeof(constants), &constants);
 			}
 
 			const asset::SBufferBinding<const video::IGPUBuffer> binding =
@@ -865,7 +866,6 @@ namespace nbl::ext::imgui
 		}
 
 		return true;
-
 	}
 
 	void UI::update(float const deltaTimeInSec, float const mousePosX, float const mousePosY, size_t const mouseEventsCount, ui::SMouseEvent const * mouseEvents) // TODO: Keyboard events

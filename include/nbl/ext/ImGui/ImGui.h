@@ -18,7 +18,7 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout();
 		void createPipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
 		void createFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void updateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie = {});
+		void updateDescriptorSets();
 		void createSystem();
 		void createFontSampler();
 		void createDescriptorPool();

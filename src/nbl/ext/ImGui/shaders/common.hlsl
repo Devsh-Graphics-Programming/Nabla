@@ -11,16 +11,16 @@
 		float4 position : SV_Position;
 		float4 color    : COLOR0;
 		float2 uv : TEXCOORD0;
+		float clip[2] : SV_ClipDistance;
 	};
 
 	struct PushConstants
 	{
+		uint64_t elementBDA;
+		uint64_t elementCount;
 		float2 scale;
 		float2 translate;
 		float4 viewport;
-		uint drawsCount;
-		
-		uint padding[3];
 	};
 	
 	struct PerObjectData 
@@ -31,10 +31,11 @@
 #else
 	struct PushConstants
 	{
+		uint64_t elementBDA;
+		uint64_t elementCount;
 		float scale[2];
 		float translate[2];
 		float viewport[4];
-		size_t drawsCount;
 	};
 	
 	struct PerObjectData
