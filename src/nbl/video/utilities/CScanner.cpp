@@ -6,7 +6,7 @@ namespace nbl::video
 asset::ICPUShader* CScanner::getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz)
 {
     if (!m_shaders[scanType][dataType][op])
-        m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op,scratchSz);
+        m_shaders[scanType][dataType][op] = createShader(scanType,dataType,op,scratchSz);
     return m_shaders[scanType][dataType][op].get();
 }
 
@@ -43,7 +43,7 @@ IGPUComputePipeline* CScanner::getDefaultPipeline(const E_SCAN_TYPE scanType, co
     return m_pipelines[scanType][dataType][op].get();
 }
     
-core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const char* shaderFile, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
+core::smart_refctd_ptr<asset::ICPUShader> CScanner::createShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
 {
     core::smart_refctd_ptr<asset::ICPUShader> base = createBaseShader("nbl/builtin/hlsl/scan/direct.hlsl", dataType, op, scratchSz);
     return asset::CHLSLCompiler::createOverridenCopy(base.get(), "#define IS_EXCLUSIVE %s\n#define IS_SCAN %s\n", scanType == EST_EXCLUSIVE ? "true" : "false", "true");

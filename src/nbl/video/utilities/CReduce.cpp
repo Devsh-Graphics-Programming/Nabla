@@ -7,19 +7,19 @@
 namespace nbl::video
 {
 
-asset::ICPUShader* CReduce::getDefaultShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz)
+asset::ICPUShader* CReduce::getDefaultShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount)
 {
     if (!m_shaders[dataType][op])
-        m_shaders[dataType][op] = createShader(dataType,op,scratchSz);
+        m_shaders[dataType][op] = createShader(dataType,op,scratchElCount);
     return m_shaders[dataType][op].get();
 }
 
-IGPUShader* CReduce::getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz)
+IGPUShader* CReduce::getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount)
 {
     if (!m_specialized_shaders[dataType][op])
     {
-        auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(dataType,op,scratchSz));
-        cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/reduce.hlsl");
+        auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(dataType,op,scratchElCount));
+        cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
         cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
 
         auto gpushader = m_device->createShader(cpuShader.get());
@@ -29,7 +29,7 @@ IGPUShader* CReduce::getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TY
     return m_specialized_shaders[dataType][op].get();
 }
 
-IGPUComputePipeline* CReduce::getDefaultPipeline(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz)
+IGPUComputePipeline* CReduce::getDefaultPipeline(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount)
 {
     // ondemand
     if (!m_pipelines[dataType][op]) {
@@ -37,7 +37,7 @@ IGPUComputePipeline* CReduce::getDefaultPipeline(const CArithmeticOps::E_DATA_TY
         params.layout = m_pipeline_layout.get();
         // Theoretically a blob of SPIR-V can contain multiple named entry points and one has to be chosen, in practice most compilers only support outputting one (and glslang used to require it be called "main")
         params.shader.entryPoint = "main";
-        params.shader.shader = getDefaultSpecializedShader(dataType,op,scratchSz);
+        params.shader.shader = getDefaultSpecializedShader(dataType,op,scratchElCount);
 
         m_device->createComputePipelines(
             nullptr, { &params,1 },
@@ -47,9 +47,9 @@ IGPUComputePipeline* CReduce::getDefaultPipeline(const CArithmeticOps::E_DATA_TY
     return m_pipelines[dataType][op].get();
 }
 
-core::smart_refctd_ptr<asset::ICPUShader> CReduce::createShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz) const
+core::smart_refctd_ptr<asset::ICPUShader> CReduce::createShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount) const
 {
-    core::smart_refctd_ptr<asset::ICPUShader> base = createBaseShader("nbl/builtin/hlsl/scan/direct.hlsl", dataType, op, scratchSz);
+    core::smart_refctd_ptr<asset::ICPUShader> base = createBaseShader("nbl/builtin/hlsl/scan/direct.hlsl", dataType, op, scratchElCount);
     return asset::CHLSLCompiler::createOverridenCopy(base.get(), "#define IS_EXCLUSIVE %s\n#define IS_SCAN %s\n", "false", "false");
 }
 

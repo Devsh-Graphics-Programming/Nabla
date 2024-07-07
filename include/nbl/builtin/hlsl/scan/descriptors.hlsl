@@ -17,11 +17,12 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=SCRATCH_SZ - 1>
+template<uint32_t dataElementCount=SCRATCH_EL_CNT - NBL_BUILTIN_MAX_LEVELS>
 struct Scratch
 {
+    uint32_t reduceResult;
     uint32_t workgroupsStarted[NBL_BUILTIN_MAX_LEVELS];
-    uint32_t data[scratchElementCount];
+    uint32_t data[dataElementCount];
 };
 
 [[vk::binding(0 ,0)]] RWStructuredBuffer<Storage_t> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
@@ -43,7 +44,7 @@ void getData(
     if (notFirstOrLastLevel)
         offset += params.temporaryStorageOffset[pseudoLevel-1u];
     
-    if (pseudoLevel!=treeLevel) // downsweep
+    if (pseudoLevel!=treeLevel) // downsweep/scan
     {
         const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
         if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
@@ -87,19 +88,19 @@ void setData(
 )
 {
     const Parameters_t params = getParameters();
-    if (treeLevel<params.topLevel)
+    if (!isScan && treeLevel<params.topLevel) // is reduce and we're not at the last level (i.e. we still save into scratch)
     {
-        const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
+        const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1u);
         if (lastInvocationInGroup)
-            scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+            scanScratchBuf[0u].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
     }
     else if (inRange)
     {
-        // REVIEW: Check if we have to add levelInvocationIndex in offset or levelWorkgroupIndex as above
         if (!isScan && treeLevel == params.topLevel)
         {
-            scanBuffer[levelInvocationIndex] = data;
+            scanScratchBuf[0u].reduceResult = data;
         }
+        // The following only for isScan == true
         else if (bool(pseudoLevel))
         {
             const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
