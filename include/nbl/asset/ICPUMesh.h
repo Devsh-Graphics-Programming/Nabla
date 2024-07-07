@@ -36,7 +36,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 		}
 		inline core::SRange<ICPUMeshBuffer* const> getMeshBuffers() override
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			auto begin = reinterpret_cast<ICPUMeshBuffer* const*>(m_meshBuffers.data());
 			return core::SRange<ICPUMeshBuffer* const>(begin,begin+m_meshBuffers.size());
 		}
@@ -44,7 +44,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 		//! Mutable access to the vector of meshbuffers
 		inline auto& getMeshBufferVector()
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return m_meshBuffers;
 		}
 
@@ -55,40 +55,17 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 		}
 		inline void setBoundingBox(const core::aabbox3df& newBoundingBox) override
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return IMesh<ICPUMeshBuffer>::setBoundingBox(newBoundingBox);
 		}
 
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			for (auto mesh : getMeshBuffers())
-				mesh->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUMesh*>(_other);
-			auto myMBs = getMeshBuffers();
-			auto otherMBs = other->getMeshBuffers();
-			if (myMBs.size()!=otherMBs.size())
-				return false;
-			for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-			if (!(*myIt)->canBeRestoredFrom(*theirIt))
-				return false;
-
-			return true;
-		}
 		
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUMesh>();
-            clone_common(cp.get());
 			cp->m_cachedBoundingBox = m_cachedBoundingBox;
             cp->m_meshBuffers.resize(m_meshBuffers.size());
 
@@ -105,30 +82,6 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
         }
 
 	private:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUMesh*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				auto myMBs = getMeshBuffers();
-				auto otherMBs = other->getMeshBuffers();
-				for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-					restoreFromDummy_impl_call(*myIt,*theirIt,_levelsBelow);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			auto mbs = getMeshBuffers();
-			for (auto mb : mbs)
-				if (mb->isAnyDependencyDummy(_levelsBelow))
-					return true;
-			return false;
-		}
-
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
 };
 

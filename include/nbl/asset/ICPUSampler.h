@@ -2,15 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ISampler.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 class ICPUSampler : public ISampler, public IAsset
@@ -61,38 +59,16 @@ class ICPUSampler : public ISampler, public IAsset
 			return std::move(reinterpret_cast<core::vectorSIMDu32&>(texelCoord));
 		}
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
-            clone_common(cp.get());
-
-            return cp;
+            return core::make_smart_refctd_ptr<ICPUSampler>(m_params);
         }
-
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override 
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-        }
-
 
 		constexpr static inline bool HasDependents = false;
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
+		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			return true;
-		}
-
-protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			
-		}
 };
 
 }
-}
-
 #endif

@@ -510,7 +510,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
 		{
-			if (!original || original->isADummyObjectForCache() || !original->isContentHighLevelLanguage())
+			if (!original || !original->isContentHighLevelLanguage())
 				return nullptr;
 
 			constexpr auto getMaxSize = [](auto num) -> size_t

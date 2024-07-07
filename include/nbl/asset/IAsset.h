@@ -23,9 +23,8 @@ class IAssetManager;
 
 	@see ICPUBuffer
 
-	Actually an Asset is a class deriving from it that can be anything like cpu-side meshes scenes, texture data and material pipelines, 
-	but must be serializable into/from .baw file format, unless it comes from an extension (nbl::ext), 
-	so forth cached. There are different asset types you can find at IAsset::E_TYPE. 
+	Actually an Asset is a class deriving from it that can be anything like cpu-side meshes scenes, texture data and material pipelines. 
+	There are different asset types you can find at IAsset::E_TYPE. 
 	IAsset doesn't provide direct instantiation (virtual destructor), much like IReferenceCounted.
 
 	Asset type's naming-convention is ICPU_x, where _x is a name of an Asset, eg. ICPUBuffer, ICPUMesh e.t.c
@@ -41,13 +40,6 @@ class IAssetManager;
 class IAsset : virtual public core::IReferenceCounted
 {
 	public:
-		enum E_MUTABILITY : uint32_t
-		{
-			EM_MUTABLE = 0u,
-			EM_CPU_PERSISTENT = 0b01u,
-			EM_IMMUTABLE = 0b11u,
-		};
-
 		/**
 			Values of E_TYPE represents an Asset type.
 		
@@ -78,7 +70,6 @@ class IAsset : virtual public core::IReferenceCounted
 			Pay attention that an Asset type represents one single bit, so there is a limit to 64 bits.
 
 		*/
-	
 		enum E_TYPE : uint64_t
 		{
 			ET_BUFFER = 1ull<<0,								//!< asset::ICPUBuffer
@@ -155,127 +146,23 @@ class IAsset : virtual public core::IReferenceCounted
 			return core::smart_refctd_ptr_static_cast<assetType>(std::move(rootAsset));
 		}
 
-		//!
-		inline IAsset() : isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
+		//! To be implemented by derived classes. Returns a type of an Asset
+		virtual E_TYPE getAssetType() const = 0;
 
 		//! creates a copy of the asset, duplicating dependant resources up to a certain depth (default duplicate everything)
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		// TODO: `_other` should probably be const qualified!
-		inline bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
-		{
-			assert(getAssetType() == _other->getAssetType());
-
-			if (!canBeRestoredFrom(_other))
-				return false;
-
-			restoreFromDummy_impl(_other, _levelsBelow);
-			isDummyObjectForCacheAliasing = false;
-			return true;
-		}
-
-		inline bool willBeRestoredFrom(const IAsset* _other) const
-		{
-			assert(getAssetType() == _other->getAssetType());
-
-			if (getMutability() != EM_MUTABLE)
-				return false;
-			if (_other->getMutability() != EM_MUTABLE)
-				return false;
-			if (!isADummyObjectForCache())
-				return false;
-			if (_other->isADummyObjectForCache())
-				return false;
-
-			return true;
-		}
-
-
-		inline E_MUTABILITY getMutability() const { return m_mutability; }
-		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
-		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
-
-		// TODO: add a null and type check here, delegate rest to an `impl`
-		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
-
-		// returns if `this` is dummy or any of its dependencies up to `_levelsBelow` levels below
-		inline bool isAnyDependencyDummy(uint32_t _levelsBelow = ~0u) const
-		{
-			if (isADummyObjectForCache())
-				return true;
-
-			return _levelsBelow ? isAnyDependencyDummy_impl(_levelsBelow) : false;
-		}
+		//!
+		inline bool isMutable() const {return m_mutable;}
 
     protected:
-		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
-		{
-			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
-		}
-
-		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
-
-		// returns if any of `this`'s up to `_levelsBelow` levels below is dummy
-		virtual bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const { return false; }
-
-        inline void clone_common(IAsset* _clone) const
-        {
-            assert(!isDummyObjectForCacheAliasing);
-            _clone->isDummyObjectForCacheAliasing = false;
-            _clone->m_mutability = EM_MUTABLE;
-        }
-		inline bool isImmutable_debug()
-		{
-			const bool imm = getMutability() == EM_IMMUTABLE;
-			//_NBL_DEBUG_BREAK_IF(imm);
-			return imm;
-		}
-
-	private:
-		friend IAssetManager;
-
-	protected:
-		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
-
-		E_MUTABILITY m_mutability;
-
-		//! To be implemented by base classes, dummies must retain references to other assets
-		//! but cleans up all other resources which are not assets.
-		/**
-			Dummy object is an object which is converted to GPU object or which is about to be converted to GPU object.
-			Take into account that\b convertToDummyObject(uint32_t referenceLevelsBelowToConvert) itself doesn't perform exactly converting to GPU object\b. 
-
-			@see IAssetManager::convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
-
-			If an Asset is being converted to a GPU object, its resources are no longer needed in RAM memory,
-			so everything it has allocated becomes deleted, but the Asset itself remains untouched, so that is the 
-			pointer for an Asset and the memory allocated for that pointer. It's because it's needed as a key by some 
-			functions that find GPU objects. It involves all CPU objects (Assets).
-
-			So an Asset signed as dummy becomes GPU object and deletes some resources in RAM memory.
-
-			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
-		*/
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
-
-        inline void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
-        {
-			if (canBeConvertedToDummy())
-				isDummyObjectForCacheAliasing = true;
-        }
-
-		//! Checks if the object is either not dummy or dummy but in some cache for a purpose
-		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
-
+		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-	public:
-		//! To be implemented by derived classes. Returns a type of an Asset
-		virtual E_TYPE getAssetType() const = 0;
-
-		//! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
-		inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+	private:
+		friend IAssetManager;
+		bool m_mutable = true;
 };
 
 template<typename T>

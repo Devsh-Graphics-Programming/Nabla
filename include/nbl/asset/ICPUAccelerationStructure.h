@@ -110,7 +110,6 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			auto cp = core::make_smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>();
-			clone_common(cp.get());
 
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 			{
@@ -124,135 +123,8 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			return cp;
 		}
 
-		//!
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-			convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert--)
-			{
-				if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-				{
-					for (auto& geometry : *m_AABBGeoms)
-					if (geometry.data.buffer)
-						const_cast<ICPUBuffer*>(geometry.data.buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
-				}
-				else
-				{
-					for (auto& geometry : *m_triangleGeoms)
-					{
-						for (auto j=0u; j<2u; j++)
-						if (geometry.vertexData[j].buffer)
-							const_cast<ICPUBuffer*>(geometry.vertexData[j].buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
-						if (geometry.indexData.buffer)
-							const_cast<ICPUBuffer*>(geometry.indexData.buffer.get())->convertToDummyObject(referenceLevelsBelowToConvert);
-					}
-				}
-			}
-		}
-		
-		//!
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUBottomLevelAccelerationStructure*>(_other);
-			if (other->m_buildFlags!=m_buildFlags)
-				return false;
-			if (other->getGeometryCount()!=getGeometryCount())
-				return false;
-			const uint32_t geometryCount = getGeometryCount();
-			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-			{
-				for (auto i=0u; i<geometryCount; i++)
-				{
-					const auto& src = other->m_AABBGeoms->operator[](i);
-					const auto& dst = m_AABBGeoms->operator[](i);
-					if (dst.stride!=src.stride || dst.geometryFlags!=src.geometryFlags)
-						return false;
-					if (!asset::canBeRestoredFrom(dst.data,src.data))
-						return false;
-				}
-			}
-			else
-			{
-				for (auto i=0u; i<geometryCount; i++)
-				{
-					const auto& src = other->m_triangleGeoms->operator[](i);
-					const auto& dst = m_triangleGeoms->operator[](i);
-					if (dst.maxVertex!=src.maxVertex || dst.vertexStride!=src.vertexStride || dst.vertexFormat!=src.vertexFormat || dst.indexType!=src.indexType || dst.geometryFlags!=src.geometryFlags)
-						return false;
-					if (!asset::canBeRestoredFrom(dst.vertexData[0],src.vertexData[0]))
-						return false;
-					if (dst.vertexData[1].isValid() && !asset::canBeRestoredFrom(dst.vertexData[1], src.vertexData[1]))
-						return false;
-					if (dst.indexType!=EIT_UNKNOWN && dst.indexData.isValid() && !asset::canBeRestoredFrom(dst.indexData,src.indexData))
-						return false;
-				}
-			}
-			return true;
-		}
-
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
-
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			_levelsBelow--;
-			if (_levelsBelow==0u)
-				return;
-
-			auto condRestoreBufferInBinding = [_levelsBelow](SBufferBinding<const ICPUBuffer>& dst, const SBufferBinding<const ICPUBuffer>& src)
-			{
-				if (dst.isValid())
-					return;
-				return restoreFromDummy_impl_call(const_cast<ICPUBuffer*>(dst.buffer.get()),const_cast<ICPUBuffer*>(src.buffer.get()),_levelsBelow);
-			};
-
-			const uint32_t geometryCount = getGeometryCount();
-			auto* other = static_cast<ICPUBottomLevelAccelerationStructure*>(_other);
-			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-			{
-				for (auto i=0u; i<geometryCount; i++)
-					condRestoreBufferInBinding(m_AABBGeoms->operator[](i).data,other->m_AABBGeoms->operator[](i).data);
-			}
-			else
-			{
-				for (auto i=0u; i<geometryCount; i++)
-				{
-					auto& srcGeom = m_triangleGeoms->operator[](i);
-					const auto& dstGeom = other->m_triangleGeoms->operator[](i);
-					condRestoreBufferInBinding(srcGeom.vertexData[0],dstGeom.vertexData[0]);
-					condRestoreBufferInBinding(srcGeom.vertexData[1],dstGeom.vertexData[1]);
-					condRestoreBufferInBinding(srcGeom.indexData,dstGeom.indexData);
-				}
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			_levelsBelow--;
-			if (_levelsBelow==0u)
-				return false;
-
-			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-			{
-				for (const auto& aabbGeom : *m_AABBGeoms)
-				if (aabbGeom.data.buffer && aabbGeom.data.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-			}
-			else
-			{
-				for (const auto& triGeom : *m_triangleGeoms)
-				{
-					if (triGeom.vertexData[0].buffer && triGeom.vertexData[0].buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.vertexData[1].buffer && triGeom.vertexData[1].buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-					if (triGeom.indexData.buffer && triGeom.indexData.buffer->isAnyDependencyDummy(_levelsBelow))
-						return true;
-				}
-			}
-			return false;
-		}
 
 	private:
 		// more wasteful than a union but easier on the refcounting
@@ -337,7 +209,6 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			auto cp = core::make_smart_refctd_ptr<ICPUTopLevelAccelerationStructure>();
-			clone_common(cp.get());
 
 			cp->m_instances = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<PolymorphicInstance>>(*m_instances);
 			cp->m_buildFlags = m_buildFlags;
@@ -353,73 +224,8 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			return cp;
 		}
 
-		//!
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-			convertToDummyObject_common(referenceLevelsBelowToConvert);
-			
-			if (--referenceLevelsBelowToConvert)
-			for (auto& instance : *m_instances)
-			{
-				auto* blas = instance.getBase().blas.get();
-				if (blas)
-					blas->convertToDummyObject(referenceLevelsBelowToConvert);
-			}
-		}
-		
-		//!
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUTopLevelAccelerationStructure*>(_other);
-			if (other->m_buildFlags!=m_buildFlags)
-				return false;
-			if (!other->m_instances || other->m_instances->size()!=m_instances->size())
-				return false;
-			const auto instanceCount = m_instances->size();
-			for (auto i=0u; i<instanceCount; i++)
-			{
-				const auto& dstInstance = m_instances->operator[](i);
-				const auto& srcInstance = other->m_instances->operator[](i);
-				if (dstInstance.getType()!=srcInstance.getType())
-					return false;
-				auto* blas = dstInstance.getBase().blas.get();
-				if (blas && !blas->canBeRestoredFrom(srcInstance.getBase().blas.get()))
-					return false;
-			}
-			return true;
-		}
-
 	protected:
 		virtual ~ICPUTopLevelAccelerationStructure() = default;
-
-		inline void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			_levelsBelow--;
-			if (_levelsBelow==0u)
-				return;
-
-			auto* other = static_cast<ICPUTopLevelAccelerationStructure*>(_other);
-			const auto srcInstances = other->getInstances();
-			const auto instanceCount = srcInstances.size();
-			for (auto i=0u; i<instanceCount; i++)
-			{
-				auto* blas = m_instances->operator[](i).getBase().blas.get();
-				if (blas)
-					restoreFromDummy_impl_call(blas,srcInstances[i].getBase().blas.get(),_levelsBelow);
-			}
-		}
-
-		inline bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			if (_levelsBelow--)
-			for (const auto& instance : *m_instances)
-			{
-				const auto* blas = instance.getBase().blas.get();
-				if (blas && blas->isAnyDependencyDummy())
-					return true;
-			}
-			return false;
-		}
 
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;

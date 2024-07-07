@@ -49,7 +49,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 		}
 		inline core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return const_cast<core::matrix3x4SIMD&>(const_cast<const ICPUSkeleton*>(this)->getDefaultTransformMatrix(jointID));
 		}
 
@@ -60,13 +60,12 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 			return reinterpret_cast<const base_t::joint_id_t*>(ptr+m_parentJointIDs.offset)[jointID];
 		}
 
-		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			SBufferBinding<ICPUBuffer> _parentJointIDsBinding = {m_parentJointIDs.offset,_depth>0u&&m_parentJointIDs.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_parentJointIDs.buffer->clone(_depth-1u)):m_parentJointIDs.buffer};
 			SBufferBinding<ICPUBuffer> _defaultTransformsBinding = { m_defaultTransforms.offset,_depth>0u&&m_defaultTransforms.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_defaultTransforms.buffer->clone(_depth-1u)):m_defaultTransforms.buffer};
 
  			auto cp = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(_parentJointIDsBinding),std::move(_defaultTransformsBinding),m_jointCount);
-			clone_common(cp.get());
 			assert(!cp->m_stringPool);
 			cp->m_stringPoolSize = m_stringPoolSize;
 			cp->m_stringPool = _NBL_NEW_ARRAY(char,m_stringPoolSize);
@@ -77,66 +76,10 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 			return cp;
 		}
 
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
+		constexpr static inline bool HasDependents = true;
 
-			if (referenceLevelsBelowToConvert)
-			{
-				m_parentJointIDs.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_defaultTransforms.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			}
-		}
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SKELETON;
+		constexpr static inline auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUSkeleton*>(_other);
-			// if we decide to get rid of the string pool when converting to dummy, then we need to start checking stringpool and map properties here
-            if (m_parentJointIDs.offset != other->m_parentJointIDs.offset)
-                return false;
-            if ((!m_parentJointIDs.buffer) != (!other->m_parentJointIDs.buffer))
-                return false;
-            if (m_parentJointIDs.buffer && !m_parentJointIDs.buffer->canBeRestoredFrom(other->m_parentJointIDs.buffer.get()))
-                return false;
-            if (m_defaultTransforms.offset != other->m_defaultTransforms.offset)
-                return false;
-            if ((!m_defaultTransforms.buffer) != (!other->m_defaultTransforms.buffer))
-                return false;
-            if (m_defaultTransforms.buffer && !m_defaultTransforms.buffer->canBeRestoredFrom(other->m_defaultTransforms.buffer.get()))
-                return false;
-			if (m_jointCount != other->m_jointCount)
-				return false;
-
-			return true;
-		}
-
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUSkeleton*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				
-                if (m_parentJointIDs.buffer)
-                    restoreFromDummy_impl_call(m_parentJointIDs.buffer.get(),other->m_parentJointIDs.buffer.get(),_levelsBelow);
-                if (m_defaultTransforms.buffer)
-                    restoreFromDummy_impl_call(m_defaultTransforms.buffer.get(),other->m_defaultTransforms.buffer.get(),_levelsBelow);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			if (m_parentJointIDs.buffer && m_parentJointIDs.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-
-			return m_defaultTransforms.buffer && m_defaultTransforms.buffer->isAnyDependencyDummy(_levelsBelow);
-		}
 };
 
 }

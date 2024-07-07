@@ -41,6 +41,8 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
 		}
 
+		constexpr static inline bool HasDependents = true;
+
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -48,7 +50,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
         inline SCachedCreationParams& getCachedCreationParams()
         {
-            assert(!isImmutable_debug());
+            assert(isMutable());
             return m_params;
         }
 
@@ -68,12 +70,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			}};
 			return new ICPUGraphicsPipeline(params);
 		}
-		bool canBeRestoredFrom_impl(const base_t* _other) const override
-		{
-			auto* other = static_cast<const ICPUGraphicsPipeline*>(_other);
-			return memcmp(&m_params,&other->m_params,sizeof(m_params))==0;
-		}
-
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
 		{
 			const auto stageIx = hlsl::findLSB(stage);

@@ -28,8 +28,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
-            clone_common(cp.get());
+            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr,nullptr);
 
             for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 cp->m_descriptorRedirects[t] = m_descriptorRedirects[t].clone();
@@ -54,77 +53,12 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return cp;
         }
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-                --referenceLevelsBelowToConvert;
-                if (m_samplers)
-                {
-				    for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
-					    it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
-                }
-			}
-		}
-
         constexpr static inline bool HasDependents = true;
 
         constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
-            if (getTotalBindingCount() != other->getTotalBindingCount())
-                return false;
-            if ((!m_samplers) != (!other->m_samplers))
-                return false;
-            if (m_samplers && m_samplers->size() != other->m_samplers->size())
-                return false;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if (!(*m_samplers)[i]->canBeRestoredFrom((*other->m_samplers)[i].get()))
-                        return false;
-                }
-            }
-
-            return true;
-        }
-
 	protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-        {
-            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
-
-            if (!_levelsBelow)
-                return;
-
-            --_levelsBelow;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                    restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
-            }
-        }
-
-        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-        {
-            --_levelsBelow;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if ((*m_samplers)[i]->isAnyDependencyDummy(_levelsBelow))
-                        return true;
-                }
-            }
-            return false;
-        }
-
 		virtual ~ICPUDescriptorSetLayout() = default;
 };
 

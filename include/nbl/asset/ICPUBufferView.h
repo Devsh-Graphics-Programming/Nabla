@@ -22,19 +22,8 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto buf = (_depth > 0u && m_buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_buffer->clone(_depth-1u)) : m_buffer;
-			auto cp = core::make_smart_refctd_ptr<ICPUBufferView>(SBufferRange<ICPUBuffer>{m_offset,m_size,m_buffer},m_format);
-            clone_common(cp.get());
-
-            return cp;
+			return core::make_smart_refctd_ptr<ICPUBufferView>(SBufferRange<ICPUBuffer>{m_offset,m_size,m_buffer},m_format);
         }
-
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
 
 		constexpr static inline bool HasDependents = true;
 
@@ -43,53 +32,23 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return m_buffer.get(); 
 		}
 		const ICPUBuffer* getUnderlyingBuffer() const { return m_buffer.get(); }
 
 		inline void setOffsetInBuffer(size_t _offset) 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			m_offset = _offset;
 		}
 		inline void setSize(size_t _size) 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			m_size = _size;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUBufferView*>(_other);
-			if (m_size != other->m_size)
-				return false;
-			if (m_offset != other->m_offset)
-				return false;
-			if (m_format != other->m_format)
-				return false;
-			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
-				return false;
-
-			return true;
-		}
-
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUBufferView*>(_other);
-
-			if (_levelsBelow)
-			{
-				restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow-1u);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			return m_buffer->isAnyDependencyDummy(_levelsBelow-1u);
-		}
-
 		virtual ~ICPUBufferView() = default;
 };
 

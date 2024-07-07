@@ -32,7 +32,7 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
 
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
     if (!(levelFlag&ECF_DONT_CACHE_TOP_LEVEL))
-        m_manager->insertAssetIntoCache(asset, ASSET_MUTABILITY_ON_CACHE_INSERT);
+        m_manager->insertAssetIntoCache(asset,ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
 core::smart_refctd_ptr<IAsset> IAssetLoader::IAssetLoaderOverride::handleRestore(core::smart_refctd_ptr<IAsset>&& _chosenAsset, SAssetBundle& _bundle, SAssetBundle& _reloadedBundle, uint32_t _restoreLevels)

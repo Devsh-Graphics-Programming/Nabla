@@ -5,7 +5,7 @@ namespace nbl::asset
 
 core::SRange<ICPUDescriptorSet::SDescriptorInfo> ICPUDescriptorSet::getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type)
 {
-	assert(!isImmutable_debug());
+	assert(isMutable());
 	auto immutableResult = const_cast<const ICPUDescriptorSet*>(this)->getDescriptorInfos(binding, type);
 	return {const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.begin()), const_cast<ICPUDescriptorSet::SDescriptorInfo*>(immutableResult.end())};
 }
@@ -46,7 +46,6 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 {
 	auto layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_layout->clone(_depth - 1u)) : m_layout;
 	auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(layout));
-	clone_common(cp.get());
 
 	for (uint32_t t = 0u; t < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); ++t)
 	{

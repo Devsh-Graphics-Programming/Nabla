@@ -44,22 +44,19 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			}
 		}
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
+		constexpr static inline bool HasDependents = true;
+
+		constexpr static inline auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return m_layout.get();
 		}
 
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return m_layout->canBeRestoredFrom(other->m_layout.get());
-		}
 
 		inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 		{
@@ -70,7 +67,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1054258384
 			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1056289599
 			// 
-			// assert(!isImmutable_debug());
+			// assert(isMutable());
 			if (!m_descriptorInfos[static_cast<uint32_t>(type)])
 				return { nullptr, nullptr };
 			else
@@ -83,13 +80,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;
-
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override;
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
-
 		virtual ~ICPUDescriptorSet() = default;
 
 	private:
