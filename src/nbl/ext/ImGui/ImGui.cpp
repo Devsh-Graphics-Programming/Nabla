@@ -4,14 +4,13 @@
 #include <vector>
 #include <utility>
 
-// internal & nabla
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
 #include "ext/imgui/spirv/builtin/builtinResources.h"
 #include "ext/imgui/spirv/builtin/CArchive.h"
-// 3rdparty
+
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 
@@ -22,9 +21,10 @@ using namespace nbl::ui;
 
 namespace nbl::ext::imgui
 {
-	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::CreateDescriptorSetLayout()
+	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::createDescriptorSetLayout()
 	{
-		nbl::video::IGPUDescriptorSetLayout::SBinding bindings[] = {
+		nbl::video::IGPUDescriptorSetLayout::SBinding bindings[] = 
+		{
 			{
 				.binding = 0u,
 				.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
@@ -45,10 +45,11 @@ namespace nbl::ext::imgui
 		return m_device->createDescriptorSetLayout(bindings);
 	}
 
-	void UI::CreatePipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
+	void UI::createPipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
 	{
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
-		SPushConstantRange pushConstantRanges[] = {
+		SPushConstantRange pushConstantRanges[] = 
+		{
 			{
 				.stageFlags = IShader::ESS_VERTEX | IShader::ESS_FRAGMENT,
 				.offset = 0,
@@ -56,7 +57,7 @@ namespace nbl::ext::imgui
 			}
 		};
 
-		auto descriptorSetLayout = CreateDescriptorSetLayout();
+		auto descriptorSetLayout = createDescriptorSetLayout();
 		m_gpuDescriptorSet = m_descriptorPool->createDescriptorSet(descriptorSetLayout); 
 		assert(m_gpuDescriptorSet);
 
@@ -162,7 +163,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
+	void UI::createFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -255,7 +256,7 @@ namespace nbl::ext::imgui
 			sInfo.queue = transfer;
 			sInfo.waitSemaphores = {};
 			sInfo.commandBuffers = { &cmdInfo, 1 };
-			sInfo.scratchSemaphore = // TODO: do I really need it?
+			sInfo.scratchSemaphore =
 			{
 				.semaphore = scratchSemaphore.get(),
 				.value = 0,
@@ -329,7 +330,7 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::UpdateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie)
+	void UI::updateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie)
 	{
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_RESOURCES_AMOUNT = 2u;
 
@@ -358,10 +359,10 @@ namespace nbl::ext::imgui
 			w.info = info + i;
 		}
 
-		m_device->updateDescriptorSets(mdie.buffer ? NBL_RESOURCES_AMOUNT : 1u, write, 0, nullptr);
+		m_device->updateDescriptorSets(mdie.buffer ? NBL_RESOURCES_AMOUNT : 1u, write, 0u, nullptr);
 	}
 
-	void UI::CreateFontSampler()
+	void UI::createFontSampler()
 	{
 		// TODO: Recheck this settings
 		IGPUSampler::SParams params{};
@@ -375,7 +376,7 @@ namespace nbl::ext::imgui
 		m_fontSampler = m_device->createSampler(params);
 	}
 
-	void UI::CreateDescriptorPool()
+	void UI::createDescriptorPool()
 	{
 		IDescriptorPool::SCreateInfo createInfo = {};
 		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = 1u;
@@ -387,12 +388,7 @@ namespace nbl::ext::imgui
 		assert(m_descriptorPool);
 	}
 	
-	void UI::HandleMouseEvents(
-		float const mousePosX, 
-		float const mousePosY,
-		size_t const mouseEventsCount,
-		SMouseEvent const * mouseEvents
-	) const
+	void UI::handleMouseEvents(float const mousePosX, float const mousePosY, size_t const mouseEventsCount, SMouseEvent const * mouseEvents) const
 	{
 		auto& io = ImGui::GetIO();
 
@@ -405,16 +401,12 @@ namespace nbl::ext::imgui
 			if(event.type == SMouseEvent::EET_CLICK)
 			{
 				int buttonIndex = -1;
-				if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
-				{
+				if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON)
 					buttonIndex = 0;
-				} else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
-				{
+				else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
 					buttonIndex = 1;
-				} else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
-				{
+				else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
 					buttonIndex = 2;
-				}
 
 				if (buttonIndex == -1)
 				{
@@ -422,11 +414,10 @@ namespace nbl::ext::imgui
 					continue;
 				}
 
-				if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
+				if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
 					io.MouseDown[buttonIndex] = true;
-				} else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
+				else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
 					io.MouseDown[buttonIndex] = false;
-				}
 			}
 		}
 	}
@@ -502,14 +493,14 @@ namespace nbl::ext::imgui
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 
-			CreateFontSampler();
-			CreateDescriptorPool();
-			CreateDescriptorSetLayout();
-			CreatePipeline(renderpass, pipelineCache);
-			CreateFontTexture(transistentCMD.get(), tQueue);
+			createFontSampler();
+			createDescriptorPool();
+			createDescriptorSetLayout();
+			createPipeline(renderpass, pipelineCache);
+			createFontTexture(transistentCMD.get(), tQueue);
 			prepareKeyMapForDesktop();
 			adjustGlobalFontScale();
-			UpdateDescriptorSets();
+			updateDescriptorSets();
 		}
 		tQueue->endCapture();
 
@@ -564,7 +555,7 @@ namespace nbl::ext::imgui
 		//}
 	//}
 
-	bool UI::Render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
+	bool UI::render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
 	{
 		const bool validFramesRange = frameIndex >= 0 && frameIndex < maxFramesInFlight;
 		if (!validFramesRange)
@@ -650,15 +641,13 @@ namespace nbl::ext::imgui
 			
 			struct
 			{
-				// sizes in bytes
-				size_t vBufferSize = {}, iBufferSize = {}, 
-				vPadding = {}; // indicies can break our alignment so small padding may be required before vertices in memory
+				size_t vBufferSize = {}, iBufferSize = {},	// sizes in bytes
+				vPadding = {};								// indicies can break our alignment so small padding may be required before vertices in memory, vertices' offset must be multiple of 4
 
 				std::vector<VkDrawIndexedIndirectCommand> indirects;
 				std::vector<PerObjectData> elements;
 
-				// buffer layout is [Draw Indirect structures] [Element Data] [All the Indices] [All the vertices]
-				size_t getMDIBufferSize() const
+				size_t getMDIBufferSize() const				// buffer layout is [Draw Indirect structures] [Element Data] [All the Indices] [All the vertices]
 				{
 					return getVerticesOffset() + vBufferSize;
 				}
@@ -692,12 +681,12 @@ namespace nbl::ext::imgui
 
 			{
 				/*
-					IMGUI Render command lists.
-					Wwe merged all buffers into a single one so we maintain our own offset into them, 
-					we pre-loop to get request data for MDI buffer alocation request/update.
+					IMGUI Render command lists. We merged all buffers into a single one so we 
+					maintain our own offset into them, we pre-loop to get request data for 
+					MDI buffer alocation request/update.
 				*/
 
-				size_t global_idx_offset = {}, global_vtx_offset = {}, drawID = {};
+				size_t globalIOffset = {}, globalVOffset = {}, drawID = {};
 
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
@@ -715,11 +704,11 @@ namespace nbl::ext::imgui
 							auto& indirect = requestData.indirects.emplace_back();
 							auto& element = requestData.elements.emplace_back();
 
-							indirect.firstIndex = pcmd->IdxOffset + global_idx_offset;
+							indirect.firstIndex = pcmd->IdxOffset + globalIOffset;
 							indirect.firstInstance = drawID; // use base instance as draw ID
 							indirect.indexCount = pcmd->ElemCount;
 							indirect.instanceCount = 1u;
-							indirect.vertexOffset = pcmd->VtxOffset + global_vtx_offset;
+							indirect.vertexOffset = pcmd->VtxOffset + globalVOffset;
 
 							element.scissor = clip.getScissor(clipRectangle);
 							// element.texId = 0; // use defaults from constructor
@@ -728,8 +717,8 @@ namespace nbl::ext::imgui
 						}
 					}
 
-					global_idx_offset += cmd_list->IdxBuffer.Size;
-					global_vtx_offset += cmd_list->VtxBuffer.Size;
+					globalIOffset += cmd_list->IdxBuffer.Size;
+					globalVOffset += cmd_list->VtxBuffer.Size;
 				}
 
 				requestData.iBufferSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
@@ -760,7 +749,7 @@ namespace nbl::ext::imgui
 
 				SBufferRange<IGPUBuffer> mdie = { .offset = requestData.getElementsOffset(), .size = elementsBSize, .buffer = mdiBuffer };
 
-				UpdateDescriptorSets(mdie);
+				updateDescriptorSets(mdie);
 			}
 
 			// update mdi buffer
@@ -847,8 +836,11 @@ namespace nbl::ext::imgui
 
 			commandBuffer->setViewport(0, 1, &viewport);
 
-			// Setup scale and translation:
-			// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+			/*
+				Setup scale and translation, our visible imgui space lies from draw_data->DisplayPps (top left) to 
+				draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+			*/
+
 			{
 				PushConstants constants{};
 				constants.scale[0] = 2.0f / drawData->DisplaySize.x;
@@ -876,36 +868,23 @@ namespace nbl::ext::imgui
 
 	}
 
-	void UI::Update(float const deltaTimeInSec, float const mousePosX, float const mousePosY, size_t const mouseEventsCount, ui::SMouseEvent const * mouseEvents) // TODO: Keyboard events
+	void UI::update(float const deltaTimeInSec, float const mousePosX, float const mousePosY, size_t const mouseEventsCount, ui::SMouseEvent const * mouseEvents) // TODO: Keyboard events
 	{
 		auto & io = ImGui::GetIO();
 		io.DeltaTime = deltaTimeInSec;
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 
-		HandleMouseEvents(mousePosX, mousePosY, mouseEventsCount, mouseEvents);
+		handleMouseEvents(mousePosX, mousePosY, mouseEventsCount, mouseEvents);
 
 		ImGui::NewFrame();
-		hasFocus = false;
+
 		for (auto const& subscriber : m_subscribers)
 			subscriber.listener();
 
-		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call - open the function def for more details
+		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call for IMGUI cpu geometry buffers update
 	}
 
-	void UI::BeginWindow(char const* windowName)
-	{
-		ImGui::Begin(windowName);
-	}
-
-	void UI::EndWindow()
-	{
-		if (ImGui::IsWindowFocused())
-			hasFocus = true;
-
-		ImGui::End();
-	}
-
-	int UI::Register(std::function<void()> const& listener)
+	int UI::registerListener(std::function<void()> const& listener)
 	{
 		assert(listener != nullptr);
 		static int NextId = 0;
@@ -913,7 +892,7 @@ namespace nbl::ext::imgui
 		return m_subscribers.back().id;
 	}
 
-	bool UI::UnRegister(int const listenerId)
+	bool UI::unregisterListener(int const listenerId)
 	{
 		for (int i = m_subscribers.size() - 1; i >= 0; --i)
 		{
@@ -924,133 +903,5 @@ namespace nbl::ext::imgui
 			}
 		}
 		return false;
-	}
-
-	void UI::SetNextItemWidth(float const nextItemWidth)
-	{
-		ImGui::SetNextItemWidth(nextItemWidth);
-	}
-
-	void UI::SetWindowSize(float const width, float const height)
-	{
-		ImGui::SetWindowSize(ImVec2(width, height));
-	}
-
-	void UI::Text(char const* label, ...)
-	{
-		va_list args;
-		va_start(args, label);
-		ImGui::TextV(label, args);
-		va_end(args);
-	}
-
-	void UI::InputFloat(char const* label, float* value)
-	{
-		ImGui::InputFloat(label, value);
-	}
-
-	void UI::InputFloat2(char const* label, float* value)
-	{
-		ImGui::InputFloat2(label, value);
-	}
-
-	void UI::InputFloat3(char const* label, float* value)
-	{
-		ImGui::InputFloat3(label, value);
-	}
-
-	void UI::InputFloat4(char const* label, float* value)
-	{
-		ImGui::InputFloat3(label, value);
-	}
-
-	void UI::InputFloat3(char const* label, nbl::core::vector3df&value)
-	{
-		float tempValue[3]{ value.X, value.Y, value.Z };
-		InputFloat3(label, tempValue);
-
-		if (memcmp(tempValue, &value.X, sizeof(float) * 3) != 0)
-		{
-			memcpy(&value.X, tempValue, sizeof(float) * 3);
-		}
-	}
-
-	bool UI::Combo(char const* label, int32_t* selectedItemIndex, char const** items, int32_t const itemsCount)
-	{
-		return ImGui::Combo(label, selectedItemIndex, items, itemsCount);
-	}
-
-	//-------------------------------------------------------------------------------------------------
-	// Based on https://eliasdaler.github.io/using-imgui-with-sfml-pt2/
-	static auto vector_getter = [](void* vec, int idx, const char** out_text)
-	{
-		auto const& vector = *static_cast<std::vector<std::string>*>(vec);
-		if (idx < 0 || idx >= static_cast<int>(vector.size())) { return false; }
-		*out_text = vector.at(idx).c_str();
-		return true;
-	};
-
-	bool UI::Combo(const char* label, int* selectedItemIndex, std::vector<std::string>& values)
-	{
-		if (values.empty())
-			return false;
-
-		return ImGui::Combo(label, selectedItemIndex, vector_getter, &values, static_cast<int>(values.size()));
-	}
-
-	void UI::SliderInt(char const* label, int* value, int const minValue, int const maxValue)
-	{
-		ImGui::SliderInt(label, value, minValue, maxValue);
-	}
-
-	void UI::SliderFloat(char const* label, float* value, float const minValue, float const maxValue)
-	{
-		ImGui::SliderFloat(label, value, minValue, maxValue);
-	}
-
-	void UI::Checkbox(char const* label, bool* value)
-	{
-		ImGui::Checkbox(label, value);
-	}
-
-	void UI::Spacing()
-	{
-		ImGui::Spacing();
-	}
-
-	void UI::Button(char const* label, std::function<void()> const& onPress)
-	{
-		if (ImGui::Button(label))
-		{
-			assert(onPress != nullptr);
-			//SceneManager::AssignMainThreadTask([onPress]()->void{
-			onPress();
-			//});
-		}
-	}
-
-	void UI::InputText(char const* label, std::string& outValue)
-	{
-		ImGui::InputText(label, &outValue);
-	}
-
-	bool UI::HasFocus()
-	{
-		return hasFocus;
-	}
-
-	bool UI::IsItemActive()
-	{
-		return ImGui::IsItemActive();
-	}
-
-	bool UI::TreeNode(char const* name)
-	{
-		return ImGui::TreeNode(name);
-	}
-
-	void UI::TreePop()
-	{
-		ImGui::TreePop();
 	}
 }

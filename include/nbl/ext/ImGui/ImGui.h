@@ -9,63 +9,37 @@ class UI final : public core::IReferenceCounted
 		UI(core::smart_refctd_ptr<video::ILogicalDevice> device, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
 		~UI() override;
 
-		bool Render(nbl::video::IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex);
-		void Update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
-		void BeginWindow(char const* windowName);
-		void EndWindow();
-		int Register(std::function<void()> const& listener);
-		bool UnRegister(int listenerId);
-		void SetNextItemWidth(float nextItemWidth);
-		void SetWindowSize(float width, float height);
-		void Text(char const* label, ...);
-		void InputFloat(char const* label, float* value);
-		void InputFloat2(char const* label, float* value);
-		void InputFloat3(char const* label, float* value);
-		void InputFloat4(char const* label, float* value);
-		void InputFloat3(char const* label, nbl::core::vector3df& value);
-		bool Combo(char const* label, int32_t* selectedItemIndex, char const** items, int32_t itemsCount);
-		bool Combo(const char* label, int* selectedItemIndex, std::vector<std::string>& values);
-		void SliderInt(char const* label, int* value, int minValue, int maxValue);
-		void SliderFloat(char const* label, float* value, float minValue, float maxValue);
-		void Checkbox(char const* label, bool* value);
-		void Spacing();
-		void Button(char const* label, std::function<void()> const& onPress);
-		void InputText(char const* label, std::string& outValue);
-		[[nodiscard]] bool HasFocus();		
-		[[nodiscard]] bool IsItemActive();
-		[[nodiscard]] bool TreeNode(char const* name);
-		void TreePop();
+		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex);
+		void update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
+		int registerListener(std::function<void()> const& listener);
+		bool unregisterListener(int listenerId);
 
 	private:
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> CreateDescriptorSetLayout();
-
-		void CreatePipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
-		void CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void UpdateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie = {});
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout();
+		void createPipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
+		void createFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+		void updateDescriptorSets(asset::SBufferRange<video::IGPUBuffer> mdie = {});
 		void createSystem();
-		void CreateFontSampler();
-		void CreateDescriptorPool();
-		void HandleMouseEvents(float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents) const;
+		void createFontSampler();
+		void createDescriptorPool();
+		void handleMouseEvents(float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents) const;
 
 		core::smart_refctd_ptr<system::ISystem> system;
 		core::smart_refctd_ptr<system::ILogger> logger;
 		core::smart_refctd_ptr<video::IUtilities> utilities;
-
 		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
 		core::smart_refctd_ptr<video::IGPUSampler> m_fontSampler;
 		core::smart_refctd_ptr<video::IDescriptorPool> m_descriptorPool;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_gpuDescriptorSet;
-
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontTexture;
 		core::smart_refctd_ptr<ui::IWindow> m_window;
 		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_mdiBuffers;
-		bool hasFocus = false;
-		uint32_t maxFramesInFlight;
+		const uint32_t maxFramesInFlight;
 
 		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
-		struct Subscriber {
+		struct Subscriber 
+		{
 			int id = -1;
 			std::function<void()> listener = nullptr;
 		};
