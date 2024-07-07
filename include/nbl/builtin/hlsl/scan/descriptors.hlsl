@@ -33,48 +33,47 @@ void getData(
     NBL_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
     NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
-    NBL_CONST_REF_ARG(uint32_t) treeLevel,
-    NBL_CONST_REF_ARG(uint32_t) pseudoLevel
+    NBL_CONST_REF_ARG(uint32_t) treeLevel
 )
 {
     const Parameters_t params = getParameters(); // defined differently for direct and indirect shaders
     
     uint32_t offset = levelInvocationIndex;
-    const bool notFirstOrLastLevel = bool(pseudoLevel);
+    const bool notFirstOrLastLevel = bool(treeLevel);
     if (notFirstOrLastLevel)
-        offset += params.temporaryStorageOffset[pseudoLevel-1u];
+        offset += params.temporaryStorageOffset[treeLevel-1u];
     
-    if (pseudoLevel!=treeLevel) // downsweep/scan
-    {
-        const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
-        if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
-            data = scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
-
-        if (notFirstOrLastLevel)
-        {
-            if (!firstInvocationInGroup)
-                data = scanScratchBuf[0].data[offset-1u];
-        }
-        else
-        {
-            if(isExclusive)
-            {
-                if (!firstInvocationInGroup)
-                    data += scanBuffer[offset-1u];
-            }
-            else
-            {
-                data += scanBuffer[offset];
-            }
-        }
-    }
-    else
-    {
+    //if (pseudoLevel!=treeLevel) // downsweep/scan
+    //{
+    //    const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
+    //    if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
+    //        data = scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]];
+    //
+    //    if (notFirstOrLastLevel)
+    //    {
+    //        if (!firstInvocationInGroup)
+    //            data = scanScratchBuf[0].data[offset-1u];
+    //    }
+    //    else
+    //    {
+    //        if(isExclusive)
+    //        {
+    //            if (!firstInvocationInGroup)
+    //                data += scanBuffer[offset-1u];
+    //        }
+    //        else
+    //        {
+    //            data += scanBuffer[offset];
+    //        }
+    //    }
+    //}
+    //else
+    //{
         if (notFirstOrLastLevel)
             data = scanScratchBuf[0].data[offset];
         else
             data = scanBuffer[offset];
-    }
+    //}
 }
 
 template<typename Storage_t, bool isScan>
@@ -83,7 +82,6 @@ void setData(
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
     NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
     NBL_CONST_REF_ARG(uint32_t) treeLevel,
-    NBL_CONST_REF_ARG(uint32_t) pseudoLevel,
     NBL_CONST_REF_ARG(bool) inRange
 )
 {
@@ -101,9 +99,9 @@ void setData(
             scanScratchBuf[0u].reduceResult = data;
         }
         // The following only for isScan == true
-        else if (bool(pseudoLevel))
+        else if (bool(treeLevel))
         {
-            const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
+            const uint32_t offset = params.temporaryStorageOffset[treeLevel-1u];
             scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
         }
         else

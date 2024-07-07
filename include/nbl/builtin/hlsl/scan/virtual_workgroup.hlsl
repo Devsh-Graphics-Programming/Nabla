@@ -34,9 +34,7 @@ namespace scan
         const Parameters_t params = getParameters();
         const uint32_t levelInvocationIndex = levelWorkgroupIndex * glsl::gl_WorkGroupSize().x + workgroup::SubgroupContiguousIndex();
         
-        // pseudoLevel is the level index going up until toplevel then back down
-        const uint32_t pseudoLevel = isScan ? (params.topLevel-treeLevel) : treeLevel;
-        const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel]; // the lastElement array contains the lastElement's index hence the '<='
+        const bool inRange = levelInvocationIndex <= params.lastElement[treeLevel]; // the lastElement array contains the lastElement's index hence the '<='
 
         // REVIEW: Right now in order to support REDUCE operation we need to set the max treeLevel == topLevel
         // so that it exits after reaching the top?
@@ -49,7 +47,7 @@ namespace scan
         Storage_t data = Binop::identity; // REVIEW: replace Storage_t with Binop::type_t?
         if(inRange)
         {
-            getData<Storage_t, isExclusive>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel);
+            getData<Storage_t, isExclusive>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel);
         }
 
         bool doReduce = !isScan;
@@ -84,7 +82,7 @@ namespace scan
             }
         }
         
-        setData<Storage_t, isScan>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel, inRange);
+        setData<Storage_t, isScan>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, inRange);
     }
 
     DefaultSchedulerParameters_t getSchedulerParameters(); // this is defined in the final shader that assembles all the SCAN operation components
