@@ -100,7 +100,7 @@ class CArithmeticOps : public core::IReferenceCounted
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 				cumulativeWorkgroupCount[topLevel] = 1u; // the top level will always end up with 1 workgroup to do the final reduction
 				for (auto i = 0u; i <= topLevel; i++) {
-					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize - 1u)) + 1; // RECHECK: findMSB(511) == 8u !! Here we assume it's 9u !!
+					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize)) + 1; // RECHECK: findMSB(511) == 8u !! Here we assume it's 9u !!
 					lastWorkgroupSetCountForLevel[i] = (cumulativeWorkgroupCount[i] - 1u) & (workgroupSize - 1u);
 				}
 
