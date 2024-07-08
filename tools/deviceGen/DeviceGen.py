@@ -233,9 +233,10 @@ def formatEnumValue(type, value):
         if temp_value_parts[i] == '|' or temp_value_parts[i] == '&':
             continue
         if temp_value_parts[i][0] == '(':
-            temp_value_parts[i] = type + temp_value_parts[i]
+            temp_value_parts[i] = '(' + type + ')' + temp_value_parts[i]
         else:
             temp_value_parts[i] = type + "::" + temp_value_parts[i]
+
     return ' '.join(temp_value_parts)
 
 def transformTraits(dict, line_format, json_type, line_format_params):
@@ -251,8 +252,8 @@ def transformTraits(dict, line_format, json_type, line_format_params):
     parsed_json_type = json_type
     parsed_value = str(dict['value'])
 
-    if (index := parsed_value.find("exp2f")) != -1:
-        parsed_value = parsed_value[:index] + "exp" + parsed_value[index + 5:]
+    if parsed_value == '0.5f-exp2f(-MinSubPixelInterpolationOffsetBits)':
+        parsed_value = "0.4375"
 
     if parsed_type.endswith('int8_t'):
         parsed_type = parsed_type[:-3] + "16_t"
