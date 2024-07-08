@@ -251,6 +251,9 @@ def transformTraits(dict, line_format, json_type, line_format_params):
     parsed_json_type = json_type
     parsed_value = str(dict['value'])
 
+    if (index := parsed_value.find("exp2f")) != -1:
+        parsed_value = parsed_value[:index] + "exp" + parsed_value[index + 5:]
+
     if parsed_type.endswith('int8_t'):
         parsed_type = parsed_type[:-3] + "16_t"
 
