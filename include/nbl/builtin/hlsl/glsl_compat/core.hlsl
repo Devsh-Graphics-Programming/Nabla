@@ -107,12 +107,23 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T value)
 /**
  * GLSL extended math
  */
+
+ // COMMENTING OUT BECAUSE OF https://github.com/microsoft/DirectXShaderCompiler/issues/6751, bring back when fixed!
+ /*
+ 
+
 template<typename SquareMatrix> // NBL_REQUIRES() extents are square
 SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
 {
     return spirv::matrixInverse(mat);
 }
 
+float32_t2 unpackSnorm2x16(uint32_t p)
+{
+    return spirv::unpackSnorm2x16(p);
+}
+
+*/
 
 /**
  * For Vertex Shaders
