@@ -11,13 +11,6 @@
 #include "nbl/builtin/hlsl/enums.hlsl"
 #include "nbl/video/device_capabilities_traits_testers.hlsl"
 
-using ShaderStage = nbl::hlsl::ShaderStage;
-using SampleCountFlags = nbl::hlsl::SampleCountFlags;
-using ResolveModeFlags = nbl::hlsl::ResolveModeFlags;
-using SpirvVersion = nbl::hlsl::SpirvVersion;
-using PointClippingBehavior = nbl::hlsl::PointClippingBehavior;
-using SwapchainMode = nbl::hlsl::SwapchainMode;
-
 // TODO: has_member_ has to be improved. It should be detecting present, static and constant
 #define NBL_GENERATE_GET_OR_DEFAULT(field, ty, default) \
 template<typename S, bool = has_member_##field<S>::value == (e_member_presence::is_present | e_member_presence::is_static)> struct get_or_default_##field : integral_constant<ty,S::field> {}; \

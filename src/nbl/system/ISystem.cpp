@@ -24,7 +24,7 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
-    mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr)); // TODO: add #include for this file
+    mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");

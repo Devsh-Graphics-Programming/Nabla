@@ -218,7 +218,7 @@ def formatEnumType(type):
     resultant_type = type_parts[index].capitalize()
     for type_part in type_parts[index + 1:]:
         resultant_type += type_part.capitalize()
-    return resultant_type
+    return "nbl::hlsl::" + resultant_type
 
 def formatEnumValue(type, value):
     value_parts = value.split(" ")
