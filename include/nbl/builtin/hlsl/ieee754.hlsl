@@ -58,78 +58,106 @@ namespace impl
 	template<> uint64_t castBackToFloatType(uint64_t x) { return x; }
 }
 
-	template <typename T>
-	int getExponentBitCnt() { staticAssertTmp(false); return 0xdeadbeefu; }
-	template<> int getExponentBitCnt<float16_t>() { return 5; }
-	template<> int getExponentBitCnt<float32_t>() { return 8; }
-	template<> int getExponentBitCnt<float64_t>() { return 11; }
+template<typename Float>
+struct traits_base
+{
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 0xbeef;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 0xbeef;
+};
 
-	template <typename T>
-	int getMantissaBitCnt() { staticAssertTmp(false); return 0xdeadbeefu; /*TODO: add static assert fail to every 0xdeadbeef, fix all static asserts*/ }
-	template<> int getMantissaBitCnt<float16_t>() { return 10; }
-	template<> int getMantissaBitCnt<float32_t>() { return 23; }
-	template<> int getMantissaBitCnt<float64_t>() { return 52; }
+template<>
+struct traits_base<float16_t>
+{
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 5;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 10;
+};
 
-	template <typename T>
-	int getExponentBias()
-	{
-		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
-		return (0x1 << (getExponentBitCnt<typename float_of_size<sizeof(T)>::type>() - 1)) - 1;
-	}
+template<>
+struct traits_base<float32_t>
+{
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 8;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 23;
+};
 
-	template<typename T>
-	typename unsigned_integer_of_size<sizeof(T)>::type getSignMask()
-	{
-		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
-		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-		return AsUint(0x1) << (sizeof(T) * 4 - 1);
-	}
+template<>
+struct traits_base<float64_t>
+{
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 11;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 52;
+};
 
-	template <typename T>
-	typename unsigned_integer_of_size<sizeof(T)>::type getExponentMask() { staticAssertTmp(false); return 0xdeadbeefu; }
-	template<> unsigned_integer_of_size<2>::type getExponentMask<float16_t>() { return 0x7C00; }
-	template<> unsigned_integer_of_size<4>::type getExponentMask<float32_t>() { return 0x7F800000u; }
-	template<> unsigned_integer_of_size<8>::type getExponentMask<float64_t>() { return 0x7FF0000000000000ull; }
+template<typename Float>
+struct traits : traits_base<Float>
+{
+	using bit_rep_t = typename unsigned_integer_of_size<sizeof(Float)>::type;
+	using base_t = traits_base<Float>;
 
-	template <typename T>
-	typename  unsigned_integer_of_size<sizeof(T)>::type getMantissaMask() { staticAssertTmp(false); return 0xdeadbeefu; }
-	template<> unsigned_integer_of_size<2>::type getMantissaMask<float16_t>() { return 0x03FF; }
-	template<> unsigned_integer_of_size<4>::type getMantissaMask<float32_t>() { return 0x007FFFFFu; }
-	template<> unsigned_integer_of_size<8>::type getMantissaMask<float64_t>() { return 0x000FFFFFFFFFFFFFull; }
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t signMask = bit_rep_t(0x1u) << (sizeof(Float) * 8 - 1);
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentMask = ((~bit_rep_t(0)) << base_t::mantissaBitCnt) ^ signMask;
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t mantissaMask = (bit_rep_t(0x1u) << base_t::mantissaBitCnt) - 1;
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentBias = (int(0x1) << (base_t::exponentBitCnt - 1)) - 1;
+};
 
-	template <typename T>
-	uint32_t extractBiasedExponent(T x)
-	{
-		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-		return glsl::bitfieldExtract<AsUint>(impl::castToUintType(x), getMantissaBitCnt<typename float_of_size<sizeof(T)>::type>(), getExponentBitCnt<typename float_of_size<sizeof(T)>::type>());
-	}
+template <typename T>
+uint32_t extractBiasedExponent(T x)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	return glsl::bitfieldExtract<AsUint>(impl::castToUintType(x), traits<typename float_of_size<sizeof(T)>::type>::mantissaBitCnt, traits<typename float_of_size<sizeof(T)>::type>::exponentBitCnt);
+}
 
-	template <typename T>
-	int extractExponent(T x)
-	{
-		return int(extractBiasedExponent(x)) - int(getExponentBias<T>());
-	}
+template<>
+uint32_t extractBiasedExponent(uint64_t x)
+{
+	const uint32_t highBits = uint32_t(x >> 32);
+	return glsl::bitfieldExtract<uint32_t>(highBits, traits<float64_t>::mantissaBitCnt - 32, traits<float64_t>::exponentBitCnt);
+}
 
-	template <typename T>
-	T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
-	{
-		staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
-		return impl::castBackToFloatType<T>(glsl::bitfieldInsert(impl::castToUintType(x), biasedExp, getMantissaBitCnt<T>(), getExponentBitCnt<T>()));
-	}
+template<>
+uint32_t extractBiasedExponent(float64_t x)
+{
+	return extractBiasedExponent<uint64_t>(impl::castToUintType(x));
+}
 
-	// performs no overflow tests, returns x*exp2(n)
-	template <typename T>
-	T fastMulExp2(T x, int n)
-	{
-		return replaceBiasedExponent(x, extractBiasedExponent(x) + uint32_t(n));
-	}
+template <typename T>
+int extractExponent(T x)
+{
+	return int(extractBiasedExponent(x)) - int(traits<T>::exponentBias);
+}
 
-	template <typename T>
-	typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
-	{
-		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-		return impl::castToUintType(x) & getMantissaMask<typename float_of_size<sizeof(T)>::type>();
-	}
+template <typename T>
+T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
+{
+	staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(impl::castToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
+}
+
+// performs no overflow tests, returns x*exp2(n)
+template <typename T>
+T fastMulExp2(T x, int n)
+{
+	return replaceBiasedExponent(x, extractBiasedExponent(x) + uint32_t(n));
+}
+
+template <typename T>
+typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	return impl::castToUintType(x) & traits<typename float_of_size<sizeof(T)>::type>::mantissaMask;
+}
+
+template <typename T>
+typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
+{
+	return (impl::castToUintType(x) & traits<T>::signMask) >> ((sizeof(T) * 8) - 1);
+}
+
+template <typename T>
+typename unsigned_integer_of_size<sizeof(T)>::type extractSignPreserveBitPattern(T x)
+{
+	return impl::castToUintType(x) & traits<T>::signMask;
+}
+
 }
 }
 }

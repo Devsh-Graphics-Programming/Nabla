@@ -3,32 +3,44 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/algorithm.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 
-#ifdef __HLSL_VERSION
-#define LERP lerp
-#else
-#define LERP nbl::hlsl::lerp
-#endif
+// TODO: when it will be possible, use this unions wherever they fit:
+/*
+* union Mantissa
+* {
+*   struct
+*   {
+*       uint32_t highBits;
+*       uint64_t lowBits;
+*   };
+*
+*   uint32_t2 packed;
+* };
+*
+*/
 
-#ifdef __HLSL_VERSION
-#define ABS abs
-#else
-#define ABS std::abs
-#endif
-
-// TODO: inline function
-#define EXCHANGE(a, b) \
-   do {                \
-       a ^= b;         \
-       b ^= a;         \
-       a ^= b;         \
-   } while (false)
+/*
+* union Mantissa
+* {
+*   struct
+*   {
+*       uint64_t lhs;
+*       uint64_t rhs;
+*   };
+*
+*   uint32_t4 packed;
+* };
+*
+*/
    
 #define FLOAT_ROUND_NEAREST_EVEN    0
 #define FLOAT_ROUND_TO_ZERO         1
 #define FLOAT_ROUND_DOWN            2
 #define FLOAT_ROUND_UP              3
 #define FLOAT_ROUNDING_MODE         FLOAT_ROUND_NEAREST_EVEN
+
 namespace nbl
 {
 namespace hlsl
@@ -41,11 +53,11 @@ namespace impl
         using AsFloat = typename float_of_size<sizeof(T)>::type;
         uint64_t asUint = ieee754::impl::castToUintType(val);
 
-        const uint64_t sign = (uint64_t(ieee754::getSignMask<AsFloat>()) & asUint) << (sizeof(float64_t) - sizeof(T));
-        const int64_t newExponent = ieee754::extractExponent(val) + ieee754::getExponentBias<float64_t>();
+        const uint64_t sign = (uint64_t(ieee754::traits<float64_t>::signMask) & asUint) << (sizeof(float64_t) - sizeof(T));
+        const int64_t newExponent = ieee754::extractExponent(val) + ieee754::traits<float64_t>::exponentBias;
 
-        const uint64_t exp = (uint64_t(ieee754::extractExponent(val)) + ieee754::getExponentBias<float64_t>()) << (ieee754::getMantissaBitCnt<float64_t>());
-        const uint64_t mantissa = (uint64_t(ieee754::getMantissaMask<AsFloat>()) & asUint) << (ieee754::getMantissaBitCnt<float64_t>() - ieee754::getMantissaBitCnt<AsFloat>());
+        const uint64_t exp = (uint64_t(ieee754::extractExponent(val)) + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
+        const uint64_t mantissa = (uint64_t(ieee754::traits<float64_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::exponentBias - ieee754::traits<AsFloat>::mantissaBitCnt);
 
         return sign | exp | mantissa;
     };
@@ -60,10 +72,42 @@ namespace impl
         output.y = uint32_t(product & 0x00000000FFFFFFFFull);
         return output;
     }
-    
-    bool isNaN64(uint64_t val)
+
+    uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rhs)
     {
-        return bool((0x7FF0000000000000ull & val) && (0x000FFFFFFFFFFFFFull & val));
+#if defined RELAXED_NAN_PROPAGATION
+        return lhs | rhs;
+#else
+        const bool lhsIsNaN = isnan(bit_cast<float64_t>(lhs));
+        const bool rhsIsNaN = isnan(bit_cast<float64_t>(rhs));
+        lhs |= 0x0000000000080000ull;
+        rhs |= 0x0000000000080000ull;
+
+        return lerp(rhs, lerp(lhs, rhs, rhsIsNaN), lhsIsNaN);
+#endif
+    }
+
+    uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
+    {
+        nbl::hlsl::uint32_t2 z;
+
+        z.x = zSign + (uint32_t(zExp) << 20) + zFrac0;
+        z.y = zFrac1;
+
+        uint64_t output = 0u;
+        output |= (uint64_t(z.x) << 32) & 0xFFFFFFFF00000000ull;
+        output |= uint64_t(z.y);
+        return  output;
+    }
+
+    uint32_t2 packUint64(uint64_t val)
+    {
+        return uint32_t2((val & 0xFFFFFFFF00000000ull) >> 32, val & 0x00000000FFFFFFFFull);
+    }
+
+    uint64_t unpackUint64(uint32_t2 val)
+    {
+        return ((uint64_t(val.x) & 0x00000000FFFFFFFFull) << 32) | uint64_t(val.y);
     }
 
     nbl::hlsl::uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
@@ -95,248 +139,233 @@ namespace impl
 #endif
     }
     
-    uint64_t propagateFloat64NaN(uint64_t a, uint64_t b)
+    uint32_t2 shift64RightJamming(uint32_t2 val, int count)
     {
-    #if defined RELAXED_NAN_PROPAGATION
-        return a | b;
-    #else
-    
-        bool aIsNaN = isNaN64(a);
-        bool bIsNaN = isNaN64(b);
-        a |= 0x0008000000000000ull;
-        b |= 0x0008000000000000ull;
-    
-        // TODO:
-        //return LERP(b, LERP(a, b, nbl::hlsl::float32_t2(bIsNaN, bIsNaN)), nbl::hlsl::float32_t2(aIsNaN, aIsNaN));
-        return 0xdeadbeefbadcaffeull;
-    #endif
-    }
-
-    nbl::hlsl::uint32_t2 shortShift64Left(uint32_t a0, uint32_t a1, int count)
-    {
-        nbl::hlsl::uint32_t2 output;
-        output.y = a1 << count;
-        output.x = LERP((a0 << count | (a1 >> ((-count) & 31))), a0, count == 0);
-        
-        return output;
-    };
-    
-    nbl::hlsl::uint32_t2 shift64RightJamming(uint32_t a0, uint32_t a1, int count)
-    {
-        nbl::hlsl::uint32_t2 output;
+        uint32_t2 output;
         const int negCount = (-count) & 31;
     
-        output.x = LERP(0u, a0, count == 0);
-        output.x = LERP(output.x, (a0 >> count), count < 32);
+        output.x = lerp(0u, val.x, count == 0);
+        output.x = lerp(output.x, (val.x >> count), count < 32);
     
-        output.y = uint32_t((a0 | a1) != 0u); /* count >= 64 */
-        uint32_t z1_lt64 = (a0>>(count & 31)) | uint32_t(((a0<<negCount) | a1) != 0u);
-        output.y = LERP(output.y, z1_lt64, count < 64);
-        output.y = LERP(output.y, (a0 | uint32_t(a1 != 0u)), count == 32);
-        uint32_t z1_lt32 = (a0<<negCount) | (a1>>count) | uint32_t ((a1<<negCount) != 0u);
-        output.y = LERP(output.y, z1_lt32, count < 32);
-        output.y = LERP(output.y, a1, count == 0);
+        output.y = uint32_t((val.x | val.y) != 0u); /* count >= 64 */
+        uint32_t z1_lt64 = (val.x>>(count & 31)) | uint32_t(((val.x<<negCount) | val.y) != 0u);
+        output.y = lerp(output.y, z1_lt64, count < 64);
+        output.y = lerp(output.y, (val.x | uint32_t(val.y != 0u)), count == 32);
+        uint32_t z1_lt32 = (val.x<<negCount) | (val.y>>count) | uint32_t((val.y<<negCount) != 0u);
+        output.y = lerp(output.y, z1_lt32, count < 32);
+        output.y = lerp(output.y, val.y, count == 0);
         
         return output;
     }
     
     
-    nbl::hlsl::uint32_t4 mul64to128(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
+    uint32_t4 mul64to128(uint32_t4 mantissasPacked)
     {
-        uint32_t z0 = 0u;
-        uint32_t z1 = 0u;
-        uint32_t z2 = 0u;
-        uint32_t z3 = 0u;
+        uint32_t4 output;
         uint32_t more1 = 0u;
         uint32_t more2 = 0u;
     
-        nbl::hlsl::uint32_t2 z2z3 = umulExtended(a0, b1);
-        z2 = z2z3.x;
-        z3 = z2z3.y;
-        nbl::hlsl::uint32_t2 z1more2 = umulExtended(a1, b0);
-        z1 = z1more2.x;
+        // a0 = x
+        // a1 = y
+        // b0 = z
+        // b1 = w
+
+        uint32_t2 z2z3 = umulExtended(mantissasPacked.y, mantissasPacked.w);
+        output.z = z2z3.x;
+        output.w = z2z3.y;
+        uint32_t2 z1more2 = umulExtended(mantissasPacked.y, mantissasPacked.z);
+        output.y = z1more2.x;
         more2 = z1more2.y;
-        nbl::hlsl::uint32_t2 z1z2 = add64(z1, more2, 0u, z2);
-        z1 = z1z2.x;
-        z2 = z1z2.y;
-        nbl::hlsl::uint32_t2 z0more1 = umulExtended(a0, b0);
-        z0 = z0more1.x;
+        uint32_t2 z1z2 = add64(output.y, more2, 0u, output.z);
+        output.y = z1z2.x;
+        output.z = z1z2.y;
+        uint32_t2 z0more1 = umulExtended(mantissasPacked.x, mantissasPacked.z);
+        output.x = z0more1.x;
         more1 = z0more1.y;
-        nbl::hlsl::uint32_t2 z0z1 = add64(z0, more1, 0u, z1);
-        z0 = z0z1.x;
-        z1 = z0z1.y;
-        nbl::hlsl::uint32_t2 more1more2 = umulExtended(a0, b1);
+        uint32_t2 z0z1 = add64(output.x, more1, 0u, output.y);
+        output.x = z0z1.x;
+        output.y = z0z1.y;
+        uint32_t2 more1more2 = umulExtended(mantissasPacked.x, mantissasPacked.w);
         more1 = more1more2.x;
         more2 = more1more2.y;
-        nbl::hlsl::uint32_t2 more1z2 = add64(more1, more2, 0u, z2);
+        uint32_t2 more1z2 = add64(more1, more2, 0u, output.z);
         more1 = more1z2.x;
-        z2 = more1z2.y;
-        nbl::hlsl::uint32_t2 z0z12 = add64(z0, z1, 0u, more1);
-        z0 = z0z12.x;
-        z1 = z0z12.y;
-    
-    
-        nbl::hlsl::uint32_t4 output;
-        output.x = z0;
-        output.y = z1;
-        output.z = z2;
-        output.w = z3;
+        output.z = more1z2.y;
+        uint32_t2 z0z12 = add64(output.x, output.y, 0u, more1);
+        output.x = z0z12.x;
+        output.y = z0z12.y;
+
         return output;
     }
     
-    nbl::hlsl::uint32_t3 shift64ExtraRightJamming(uint32_t a0, uint32_t a1, uint32_t a2, int count)
+    nbl::hlsl::uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
     {
-        nbl::hlsl::uint32_t3 output;
+        uint32_t3 output;
         output.x = 0u;
        
         int negCount = (-count) & 31;
     
-        output.z = LERP(uint32_t(a0 != 0u), a0, count == 64);
-        output.z = LERP(output.z, a0 << negCount, count < 64);
-        output.z = LERP(output.z, a1 << negCount, count < 32);
+        output.z = lerp(uint32_t(val.x != 0u), val.x, count == 64);
+        output.z = lerp(output.z, val.x << negCount, count < 64);
+        output.z = lerp(output.z, val.y << negCount, count < 32);
     
-        output.y = LERP(0u, (a0 >> (count & 31)), count < 64);
-        output.y = LERP(output.y, (a0<<negCount) | (a1>>count), count < 32);
+        output.y = lerp(0u, (val.x >> (count & 31)), count < 64);
+        output.y = lerp(output.y, (val.x  << negCount) | (val.y >> count), count < 32);
     
-        a2 = LERP(a2 | a1, a2, count < 32);
-        output.x = LERP(output.x, a0 >> count, count < 32);
-        output.z |= uint32_t(a2 != 0u);
+        val.z = lerp(val.z | val.y, val.z, count < 32);
+        output.x = lerp(output.x, val.x >> count, count < 32);
+        output.z |= uint32_t(val.z != 0u);
     
-        output.x = LERP(output.x, 0u, (count == 32));
-        output.y = LERP(output.y, a0, (count == 32));
-        output.z = LERP(output.z, a1, (count == 32));
-        output.x = LERP(output.x, a0, (count == 0));
-        output.y = LERP(output.y, a1, (count == 0));
-        output.z = LERP(output.z, a2, (count == 0));
+        output.x = lerp(output.x, 0u, (count == 32));
+        output.y = lerp(output.y, val.x, (count == 32));
+        output.z = lerp(output.z, val.y, (count == 32));
+        output.x = lerp(output.x, val.x, (count == 0));
+        output.y = lerp(output.y, val.y, (count == 0));
+        output.z = lerp(output.z, val.z, (count == 0));
        
         return output;
     }
-    
-    
-    uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
+
+    uint64_t shortShift64Left(uint64_t val, int count)
     {
-        nbl::hlsl::uint32_t2 z;
-    
-        z.x = zSign + (uint32_t(zExp) << 20) + zFrac0;
-        z.y = zFrac1;
-       
-        uint64_t output = 0u;
-        output |= (uint64_t(z.x) << 32) & 0xFFFFFFFF00000000ull;
-        output |= uint64_t(z.y);
-        return  output;
+        const uint32_t2 packed = packUint64(val);
+        
+        nbl::hlsl::uint32_t2 output;
+        output.y = packed.y << count;
+        // TODO: fix
+        output.x = lerp((packed.x << count | (packed.y >> ((-count) & 31))), packed.x, count == 0);
+
+        // y = 3092377600
+        // x = 2119009566
+        return unpackUint64(output);
+    };
+
+    uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
+    {
+        return  signShifted + expShifted + mantissa;
     }
     
-    
-    uint64_t roundAndPackFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1, uint32_t zFrac2)
+    uint64_t roundAndPackFloat64(uint64_t zSign, int zExp, uint32_t3 mantissaExtended)
     {
         bool roundNearestEven;
         bool increment;
     
         roundNearestEven = true;
-        increment = int(zFrac2) < 0;
+        increment = int(mantissaExtended.z) < 0;
         if (!roundNearestEven) 
         {
-        if (false) //(FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO)
-        {
-        increment = false;
-        } 
-        else
-        {
-        if (false) //(zSign != 0u)
-        {
-        //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) &&
-        //   (zFrac2 != 0u);
-        }
-        else
-        {
-        //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) &&
-        //   (zFrac2 != 0u);
-        }
-        }
+            if (false) //(FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO)
+            {
+                increment = false;
+            } 
+            else
+            {
+                if (false) //(zSign != 0u)
+                {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) &&
+                    //   (zFrac2 != 0u);
+                }
+                else
+                {
+                    //increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) &&
+                    //   (zFrac2 != 0u);
+                }
+            }
         }
         if (0x7FD <= zExp)
         {
-        if ((0x7FD < zExp) || ((zExp == 0x7FD) && (0x001FFFFFu == zFrac0 && 0xFFFFFFFFu == zFrac1) && increment))
-        {
-        if (false) // ((FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO) ||
-        // ((zSign != 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP)) ||
-        // ((zSign == 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN)))
-        {
-        return packFloat64(zSign, 0x7FE, 0x000FFFFFu, 0xFFFFFFFFu);
-        }
-             
-        return packFloat64(zSign, 0x7FF, 0u, 0u);
+            if ((0x7FD < zExp) || ((zExp == 0x7FD) && (0x001FFFFFu == mantissaExtended.x && 0xFFFFFFFFu == mantissaExtended.y) && increment))
+            {
+                if (false) // ((FLOAT_ROUNDING_MODE == FLOAT_ROUND_TO_ZERO) ||
+                // ((zSign != 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP)) ||
+                // ((zSign == 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN)))
+                {
+                    return packFloat64(zSign, 0x7FE, 0x000FFFFFu, 0xFFFFFFFFu);
+                }
+                 
+            return packFloat64(zSign, 0x7FF, 0u, 0u);
         }
         }
     
         if (zExp < 0)
         {
-        nbl::hlsl::uint32_t3 shifted = shift64ExtraRightJamming(zFrac0, zFrac1, zFrac2, -zExp);
-        zFrac0 = shifted.x;
-        zFrac1 = shifted.y;
-        zFrac2 = shifted.z;
-        zExp = 0;
-          
-        if (roundNearestEven)
-        {
-        increment = zFrac2 < 0u;
-        }
-        else
-        {
-        if (zSign != 0u)
-        {
-        increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) && (zFrac2 != 0u);
-        }
-        else
-        {
-        increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) && (zFrac2 != 0u);
-        }
-        }
+            mantissaExtended = shift64ExtraRightJamming(mantissaExtended, -zExp);
+            zExp = 0;
+              
+            if (roundNearestEven)
+            {
+                increment = mantissaExtended.z < 0u;
+            }
+            else
+            {
+                if (zSign != 0u)
+                {
+                    increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) && (mantissaExtended.z != 0u);
+                }
+                else
+                {
+                    increment = (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP) && (mantissaExtended.z != 0u);
+                }
+            }
         }
     
         if (increment)
         {
-        nbl::hlsl::uint32_t2 added = add64(zFrac0, zFrac1, 0u, 1u);
-        zFrac0 = added.x;
-        zFrac1 = added.y;
-        zFrac1 &= ~((zFrac2 + uint32_t(zFrac2 == 0u)) & uint32_t(roundNearestEven));
+            const uint64_t added = impl::unpackUint64(uint32_t2(mantissaExtended.xy)) + 1ull;
+            mantissaExtended.xy = packUint64(added);
+            mantissaExtended.y &= ~((mantissaExtended.z + uint32_t(mantissaExtended.z == 0u)) & uint32_t(roundNearestEven));
         }
         else
         {
-        zExp = LERP(zExp, 0, (zFrac0 | zFrac1) == 0u);
+            zExp = lerp(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
         }
        
-        return packFloat64(zSign, zExp, zFrac0, zFrac1);
+        return assembleFloat64(zSign, uint64_t(zExp) << ieee754::traits<float64_t>::mantissaBitCnt, unpackUint64(mantissaExtended.xy));
     }
     
-    uint64_t normalizeRoundAndPackFloat64(uint32_t sign, int exp, uint32_t frac0, uint32_t frac1)
+    uint64_t normalizeRoundAndPackFloat64(uint64_t sign, int exp, uint32_t frac0, uint32_t frac1)
     {
         int shiftCount;
         nbl::hlsl::uint32_t3 frac = nbl::hlsl::uint32_t3(frac0, frac1, 0u);
     
         if (frac.x == 0u)
         {
-        exp -= 32;
-        frac.x = frac.y;
-        frac.y = 0u;
+            exp -= 32;
+            frac.x = frac.y;
+            frac.y = 0u;
         }
     
         shiftCount = countLeadingZeros32(frac.x) - 11;
         if (0 <= shiftCount)
         {
-        frac.xy = shortShift64Left(frac.x, frac.y, shiftCount);
+            frac.xy = shortShift64Left(unpackUint64(frac.xy), shiftCount);
         }
         else
         {
-        frac.xyz = shift64ExtraRightJamming(frac.x, frac.y, 0u, -shiftCount);
+            frac.xyz = shift64ExtraRightJamming(uint32_t3(frac.xy, 0), -shiftCount);
         }
         exp -= shiftCount;
-        return roundAndPackFloat64(sign, exp, frac.x, frac.y, frac.z);
+        return roundAndPackFloat64(sign, exp, frac);
     }
-    
-    static const uint64_t SIGN_MASK = 0x8000000000000000ull;
-    static const uint64_t EXP_MASK = 0x7FF0000000000000ull;
-    static const uint64_t MANTISA_MASK = 0x000FFFFFFFFFFFFFull;
+
+    void normalizeFloat64Subnormal(uint64_t mantissa,
+        NBL_REF_ARG(int) outExp,
+        NBL_REF_ARG(uint64_t) outMantissa)
+    {
+        uint32_t2 mantissaPacked = packUint64(mantissa);
+        int shiftCount;
+        uint32_t2 temp;
+        shiftCount = countLeadingZeros32(lerp(mantissaPacked.x, mantissaPacked.y, mantissaPacked.x == 0u)) - 11;
+        outExp = lerp(1 - shiftCount, -shiftCount - 31, mantissaPacked.x == 0u);
+
+        temp.x = lerp(mantissaPacked.y << shiftCount, mantissaPacked.y >> (-shiftCount), shiftCount < 0);
+        temp.y = lerp(0u, mantissaPacked.y << (shiftCount & 31), shiftCount < 0);
+
+        shortShift64Left(impl::unpackUint64(mantissaPacked), shiftCount);
+
+        outMantissa = lerp(outMantissa, unpackUint64(temp), mantissaPacked.x == 0);
+    }
+
     }
 
     struct emulated_float64_t
@@ -346,144 +375,130 @@ namespace impl
         storage_t data;
 
         // constructors
-        static emulated_float64_t create(uint64_t val)
+        /*static emulated_float64_t create(uint16_t val)
         {
-            return emulated_float64_t(val);
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
+        }*/
+
+        static emulated_float64_t create(int32_t val)
+        {
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
+        }
+
+        static emulated_float64_t create(int64_t val)
+        {
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }
 
         static emulated_float64_t create(uint32_t val)
         {
-#ifndef __HLSL_VERSION
-            std::cout << val;
-#endif
-            return emulated_float64_t(impl::promoteToUint64(val));
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }
 
-        static emulated_float64_t create(uint16_t val)
+        static emulated_float64_t create(uint64_t val)
         {
-            return emulated_float64_t(impl::promoteToUint64(val));
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }
 
         static emulated_float64_t create(float64_t val)
         {
-            return emulated_float64_t(bit_cast<uint64_t, float64_t>(val));
+            return emulated_float64_t(bit_cast<uint64_t>(val));
         }
         
-        static emulated_float64_t create(float16_t val)
+        // TODO: unresolved external symbol imath_half_to_float_table
+        /*static emulated_float64_t create(float16_t val)
         {
-            return emulated_float64_t(impl::promoteToUint64(val));
-        }
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
+        }*/
 
         static emulated_float64_t create(float32_t val)
         {
-            return emulated_float64_t(impl::promoteToUint64(val));
+            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }
-        
-        // TODO: won't not work for uints with msb of index > 52
-//#ifndef __HLSL_VERSION
-//        template<>
-//        static emulated_float64_t create(uint64_t val)
-//        {
-//#ifndef __HLSL_VERSION
-//            const uint64_t msbIndex = nbl::hlsl::findMSB(val);
-//#else
-//            const uint64_t msbIndex = firstbithigh(val);
-//#endif
-//            uint64_t exp = ((msbIndex + 1023) << 52) & 0x7FF0000000000000;
-//            uint64_t mantissa = (val << (52 - msbIndex)) & 0x000FFFFFFFFFFFFFull;
-//            emulated_float64_t output;
-//            output.data = exp | mantissa;
-//            return output;
-//        }
-//#endif 
+
+        static emulated_float64_t createPreserveBitPattern(uint64_t val)
+        {
+            return emulated_float64_t(val);
+        }
 
         // arithmetic operators
         emulated_float64_t operator+(const emulated_float64_t rhs)
         {
-            emulated_float64_t retval = create(0u);
+            emulated_float64_t retval = createPreserveBitPattern(0u);
 
-            uint32_t lhsSign = uint32_t((data & 0x8000000000000000ull) >> 32);
-            uint32_t rhsSign = uint32_t((rhs.data & 0x8000000000000000ull) >> 32);
+            uint64_t mantissa;
+            uint32_t3 mantissaExtended;
+            int biasedExp;
 
-            uint32_t lhsLow = uint32_t(data & 0x00000000FFFFFFFFull);
-            uint32_t rhsLow = uint32_t(rhs.data & 0x00000000FFFFFFFFull);
-            uint32_t lhsHigh = uint32_t((data & 0x000FFFFF00000000ull) >> 32);
-            uint32_t rhsHigh = uint32_t((rhs.data & 0x000FFFFF00000000ull) >> 32);
-
-            int lhsExp = int((data >> 52) & 0x7FFull);
-            int rhsExp = int((rhs.data >> 52) & 0x7FFull);
+            uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
+            uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
+            uint64_t lhsMantissa = ieee754::extractMantissa(data);
+            uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
+            int lhsBiasedExp = ieee754::extractBiasedExponent(data);
+            int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
             
-            int expDiff = lhsExp - rhsExp;
+            int expDiff = lhsBiasedExp - rhsBiasedExp;
 
             if (lhsSign == rhsSign)
             {
-                nbl::hlsl::uint32_t3 frac;
-                int exp;
-
                 if (expDiff == 0)
                 {
-                   //if (lhsExp == 0x7FF)
-                   //{
-                   //   bool propagate = (lhsMantissa | rhsMantissa) != 0u;
-                   //   return create(LERP(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
-                   //}
+                    //if (lhsExp == 0x7FF)
+                    //{
+                    //   bool propagate = (lhsMantissa | rhsMantissa) != 0u;
+                    //   return createPreserveBitPattern(lerp(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                    //}
                    
-                   frac.xy = impl::add64(lhsHigh, lhsLow, rhsHigh, rhsLow);
-                   if (lhsExp == 0)
-                      return create(impl::packFloat64(lhsSign, 0, frac.x, frac.y));
-                   frac.z = 0u;
-                   frac.x |= 0x00200000u;
-                   exp = lhsExp;
-                   frac = impl::shift64ExtraRightJamming(frac.x, frac.y, frac.z, 1);
+                    mantissa = lhsMantissa + rhsMantissa;
+                    if (lhsBiasedExp == 0)
+                      return createPreserveBitPattern(impl::assembleFloat64(lhsSign, 0, mantissa));
+                    mantissaExtended.xy = impl::packUint64(mantissa);
+                    mantissaExtended.x |= 0x00200000u;
+                    mantissaExtended.z = 0u;
+                    biasedExp = lhsBiasedExp;
+
+                    mantissaExtended = impl::shift64ExtraRightJamming(mantissaExtended, 1);
                 }
                 else
                 {
                      if (expDiff < 0)
                      {
-                        EXCHANGE(lhsHigh, rhsHigh);
-                        EXCHANGE(lhsLow, rhsLow);
-                        EXCHANGE(lhsExp, rhsExp);
+                        swap<uint64_t>(lhsMantissa, rhsMantissa);
+                        swap<int>(lhsBiasedExp, rhsBiasedExp);
                      }
 
-                     if (lhsExp == 0x7FF)
+                     if (lhsBiasedExp == 0x7FF)
                      {
-                        bool propagate = (lhsHigh | lhsLow) != 0u;
-                        return create(LERP(0x7FF0000000000000ull | (uint64_t(lhsSign) << 32), impl::propagateFloat64NaN(data, rhs.data), propagate));
+                        const bool propagate = (lhsMantissa) != 0u;
+                        return createPreserveBitPattern(lerp(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
                      }
 
-                     expDiff = LERP(ABS(expDiff), ABS(expDiff) - 1, rhsExp == 0);
-                     rhsHigh = LERP(rhsHigh | 0x00100000u, rhsHigh, rhsExp == 0);
-                     nbl::hlsl::float32_t3 shifted = impl::shift64ExtraRightJamming(rhsHigh, rhsLow, 0u, expDiff);
-                     rhsHigh = shifted.x;
-                     rhsLow = shifted.y;
-                     frac.z = shifted.z;
-                     exp = lhsExp;
+                     expDiff = lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                     rhsMantissa = lerp(rhsMantissa | 0x0010000000000000ull, rhsMantissa, rhsBiasedExp == 0);
+                     const uint32_t3 shifted = impl::shift64ExtraRightJamming(uint32_t3(impl::packUint64(rhsMantissa), 0u), expDiff);
+                     rhsMantissa = impl::unpackUint64(shifted.xy);
+                     mantissaExtended.z = shifted.z;
+                     biasedExp = lhsBiasedExp;
 
-                     lhsHigh |= 0x00100000u;
-                     frac.xy = impl::add64(lhsHigh, lhsLow, rhsHigh, rhsLow);
-                     --exp;
-                     if (!(frac.x < 0x00200000u))
+                     lhsMantissa |= 0x0010000000000000ull;
+                     mantissaExtended.xy = impl::packUint64(lhsMantissa + rhsMantissa);
+                     --biasedExp;
+                     if (!(mantissaExtended.x < 0x00200000u))
                      {
-                         frac = impl::shift64ExtraRightJamming(frac.x, frac.y, frac.z, 1);
-                         ++exp;
+                         mantissaExtended = impl::shift64ExtraRightJamming(mantissaExtended, 1);
+                         ++biasedExp;
                      }
                      
-                     return create(impl::roundAndPackFloat64(lhsSign, exp, frac.x, frac.y, frac.z));
+                     return createPreserveBitPattern(impl::roundAndPackFloat64(lhsSign, biasedExp, mantissaExtended.xyz));
                 }
                 
                 // cannot happen but compiler cries about not every path returning value
-                return create(0xdeadbeefbadcaffeull);
+                return createPreserveBitPattern(0xdeadbeefbadcaffeull);
             }
             else
             {
-                int exp;
-                
-                nbl::hlsl::uint32_t2 lhsShifted = impl::shortShift64Left(lhsHigh, lhsLow, 10);
-                lhsHigh = lhsShifted.x;
-                lhsLow = lhsShifted.y;
-                nbl::hlsl::uint32_t2 rhsShifted = impl::shortShift64Left(rhsHigh, rhsLow, 10);
-                rhsHigh = rhsShifted.x;
-                rhsLow = rhsShifted.y;
+                lhsMantissa = impl::shortShift64Left(lhsMantissa, 10);
+                rhsMantissa = impl::shortShift64Left(rhsMantissa, 10);
                 
                 if (expDiff != 0)
                 {
@@ -491,10 +506,9 @@ namespace impl
                 
                     if (expDiff < 0)
                     {
-                       EXCHANGE(lhsHigh, rhsHigh);
-                       EXCHANGE(lhsLow, rhsLow);
-                       EXCHANGE(lhsExp, rhsExp);
-                       lhsSign ^= 0x80000000u;
+                        swap<uint64_t>(lhsMantissa, rhsMantissa);
+                        swap<int>(lhsBiasedExp, rhsBiasedExp);
+                        lhsSign ^= ieee754::traits<float64_t>::signMask;
                     }
                     
                     //if (lhsExp == 0x7FF)
@@ -503,113 +517,206 @@ namespace impl
                     //   return nbl::hlsl::lerp(__packFloat64(lhsSign, 0x7ff, 0u, 0u), __propagateFloat64NaN(a, b), propagate);
                     //}
                     
-                    expDiff = LERP(ABS(expDiff), ABS(expDiff) - 1, rhsExp == 0);
-                    rhsHigh = LERP(rhsHigh | 0x40000000u, rhsHigh, rhsExp == 0);
-                    nbl::hlsl::uint32_t2 shifted = impl::shift64RightJamming(rhsHigh, rhsLow, expDiff);
-                    rhsHigh = shifted.x;
-                    rhsLow = shifted.y;
-                    lhsHigh |= 0x40000000u;
-                    frac.xy = impl::sub64(lhsHigh, lhsLow, rhsHigh, rhsLow);
-                    exp = lhsExp;
-                    --exp;
-                    return create(impl::normalizeRoundAndPackFloat64(lhsSign, exp - 10, frac.x, frac.y));
+                    expDiff = lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                    rhsMantissa = lerp(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
+                    rhsMantissa = impl::unpackUint64(impl::shift64RightJamming(impl::packUint64(rhsMantissa), expDiff));
+                    lhsMantissa |= 0x4000000000000000ull;
+                    frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
+                    biasedExp = lhsBiasedExp;
+                    --biasedExp;
+                    return createPreserveBitPattern(impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 10, frac.x, frac.y));
                 }
                 //if (lhsExp == 0x7FF)
                 //{
                 //   bool propagate = ((lhsHigh | rhsHigh) | (lhsLow | rhsLow)) != 0u;
                 //   return nbl::hlsl::lerp(0xFFFFFFFFFFFFFFFFUL, __propagateFloat64NaN(a, b), propagate);
                 //}
-                rhsExp = LERP(rhsExp, 1, lhsExp == 0);
-                lhsExp = LERP(lhsExp, 1, lhsExp == 0);
+                rhsBiasedExp = lerp(rhsBiasedExp, 1, lhsBiasedExp == 0);
+                lhsBiasedExp = lerp(lhsBiasedExp, 1, lhsBiasedExp == 0);
                 
-                nbl::hlsl::uint32_t2 frac;
-                uint32_t signOfDifference = 0;
-                if (rhsHigh < lhsHigh)
+
+                const uint32_t2 lhsMantissaPacked = impl::packUint64(lhsMantissa);
+                const uint32_t2 rhsMantissaPacked = impl::packUint64(rhsMantissa);
+
+                uint32_t2 frac;
+                uint64_t signOfDifference = 0;
+                if (rhsMantissaPacked.x < lhsMantissaPacked.x)
                 {
-                   frac.xy = impl::sub64(lhsHigh, lhsLow, rhsHigh, rhsLow);
+                    frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
                 }
-                else if (lhsHigh < rhsHigh)
+                else if (lhsMantissaPacked.x < rhsMantissaPacked.x)
                 {
-                   frac.xy = impl::sub64(rhsHigh, rhsLow, lhsHigh, lhsLow);
-                   signOfDifference = 0x80000000;
+                    frac.xy = impl::packUint64(rhsMantissa - lhsMantissa);
+                    signOfDifference = ieee754::traits<float64_t>::signMask;
                 }
-                else if (rhsLow <= lhsLow)
+                else if (rhsMantissaPacked.y <= lhsMantissaPacked.y)
                 {
-                   /* It is possible that frac.x and frac.y may be zero after this. */
-                   frac.xy = impl::sub64(lhsHigh, lhsLow, rhsHigh, rhsLow);
+                    /* It is possible that frac.x and frac.y may be zero after this. */
+                    frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
                 }
                 else
                 {
-                   frac.xy = impl::sub64(rhsHigh, rhsLow, lhsHigh, lhsLow);
-                   signOfDifference = 0x80000000;
+                    frac.xy = impl::packUint64(rhsMantissa - lhsMantissa);
+                    signOfDifference = ieee754::traits<float64_t>::signMask;
                 }
                 
-                exp = LERP(rhsExp, lhsExp, signOfDifference == 0u);
+                biasedExp = lerp(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
                 lhsSign ^= signOfDifference;
                 uint64_t retval_0 = impl::packFloat64(uint32_t(FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) << 31, 0, 0u, 0u);
-                uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, exp - 11, frac.x, frac.y);
-                return create(LERP(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
+                uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 11, frac.x, frac.y);
+                return createPreserveBitPattern(lerp(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
             }
         }
 
         emulated_float64_t operator-(emulated_float64_t rhs)
         {
-            emulated_float64_t lhs = create(data);
+            emulated_float64_t lhs = createPreserveBitPattern(data);
             emulated_float64_t rhsFlipped = rhs.flipSign();
             
             return lhs + rhsFlipped;
         }
 
-        emulated_float64_t operator*(const emulated_float64_t rhs)
+        emulated_float64_t operator*(emulated_float64_t rhs)
         {
-            emulated_float64_t retval = emulated_float64_t::create(0u);
+            emulated_float64_t retval = emulated_float64_t::createPreserveBitPattern(0u);
+
+            uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
+            uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
+            uint64_t lhsMantissa = ieee754::extractMantissa(data);
+            uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
+            int lhsBiasedExp = ieee754::extractBiasedExponent(data);
+            int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
+
+            int exp = int(lhsBiasedExp + rhsBiasedExp) - 0x400;
+            uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
             
-            uint32_t lhsLow = uint32_t(data & 0x00000000FFFFFFFFull);
-            uint32_t rhsLow = uint32_t(rhs.data & 0x00000000FFFFFFFFull);
-            uint32_t lhsHigh = uint32_t((data & 0x000FFFFF00000000ull) >> 32);
-            uint32_t rhsHigh = uint32_t((rhs.data & 0x000FFFFF00000000ull) >> 32);
-
-            uint32_t lhsExp = uint32_t((data >> 52) & 0x7FFull);
-            uint32_t rhsExp = uint32_t((rhs.data >> 52) & 0x7FFull);
-
-            int32_t exp = int32_t(lhsExp + rhsExp) - 0x400u;
-            uint64_t sign = uint32_t(((data ^ rhs.data) & 0x8000000000000000ull) >> 32);
-            
-
-            lhsHigh |= 0x00100000u;
-            nbl::hlsl::uint32_t2 shifted = impl::shortShift64Left(rhsHigh, rhsLow, 12);
-            rhsHigh = shifted.x;
-            rhsLow = shifted.y;
-
-            nbl::hlsl::uint32_t4 fracUnpacked = impl::mul64to128(lhsHigh, lhsLow, rhsHigh, rhsLow);
-            fracUnpacked.xy = impl::add64(fracUnpacked.x, fracUnpacked.y, lhsHigh, lhsLow);
-            fracUnpacked.z |= uint32_t(fracUnpacked.w != 0u);
-            if (0x00200000u <= fracUnpacked.x)
+            if (lhsBiasedExp == 0x7FF)
             {
-               fracUnpacked = nbl::hlsl::uint32_t4(impl::shift64ExtraRightJamming(fracUnpacked.x, fracUnpacked.y, fracUnpacked.z, 1), 0u);
-               ++exp;
+                if ((lhsMantissa != 0u) ||
+                    ((rhsBiasedExp == 0x7FF) && (rhsMantissa != 0u))) {
+                    return createPreserveBitPattern(impl::propagateFloat64NaN(data, rhs.data));
+                }
+                if ((uint64_t(rhsBiasedExp) | rhsMantissa) == 0u)
+                    return createPreserveBitPattern(0xFFFFFFFFFFFFFFFFull);
+
+                return createPreserveBitPattern(impl::assembleFloat64(sign, ieee754::traits<float64_t>::exponentMask, 0ull));
             }
-            
-            return create(impl::roundAndPackFloat64(sign, exp, fracUnpacked.x, fracUnpacked.y, fracUnpacked.z));
+            if (rhsBiasedExp == 0x7FF)
+            {
+                /* a cannot be NaN, but is b NaN? */
+                if (rhsMantissa != 0u)
+#ifdef RELAXED_NAN_PROPAGATION
+                    return rhs.data;
+#else
+                    return createPreserveBitPattern(impl::propagateFloat64NaN(data, rhs.data));
+#endif
+                if ((uint64_t(lhsBiasedExp) | lhsMantissa) == 0u)
+                    return createPreserveBitPattern(0xFFFFFFFFFFFFFFFFull);
+
+                return createPreserveBitPattern(sign | ieee754::traits<float64_t>::exponentMask);
+            }
+            if (lhsBiasedExp == 0)
+            {
+                if (lhsMantissa == 0u)
+                    return createPreserveBitPattern(sign);
+                impl::normalizeFloat64Subnormal(lhsMantissa, lhsBiasedExp, lhsMantissa);
+            }
+            if (rhsBiasedExp == 0)
+            {
+                if (rhsMantissa == 0u)
+                    return createPreserveBitPattern(sign);
+                impl::normalizeFloat64Subnormal(rhsMantissa, rhsBiasedExp, rhsMantissa);
+            }
+
+            lhsMantissa |= 0x0010000000000000ull;
+            rhsMantissa = impl::shortShift64Left(rhsMantissa, 12);
+
+            uint32_t4 mantissasPacked;
+            mantissasPacked.xy = impl::packUint64(lhsMantissa);
+            mantissasPacked.zw = impl::packUint64(rhsMantissa);
+
+            mantissasPacked = impl::mul64to128(mantissasPacked);
+
+            mantissasPacked.xy = impl::packUint64(impl::unpackUint64(mantissasPacked.xy) + lhsMantissa);
+            mantissasPacked.z |= uint32_t(mantissasPacked.w != 0u);
+            if (0x00200000u <= mantissasPacked.x)
+            {
+                mantissasPacked = uint32_t4(impl::shift64ExtraRightJamming(mantissasPacked.xyz, 1), 0u);
+                ++exp;
+            }
+
+            return createPreserveBitPattern(impl::roundAndPackFloat64(sign, exp, mantissasPacked.xyz));
         }
 
         // TODO
         emulated_float64_t operator/(const emulated_float64_t rhs)
         {
-            return create(0xdeadbeefbadcaffeull);
+            return createPreserveBitPattern(0xdeadbeefbadcaffeull);
         }
 
         // relational operators
-        bool operator==(const emulated_float64_t rhs) { return !(data ^ rhs.data); }
-        bool operator!=(const emulated_float64_t rhs) { return data ^ rhs.data; }
-        bool operator<(const emulated_float64_t rhs) { return data < rhs.data; }
-        bool operator>(const emulated_float64_t rhs) { return data > rhs.data; }
-        bool operator<=(const emulated_float64_t rhs) { return data <= rhs.data; }
-        bool operator>=(const emulated_float64_t rhs) { return data >= rhs.data; }
+        bool operator==(emulated_float64_t rhs)
+        {
+            if (isnan(data) || isnan(rhs.data))
+                return false;
+
+            const emulated_float64_t xored = emulated_float64_t::createPreserveBitPattern(data ^ rhs.data);
+            // TODO: check what fast math returns for -0 == 0
+            if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
+                return true;
+
+            return !(xored.data);
+        }
+        bool operator!=(emulated_float64_t rhs)
+        {
+            if (isnan(data) || isnan(rhs.data))
+                return true;
+
+            const emulated_float64_t xored = emulated_float64_t::createPreserveBitPattern(data ^ rhs.data);
+
+            // TODO: check what fast math returns for -0 == 0
+            if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
+                return false;
+
+            return xored.data;
+        }
+        bool operator<(emulated_float64_t rhs)
+        {
+            const uint64_t lhsSign = ieee754::extractSign(data);
+            const uint64_t rhsSign = ieee754::extractSign(rhs.data);
+
+            // flip bits of negative numbers and flip signs of all numbers
+            uint64_t lhsFlipped = data ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
+            uint64_t rhsFlipped = rhs.data ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
+
+            uint64_t diffBits = lhsFlipped ^ rhsFlipped;
+
+            return (lhsFlipped & diffBits) < (rhsFlipped & diffBits);
+        }
+        bool operator>(emulated_float64_t rhs) 
+        {
+#ifndef __HLSL_VERSION
+            std::cout << reinterpret_cast<double&>(data) << std::endl;
+            std::cout << reinterpret_cast<double&>(rhs.data) << std::endl;
+#endif
+
+            const uint64_t lhsSign = ieee754::extractSign(data);
+            const uint64_t rhsSign = ieee754::extractSign(rhs.data);
+
+            // flip bits of negative numbers and flip signs of all numbers
+            uint64_t lhsFlipped = data ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
+            uint64_t rhsFlipped = rhs.data ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
+
+            uint64_t diffBits = lhsFlipped ^ rhsFlipped;
+
+            return (lhsFlipped & diffBits) > (rhsFlipped & diffBits);
+        }
+        bool operator<=(emulated_float64_t rhs) { return !(emulated_float64_t::createPreserveBitPattern(data) > emulated_float64_t::createPreserveBitPattern(rhs.data)); }
+        bool operator>=(emulated_float64_t rhs) { return !(emulated_float64_t::createPreserveBitPattern(data) < emulated_float64_t::createPreserveBitPattern(rhs.data)); }
 
         //logical operators
-        bool operator&&(const emulated_float64_t rhs) { return bool(data) && bool(rhs.data); }
-        bool operator||(const emulated_float64_t rhs) { return bool(data) || bool(rhs.data); }
+        bool operator&&(emulated_float64_t rhs) { return bool(data) && bool(rhs.data); }
+        bool operator||(emulated_float64_t rhs) { return bool(data) || bool(rhs.data); }
         bool operator!() { return !bool(data); }
 
         // OMITED OPERATORS
@@ -620,45 +727,37 @@ namespace impl
         // TODO: should modify self?
         emulated_float64_t flipSign()
         {
-            const uint64_t flippedSign = ((~data) & 0x8000000000000000ull);
-            return create(flippedSign | (data & 0x7FFFFFFFFFFFFFFFull));
+            return createPreserveBitPattern(data ^ ieee754::traits<float64_t>::signMask);
         }
         
         bool isNaN()
         {
-            return impl::isNaN64(data);
+            return isnan(bit_cast<float64_t>(data));
         }
     };
-    
-    //_NBL_STATIC_INLINE_CONSTEXPR emulated_float64_t EMULATED_FLOAT64_NAN = emulated_float64_t::create(0.0 / 0.0);
 
 namespace ieee754
 {
-	template<> int getExponentBitCnt<emulated_float64_t>() { return getExponentBitCnt<float64_t>(); }
-	template<> int getMantissaBitCnt<emulated_float64_t>() { return getMantissaBitCnt<float64_t>(); }
-	template<> int getExponentBias<emulated_float64_t>() { return getExponentBias<float64_t>(); }
-	template<> unsigned_integer_of_size<8>::type getExponentMask<emulated_float64_t>() { return getExponentMask<float64_t>(); }
-    template<> unsigned_integer_of_size<8>::type getMantissaMask<emulated_float64_t>() { return getMantissaMask<float64_t>(); }
     template<>
-    unsigned_integer_of_size<8>::type getSignMask<emulated_float64_t>()
+    struct traits_base<emulated_float64_t>
     {
-        using AsUint = typename unsigned_integer_of_size<sizeof(float64_t)>::type;
-        return AsUint(0x1) << (sizeof(float64_t) * 4 - 1);
-    }
+        NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 11;
+        NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 52;
+    };
 
-	template <>
+	template<>
 	uint32_t extractBiasedExponent(emulated_float64_t x)
 	{
         return extractBiasedExponent<uint64_t>(x.data);
 	}
 
-	template <>
+	template<>
 	int extractExponent(emulated_float64_t x)
 	{
 		return extractExponent(x.data);
 	}
 
-	template <>
+	template<>
     emulated_float64_t replaceBiasedExponent(emulated_float64_t x, typename unsigned_integer_of_size<sizeof(emulated_float64_t)>::type biasedExp)
 	{
         return emulated_float64_t(replaceBiasedExponent(x.data, biasedExp));
@@ -680,5 +779,11 @@ namespace ieee754
 
 }
 }
+
+#undef FLOAT_ROUND_NEAREST_EVEN
+#undef FLOAT_ROUND_TO_ZERO
+#undef FLOAT_ROUND_DOWN
+#undef FLOAT_ROUND_UP
+#undef FLOAT_ROUNDING_MODE
 
 #endif
