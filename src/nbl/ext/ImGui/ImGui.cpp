@@ -625,6 +625,27 @@ namespace nbl::ext::imgui
 
 			} clip { .off = drawData->DisplayPos, .scale = drawData->FramebufferScale, .framebuffer = { frameBufferWidth, frameBufferHeight } };
 			
+			struct TRS
+			{
+				core::vector2df_SIMD scale;
+				core::vector2df_SIMD translate;
+
+				core::vector2df_SIMD toNDC(core::vector2df_SIMD in) const
+				{
+					return in * scale + translate;
+				}
+			};
+
+			const TRS trs = [&]() 
+			{
+				TRS retV;
+
+				retV.scale = core::vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y };
+				retV.translate = core::vector2df_SIMD { -1.0f, -1.0f } - core::vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y } * trs.scale;
+
+				return std::move(retV);
+			}();
+			
 			struct
 			{
 				size_t vBufferSize = {}, iBufferSize = {},	// sizes in bytes
@@ -696,7 +717,20 @@ namespace nbl::ext::imgui
 							indirect.instanceCount = 1u;
 							indirect.vertexOffset = pcmd->VtxOffset + globalVOffset;
 
-							element.scissor = clip.getScissor(clipRectangle);
+							const auto scissor = clip.getScissor(clipRectangle);
+
+							auto packSnorm16 = [](float ndc) -> int16_t
+							{
+								return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+							};
+
+							const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+							const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+
+							element.aabbMin.x = packSnorm16(vMin.x);
+							element.aabbMin.y = packSnorm16(vMin.y);
+							element.aabbMax.x = packSnorm16(vMax.x);
+							element.aabbMax.y = packSnorm16(vMax.y);
 							// element.texId = 0; // use defaults from constructor
 
 							++drawID;
@@ -848,8 +882,8 @@ namespace nbl::ext::imgui
 				{
 					.elementBDA = { mdiBuffer->getDeviceAddress() + elementsBOffset },
 					.elementCount = { drawCount },
-					.scale = { 2.0f / drawData->DisplaySize.x, 2.0f / drawData->DisplaySize.y },
-					.translate = { -1.0f - drawData->DisplayPos.x * constants.scale[0u], -1.0f - drawData->DisplayPos.y * constants.scale[1u] },
+					.scale = { trs.scale[0u], trs.scale[1u] },
+					.translate = { trs.translate[0u], trs.translate[1u] },
 					.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
 				};
 

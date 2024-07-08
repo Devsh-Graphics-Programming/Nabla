@@ -11,7 +11,7 @@
 		float4 position : SV_Position;
 		float4 color    : COLOR0;
 		float2 uv : TEXCOORD0;
-		float clip[2] : SV_ClipDistance;
+		float clip[4] : SV_ClipDistance;
 	};
 
 	struct PushConstants
@@ -23,11 +23,6 @@
 		float4 viewport;
 	};
 	
-	struct PerObjectData 
-	{
-		float4 scissor;
-		uint texId;
-	};
 #else
 	struct PushConstants
 	{
@@ -37,10 +32,25 @@
 		float translate[2];
 		float viewport[4];
 	};
-	
-	struct PerObjectData
-	{
-	  VkRect2D scissor;
-	  uint32_t texId = 0;
-	};
 #endif // __HLSL_VERSION
+
+struct emulated_snorm16_t2
+{
+	#ifdef __HLSL_VERSION
+	float32_t2 unpack() // returns in NDC [-1, 1] range
+	{
+		return clamp(float32_t2(x, y) / 32767.0f, -1.f, +1.f);
+	}
+	#endif
+
+	int16_t x;
+	int16_t y;
+};
+
+struct PerObjectData 
+{
+	emulated_snorm16_t2 aabbMin;
+	emulated_snorm16_t2 aabbMax;
+	uint32_t texId;
+	uint32_t padding;
+};
