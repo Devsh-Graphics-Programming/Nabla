@@ -192,7 +192,7 @@ namespace nbl::ext::imgui
 		params.mipLevels = 1;
 		params.arrayLayers = 1u;
 		params.samples = IImage::ESCF_1_BIT;
-		params.usage |= IGPUImage::EUF_TRANSFER_DST_BIT | IGPUImage::EUF_SAMPLED_BIT | IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT;
+		params.usage |= asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
 
 		struct
 		{
@@ -256,26 +256,57 @@ namespace nbl::ext::imgui
 				.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
 			};
 
-			const SMemoryBarrier toTransferBarrier = 
+			// barier with TRANSFER_DST_OPTIMAL image layout request for filling the image's buffer
 			{
-				.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
-				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
-			};
-
-			cmdBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-			const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] = 
-			{ 
+				const SMemoryBarrier toTransferBarrier =
 				{
-					.barrier = { .dep = toTransferBarrier },
-					.image = image.get(),
-					.subresourceRange = regions.subresource,
-					.newLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL
-				} 
-			};
+					.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
+					.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
+				};
 
-			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+				cmdBuffer->begin(IGPUCommandBuffer::USAGE::SIMULTANEOUS_USE_BIT);
+				const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] =
+				{
+					{
+						.barrier = {.dep = toTransferBarrier },
+						.image = image.get(),
+						.subresourceRange = regions.subresource,
+						.newLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL
+					}
+				};
 
+				cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+			}
+
+			// fill gpu image given buffer data and submit
 			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), NBL_FORMAT_FONT, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
+
+			// barier with READ_ONLY_OPTIMAL image layout request after the image's buffer update with auto submit
+			{
+				utilities->autoSubmit(sInfo, 
+					[&](SIntendedSubmitInfo& nextSubmit) -> bool 
+					{
+						const SMemoryBarrier toTransferBarrier =
+						{
+							.dstStageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS,
+							.dstAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT
+						};
+
+						const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] =
+						{
+							{
+								.barrier = {.dep = toTransferBarrier },
+								.image = image.get(),
+								.subresourceRange = regions.subresource,
+								.oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
+								.newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
+							}
+						};
+
+						return nextSubmit.getScratchCommandBuffer()->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+					}
+				);	
+			}
 		}
 		 
 		{
@@ -804,7 +835,7 @@ namespace nbl::ext::imgui
 				{
 					auto eData = mdiBuffer->getBoundMemory();
 
-					//if (eData.memory->haveToMakeVisible())
+					if (eData.memory->haveToMakeVisible())
 					{
 						const ILogicalDevice::MappedMemoryRange range(eData.memory, eData.offset, mdiBuffer->getSize());
 						m_device->flushMappedMemoryRanges(1, &range);
