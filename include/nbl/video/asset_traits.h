@@ -107,5 +107,60 @@ struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = IGPUDescri
 template<>
 struct asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = IGPUAccelerationStructure; };
 */
+
+
+// Slight wrapper to allow copyable smart pointers
+template<asset::Asset AssetType>
+struct asset_cached_t final
+{
+	private:
+		using this_t = asset_cached_t<AssetType>;
+		using video_t = typename asset_traits<AssetType>::video_t;
+		constexpr static inline bool RefCtd = core::ReferenceCounted<video_t>;
+
+	public:
+		inline asset_cached_t() = default;
+		inline asset_cached_t(const this_t& other) : asset_cached_t() {operator=(other);}
+		inline asset_cached_t(this_t&&) = default;
+
+		// special wrapping to make smart_refctd_ptr copyable
+		inline this_t& operator=(const this_t& rhs)
+		{
+			if constexpr (RefCtd)
+				value = core::smart_refctd_ptr<video_t>(rhs.value.get());
+			else
+				value = video_t(rhs.value);
+			return *this;
+		}
+		inline this_t& operator=(this_t&&) = default;
+
+		inline bool operator==(const this_t& other) const
+		{
+			return value==other.value;
+		}
+
+		inline const auto& get() const
+		{
+			if constexpr (RefCtd)
+				return value.get();
+			else
+				return value;
+		}
+
+		using type = std::conditional_t<RefCtd,core::smart_refctd_ptr<video_t>,video_t>;
+		type value = {};
+};
+}
+
+namespace std
+{
+template<nbl::asset::Asset AssetType>
+struct hash<nbl::video::asset_cached_t<AssetType>>
+{
+	inline size_t operator()(const nbl::video::asset_cached_t<AssetType>& entry) const noexcept
+	{
+		return 0ull;
+	}
+};
 }
 #endif
