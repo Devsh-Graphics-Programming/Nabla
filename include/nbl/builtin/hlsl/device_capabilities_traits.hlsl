@@ -8,6 +8,7 @@
 
 #ifdef __HLSL_VERSION
 
+#include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/enums.hlsl"
 #include "nbl/video/device_capabilities_traits_testers.hlsl"
 
