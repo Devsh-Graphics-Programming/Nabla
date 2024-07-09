@@ -695,11 +695,6 @@ namespace impl
         }
         bool operator>(emulated_float64_t rhs) 
         {
-#ifndef __HLSL_VERSION
-            std::cout << reinterpret_cast<double&>(data) << std::endl;
-            std::cout << reinterpret_cast<double&>(rhs.data) << std::endl;
-#endif
-
             const uint64_t lhsSign = ieee754::extractSign(data);
             const uint64_t rhsSign = ieee754::extractSign(rhs.data);
 
