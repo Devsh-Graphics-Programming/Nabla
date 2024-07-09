@@ -274,19 +274,24 @@ if(NBL_BUILD_IMGUI)
 		PUBLIC "imgui/backends"
 	)
 
-	# ImPlot
+	set(NBL_IMGUI_TEST_ENGINE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui_test_engine/imgui_test_suite")
+	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_ENGINE_ROOT}/thirdparty/implot")
+
 	add_library(implot STATIC
-		"implot/implot.h"
-		"implot/implot_internal.h"
-		"implot/implot.cpp"
-		"implot/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot.h"
+		"${NBL_IMPLOT_ROOT}/implot_internal.h"
+		"${NBL_IMPLOT_ROOT}/implot.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_demo.cpp"
 	)
+	
 	target_include_directories(implot
-		PUBLIC "imgui"
+		PUBLIC imgui
+		PUBLIC "${NBL_IMPLOT_ROOT}"
 	)
 	target_link_libraries(implot PUBLIC imgui)
 	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
-	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	set_property(TARGET implot PROPERTY CXX_STANDARD 20)
 	if(MSVC)
 		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
 	else()

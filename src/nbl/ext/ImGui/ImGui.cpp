@@ -969,4 +969,15 @@ namespace nbl::ext::imgui
 		}
 		return false;
 	}
+
+	void* UI::getContext()
+	{
+		return reinterpret_cast<void*>(ImGui::GetCurrentContext());
+	}
+
+	void UI::setContext(void* imguiContext)
+	{
+		ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imguiContext));
+	}
+
 }

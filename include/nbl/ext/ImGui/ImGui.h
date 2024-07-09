@@ -3,6 +3,7 @@
 
 namespace nbl::ext::imgui
 {
+
 class UI final : public core::IReferenceCounted
 {
 	public:
@@ -13,6 +14,9 @@ class UI final : public core::IReferenceCounted
 		void update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(int listenerId);
+		
+		void* getContext();
+		void setContext(void* imguiContext);
 
 	private:
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout();
