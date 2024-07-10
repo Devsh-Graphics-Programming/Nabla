@@ -473,7 +473,6 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 return false;
         }
         outCategory++;
-        i++;
     }
 
     core::vector<IGPUDescriptorSet::SCopyValidationResult> copyValidationResults(descriptorCopies.size());
@@ -490,7 +489,6 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         copyValidationResults[i] = dstDS->validateCopy(copy);
         if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
             return false;
-        i++;
     }
 
     for (auto i=0; i<descriptorWrites.size(); i++)
