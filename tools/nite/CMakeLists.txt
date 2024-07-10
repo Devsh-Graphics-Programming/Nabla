@@ -24,11 +24,11 @@ nbl_adjust_definitions()
 enable_testing()
 
 add_test(NAME NBL_NITE_RUN_SUITE_BASIC_TESTS
-	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group test
+	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group test --queued
 	COMMAND_EXPAND_LISTS
 )
 
 add_test(NAME NBL_NITE_RUN_SUITE_PERF_TESTS
-	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group perf
+	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group perf --queued
 	COMMAND_EXPAND_LISTS
 )

@@ -117,18 +117,23 @@ public:
 	inline bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
 
-		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_MODE_ARG = "--mode";		// "cmd" || "gui"
-		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_GROUP_ARG = "--group";	// "test" || "perf" 
+		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_QUEUE_ARG = "--queued";	// flag
+		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_MODE_ARG = "--mode";		// "cmd" || "gui" value
+		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_GROUP_ARG = "--group";	// "test" || "perf" value 
 
 		argparse::ArgumentParser program("[NITE]: Performs Suite Test for Nabla IMGUI backend");
 
+		program.add_argument(NBL_QUEUE_ARG.data())
+			.flag()
+			.help("use this argument to queue execution of tests depending on --group argument, otherwise (default) you can browse GUI freely");
+
 		program.add_argument(NBL_MODE_ARG.data())
 			.default_value("gui")
-			.help("Running mode, use \"cmd\" for running from command line and \"gui\" for GUI (default)");
+			.help("use \"cmd\" for running from command line and \"gui\" for GUI (default)");
 
 		program.add_argument(NBL_GROUP_ARG.data())
 			.default_value("test")
-			.help("Running group, use \"test\" (default) for running basic tests and \"perf\" for performance tests");
+			.help("use \"test\" (default) for running basic tests and \"perf\" for performance tests");
 
 		try
 		{
@@ -140,6 +145,7 @@ public:
 			return 1;
 		}
 
+		const auto pQueueArg = program.get<bool>(NBL_QUEUE_ARG.data());
 		const auto pModeArg = program.get<std::string>(NBL_MODE_ARG.data());
 		const auto pGroupArg = program.get<std::string>(NBL_GROUP_ARG.data());
 
@@ -226,21 +232,24 @@ public:
 		ImGuiTestEngine_Start(engine, ctx);
 		ImGuiTestEngine_InstallDefaultCrashHandler();
 
-		ImGuiTestGroup group = ImGuiTestGroup_Unknown;
+		if (pQueueArg)
 		{
-			if (pGroupArg == "test")
-				group = ImGuiTestGroup_Tests;
-			else if (pGroupArg == "perf")
-				group = ImGuiTestGroup_Perfs;
+			ImGuiTestGroup group = ImGuiTestGroup_Unknown;
+			{
+				if (pGroupArg == "test")
+					group = ImGuiTestGroup_Tests;
+				else if (pGroupArg == "perf")
+					group = ImGuiTestGroup_Perfs;
+			}
+			ImGuiTestRunFlags flags = ImGuiTestRunFlags_None;
+			{
+				if (pModeArg == "cmd")
+					flags = ImGuiTestRunFlags_RunFromCommandLine;
+				else if (pModeArg == "gui")
+					flags = ImGuiTestRunFlags_RunFromGui;
+			}
+			ImGuiTestEngine_QueueTests(engine, group, nullptr, flags);
 		}
-		ImGuiTestRunFlags flags = ImGuiTestRunFlags_None;
-		{
-			if (pModeArg == "cmd")
-				flags = ImGuiTestRunFlags_RunFromCommandLine;
-			else if (pModeArg == "gui")
-				flags = ImGuiTestRunFlags_RunFromGui;
-		}
-		ImGuiTestEngine_QueueTests(engine, group, nullptr, flags);
 
 		ui->registerListener([this]() -> void
 			{
