@@ -2,15 +2,13 @@ set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_eng
 set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
 set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
 
-file(GLOB_RECURSE NBL_EXTRA_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_ENGINE_ROOT}/*.cpp")
-
 set(NBL_EXTRA_OPTIONS
 	# TODO: add if required
 ) 
 
 set(NBL_EXTRA_LIBS
-	imtestsuite
+	imtestengine
 	"${NBL_EXT_IMGUI_UI_LIB}" # Nabla IMGUI backend
 )
 
-nbl_create_executable_project("${NBL_EXTRA_SOURCES}" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" "${NBL_EXTRA_LIBS}")
+nbl_create_executable_project("" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" "${NBL_EXTRA_LIBS}")

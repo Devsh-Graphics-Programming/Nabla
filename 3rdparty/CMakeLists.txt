@@ -254,6 +254,11 @@ target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIO
 
 if(NBL_BUILD_IMGUI)
 	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+	set(NBL_IMGUI_USER_CONFIG_ISD "${CMAKE_CURRENT_BINARY_DIR}/imgui/config/include")
+	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
+	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
 
 	add_library(imgui STATIC
 		"${NBL_IMGUI_ROOT}/imconfig.h"
@@ -274,16 +279,7 @@ if(NBL_BUILD_IMGUI)
 		PUBLIC "${NBL_IMGUI_ROOT}"
 		PUBLIC "${NBL_IMGUI_ROOT}/misc/cpp"
 		PUBLIC "${NBL_IMGUI_ROOT}/backends"
-	)
-
-	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
-	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
-	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
-	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
-	
-	# USER DEFINED IMGUI CONFIG, IMPACTS THE BUILD
-	target_compile_definitions(imgui PUBLIC
-		IMGUI_USER_CONFIG="${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test_suite_imconfig.h"
+		PUBLIC "${NBL_IMGUI_TEST_SUITE_ROOT}"
 	)
 
 	add_library(implot STATIC
@@ -323,13 +319,40 @@ if(NBL_BUILD_IMGUI)
 		$<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
 		$<TARGET_PROPERTY:implot,INCLUDE_DIRECTORIES>
 	)
-	nbl_handle_runtime_lib_properties(imtestsuite)
-	set_property(TARGET imtestsuite PROPERTY CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
-
+	
+	set_target_properties(imtestsuite PROPERTIES CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
 	target_link_libraries(imtestsuite PUBLIC implot)
+	
+	file(GLOB_RECURSE NBL_TEST_ENGINE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_ENGINE_ROOT}/*.cpp")
+	
+	add_library(imtestengine STATIC
+		${NBL_TEST_ENGINE_SOURCES}
+	)
+	
+	target_include_directories(imtestengine PUBLIC
+		$<TARGET_PROPERTY:imtestsuite,INCLUDE_DIRECTORIES>
+	)
+	
+	target_link_libraries(imtestengine PUBLIC imtestsuite)
 	
 	set(IMGUIZMO_BUILD_EXAMPLE OFF)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+	
+	# override test engine config with our own
+string(APPEND NBL_IMPL_IMCONFIG_CONTENT
+[=[
+#include "imgui_test_suite_imconfig.h" // use test engine's config
+
+#undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
+]=]
+)
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_USER_CONFIG_ISD}/nabla_imconfig.h")
+	file(WRITE "${NBL_IMGUI_USER_CONFIG_FILEPATH}" "${NBL_IMPL_IMCONFIG_CONTENT}")
+	
+	# USER DEFINED IMGUI CONFIG, IMPACTS THE BUILD
+	target_compile_definitions(imgui PUBLIC
+		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
+	)
 endif()
 
 add_library(aesGladman OBJECT
@@ -422,7 +445,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imguizmo)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)

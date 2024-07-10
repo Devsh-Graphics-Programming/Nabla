@@ -9,7 +9,7 @@ set(NBL_EXT_IMGUI_SRC
 )
 
 set(NBL_EXT_IMGUI_INCLUDE_SEARCH_DIRECTORIES
-	$<TARGET_PROPERTY:imtestsuite,INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:imtestengine,INCLUDE_DIRECTORIES>
 )
 
 nbl_create_ext_library_project(
@@ -21,7 +21,7 @@ nbl_create_ext_library_project(
     ""
 )
 
-target_link_libraries(${LIB_NAME} PUBLIC imtestsuite)
+target_link_libraries(${LIB_NAME} PUBLIC imtestengine)
 
 # shaders IO directories
 set(NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
