@@ -12,3 +12,23 @@ set(NBL_EXTRA_LIBS
 )
 
 nbl_create_executable_project("" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" "${NBL_EXTRA_LIBS}")
+
+add_dependencies(${EXECUTABLE_NAME} argparse)
+target_include_directories(${EXECUTABLE_NAME} PUBLIC 
+	$<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+nbl_adjust_flags(MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+nbl_adjust_definitions()
+
+enable_testing()
+
+add_test(NAME NBL_NITE_RUN_SUITE_BASIC_TESTS
+	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group test
+	COMMAND_EXPAND_LISTS
+)
+
+add_test(NAME NBL_NITE_RUN_SUITE_PERF_TESTS
+	COMMAND "$<TARGET_FILE:${EXECUTABLE_NAME}>" --mode cmd --group perf
+	COMMAND_EXPAND_LISTS
+)

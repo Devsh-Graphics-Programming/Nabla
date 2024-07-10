@@ -19,6 +19,9 @@
 #include "imgui_te_ui.h"
 #include "imgui_te_utils.h"
 
+// Argparse
+#include <argparse/argparse.hpp>
+
 using namespace nbl;
 using namespace core;
 using namespace hlsl;
@@ -113,6 +116,33 @@ public:
 
 	inline bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
+
+		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_MODE_ARG = "--mode";		// "cmd" || "gui"
+		_NBL_STATIC_INLINE_CONSTEXPR std::string_view NBL_GROUP_ARG = "--group";	// "test" || "perf" 
+
+		argparse::ArgumentParser program("[NITE]: Performs Suite Test for Nabla IMGUI backend");
+
+		program.add_argument(NBL_MODE_ARG.data())
+			.default_value("gui")
+			.help("Running mode, use \"cmd\" for running from command line and \"gui\" for GUI (default)");
+
+		program.add_argument(NBL_GROUP_ARG.data())
+			.default_value("test")
+			.help("Running group, use \"test\" (default) for running basic tests and \"perf\" for performance tests");
+
+		try
+		{
+			program.parse_args({ argv.data(), argv.data() + argv.size() });
+		}
+		catch (const std::exception& err)
+		{
+			std::cerr << err.what() << std::endl << program;
+			return 1;
+		}
+
+		const auto pModeArg = program.get<std::string>(NBL_MODE_ARG.data());
+		const auto pGroupArg = program.get<std::string>(NBL_GROUP_ARG.data());
+
 		m_inputSystem = make_smart_refctd_ptr<InputSystem>(logger_opt_smart_ptr(smart_refctd_ptr(m_logger)));
 
 		if (!device_base_t::onAppInitialized(smart_refctd_ptr(system)))
@@ -196,6 +226,22 @@ public:
 		ImGuiTestEngine_Start(engine, ctx);
 		ImGuiTestEngine_InstallDefaultCrashHandler();
 
+		ImGuiTestGroup group = ImGuiTestGroup_Unknown;
+		{
+			if (pGroupArg == "test")
+				group = ImGuiTestGroup_Tests;
+			else if (pGroupArg == "perf")
+				group = ImGuiTestGroup_Perfs;
+		}
+		ImGuiTestRunFlags flags = ImGuiTestRunFlags_None;
+		{
+			if (pModeArg == "cmd")
+				flags = ImGuiTestRunFlags_RunFromCommandLine;
+			else if (pModeArg == "gui")
+				flags = ImGuiTestRunFlags_RunFromGui;
+		}
+		ImGuiTestEngine_QueueTests(engine, group, nullptr, flags);
+
 		ui->registerListener([this]() -> void
 			{
 				ImGuiTestEngine_ShowTestEngineWindows(engine, nullptr);
@@ -265,7 +311,7 @@ public:
 		auto* const cb = m_cmdBufs.data()[resourceIx].get();
 		cb->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
 		cb->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-		cb->beginDebugMarker("NITETool Frame");
+		cb->beginDebugMarker("NITE Tool Frame");
 
 		auto* queue = getGraphicsQueue();
 
@@ -339,7 +385,7 @@ public:
 				}
 			}
 
-			m_window->setCaption("IMGUI Nabla Backend Test");
+			m_window->setCaption("[Nabla IMGUI Test Engine]");
 			m_surface->present(m_currentImageAcquire.imageIndex, rendered);
 
 			// Post swap Test Engine
@@ -361,6 +407,22 @@ public:
 		ImGuiTestEngine_GetResult(engine, tested, successed);
 		const bool good = tested == successed;
 
+		ImVector<ImGuiTest*>* tests = _NBL_NEW(ImVector<ImGuiTest*>);
+		ImGuiTestEngine_GetTestList(engine, tests);
+
+		if (successed < tested)
+		{
+			m_logger->log("Failing Tests: ", ILogger::ELL_ERROR);
+
+			for (auto* test : *tests)
+				if (test->Output.Status == ImGuiTestStatus_Error)
+					m_logger->log("- " + std::string(test->Name), ILogger::ELL_ERROR);
+		}
+
+		m_logger->log(std::string("Tests Result: ") + (good ? "PASSING" : "FAILING"), (good ? ILogger::ELL_PERFORMANCE : ILogger::ELL_ERROR));
+		m_logger->log(std::string("(") + std::to_string(successed) + "/" + std::to_string(tested) + " tests passed)", ILogger::ELL_PERFORMANCE);
+
+		_NBL_DELETE(tests);
 		ImGuiTestEngine_Stop(engine);
 
 		return device_base_t::onAppTerminated() && good;
