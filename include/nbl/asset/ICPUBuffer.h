@@ -10,7 +10,7 @@
 
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IAsset.h"
-#include "nbl/asset/IDescriptor.h"
+#include "nbl/asset/IPreHashed.h"
 
 namespace nbl::asset
 {
@@ -22,7 +22,7 @@ namespace nbl::asset
 
     @see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public asset::IAsset
+class ICPUBuffer : public asset::IBuffer, public IAsset, public IPreHashed
 {
     protected:
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
@@ -90,6 +90,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             m_creationParams.size = 0ull;
         }
 
+        core::blake3_hash_t contentHash;
         void* data;
 };
 

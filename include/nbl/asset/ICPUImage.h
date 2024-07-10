@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class ICPUImage final : public IImage, public IAsset
+class ICPUImage final : public IImage, public IAsset, public IPreHashed
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)

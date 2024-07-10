@@ -16,9 +16,16 @@ struct blake3_hash_t
 };
 
 template<typename T>
-void blake3_hasher_update(blake3_hasher* self, const T& input)
+inline void blake3_hasher_update(blake3_hasher& self, const T& input)
 {
-	blake3_hasher_update(self,&input,sizeof(input));
+	::blake3_hasher_update(&self,&input,sizeof(input));
+}
+
+inline blake3_hash_t blake3_hasher_finalize(blake3_hasher& self)
+{
+	blake3_hash_t retval;
+	::blake3_hasher_finalize(&self,retval.data,sizeof(retval));
+	return retval;
 }
 }
 
