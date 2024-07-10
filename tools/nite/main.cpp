@@ -357,9 +357,13 @@ public:
 
 	inline bool onAppTerminated() override
 	{
+		int tested = 0, successed = 0;
+		ImGuiTestEngine_GetResult(engine, tested, successed);
+		const bool good = tested == successed;
+
 		ImGuiTestEngine_Stop(engine);
 
-		return device_base_t::onAppTerminated();
+		return device_base_t::onAppTerminated() && good;
 	}
 
 private:
