@@ -258,6 +258,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_project_process_test_module()
 endmacro()
 
+# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})

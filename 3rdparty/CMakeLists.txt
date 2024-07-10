@@ -253,29 +253,38 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 if(NBL_BUILD_IMGUI)
+	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+
 	add_library(imgui STATIC
-		"imgui/imconfig.h"
-		"imgui/imgui_demo.cpp"
-		"imgui/imgui_draw.cpp"
-		"imgui/imgui_internal.h"
-		"imgui/imgui_tables.cpp"
-		"imgui/imgui_widgets.cpp"
-		"imgui/imgui.cpp"
-		"imgui/imgui.h"
-		"imgui/misc/cpp/imgui_stdlib.cpp"
-		"imgui/misc/cpp/imgui_stdlib.h"
-		"imgui/imstb_rectpack.h"
-		"imgui/imstb_textedit.h"
-		"imgui/imstb_truetype.h"
+		"${NBL_IMGUI_ROOT}/imconfig.h"
+		"${NBL_IMGUI_ROOT}/imgui_demo.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_draw.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_internal.h"
+		"${NBL_IMGUI_ROOT}/imgui_tables.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_widgets.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.h"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.h"
+		"${NBL_IMGUI_ROOT}/imstb_rectpack.h"
+		"${NBL_IMGUI_ROOT}/imstb_textedit.h"
+		"${NBL_IMGUI_ROOT}/imstb_truetype.h"
 	)
 	target_include_directories(imgui
-		PUBLIC "imgui"
-		PUBLIC "imgui/misc/cpp"
-		PUBLIC "imgui/backends"
+		PUBLIC "${NBL_IMGUI_ROOT}"
+		PUBLIC "${NBL_IMGUI_ROOT}/misc/cpp"
+		PUBLIC "${NBL_IMGUI_ROOT}/backends"
 	)
 
-	set(NBL_IMGUI_TEST_ENGINE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui_test_engine/imgui_test_suite")
-	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_ENGINE_ROOT}/thirdparty/implot")
+	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
+	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
+	
+	# USER DEFINED IMGUI CONFIG, IMPACTS THE BUILD
+	target_compile_definitions(imgui PUBLIC
+		IMGUI_USER_CONFIG="${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test_suite_imconfig.h"
+	)
 
 	add_library(implot STATIC
 		"${NBL_IMPLOT_ROOT}/implot.h"
@@ -286,17 +295,38 @@ if(NBL_BUILD_IMGUI)
 	)
 	
 	target_include_directories(implot
-		PUBLIC imgui
+		PUBLIC $<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
 		PUBLIC "${NBL_IMPLOT_ROOT}"
 	)
+	
 	target_link_libraries(implot PUBLIC imgui)
 	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
-	set_property(TARGET implot PROPERTY CXX_STANDARD 20)
+	set_target_properties(implot PROPERTIES CXX_STANDARD 20)
+	
 	if(MSVC)
 		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+
+	add_library(imtestsuite STATIC
+		${NBL_TEST_SUITE_SOURCES}
+	)
+	
+	target_include_directories(imtestsuite PUBLIC
+		"${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}"
+		"${NBL_IMGUI_TEST_ENGINE_ROOT}"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
+		$<TARGET_PROPERTY:implot,INCLUDE_DIRECTORIES>
+	)
+	nbl_handle_runtime_lib_properties(imtestsuite)
+	set_property(TARGET imtestsuite PROPERTY CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
+
+	target_link_libraries(imtestsuite PUBLIC implot)
 	
 	set(IMGUIZMO_BUILD_EXAMPLE OFF)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
@@ -392,7 +422,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
