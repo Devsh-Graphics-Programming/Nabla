@@ -292,6 +292,9 @@ if(NBL_BUILD_IMGUI)
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+	
+	set(IMGUIZMO_BUILD_EXAMPLE OFF)
+	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
 endif()
 
 add_library(aesGladman OBJECT
@@ -384,7 +387,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)

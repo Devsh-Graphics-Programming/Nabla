@@ -396,6 +396,12 @@ template<bool B, class T = void>
 using enable_if_t = typename enable_if<B, T>::type;
 
 template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
+
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
+
+template<class T>
 struct alignment_of;
 template<class T>
 NBL_CONSTEXPR_STATIC_INLINE uint32_t alignment_of_v = alignment_of<T>::value;
