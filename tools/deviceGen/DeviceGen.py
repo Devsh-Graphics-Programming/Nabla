@@ -267,7 +267,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
 
     if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset") or parsed_type.startswith("E_"):
         resultant_type = formatEnumType(dict["type"])
-        parsed_value = "(uint64_t)(" + formatEnumValue(resultant_type, parsed_value) + ")"
+        parsed_value = formatEnumValue(resultant_type, parsed_value)
         parsed_type = "uint64_t"
         parsed_name += "BitPattern"
 
