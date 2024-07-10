@@ -97,7 +97,7 @@ NBL_GENERATE_GET_OR_DEFAULT(minTexelGatherOffset, int16_t, -8);
 NBL_GENERATE_GET_OR_DEFAULT(maxTexelGatherOffset, uint16_t, 7);
 
 NBL_GENERATE_GET_OR_DEFAULT(minInterpolationOffsetBitPattern, uint32_t, asuint(-0.5f));
-NBL_GENERATE_GET_OR_DEFAULT(maxInterpolationOffsetBitPattern, uint32_t, asuint(0.5f-exp2f(-MinSubPixelInterpolationOffsetBits)));
+NBL_GENERATE_GET_OR_DEFAULT(maxInterpolationOffsetBitPattern, uint32_t, asuint(0.4375));
 NBL_GENERATE_GET_OR_DEFAULT(subPixelInterpolationOffsetBits, uint16_t, MinSubPixelInterpolationOffsetBits);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxFramebufferWidth, uint32_t, MinMaxImageDimension2D);
@@ -133,13 +133,13 @@ NBL_GENERATE_GET_OR_DEFAULT(nonCoherentAtomSize, uint16_t, 256);
 
 // VK 1.1
 NBL_GENERATE_GET_OR_DEFAULT(subgroupSize, uint16_t, 4);
-NBL_GENERATE_GET_OR_DEFAULT(subgroupOpsShaderStages, nbl::hlsl::ShaderStage, nbl::hlsl::ShaderStage::ESS_COMPUTE | nbl::hlsl::ShaderStage::ESS_ALL_GRAPHICS);
+NBL_GENERATE_GET_OR_DEFAULT(subgroupOpsShaderStagesBitPattern, uint64_t, nbl::hlsl::ShaderStage::ESS_COMPUTE | nbl::hlsl::ShaderStage::ESS_ALL_GRAPHICS);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupClustered, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupArithmetic, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupQuad, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupQuadAllStages, bool, false);
 
-NBL_GENERATE_GET_OR_DEFAULT(pointClippingBehavior, nbl::hlsl::PointClippingBehavior, nbl::hlsl::PointClippingBehavior::EPCB_USER_CLIP_PLANES_ONLY);
+NBL_GENERATE_GET_OR_DEFAULT(pointClippingBehaviorBitPattern, uint64_t, nbl::hlsl::PointClippingBehavior::EPCB_USER_CLIP_PLANES_ONLY);
 
 NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewViewCount, uint16_t, 6);
 NBL_GENERATE_GET_OR_DEFAULT(maxMultiviewInstanceIndex, uint32_t, (1u << 27) - 1);
@@ -186,8 +186,8 @@ NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindImages, uint32_t, 500
 NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindStorageImages, uint32_t, 500000);
 NBL_GENERATE_GET_OR_DEFAULT(maxDescriptorSetUpdateAfterBindInputAttachments, uint32_t, MinMaxColorAttachments);
 
-NBL_GENERATE_GET_OR_DEFAULT(supportedDepthResolveModes, nbl::hlsl::ResolveModeFlags, nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT);
-NBL_GENERATE_GET_OR_DEFAULT(supportedStencilResolveModes, nbl::hlsl::ResolveModeFlags, nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT);
+NBL_GENERATE_GET_OR_DEFAULT(supportedDepthResolveModesBitPattern, uint64_t, nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT);
+NBL_GENERATE_GET_OR_DEFAULT(supportedStencilResolveModesBitPattern, uint64_t, nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT);
 NBL_GENERATE_GET_OR_DEFAULT(independentResolveNone, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(independentResolve, bool, false);
 
@@ -197,7 +197,7 @@ NBL_GENERATE_GET_OR_DEFAULT(filterMinmaxImageComponentMapping, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(minSubgroupSize, uint16_t, 64);
 NBL_GENERATE_GET_OR_DEFAULT(maxSubgroupSize, uint16_t, 4);
 NBL_GENERATE_GET_OR_DEFAULT(maxComputeWorkgroupSubgroups, uint32_t, 16);
-NBL_GENERATE_GET_OR_DEFAULT(requiredSubgroupSizeStages, nbl::hlsl::ShaderStage, nbl::hlsl::ShaderStage::ESS_UNKNOWN);
+NBL_GENERATE_GET_OR_DEFAULT(requiredSubgroupSizeStagesBitPattern, uint64_t, nbl::hlsl::ShaderStage::ESS_UNKNOWN);
 
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProduct8BitUnsignedAccelerated, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(integerDotProduct8BitSignedAccelerated, bool, false);
@@ -280,7 +280,7 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderStencilExport, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(variableSampleLocations, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSubPixelBits, uint16_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCounts, nbl::hlsl::SampleCountFlags, nbl::hlsl::SampleCountFlags(0u));
+NBL_GENERATE_GET_OR_DEFAULT(sampleLocationSampleCountsBitPattern, uint64_t, (nbl::hlsl::SampleCountFlags)(0u));
 NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSizeX, uint32_t, 0u);
 NBL_GENERATE_GET_OR_DEFAULT(maxSampleLocationGridSizeY, uint32_t, 0u);
 NBL_GENERATE_GET_OR_DEFAULT(sampleLocationCoordinateRangeBitPatternMin, uint32_t, asuint(1.f));
@@ -362,7 +362,7 @@ NBL_GENERATE_GET_OR_DEFAULT(workgroupMemoryExplicitLayout16BitAccess, bool, fals
 
 NBL_GENERATE_GET_OR_DEFAULT(colorWriteEnable, bool, false);
 
-NBL_GENERATE_GET_OR_DEFAULT(cooperativeMatrixSupportedStages, nbl::hlsl::ShaderStage, nbl::hlsl::ShaderStage::ESS_UNKNOWN);
+NBL_GENERATE_GET_OR_DEFAULT(cooperativeMatrixSupportedStagesBitPattern, uint64_t, nbl::hlsl::ShaderStage::ESS_UNKNOWN);
 
 // Nabla
 NBL_GENERATE_GET_OR_DEFAULT(computeUnits, uint32_t, 0);
@@ -370,7 +370,7 @@ NBL_GENERATE_GET_OR_DEFAULT(dispatchBase, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(allowCommandBufferQueryCopies, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(maxOptimallyResidentWorkgroupInvocations, uint32_t, 0);
 NBL_GENERATE_GET_OR_DEFAULT(maxResidentInvocations, uint32_t, 0);
-NBL_GENERATE_GET_OR_DEFAULT(spirvVersion, nbl::hlsl::SpirvVersion, nbl::hlsl::SpirvVersion::ESV_1_6);
+NBL_GENERATE_GET_OR_DEFAULT(spirvVersionBitPattern, uint64_t, nbl::hlsl::SpirvVersion::ESV_1_6);
 
 NBL_GENERATE_GET_OR_DEFAULT(logicOp, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(vertexPipelineStoresAndAtomics, bool, false);
@@ -441,7 +441,7 @@ NBL_GENERATE_GET_OR_DEFAULT(robustImageAccess2, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(nullDescriptor, bool, false);
 
 // Extensions
-NBL_GENERATE_GET_OR_DEFAULT(swapchainMode, nbl::hlsl::SwapchainMode, nbl::hlsl::SwapchainMode::ESM_NONE);
+NBL_GENERATE_GET_OR_DEFAULT(swapchainModeBitPattern, uint64_t, nbl::hlsl::SwapchainMode::ESM_NONE);
 
 NBL_GENERATE_GET_OR_DEFAULT(shaderInfoAMD, bool, false);
 

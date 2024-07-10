@@ -124,13 +124,13 @@ NBL_GENERATE_MEMBER_TESTER(nonCoherentAtomSize);
 
 // VK 1.1
 NBL_GENERATE_MEMBER_TESTER(subgroupSize);
-NBL_GENERATE_MEMBER_TESTER(subgroupOpsShaderStages);
+NBL_GENERATE_MEMBER_TESTER(subgroupOpsShaderStagesBitPattern);
 NBL_GENERATE_MEMBER_TESTER(shaderSubgroupClustered);
 NBL_GENERATE_MEMBER_TESTER(shaderSubgroupArithmetic);
 NBL_GENERATE_MEMBER_TESTER(shaderSubgroupQuad);
 NBL_GENERATE_MEMBER_TESTER(shaderSubgroupQuadAllStages);
 
-NBL_GENERATE_MEMBER_TESTER(pointClippingBehavior);
+NBL_GENERATE_MEMBER_TESTER(pointClippingBehaviorBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(maxMultiviewViewCount);
 NBL_GENERATE_MEMBER_TESTER(maxMultiviewInstanceIndex);
@@ -177,8 +177,8 @@ NBL_GENERATE_MEMBER_TESTER(maxDescriptorSetUpdateAfterBindImages);
 NBL_GENERATE_MEMBER_TESTER(maxDescriptorSetUpdateAfterBindStorageImages);
 NBL_GENERATE_MEMBER_TESTER(maxDescriptorSetUpdateAfterBindInputAttachments);
 
-NBL_GENERATE_MEMBER_TESTER(supportedDepthResolveModes);
-NBL_GENERATE_MEMBER_TESTER(supportedStencilResolveModes);
+NBL_GENERATE_MEMBER_TESTER(supportedDepthResolveModesBitPattern);
+NBL_GENERATE_MEMBER_TESTER(supportedStencilResolveModesBitPattern);
 NBL_GENERATE_MEMBER_TESTER(independentResolveNone);
 NBL_GENERATE_MEMBER_TESTER(independentResolve);
 
@@ -188,7 +188,7 @@ NBL_GENERATE_MEMBER_TESTER(filterMinmaxImageComponentMapping);
 NBL_GENERATE_MEMBER_TESTER(minSubgroupSize);
 NBL_GENERATE_MEMBER_TESTER(maxSubgroupSize);
 NBL_GENERATE_MEMBER_TESTER(maxComputeWorkgroupSubgroups);
-NBL_GENERATE_MEMBER_TESTER(requiredSubgroupSizeStages);
+NBL_GENERATE_MEMBER_TESTER(requiredSubgroupSizeStagesBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(integerDotProduct8BitUnsignedAccelerated);
 NBL_GENERATE_MEMBER_TESTER(integerDotProduct8BitSignedAccelerated);
@@ -271,7 +271,7 @@ NBL_GENERATE_MEMBER_TESTER(shaderStencilExport);
 
 NBL_GENERATE_MEMBER_TESTER(variableSampleLocations);
 NBL_GENERATE_MEMBER_TESTER(sampleLocationSubPixelBits);
-NBL_GENERATE_MEMBER_TESTER(sampleLocationSampleCounts);
+NBL_GENERATE_MEMBER_TESTER(sampleLocationSampleCountsBitPattern);
 NBL_GENERATE_MEMBER_TESTER(maxSampleLocationGridSizeX);
 NBL_GENERATE_MEMBER_TESTER(maxSampleLocationGridSizeY);
 NBL_GENERATE_MEMBER_TESTER(sampleLocationCoordinateRangeBitPatternMin);
@@ -353,7 +353,7 @@ NBL_GENERATE_MEMBER_TESTER(workgroupMemoryExplicitLayout16BitAccess);
 
 NBL_GENERATE_MEMBER_TESTER(colorWriteEnable);
 
-NBL_GENERATE_MEMBER_TESTER(cooperativeMatrixSupportedStages);
+NBL_GENERATE_MEMBER_TESTER(cooperativeMatrixSupportedStagesBitPattern);
 
 // Nabla
 NBL_GENERATE_MEMBER_TESTER(computeUnits);
@@ -361,7 +361,7 @@ NBL_GENERATE_MEMBER_TESTER(dispatchBase);
 NBL_GENERATE_MEMBER_TESTER(allowCommandBufferQueryCopies);
 NBL_GENERATE_MEMBER_TESTER(maxOptimallyResidentWorkgroupInvocations);
 NBL_GENERATE_MEMBER_TESTER(maxResidentInvocations);
-NBL_GENERATE_MEMBER_TESTER(spirvVersion);
+NBL_GENERATE_MEMBER_TESTER(spirvVersionBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(logicOp);
 NBL_GENERATE_MEMBER_TESTER(vertexPipelineStoresAndAtomics);
@@ -432,7 +432,7 @@ NBL_GENERATE_MEMBER_TESTER(robustImageAccess2);
 NBL_GENERATE_MEMBER_TESTER(nullDescriptor);
 
 // Extensions
-NBL_GENERATE_MEMBER_TESTER(swapchainMode);
+NBL_GENERATE_MEMBER_TESTER(swapchainModeBitPattern);
 
 NBL_GENERATE_MEMBER_TESTER(shaderInfoAMD);
 
