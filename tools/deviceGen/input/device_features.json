@@ -2892,14 +2892,18 @@
             ]
         },
         {
+            "comment": [
+                "[DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.",
+                "ExtendedDynamicStateFeaturesEXT",
+                "VK_EXT_extended_dynamic_state"
+            ]
+        },
+        {
 
             "type": "bool",
             "name": "deferredHostOperations",
             "value": false,
             "comment": [
-                "[DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.",
-                "ExtendedDynamicStateFeaturesEXT",
-                "VK_EXT_extended_dynamic_state",
                 "VK_KHR_deferred_host_operations"
             ]
         },

@@ -1207,9 +1207,10 @@
     // VK_EXT_extension_267
     // [DO NOT EXPOSE] just reserved numbers, extension never shipped
 
-    // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
-    // ExtendedDynamicStateFeaturesEXT
     // VK_EXT_extended_dynamic_state
+    // ExtendedDynamicStateFeaturesEXT
+    // [DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.
+
     // VK_KHR_deferred_host_operations
     bool deferredHostOperations = false;
 

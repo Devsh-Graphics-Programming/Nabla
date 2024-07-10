@@ -266,7 +266,7 @@
 
     if (maxDiscardRectangles > _rhs.maxDiscardRectangles) return false;
 
-    if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
+    // if (primitiveOverestimationSize > _rhs.primitiveOverestimationSize) return false;
     if (maxExtraPrimitiveOverestimationSize > _rhs.maxExtraPrimitiveOverestimationSize) return false;
     if (extraPrimitiveOverestimationSizeGranularity < _rhs.extraPrimitiveOverestimationSizeGranularity) return false;
     if (primitiveUnderestimation && !_rhs.primitiveUnderestimation) return false;
@@ -312,6 +312,10 @@ if (maxSampleLocationGridSize.y > _rhs.maxSampleLocationGridSize.y) return false
 
     if (imageFootprint && !_rhs.imageFootprint) return false;
 
+    // if (pciDomain > _rhs.pciDomain) return false;
+    // if (pciBus > _rhs.pciBus) return false;
+    // if (pciDevice > _rhs.pciDevice) return false;
+    // if (pciFunction > _rhs.pciFunction) return false;
 
 if (minFragmentDensityTexelSize.x < _rhs.minFragmentDensityTexelSize.x) return false;
 if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return false;

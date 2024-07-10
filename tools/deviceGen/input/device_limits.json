@@ -1619,7 +1619,8 @@
                 {
                     "type": "float",
                     "name": "primitiveOverestimationSize",
-                    "value": "0.f"
+                    "value": "0.f",
+                    "compare": "DISABLE"
                 },
                 {
                     "type": "float",
@@ -1857,25 +1858,25 @@
                     "type": "uint32_t",
                     "name": "pciDomain",
                     "value": "~0u",
-                    "compare": "SKIP"
+                    "compare": "DISABLE"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciBus",
                     "value": "~0u",
-                    "compare": "SKIP"
+                    "compare": "DISABLE"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciDevice",
                     "value": "~0u",
-                    "compare": "SKIP"
+                    "compare": "DISABLE"
                 },
                 {
                     "type": "uint32_t",
                     "name": "pciFunction",
                     "value": "~0u",
-                    "compare": "SKIP"
+                    "compare": "DISABLE"
                 }
             ]
         },
