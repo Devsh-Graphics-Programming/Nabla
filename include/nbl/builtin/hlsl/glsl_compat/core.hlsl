@@ -15,7 +15,10 @@ namespace hlsl
 namespace glsl
 {
 
-#ifdef __HLSL_VERSION
+#ifndef __HLSL_VERSION
+NBL_ALIAS_TEMPLATE_FUNCTION(glm::bitfieldInsert, bitfieldInsert)
+NBL_ALIAS_TEMPLATE_FUNCTION(glm::bitfieldExtract, bitfieldExtract)
+#else
 /**
 * Generic SPIR-V
 */
