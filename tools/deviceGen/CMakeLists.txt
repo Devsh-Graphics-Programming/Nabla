@@ -27,6 +27,7 @@ set(OUTPUT_DT_MEMBERS "${OUTPUT_DT_TEMPLATE}members.hlsl")
 set(OUTPUT_DT_TESTERS "${OUTPUT_DT_TEMPLATE}testers.hlsl")
 set(OUTPUT_DT_DEFAULTS "${OUTPUT_DT_TEMPLATE}defaults.hlsl")
 set(OUTPUT_DT_FLOATS "${OUTPUT_DT_TEMPLATE}floats.hlsl")
+set(OUTPUT_DT_ENUMS "${OUTPUT_DT_TEMPLATE}enums.hlsl")
 set(OUTPUT_DT_JIT "${OUTPUT_DT_TEMPLATE}jit.h")
 
 set(OUTPUT_HEADERS 
@@ -39,6 +40,7 @@ set(OUTPUT_HEADERS
 "${OUTPUT_DT_TESTERS}"
 "${OUTPUT_DT_DEFAULTS}"
 "${OUTPUT_DT_FLOATS}"
+"${OUTPUT_DT_ENUMS}"
 "${OUTPUT_DT_JIT}"
 )
 
@@ -60,6 +62,7 @@ set(NBL_COMMAND
   "--traits_output_members_path" "${OUTPUT_DT_MEMBERS}"
   "--traits_output_testers_path" "${OUTPUT_DT_TESTERS}"
   "--traits_output_defaults_path" "${OUTPUT_DT_DEFAULTS}"
+  "--traits_output_enums_path" "${OUTPUT_DT_ENUMS}"
   "--traits_output_floats_path" "${OUTPUT_DT_FLOATS}"
   "--jit_traits_output_path" "${OUTPUT_DT_JIT}"
 )
@@ -82,6 +85,7 @@ LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabiliti
 LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_floats.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_enums.hlsl")
 
 get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/include" ABSOLUTE)
 get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/src" ABSOLUTE)

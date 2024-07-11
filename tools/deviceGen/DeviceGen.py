@@ -333,6 +333,35 @@ def transformTraits(dict, line_format, json_type, line_format_params):
 
     return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
 
+def transformEnumTraits(dict, line_format, json_type, line_format_params):
+    expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
+    if expose != ExposeStatus.DEFAULT:
+        raise ContinueEx
+    if "type" not in dict or "value" not in dict or "name" not in dict:
+        raise ContinueEx
+
+    parsed_type = dict['type']
+    parsed_name = dict['name']
+    parsed_value = str(dict['value'])
+
+    if not (parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset") or parsed_type.startswith("E_")):
+        raise ContinueEx
+
+    parsed_type = formatEnumType(parsed_type)
+
+    param_values = [
+        {
+            'type': parsed_type,
+            'name': parsed_name,
+            'cpp_name': "(" + parsed_type + ")" + parsed_name + "BitPattern",
+            'value': parsed_type + formatValue(parsed_value),
+            'json_type': json_type
+        }
+    ]
+
+    return [line_format.format(*[param_value[param] for param in line_format_params]) for param_value in param_values]
+
+
 def transformFloatTraits(dict, line_format, json_type, line_format_params):
     expose = computeStatus(ExposeStatus, dict['expose'] if "expose" in dict else "DEFAULT")
     if expose != ExposeStatus.DEFAULT:
@@ -471,6 +500,50 @@ def buildTraitsFloatHeaderHelper(
                     res.extend(temp_res)
                     res.append(emptyline)
 
+def buildTraitsEnumHeaderHelper(
+        res,
+        name,
+        json_data,
+        line_format,
+        json_type,
+        *line_format_params):
+    sectionHeaders = {
+        "vulkan10core": "VK 1.0",
+        "vulkan11core": "VK 1.1",
+        "vulkan12core": "VK 1.2",
+        "vulkan13core": "VK 1.3",
+        "nablacore": "Nabla Core Extensions",
+        "vulkanext": "Extensions",
+        "nabla": "Nabla"
+    }
+
+    res.append(f"// {name}")
+    for sectionName, sectionContent in json_data.items():
+        # constexprs are handled specifically in buildTraitsHeader
+        if sectionName == "constexprs":
+            continue
+        if sectionName in sectionHeaders:
+            res.append(f"// {sectionHeaders[sectionName]}")
+        for dict in sectionContent:
+            if 'type' in dict:
+                try:
+                    for line in transformEnumTraits(dict, line_format, json_type, line_format_params):
+                        res.append(line)
+                    res.append(emptyline)
+                except ContinueEx:
+                    continue
+            if 'entries' in dict:
+                temp_res = []
+                for entry in dict['entries']:
+                    try:
+                        for line in transformEnumTraits(entry, line_format, json_type, line_format_params):
+                            temp_res.append(line)
+                    except ContinueEx:
+                        continue
+                if len(temp_res) > 0:
+                    res.extend(temp_res)
+                    res.append(emptyline)
+
 def buildTraitsHeader(**params):
     res = []
 
@@ -520,6 +593,28 @@ def buildTraitsFloatHeader(**params):
         *params['format_params']
     )
     buildTraitsFloatHeaderHelper(
+        res,
+        f"Features {params['type']}",
+        params["features_json"],
+        params["template"],
+        "features",
+        *params['format_params']
+    )
+
+    return res
+
+def buildTraitsEnumHeader(**params):
+    res = []
+
+    buildTraitsEnumHeaderHelper(
+        res,
+        f"Limits {params['type']}",
+        params["limits_json"],
+        params["template"],
+        "limits",
+        *params['format_params']
+    )
+    buildTraitsEnumHeaderHelper(
         res,
         f"Features {params['type']}",
         params["features_json"],

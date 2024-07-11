@@ -44,6 +44,7 @@ struct device_capabilities_traits
     #include "nbl/video/device_capabilities_traits_members.hlsl"
 
     #include "nbl/video/device_capabilities_traits_floats.hlsl"
+    #include "nbl/video/device_capabilities_traits_enums.hlsl"
 };
 #undef NBL_GENERATE_GET_OR_DEFAULT
 }

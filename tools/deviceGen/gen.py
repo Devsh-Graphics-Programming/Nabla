@@ -16,6 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--traits_output_testers_path", type=str, help="The output path for the device_capabilities_traits_testers.hlsl")
     parser.add_argument("--traits_output_defaults_path", type=str, help="The output path for the device_capabilities_traits_defaults.hlsl")
     parser.add_argument("--traits_output_floats_path", type=str, help="The output path for the device_capabilities_traits_floats.hlsl")
+    parser.add_argument("--traits_output_enums_path", type=str, help="The output path for the device_capabilities_traits_enums.hlsl")
     parser.add_argument("--jit_traits_output_path", type=str, help="The output path for the device_capabilities_jit_traits.h")
 
     args = parser.parse_args()
@@ -96,6 +97,15 @@ if __name__ == "__main__":
         limits_json=limits,
         features_json=features,
         format_params=["name", "cpp_name"]
+    )
+    writeHeader(
+        args.traits_output_enums_path,
+        buildTraitsEnumHeader,
+        type="Enums",
+        template="static {} {}() {{ return {}; }}",
+        limits_json=limits,
+        features_json=features,
+        format_params=["type", "name", "cpp_name"]
     )
     writeHeader(
         args.traits_output_members_path,
