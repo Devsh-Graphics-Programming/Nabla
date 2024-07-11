@@ -17,6 +17,12 @@
 } 
 #endif
 
+#ifdef __HLSL_VERSION // cause DXC is insane
+#define NBL_FP64_LITERAL(LIT) LIT##l
+#else // and nobody except GCC supports C++23 `f64` suffix on float literals
+#define NBL_FP64_LITERAL(LIT) LIT
+#endif
+
 // basics
 #define NBL_EVAL(...) __VA_ARGS__
 #define NBL_CONCAT_IMPL2(X,Y) X ## Y
