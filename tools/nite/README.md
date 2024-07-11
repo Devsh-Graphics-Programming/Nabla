@@ -10,7 +10,7 @@ Build the target with desired configuration eg. `Debug`, open command line in th
 ctest -C Debug --progress --stop-on-failure
 ```
 
-<video src="https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/raw/master/tools/nite/nite-ctest.mp4"></video>
+https://github.com/Devsh-Graphics-Programming/Nabla/assets/34793522/2b739994-9900-4789-ba54-6435daded632
 
 CTest will execute `NBL_NITE_RUN_SUITE_BASIC_TESTS` first then `NBL_NITE_RUN_SUITE_PERF_TESTS`. Once we pass the first we can say we have 100% working backend! (currently we get SegFault somewhere in half of `NBL_NITE_RUN_SUITE_BASIC_TESTS` because our backend is still WIP)
 
@@ -18,4 +18,5 @@ CTest will execute `NBL_NITE_RUN_SUITE_BASIC_TESTS` first then `NBL_NITE_RUN_SUI
 
 If you want to pick individual tests and browse GUI just execute the target's executable with no arguments.
 
-<video src="https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/raw/master/tools/nite/nite-gui.mp4"></video>
+https://github.com/Devsh-Graphics-Programming/Nabla/assets/34793522/79876d13-cf4e-4476-9ab5-7d9b56dc695e
+
