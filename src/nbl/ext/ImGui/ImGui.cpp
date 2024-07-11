@@ -23,15 +23,23 @@ namespace nbl::ext::imgui
 {
 	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::createDescriptorSetLayout()
 	{
-		nbl::video::IGPUDescriptorSetLayout::SBinding bindings[] = 
-		{
+		const IGPUDescriptorSetLayout::SBinding bindings[] = 
+		{ 
 			{
 				.binding = 0u,
-				.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
+				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
 				.stageFlags = IShader::ESS_FRAGMENT,
-				.count = 1,
-				.samplers = nullptr // TODO: m_fontSampler?
+				.count = 1u,
+				.immutableSamplers = &m_fontSampler
+			},
+			{
+				.binding = 1u,
+				.type = IDescriptor::E_TYPE::ET_SAMPLER,
+				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+				.stageFlags = IShader::ESS_FRAGMENT,
+				.count = 1u,
+				.immutableSamplers = &m_fontSampler
 			}
 		};
 
@@ -45,7 +53,7 @@ namespace nbl::ext::imgui
 		{
 			{
 				.stageFlags = IShader::ESS_VERTEX | IShader::ESS_FRAGMENT,
-				.offset = 0,
+				.offset = 0u,
 				.size = sizeof(PushConstants)
 			}
 		};
@@ -141,7 +149,7 @@ namespace nbl::ext::imgui
 
 			IGPUGraphicsPipeline::SCreationParams params[1];
 			{
-				auto& param = params[0];
+				auto& param = params[0u];
 				param.layout = pipelineLayout.get();
 				param.shaders = specs;
 				param.renderpass = renderpass;
@@ -156,7 +164,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::createFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
+	void UI::createFontAtlas2DArrayTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -215,7 +223,7 @@ namespace nbl::ext::imgui
 			region->imageSubresource = {};
 			region->imageSubresource.aspectMask = IImage::EAF_COLOR_BIT;
 			region->imageSubresource.layerCount = 1u;
-			region->imageOffset = { 0, 0, 0 };
+			region->imageOffset = { 0u, 0u, 0u };
 			region->imageExtent = { params.extent.width, params.extent.height, 1u };
 		}
 
@@ -233,7 +241,7 @@ namespace nbl::ext::imgui
 			assert(false);
 		}
 		
-		image->setObjectDebugName("Nabla IMGUI extension Font Image");
+		image->setObjectDebugName("Nabla IMGUI extension Font Atlas");
 		{
 			IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
 			SIntendedSubmitInfo sInfo;
@@ -248,11 +256,11 @@ namespace nbl::ext::imgui
 
 			sInfo.queue = transfer;
 			sInfo.waitSemaphores = {};
-			sInfo.commandBuffers = { &cmdInfo, 1 };
+			sInfo.commandBuffers = { &cmdInfo, 1u };
 			sInfo.scratchSemaphore =
 			{
 				.semaphore = scratchSemaphore.get(),
-				.value = 0,
+				.value = 0u,
 				.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
 			};
 
@@ -312,11 +320,11 @@ namespace nbl::ext::imgui
 		{
 			IGPUImageView::SCreationParams params;
 			params.format = image->getCreationParameters().format;
-			params.viewType = IImageView<IGPUImage>::ET_2D;
+			params.viewType = IImageView<IGPUImage>::ET_2D_ARRAY;
 			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
-			m_fontTexture = m_device->createImageView(std::move(params));
+			m_fontAtlas2DArrayTexture = m_device->createImageView(std::move(params));
 		}
 	}
 
@@ -357,32 +365,26 @@ namespace nbl::ext::imgui
 
 	void UI::updateDescriptorSets()
 	{
-		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_RESOURCES_AMOUNT = 1u;
+		// texture atlas, note we don't create info & write for the font sampler because ours is immutable and baked into DS layout
+		IGPUDescriptorSet::SDescriptorInfo iInfo = {};
+		iInfo.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
+		iInfo.desc = m_fontAtlas2DArrayTexture;
+	
+		const IGPUDescriptorSet::SWriteDescriptorSet writes[] = 
+		{ 
+			{
+				.dstSet = m_gpuDescriptorSet.get(),
+				.binding = 0u,
+				.arrayElement = 0u,
+				.count = 1u,
+				.info = &iInfo
+			} 
+		};
 
-		IGPUDescriptorSet::SDescriptorInfo info[NBL_RESOURCES_AMOUNT];
-		{
-			auto& font = info[0u];
-			font.desc = m_fontTexture;
-			font.info.image.sampler = m_fontSampler;
-			font.info.image.imageLayout = nbl::asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
-		}
-
-		IGPUDescriptorSet::SWriteDescriptorSet write[NBL_RESOURCES_AMOUNT];
-		for (auto i = 0u; i < NBL_RESOURCES_AMOUNT; ++i)
-		{
-			auto& w = write[i];
-
-			w.dstSet = m_gpuDescriptorSet.get();
-			w.binding = 0;
-			w.arrayElement = 0;
-			w.count = 1;
-			w.info = info + i;
-		}
-
-		m_device->updateDescriptorSets(NBL_RESOURCES_AMOUNT, write, 0u, nullptr);
+		m_device->updateDescriptorSets(writes, {});
 	}
 
-	void UI::createFontSampler()
+	void UI::createFontAtlasSampler()
 	{
 		// TODO: Recheck this settings
 		IGPUSampler::SParams params{};
@@ -394,14 +396,15 @@ namespace nbl::ext::imgui
 		params.TextureWrapW = ISampler::ETC_REPEAT;
 
 		m_fontSampler = m_device->createSampler(params);
+		m_fontSampler->setObjectDebugName("Nabla Font Atlas Sampler");
 	}
 
 	void UI::createDescriptorPool()
 	{
 		IDescriptorPool::SCreateInfo createInfo = {};
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = 1u;
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] = 1u;
-		createInfo.maxSets = 1;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = 1u;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = 1u;
+		createInfo.maxSets = 1u;
 		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
 
 		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
@@ -514,11 +517,11 @@ namespace nbl::ext::imgui
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 
-			createFontSampler();
+			createFontAtlasSampler();
 			createDescriptorPool();
 			createDescriptorSetLayout();
 			createPipeline(renderpass, pipelineCache);
-			createFontTexture(transistentCMD.get(), tQueue);
+			createFontAtlas2DArrayTexture(transistentCMD.get(), tQueue);
 			prepareKeyMapForDesktop();
 			adjustGlobalFontScale();
 			updateDescriptorSets();

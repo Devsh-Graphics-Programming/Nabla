@@ -2,6 +2,12 @@
 
 [[vk::push_constant]] struct PushConstants pc;
 
+/*
+    we use Indirect Indexed draw call to render whole GUI, note we do a cross 
+    platform trick and use base instance index as replacement for gl_DrawID 
+    to request per object data with BDA
+*/
+
 PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
     PSInput output;
@@ -16,6 +22,7 @@ PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
     const float2 vMin = self.aabbMin.unpack();
     const float2 vMax = self.aabbMax.unpack();
 
+    // clip planes calculations, axis aligned
     output.clip[0] = output.position.x - vMin.x;
     output.clip[1] = output.position.y - vMin.y;
     output.clip[2] = vMax.x - output.position.x;
