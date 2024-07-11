@@ -93,3 +93,9 @@
 [submodule "3rdparty/nlohmann_json"]
 	path = 3rdparty/nlohmann_json
 	url = https://github.com/Devsh-Graphics-Programming/json
+[submodule "3rdparty/blake"]
+	path = 3rdparty/blake
+	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git
+[submodule "3rdparty/imguizmo"]
+	path = 3rdparty/imguizmo
+	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git

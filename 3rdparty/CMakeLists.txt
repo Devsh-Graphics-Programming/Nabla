@@ -160,6 +160,8 @@ add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
+# blake3
+add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
@@ -290,6 +292,9 @@ if(NBL_BUILD_IMGUI)
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+	
+	set(IMGUIZMO_BUILD_EXAMPLE OFF)
+	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
 endif()
 
 add_library(aesGladman OBJECT
@@ -368,6 +373,7 @@ set(NBL_3RDPARTY_TARGETS
 				Iex
 				IlmThread
 				Imath
+				blake3
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
@@ -381,7 +387,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
@@ -408,8 +414,13 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 			else()
 				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 			endif()
+			
+			if(MSVC)
+				target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+			endif()
 		endif()
 endforeach()
+nbl_adjust_definitions()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
