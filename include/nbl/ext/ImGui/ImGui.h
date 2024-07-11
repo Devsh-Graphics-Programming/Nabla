@@ -11,9 +11,9 @@ class UI final : public core::IReferenceCounted
 		~UI() override;
 
 		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex);
-		void update(float deltaTimeInSec, float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents); // TODO: Keyboard events
+		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
 		int registerListener(std::function<void()> const& listener);
-		bool unregisterListener(int listenerId);
+		bool unregisterListener(uint32_t id);
 		
 		void* getContext();
 		void setContext(void* imguiContext);
@@ -26,7 +26,8 @@ class UI final : public core::IReferenceCounted
 		void createSystem();
 		void createFontAtlasSampler();
 		void createDescriptorPool();
-		void handleMouseEvents(float mousePosX, float mousePosY, size_t mouseEventsCount, ui::SMouseEvent const * mouseEvents) const;
+		void handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const;
+		void handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const;
 
 		core::smart_refctd_ptr<system::ISystem> system;
 		core::smart_refctd_ptr<system::ILogger> logger;
@@ -44,7 +45,7 @@ class UI final : public core::IReferenceCounted
 		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
 		struct Subscriber 
 		{
-			int id = -1;
+			uint32_t id = 0;
 			std::function<void()> listener = nullptr;
 		};
 		std::vector<Subscriber> m_subscribers{};

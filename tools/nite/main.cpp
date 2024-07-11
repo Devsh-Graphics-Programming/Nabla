@@ -272,7 +272,8 @@ public:
 
 		struct
 		{
-			std::vector<SMouseEvent> mouse{};
+			std::vector<SMouseEvent> mouse {};
+			std::vector<SKeyboardEvent> keyboard {};
 		} capturedEvents;
 
 		m_inputSystem->getDefaultMouse(&mouse);
@@ -280,23 +281,38 @@ public:
 
 		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void
 			{
-				for (auto event : events)
+				for (const auto& e : events)
 				{
-					if (event.timeStamp < previousEventTimestamp)
+					if (e.timeStamp < previousEventTimestamp)
 						continue;
 
-					previousEventTimestamp = event.timeStamp;
-					capturedEvents.mouse.push_back(event);
+					previousEventTimestamp = e.timeStamp;
+					capturedEvents.mouse.emplace_back(e);
 				}
 			}, m_logger.get());
 
 		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void
 			{
-				// TOOD
+				for (const auto& e : events)
+				{
+					if (e.timeStamp < previousEventTimestamp)
+						continue;
+
+					previousEventTimestamp = e.timeStamp;
+					capturedEvents.keyboard.emplace_back(e);
+				}
 			}, m_logger.get());
 
 		const auto mousePosition = m_window->getCursorControl()->getPosition();
-		ui->update(deltaTimeInSec, static_cast<float>(mousePosition.x), static_cast<float>(mousePosition.y), capturedEvents.mouse.size(), capturedEvents.mouse.data());
+
+		// C++ no instance of constructor matches the argument list argument types are: (std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<nbl::ui::IKeyboardEventChannel>>>, std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<nbl::ui::IKeyboardEventChannel>>>)
+		// const nbl::ui::IMouseEventChannel::range_t mouseEvents(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size());
+		// const nbl::ui::IKeyboardEventChannel::range_t keyboardEvents(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size());
+
+		core::SRange<const nbl::ui::SMouseEvent> mouseEvents(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size());
+		core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size());
+
+		ui->update(deltaTimeInSec, { mousePosition.x , mousePosition.y}, mouseEvents, keyboardEvents);
 
 		const auto resourceIx = m_realFrameIx % m_maxFramesInFlight;
 

@@ -343,6 +343,7 @@ string(APPEND NBL_IMPL_IMCONFIG_CONTENT
 [=[
 #include "imgui_test_suite_imconfig.h" // use test engine's config
 
+#define IMGUI_DISABLE_OBSOLETE_KEYIO
 #undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
 ]=]
 )

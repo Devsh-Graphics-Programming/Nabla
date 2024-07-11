@@ -328,35 +328,6 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void prepareKeyMapForDesktop()
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		// TODO:
-		// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
-		//io.KeyMap[ImGuiKey_Tab] = MSDL::SDL_SCANCODE_TAB;
-		//io.KeyMap[ImGuiKey_LeftArrow] = MSDL::SDL_SCANCODE_LEFT;
-		//io.KeyMap[ImGuiKey_RightArrow] = MSDL::SDL_SCANCODE_RIGHT;
-		//io.KeyMap[ImGuiKey_UpArrow] = MSDL::SDL_SCANCODE_UP;
-		//io.KeyMap[ImGuiKey_DownArrow] = MSDL::SDL_SCANCODE_DOWN;
-		//io.KeyMap[ImGuiKey_PageUp] = MSDL::SDL_SCANCODE_PAGEUP;
-		//io.KeyMap[ImGuiKey_PageDown] = MSDL::SDL_SCANCODE_PAGEDOWN;
-		//io.KeyMap[ImGuiKey_Home] = MSDL::SDL_SCANCODE_HOME;
-		//io.KeyMap[ImGuiKey_End] = MSDL::SDL_SCANCODE_END;
-		//io.KeyMap[ImGuiKey_Insert] = MSDL::SDL_SCANCODE_INSERT;
-		//io.KeyMap[ImGuiKey_Delete] = MSDL::SDL_SCANCODE_DELETE;
-		//io.KeyMap[ImGuiKey_Backspace] = MSDL::SDL_SCANCODE_BACKSPACE;
-		//io.KeyMap[ImGuiKey_Space] = MSDL::SDL_SCANCODE_SPACE;
-		//io.KeyMap[ImGuiKey_Enter] = MSDL::SDL_SCANCODE_RETURN;
-		//io.KeyMap[ImGuiKey_Escape] = MSDL::SDL_SCANCODE_ESCAPE;
-		//io.KeyMap[ImGuiKey_KeyPadEnter] = MSDL::SDL_SCANCODE_KP_ENTER;
-		//io.KeyMap[ImGuiKey_A] = MSDL::SDL_SCANCODE_A;
-		//io.KeyMap[ImGuiKey_C] = MSDL::SDL_SCANCODE_C;
-		//io.KeyMap[ImGuiKey_V] = MSDL::SDL_SCANCODE_V;
-		//io.KeyMap[ImGuiKey_X] = MSDL::SDL_SCANCODE_X;
-		//io.KeyMap[ImGuiKey_Y] = MSDL::SDL_SCANCODE_Y;
-		//io.KeyMap[ImGuiKey_Z] = MSDL::SDL_SCANCODE_Z;
-	}
-
 	static void adjustGlobalFontScale()
 	{
 		ImGuiIO& io = ImGui::GetIO();
@@ -410,38 +381,214 @@ namespace nbl::ext::imgui
 		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
 		assert(m_descriptorPool);
 	}
-	
-	void UI::handleMouseEvents(float const mousePosX, float const mousePosY, size_t const mouseEventsCount, SMouseEvent const * mouseEvents) const
+
+	void UI::handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const
 	{
 		auto& io = ImGui::GetIO();
 
-		io.MousePos.x = mousePosX - m_window->getX();
-		io.MousePos.y = mousePosY - m_window->getY();
+		const auto position = mousePosition - nbl::hlsl::float32_t2(m_window->getX(), m_window->getY());
 
-		for (size_t i = 0; i < mouseEventsCount; ++i)
+		io.AddMousePosEvent(position.x, position.y);
+
+		for (const auto& e : events)
 		{
-			auto const & event = mouseEvents[i];
-			if(event.type == SMouseEvent::EET_CLICK)
+			switch (e.type)
 			{
-				int buttonIndex = -1;
-				if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON)
-					buttonIndex = 0;
-				else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
-					buttonIndex = 1;
-				else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
-					buttonIndex = 2;
+			case SMouseEvent::EET_CLICK:
+			{
+				ImGuiMouseButton_ button = ImGuiMouseButton_COUNT;
+				if (e.clickEvent.mouseButton == EMB_LEFT_BUTTON)
+					button = ImGuiMouseButton_Left;
+				else if (e.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
+					button = ImGuiMouseButton_Right;
+				else if (e.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
+					button = ImGuiMouseButton_Middle;
 
-				if (buttonIndex == -1)
-				{
-					assert(false);
+				if (button == ImGuiMouseButton_COUNT)
 					continue;
-				}
 
-				if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
-					io.MouseDown[buttonIndex] = true;
-				else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
-					io.MouseDown[buttonIndex] = false;
+				if (e.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
+					io.AddMouseButtonEvent(button, true);
+				else if (e.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
+					io.AddMouseButtonEvent(button, false);
+			} break;
+
+			case SMouseEvent::EET_SCROLL:
+			{
+				_NBL_STATIC_INLINE_CONSTEXPR auto scalar = 0.02f;
+				const auto wheel = nbl::hlsl::float32_t2(e.scrollEvent.horizontalScroll, e.scrollEvent.verticalScroll) * scalar;
+
+				io.AddMouseWheelEvent(wheel.x, wheel.y);
+			} break;
+
+			case SMouseEvent::EET_MOVEMENT:
+
+			default:
+				break;
 			}
+		}
+	}
+
+	struct NBL_TO_IMGUI_KEY_BIND 
+	{
+		ImGuiKey target;
+		char physicalSmall;
+		char physicalBig;
+	};
+
+	// maps Nabla keys to IMGUIs
+	_NBL_STATIC_INLINE_CONSTEXPR std::array<NBL_TO_IMGUI_KEY_BIND, EKC_COUNT> createKeyMap()
+	{
+		std::array<NBL_TO_IMGUI_KEY_BIND, EKC_COUNT> map = { { NBL_TO_IMGUI_KEY_BIND{ImGuiKey_None, '0', '0'} } };
+
+		#define NBL_REGISTER_KEY(__NBL_KEY__, __IMGUI_KEY__) \
+			map[__NBL_KEY__] = NBL_TO_IMGUI_KEY_BIND{__IMGUI_KEY__, keyCodeToChar(__NBL_KEY__, false), keyCodeToChar(__NBL_KEY__, true)};
+
+		NBL_REGISTER_KEY(EKC_BACKSPACE, ImGuiKey_Backspace);
+		NBL_REGISTER_KEY(EKC_TAB, ImGuiKey_Tab);
+		NBL_REGISTER_KEY(EKC_ENTER, ImGuiKey_Enter);
+		NBL_REGISTER_KEY(EKC_LEFT_SHIFT, ImGuiKey_LeftShift);
+		NBL_REGISTER_KEY(EKC_RIGHT_SHIFT, ImGuiKey_RightShift);
+		NBL_REGISTER_KEY(EKC_LEFT_CONTROL, ImGuiKey_LeftCtrl);
+		NBL_REGISTER_KEY(EKC_RIGHT_CONTROL, ImGuiKey_RightCtrl);
+		NBL_REGISTER_KEY(EKC_LEFT_ALT, ImGuiKey_LeftAlt);
+		NBL_REGISTER_KEY(EKC_RIGHT_ALT, ImGuiKey_RightAlt);
+		NBL_REGISTER_KEY(EKC_PAUSE, ImGuiKey_Pause);
+		NBL_REGISTER_KEY(EKC_CAPS_LOCK, ImGuiKey_CapsLock);
+		NBL_REGISTER_KEY(EKC_ESCAPE, ImGuiKey_Escape);
+		NBL_REGISTER_KEY(EKC_SPACE, ImGuiKey_Space);
+		NBL_REGISTER_KEY(EKC_PAGE_UP, ImGuiKey_PageUp);
+		NBL_REGISTER_KEY(EKC_PAGE_DOWN, ImGuiKey_PageDown);
+		NBL_REGISTER_KEY(EKC_END, ImGuiKey_End);
+		NBL_REGISTER_KEY(EKC_HOME, ImGuiKey_Home);
+		NBL_REGISTER_KEY(EKC_LEFT_ARROW, ImGuiKey_LeftArrow);
+		NBL_REGISTER_KEY(EKC_RIGHT_ARROW, ImGuiKey_RightArrow);
+		NBL_REGISTER_KEY(EKC_DOWN_ARROW, ImGuiKey_DownArrow);
+		NBL_REGISTER_KEY(EKC_UP_ARROW, ImGuiKey_UpArrow);
+		NBL_REGISTER_KEY(EKC_PRINT_SCREEN, ImGuiKey_PrintScreen);
+		NBL_REGISTER_KEY(EKC_INSERT, ImGuiKey_Insert);
+		NBL_REGISTER_KEY(EKC_DELETE, ImGuiKey_Delete);
+		NBL_REGISTER_KEY(EKC_APPS, ImGuiKey_Menu);
+		NBL_REGISTER_KEY(EKC_COMMA, ImGuiKey_Comma);
+		NBL_REGISTER_KEY(EKC_PERIOD, ImGuiKey_Period);
+		NBL_REGISTER_KEY(EKC_SEMICOLON, ImGuiKey_Semicolon);
+		NBL_REGISTER_KEY(EKC_OPEN_BRACKET, ImGuiKey_LeftBracket);
+		NBL_REGISTER_KEY(EKC_CLOSE_BRACKET, ImGuiKey_RightBracket);
+		NBL_REGISTER_KEY(EKC_BACKSLASH, ImGuiKey_Backslash);
+		NBL_REGISTER_KEY(EKC_APOSTROPHE, ImGuiKey_Apostrophe);
+		NBL_REGISTER_KEY(EKC_ADD, ImGuiKey_KeypadAdd);
+		NBL_REGISTER_KEY(EKC_SUBTRACT, ImGuiKey_KeypadSubtract);
+		NBL_REGISTER_KEY(EKC_MULTIPLY, ImGuiKey_KeypadMultiply);
+		NBL_REGISTER_KEY(EKC_DIVIDE, ImGuiKey_KeypadDivide);
+		NBL_REGISTER_KEY(EKC_0, ImGuiKey_0);
+		NBL_REGISTER_KEY(EKC_1, ImGuiKey_1);
+		NBL_REGISTER_KEY(EKC_2, ImGuiKey_2);
+		NBL_REGISTER_KEY(EKC_3, ImGuiKey_3);
+		NBL_REGISTER_KEY(EKC_4, ImGuiKey_4);
+		NBL_REGISTER_KEY(EKC_5, ImGuiKey_5);
+		NBL_REGISTER_KEY(EKC_6, ImGuiKey_6);
+		NBL_REGISTER_KEY(EKC_7, ImGuiKey_7);
+		NBL_REGISTER_KEY(EKC_8, ImGuiKey_8);
+		NBL_REGISTER_KEY(EKC_9, ImGuiKey_9);
+		NBL_REGISTER_KEY(EKC_A, ImGuiKey_A);
+		NBL_REGISTER_KEY(EKC_B, ImGuiKey_B);
+		NBL_REGISTER_KEY(EKC_C, ImGuiKey_C);
+		NBL_REGISTER_KEY(EKC_D, ImGuiKey_D);
+		NBL_REGISTER_KEY(EKC_E, ImGuiKey_E);
+		NBL_REGISTER_KEY(EKC_F, ImGuiKey_F);
+		NBL_REGISTER_KEY(EKC_G, ImGuiKey_G);
+		NBL_REGISTER_KEY(EKC_H, ImGuiKey_H);
+		NBL_REGISTER_KEY(EKC_I, ImGuiKey_I);
+		NBL_REGISTER_KEY(EKC_J, ImGuiKey_J);
+		NBL_REGISTER_KEY(EKC_K, ImGuiKey_K);
+		NBL_REGISTER_KEY(EKC_L, ImGuiKey_L);
+		NBL_REGISTER_KEY(EKC_M, ImGuiKey_M);
+		NBL_REGISTER_KEY(EKC_N, ImGuiKey_N);
+		NBL_REGISTER_KEY(EKC_O, ImGuiKey_O);
+		NBL_REGISTER_KEY(EKC_P, ImGuiKey_P);
+		NBL_REGISTER_KEY(EKC_Q, ImGuiKey_Q);
+		NBL_REGISTER_KEY(EKC_R, ImGuiKey_R);
+		NBL_REGISTER_KEY(EKC_S, ImGuiKey_S);
+		NBL_REGISTER_KEY(EKC_T, ImGuiKey_T);
+		NBL_REGISTER_KEY(EKC_U, ImGuiKey_U);
+		NBL_REGISTER_KEY(EKC_V, ImGuiKey_V);
+		NBL_REGISTER_KEY(EKC_W, ImGuiKey_W);
+		NBL_REGISTER_KEY(EKC_X, ImGuiKey_X);
+		NBL_REGISTER_KEY(EKC_Y, ImGuiKey_Y);
+		NBL_REGISTER_KEY(EKC_Z, ImGuiKey_Z);
+		NBL_REGISTER_KEY(EKC_NUMPAD_0, ImGuiKey_Keypad0);
+		NBL_REGISTER_KEY(EKC_NUMPAD_1, ImGuiKey_Keypad1);
+		NBL_REGISTER_KEY(EKC_NUMPAD_2, ImGuiKey_Keypad2);
+		NBL_REGISTER_KEY(EKC_NUMPAD_3, ImGuiKey_Keypad3);
+		NBL_REGISTER_KEY(EKC_NUMPAD_4, ImGuiKey_Keypad4);
+		NBL_REGISTER_KEY(EKC_NUMPAD_5, ImGuiKey_Keypad5);
+		NBL_REGISTER_KEY(EKC_NUMPAD_6, ImGuiKey_Keypad6);
+		NBL_REGISTER_KEY(EKC_NUMPAD_7, ImGuiKey_Keypad7);
+		NBL_REGISTER_KEY(EKC_NUMPAD_8, ImGuiKey_Keypad8);
+		NBL_REGISTER_KEY(EKC_NUMPAD_9, ImGuiKey_Keypad9);
+		NBL_REGISTER_KEY(EKC_F1, ImGuiKey_F1);
+		NBL_REGISTER_KEY(EKC_F2, ImGuiKey_F2);
+		NBL_REGISTER_KEY(EKC_F3, ImGuiKey_F3);
+		NBL_REGISTER_KEY(EKC_F4, ImGuiKey_F4);
+		NBL_REGISTER_KEY(EKC_F5, ImGuiKey_F5);
+		NBL_REGISTER_KEY(EKC_F6, ImGuiKey_F6);
+		NBL_REGISTER_KEY(EKC_F7, ImGuiKey_F7);
+		NBL_REGISTER_KEY(EKC_F8, ImGuiKey_F8);
+		NBL_REGISTER_KEY(EKC_F9, ImGuiKey_F9);
+		NBL_REGISTER_KEY(EKC_F10, ImGuiKey_F10);
+		NBL_REGISTER_KEY(EKC_F11, ImGuiKey_F11);
+		NBL_REGISTER_KEY(EKC_F12, ImGuiKey_F12);
+		NBL_REGISTER_KEY(EKC_F13, ImGuiKey_F13);
+		NBL_REGISTER_KEY(EKC_F14, ImGuiKey_F14);
+		NBL_REGISTER_KEY(EKC_F15, ImGuiKey_F15);
+		NBL_REGISTER_KEY(EKC_F16, ImGuiKey_F16);
+		NBL_REGISTER_KEY(EKC_F17, ImGuiKey_F17);
+		NBL_REGISTER_KEY(EKC_F18, ImGuiKey_F18);
+		NBL_REGISTER_KEY(EKC_F19, ImGuiKey_F19);
+		NBL_REGISTER_KEY(EKC_F20, ImGuiKey_F20);
+		NBL_REGISTER_KEY(EKC_F21, ImGuiKey_F21);
+		NBL_REGISTER_KEY(EKC_F22, ImGuiKey_F22);
+		NBL_REGISTER_KEY(EKC_F23, ImGuiKey_F23);
+		NBL_REGISTER_KEY(EKC_F24, ImGuiKey_F24);
+		NBL_REGISTER_KEY(EKC_NUM_LOCK, ImGuiKey_NumLock);
+		NBL_REGISTER_KEY(EKC_SCROLL_LOCK, ImGuiKey_ScrollLock);
+		NBL_REGISTER_KEY(EKC_VOLUME_MUTE, ImGuiKey_None);
+		NBL_REGISTER_KEY(EKC_VOLUME_UP, ImGuiKey_None);
+		NBL_REGISTER_KEY(EKC_VOLUME_DOWN, ImGuiKey_None);
+
+		return map;
+	}
+
+	void UI::handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const
+	{
+		auto& io = ImGui::GetIO();
+
+		_NBL_STATIC_INLINE_CONSTEXPR auto keyMap = createKeyMap();
+
+		const bool useBigLetters = [&]()  // TODO: we can later improve it to check for CAPS, etc
+		{
+			for (const auto& e : events)
+				if (e.keyCode == EKC_LEFT_SHIFT && e.action == SKeyboardEvent::ECA_PRESSED)
+					return true;
+
+			return false;
+		}();
+
+		for (const auto& e : events)
+		{
+			const auto& bind = keyMap[e.keyCode];
+			const auto& iCharacter = useBigLetters ? bind.physicalBig : bind.physicalSmall;
+
+			if(bind.target == ImGuiKey_None)
+				logger->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), system::ILogger::ELL_ERROR);
+			else
+				if (e.action == SKeyboardEvent::ECA_PRESSED)
+				{
+					io.AddKeyEvent(bind.target, true);
+					io.AddInputCharacter(iCharacter);
+				}
+				else if (e.action == SKeyboardEvent::ECA_RELEASED)
+					io.AddKeyEvent(bind.target, false);
 		}
 	}
 
@@ -522,7 +669,6 @@ namespace nbl::ext::imgui
 			createDescriptorSetLayout();
 			createPipeline(renderpass, pipelineCache);
 			createFontAtlas2DArrayTexture(transistentCMD.get(), tQueue);
-			prepareKeyMapForDesktop();
 			adjustGlobalFontScale();
 			updateDescriptorSets();
 		}
@@ -531,6 +677,7 @@ namespace nbl::ext::imgui
 		auto & io = ImGui::GetIO();
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+		io.BackendUsingLegacyKeyArrays = 0; // 0: using AddKeyEvent() [new way of handling events in imgui]
 
 		m_mdiBuffers.resize(maxFramesInFlight);
 	}
@@ -936,13 +1083,15 @@ namespace nbl::ext::imgui
 		return true;
 	}
 
-	void UI::update(float const deltaTimeInSec, float const mousePosX, float const mousePosY, size_t const mouseEventsCount, ui::SMouseEvent const * mouseEvents) // TODO: Keyboard events
+	void UI::update(float const deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents)
 	{
 		auto & io = ImGui::GetIO();
+
 		io.DeltaTime = deltaTimeInSec;
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 
-		handleMouseEvents(mousePosX, mousePosY, mouseEventsCount, mouseEvents);
+		handleMouseEvents(mousePosition, mouseEvents);
+		handleKeyEvents(keyboardEvents);
 
 		ImGui::NewFrame();
 
@@ -960,11 +1109,11 @@ namespace nbl::ext::imgui
 		return m_subscribers.back().id;
 	}
 
-	bool UI::unregisterListener(int const listenerId)
+	bool UI::unregisterListener(const uint32_t id)
 	{
 		for (int i = m_subscribers.size() - 1; i >= 0; --i)
 		{
-			if (m_subscribers[i].id == listenerId)
+			if (m_subscribers[i].id == id)
 			{
 				m_subscribers.erase(m_subscribers.begin() + i);
 				return true;
