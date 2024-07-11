@@ -551,13 +551,13 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers && binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers and binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
             const uint32_t samplerOffset = vk_samplers.size();
             for (uint32_t i=0u; i<binding.count; ++i)
-                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.samplers[i].get())->getInternalObject());
+                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.immutableSamplers[i].get())->getInternalObject());
             vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
         }
     }
@@ -681,6 +681,14 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
             outWrite->descriptorCount = write.count;
             switch (asset::IDescriptor::GetTypeCategory(type))
             {
+                case asset::IDescriptor::EC_SAMPLER:
+                {
+                    outWrite->pImageInfo = outImageInfo;
+                    for (auto j = 0u; j < write.count; j++, outImageInfo++)
+                    {
+                        outImageInfo->sampler = static_cast<const CVulkanSampler*>(infos[j].desc.get())->getInternalObject();
+                    }
+                } break;
                 case asset::IDescriptor::EC_BUFFER:
                 {
                     outWrite->pBufferInfo = outBufferInfo;
@@ -697,7 +705,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
                     outWrite->pImageInfo = outImageInfo;
                     for (auto j=0u; j<write.count; j++,outImageInfo++)
                     {
-                        const auto& imageInfo = infos[j].info.image;
+                        const auto& imageInfo = infos[j].info.combinedImageSampler;
                         outImageInfo->sampler = imageInfo.sampler ? static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject():VK_NULL_HANDLE;
                         outImageInfo->imageView = static_cast<const CVulkanImageView*>(infos[j].desc.get())->getInternalObject();
                         outImageInfo->imageLayout = getVkImageLayoutFromImageLayout(imageInfo.imageLayout);
@@ -766,7 +774,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
 		for (auto i=0; i<drops.size(); i++)
 		{
 			const auto& write = drops[i];
-			auto descriptorType = write.dstSet->getBindingType(write.binding);
+			auto descriptorType = write.dstSet->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(write.binding));
 
 			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
 			outWrite->dstBinding = write.binding;
@@ -778,6 +786,7 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
 			case asset::IDescriptor::EC_BUFFER:
 				outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
 				break;
+            case asset::IDescriptor::EC_SAMPLER:
 			case asset::IDescriptor::EC_IMAGE:
 				outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
 				break;

@@ -535,8 +535,9 @@ public:
     bool updateDescriptorSet(ICPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         // Update _pgtBinding.
+        using redirect_t = ICPUDescriptorSetLayout::CBindingRedirect;
         {
-            auto pgtInfos = _dstSet->getDescriptorInfos(_pgtBinding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+            auto pgtInfos = _dstSet->getDescriptorInfos(redirect_t::binding_number_t(_pgtBinding), IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
             if (pgtInfos.empty())
                 return false; // TODO: Log
 
@@ -545,13 +546,13 @@ public:
 
             auto& info = pgtInfos.begin()[0];
             info.info.image.imageLayout = IImage::LAYOUT::UNDEFINED;
-            info.info.image.sampler = nullptr;
+            info.info.combinedImageSampler.sampler = nullptr;
             info.desc = core::smart_refctd_ptr<ICPUImageView>(getPageTableView());
         }
 
         auto updateSamplersBinding = [&](const uint32_t binding, const auto& views) -> bool
         {
-            auto infos = _dstSet->getDescriptorInfos(binding, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+                auto infos = _dstSet->getDescriptorInfos(redirect_t::binding_number_t(binding), IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 
             if (infos.size() < views.size())
                 return false; // TODO: Log
@@ -561,7 +562,7 @@ public:
                 auto& info = infos.begin()[i];
 
                 info.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
-                info.info.image.sampler = nullptr;
+                info.info.combinedImageSampler.sampler = nullptr;
                 info.desc = views.begin()[i].view;
             }
 
