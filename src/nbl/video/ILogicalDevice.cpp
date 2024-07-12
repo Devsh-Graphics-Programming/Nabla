@@ -380,6 +380,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     // TODO: MORE VALIDATION, but after descriptor indexing.
 
     bool variableLengthArrayDescriptorFound = false;
+    bool updateableAfterBindBindingFound = false;
     uint32_t variableLengthArrayDescriptorBindingNr = 0;
     uint32_t highestBindingNr = 0u;
     uint32_t maxSamplersCount = 0u;
@@ -392,14 +393,18 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
             dynamicSSBOCount++;
         else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
-        else if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers)
+        // If binding comes with samplers, we're specifying that this binding corresponds to immutable samplers
+        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
         {
-            auto* samplers = binding.samplers;
+            auto* samplers = binding.immutableSamplers;
             for (uint32_t i=0u; i<binding.count; ++i)
-            if (!samplers[i]->wasCreatedBy(this))
+            if ((not samplers[i]) or (not samplers[i]->wasCreatedBy(this)))
                 return nullptr;
             maxSamplersCount += binding.count;
         }
+
+        if (bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
+            updateableAfterBindBindingFound = true;
 
         // validate if only last binding is run-time sized and there is only one run-time sized binding
         bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
@@ -415,6 +420,10 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
     }
 
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutCreateInfo-descriptorType-03001
+    if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0)
+        return nullptr;
+
     // only last binding can be run-time sized
     if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)
         return nullptr;
@@ -429,22 +438,27 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
+    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
     SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
-    for (const auto& write : descriptorWrites)
+    core::vector<IGPUDescriptorSet::SWriteValidationResult> writeValidationResults(descriptorWrites.size());
+    for (auto i = 0u; i < descriptorWrites.size(); i++)
     {
+        const auto& write = descriptorWrites[i];
         auto* ds = write.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
         const auto writeCount = write.count;
-        switch (asset::IDescriptor::GetTypeCategory(*outCategory=ds->validateWrite(write)))
+        writeValidationResults[i] = ds->validateWrite(write);
+        switch (asset::IDescriptor::GetTypeCategory(*outCategory = writeValidationResults[i].type))
         {
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
                 break;
+            case asset::IDescriptor::EC_SAMPLER:
             case asset::IDescriptor::EC_IMAGE:
                 params.imageCount += writeCount;
                 break;
@@ -461,8 +475,10 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         outCategory++;
     }
 
-    for (const auto& copy : descriptorCopies)
+    core::vector<IGPUDescriptorSet::SCopyValidationResult> copyValidationResults(descriptorCopies.size());
+    for (auto i = 0; i < descriptorCopies.size(); i++)
     {
+        const auto& copy = descriptorCopies[i];
         const auto* srcDS = copy.srcSet;
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
         if (!dstDS || !dstDS->wasCreatedBy(this))
@@ -470,18 +486,22 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
             return false;
 
-        if (!dstDS->validateCopy(copy))
+        copyValidationResults[i] = dstDS->validateCopy(copy);
+        if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
             return false;
     }
 
     for (auto i=0; i<descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
-        write.dstSet->processWrite(write,params.pWriteTypes[i]);
+        write.dstSet->processWrite(write, writeValidationResults[i]);
     }
-    for (const auto& copy : descriptorCopies)
-        copy.dstSet->processCopy(copy);
-
+    for (auto i = 0; i < descriptorCopies.size(); i++)
+    {
+        const auto& copy = descriptorCopies[i];
+        copy.dstSet->processCopy(copy, copyValidationResults[i]);
+    }
+    
     updateDescriptorSets_impl(params);
 
     return true;
@@ -496,13 +516,14 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         if (!ds || !ds->wasCreatedBy(this))
             return false;
 
-        auto bindingType = ds->getBindingType(drop.binding);
+        auto bindingType = ds->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(drop.binding));
         auto writeCount = drop.count;
         switch (asset::IDescriptor::GetTypeCategory(bindingType))
         {
             case asset::IDescriptor::EC_BUFFER:
                 params.bufferCount += writeCount;
                 break;
+            case asset::IDescriptor::EC_SAMPLER:
             case asset::IDescriptor::EC_IMAGE:
                 params.imageCount += writeCount;
                 break;
