@@ -9,6 +9,7 @@
 #include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
 
 #include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IDriverMemoryBacked.h"
 
 namespace nbl::video
 {
