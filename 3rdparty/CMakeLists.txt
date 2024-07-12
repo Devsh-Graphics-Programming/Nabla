@@ -287,6 +287,7 @@ if(NBL_BUILD_IMGUI)
 		"${NBL_IMGUI_ROOT}/imgui_tables.cpp"
 		"${NBL_IMGUI_ROOT}/imgui_widgets.cpp"
 		"${NBL_IMGUI_ROOT}/imgui.cpp"
+		"${NBL_IMGUI_ROOT}/misc/freetype/imgui_freetype.cpp"
 		"${NBL_IMGUI_ROOT}/imgui.h"
 		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp"
 		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.h"
@@ -294,11 +295,15 @@ if(NBL_BUILD_IMGUI)
 		"${NBL_IMGUI_ROOT}/imstb_textedit.h"
 		"${NBL_IMGUI_ROOT}/imstb_truetype.h"
 	)
-	target_include_directories(imgui
-		PUBLIC "${NBL_IMGUI_ROOT}"
-		PUBLIC "${NBL_IMGUI_ROOT}/misc/cpp"
-		PUBLIC "${NBL_IMGUI_ROOT}/backends"
-		PUBLIC "${NBL_IMGUI_TEST_SUITE_ROOT}"
+	
+	target_link_libraries(imgui PUBLIC freetype)
+	
+	target_include_directories(imgui PUBLIC 
+		"${NBL_IMGUI_ROOT}"
+		"${NBL_IMGUI_ROOT}/misc/cpp"
+		"${NBL_IMGUI_ROOT}/backends"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:freetype,INCLUDE_DIRECTORIES>
 	)
 
 	add_library(implot STATIC
@@ -362,6 +367,7 @@ string(APPEND NBL_IMPL_IMCONFIG_CONTENT
 [=[
 #include "imgui_test_suite_imconfig.h" // use test engine's config
 
+#define IMGUI_ENABLE_FREETYPE
 #define IMGUI_DISABLE_OBSOLETE_KEYIO
 #undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
 ]=]
