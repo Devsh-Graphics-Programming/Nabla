@@ -21,7 +21,7 @@ class UI final : public core::IReferenceCounted
 	private:
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout();
 		void createPipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
-		void createFontAtlas2DArrayTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+		void createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
 		void updateDescriptorSets();
 		void createSystem();
 		void createFontAtlasSampler();
@@ -37,7 +37,7 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IDescriptorPool> m_descriptorPool;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_gpuDescriptorSet;
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
-		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlas2DArrayTexture;
+		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
 		core::smart_refctd_ptr<ui::IWindow> m_window;
 		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_mdiBuffers;
 		const uint32_t maxFramesInFlight;

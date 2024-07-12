@@ -19,24 +19,28 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
 
+// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
+_NBL_STATIC_INLINE_CONSTEXPR ImTextureID NBL_FONT_ATLAS_TEX_ID = 0u;
+
 namespace nbl::ext::imgui
 {
 	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::createDescriptorSetLayout()
 	{
+		using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+
 		const IGPUDescriptorSetLayout::SBinding bindings[] = 
 		{ 
 			{
 				.binding = 0u,
 				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
-				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+				.createFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT,
 				.stageFlags = IShader::ESS_FRAGMENT,
-				.count = 1u,
-				.immutableSamplers = &m_fontSampler
+				.count = NBL_MAX_IMGUI_TEXTURES
 			},
 			{
 				.binding = 1u,
 				.type = IDescriptor::E_TYPE::ET_SAMPLER,
-				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+				.createFlags = binding_flags_t::ECF_NONE,
 				.stageFlags = IShader::ESS_FRAGMENT,
 				.count = 1u,
 				.immutableSamplers = &m_fontSampler
@@ -164,7 +168,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::createFontAtlas2DArrayTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
+	void UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -184,6 +188,8 @@ namespace nbl::ext::imgui
 		uint8_t* pixels = nullptr;
 		int32_t width, height;
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+		io.Fonts->SetTexID(NBL_FONT_ATLAS_TEX_ID);
+
 		assert(pixels != nullptr);
 		assert(width > 0);
 		assert(height > 0);
@@ -320,11 +326,11 @@ namespace nbl::ext::imgui
 		{
 			IGPUImageView::SCreationParams params;
 			params.format = image->getCreationParameters().format;
-			params.viewType = IImageView<IGPUImage>::ET_2D_ARRAY;
+			params.viewType = IImageView<IGPUImage>::ET_2D;
 			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
-			m_fontAtlas2DArrayTexture = m_device->createImageView(std::move(params));
+			m_fontAtlasTexture = m_device->createImageView(std::move(params));
 		}
 	}
 
@@ -336,19 +342,24 @@ namespace nbl::ext::imgui
 
 	void UI::updateDescriptorSets()
 	{
-		// texture atlas, note we don't create info & write for the font sampler because ours is immutable and baked into DS layout
-		IGPUDescriptorSet::SDescriptorInfo iInfo = {};
-		iInfo.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
-		iInfo.desc = m_fontAtlas2DArrayTexture;
-	
+		// texture atlas + user defined textures, note we don't create info & write pair for the font sampler because ours is immutable and baked into DS layout
+		std::array<IGPUDescriptorSet::SDescriptorInfo, NBL_MAX_IMGUI_TEXTURES> iInfo;
+		for (auto& it : iInfo)
+		{
+			it.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
+			it.desc = m_fontAtlasTexture;
+		}
+
+		ImGuiIO& io = ImGui::GetIO();
+
 		const IGPUDescriptorSet::SWriteDescriptorSet writes[] = 
 		{ 
 			{
 				.dstSet = m_gpuDescriptorSet.get(),
 				.binding = 0u,
-				.arrayElement = 0u,
-				.count = 1u,
-				.info = &iInfo
+				.arrayElement = io.Fonts->TexID, // OK ITS TEMPORARY (filling all with font atlas index, I need to fill all with dummy texture to not throw validation errors which kills my app)
+				.count = 1,//NBL_MAX_IMGUI_TEXTURES,
+				.info = iInfo.data()
 			} 
 		};
 
@@ -374,9 +385,9 @@ namespace nbl::ext::imgui
 	{
 		IDescriptorPool::SCreateInfo createInfo = {};
 		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = 1u;
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = 1u;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = NBL_MAX_IMGUI_TEXTURES;
 		createInfo.maxSets = 1u;
-		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
+		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT;
 
 		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
 		assert(m_descriptorPool);
@@ -668,7 +679,7 @@ namespace nbl::ext::imgui
 			createDescriptorPool();
 			createDescriptorSetLayout();
 			createPipeline(renderpass, pipelineCache);
-			createFontAtlas2DArrayTexture(transistentCMD.get(), tQueue);
+			createFontAtlasTexture(transistentCMD.get(), tQueue);
 			adjustGlobalFontScale();
 			updateDescriptorSets();
 		}
@@ -701,30 +712,6 @@ namespace nbl::ext::imgui
 			assert(false);
 		}
 	}
-
-	//-------------------------------------------------------------------------------------------------
-	// TODO: Handle mouse cursor for nabla
-	//static void UpdateMouseCursor()
-	//{
-		//auto & io = ImGui::GetIO();
-
-		//if (io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange)
-		//{
-		//    return;
-		//}
-		//ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
-		//if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None)
-		//{
-		//    // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
-		//    MSDL::SDL_ShowCursor(MSDL::SDL_FALSE);
-		//}
-		//else
-		//{
-		//    // Show OS mouse cursor
-		//    MSDL::SDL_SetCursor(mouseCursors[imgui_cursor] ? mouseCursors[imgui_cursor] : mouseCursors[ImGuiMouseCursor_Arrow]);
-		//    MSDL::SDL_ShowCursor(MSDL::SDL_TRUE);
-		//}
-	//}
 
 	bool UI::render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
 	{
@@ -912,7 +899,7 @@ namespace nbl::ext::imgui
 							element.aabbMin.y = packSnorm16(vMin.y);
 							element.aabbMax.x = packSnorm16(vMax.x);
 							element.aabbMax.y = packSnorm16(vMax.y);
-							// element.texId = 0; // use defaults from constructor
+							element.texId = pcmd->TextureId;
 
 							++drawID;
 						}
