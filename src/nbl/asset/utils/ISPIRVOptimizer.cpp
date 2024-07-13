@@ -1,7 +1,7 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "spirv-tools/optimizer.hpp" 
-#include "spirv-tools/libspirv.hpp"
+// quick fix to look for our SPIRV headers not from vulkan sdk
+#include "SPIRV-Tools/include/spirv-tools/optimizer.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"
@@ -18,10 +18,6 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     auto CreateScalarReplacementPass = [] {
         return spvtools::CreateScalarReplacementPass();
     };
-
-    auto CreateReduceLoadSizePass = [] {
-        return spvtools::CreateReduceLoadSizePass();
-        };
 
     using create_pass_f_t = spvtools::Optimizer::PassToken(*)();
     create_pass_f_t create_pass_f[EOP_COUNT]{
@@ -41,7 +37,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateRedundancyEliminationPass,
         &spvtools::CreateLoopInvariantCodeMotionPass,
         &spvtools::CreateCCPPass,
-        CreateReduceLoadSizePass,
+        spvtools::CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
         &spvtools::CreateIfConversionPass
     };
