@@ -22,7 +22,7 @@ namespace nbl::asset
 
     @see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public IAsset, public IPreHashed
+class ICPUBuffer : public asset::IBuffer, public IPreHashed
 {
     protected:
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
@@ -52,6 +52,15 @@ class ICPUBuffer : public asset::IBuffer, public IAsset, public IPreHashed
 
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
+
+        inline core::blake3_hash_t computeContentHash() const override
+        {
+			::blake3_hasher hasher;
+			::blake3_hasher_init(&hasher);
+            if (data)
+                ::blake3_hasher_update(&hasher,data,m_creationParams.size);
+			return core::blake3_hasher_finalize(hasher);
+        }
 
         //! Returns pointer to data.
         const void* getPointer() const {return data;}
@@ -90,7 +99,6 @@ class ICPUBuffer : public asset::IBuffer, public IAsset, public IPreHashed
             m_creationParams.size = 0ull;
         }
 
-        core::blake3_hash_t contentHash;
         void* data;
 };
 

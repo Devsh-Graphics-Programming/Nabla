@@ -11,11 +11,20 @@ namespace nbl::asset
 {
 //! Sometimes an asset is too complex or big to be hashed, so we need a hash to be set explicitly.
 //! Meant to be inherited from in conjunction with `IAsset`
-class IPreHashed : virtual public core::IReferenceCounted
+class IPreHashed : public IAsset
 {
 	public:
-		const core::blake3_hash_t& getContentHash() const {return m_contentHash;}
-		void setContentHash(const core::blake3_hash_t& hash) {m_contentHash = hash;}
+		//
+		inline const core::blake3_hash_t& getContentHash() const {return m_contentHash;}
+		//
+		inline void setContentHash(const core::blake3_hash_t& hash)
+		{
+			if (!isMutable())
+				return;
+			m_contentHash = hash;
+		}
+		//
+		virtual core::blake3_hash_t computeContentHash() const = 0;
 
 	protected:
 		inline IPreHashed() = default;
