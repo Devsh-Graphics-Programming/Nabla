@@ -115,4 +115,28 @@ struct SBufferRange
 
 }
 
+namespace std
+{
+template<typename BufferType>
+struct hash<nbl::asset::SBufferBinding<BufferType>>
+{
+	inline size_t operator()(const nbl::asset::SBufferBinding<BufferType>& binding) const
+	{
+		size_t retval = std::hash<const BufferType*>()(binding.buffer.get());
+		nbl::core::hash_combine(retval,binding.offset);
+		return retval;
+	}
+};
+template<typename BufferType>
+struct hash<nbl::asset::SBufferRange<BufferType>>
+{
+	inline size_t operator()(const nbl::asset::SBufferRange<BufferType>& binding) const
+	{
+		size_t retval = std::hash<const BufferType*>()(binding.buffer.get());
+		nbl::core::hash_combine(retval,binding.offset);
+		nbl::core::hash_combine(retval,binding.size);
+		return retval;
+	}
+};
+}
 #endif

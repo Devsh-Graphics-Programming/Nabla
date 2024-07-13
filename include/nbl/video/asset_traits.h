@@ -35,6 +35,8 @@ struct asset_traits<asset::ICPUShader>
 	using asset_t = asset::ICPUShader;
 	// the video type
 	using video_t = IGPUShader;
+	// lookup type
+	using lookup_t = const video_t*;
 };
 
 template<>
@@ -44,6 +46,8 @@ struct asset_traits<asset::ICPUDescriptorSetLayout>
 	using asset_t = asset::ICPUDescriptorSetLayout;
 	// the video type
 	using video_t = IGPUDescriptorSetLayout;
+	// lookup type
+	using lookup_t = const video_t*;
 };
 
 template<>
@@ -53,6 +57,8 @@ struct asset_traits<asset::ICPUPipelineLayout>
 	using asset_t = asset::ICPUPipelineLayout;
 	// the video type
 	using video_t = IGPUPipelineLayout;
+	// lookup type
+	using lookup_t = const video_t*;
 };
 /*
 /*
@@ -68,6 +74,8 @@ struct asset_traits<asset::ICPUBuffer>
 {
 	using asset_t = asset::ICPUBuffer;
 	using video_t = asset::SBufferRange<IGPUBuffer>;
+	// lookup type
+	using lookup_t = video_t;
 };
 
 template<>
@@ -77,6 +85,8 @@ struct asset_traits<asset::ICPUBufferView>
 	using asset_t = asset::ICPUBufferView;
 	// the video type
 	using video_t = IGPUBufferView;
+	// lookup type
+	using lookup_t = const video_t*;
 };
 
 
@@ -95,6 +105,8 @@ struct asset_traits<asset::ICPUSampler>
 	using asset_t = asset::ICPUSampler;
 	// the video type
 	using video_t = IGPUSampler;
+	// lookup type
+	using lookup_t = const video_t*;
 };
 
 /*
