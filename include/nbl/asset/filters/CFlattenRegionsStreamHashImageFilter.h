@@ -99,12 +99,9 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			} proxy;
 
 			/*
-				first we need to ensure that
-
-				- input image is flatten so there are no overlapping regions
-				- texels which are not covered by regions are filled with 0
-
-				NOTE: I'm aware of heavy image copy (TODO: I will try to do it without the copy) but flatten is handy to fill texels which are not covered by regions
+				first we need to ensure that texels which are not covered by regions 
+				are filled with 0 value, flatten will also respecify regions to make
+				sure we don't have overlaping regions - we will override them anyway
 			*/
 
 			{
@@ -114,12 +111,12 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				flatten.preFill = true;
 				memset(flatten.fillValue.pointer, 0, sizeof(flatten.fillValue.pointer));
 
-				assert(CFlattenRegionsImageFilter::execute(&proxy.flatten)); // this should never fail, at this point we already are validated
+				assert(CFlattenRegionsImageFilter::execute(policy, &proxy.flatten)); // this should never fail, at this point we are already validated
 			}
 
 			/*
 				now when the output is prepared we ignore respecified regions and go
-				with single region covering all texels for a given mip level & layer 
+				with single region covering all texels for a given mip level & layers 
 			*/
 
 			const auto& parameters = proxy.flatten.outImage->getCreationParameters();
@@ -172,10 +169,10 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				};
 
 				IImage::SSubresourceLayers subresource = { .aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u), .mipLevel = miplevel, .baseArrayLayer = 0u, .layerCount = parameters.arrayLayers }; // stick to given mip level and take all layers
-				CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels, take 0th mip level size to not clip anything at all
+				CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
 				CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
 
-				CBasicImageFilterCommon::executePerRegion(policy, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for layers with specified execution policy
+				CBasicImageFilterCommon::executePerRegion(policy, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for layers with specified execution policy, yes you can use parallel policy here if you want at it will work
 
 				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 				{
@@ -186,11 +183,14 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				_NBL_DELETE_ARRAY(hashers, parameters.arrayLayers);
 			};
 
-			for (auto miplevel = 0u; miplevel < parameters.mipLevels; ++miplevel)
-				executePerMipLevel(miplevel);
+			std::vector<uint32_t> levels(parameters.mipLevels);
+			std::iota(levels.begin(), levels.end(), 0);
+
+			std::for_each(policy, levels.begin(), levels.end(), executePerMipLevel); // fire per block of layers for given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
 
 			/*
-				scratch's heap is filled with all hashes, time to use them and compute final hash
+				scratch's heap is filled with all hashes, 
+				time to use them and compute final hash
 			*/
 
 			blake3_hasher hasher;
