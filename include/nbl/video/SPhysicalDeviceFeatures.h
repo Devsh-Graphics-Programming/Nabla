@@ -71,7 +71,7 @@ struct SPhysicalDeviceFeatures
     bool largePoints = false;
 
     // Some AMD don't support
-    bool alphaToOne = true;
+    bool alphaToOne = false;
 
     // [REQUIRE] good device support
     //bool multiViewport = true;
