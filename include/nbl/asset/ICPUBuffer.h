@@ -53,6 +53,9 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
+        inline size_t getDependantCount() const override {return 0;}
+
+        //
         inline core::blake3_hash_t computeContentHash() const override
         {
 			::blake3_hasher hasher;
@@ -61,6 +64,8 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
                 ::blake3_hasher_update(&hasher,data,m_creationParams.size);
 			return core::blake3_hasher_finalize(hasher);
         }
+
+        inline bool missingContent() const {return !data;}
 
         //! Returns pointer to data.
         const void* getPointer() const {return data;}
@@ -88,6 +93,16 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
         }
 
     protected:
+        inline IAsset* getDependant_impl(const size_t ix) override
+        {
+            return nullptr;
+        }
+
+        inline void discardContent_impl() override
+        {
+            return freeData();
+        }
+
         // REMEMBER TO CALL FROM DTOR!
         // TODO: idea, make the `ICPUBuffer` an ADT, and use the default allocator CCPUBuffer instead for consistency
         // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)

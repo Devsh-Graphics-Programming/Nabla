@@ -44,6 +44,10 @@ class ICPUImage final : public IImage, public IPreHashed
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
+		// Buffer is not a dependant asset, esp that API will change to individual regions being backed by Buffer Bindings
+		inline size_t getDependantCount() const override {return 0;}
+
+		//!
 		inline core::blake3_hash_t computeContentHash() const override
 		{
 			// TODO: Arek turn this into an image filter maybe?
@@ -55,8 +59,7 @@ class ICPUImage final : public IImage, public IPreHashed
 				const auto mipExtentInBlocks = blockInfo.convertTexelsToBlocks(getMipSize(m));
 				::blake3_hasher levelHasher;
 				::blake3_hasher_init(&levelHasher);
-				const auto regions = getRegions(m);
-				if (!buffer || regions.empty())
+				if (missingContent())
 				{
 					const auto zeroLength = blockInfo.getBlockByteSize()*mipExtentInBlocks[0];
 					auto zeroArray = std::make_unique<uint8_t[]>(zeroLength);
@@ -72,10 +75,17 @@ class ICPUImage final : public IImage, public IPreHashed
 					}
 				}
 				else
+				{
 					_NBL_TODO(); // TODO: Arek
+				}
 				core::blake3_hasher_update(hasher,core::blake3_hasher_finalize(levelHasher));
 			}
 			return core::blake3_hasher_finalize(hasher);
+		}
+
+		inline bool missingContent() const override
+		{
+			return !regions || regions->empty();
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
@@ -223,6 +233,14 @@ class ICPUImage final : public IImage, public IPreHashed
     protected:
 		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
+		
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
+		inline void discardContent_impl() override
+		{
+			buffer = nullptr;
+			regions = nullptr;
+		}
 		
 		// TODO: maybe we shouldn't make a single buffer back all regions?
 		core::smart_refctd_ptr<asset::ICPUBuffer>				buffer;
