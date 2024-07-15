@@ -199,8 +199,8 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				for (auto miplevel = 0u; miplevel < parameters.mipLevels; ++miplevel)
 					for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 					{
-						auto* hash = reinterpret_cast<CState::hash_t*>(state->scratchMemory.heap->getPointer()) + miplevel * parameters.mipLevels + layer;
-						blake3_hasher_update(&hasher, hash, sizeof(CState::hash_t));
+						auto* hash = reinterpret_cast<CState::hash_t*>(state->scratchMemory.heap->getPointer()) + (miplevel * parameters.arrayLayers) + layer;
+						blake3_hasher_update(&hasher, hash->data(), sizeof(CState::hash_t));
 					}
 
 				blake3_hasher_finalize(&hasher, reinterpret_cast<uint8_t*>(state->outHash.data()), sizeof(CState::hash_t)); // finalize output hash for whole image given all hashes
