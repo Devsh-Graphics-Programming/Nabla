@@ -172,7 +172,7 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
 				CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
 
-				CBasicImageFilterCommon::executePerRegion(policy, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for layers with specified execution policy, yes you can use parallel policy here if you want at it will work
+				CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for layers. TODO: filters API should be updated to allow for layers to be processed in parallel BUT not texels within block execution!
 
 				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 				{
