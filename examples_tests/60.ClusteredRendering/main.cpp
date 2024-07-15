@@ -512,30 +512,10 @@ public:
 
 		CommonAPI::InitOutput initOutput;
 		initOutput.window = core::smart_refctd_ptr(window);
-
-		CommonAPI::SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> requiredInstanceFeatures = {};
-		CommonAPI::SFeatureRequest<nbl::video::IAPIConnection::E_FEATURE> optionalInstanceFeatures = {};
-		CommonAPI::SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> requiredDeviceFeatures = {};
-		CommonAPI::SFeatureRequest<nbl::video::ILogicalDevice::E_FEATURE> optionalDeviceFeatures = {};
-
-#ifndef _NBL_PLATFORM_ANDROID_
-		nbl::video::IAPIConnection::E_FEATURE requiredFeatures_Instance[] = { nbl::video::IAPIConnection::EF_SURFACE };
-		requiredInstanceFeatures.features = requiredFeatures_Instance;
-		requiredInstanceFeatures.count = 1u;
-
-		nbl::video::ILogicalDevice::E_FEATURE requiredFeatures_Device[] = { nbl::video::ILogicalDevice::EF_SWAPCHAIN, nbl::video::ILogicalDevice::EF_DESCRIPTOR_INDEXING };
-		requiredDeviceFeatures.features = requiredFeatures_Device;
-		requiredDeviceFeatures.count = 2u;
-#endif
-
-		CommonAPI::Init(
+		CommonAPI::InitWithDefaultExt(
 			initOutput,
 			video::EAT_VULKAN,
 			"ClusteredLighting",
-			requiredInstanceFeatures,
-			optionalInstanceFeatures,
-			requiredDeviceFeatures,
-			optionalDeviceFeatures,
 			WIN_W, WIN_H, SC_IMG_COUNT,
 			swapchainImageUsage,
 			surfaceFormat);
