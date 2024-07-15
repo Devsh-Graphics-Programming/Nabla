@@ -8,6 +8,8 @@
 #include "nbl/asset/IAccelerationStructure.h"
 #include "nbl/asset/ICPUBuffer.h"
 
+#include "nbl/builtin/hlsl/acceleration_structures.hlsl"
+
 namespace nbl::asset
 {
 
@@ -39,31 +41,46 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 		//
+		inline std::span<uint32_t> getGeometryPrimitiveCounts()
+		{
+			if (isMutable() && m_geometryPrimitiveCount)
+				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
+			return {};
+		}
+		inline std::span<const uint32_t> getGeometryPrimitiveCounts(const size_t geomIx) const
+		{
+			if (m_geometryPrimitiveCount)
+				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
+			return {};
+		}
+
+		//
 		inline uint32_t getGeometryCount() const
 		{
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-				return m_AABBGeoms->size();
+				return m_AABBGeoms ? m_AABBGeoms->size():0u;
 			return m_triangleGeoms ? m_triangleGeoms->size():0u;
 		}
 
 		//
-		inline core::SRange<Triangles<asset::ICPUBuffer>> getTriangleGeometries()
+		inline std::span<Triangles<asset::ICPUBuffer>> getTriangleGeometries()
 		{
 			if (!isMutable() || !m_triangleGeoms)
-				return {nullptr,nullptr};
+				return {};
 			return {m_triangleGeoms->begin(),m_triangleGeoms->end()};
 		}
-		inline core::SRange<const Triangles<asset::ICPUBuffer>> getTriangleGeometries() const
+		inline std::span<const Triangles<asset::ICPUBuffer>> getTriangleGeometries() const
 		{
 			if (!m_triangleGeoms)
-				return {nullptr,nullptr};
+				return {};
 			return {m_triangleGeoms->begin(),m_triangleGeoms->end()};
 		}
-		inline bool setGeometries(core::smart_refctd_dynamic_array<Triangles<ICPUBuffer>>&& geometries)
+		inline bool setGeometries(core::smart_refctd_dynamic_array<Triangles<ICPUBuffer>>&& geometries, core::smart_refctd_dynamic_array<uint32_t>&& ranges)
 		{
 			if (!isMutable())
 				return false;
 			m_buildFlags &= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_geometryPrimitiveCount = std::move(ranges);
 			m_triangleGeoms = std::move(geometries);
 			m_AABBGeoms = nullptr;
 			return true;
@@ -82,11 +99,12 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				return {nullptr,nullptr};
 			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
 		}
-		inline bool setGeometries(core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>>&& geometries)
+		inline bool setGeometries(core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>>&& geometries, core::smart_refctd_dynamic_array<uint32_t>&& ranges)
 		{
 			if (!isMutable())
 				return false;
 			m_buildFlags |= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_geometryPrimitiveCount = std::move(ranges);
 			m_triangleGeoms = nullptr;
 			m_AABBGeoms = std::move(geometries);
 			return true;
@@ -120,16 +138,112 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				cp->m_triangleGeoms = core::make_refctd_dynamic_array<decltype(m_triangleGeoms)>(*m_triangleGeoms);
 
 			cp->m_buildFlags = m_buildFlags;
+			cp->m_geometryPrimitiveCount = core::make_refctd_dynamic_array<decltype(m_geometryPrimitiveCount)>(*m_geometryPrimitiveCount);
 			return cp;
+		}
+
+		// buffer bindings are not considered dependants, just data storage
+		inline size_t getDependantCount() const override
+		{
+			return 0;
+		}
+
+		inline core::blake3_hash_t computeContentHash() const //TODO: sort this out later, override
+		{
+			::blake3_hasher hasher;
+			::blake3_hasher_init(&hasher);
+			const bool isAABB = m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
+			core::blake3_hasher_update(hasher,isAABB);
+			if (m_geometryPrimitiveCount)
+			{
+				auto countIt = m_geometryPrimitiveCount->begin();
+				if (isAABB)
+				{
+					for (const auto& aabb : *m_AABBGeoms)
+					{
+						const auto count = *(countIt++);
+						core::blake3_hasher_update(hasher,count);
+						core::blake3_hasher_update(hasher,aabb.geometryFlags);
+						core::blake3_hasher_update(hasher,aabb.stride);
+						const auto begin = reinterpret_cast<const uint8_t*>(aabb.data.buffer->getPointer())+aabb.data.offset; 
+						const auto end = begin+aabb.stride*count;
+						for (auto it=begin; it<end; it+=aabb.stride)
+							::blake3_hasher_update(&hasher,it,sizeof(AABB_t));
+					}
+				}
+				else
+				{
+					for (const auto& triangles : *m_triangleGeoms)
+					{
+						const auto count = *(countIt++);
+						const auto indexCount = count*3;
+						core::blake3_hasher_update(hasher,count);
+						core::blake3_hasher_update(hasher,triangles.transform);
+						core::blake3_hasher_update(hasher,triangles.maxVertex);
+						core::blake3_hasher_update(hasher,triangles.vertexStride);
+						core::blake3_hasher_update(hasher,triangles.vertexFormat);
+						core::blake3_hasher_update(hasher,triangles.indexType);
+						core::blake3_hasher_update(hasher,triangles.geometryFlags);
+						// now hash the triangle data
+						const bool usesMotion = triangles.vertexData[1].isValid();
+						const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
+						const auto indices = reinterpret_cast<const uint8_t*>(triangles.indexData.buffer->getPointer())+triangles.indexData.offset;
+						const auto verticesA = reinterpret_cast<const uint8_t*>(triangles.vertexData[0].buffer->getPointer())+triangles.vertexData[0].offset;
+						const uint8_t* verticesB = nullptr;
+						if (usesMotion)
+							verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
+						auto hashIndices = [&]<typename IndexType>() -> void
+						{
+							for (auto i=0; i<indexCount; i++)
+							{
+								uint32_t vertexIndex = i;
+								if constexpr (std::is_integral_v<IndexType>)
+									vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
+								::blake3_hasher_update(&hasher,verticesA+vertexIndex*triangles.vertexStride,vertexSize);
+								if (usesMotion)
+									::blake3_hasher_update(&hasher,verticesB+vertexIndex*triangles.vertexStride,vertexSize);
+							}
+						};
+						switch (triangles.indexType)
+						{
+							case E_INDEX_TYPE::EIT_16BIT:
+								hashIndices.operator()<uint16_t>();
+								break;
+							case E_INDEX_TYPE::EIT_32BIT:
+								hashIndices.operator()<uint32_t>();
+								break;
+							default:
+								hashIndices.operator()<void>();
+								break;
+						}
+					}
+				}
+			}
+			return core::blake3_hasher_finalize(hasher);
+		}
+
+		inline bool missingContent() const //TODO: sort this out later, override
+		{
+			return !m_triangleGeoms && !m_AABBGeoms && !m_geometryPrimitiveCount;
 		}
 
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
+		inline void discardContent_impl() //TODO: sort this out later, override
+		{
+			m_triangleGeoms = nullptr;
+			m_AABBGeoms = nullptr;
+			m_geometryPrimitiveCount = nullptr;
+		}
+
 	private:
 		// more wasteful than a union but easier on the refcounting
 		core::smart_refctd_dynamic_array<Triangles<ICPUBuffer>> m_triangleGeoms = nullptr;
 		core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>> m_AABBGeoms = nullptr;
+		core::smart_refctd_dynamic_array<uint32_t> m_geometryPrimitiveCount = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
@@ -139,6 +253,17 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 
 	public:
 		ICPUTopLevelAccelerationStructure() = default;
+
+		//
+		inline size_t getDependantCount() const override {return m_instances->size();}
+
+		//
+		inline auto& getBuildRangeInfo()
+		{
+			assert(isMutable());
+			return m_buildRangeInfo;
+		}
+		inline auto& getBuildRangeInfo() const {return m_buildRangeInfo;}
 		
 		//
 		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const {return m_buildFlags;}
@@ -211,6 +336,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			auto cp = core::make_smart_refctd_ptr<ICPUTopLevelAccelerationStructure>();
 
 			cp->m_instances = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<PolymorphicInstance>>(*m_instances);
+			cp->m_buildRangeInfo = m_buildRangeInfo;
 			cp->m_buildFlags = m_buildFlags;
 
 			if (_depth--)
@@ -227,8 +353,14 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 	protected:
 		virtual ~ICPUTopLevelAccelerationStructure() = default;
 
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			return m_instances->operator[](ix).getBase().blas.get();
+		}
+
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
+		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 };
 
