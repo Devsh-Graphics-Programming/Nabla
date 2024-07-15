@@ -30,6 +30,8 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		constexpr static inline auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
+		inline size_t getDependantCount() const override {return 1;}
+
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
 			assert(isMutable());
@@ -50,6 +52,11 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 	protected:
 		virtual ~ICPUBufferView() = default;
+
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			return m_buffer.get();
+		}
 };
 
 }

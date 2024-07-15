@@ -45,6 +45,15 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		inline size_t getDependantCount() const override
+		{
+			auto stageCount = 1; // the layout
+			for (const auto& stage : m_stages)
+			if (stage.shader)
+				stageCount++;
+			return stageCount;
+		}
 
 		// extras for this class
 		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
@@ -70,6 +79,16 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			}};
 			return new ICPUGraphicsPipeline(params);
 		}
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			size_t stageCount = 0;
+			for (auto& stage : m_stages)
+			if (stage.shader)
+			if ((stageCount++)==ix)
+				return stage.shader.get();
+			return m_layout.get();
+		}
+
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
 		{
 			const auto stageIx = hlsl::findLSB(stage);

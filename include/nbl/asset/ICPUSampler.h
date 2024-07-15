@@ -1,12 +1,13 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
 #define _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
 
+
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ISampler.h"
+
 
 namespace nbl::asset
 {
@@ -15,6 +16,8 @@ class ICPUSampler : public ISampler, public IAsset
 {
 	protected:
 		virtual ~ICPUSampler() = default;
+        
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 	public:
 		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
@@ -68,6 +71,8 @@ class ICPUSampler : public ISampler, public IAsset
 
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		inline size_t getDependantCount() const override {return 0;}
 };
 
 }

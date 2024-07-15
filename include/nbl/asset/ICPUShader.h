@@ -50,6 +50,9 @@ class ICPUShader : public IAsset, public IShader
 			return core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), getStage(), m_contentType, std::string(getFilepathHint())), core::dont_grab);
 		}
 
+		//!
+		inline size_t getDependantCount() const override {return 0;}
+
 		const ICPUBuffer* getContent() const { return m_code.get(); };
 
 		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
@@ -76,6 +79,8 @@ class ICPUShader : public IAsset, public IShader
 		}
 
 	protected:
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
 		const core::smart_refctd_ptr<ICPUBuffer> m_code;
 		const E_CONTENT_TYPE m_contentType;
 };

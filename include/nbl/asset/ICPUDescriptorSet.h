@@ -47,8 +47,11 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		constexpr static inline bool HasDependents = true;
 
 		constexpr static inline auto AssetType = ET_DESCRIPTOR_SET;
-		inline E_TYPE getAssetType() const override { return AssetType; }
+		inline E_TYPE getAssetType() const override {return AssetType;}
 
+		inline size_t getDependantCount() const override {return m_layout->getTotalBindingCount()+1;}
+
+		//
 		inline ICPUDescriptorSetLayout* getLayout() 
 		{
 			assert(isMutable());
@@ -57,7 +60,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-
+		//
 		inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 		{
 			// TODO: @Hazardu

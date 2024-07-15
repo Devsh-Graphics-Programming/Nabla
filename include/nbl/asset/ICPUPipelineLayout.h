@@ -30,6 +30,17 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout3
         ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
+        //
+        inline size_t getDependantCount() const override
+        {
+            size_t count = 0;
+            for (auto i=0; i<m_descSetLayouts.size(); i++)
+            if (m_descSetLayouts[i])
+                count++;
+            return count;
+        }
+
+        //
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
             assert(isMutable());
@@ -69,6 +80,15 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
     protected:
 		virtual ~ICPUPipelineLayout() = default;
+
+        inline IAsset* getDependant_impl(const size_t ix) override
+        {
+            size_t count = 0;
+            for (auto i=0; i<m_descSetLayouts.size(); i++)
+            if ((count++)==ix)
+                return m_descSetLayouts[ix].get();
+            return nullptr;
+        }
 };
 
 }

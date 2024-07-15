@@ -12,7 +12,7 @@
 namespace nbl::asset
 {
 
-class ICPUPipelineCache final : public IAsset
+class ICPUPipelineCache final : public IAsset // TODO: PreHashed ?
 {
 	public:
 		struct SCacheKey
@@ -56,6 +56,11 @@ class ICPUPipelineCache final : public IAsset
 			auto cache_cp = m_cache;
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
+
+		inline size_t getDependantCount() const override {return 0;}
+
+	protected:
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 	private:
 		entries_map_t m_cache;

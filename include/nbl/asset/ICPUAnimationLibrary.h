@@ -97,6 +97,23 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 
 		constexpr static inline auto AssetType = ET_ANIMATION_LIBRARY;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+
+		inline size_t getDependantCount() const override {return 3;}
+
+	protected:
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			switch (ix)
+			{
+				case 0:
+					return m_keyframeStorageBinding.buffer.get();
+				case 1:
+					return m_timestampStorageBinding.buffer.get();
+				default:
+					break;
+			}
+			return m_animationStorageRange.buffer.get();
+		}
 };
 
 }

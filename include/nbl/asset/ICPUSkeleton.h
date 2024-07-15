@@ -80,6 +80,15 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 
 		constexpr static inline auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+
+		//!
+		inline size_t getDependantCount() const override {return 2;}
+
+	protected:
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			return (ix!=0 ? m_defaultTransforms:m_parentJointIDs).buffer.get();
+		}
 };
 
 }
