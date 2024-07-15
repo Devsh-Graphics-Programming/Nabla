@@ -151,6 +151,12 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				}
 			}
 
+			std::vector<uint32_t> layers(parameters.arrayLayers);
+			std::iota(layers.begin(), layers.end(), 0);
+
+			std::vector<uint32_t> levels(parameters.mipLevels);
+			std::iota(levels.begin(), levels.end(), 0);
+
 			auto executePerMipLevel = [&](const uint32_t miplevel)
 			{
 				/*
@@ -162,17 +168,22 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 					blake3_hasher_init(&hashers[layer]);
 
-				auto hash = [&hashers, &inData, &texelOrBlockByteSize](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+				auto executePerLayer = [&](const uint32_t layer)
 				{
-					auto* hasher = hashers + readBlockPos.w;
-					blake3_hasher_update(hasher, inData + readBlockArrayOffset, texelOrBlockByteSize);
+					IImage::SSubresourceLayers subresource = { .aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u), .mipLevel = miplevel, .baseArrayLayer = layer, .layerCount = 1u }; // stick to given mip level and single layer
+					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
+					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
+
+					auto hash = [&hashers, &inData, &texelOrBlockByteSize](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+					{
+						auto* hasher = hashers + readBlockPos.w;
+						blake3_hasher_update(hasher, inData + readBlockArrayOffset, texelOrBlockByteSize);
+					};
+
+					CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
 				};
 
-				IImage::SSubresourceLayers subresource = { .aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u), .mipLevel = miplevel, .baseArrayLayer = 0u, .layerCount = parameters.arrayLayers }; // stick to given mip level and take all layers
-				CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
-				CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
-
-				CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), hash, regions->begin(), regions->end(), clipFunctor); // fire the hasher for layers. TODO: filters API should be updated to allow for layers to be processed in parallel BUT not texels within block execution!
+				std::for_each(policy, layers.begin(), layers.end(), executePerLayer); // fire per layer for given given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
 
 				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 				{
@@ -182,9 +193,6 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 
 				_NBL_DELETE_ARRAY(hashers, parameters.arrayLayers);
 			};
-
-			std::vector<uint32_t> levels(parameters.mipLevels);
-			std::iota(levels.begin(), levels.end(), 0);
 
 			std::for_each(policy, levels.begin(), levels.end(), executePerMipLevel); // fire per block of layers for given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
 
