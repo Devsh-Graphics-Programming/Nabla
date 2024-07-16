@@ -106,7 +106,7 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
         // REMEMBER TO CALL FROM DTOR!
         // TODO: idea, make the `ICPUBuffer` an ADT, and use the default allocator CCPUBuffer instead for consistency
         // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
-        virtual void freeData()
+        virtual inline void freeData()
         {
             if (data)
                 _NBL_ALIGNED_FREE(data);

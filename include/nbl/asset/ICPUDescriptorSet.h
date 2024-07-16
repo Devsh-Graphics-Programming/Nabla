@@ -84,6 +84,8 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 	protected:
 		virtual ~ICPUDescriptorSet() = default;
 
+		IAsset* getDependant_impl(size_t ix) override;
+
 	private:
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];

@@ -70,7 +70,7 @@ class ICPUSampler : public ISampler, public IAsset
 		constexpr static inline bool HasDependents = false;
 
 		constexpr static inline auto AssetType = ET_SAMPLER;
-		inline E_TYPE getAssetType() const override { return AssetType; }
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 		
 		inline size_t getDependantCount() const override {return 0;}
 };

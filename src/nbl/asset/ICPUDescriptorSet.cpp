@@ -107,4 +107,37 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 
 	return cp;
 }
+
+IAsset* ICPUDescriptorSet::getDependant_impl(size_t ix)
+{
+	for (auto i=0u; i<static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
+	if (m_descriptorInfos[i])
+	{
+		const auto size = m_descriptorInfos[i]->size();
+		if (ix<size)
+		{
+			auto* desc = m_descriptorInfos[i]->operator[](ix).desc.get();
+			if (desc)
+			switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
+			{
+				case IDescriptor::EC_BUFFER:
+					return static_cast<ICPUBuffer*>(desc);
+				case IDescriptor::EC_SAMPLER:
+					return static_cast<ICPUSampler*>(desc);
+				case IDescriptor::EC_IMAGE:
+					return static_cast<ICPUImage*>(desc);
+				case IDescriptor::EC_BUFFER_VIEW:
+					return static_cast<ICPUBufferView*>(desc);
+				case IDescriptor::EC_ACCELERATION_STRUCTURE:
+					return static_cast<ICPUAccelerationStructure*>(desc);
+				default:
+					break;
+			}
+			return nullptr;
+		}
+		else
+			ix -= size;
+	}
+	return nullptr;
+}
 }
