@@ -412,6 +412,11 @@ if(_NBL_BUILD_DPL_)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
 
+# blake3
+target_link_libraries(Nabla PUBLIC 
+	blake3
+)
+
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
 
