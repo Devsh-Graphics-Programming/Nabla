@@ -163,6 +163,11 @@ class IAsset : virtual public core::IReferenceCounted
 				return getDependant_impl(ix);
 			return nullptr;
 		}
+		inline const IAsset* getDependant(const size_t ix) const
+		{
+			IAsset* const retval = const_cast<IAsset*>(this)->getDependant(ix);
+			return retval;
+		}
 
     protected:
 		inline IAsset() = default;

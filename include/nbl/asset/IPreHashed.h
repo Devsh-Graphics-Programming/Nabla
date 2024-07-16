@@ -37,50 +37,81 @@ class IPreHashed : public IAsset
 				discardContent_impl();
 		}
 
-		static inline void discardDependantsContents(IAsset* root)
+		static inline void discardDependantsContents(const std::span<IAsset*> roots)
 		{
 			struct stack_entry_t
 			{
 				IAsset* asset;
+				size_t childCount = 0;
 				size_t childrenVisited = 0;
 			};
 			core::stack<stack_entry_t> stack;
-			stack.push({.asset=root});
+			core::unordered_set<const IAsset*> alreadyVisited;
+			auto push = [&stack,&alreadyVisited](IAsset* node) -> void
+			{
+				if (!node)
+					return;
+				const auto [dummy,inserted] = alreadyVisited.insert(node);
+				if (inserted)
+					stack.push({.asset=node,.childCount=node->getDependantCount()});
+			};
+			for (const auto& root : roots)
+				push(root);
 			while (!stack.empty())
 			{
 				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.asset->getDependantCount())
+				if (entry.childrenVisited<entry.childCount)
 				{
+					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
+					push(dep);
+				}
+				else
+				{
+					// post order traversal does discard
 					auto* isPrehashed = dynamic_cast<IPreHashed*>(entry.asset);
 					if (isPrehashed)
 						isPrehashed->discardContent();
 					stack.pop();
 				}
-				else
-					stack.push({entry.asset->getDependant(entry.childrenVisited++)});
 			}
 		}
-		static inline bool anyDependantDiscardedContents(IAsset* root)
+		static inline bool anyDependantDiscardedContents(const IAsset* root)
 		{
 			struct stack_entry_t
 			{
-				IAsset* asset;
+				const IAsset* asset;
+				size_t childCount = 0;
 				size_t childrenVisited = 0;
 			};
 			core::stack<stack_entry_t> stack;
-			stack.push({.asset=root});
+			core::unordered_set<const IAsset*> alreadyVisited;
+			auto push = [&stack,&alreadyVisited](const IAsset* node) -> bool
+			{
+				if (!node)
+					return false;
+				const auto [dummy,inserted] = alreadyVisited.insert(node);
+				if (inserted)
+				{
+					auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
+					if (isPrehashed && isPrehashed->missingContent())
+						return true;
+					stack.push({.asset=node,.childCount=node->getDependantCount()});
+				}
+				return false;
+			};
+			if (push(root))
+				return true;
 			while (!stack.empty())
 			{
 				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.asset->getDependantCount())
+				if (entry.childrenVisited<entry.childCount)
 				{
-					auto* isPrehashed = dynamic_cast<IPreHashed*>(entry.asset);
-					if (isPrehashed->missingContent())
+					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
+					if (push(dep))
 						return true;
-					stack.pop();
 				}
 				else
-					stack.push({entry.asset->getDependant(entry.childrenVisited++)});
+					stack.pop();
 			}
 			return false;
 		}
