@@ -102,11 +102,13 @@ class NBL_API2 IDescriptorPool : public IBackendObject
             switch (type)
             {
             case asset::IDescriptor::E_TYPE::ET_SAMPLER:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_mutableStandaloneSamplerStorage.get());
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_samplerStorage.get());
                 break;
             case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
-            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)];
                 break;
             case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get());
@@ -145,7 +147,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
 
         inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplerStorage() const
         {
-            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_mutableCombinedSamplerStorage.get());
+            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_samplerStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)];
         }
 
         friend class IGPUDescriptorSet;
@@ -222,8 +224,7 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         std::unique_ptr<IGPUDescriptorSet* []> m_allocatedDescriptorSets = nullptr; // This array might be sparse.
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableCombinedSamplerStorage;
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableStandaloneSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_samplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb
