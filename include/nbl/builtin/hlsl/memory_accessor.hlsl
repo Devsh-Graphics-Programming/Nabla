@@ -257,6 +257,36 @@ struct MemoryAdaptor<BaseAccessor, 0>
     }
 };
 
+// ---------------------------------------------- Offset Accessor ----------------------------------------------------
+
+template<class BaseAccessor, class AccessorType, uint32_t Offset>
+struct OffsetAccessor
+{
+    BaseAccessor accessor;
+
+    void set(uint32_t idx, NBL_REF_ARG(AccessorType) x) {accessor.set(idx + Offset, x);}
+
+    AccessorType get(uint32_t idx) {return accessor.get(idx + Offset);}
+
+    // TODO: figure out the `enable_if` syntax for this
+    void workgroupExecutionAndMemoryBarrier() {accessor.workgroupExecutionAndMemoryBarrier();}
+};
+
+// Dynamic offset version
+template<class BaseAccessor, class AccessorType>
+struct DynamicOffsetAccessor
+{
+    BaseAccessor accessor;
+    uint32_t offset;
+
+    void set(uint32_t idx, NBL_REF_ARG(AccessorType) x) {accessor.set(idx + offset, x);}
+
+    AccessorType get(uint32_t idx) {return accessor.get(idx + offset);}
+
+    // TODO: figure out the `enable_if` syntax for this
+    void workgroupExecutionAndMemoryBarrier() {accessor.workgroupExecutionAndMemoryBarrier();}
+};
+
 }
 }
 

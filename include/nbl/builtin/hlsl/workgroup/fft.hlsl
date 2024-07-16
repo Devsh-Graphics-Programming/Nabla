@@ -5,6 +5,8 @@
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shuffle.hlsl"
+#include "nbl/builtin/hlsl/mpl.hlsl"
+#include "nbl/builtin/hlsl/memory_accessor.hlsl"
 
 namespace nbl 
 {
@@ -159,21 +161,96 @@ struct FFT<2,true, Scalar, device_capabilities>
 
 /*
 
-// then define 4,8,16 in terms of calling the FFT<2> and doing the special radix steps before/after
-template<uint16_t K, bool Inverse, class device_capabilities>
-struct FFT
+// Forward FFT
+template<uint32_t K, typename Scalar, class device_capabilities>
+struct FFT<K,false,device_capabilities>
 {
-    template<typename Accessor, typename ShaderMemoryAccessor>
-    static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(ShaderMemoryAccessor) sharedmemAccessor)
+    template<typename Accessor, typename SharedMemoryAccessor>
+    static enable_if_t<mpl::is_pot_v<K>, void> __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        if (!Inverse)
+        static const uint32_t virtualThreadCount = K >> 1;
+        static const uint16_t passes = mpl::log2<K>::value - 1;
+        uint32_t stride = K >> 1;
+        [unroll(passes)]
+        for (uint16_t pass = 0; pass < passes; pass++)
         {
-           ... special steps ...
+            [unroll(K/2)]
+            for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
+            {
+                const uint32_t virtualThreadID = virtualThread * _NBL_HLSL_WORKGROUP_SIZE_ + SubgroupContiguousIndex();
+
+                const uint32_t lsb = virtualThread & (stride - 1);
+                const uint32_t loIx = ((virtualThread ^ lsb) << 1) | lsb;
+                const uint32_t hiIx = loIx | stride;
+                
+                complex_t<Scalar> lo = accessor.get(loIx * _NBL_HLSL_WORKGROUP_SIZE_);
+                complex_t<Scalar> hi = accessor.get(hiIx * _NBL_HLSL_WORKGROUP_SIZE_);
+                
+                fft::DIF<Scalar>::radix2(fft::twiddle<false,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
+                
+                accessor.set(loIx, lo);
+                accessor.set(hiIx, hi);
+            }
+            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
+            stride >>= 1;
         }
-        FFT<2,Inverse,device_capabilities>::template __call<Accessor,SharedMemoryAccessor>(access,sharedMemAccessor);
-        if (Inverse)
+        
+        // do K/2 small workgroup FFTs
+        OffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        [unroll(K/2)]
+        for (uint32_t k = 0; k < K; k += 2)
         {
-           ... special steps ...
+            if (k)
+            sharedmemAccessor.executionAndMemoryBarrier();
+            offsetAccessor.offset = _NBL_HLSL_WORKGROUP_SIZE_*k;
+            FFT<2,false, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
+        }
+        accessor = offsetAccessor.accessor;
+    }
+};
+
+// Inverse FFT
+template<uint32_t K, typename Scalar, class device_capabilities>
+struct FFT<K,true,device_capabilities>
+{
+    template<typename Accessor, typename SharedMemoryAccessor>
+    static enable_if_t<mpl::is_pot_v<K>, void> __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
+    {
+        // do K/2 small workgroup FFTs
+        OffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        [unroll(K/2)]
+        for (uint32_t k = 0; k < K; k += 2)
+        {
+            if (k)
+            sharedmemAccessor.executionAndMemoryBarrier();
+            offsetAccessor.offset = _NBL_HLSL_WORKGROUP_SIZE_*k;
+            FFT<2,true, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
+        }
+        accessor = offsetAccessor.accessor;
+        
+        static const uint32_t virtualThreadCount = K >> 1;
+        static const uint16_t passes = mpl::log2<K>::value - 1;
+        uint32_t stride = K << 1;
+        [unroll(passes)]
+        for (uint16_t pass = 0; pass < passes; pass++)
+        {
+            [unroll(K/2)]
+            for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
+            {
+                const uint32_t lsb = virtualThread & (stride - 1);
+                const uint32_t loIx = ((virtualThread ^ lsb) << 1) | lsb;
+                const uint32_t hiIx = loIx | stride;
+                
+                complex_t<Scalar> lo = accessor.get(loIx * _NBL_HLSL_WORKGROUP_SIZE_);
+                complex_t<Scalar> hi = accessor.get(hiIx * _NBL_HLSL_WORKGROUP_SIZE_);
+                
+                fft::DIF<Scalar>::radix2(fft::twiddle<true,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
+                
+                accessor.set(loIx, lo);
+                accessor.set(hiIx, hi);
+            }
+            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
+            stride <<= 1;
         }
     }
 };
