@@ -28,22 +28,26 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMSDFForShape(msdfgen::S
 	auto shapeBounds = glyph.getBounds();
 
 	msdfgen::edgeColoringSimple(glyph, 3.0); // TODO figure out what this is
-	msdfgen::Bitmap<float, 4> msdfMap(glyphW, glyphH);
+	msdfgen::Bitmap<float, 3> msdfMap(glyphW, glyphH);
 
-	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
+	msdfgen::generateMSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
 
-	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(float) * 4);
-	float* data = reinterpret_cast<float*>(cpuBuf->getPointer());
-	// TODO: Optimize this: negative values aren't being handled properly by the updateImageViaStagingBuffer function
+	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 3);
+	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
+
+	auto floatToSNORM8 = [](const float fl) -> int8_t
+		{
+			return (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
+		};
+
 	for (int y = 0; y < msdfMap.height(); ++y)
 	{
 		for (int x = 0; x < msdfMap.width(); ++x)
 		{
 			auto pixel = msdfMap(x, glyphH - 1 - y);
-			data[(x + y * glyphW) * 4 + 0] = std::clamp(pixel[0], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 1] = std::clamp(pixel[1], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 2] = std::clamp(pixel[2], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 3] = std::clamp(pixel[3], 0.0f, 1.0f);
+			data[(x + y * glyphW) * 3 + 0] = floatToSNORM8(pixel[0]);
+			data[(x + y * glyphW) * 3 + 1] = floatToSNORM8(pixel[1]);
+			data[(x + y * glyphW) * 3 + 2] = floatToSNORM8(pixel[2]);
 		}
 	}
 
