@@ -62,16 +62,6 @@ class KazooConnector:
                 pass
 
 
-def shutdownOs():
-    if os.name == 'nt' or os.name == 'java': # For windows and java (in the rare case of running jython)
-        return os.system('shutdown /s /f 0')
-    elif os.name == 'posix': # For Unix, Linux, Mac
-        return os.system('shutdown -h now')
-    else:
-        print('Unknown operating system') # Docs for os.name listed only the above three cases
-        return 1
-
-
 def healthyCheck(host):
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -92,8 +82,10 @@ def healthyCheck(host):
         if shutdown:
             print("Requested shutdown...")
 
-            if shutdownOs() != 0:
-                print(f"Could not shutdown container")
+            try:
+                subprocess.run(f"shutdown /s /f", check=True)
+            except subprocess.CalledProcessError as e:
+                print(f"Could not shutdown container because of: {e.stderr}")
 
         return True
     except (socket.error, socket.timeout):
