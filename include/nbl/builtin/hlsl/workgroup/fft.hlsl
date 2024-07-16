@@ -159,11 +159,9 @@ struct FFT<2,true, Scalar, device_capabilities>
 
 // ---------------------------- Below pending --------------------------------------------------
 
-/*
-
 // Forward FFT
 template<uint32_t K, typename Scalar, class device_capabilities>
-struct FFT<K,false,device_capabilities>
+struct FFT<K, false, Scalar, device_capabilities>
 {
     template<typename Accessor, typename SharedMemoryAccessor>
     static enable_if_t<mpl::is_pot_v<K>, void> __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
@@ -171,10 +169,10 @@ struct FFT<K,false,device_capabilities>
         static const uint32_t virtualThreadCount = K >> 1;
         static const uint16_t passes = mpl::log2<K>::value - 1;
         uint32_t stride = K >> 1;
-        [unroll(passes)]
+        //[unroll(passes)]
         for (uint16_t pass = 0; pass < passes; pass++)
         {
-            [unroll(K/2)]
+            //[unroll(K/2)]
             for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
             {
                 const uint32_t virtualThreadID = virtualThread * _NBL_HLSL_WORKGROUP_SIZE_ + SubgroupContiguousIndex();
@@ -186,7 +184,7 @@ struct FFT<K,false,device_capabilities>
                 complex_t<Scalar> lo = accessor.get(loIx * _NBL_HLSL_WORKGROUP_SIZE_);
                 complex_t<Scalar> hi = accessor.get(hiIx * _NBL_HLSL_WORKGROUP_SIZE_);
                 
-                fft::DIF<Scalar>::radix2(fft::twiddle<false,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
+                hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
                 
                 accessor.set(loIx, lo);
                 accessor.set(hiIx, hi);
@@ -196,8 +194,8 @@ struct FFT<K,false,device_capabilities>
         }
         
         // do K/2 small workgroup FFTs
-        OffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
-        [unroll(K/2)]
+        DynamicOffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        //[unroll(K/2)]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
@@ -211,14 +209,14 @@ struct FFT<K,false,device_capabilities>
 
 // Inverse FFT
 template<uint32_t K, typename Scalar, class device_capabilities>
-struct FFT<K,true,device_capabilities>
+struct FFT<K, true, Scalar, device_capabilities>
 {
     template<typename Accessor, typename SharedMemoryAccessor>
     static enable_if_t<mpl::is_pot_v<K>, void> __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         // do K/2 small workgroup FFTs
-        OffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
-        [unroll(K/2)]
+        DynamicOffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        //[unroll(K/2)]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
@@ -231,12 +229,14 @@ struct FFT<K,true,device_capabilities>
         static const uint32_t virtualThreadCount = K >> 1;
         static const uint16_t passes = mpl::log2<K>::value - 1;
         uint32_t stride = K << 1;
-        [unroll(passes)]
+        //[unroll(passes)]
         for (uint16_t pass = 0; pass < passes; pass++)
         {
-            [unroll(K/2)]
+            //[unroll(K/2)]
             for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
             {
+                const uint32_t virtualThreadID = virtualThread * _NBL_HLSL_WORKGROUP_SIZE_ + SubgroupContiguousIndex();
+
                 const uint32_t lsb = virtualThread & (stride - 1);
                 const uint32_t loIx = ((virtualThread ^ lsb) << 1) | lsb;
                 const uint32_t hiIx = loIx | stride;
@@ -244,7 +244,7 @@ struct FFT<K,true,device_capabilities>
                 complex_t<Scalar> lo = accessor.get(loIx * _NBL_HLSL_WORKGROUP_SIZE_);
                 complex_t<Scalar> hi = accessor.get(hiIx * _NBL_HLSL_WORKGROUP_SIZE_);
                 
-                fft::DIF<Scalar>::radix2(fft::twiddle<true,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
+                hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<true,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
                 
                 accessor.set(loIx, lo);
                 accessor.set(hiIx, hi);
@@ -254,8 +254,6 @@ struct FFT<K,true,device_capabilities>
         }
     }
 };
-
-*/
 
 }
 }
