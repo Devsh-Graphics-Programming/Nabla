@@ -21,12 +21,6 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 {
 	public:
 		virtual ~CFlattenRegionsStreamHashImageFilter() {}
-
-		struct ScratchMemory
-		{
-			core::smart_refctd_ptr<asset::ICPUImage> flatten; // for flattening input regions & prefilling with 0-value texels not covered by regions, stores tightly packed texels from input with no buffer gaps 
-			core::smart_refctd_ptr<asset::ICPUBuffer> heap; // for storing hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this stack
-		};
 		
 		class CState : public IImageFilter::IState
 		{
@@ -37,52 +31,41 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 
 				const ICPUImage*					inImage = nullptr;
 				hash_t								outHash = { {0} };
-				ScratchMemory						scratchMemory;
+
+				struct ScratchMemory
+				{
+					void* memory;	// pointer to scratch memory
+					size_t size;	// size of scratch memory in bytes
+				} scratch;
+
+				static inline size_t getRequiredScratchByteSize(const ICPUImage* input)
+				{
+					assert(input);
+
+					const auto& parameters = input->getCreationParameters();
+					const TexelBlockInfo info(parameters.format);
+					const auto bytesPerPixel = input->getBytesPerPixel();
+					const auto product = parameters.mipLevels * parameters.arrayLayers;
+
+					size_t bufferSize = product * sizeof(CState::outHash);
+					bufferSize += product * sizeof(blake3_hasher);
+
+					for (uint32_t i = 0u; i < parameters.mipLevels; ++i)
+					{
+						auto localExtent = input->getMipSize(i);
+
+						const auto levelSize = info.roundToBlockSize(localExtent);
+						const auto memsize = levelSize[0] * levelSize[1] * levelSize[2] * parameters.arrayLayers * bytesPerPixel;
+
+						assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
+						bufferSize += memsize.getIntegerApprox();
+					}
+
+					return bufferSize;
+				}
 		};
 
 		using state_type = CState;
-
-		static inline ScratchMemory allocateScratchMemory(const asset::ICPUImage* inImage)
-		{
-			const auto& parameters = inImage->getCreationParameters();
-			const TexelBlockInfo info(parameters.format);
-			const auto bytesPerPixel = inImage->getBytesPerPixel();
-
-			ScratchMemory scratch;
-			scratch.heap = core::make_smart_refctd_ptr<asset::ICPUBuffer>(parameters.mipLevels * parameters.arrayLayers * sizeof(CState::outHash));
-
-			// create own regions & tight buffer with no gaps - we need to cover all texels with it
-			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(parameters.mipLevels);
-			{
-				size_t bufferSize = 0ull;
-
-				for (auto rit = regions->begin(); rit != regions->end(); rit++)
-				{
-					auto miplevel = static_cast<uint32_t>(std::distance(regions->begin(), rit));
-					auto localExtent = inImage->getMipSize(miplevel);
-					rit->bufferOffset = bufferSize;
-					rit->bufferRowLength = localExtent.x; // could round up to multiple of 8 bytes in the future
-					rit->bufferImageHeight = localExtent.y;
-					rit->imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT; // otherwise won't pass validaiton 
-					rit->imageSubresource.mipLevel = miplevel;
-					rit->imageSubresource.baseArrayLayer = 0u;
-					rit->imageSubresource.layerCount = parameters.arrayLayers;
-					rit->imageOffset = { 0u,0u,0u };
-					rit->imageExtent = { localExtent.x,localExtent.y,localExtent.z };
-					auto levelSize = info.roundToBlockSize(localExtent);
-					auto memsize = levelSize[0] * levelSize[1] * levelSize[2] * parameters.arrayLayers * bytesPerPixel;
-
-					assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
-					bufferSize += memsize.getIntegerApprox();
-				}
-
-				scratch.flatten = ICPUImage::create(IImage::SCreationParams(parameters));
-				auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
-				scratch.flatten->setBufferAndRegions(std::move(buffer), std::move(regions));
-			}
-
-			return scratch;
-		}
 
 		static inline bool validate(state_type* state)
 		{
@@ -92,21 +75,17 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			if(!state->inImage)
 				return false;
 
-			if(!state->scratchMemory.flatten)
-				return false;
-
-			if (!state->scratchMemory.heap)
+			if(!state->scratch.memory)
 				return false;
 
 			const auto& parameters = state->inImage->getCreationParameters();
 
-			if (state->scratchMemory.heap->getSize() != parameters.mipLevels * parameters.arrayLayers * sizeof(CState::outHash))
+			if (state->scratch.size != state_type::getRequiredScratchByteSize(state->inImage))
 				return false;
 
 			CFlattenRegionsImageFilter::state_type flatten;
 			{
 				flatten.inImage = state->inImage;
-				flatten.outImage = state->scratchMemory.flatten;
 
 				if (!CFlattenRegionsImageFilter::validate(&flatten)) // just to not DRY some of extra common validation steps
 					return false;
@@ -121,21 +100,74 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			if (!validate(state))
 				return false;
 
+			const auto& parameters = state->inImage->getCreationParameters();
+			const TexelBlockInfo info(parameters.format);
+			const auto bytesPerPixel = state->inImage->getBytesPerPixel();
+
+			auto getScratchAsBuffer = [&memory = state->scratch.memory](size_t size, size_t offset = 0ull)
+			{
+				return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(size, (uint8_t*)memory + offset, core::adopt_memory); // adopt memory & don't free it on exit
+			};
+			
+			/*
+				we use scratch memory and map it with follwing [hashes][hashers][tight flatten buffer] memory layout,
+				we guarantee that hashes are at the beginning of the memory and it won't change within API updates
+			*/
+			
+			ScratchMap scratch;
+			{
+				auto buffer = getScratchAsBuffer(state->scratch.size);
+				const auto product = parameters.mipLevels * parameters.arrayLayers;
+
+				scratch.hashes = {.offset = 0u, .size = product * sizeof(CState::outHash), .buffer = buffer };
+				scratch.hashers = { .offset = scratch.hashes.size, .size = product * sizeof(blake3_hasher), .buffer = buffer};
+				scratch.flatten = { .offset = scratch.hashers.offset + scratch.hashers.size, .size = state->scratch.size - scratch.hashers.size - scratch.hashes.size, .buffer = buffer };
+			}
+
 			struct
 			{
-				CFlattenRegionsImageFilter::state_type flatten;			// CFlattenRegionsImageFilter's state, we use scratch memory to respecify regions & prefill with 0-value non-covered texels
+				CFlattenRegionsImageFilter::state_type flatten;	// CFlattenRegionsImageFilter's state, we use scratch memory to respecify regions & prefill with 0-value non-covered texels
 			} proxy;
 
 			/*
 				first we need to ensure that texels which are not covered by regions 
-				are filled with 0 value, used flatten allocated as scratch memory has 
-				already respecified regions and tight buffer for the texel copy
+				are filled with 0 value, we use flatten with tight buffer for the 
+				texel copy & prefill
 			*/
 
 			{
+				// create own regions & hook tight buffer with no gaps from scratch
+				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(parameters.mipLevels);
+				{
+					size_t bufferSize = 0ull;
+
+					for (auto rit = regions->begin(); rit != regions->end(); rit++)
+					{
+						auto miplevel = static_cast<uint32_t>(std::distance(regions->begin(), rit));
+						auto localExtent = state->inImage->getMipSize(miplevel);
+						rit->bufferOffset = bufferSize;
+						rit->bufferRowLength = localExtent.x; // could round up to multiple of 8 bytes in the future
+						rit->bufferImageHeight = localExtent.y;
+						rit->imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT; // otherwise won't pass validaiton 
+						rit->imageSubresource.mipLevel = miplevel;
+						rit->imageSubresource.baseArrayLayer = 0u;
+						rit->imageSubresource.layerCount = parameters.arrayLayers;
+						rit->imageOffset = { 0u,0u,0u };
+						rit->imageExtent = { localExtent.x,localExtent.y,localExtent.z };
+						auto levelSize = info.roundToBlockSize(localExtent);
+						auto memsize = levelSize[0] * levelSize[1] * levelSize[2] * parameters.arrayLayers * bytesPerPixel;
+
+						assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
+						bufferSize += memsize.getIntegerApprox();
+					}
+				}
+
+				auto out = ICPUImage::create(IImage::SCreationParams(parameters));
+				out->setBufferAndRegions(core::smart_refctd_ptr(getScratchAsBuffer(scratch.flatten.size, scratch.flatten.offset)), std::move(regions));
+
 				auto& flatten = proxy.flatten;
 				flatten.inImage = state->inImage;
-				flatten.outImage = state->scratchMemory.flatten;
+				flatten.outImage = out;
 				flatten.preFill = true;
 				memset(flatten.fillValue.pointer, 0, sizeof(flatten.fillValue.pointer));
 
@@ -147,10 +179,9 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 				region covering all texels for a given mip level & layers 
 			*/
 
-			const auto regions = proxy.flatten.outImage->getRegions();
-			const auto& parameters = proxy.flatten.outImage->getCreationParameters();
 			const uint8_t* inData = reinterpret_cast<const uint8_t*>(proxy.flatten.outImage->getBuffer()->getPointer());
 			const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(parameters.format);
+			const auto regions = proxy.flatten.outImage->getRegions();
 
 			std::vector<uint32_t> layers(parameters.arrayLayers);
 			std::iota(layers.begin(), layers.end(), 0);
@@ -158,41 +189,40 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			std::vector<uint32_t> levels(parameters.mipLevels);
 			std::iota(levels.begin(), levels.end(), 0);
 
+			/*
+				we stream-hash texels per given mip level & layer
+			*/
+
+            auto* const hashes = reinterpret_cast<CState::hash_t*>(getScratchAsBuffer(scratch.hashes.size, scratch.hashes.offset)->getPointer());
+            auto* const hashers = reinterpret_cast<blake3_hasher*>(getScratchAsBuffer(scratch.hashers.size, scratch.hashers.offset)->getPointer());
+
 			auto executePerMipLevel = [&](const uint32_t miplevel)
 			{
-				/*
-					we stream-hash texels per given mip level & layer
-				*/
-
-				auto* hashers = _NBL_NEW_ARRAY(blake3_hasher, parameters.arrayLayers);
-
-				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
-					blake3_hasher_init(&hashers[layer]);
+				const auto mipOffset = (miplevel * parameters.arrayLayers);
 
 				auto executePerLayer = [&](const uint32_t layer)
 				{
+					const auto pOffset = mipOffset + layer;
+					auto* const hasher = hashers + pOffset;
+					auto* const hash = hashes + pOffset;
+
+					blake3_hasher_init(hasher);
+
 					IImage::SSubresourceLayers subresource = { .aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u), .mipLevel = miplevel, .baseArrayLayer = layer, .layerCount = 1u }; // stick to given mip level and single layer
 					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
 					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
 
-					auto hash = [&hashers, &inData, &texelOrBlockByteSize](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+					auto executePerTexelOrBlock = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
-						auto* hasher = hashers + readBlockPos.w;
 						blake3_hasher_update(hasher, inData + readBlockArrayOffset, texelOrBlockByteSize);
 					};
 
-					CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), hash, regions.begin(), regions.end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
+					CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), executePerTexelOrBlock, regions.begin(), regions.end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
+				
+					blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
 				};
 
 				std::for_each(policy, layers.begin(), layers.end(), executePerLayer); // fire per layer for given given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
-
-				for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
-				{
-					auto* out = reinterpret_cast<uint8_t*>(reinterpret_cast<CState::hash_t*>(state->scratchMemory.heap->getPointer()) + (miplevel * parameters.arrayLayers) + layer);
-					blake3_hasher_finalize(hashers + layer, out, sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level
-				}
-
-				_NBL_DELETE_ARRAY(hashers, parameters.arrayLayers);
 			};
 
 			std::for_each(policy, levels.begin(), levels.end(), executePerMipLevel); // fire per block of layers for given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
@@ -206,11 +236,15 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			blake3_hasher_init(&hasher);
 			{
 				for (auto miplevel = 0u; miplevel < parameters.mipLevels; ++miplevel)
+				{
+					const auto mipOffset = (miplevel * parameters.arrayLayers);
+
 					for (auto layer = 0u; layer < parameters.arrayLayers; ++layer)
 					{
-						auto* hash = reinterpret_cast<CState::hash_t*>(state->scratchMemory.heap->getPointer()) + (miplevel * parameters.arrayLayers) + layer;
+						auto* hash = hashes + mipOffset + layer;
 						blake3_hasher_update(&hasher, hash->data(), sizeof(CState::hash_t));
 					}
+				}
 
 				blake3_hasher_finalize(&hasher, reinterpret_cast<uint8_t*>(state->outHash.data()), sizeof(CState::hash_t)); // finalize output hash for whole image given all hashes
 			}
@@ -221,6 +255,15 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 		{
 			return execute(core::execution::seq, state);
 		}
+
+		private:
+
+			struct ScratchMap
+			{
+				asset::SBufferRange<asset::ICPUBuffer> hashes; // hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this hash buffer
+				asset::SBufferRange<asset::ICPUBuffer> hashers; // hashers, used to produce a hash
+				asset::SBufferRange<asset::ICPUBuffer> flatten; // tightly packed texels from input, no memory gaps
+			};
 };
 
 } // end namespace asset
