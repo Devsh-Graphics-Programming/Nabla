@@ -283,3 +283,4 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 }
 
 #endif
+
