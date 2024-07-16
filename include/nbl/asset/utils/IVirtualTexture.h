@@ -1049,7 +1049,7 @@ protected:
             bnd.count = _count;
             bnd.stageFlags = asset::IShader::ESS_ALL;
             bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-            bnd.samplers = _samplers;
+            bnd.immutableSamplers = _samplers;
         };
 
         fillBinding(bindings[0], _pgtBinding, 1u, samplers);

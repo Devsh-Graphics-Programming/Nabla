@@ -997,8 +997,12 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
 {
     switch (descriptorType)
     {
+        case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+            return VK_DESCRIPTOR_TYPE_SAMPLER;
         case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
@@ -1021,6 +1025,16 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
             assert(!"Invalid code path.");
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
+}
+
+inline VkDescriptorBindingFlagBits getVkDescriptorBindingFlagsFrom(const core::bitflag<IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS> flags)
+{
+    // Wait for C++23
+    //static_assert(std::to_underlying(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)==VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT);
+    return static_cast<VkDescriptorBindingFlagBits>(flags.value);
 }
 
 inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)

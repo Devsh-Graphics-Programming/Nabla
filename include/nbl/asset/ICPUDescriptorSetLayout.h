@@ -33,20 +33,20 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 cp->m_descriptorRedirects[t] = m_descriptorRedirects[t].clone();
             cp->m_immutableSamplerRedirect = m_immutableSamplerRedirect.clone();
-            cp->m_mutableSamplerRedirect = m_mutableSamplerRedirect.clone();
+            cp->m_mutableCombinedSamplerRedirect = m_mutableCombinedSamplerRedirect.clone();
 
-            if (m_samplers)
+            if (m_immutableSamplers)
             {
-                cp->m_samplers = core::make_refctd_dynamic_array<decltype(m_samplers)>(m_samplers->size());
+                cp->m_immutableSamplers = core::make_refctd_dynamic_array<decltype(m_immutableSamplers)>(m_immutableSamplers->size());
 
                 if (_depth > 0u)
                 {
-                    for (size_t i = 0ull; i < m_samplers->size(); ++i)
-                        (*cp->m_samplers)[i] = core::smart_refctd_ptr_static_cast<ICPUSampler>((*m_samplers)[i]->clone(_depth - 1u));
+                    for (size_t i = 0ull; i < m_immutableSamplers->size(); ++i)
+                        (*cp->m_immutableSamplers)[i] = core::smart_refctd_ptr_static_cast<ICPUSampler>((*m_immutableSamplers)[i]->clone(_depth - 1u));
                 }
                 else
                 {
-                    std::copy(m_samplers->begin(), m_samplers->end(), cp->m_samplers->begin());
+                    std::copy(m_immutableSamplers->begin(), m_immutableSamplers->end(), cp->m_immutableSamplers->begin());
                 }
             }
 

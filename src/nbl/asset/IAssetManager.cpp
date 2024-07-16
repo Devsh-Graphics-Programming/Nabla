@@ -291,7 +291,7 @@ void IAssetManager::insertBuiltinAssets()
     binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
     binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
-    binding3.samplers = nullptr;
+    binding3.immutableSamplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
@@ -406,7 +406,7 @@ void IAssetManager::insertBuiltinAssets()
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 
-            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            auto descriptorInfos = ds1->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(0), IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
             descriptorInfos.begin()[0].desc = std::move(ubo);
             descriptorInfos.begin()[0].info.buffer.offset = 0ull;
             descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
