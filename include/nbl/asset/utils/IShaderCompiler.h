@@ -513,6 +513,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			if (!original || !original->isContentHighLevelLanguage())
 				return nullptr;
 
+			const auto content = original->getContent();
+			if (!content || !content->getPointer())
+				return nullptr;
+
 			constexpr auto getMaxSize = [](auto num) -> size_t
 			{
 				using in_type_t = decltype(num);
