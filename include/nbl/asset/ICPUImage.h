@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class ICPUImage final : public IImage, public IAsset
+class ICPUImage final : public IImage, public IPreHashed
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)
@@ -29,7 +29,6 @@ class ICPUImage final : public IImage, public IAsset
         {
             auto par = m_creationParams;
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
-            clone_common(cp.get());
 
             if(regions && !regions->empty())
                 cp->regions = core::make_refctd_dynamic_array<decltype(regions)>(*regions);
@@ -39,25 +38,54 @@ class ICPUImage final : public IImage, public IAsset
             return cp;
         }
 
-        inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
+		// The buffer used to back the ranges used in the regions are is not a real dependent
+		constexpr static inline bool HasDependents = false;
 
-			if (referenceLevelsBelowToConvert)
-			if (buffer)
-				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-
-			if (canBeConvertedToDummy())
-				regions = nullptr;
-        }
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
+		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-        virtual size_t conservativeSizeEstimate() const override
+		// Buffer is not a dependant asset, esp that API will change to individual regions being backed by Buffer Bindings
+		inline size_t getDependantCount() const override {return 0;}
+
+		//!
+		inline core::blake3_hash_t computeContentHash() const override
 		{
-			assert(regions);
-			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
+			// TODO: Arek turn this into an image filter maybe?
+			::blake3_hasher hasher;
+			::blake3_hasher_init(&hasher);
+			for (auto m=0; m<m_creationParams.mipLevels; m++)
+			{
+				const auto blockInfo = getTexelBlockInfo();
+				const auto mipExtentInBlocks = blockInfo.convertTexelsToBlocks(getMipSize(m));
+				::blake3_hasher levelHasher;
+				::blake3_hasher_init(&levelHasher);
+				if (missingContent())
+				{
+					const auto zeroLength = blockInfo.getBlockByteSize()*mipExtentInBlocks[0];
+					auto zeroArray = std::make_unique<uint8_t[]>(zeroLength);
+					for (auto l=0; l<m_creationParams.arrayLayers; l++)
+					{
+						// layers could be run in parallel
+						::blake3_hasher layerHasher;
+						::blake3_hasher_init(&layerHasher);
+						for (auto z=0; z<mipExtentInBlocks[2]; z++)
+						for (auto y=0; y<mipExtentInBlocks[1]; y++)
+							::blake3_hasher_update(&layerHasher,zeroArray.get(),zeroLength);
+						core::blake3_hasher_update(levelHasher,core::blake3_hasher_finalize(layerHasher));
+					}
+				}
+				else
+				{
+					_NBL_TODO(); // TODO: Arek
+				}
+				core::blake3_hasher_update(hasher,core::blake3_hasher_finalize(levelHasher));
+			}
+			return core::blake3_hasher_finalize(hasher);
+		}
+
+		inline bool missingContent() const override
+		{
+			return !regions || regions->empty();
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
@@ -67,7 +95,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline ICPUBuffer* getBuffer() 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			return buffer.get(); 
 		}
@@ -133,7 +161,7 @@ class ICPUImage final : public IImage, public IAsset
 		//
 		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
@@ -146,7 +174,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
@@ -166,7 +194,7 @@ class ICPUImage final : public IImage, public IAsset
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 			{
@@ -188,7 +216,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			if(isImmutable_debug())
+			if(!isMutable())
 				return ((m_creationParams.usage & usage).value == usage.value);
 			m_creationParams.usage = usage;
 			return true;
@@ -196,52 +224,25 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			if(isImmutable_debug())
+			if(!isMutable())
 				return ((m_creationParams.usage & usage).value == usage.value);
 			m_creationParams.usage |= usage;
 			return true;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUImage*>(_other);
-			if (info != other->info)
-				return false;
-			if (m_creationParams != other->m_creationParams)
-				return false;
-			if (!buffer->canBeRestoredFrom(other->buffer.get()))
-				return false;
-
-			return true;
-		}
-
     protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUImage*>(_other);
-
-			const bool restorable = willBeRestoredFrom(_other);
-
-			if (restorable)
-				std::swap(regions, other->regions);
-
-			if (_levelsBelow)
-				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			return buffer->isAnyDependencyDummy(_levelsBelow);
-		}
-
-		ICPUImage(const SCreationParams& _params) : IImage(_params)
-		{
-		}
-
+		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
+		inline void discardContent_impl() override
+		{
+			buffer = nullptr;
+			regions = nullptr;
+		}
 		
+		// TODO: maybe we shouldn't make a single buffer back all regions?
 		core::smart_refctd_ptr<asset::ICPUBuffer>				buffer;
 		core::smart_refctd_dynamic_array<IImage::SBufferCopy>	regions;
 

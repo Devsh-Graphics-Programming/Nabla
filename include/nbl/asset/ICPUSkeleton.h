@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSerializable, */public IAsset
+class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 {
 	public:
 		using base_t = ISkeleton<ICPUBuffer>;
@@ -49,7 +49,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 		}
 		inline core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return const_cast<core::matrix3x4SIMD&>(const_cast<const ICPUSkeleton*>(this)->getDefaultTransformMatrix(jointID));
 		}
 
@@ -60,24 +60,12 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			return reinterpret_cast<const base_t::joint_id_t*>(ptr+m_parentJointIDs.offset)[jointID];
 		}
 
-		//! Serializes skeleton to blob for *.nbl file format.
-		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
-			@param _stackSize Size of stack memory pointed by _stackPtr.
-			@returns Pointer to memory on which blob was written.
-		* TODO
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
-		{
-			return CorrespondingBlobTypeFor<ICPUSkeleton>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-		}
-		*/
-
-		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 		{
 			SBufferBinding<ICPUBuffer> _parentJointIDsBinding = {m_parentJointIDs.offset,_depth>0u&&m_parentJointIDs.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_parentJointIDs.buffer->clone(_depth-1u)):m_parentJointIDs.buffer};
 			SBufferBinding<ICPUBuffer> _defaultTransformsBinding = { m_defaultTransforms.offset,_depth>0u&&m_defaultTransforms.buffer ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_defaultTransforms.buffer->clone(_depth-1u)):m_defaultTransforms.buffer};
 
  			auto cp = core::make_smart_refctd_ptr<ICPUSkeleton>(std::move(_parentJointIDsBinding),std::move(_defaultTransformsBinding),m_jointCount);
-			clone_common(cp.get());
 			assert(!cp->m_stringPool);
 			cp->m_stringPoolSize = m_stringPoolSize;
 			cp->m_stringPool = _NBL_NEW_ARRAY(char,m_stringPoolSize);
@@ -88,75 +76,18 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, /*TODO: public BlobSeri
 			return cp;
 		}
 
-		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
+		constexpr static inline bool HasDependents = true;
 
-			if (referenceLevelsBelowToConvert)
-			{
-				m_parentJointIDs.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-				m_defaultTransforms.buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			}
-		}
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SKELETON;
+		constexpr static inline auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		virtual size_t conservativeSizeEstimate() const override
-		{
-			size_t estimate = sizeof(SBufferBinding<ICPUBuffer>)*2ull;
-			estimate += sizeof(uint16_t);
-			estimate += m_stringPoolSize;
-			estimate += m_nameToJointID.size()*sizeof(std::pair<uint32_t,joint_id_t>);
-			// do we add other things to the size estimate?
-			return estimate;
-		}
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUSkeleton*>(_other);
-			// if we decide to get rid of the string pool when converting to dummy, then we need to start checking stringpool and map properties here
-            if (m_parentJointIDs.offset != other->m_parentJointIDs.offset)
-                return false;
-            if ((!m_parentJointIDs.buffer) != (!other->m_parentJointIDs.buffer))
-                return false;
-            if (m_parentJointIDs.buffer && !m_parentJointIDs.buffer->canBeRestoredFrom(other->m_parentJointIDs.buffer.get()))
-                return false;
-            if (m_defaultTransforms.offset != other->m_defaultTransforms.offset)
-                return false;
-            if ((!m_defaultTransforms.buffer) != (!other->m_defaultTransforms.buffer))
-                return false;
-            if (m_defaultTransforms.buffer && !m_defaultTransforms.buffer->canBeRestoredFrom(other->m_defaultTransforms.buffer.get()))
-                return false;
-			if (m_jointCount != other->m_jointCount)
-				return false;
-
-			return true;
-		}
+		//!
+		inline size_t getDependantCount() const override {return 2;}
 
 	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		inline IAsset* getDependant_impl(const size_t ix) override
 		{
-			auto* other = static_cast<ICPUSkeleton*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				
-                if (m_parentJointIDs.buffer)
-                    restoreFromDummy_impl_call(m_parentJointIDs.buffer.get(),other->m_parentJointIDs.buffer.get(),_levelsBelow);
-                if (m_defaultTransforms.buffer)
-                    restoreFromDummy_impl_call(m_defaultTransforms.buffer.get(),other->m_defaultTransforms.buffer.get(),_levelsBelow);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			if (m_parentJointIDs.buffer && m_parentJointIDs.buffer->isAnyDependencyDummy(_levelsBelow))
-					return true;
-
-			return m_defaultTransforms.buffer && m_defaultTransforms.buffer->isAnyDependencyDummy(_levelsBelow);
+			return (ix!=0 ? m_defaultTransforms:m_parentJointIDs).buffer.get();
 		}
 };
 

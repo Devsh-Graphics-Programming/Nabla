@@ -197,11 +197,7 @@ bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWritePara
 	auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset), _params.logger);
 	const asset::ICPUImage* image = imageSmart.get();
 
-	if (image->getBuffer()->isADummyObjectForCache())
-		return false;
-
 	system::IFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
-
 	if (!file)
 		return false;
 

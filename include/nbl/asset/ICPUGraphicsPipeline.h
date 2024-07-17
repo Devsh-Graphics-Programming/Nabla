@@ -41,14 +41,25 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
 		}
 
+		constexpr static inline bool HasDependents = true;
+
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		inline size_t getDependantCount() const override
+		{
+			auto stageCount = 1; // the layout
+			for (const auto& stage : m_stages)
+			if (stage.shader)
+				stageCount++;
+			return stageCount;
+		}
 
 		// extras for this class
 		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
         inline SCachedCreationParams& getCachedCreationParams()
         {
-            assert(!isImmutable_debug());
+            assert(isMutable());
             return m_params;
         }
 
@@ -68,10 +79,14 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			}};
 			return new ICPUGraphicsPipeline(params);
 		}
-		bool canBeRestoredFrom_impl(const base_t* _other) const override
+		inline IAsset* getDependant_impl(const size_t ix) override
 		{
-			auto* other = static_cast<const ICPUGraphicsPipeline*>(_other);
-			return memcmp(&m_params,&other->m_params,sizeof(m_params))==0;
+			size_t stageCount = 0;
+			for (auto& stage : m_stages)
+			if (stage.shader)
+			if ((stageCount++)==ix)
+				return stage.shader.get();
+			return m_layout.get();
 		}
 
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
