@@ -4,73 +4,53 @@ get_filename_component(NBL_DEVICE_GEN_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/i
 set(NBL_DEVICE_GEN_INCLUDE_DIR "${NBL_DEVICE_GEN_INCLUDE_DIR}" CACHE INTERNAL "" FORCE)
 set(NBL_DEVICE_GEN_OUTPUT_DIR "${NBL_DEVICE_GEN_INCLUDE_DIR}/nbl/video")
 
-# inputs
-set(INPUT_DL_JSON "${SRC_VIDEO_PATH}/device_limits.json")
-set(INPUT_DF_JSON "${SRC_VIDEO_PATH}/device_features.json")
+macro(NBL_REGISTER_INPUT_DEVICE_FILE NBL_INPUT_PATH NBL_CMD_ARGUMENT)
+	list(APPEND NBL_DEPENDS "${NBL_INPUT_PATH}") # update depends list
+	list(APPEND NBL_INPUT_GEN_ARGUMENTS "${NBL_CMD_ARGUMENT}" "${NBL_INPUT_PATH}") # update input file gen arguments list for the python script
+endmacro()
 
-set(INPUT_JSONS
-  "${INPUT_DL_JSON}"
-  "${INPUT_DF_JSON}"
-)
-
-# outputs
 set(OUTPUT_DL_TEMPLATE "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceLimits_")
 set(OUTPUT_DF_TEMPLATE "${NBL_DEVICE_GEN_OUTPUT_DIR}/SPhysicalDeviceFeatures_")
 set(OUTPUT_DT_TEMPLATE "${NBL_DEVICE_GEN_OUTPUT_DIR}/device_capabilities_traits_")
 
-set(OUTPUT_DL_MEMBERS "${OUTPUT_DL_TEMPLATE}members.h")
-set(OUTPUT_DL_SUBSET "${OUTPUT_DL_TEMPLATE}subset.h")
-set(OUTPUT_DF_MEMBERS "${OUTPUT_DF_TEMPLATE}members.h")
-set(OUTPUT_DF_UNION "${OUTPUT_DF_TEMPLATE}union.h")
-set(OUTPUT_DF_INTERSECT "${OUTPUT_DF_TEMPLATE}intersect.h")
-set(OUTPUT_DT_MEMBERS "${OUTPUT_DT_TEMPLATE}members.hlsl")
-set(OUTPUT_DT_TESTERS "${OUTPUT_DT_TEMPLATE}testers.hlsl")
-set(OUTPUT_DT_DEFAULTS "${OUTPUT_DT_TEMPLATE}defaults.hlsl")
-set(OUTPUT_DT_FLOATS "${OUTPUT_DT_TEMPLATE}floats.hlsl")
-set(OUTPUT_DT_ENUMS "${OUTPUT_DT_TEMPLATE}enums.hlsl")
-set(OUTPUT_DT_JIT "${OUTPUT_DT_TEMPLATE}jit.h")
+macro(NBL_REGISTER_OUTPUT_DEVICE_FILE NBL_TEMPLATE_QUALIFIER NBL_HEADER_POSTFIX_WTIH_EXTENSION NBL_CMD_ARGUMENT)
+	set(_NBL_OUTPUT_ "${OUTPUT_${NBL_TEMPLATE_QUALIFIER}_TEMPLATE}${NBL_HEADER_POSTFIX_WTIH_EXTENSION}")
+	list(APPEND OUTPUT_HEADERS "${_NBL_OUTPUT_}") # update output headers list
+	list(APPEND NBL_OUTPUT_GEN_ARGUMENTS "${NBL_CMD_ARGUMENT}" "${_NBL_OUTPUT_}") # update output file gen arguments list for the python script
+	unset(_NBL_OUTPUT_)
+endmacro()
 
-set(OUTPUT_HEADERS 
-"${OUTPUT_DL_MEMBERS}"
-"${OUTPUT_DL_SUBSET}"
-"${OUTPUT_DF_MEMBERS}"
-"${OUTPUT_DF_UNION}"
-"${OUTPUT_DF_INTERSECT}"
-"${OUTPUT_DT_MEMBERS}"
-"${OUTPUT_DT_TESTERS}"
-"${OUTPUT_DT_DEFAULTS}"
-"${OUTPUT_DT_FLOATS}"
-"${OUTPUT_DT_ENUMS}"
-"${OUTPUT_DT_JIT}"
-)
+# prepare inputs
+NBL_REGISTER_INPUT_DEVICE_FILE("${SRC_VIDEO_PATH}/device_limits.json" --limits_json_path)
+NBL_REGISTER_INPUT_DEVICE_FILE("${SRC_VIDEO_PATH}/device_features.json" --features_json_path)
 
-# python script
+# prepare outputs
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DL members.h --limits_output_members_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DL subset.h --limits_output_subset_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DF members.h --features_output_members_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DF union.h --features_output_union_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DF intersect.h --features_output_intersect_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT members.hlsl --traits_output_members_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT testers.hlsl --traits_output_testers_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT defaults.hlsl --traits_output_defaults_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT floats.hlsl --traits_output_floats_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT enums.hlsl --traits_output_enums_path)
+NBL_REGISTER_OUTPUT_DEVICE_FILE(DT jit.h --jit_traits_output_path)
+
+# python script paths
 set(NBL_GEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/gen.py")
 set(NBL_DGEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/DeviceGen.py")
 
-# custom command
-set(NBL_COMMAND
-  "${_Python3_EXECUTABLE}"
-  "${NBL_GEN_PY}"
-  "--limits_json_path" "${INPUT_DL_JSON}"  
-  "--features_json_path" "${INPUT_DF_JSON}"
-  "--limits_output_members_path" "${OUTPUT_DL_MEMBERS}"
-  "--limits_output_subset_path" "${OUTPUT_DL_SUBSET}"
-  "--features_output_members_path" "${OUTPUT_DF_MEMBERS}"
-  "--features_output_union_path" "${OUTPUT_DF_UNION}"
-  "--features_output_intersect_path" "${OUTPUT_DF_INTERSECT}"
-  "--traits_output_members_path" "${OUTPUT_DT_MEMBERS}"
-  "--traits_output_testers_path" "${OUTPUT_DT_TESTERS}"
-  "--traits_output_defaults_path" "${OUTPUT_DT_DEFAULTS}"
-  "--traits_output_enums_path" "${OUTPUT_DT_ENUMS}"
-  "--traits_output_floats_path" "${OUTPUT_DT_FLOATS}"
-  "--jit_traits_output_path" "${OUTPUT_DT_JIT}"
+list(APPEND NBL_DEPENDS
+	"${NBL_GEN_PY}"
+	"${NBL_DGEN_PY}"
 )
 
-set(NBL_DEPENDS
-  ${INPUT_JSONS}
-  "${NBL_GEN_PY}"
-  "${NBL_DGEN_PY}"
+set(NBL_COMMAND
+	"${_Python3_EXECUTABLE}"
+	"${NBL_GEN_PY}"
+	${NBL_INPUT_GEN_ARGUMENTS}
+	${NBL_OUTPUT_GEN_ARGUMENTS}
 )
 
 add_custom_command(OUTPUT ${OUTPUT_HEADERS}
@@ -78,6 +58,8 @@ add_custom_command(OUTPUT ${OUTPUT_HEADERS}
     COMMAND ${NBL_COMMAND}
     VERBATIM
 )
+
+# TODO: this whole CMake file should be moved to Nabla's src/* somewhere because its integrated with Nabla's build system and is not a tool at all then this below should be updated
 
 add_custom_target(DeviceHeaders DEPENDS ${OUTPUT_HEADERS})
 
