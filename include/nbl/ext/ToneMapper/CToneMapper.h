@@ -127,22 +127,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			asset::E_DESCRIPTOR_TYPE descriptorTypes[DEFAULT_MAX_DESCRIPTOR_COUNT] = {};
 			if (!usingLumaMeter)
 			{
-<<<<<<< HEAD
-				pWrites[i].dstSet = set;
-				pWrites[i].arrayElement = 0u;
-				pWrites[i].count = 1u;
-				pWrites[i].info = pInfos+i;
-			}
-			
-			pInfos[1].desc = inputParameterDescriptor;
-			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
-			pInfos[1].buffer.offset = 0u;
-			pInfos[2].desc = inputImageDescriptor;
-			pInfos[2].image.imageLayout = asset::IImage::LAYOUT::GENERAL; // OR READONLY?
-			pInfos[2].image.sampler = nullptr;
-=======
 				descriptorCount = 3u;
->>>>>>> 44baa89c06cd3fb6e697b16c9f3457c8fab3b6cb
 
 				// output image
 				descriptorTypes[0] = asset::EDT_STORAGE_IMAGE;
@@ -156,20 +141,11 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				infos[1].buffer.offset = 0ull;
 				infos[1].buffer.size = paramsSSBO->getCachedCreationParams().declaredSize;
 
-<<<<<<< HEAD
-				pInfos[0].desc = lumaUniformsDescriptor;
-				pInfos[0].buffer.offset = 0u;
-				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
-
-				pWrites[0].binding = lumaUniformsBinding;
-				pWrites[0].descriptorType = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC;
-=======
 				// input image
 				descriptorTypes[2] = asset::EDT_COMBINED_IMAGE_SAMPLER;
 				infos[2].desc = inputImageView;
 				infos[2].image.sampler = nullptr;
 				infos[2].image.imageLayout = asset::EIL_SHADER_READ_ONLY_OPTIMAL;
->>>>>>> 44baa89c06cd3fb6e697b16c9f3457c8fab3b6cb
 			}
 			else
 			{
@@ -178,13 +154,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				assert(lumaMeterBindingCount < DEFAULT_MAX_DESCRIPTOR_COUNT);
 				assert(lumaParamsUbo);
 
-<<<<<<< HEAD
-			pInfos[outputImageIx].desc = outputImageDescriptor;
-			pInfos[outputImageIx].image.imageLayout = static_cast<asset::IImage::E_LAYOUT>(0u);
-			pInfos[outputImageIx].image.sampler = nullptr;
-=======
 				descriptorCount = lumaMeterBindingCount + 1u;
->>>>>>> 44baa89c06cd3fb6e697b16c9f3457c8fab3b6cb
 
 				// luma meter input params
 				descriptorTypes[0] = lumaMeterBindings.begin()[0].type;
@@ -192,20 +162,11 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				infos[0].buffer.offset = 0ull;
 				infos[0].buffer.size = lumaParamsUbo->getCachedCreationParams().declaredSize;
 
-<<<<<<< HEAD
-			pWrites[1].binding = inputParameterBinding;
-			pWrites[1].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC;
-			pWrites[2].binding = inputImageBinding;
-			pWrites[2].descriptorType = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-			pWrites[outputImageIx].binding = outputImageBinding;
-			pWrites[outputImageIx].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE;
-=======
 				// tonemapping params and luma output buffer
 				descriptorTypes[1] = lumaMeterBindings.begin()[1].type;
 				infos[1].desc = paramsSSBO;
 				infos[1].buffer.offset = 0ull;
 				infos[1].buffer.size = paramsSSBO->getCachedCreationParams().declaredSize;
->>>>>>> 44baa89c06cd3fb6e697b16c9f3457c8fab3b6cb
 
 				// input image
 				descriptorTypes[2] = lumaMeterBindings.begin()[2].type;
@@ -243,7 +204,6 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			bool usingTemporalAdaptation=false
 		);
 
-<<<<<<< HEAD
 		//
 		static inline core::smart_refctd_ptr<video::IGPUImageView> createViewForImage(
 			video::IVideoDriver* driver, bool usedAsInput,
@@ -267,8 +227,6 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			return driver->createImageView(std::move(params));
 		}
 
-=======
->>>>>>> 44baa89c06cd3fb6e697b16c9f3457c8fab3b6cb
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
 		static inline void dispatchHelper(
 			video::IGPUCommandBuffer* cmdbuf,
