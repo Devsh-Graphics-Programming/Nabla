@@ -51,7 +51,7 @@ class ICPUShader : public IAsset, public IShader
 		}
 
 		//!
-		inline size_t getDependantCount() const override {return 0;}
+		inline size_t getDependantCount() const override {return 1;}
 
 		const ICPUBuffer* getContent() const { return m_code.get(); };
 
@@ -79,7 +79,7 @@ class ICPUShader : public IAsset, public IShader
 		}
 
 	protected:
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+		inline IAsset* getDependant_impl(const size_t ix) override {return m_code.get();}
 
 		const core::smart_refctd_ptr<ICPUBuffer> m_code;
 		const E_CONTENT_TYPE m_contentType;
