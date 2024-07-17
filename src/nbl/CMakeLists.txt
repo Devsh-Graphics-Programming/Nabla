@@ -113,6 +113,10 @@ if(NBL_BUILD_ANDROID)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
+# must do this because of https://github.com/Devsh-Graphics-Programming/Nabla/commit/4123d103f2a0964686cb94bb5eb632666b6abdbd#diff-62f5e9686ac3eb0f38e0efb8720c787bbccb383e66c0fa788f804a4a32e190b4R62, bad design but will work
+# TODO: once the TODO from above is done update remove the bellow and put to devicegen CMake
+set(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH_BINARY}/tools/deviceGen/include/nbl/video")
+
 nbl_generate_conf_files()
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
