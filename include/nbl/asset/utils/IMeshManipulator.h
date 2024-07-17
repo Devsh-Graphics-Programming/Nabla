@@ -515,7 +515,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			{
 				auto& cpumb = *it;
 				assert(cpumb->isMutable());
-				assert(!IPreHashed::anyDependantDiscardedContents(cpumb));
+				assert(!IPreHashed::anyDependantDiscardedContents(cpumb.get()));
 
 				const auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				switch (params.primitiveType)
