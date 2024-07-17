@@ -44,8 +44,8 @@ class ICPUImage final : public IImage, public IPreHashed
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		// Buffer is not a dependant asset, esp that API will change to individual regions being backed by Buffer Bindings
-		inline size_t getDependantCount() const override {return 0;}
+		// Having regions specififed to upload is optional!
+		inline size_t getDependantCount() const override {return !missingContent()&&buffer ? 1:0;}
 
 		//!
 		inline core::blake3_hash_t computeContentHash() const override
@@ -85,7 +85,7 @@ class ICPUImage final : public IImage, public IPreHashed
 
 		inline bool missingContent() const override
 		{
-			return !regions || regions->empty();
+			return !regions || regions->empty() || !buffer;
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
@@ -234,7 +234,7 @@ class ICPUImage final : public IImage, public IPreHashed
 		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+		inline IAsset* getDependant_impl(const size_t ix) override {return buffer.get();}
 
 		inline void discardContent_impl() override
 		{

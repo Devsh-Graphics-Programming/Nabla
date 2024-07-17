@@ -142,9 +142,20 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			return cp;
 		}
 
-		// buffer bindings are not considered dependants, just data storage
+		//
 		inline size_t getDependantCount() const override
 		{
+			if (!m_geometryPrimitiveCount)
+				return 0;
+			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+				return m_AABBGeoms ? m_AABBGeoms->size():0;
+			else if (m_triangleGeoms)
+			{
+				if (usesMotion())
+					return m_triangleGeoms->size()*3;
+				else
+					return m_triangleGeoms->size()*2;
+			}
 			return 0;
 		}
 
@@ -230,7 +241,36 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+		inline IAsset* getDependant_impl(const size_t ix) override
+		{
+			const ICPUBuffer* buffer = nullptr;
+			if (m_geometryPrimitiveCount)
+			{
+				if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+					buffer = m_AABBGeoms ? m_AABBGeoms->operator[](ix).data.buffer.get():nullptr;
+				else if (m_triangleGeoms)
+				{
+					const auto geomCount = m_triangleGeoms->size();
+					const auto subResourceIx = ix/geomCount;
+					const auto& triangles =	m_triangleGeoms->operator[](ix-subResourceIx*geomCount);
+					switch (subResourceIx)
+					{
+						case 0:
+							buffer = triangles.indexData.buffer.get();
+							break;
+						case 1:
+							buffer = triangles.vertexData[0].buffer.get();
+							break;
+						case 2:
+							buffer = triangles.vertexData[1].buffer.get();
+							break;
+						default:
+							break;
+					}
+				}
+			}
+			return const_cast<ICPUBuffer*>(buffer);
+		}
 
 		inline void discardContent_impl() //TODO: sort this out later, override
 		{
