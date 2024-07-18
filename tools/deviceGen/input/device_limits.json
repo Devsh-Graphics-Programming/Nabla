@@ -982,15 +982,6 @@
             ]
         },
         {
-            "comment": [
-                "expose in 2 phases",
-                "-Update After Bindand nonUniformEXT shader qualifier:",
-                "Descriptor Lifetime Tracking PR #345 will do this, cause I don't want to rewrite the tracking system again.",
-                "-Actual Descriptor Indexing:",
-                "The whole 512k descriptor limits, runtime desc arrays, etc.will come later"
-            ]
-        },
-        {
             "comment": [],
             "entries": [
                 {
