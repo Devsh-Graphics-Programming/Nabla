@@ -11,6 +11,13 @@ template<typename... T>
 struct type_list
 {
 };
+template<typename TypeList>
+struct type_list_size;
+template<typename... T>
+struct type_list_size<type_list<T...>> : std::integral_constant<size_t,sizeof...(T)> { };
+template<typename TypeList>
+inline constexpr size_t type_list_size_v = type_list_size<TypeList>::value;
+
 template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
 struct list_transform
 {
