@@ -2445,7 +2445,7 @@
         },
         {
             "type": "bool",
-            "name": "imageFootPrint",
+            "name": "imageFootprint",
             "value": false,
             "expose": "MOVE_TO_LIMIT",
             "comment": [

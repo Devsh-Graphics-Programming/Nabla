@@ -300,8 +300,6 @@ NBL_CONSTEXPR_STATIC_INLINE bool postDepthCoverage = impl::get_or_default_postDe
 NBL_CONSTEXPR_STATIC_INLINE bool computeDerivativeGroupQuads = impl::get_or_default_computeDerivativeGroupQuads<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool computeDerivativeGroupLinear = impl::get_or_default_computeDerivativeGroupLinear<device_capabilities>::value;
 
-NBL_CONSTEXPR_STATIC_INLINE bool imageFootprint = impl::get_or_default_imageFootprint<device_capabilities>::value;
-
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDomain = impl::get_or_default_pciDomain<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciBus = impl::get_or_default_pciBus<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDevice = impl::get_or_default_pciDevice<device_capabilities>::value;
@@ -394,7 +392,7 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderTerminateInvocation = impl::get_or_defaul
 NBL_CONSTEXPR_STATIC_INLINE bool shaderZeroInitializeWorkgroupMemory = impl::get_or_default_shaderZeroInitializeWorkgroupMemory<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderDeviceClock = impl::get_or_default_shaderDeviceClock<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClock = impl::get_or_default_shaderSubgroupClock<device_capabilities>::value;
-NBL_CONSTEXPR_STATIC_INLINE bool imageFootPrint = impl::get_or_default_imageFootPrint<device_capabilities>::value;
+NBL_CONSTEXPR_STATIC_INLINE bool imageFootprint = impl::get_or_default_imageFootprint<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderIntegerFunctions2 = impl::get_or_default_shaderIntegerFunctions2<device_capabilities>::value;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderEarlyAndLateFragmentTests = impl::get_or_default_shaderEarlyAndLateFragmentTests<device_capabilities>::value;
 

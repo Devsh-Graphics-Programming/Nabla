@@ -429,10 +429,6 @@
     bool computeDerivativeGroupQuads = false;
     bool computeDerivativeGroupLinear = false;
 
-    // VK_NV_shader_image_footprint
-    // ShaderImageFootprintFeaturesNV
-    bool imageFootprint = false;
-
     // VK_EXT_pci_bus_info
     // PCIBusInfoPropertiesEXT
     uint32_t pciDomain = ~0u;
@@ -576,7 +572,7 @@
     bool shaderZeroInitializeWorkgroupMemory = false;
     bool shaderDeviceClock = false;
     bool shaderSubgroupClock = false;
-    bool imageFootPrint = false;
+    bool imageFootprint = false;
     bool shaderIntegerFunctions2 = false;
     bool shaderEarlyAndLateFragmentTests = false;
 

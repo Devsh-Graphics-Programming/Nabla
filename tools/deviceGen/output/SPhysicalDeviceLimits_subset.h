@@ -309,8 +309,6 @@ if (maxSampleLocationGridSize.y > _rhs.maxSampleLocationGridSize.y) return false
     if (computeDerivativeGroupQuads && !_rhs.computeDerivativeGroupQuads) return false;
     if (computeDerivativeGroupLinear && !_rhs.computeDerivativeGroupLinear) return false;
 
-    if (imageFootprint && !_rhs.imageFootprint) return false;
-
     // if (pciDomain > _rhs.pciDomain) return false;
     // if (pciBus > _rhs.pciBus) return false;
     // if (pciDevice > _rhs.pciDevice) return false;
@@ -405,7 +403,7 @@ if (minFragmentDensityTexelSize.y < _rhs.minFragmentDensityTexelSize.y) return f
     if (shaderZeroInitializeWorkgroupMemory && !_rhs.shaderZeroInitializeWorkgroupMemory) return false;
     if (shaderDeviceClock && !_rhs.shaderDeviceClock) return false;
     if (shaderSubgroupClock && !_rhs.shaderSubgroupClock) return false;
-    if (imageFootPrint && !_rhs.imageFootPrint) return false;
+    if (imageFootprint && !_rhs.imageFootprint) return false;
     if (shaderIntegerFunctions2 && !_rhs.shaderIntegerFunctions2) return false;
     if (shaderEarlyAndLateFragmentTests && !_rhs.shaderEarlyAndLateFragmentTests) return false;
 

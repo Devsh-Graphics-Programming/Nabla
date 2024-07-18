@@ -259,14 +259,14 @@ def transformTraits(dict, line_format, json_type, line_format_params):
 
     if parsed_value == '0.5f-exp2f(-MinSubPixelInterpolationOffsetBits)':
         parsed_value = "0.4375"
-
+    
     if parsed_type.endswith('int8_t'):
         parsed_type = parsed_type[:-3] + "16_t"
 
     if parsed_type == "float" and parsed_name.find("Range") == -1 and parsed_name.find(r"[") == -1:
         parsed_type = "uint32_t"
         parsed_name += "BitPattern"
-        parsed_value = f"asuint({parsed_value})"
+        parsed_value = f"asuint({parsed_value})" if parsed_value != "nbl::hlsl::numeric_limits<float>::infinity" else "0x7F800000"
         parsed_json_type = r"std::bit_cast<uint32_t>(" + parsed_json_type
         parsed_cpp_name = parsed_cpp_name + r")"
 

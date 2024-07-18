@@ -300,8 +300,6 @@ NBL_GENERATE_MEMBER_TESTER(postDepthCoverage);
 NBL_GENERATE_MEMBER_TESTER(computeDerivativeGroupQuads);
 NBL_GENERATE_MEMBER_TESTER(computeDerivativeGroupLinear);
 
-NBL_GENERATE_MEMBER_TESTER(imageFootprint);
-
 NBL_GENERATE_MEMBER_TESTER(pciDomain);
 NBL_GENERATE_MEMBER_TESTER(pciBus);
 NBL_GENERATE_MEMBER_TESTER(pciDevice);
@@ -394,7 +392,7 @@ NBL_GENERATE_MEMBER_TESTER(shaderTerminateInvocation);
 NBL_GENERATE_MEMBER_TESTER(shaderZeroInitializeWorkgroupMemory);
 NBL_GENERATE_MEMBER_TESTER(shaderDeviceClock);
 NBL_GENERATE_MEMBER_TESTER(shaderSubgroupClock);
-NBL_GENERATE_MEMBER_TESTER(imageFootPrint);
+NBL_GENERATE_MEMBER_TESTER(imageFootprint);
 NBL_GENERATE_MEMBER_TESTER(shaderIntegerFunctions2);
 NBL_GENERATE_MEMBER_TESTER(shaderEarlyAndLateFragmentTests);
 

@@ -301,8 +301,6 @@ NBL_CONSTEXPR_STATIC_INLINE bool postDepthCoverage = )===" + std::string("(bool)
 NBL_CONSTEXPR_STATIC_INLINE bool computeDerivativeGroupQuads = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.computeDerivativeGroupQuads) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool computeDerivativeGroupLinear = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.computeDerivativeGroupLinear) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE bool imageFootprint = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.imageFootprint) + R"===(;
-
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDomain = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.pciDomain) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciBus = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.pciBus) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t pciDevice = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.pciDevice) + R"===(;
@@ -395,7 +393,7 @@ NBL_CONSTEXPR_STATIC_INLINE bool shaderTerminateInvocation = )===" + std::string
 NBL_CONSTEXPR_STATIC_INLINE bool shaderZeroInitializeWorkgroupMemory = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.shaderZeroInitializeWorkgroupMemory) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderDeviceClock = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.shaderDeviceClock) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderSubgroupClock = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.shaderSubgroupClock) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE bool imageFootPrint = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.imageFootPrint) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE bool imageFootprint = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.imageFootprint) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderIntegerFunctions2 = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.shaderIntegerFunctions2) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool shaderEarlyAndLateFragmentTests = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.shaderEarlyAndLateFragmentTests) + R"===(;
 

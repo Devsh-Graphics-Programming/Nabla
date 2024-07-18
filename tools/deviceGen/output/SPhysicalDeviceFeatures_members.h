@@ -999,7 +999,7 @@
     // [EXPOSE AS LIMIT] Enabled by Default, Moved to Limits
     // ShaderImageFootprintFeaturesNV
     // VK_NV_shader_image_footprint
-    // bool imageFootPrint = false;
+    // bool imageFootprint = false;
 
     // [TODO LATER] requires extra API work to use
     // GL Hint: in GL/GLES this is NV_scissor_exclusive

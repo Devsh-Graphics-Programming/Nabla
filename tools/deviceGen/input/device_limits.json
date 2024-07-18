@@ -1831,15 +1831,6 @@
             ]
         },
         {
-            "type": "bool",
-            "name": "imageFootprint",
-            "value": false,
-            "comment": [
-                "VK_NV_shader_image_footprint",
-                "ShaderImageFootprintFeaturesNV"
-            ]
-        },
-        {
             "comment": [
                 "VK_EXT_pci_bus_info",
                 "PCIBusInfoPropertiesEXT"

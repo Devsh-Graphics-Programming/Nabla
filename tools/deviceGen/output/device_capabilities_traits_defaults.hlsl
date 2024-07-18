@@ -266,7 +266,7 @@ NBL_GENERATE_GET_OR_DEFAULT(maxDiscardRectangles, uint32_t, 0);
 
 NBL_GENERATE_GET_OR_DEFAULT(primitiveOverestimationSizeBitPattern, uint32_t, asuint(0.f));
 NBL_GENERATE_GET_OR_DEFAULT(maxExtraPrimitiveOverestimationSizeBitPattern, uint32_t, asuint(0.f));
-NBL_GENERATE_GET_OR_DEFAULT(extraPrimitiveOverestimationSizeGranularityBitPattern, uint32_t, asuint(nbl::hlsl::numeric_limits<float>::infinity));
+NBL_GENERATE_GET_OR_DEFAULT(extraPrimitiveOverestimationSizeGranularityBitPattern, uint32_t, 0x7F800000);
 NBL_GENERATE_GET_OR_DEFAULT(primitiveUnderestimation, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(conservativePointAndLineRasterization, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(degenerateTrianglesRasterized, bool, false);
@@ -308,8 +308,6 @@ NBL_GENERATE_GET_OR_DEFAULT(postDepthCoverage, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(computeDerivativeGroupQuads, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(computeDerivativeGroupLinear, bool, false);
-
-NBL_GENERATE_GET_OR_DEFAULT(imageFootprint, bool, false);
 
 NBL_GENERATE_GET_OR_DEFAULT(pciDomain, uint32_t, ~0u);
 NBL_GENERATE_GET_OR_DEFAULT(pciBus, uint32_t, ~0u);
@@ -403,7 +401,7 @@ NBL_GENERATE_GET_OR_DEFAULT(shaderTerminateInvocation, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderZeroInitializeWorkgroupMemory, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderDeviceClock, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderSubgroupClock, bool, false);
-NBL_GENERATE_GET_OR_DEFAULT(imageFootPrint, bool, false);
+NBL_GENERATE_GET_OR_DEFAULT(imageFootprint, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderIntegerFunctions2, bool, false);
 NBL_GENERATE_GET_OR_DEFAULT(shaderEarlyAndLateFragmentTests, bool, false);
 
