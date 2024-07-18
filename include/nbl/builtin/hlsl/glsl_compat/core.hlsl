@@ -16,8 +16,20 @@ namespace glsl
 {
 
 #ifndef __HLSL_VERSION
-NBL_ALIAS_TEMPLATE_FUNCTION(glm::bitfieldInsert, bitfieldInsert)
-NBL_ALIAS_TEMPLATE_FUNCTION(glm::bitfieldExtract, bitfieldExtract)
+
+// GLM Aliases
+template<typename genIUType>
+genIUType bitfieldExtract(genIUType Value, int Offset, int Bits)
+{
+	return glm::bitfieldExtract<genIUType>(Value, Offset, Bits);
+}
+
+template<typename genIUType>
+genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
+{
+	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
+}
+
 #else
 /**
 * Generic SPIR-V
@@ -213,7 +225,7 @@ struct bitfieldInsert
 template<typename T>
 T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
 {
-    return impl::bitfieldInsert<T>::template  __call(base, insert, offset, count);
+    return impl::bitfieldInsert<T>:: __call(base, insert, offset, count);
 }
 
 #endif
