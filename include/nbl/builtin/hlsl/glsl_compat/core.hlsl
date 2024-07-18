@@ -214,7 +214,7 @@ namespace impl
 template<typename T>
 struct bitfieldInsert
 {
-    enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
+    static enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
     {
         return spirv::bitFieldInsert<T>( base, insert, offset, count );
     }
@@ -225,7 +225,7 @@ struct bitfieldInsert
 template<typename T>
 T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
 {
-    return impl::bitfieldInsert<T>:: __call(base, insert, offset, count);
+    return impl::bitfieldInsert<T>::__call(base, insert, offset, count);
 }
 
 #endif
