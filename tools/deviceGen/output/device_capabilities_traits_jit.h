@@ -68,14 +68,14 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t mipmapPrecisionBits = )===" + std::string("
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDrawIndirectCount = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.maxDrawIndirectCount) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSamplerLodBiasBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.maxSamplerLodBias)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSamplerLodBiasBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.maxSamplerLodBias)) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxSamplerAnisotropyLog2 = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxSamplerAnisotropyLog2) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewports = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxViewports) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsX = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxViewportDims[0]) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxViewportDimsY = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxViewportDims[1]) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportBoundsRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.viewportBoundsRange[0])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportBoundsRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.viewportBoundsRange[1])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportBoundsRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.viewportBoundsRange[0])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportBoundsRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.viewportBoundsRange[1])) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t viewportSubPixelBits = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.viewportSubPixelBits) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t minMemoryMapAlignment = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.minMemoryMapAlignment) + R"===(;
@@ -88,8 +88,8 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t maxTexelOffset = )===" + std::string("(uint
 NBL_CONSTEXPR_STATIC_INLINE int16_t minTexelGatherOffset = )===" + std::string("(int16_t)") + CJITIncludeLoader::to_string(limits.minTexelGatherOffset) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxTexelGatherOffset = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxTexelGatherOffset) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t minInterpolationOffsetBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.minInterpolationOffset)) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxInterpolationOffsetBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.maxInterpolationOffset)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t minInterpolationOffsetBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.minInterpolationOffset)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxInterpolationOffsetBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.maxInterpolationOffset)) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t subPixelInterpolationOffsetBits = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.subPixelInterpolationOffsetBits) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxFramebufferWidth = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.maxFramebufferWidth) + R"===(;
@@ -100,7 +100,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t maxColorAttachments = )===" + std::string("
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxSampleMaskWords = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxSampleMaskWords) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t timestampPeriodInNanoSecondsBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.timestampPeriodInNanoSeconds)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t timestampPeriodInNanoSecondsBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.timestampPeriodInNanoSeconds)) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxClipDistances = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxClipDistances) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint16_t maxCullDistances = )===" + std::string("(uint16_t)") + CJITIncludeLoader::to_string(limits.maxCullDistances) + R"===(;
@@ -108,12 +108,12 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t maxCombinedClipAndCullDistances = )===" + s
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t discreteQueuePriorities = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.discreteQueuePriorities) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.pointSizeRange[0])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.pointSizeRange[1])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.lineWidthRange[0])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.lineWidthRange[1])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.pointSizeGranularity)) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.lineWidthGranularity)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.pointSizeRange[0])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.pointSizeRange[1])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.lineWidthRange[0])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.lineWidthRange[1])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t pointSizeGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.pointSizeGranularity)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t lineWidthGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.lineWidthGranularity)) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE bool strictLines = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.strictLines) + R"===(;
 
@@ -256,9 +256,9 @@ NBL_CONSTEXPR_STATIC_INLINE bool displayTiming = )===" + std::string("(bool)") +
 
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxDiscardRectangles = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.maxDiscardRectangles) + R"===(;
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t primitiveOverestimationSizeBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.primitiveOverestimationSize)) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t maxExtraPrimitiveOverestimationSizeBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.maxExtraPrimitiveOverestimationSize)) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t extraPrimitiveOverestimationSizeGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.extraPrimitiveOverestimationSizeGranularity)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t primitiveOverestimationSizeBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.primitiveOverestimationSize)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t maxExtraPrimitiveOverestimationSizeBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.maxExtraPrimitiveOverestimationSize)) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t extraPrimitiveOverestimationSizeGranularityBitPattern = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.extraPrimitiveOverestimationSizeGranularity)) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool primitiveUnderestimation = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.primitiveUnderestimation) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool conservativePointAndLineRasterization = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.conservativePointAndLineRasterization) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE bool degenerateTrianglesRasterized = )===" + std::string("(bool)") + CJITIncludeLoader::to_string(limits.degenerateTrianglesRasterized) + R"===(;
@@ -275,8 +275,8 @@ NBL_CONSTEXPR_STATIC_INLINE uint16_t sampleLocationSubPixelBits = )===" + std::s
 NBL_CONSTEXPR_STATIC_INLINE uint64_t sampleLocationSampleCountsBitPattern = )===" + std::string("(uint64_t)") + CJITIncludeLoader::to_string(limits.sampleLocationSampleCounts) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeX = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.maxSampleLocationGridSize.x) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint32_t maxSampleLocationGridSizeY = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(limits.maxSampleLocationGridSize.y) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t sampleLocationCoordinateRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.sampleLocationCoordinateRange[0])) + R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t sampleLocationCoordinateRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(*reinterpret_cast<const uint32_t *>(&limits.sampleLocationCoordinateRange[1])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t sampleLocationCoordinateRangeBitPatternMin = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.sampleLocationCoordinateRange[0])) + R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t sampleLocationCoordinateRangeBitPatternMax = )===" + std::string("(uint32_t)") + CJITIncludeLoader::to_string(std::bit_cast<uint32_t>(limits.sampleLocationCoordinateRange[1])) + R"===(;
 
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureGeometryCount = )===" + std::string("(uint64_t)") + CJITIncludeLoader::to_string(limits.maxAccelerationStructureGeometryCount) + R"===(;
 NBL_CONSTEXPR_STATIC_INLINE uint64_t maxAccelerationStructureInstanceCount = )===" + std::string("(uint64_t)") + CJITIncludeLoader::to_string(limits.maxAccelerationStructureInstanceCount) + R"===(;
