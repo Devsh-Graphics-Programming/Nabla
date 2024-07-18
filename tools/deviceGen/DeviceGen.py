@@ -262,7 +262,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         parsed_type = "uint32_t"
         parsed_name += "BitPattern"
         parsed_value = f"asuint({parsed_value})"
-        parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
+        parsed_json_type = r"std::bit_cast<uint32_t>(" + parsed_json_type
         parsed_cpp_name = parsed_cpp_name + r")"
 
     if parsed_type.startswith("core::bitflag") or parsed_type.startswith("asset") or parsed_type.startswith("E_"):
@@ -299,7 +299,7 @@ def transformTraits(dict, line_format, json_type, line_format_params):
         if parsed_type == 'float':
             type_ext = "uint32_t"
             parsed_name = parsed_name[:index1] + "BitPattern"
-            parsed_json_type = r"*reinterpret_cast<const uint32_t *>(&" + parsed_json_type
+            parsed_json_type = r"std::bit_cast<uint32_t>(" + parsed_json_type
             parsed_cpp_name = parsed_cpp_name[:index1] + r")"
             for j, value in enumerate(value_ext):
                 value_ext[j] = "asuint(" + value + ")"

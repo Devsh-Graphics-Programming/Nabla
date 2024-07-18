@@ -1,3 +1,5 @@
+#include <bit>
+
 #include "nbl/video/CJITIncludeLoader.h"
 
 namespace nbl::video
