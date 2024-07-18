@@ -1,7 +1,7 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "spirv-tools/optimizer.hpp" 
-#include "spirv-tools/libspirv.hpp"
+// quick fix to look for our SPIRV headers not from vulkan sdk
+#include "SPIRV-Tools/include/spirv-tools/optimizer.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"

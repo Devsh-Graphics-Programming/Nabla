@@ -320,7 +320,7 @@ class IRenderpass
             }
             return false;
         }
-        
+
         template<bool InputAttachment>
         static inline bool invalidLayout(const IImage::LAYOUT _layout)
         {
