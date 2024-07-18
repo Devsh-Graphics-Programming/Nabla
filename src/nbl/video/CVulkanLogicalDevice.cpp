@@ -539,9 +539,12 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 {
     std::vector<VkSampler> vk_samplers;
     std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
+    std::vector<VkDescriptorBindingFlags> vk_bindingFlags;
     vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
     vk_dsLayoutBindings.reserve(bindings.size());
+    vk_bindingFlags.reserve(bindings.size());
 
+    bool updateAfterBindFound = false;
     for (const auto& binding : bindings)
     {
         auto& vkDescSetLayoutBinding = vk_dsLayoutBindings.emplace_back();
@@ -560,13 +563,22 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
                 vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.immutableSamplers[i].get())->getInternalObject());
             vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
         }
+
+        if (binding.createFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+            updateAfterBindFound = true;
+        vk_bindingFlags.emplace_back() = getVkDescriptorBindingFlagsFrom(binding.createFlags);
     }
 
-    VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-    vk_createInfo.pNext = nullptr; // pNext of interest:  VkDescriptorSetLayoutBindingFlagsCreateInfo
-    vk_createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
-    vk_createInfo.bindingCount = vk_dsLayoutBindings.size();
+    VkDescriptorSetLayoutBindingFlagsCreateInfo vk_bindingFlagsInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO, nullptr };
+    VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, &vk_bindingFlagsInfo };
+    // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
+    // Answer: We don't actually support any extensions/features that would necessitate exposing any other flag than update_after_bind
+    vk_createInfo.flags = 0;
+    if (updateAfterBindFound)
+        vk_createInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    vk_createInfo.bindingCount = vk_bindingFlagsInfo.bindingCount = vk_dsLayoutBindings.size();
     vk_createInfo.pBindings = vk_dsLayoutBindings.data();
+    vk_bindingFlagsInfo.pBindingFlags = vk_bindingFlags.data();
 
     VkDescriptorSetLayout vk_dsLayout;
     if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&vk_dsLayout)==VK_SUCCESS)

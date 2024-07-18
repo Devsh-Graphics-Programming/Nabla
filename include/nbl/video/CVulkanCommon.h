@@ -1027,6 +1027,16 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
     }
 }
 
+inline VkDescriptorBindingFlagBits getVkDescriptorBindingFlagsFrom(const core::bitflag<IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS> flags)
+{
+    // Wait for C++23
+    //static_assert(std::to_underlying(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)==VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT);
+    return static_cast<VkDescriptorBindingFlagBits>(flags.value);
+}
+
 inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)
 {
     if(in == VK_DRIVER_ID_AMD_PROPRIETARY) return IPhysicalDevice::E_DRIVER_ID::EDI_AMD_PROPRIETARY;
