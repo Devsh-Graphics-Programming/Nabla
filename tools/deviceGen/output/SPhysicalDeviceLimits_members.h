@@ -117,10 +117,10 @@
     uint32_t maxFramebufferHeight = MinMaxImageDimension2D;
     uint32_t maxFramebufferLayers = 1 << 10;
 
-    // [DO NOT EXPOSE] because it might be different for every texture format and usage
-    // https://www.khronos.org/registry/vulkan/specs/1.4-extensions/man/html/VkImageFormatProperties.html
-    // - it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
     // - Spec states minimum supported value should be at least ESCF_1_BIT
+    // - it might be different for each integer format, best way is to query your integer format from physical device using vkGetPhysicalDeviceImageFormatProperties and get the sampleCounts
+    // https://www.khronos.org/registry/vulkan/specs/1.4-extensions/man/html/VkImageFormatProperties.html
+    // [DO NOT EXPOSE] because it might be different for every texture format and usage
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferColorSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferDepthSampleCounts = NoMSor4Samples;
     // core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> framebufferStencilSampleCounts = NoMSor4Samples;
@@ -162,8 +162,8 @@
     uint16_t optimalBufferCopyRowPitchAlignment = 128;
     uint16_t nonCoherentAtomSize = 256;
 
-    // VkPhysicalDeviceSparseProperties
     // TODO: later
+    // VkPhysicalDeviceSparseProperties
     // bool residencyStandard2DBlockShape = true;
     // bool residencyStandard2DMultisampleBlockShape = false;
     // bool residencyStandard3DBlockShape = true;
@@ -215,12 +215,6 @@
     bool shaderRoundingModeRTZFloat16 = false;
     bool shaderRoundingModeRTZFloat32 = false;
     bool shaderRoundingModeRTZFloat64 = false;
-
-    // The whole 512k descriptor limits, runtime desc arrays, etc.will come later
-    // -Actual Descriptor Indexing:
-    // Descriptor Lifetime Tracking PR #345 will do this, cause I don't want to rewrite the tracking system again.
-    // -Update After Bindand nonUniformEXT shader qualifier:
-    // expose in 2 phases
 
     uint32_t maxUpdateAfterBindDescriptorsInAllPools = 0x1u << 20;
     bool shaderUniformBufferArrayNonUniformIndexingNative = false;
@@ -311,8 +305,8 @@
     bool integerDotProductAccumulatingSaturating64BitSignedAccelerated = false;
     bool integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated = false;
 
-    // [DO NOT EXPOSE]: the single texel alignments, let people just overalign
     // or VK_EXT_texel_buffer_alignment:
+    // [DO NOT EXPOSE]: the single texel alignments, let people just overalign
     uint64_t storageTexelBufferOffsetAlignmentBytes = nbl::hlsl::numeric_limits<uint64_t>::max;
     // bool storageTexelBufferOffsetSingleTexelAlignment;
     uint64_t uniformTexelBufferOffsetAlignmentBytes = nbl::hlsl::numeric_limits<uint64_t>::max;
@@ -327,9 +321,9 @@
     // ExternalMemoryHostPropertiesEXT
     uint32_t minImportedHostPointerAlignment = 0x1u << 31;
 
-    // [REQUIRE]Nabla Core Profile
-    // [REQUIRE]VK_EXT_shader_atomic_float
     // [REQUIRE]ShaderAtomicFloatFeaturesEXT
+    // [REQUIRE]VK_EXT_shader_atomic_float
+    // [REQUIRE]Nabla Core Profile
     // bool shaderBufferFloat32Atomics = true;
     bool shaderBufferFloat32AtomicAdd = false;
     bool shaderBufferFloat64Atomics = false;
@@ -343,8 +337,8 @@
     bool sparseImageFloat32Atomics = false;
     bool sparseImageFloat32AtomicAdd = false;
 
-    // provided by VK_EXT_robustness3
     // Robustness2PropertiesEXT
+    // provided by VK_EXT_robustness3
     uint64_t robustStorageBufferAccessSizeAlignment = 0x1ull << 63;
     uint64_t robustUniformBufferAccessSizeAlignment = 0x1ull << 63;
 
@@ -375,8 +369,8 @@
     // DiscardRectanglePropertiesEXT
     uint32_t maxDiscardRectangles = 0;
 
-    // ConservativeRasterizationPropertiesEXT
     // VK_EXT_conservative_rasterization
+    // ConservativeRasterizationPropertiesEXT
     float primitiveOverestimationSize = 0.f;
     float maxExtraPrimitiveOverestimationSize = 0.f;
     float extraPrimitiveOverestimationSizeGranularity = nbl::hlsl::numeric_limits<float>::infinity;
@@ -393,16 +387,16 @@
     // VK_EXT_shader_stencil_export
     bool shaderStencilExport = false;
 
-    // SampleLocationsPropertiesEXT
     // VK_EXT_sample_locations
+    // SampleLocationsPropertiesEXT
     bool variableSampleLocations = false;
     uint8_t sampleLocationSubPixelBits = 0;
     core::bitflag<asset::IImage::E_SAMPLE_COUNT_FLAGS> sampleLocationSampleCounts = asset::IImage::E_SAMPLE_COUNT_FLAGS(0u);
     hlsl::uint32_t2 maxSampleLocationGridSize = { 0u, 0u };
     float sampleLocationCoordinateRange[2] = { 1.f, 0.f };
 
-    // AccelerationStructurePropertiesKHR
     // VK_KHR_acceleration_structure
+    // AccelerationStructurePropertiesKHR
     uint64_t maxAccelerationStructureGeometryCount = 0;
     uint64_t maxAccelerationStructureInstanceCount = 0;
     uint64_t maxAccelerationStructurePrimitiveCount = 0;
@@ -412,8 +406,8 @@
     uint64_t maxDescriptorSetUpdateAfterBindAccelerationStructures = 0;
     uint64_t minAccelerationStructureScratchOffsetAlignment = 0x1u << 31u;
 
-    // RayTracingPipelinePropertiesKHR
     // VK_KHR_ray_tracing_pipeline
+    // RayTracingPipelinePropertiesKHR
     // `exact` limit type
     // uint32_t shaderGroupHandleSize = 32;
     uint32_t maxRayRecursionDepth = 0;
@@ -430,8 +424,8 @@
     // VK_EXT_post_depth_coverage
     bool postDepthCoverage = false;
 
-    // ComputeShaderDerivativesFeaturesNV
     // VK_NV_compute_shader_derivatives
+    // ComputeShaderDerivativesFeaturesNV
     bool computeDerivativeGroupQuads = false;
     bool computeDerivativeGroupLinear = false;
 
@@ -439,15 +433,15 @@
     // ShaderImageFootprintFeaturesNV
     bool imageFootprint = false;
 
-    // PCIBusInfoPropertiesEXT
     // VK_EXT_pci_bus_info
+    // PCIBusInfoPropertiesEXT
     uint32_t pciDomain = ~0u;
     uint32_t pciBus = ~0u;
     uint32_t pciDevice = ~0u;
     uint32_t pciFunction = ~0u;
 
-    // FragmentDensityMapPropertiesEXT
     // VK_EXT_fragment_density_map
+    // FragmentDensityMapPropertiesEXT
     hlsl::uint32_t2 minFragmentDensityTexelSize = { ~0u, ~0u };
     hlsl::uint32_t2 maxFragmentDensityTexelSize = { 0u, 0u };
     bool fragmentDensityInvocations = false;
@@ -455,8 +449,8 @@
     // VK_GOOGLE_decorate_string
     bool decorateString = false;
 
-    // ShaderImageAtomicInt64FeaturesEXT
     // VK_EXT_shader_image_atomic_int64
+    // ShaderImageAtomicInt64FeaturesEXT
     bool shaderImageInt64Atomics = false;
     bool sparseImageInt64Atomics = false;
 
@@ -465,8 +459,8 @@
     // LineRasterizationPropertiesEXT
     uint32_t lineSubPixelPrecisionBits = 0;
 
-    // ShaderAtomicFloat2FeaturesEXT
     // VK_EXT_shader_atomic_float2
+    // ShaderAtomicFloat2FeaturesEXT
     bool shaderBufferFloat16Atomics = false;
     bool shaderBufferFloat16AtomicAdd = false;
     bool shaderBufferFloat16AtomicMinMax = false;
@@ -480,9 +474,9 @@
     bool shaderImageFloat32AtomicMinMax = false;
     bool sparseImageFloat32AtomicMinMax = false;
 
-    // DeviceGeneratedCommandsPropertiesNV
-    // VK_NV_device_generated_commands
     // [DO NOT EXPOSE] won't expose right now, will do if we implement the extension
+    // VK_NV_device_generated_commands
+    // DeviceGeneratedCommandsPropertiesNV
     // uint32_t maxGraphicsShaderGroupCount = 0;
     // uint32_t maxIndirectSequenceCount = 0;
     // uint32_t maxIndirectCommandsTokenCount = 0;
@@ -501,9 +495,9 @@
     // VK_KHR_shader_non_semantic_info
     bool shaderNonSemanticInfo = false;
 
-    // provided by VK_EXT_graphics_pipeline_library
-    // GraphicsPipelineLibraryPropertiesEXT
     // [TODO LATER] not in header (previous comment: too much effort)
+    // GraphicsPipelineLibraryPropertiesEXT
+    // provided by VK_EXT_graphics_pipeline_library
     // bool graphicsPipelineLibraryFastLinking = false;
     // bool graphicsPipelineLibraryIndependentInterpolationDecoration = false;
 
@@ -514,15 +508,15 @@
     // ShaderSubgroupUniformControlFlowFeaturesKHR
     bool shaderSubgroupUniformControlFlow = false;
 
-    // FragmentDensityMap2PropertiesEXT
     // provided by VK_EXT_fragment_density_map2
+    // FragmentDensityMap2PropertiesEXT
     bool subsampledLoads = false;
     bool subsampledCoarseReconstructionEarlyAccess = false;
     uint32_t maxSubsampledArrayLayers = 0;
     uint32_t maxDescriptorSetSubsampledSamplers = 0;
 
-    // WorkgroupMemoryExplicitLayoutFeaturesKHR
     // VK_KHR_workgroup_memory_explicit_layout
+    // WorkgroupMemoryExplicitLayoutFeaturesKHR
     bool workgroupMemoryExplicitLayout = false;
     bool workgroupMemoryExplicitLayoutScalarBlockLayout = false;
     bool workgroupMemoryExplicitLayout8BitAccess = false;
@@ -549,8 +543,8 @@
     uint32_t maxResidentInvocations = 0;
     asset::CGLSLCompiler::E_SPIRV_VERSION spirvVersion = asset::CGLSLCompiler::E_SPIRV_VERSION::ESV_1_6;
 
-    // Core 1.0 Features
     // Always enabled if available, reported as limits
+    // Core 1.0 Features
     bool logicOp = false;
     bool vertexPipelineStoresAndAtomics = false;
     bool fragmentStoresAndAtomics = false;

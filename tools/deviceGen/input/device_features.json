@@ -2040,7 +2040,11 @@
         {
             "comment": [
                 "[TODO LATER] Requires API changes",
-                "VK_NV_fragment_coverage_to_color",
+                "VK_NV_fragment_coverage_to_color"
+            ]
+        },
+        {
+            "comment": [
                 "AccelerationStructureFeaturesKHR",
                 "VK_KHR_acceleration_structure"
             ],

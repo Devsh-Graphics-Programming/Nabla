@@ -42,9 +42,14 @@ def buildComment(comment, res, sectionName):
             if returnObj and "require" in returnObj:
                 require = require or returnObj["require"]
 
+    temp_comment_res = []
+
     for commentLine in comment['comment']:
-        temp_res.insert(0, f"    // {'[REQUIRE]' if require else ''}{commentLine}")
-    for line in temp_res:
+        temp_comment_res.append(f"    // {'[REQUIRE]' if require else ''}{commentLine}")
+
+    temp_comment_res.extend(temp_res)
+
+    for line in temp_comment_res:
         res.append(line)
 
 def buildVariable(variable, res, sectionName, insideComment = False):
