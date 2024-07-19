@@ -107,15 +107,13 @@ set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
 option(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES "Disable searching for modules in developer's build directory in install mode" OFF)
 
+add_subdirectory(device EXCLUDE_FROM_ALL)
+
 if(NBL_BUILD_ANDROID)
 	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
-
-# must do this because of https://github.com/Devsh-Graphics-Programming/Nabla/commit/4123d103f2a0964686cb94bb5eb632666b6abdbd#diff-62f5e9686ac3eb0f38e0efb8720c787bbccb383e66c0fa788f804a4a32e190b4R62, bad design but will work
-# TODO: once the TODO from above is done update remove the bellow and put to devicegen CMake
-set(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH_BINARY}/tools/deviceGen/include/nbl/video")
 
 nbl_generate_conf_files()
 
@@ -640,33 +638,40 @@ else()
 	target_link_libraries(Nabla PRIVATE boost_wave)
 endif()
 
+add_dependencies(Nabla DeviceHeaders)
+target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
+
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
-	get_target_property(_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ spirvBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	add_subdirectory(builtin EXCLUDE_FROM_ALL)
 	
-	target_include_directories(spirvBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
-	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)
+		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 	
-	target_include_directories(Nabla PUBLIC 
-		"${_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
-		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
+			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+			target_include_directories(${NBL_TARGET} PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}")
+			target_include_directories(Nabla PUBLIC "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+		endforeach()
+	
+		add_dependencies(Nabla ${NBL_TARGETS})
+		
+		if(NBL_STATIC_BUILD)
+			set(_NBL_LINK_QUALIFIER_ INTERFACE)
+		else()
+			set(_NBL_LINK_QUALIFIER_ PRIVATE)
+		endif()
+	
+		target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_} ${NBL_TARGETS})
+	endfunction()
+	
+	set(NBL_INTERNAL_BUILTIN_TARGETS
+		nblBuiltinResourceData 
+		spirvBuiltinResourceData 
+		boostBuiltinResourceData 
+		deviceGenBuiltinResourceData
 	)
 	
-	add_subdirectory(builtin)
-	add_dependencies(Nabla nblBuiltinResourceData spirvBuiltinResourceData boostBuiltinResourceData)
-	
-	if(NBL_STATIC_BUILD)
-		set(_NBL_LINK_QUALIFIER_ INTERFACE)
-	else()
-		set(_NBL_LINK_QUALIFIER_ PRIVATE)
-	endif()
-	
-	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
-		nblBuiltinResourceData
-		spirvBuiltinResourceData
-		boostBuiltinResourceData
-	)
+	NBL_HOOK_INTERNAL_BUILTIN_RESOURCES("${NBL_INTERNAL_BUILTIN_TARGETS}")
 	
 	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
