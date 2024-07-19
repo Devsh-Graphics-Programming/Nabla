@@ -50,19 +50,47 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 					size_t bufferSize = product * sizeof(CState::outHash);
 					bufferSize += product * sizeof(blake3_hasher);
 
-					for (uint32_t i = 0u; i < parameters.mipLevels; ++i)
-					{
-						auto localExtent = input->getMipSize(i);
+					if(!canOptimize(input))
+						for (uint32_t i = 0u; i < parameters.mipLevels; ++i)
+						{
+							auto localExtent = input->getMipSize(i);
 
-						const auto levelSize = info.roundToBlockSize(localExtent);
-						const auto memsize = levelSize[0] * levelSize[1] * levelSize[2] * parameters.arrayLayers * bytesPerPixel;
+							const auto levelSize = info.roundToBlockSize(localExtent);
+							const auto memsize = levelSize[0] * levelSize[1] * levelSize[2] * parameters.arrayLayers * bytesPerPixel;
 
-						assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
-						bufferSize += memsize.getIntegerApprox();
-					}
+							assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
+							bufferSize += memsize.getIntegerApprox();
+						}
 
 					return bufferSize;
 				}
+
+				private:	
+					static bool canOptimize(const ICPUImage* input) // in this case we can optimize the filter if we have only one region per mip level covering all texels, no extra memory for flatten buffer is needed
+					{
+						bool status = true;
+
+						const auto& parameters = input->getCreationParameters();
+
+						for (uint32_t i = 0u; i < parameters.mipLevels; ++i)
+						{
+							const auto regions = input->getRegions(i);
+							const auto& region = regions[0];
+							const auto localExtent = input->getMipSize(i);
+
+							const bool fail = regions.size() > 1 || region.getDstOffset() != nbl::asset::VkOffset3D{0, 0, 0} || region.getExtent() != nbl::asset::VkExtent3D{localExtent.x, localExtent.y, localExtent.z};
+
+							if (fail)
+							{
+								status = false;
+								break;
+							}
+						}
+
+						return status;
+					}
+
+				friend class CFlattenRegionsStreamHashImageFilter;
 		};
 
 		using state_type = CState;
@@ -103,6 +131,7 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			const auto& parameters = state->inImage->getCreationParameters();
 			const TexelBlockInfo info(parameters.format);
 			const auto bytesPerPixel = state->inImage->getBytesPerPixel();
+			const auto optimized = state_type::canOptimize(state->inImage);
 
 			auto getScratchAsBuffer = [&memory = state->scratch.memory](size_t size, size_t offset = 0ull)
 			{
@@ -132,9 +161,10 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 			/*
 				first we need to ensure that texels which are not covered by regions 
 				are filled with 0 value, we use flatten with tight buffer for the 
-				texel copy & prefill
+				texel copy & prefill if we don't have flatten input
 			*/
 
+			if (!optimized)
 			{
 				// create own regions & hook tight buffer with no gaps from scratch
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(parameters.mipLevels);
@@ -176,12 +206,15 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 
 			/*
 				now when the output is prepared we go with single 
-				region covering all texels for a given mip level & layers 
+				region covering all texels for a given mip level & layers,
+				note if we have optimized input we skipped flattening by hand
+				because input is already flattened & covers all texels
 			*/
 
-			const uint8_t* inData = reinterpret_cast<const uint8_t*>(proxy.flatten.outImage->getBuffer()->getPointer());
+			const auto* const image = optimized ? state->inImage : proxy.flatten.outImage.get();
+			const uint8_t* inData = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 			const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(parameters.format);
-			const auto regions = proxy.flatten.outImage->getRegions();
+			const auto regions = image->getRegions();
 
 			std::vector<uint32_t> layers(parameters.arrayLayers);
 			std::iota(layers.begin(), layers.end(), 0);
@@ -217,7 +250,7 @@ class CFlattenRegionsStreamHashImageFilter : public CMatchedSizeInOutImageFilter
 						blake3_hasher_update(hasher, inData + readBlockArrayOffset, texelOrBlockByteSize);
 					};
 
-					CBasicImageFilterCommon::executePerRegion(std::execution::seq, proxy.flatten.outImage.get(), executePerTexelOrBlock, regions.begin(), regions.end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
+					CBasicImageFilterCommon::executePerRegion(std::execution::seq, image, executePerTexelOrBlock, regions.begin(), regions.end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
 				
 					blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
 				};
