@@ -26,11 +26,11 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shap
 	auto shapeBounds = glyph.getBounds();
 
 	msdfgen::edgeColoringSimple(glyph, 3.0);
-	msdfgen::Bitmap<float, 3> msdfMap(glyphW, glyphH);
+	msdfgen::Bitmap<float, 4> msdfMap(glyphW, glyphH);
 
-	msdfgen::generateMSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
+	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
 
-	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 3);
+	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 4);
 	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
 
 	auto floatToSNORM8 = [](const float fl) -> int8_t
@@ -43,9 +43,10 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shap
 		for (int x = 0; x < msdfMap.width(); ++x)
 		{
 			auto pixel = msdfMap(x, glyphH - 1 - y);
-			data[(x + y * glyphW) * 3 + 0] = floatToSNORM8(pixel[0]);
-			data[(x + y * glyphW) * 3 + 1] = floatToSNORM8(pixel[1]);
-			data[(x + y * glyphW) * 3 + 2] = floatToSNORM8(pixel[2]);
+			data[(x + y * glyphW) * 4 + 0] = floatToSNORM8(pixel[0]);
+			data[(x + y * glyphW) * 4 + 1] = floatToSNORM8(pixel[1]);
+			data[(x + y * glyphW) * 4 + 2] = floatToSNORM8(pixel[2]);
+			data[(x + y * glyphW) * 4 + 3] = floatToSNORM8(pixel[3]);
 		}
 	}
 

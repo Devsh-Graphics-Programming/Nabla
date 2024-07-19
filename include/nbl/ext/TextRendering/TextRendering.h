@@ -34,7 +34,7 @@ class TextRenderer : public nbl::core::IReferenceCounted
 {
 public:
 
-	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8_SNORM;
+	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8A8_SNORM;
 
 	// Spits out CPUBuffer containing the image data in SNORM format
 	core::smart_refctd_ptr<ICPUBuffer> generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
