@@ -27,7 +27,7 @@ public:
 		if (!m_system)
 			return false;
 
-		m_logger = make_smart_refctd_ptr<CStdoutLogger>();
+		m_logger = make_smart_refctd_ptr<CStdoutLogger>(core::bitflag(ILogger::ELL_DEBUG) | ILogger::ELL_INFO | ILogger::ELL_WARNING |	ILogger::ELL_PERFORMANCE | ILogger::ELL_ERROR);
 
 		auto argc = argv.size();
 
@@ -120,7 +120,7 @@ public:
 			}
 			m_arguments.erase(output_flag_pos, output_flag_pos+2);
 		
-			m_logger->log("Compiled shader code will be saved to " + output_filepath);
+			m_logger->log("Compiled shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
 		}
 
 #ifndef NBL_EMBED_BUILTIN_RESOURCES
@@ -150,7 +150,7 @@ public:
 			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
 			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
 			output_file.close();
-			m_logger->log("Shader compilation successful.");
+			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
 			return true;
 		}
 		else {
