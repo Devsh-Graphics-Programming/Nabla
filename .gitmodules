@@ -99,3 +99,6 @@
 [submodule "3rdparty/imguizmo"]
 	path = 3rdparty/imguizmo
 	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "Nabla-Examples-and-Tests"]
+	path = Nabla-Examples-and-Tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
