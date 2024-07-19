@@ -66,7 +66,7 @@ struct FFT<2,false, Scalar, device_capabilities>
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
 		const uint32_t loIx = threadID;
-		const uint32_t hiIx = loIx + _NBL_HLSL_WORKGROUP_SIZE_;
+		const uint32_t hiIx = _NBL_HLSL_WORKGROUP_SIZE_ | loIx;
 
         // Read lo, hi values from global memory
         complex_t<Scalar> lo = accessor.get(loIx);
@@ -119,8 +119,8 @@ struct FFT<2,true, Scalar, device_capabilities>
     {
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
-        const uint32_t loIx = (glsl::gl_SubgroupID()<<(glsl::gl_SubgroupSizeLog2()+1))+glsl::gl_SubgroupInvocationID();
-		const uint32_t hiIx = loIx+glsl::gl_SubgroupSize();
+        const uint32_t loIx = threadID;
+		const uint32_t hiIx = _NBL_HLSL_WORKGROUP_SIZE_ | loIx;
 
         // Read lo, hi values from global memory
         complex_t<Scalar> lo = accessor.get(loIx);
@@ -175,19 +175,19 @@ struct FFT<K, false, Scalar, device_capabilities>
             //[unroll(K/2)]
             for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
             {
-                const uint32_t virtualThreadID = (virtualThread << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) + SubgroupContiguousIndex();
+                const uint32_t virtualThreadID = (virtualThread << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex();
 
                 const uint32_t lsb = virtualThread & (stride - 1);
                 const uint32_t loIx = ((virtualThread ^ lsb) << 1) | lsb;
                 const uint32_t hiIx = loIx | stride;
                 
-                complex_t<Scalar> lo = accessor.get(loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_);
-                complex_t<Scalar> hi = accessor.get(hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_);
+                complex_t<Scalar> lo = accessor.get((loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex());
+                complex_t<Scalar> hi = accessor.get((hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex());
                 
                 hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false,Scalar>(virtualThreadID & ((stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) - 1), stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_),lo,hi);
                 
-                accessor.set(loIx, lo);
-                accessor.set(hiIx, hi);
+                accessor.set((loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex(), lo);
+                accessor.set((hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex(), hi);
             }
             accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
             stride >>= 1;
@@ -225,33 +225,41 @@ struct FFT<K, true, Scalar, device_capabilities>
             FFT<2,true, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
         accessor = offsetAccessor.accessor;
-        /*
+        
         static const uint32_t virtualThreadCount = K >> 1;
         static const uint16_t passes = mpl::log2<K>::value - 1;
-        uint32_t stride = K << 1;
+        uint32_t stride = 2;
         //[unroll(passes)]
         for (uint16_t pass = 0; pass < passes; pass++)
         {
             //[unroll(K/2)]
             for (uint32_t virtualThread = 0; virtualThread < virtualThreadCount; virtualThread++)
             {
-                const uint32_t virtualThreadID = (virtualThread << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) + SubgroupContiguousIndex();
+                const uint32_t virtualThreadID = (virtualThread << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex();
 
                 const uint32_t lsb = virtualThread & (stride - 1);
                 const uint32_t loIx = ((virtualThread ^ lsb) << 1) | lsb;
                 const uint32_t hiIx = loIx | stride;
+
+                complex_t<Scalar> lo = accessor.get((loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex());
+                complex_t<Scalar> hi = accessor.get((hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex());
+
+                hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true,Scalar>(virtualThreadID & ((stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) - 1), stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_),lo,hi);
                 
-                complex_t<Scalar> lo = accessor.get(loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_);
-                complex_t<Scalar> hi = accessor.get(hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_);
-                
-                hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<true,Scalar>(virtualThreadID & ((stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) - 1), stride << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_),lo,hi);
-                
-                accessor.set(loIx, lo);
-                accessor.set(hiIx, hi);
+                // Divide by special factor at the end
+                if (passes - 1 == pass)
+                {
+                    divides_assign< complex_t<Scalar> > divAss;
+                    divAss(lo, virtualThreadCount);
+                    divAss(hi, virtualThreadCount);  
+                }
+
+                accessor.set((loIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex(), lo);
+                accessor.set((hiIx << _NBL_HLSL_WORKGROUP_SIZE_LOG_2_) | SubgroupContiguousIndex(), hi);
             }
             accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
             stride <<= 1;
-        }*/
+        }
     }
 };
 
