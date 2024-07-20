@@ -484,10 +484,10 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC 
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
+target_include_directories(Nabla BEFORE 
+	PRIVATE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
+	PRIVATE $<TARGET_PROPERTY:SPIRV-Tools-static,INCLUDE_DIRECTORIES>
+	PRIVATE $<TARGET_PROPERTY:SPIRV-Headers,INCLUDE_DIRECTORIES>
 )
 
 # nlohmann_json
