@@ -17,14 +17,12 @@ struct blake3_hash_t
 
 static_assert(sizeof(blake3_hash_t) == BLAKE3_OUT_LEN);
 
-// TODO, Arek: why not in source and limit to translation unit as part of Nabla library, again we make a wrapper just to expose 3rdparty to our public headers and with blake case we need to link it when in static mode anyway because it's not header only library
 template<typename T>
 inline void blake3_hasher_update(blake3_hasher& self, const T& input)
 {
 	::blake3_hasher_update(&self,&input,sizeof(input));
 }
 
-// TODO, Arek: the same applies here
 inline blake3_hash_t blake3_hasher_finalize(blake3_hasher& self)
 {
 	blake3_hash_t retval;
