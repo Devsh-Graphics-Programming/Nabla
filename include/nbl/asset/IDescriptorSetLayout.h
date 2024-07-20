@@ -391,10 +391,10 @@ public:
 	inline const CBindingRedirect& getImmutableSamplerRedirect() const { return m_immutableSamplerRedirect; }
 	inline const CBindingRedirect& getMutableCombinedSamplerRedirect() const { return m_mutableCombinedSamplerRedirect; }
 
-	inline core::SRange<const core::smart_refctd_ptr<sampler_type>> getImmutableSamplers() const
+	inline std::span<const core::smart_refctd_ptr<sampler_type>> getImmutableSamplers() const
 	{
 		if (!m_immutableSamplers)
-			return { nullptr, nullptr };
+			return {};
 		
 		return { m_immutableSamplers->cbegin(), m_immutableSamplers->cend() };
 	}
