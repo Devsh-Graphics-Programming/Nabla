@@ -11,6 +11,7 @@
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 #include "nbl/video/utilities/SIntendedSubmitInfo.h"
 #include "nbl/video/utilities/CPropertyPoolHandler.h"
+#include "nbl/video/utilities/CReduce.h"
 #include "nbl/video/utilities/CScanner.h"
 #include "nbl/video/utilities/CComputeBlit.h"
 
@@ -132,9 +133,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
             // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
-            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
-            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
 #endif
+            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
+            m_reducer = core::make_smart_refctd_ptr<CReduce>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
+            m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
         }
 
         inline ~IUtilities()
@@ -160,13 +162,16 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         {
             return m_propertyPoolHandler.get();
         }
+#endif
+        virtual CReduce* getDefaultReducer() const
+        {
+            return m_reducer.get();
+        }
 
-        //!
         virtual CScanner* getDefaultScanner() const
         {
             return m_scanner.get();
         }
-#endif
         //! This function provides some guards against streamingBuffer fragmentation or allocation failure
         static uint32_t getAllocationSizeForStreamingBuffer(const size_t size, const uint64_t alignment, uint32_t maxFreeBlock, const uint32_t optimalTransferAtom)
         {
@@ -722,8 +727,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
 #if 0 // TODO: port
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
-        core::smart_refctd_ptr<CScanner> m_scanner;
 #endif
+        core::smart_refctd_ptr<CReduce> m_reducer;
+        core::smart_refctd_ptr<CScanner> m_scanner;
 };
 
 }
