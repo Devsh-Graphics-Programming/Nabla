@@ -56,10 +56,11 @@ Below are some tasks that are open for contribution. If you start working on a t
 - [GPU flip fluid simulation task idea](https://www.youtube.com/watch?v=okQzAJM7LcE) -> discord [thread](https://discord.com/channels/318590007881236480/374061825454768129/1257988553112027186) for more info
 - [Exact Distance Transform on a GPU](https://docs.google.com/document/d/1iUF0ilFbWVWr5JfPtR8D8z7OdmbhUJXK-eoR_7u4-50/edit)
 - [Light Scattering Effects Using Epipolar Sampling and 1D Min/Max Binary Trees](https://ubm-twvideo01.s3.amazonaws.com/o1/vault/gdc2013/slides/822368Yusov_Egor_Practical_Implementation_of_Light.pdf)
+- [Cone Map Generation](https://github.com/Bundas102/falcor-conemap/)
 
  **[Issues](https://github.com/Devsh-Graphics-Programming/Nabla/issues) also count as free tasks.** We also have old issues from previous generation **[here](https://github.com/buildaworldnet/IrrlichtBAW/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc)**.
 
-If you have questions about the list, you can ask directly on our [Discord server](https://discord.gg/SsJzqS23) or open an issue [here](https://github.com/Devsh-Graphics-Programming/Nabla/issues).
+If you have questions about the list, you can ask directly on our [Discord server](https://discord.gg/Dx83Cu7suD) or open an issue [here](https://github.com/Devsh-Graphics-Programming/Nabla/issues).
 
 ## Pull Request Process
 
@@ -77,7 +78,7 @@ If you have questions about the list, you can ask directly on our [Discord serve
 
 ## Connect with Other Project Contributors
 
-Join our [Discord server](https://discord.gg/SsJzqS23) to connect with other contributors. It's the first place to go for questions and discussions about the project.
+Join our [Discord server](https://discord.gg/Dx83Cu7suD) to connect with other contributors. It's the first place to go for questions and discussions about the project.
 
 ## License
 

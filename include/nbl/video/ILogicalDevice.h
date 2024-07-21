@@ -593,7 +593,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // sanity check
             if (pcRanges.size()>getPhysicalDeviceLimits().maxPushConstantsSize*MaxStagesPerPipeline)
                 return nullptr;
-            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::ESS_UNKNOWN;
+            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
             uint32_t maxPCByte = 0u;
             for (auto range : pcRanges)
             {
@@ -631,6 +631,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             {
                 if (layout)
                 {
+                    // TODO: when creating the layouts, cache if they have any update after bindingings, and patch `createInfo.flags` with that here
                     const auto setCount = setCounts ? *(setCountsIt):1u;
                     createInfo.maxSets += setCount;
                     for (uint32_t t=0; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
@@ -891,7 +892,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const asset::IDescriptor::E_TYPE* pWriteTypes;
             uint32_t bufferCount = 0u;
             uint32_t bufferViewCount = 0u;
-            uint32_t imageCount = 0u;
+            uint32_t imageCount = 0u;       // combined image/samplers as well as samplers belong here, since they're written through a VkDescriptorImageInfo
             uint32_t accelerationStructureCount = 0u;
             uint32_t accelerationStructureWriteCount = 0u;
         };

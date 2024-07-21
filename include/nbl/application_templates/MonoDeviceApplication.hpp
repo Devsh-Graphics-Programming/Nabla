@@ -118,7 +118,7 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 		{
 			video::SPhysicalDeviceLimits retval = {};
 
-			retval.subgroupOpsShaderStages = asset::IShader::ESS_COMPUTE;
+			retval.subgroupOpsShaderStages = asset::IShader::E_SHADER_STAGE::ESS_COMPUTE;
 
 			return retval;
 		}
