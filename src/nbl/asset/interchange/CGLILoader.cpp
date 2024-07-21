@@ -203,6 +203,10 @@ namespace nbl
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
+			// TODO: inline hashing while reading
+			auto hash = image->computeContentHash();
+			image->setContentHash(hash);
+
 			ICPUImageView::SCreationParams imageViewInfo = {};
 			imageViewInfo.image = std::move(image);
 			imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;

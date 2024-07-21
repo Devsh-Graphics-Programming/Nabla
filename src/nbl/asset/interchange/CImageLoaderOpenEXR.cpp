@@ -389,6 +389,14 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 		}
 	}	
 	_NBL_DELETE(nblIStream);
+
+	for (auto& image : images)
+	{
+		// TODO: inline hashing while reading
+		auto hash = image->computeContentHash();
+		image->setContentHash(hash);
+	}
+
 	return SAssetBundle(std::move(meta),std::move(images));
 }
 

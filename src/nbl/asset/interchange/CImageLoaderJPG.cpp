@@ -328,6 +328,10 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
 	image->setBufferAndRegions(std::move(buffer), regions);
 
+	// TODO: inline hashing while reading
+	auto hash = image->computeContentHash();
+	image->setContentHash(hash);
+
     return SAssetBundle(nullptr,{image});
 
 #endif
