@@ -58,7 +58,7 @@ class IRenderpass
                 struct SAttachmentDescriptionBase
                 {
                     E_FORMAT format = EF_UNKNOWN;
-                    IImage::E_SAMPLE_COUNT_FLAGS samples : 6 = IImage::ESCF_1_BIT;
+                    IImage::E_SAMPLE_COUNT_FLAGS samples : 6 = IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
                     uint8_t mayAlias : 1 = false;
 
                     auto operator<=>(const SAttachmentDescriptionBase&) const = default;
@@ -163,13 +163,13 @@ class IRenderpass
                     };
                     struct SDepthStencilAttachmentsRef final : SRenderAttachmentsRef<SDepthStencilAttachmentRef>
                     {
-                        enum class RESOLVE_MODE : uint8_t
+                        enum RESOLVE_MODE : uint8_t
                         {
-                            NONE = 0,
-                            SAMPLE_ZERO_BIT = 0x00000001,
-                            AVERAGE_BIT = 0x00000002,
-                            MIN_BIT = 0x00000004,
-                            MAX_BIT = 0x00000008
+                            NONE = nbl::hlsl::ResolveModeFlags::NONE,
+                            SAMPLE_ZERO_BIT = nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT,
+                            AVERAGE_BIT = nbl::hlsl::ResolveModeFlags::AVERAGE_BIT,
+                            MIN_BIT = nbl::hlsl::ResolveModeFlags::MIN_BIT,
+                            MAX_BIT = nbl::hlsl::ResolveModeFlags::MAX_BIT
                         };
                         struct ResolveMode
                         {
@@ -320,7 +320,7 @@ class IRenderpass
             }
             return false;
         }
-        
+
         template<bool InputAttachment>
         static inline bool invalidLayout(const IImage::LAYOUT _layout)
         {
@@ -720,12 +720,12 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachment
         const auto& renderAttachment = descs[render.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03066
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03179
-        if (renderAttachment.samples!=IImage::ESCF_1_BIT)
+        if (renderAttachment.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
             return true;
         const auto& resolveAttachment = descs[resolve.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pResolveAttachments-03067
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescriptionDepthStencilResolve.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03180
-        if (resolveAttachment.samples==IImage::ESCF_1_BIT)
+        if (resolveAttachment.samples==IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
             return true;
         if constexpr (attachment_ref_t::IsDepthStencil)
         {

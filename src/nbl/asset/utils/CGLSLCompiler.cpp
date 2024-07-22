@@ -155,7 +155,7 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     {
         options.SetIncluder(std::make_unique<impl::Includer>(preprocessOptions.includeFinder, m_system.get(), /*maxSelfInclusionCount*/5));//custom #include handler
     }
-    const shaderc_shader_kind scstage = stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
+    const shaderc_shader_kind scstage = stage == IShader::E_SHADER_STAGE::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(stage);
     auto res = comp.PreprocessGlsl(code, scstage, preprocessOptions.sourceIdentifier.data(), options);
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
@@ -269,7 +269,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std:
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
     shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
-    const shaderc_shader_kind stage = glslOptions.stage == IShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
+    const shaderc_shader_kind stage = glslOptions.stage == IShader::E_SHADER_STAGE::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
     if (glslOptions.debugInfoFlags.value != IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
         shadercOptions.SetGenerateDebugInfo();
 
