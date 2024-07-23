@@ -202,7 +202,7 @@ private:
 			auto buf = IAsset::castDown<ICPUBuffer>(assets[0]);
 			std::string source; source.resize(buf->getSize()+1);
 			memcpy(source.data(),buf->getPointer(),buf->getSize());
-			return core::make_smart_refctd_ptr<ICPUShader>(source.data(), IShader::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath));
+			return core::make_smart_refctd_ptr<ICPUShader>(source.data(), IShader::E_SHADER_STAGE::ESS_UNKNOWN, IShader::E_CONTENT_TYPE::ECT_HLSL, std::move(filepath));
 		}
 		else if (assetBundle.getAssetType() == IAsset::ET_SHADER)
 		{

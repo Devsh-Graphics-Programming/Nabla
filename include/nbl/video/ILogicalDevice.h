@@ -593,7 +593,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // sanity check
             if (pcRanges.size()>getPhysicalDeviceLimits().maxPushConstantsSize*MaxStagesPerPipeline)
                 return nullptr;
-            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::ESS_UNKNOWN;
+            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
             uint32_t maxPCByte = 0u;
             for (auto range : pcRanges)
             {

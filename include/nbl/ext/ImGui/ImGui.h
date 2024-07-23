@@ -1,6 +1,8 @@
 #ifndef _NBL_EXT_IMGUI_UI_H_
 #define _NBL_EXT_IMGUI_UI_H_
 
+#include "nbl/video/declarations.h"
+
 namespace nbl::ext::imgui
 {
 
@@ -21,7 +23,9 @@ class UI final : public core::IReferenceCounted
 	private:
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDescriptorSetLayout();
 		void createPipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
-		void createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+
+		// TODO: just take an intended next submit instead of queue and cmdbuf, so we're consistent across utilities
+		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
 		void updateDescriptorSets();
 		void createSystem();
 		void createFontAtlasSampler();

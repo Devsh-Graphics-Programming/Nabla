@@ -168,7 +168,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
+	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -185,19 +185,21 @@ namespace nbl::ext::imgui
 		//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
 		ImGuiIO& io = ImGui::GetIO();
 
+		// TODO: don't `pixels` need to be freed somehow!? (Use a uniqueptr with custom deleter lambda)
 		uint8_t* pixels = nullptr;
 		int32_t width, height;
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
 		io.Fonts->SetTexID(NBL_FONT_ATLAS_TEX_ID);
 
-		assert(pixels != nullptr);
-		assert(width > 0);
-		assert(height > 0);
+		if (!pixels || width<=0 || height<=0)
+			return IQueue::RESULT::OTHER_ERROR;
+
 		const size_t componentsCount = 4, image_size = width * height * componentsCount * sizeof(uint8_t);
 		
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 		const auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(image_size, pixels, core::adopt_memory);
 		
+		constexpr auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 		params.type = IImage::ET_2D;
@@ -206,7 +208,7 @@ namespace nbl::ext::imgui
 		params.mipLevels = 1;
 		params.arrayLayers = 1u;
 		params.samples = IImage::ESCF_1_BIT;
-		params.usage |= asset::IImage::EUF_SAMPLED_BIT | asset::IImage::EUF_TRANSFER_DST_BIT;
+		params.usage |= IGPUImage::EUF_TRANSFER_DST_BIT | IGPUImage::EUF_SAMPLED_BIT | IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT; // do you really need the SRC bit?
 
 		struct
 		{
@@ -238,88 +240,81 @@ namespace nbl::ext::imgui
 		if (!image)
 		{
 			logger->log("Could not create font image!", system::ILogger::ELL_ERROR);
-			assert(false);
+			return IQueue::RESULT::OTHER_ERROR;
 		}
+		image->setObjectDebugName("Nabla IMGUI extension Font Image");
 
 		if (!m_device->allocate(image->getMemoryReqs(), image.get()).isValid())
 		{
 			logger->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
-			assert(false);
+			return IQueue::RESULT::OTHER_ERROR;
 		}
 		
 		image->setObjectDebugName("Nabla IMGUI extension Font Atlas");
+
+		SIntendedSubmitInfo sInfo;
 		{
 			IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
-			SIntendedSubmitInfo sInfo;
 
 			auto scratchSemaphore = m_device->createSemaphore(0);
 			if (!scratchSemaphore)
 			{
 				logger->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
-				assert(false);
+				return IQueue::RESULT::OTHER_ERROR;
 			}
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
 
 			sInfo.queue = transfer;
 			sInfo.waitSemaphores = {};
-			sInfo.commandBuffers = { &cmdInfo, 1u };
+			sInfo.commandBuffers = { &cmdInfo, 1 };
 			sInfo.scratchSemaphore =
 			{
 				.semaphore = scratchSemaphore.get(),
 				.value = 0u,
 				.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
 			};
+			
+			// we have no explicit source stage and access to sync against, brand new clean image.
+			const asset::SMemoryBarrier toTransferDep = {
+				.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
+				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+			};
+			const auto transferLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL;
+			// transition to TRANSFER_DST
+			IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] = 
+			{ 
+				{
+					.barrier = {.dep = toTransferDep},
+					.image = image.get(),
+					.subresourceRange = regions.subresource,
+					.oldLayout = IGPUImage::LAYOUT::UNDEFINED, // wiping transition
+					.newLayout = transferLayout
+				} 
+			};
 
-			// barier with TRANSFER_DST_OPTIMAL image layout request for filling the image's buffer
+			cmdBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
+			// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
+			// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
+			if (!utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 			{
-				const SMemoryBarrier toTransferBarrier =
-				{
-					.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
-					.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT
-				};
-
-				cmdBuffer->begin(IGPUCommandBuffer::USAGE::SIMULTANEOUS_USE_BIT);
-				const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] =
-				{
-					{
-						.barrier = {.dep = toTransferBarrier },
-						.image = image.get(),
-						.subresourceRange = regions.subresource,
-						.newLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL
-					}
-				};
-
-				cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
+				logger->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
+				return IQueue::RESULT::OTHER_ERROR;
 			}
 
-			// fill gpu image given buffer data and submit
-			utilities->updateImageViaStagingBufferAutoSubmit(sInfo, buffer->getPointer(), NBL_FORMAT_FONT, image.get(), IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL, regions.range);
+			// we only need to sync with semaphore signal
+			barriers[0].barrier.dep = toTransferDep.nextBarrier(sInfo.scratchSemaphore.stageMask,ACCESS_FLAGS::NONE);
+			// transition to READ_ONLY_OPTIMAL ready for rendering with sampling
+			barriers[0].oldLayout = barriers[0].newLayout;
+			barriers[0].newLayout = IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
+			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
+			cmdBuffer->end();
 
-			// barier with READ_ONLY_OPTIMAL image layout request after the image's buffer update with auto submit
+			const auto submit = sInfo.popSubmit({});
+			if (transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 			{
-				utilities->autoSubmit(sInfo, 
-					[&](SIntendedSubmitInfo& nextSubmit) -> bool 
-					{
-						const SMemoryBarrier toTransferBarrier =
-						{
-							.dstStageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS,
-							.dstAccessMask = ACCESS_FLAGS::TRANSFER_READ_BIT
-						};
-
-						const IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] =
-						{
-							{
-								.barrier = {.dep = toTransferBarrier },
-								.image = image.get(),
-								.subresourceRange = regions.subresource,
-								.oldLayout = IImage::LAYOUT::TRANSFER_DST_OPTIMAL,
-								.newLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL,
-							}
-						};
-
-						return nextSubmit.getScratchCommandBuffer()->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .imgBarriers = barriers });
-					}
-				);	
+				logger->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
+				return IQueue::RESULT::OTHER_ERROR;
 			}
 		}
 		 
@@ -332,6 +327,10 @@ namespace nbl::ext::imgui
 
 			m_fontAtlasTexture = m_device->createImageView(std::move(params));
 		}
+		
+        ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
+        retval.set({sInfo.scratchSemaphore.semaphore,sInfo.scratchSemaphore.value});
+        return retval;
 	}
 
 	static void adjustGlobalFontScale()
@@ -654,7 +653,9 @@ namespace nbl::ext::imgui
 
 		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
 		{
-			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = device->createCommandPool(families.id.transfer, IGPUCommandPool::CREATE_FLAGS::TRANSIENT_BIT);
+			using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
+			// need to be individually resettable such that we can form a valid SIntendedSubmit out of the commandbuffer allocated from the pool
+			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = device->createCommandPool(families.id.transfer, pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
 			if (!pool)
 			{
 				logger->log("Could not create command pool!", system::ILogger::ELL_ERROR);
