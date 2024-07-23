@@ -52,7 +52,7 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			};
 			CBasicImageFilterCommon::clip_region_functor_t clip(state->subresource,state->outRange,params.format);
 			const auto& regions = img->getRegions(state->subresource.mipLevel);
-			CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy),img,fill,regions.begin(),regions.end(),clip);
+			CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy),img,fill,regions.data(),regions.data() + regions.size(),clip);
 
 			return true;
 		}

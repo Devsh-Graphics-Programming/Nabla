@@ -182,7 +182,8 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			auto* const outImg = state->outImage;
 			const ICPUImage::SCreationParams& inParams = inImg->getCreationParameters();
 			const ICPUImage::SCreationParams& outParams = outImg->getCreationParameters();
-			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(state->outMipLevel);
+			const std::span<const IImage::SBufferCopy> outRegions = outImg->getRegions(state->outMipLevel);
+			const std::span<const IImage::SBufferCopy> inRegions = inImg->getRegions(state->inMipLevel);
 			CommonExecuteData commonExecuteData =
 			{
 				inImg,
@@ -195,9 +196,9 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				getTexelOrBlockBytesize(outParams.format),
 				reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer()),
 				reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer()),
-				inImg->getRegions(state->inMipLevel),
-				outRegions,
-				outRegions.begin(), {}, {}
+				{inRegions.data(), inRegions.data() + inRegions.size()},
+				{outRegions.data(), outRegions.data() + outRegions.size()},
+				outRegions.data(), {}, {}
 			};
 
 			const asset::TexelBlockInfo srcImageTexelBlockInfo(commonExecuteData.inFormat);

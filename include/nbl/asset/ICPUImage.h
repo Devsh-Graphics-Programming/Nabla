@@ -67,14 +67,14 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		}
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions() const
+		inline std::span<const IImage::SBufferCopy> getRegions() const
 		{
 			if (regions)
 				return {regions->begin(),regions->end()};
-			return {nullptr,nullptr};
+			return {};
 		}
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
+		inline std::span<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
 		{
 			const IImage::SBufferCopy dummy = { 0ull,0u,0u,{static_cast<E_ASPECT_FLAGS>(0u),mipLevel,0u,0u},{},{} };
 			auto begin = std::lower_bound(regions->begin(),regions->end(),dummy,mip_order_t());

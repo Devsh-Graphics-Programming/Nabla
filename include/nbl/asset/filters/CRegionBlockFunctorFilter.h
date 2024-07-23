@@ -45,7 +45,7 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 			if (!state->regionIterator)
 				return false;	
 			const auto& regions = state->image->getRegions();
-			if (state->regionIterator<regions.begin() || state->regionIterator>=regions.end())
+			if (state->regionIterator<regions.data() || state->regionIterator >= regions.data() + regions.size())
 				return false;
 
 			return true;

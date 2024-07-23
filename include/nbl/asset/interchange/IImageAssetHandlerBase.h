@@ -178,7 +178,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
 		{
-			bool status = image->getBuffer() && image->getRegions().begin();
+			bool status = image->getBuffer() && image->getRegions().data();
 			assert(status);// , "An image doesn't have a texel buffer and regions attached!");
 
 			auto format = image->getCreationParameters().format;
