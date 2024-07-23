@@ -190,8 +190,7 @@ static const std::shared_ptr<nbl::core::vector<nbl::system::IFileArchive::SFileL
 CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
 	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)
 {{
-	bool ok = k_builtinArchiveFileList->size() > 0;
-	assert(ok); // build system bug, it seems you have empty archive entries!
+	
 }}
 """
     
