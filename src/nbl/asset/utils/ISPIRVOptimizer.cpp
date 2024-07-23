@@ -1,7 +1,5 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-
-#include "spirv-tools/optimizer.hpp" 
-#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"

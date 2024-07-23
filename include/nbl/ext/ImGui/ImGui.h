@@ -41,7 +41,8 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> CreateDescriptorSetLayout();
 
 		void CreatePipeline(video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
-		void CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+		// TODO: just take an intended next submit instead of queue and cmdbuf, so we're consistent across utilities
+		video::ISemaphore::future_t<video::IQueue::RESULT> CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
 		void UpdateDescriptorSets();
 		void createSystem();
 		void CreateFontSampler();

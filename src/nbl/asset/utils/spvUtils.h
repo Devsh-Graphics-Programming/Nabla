@@ -16,13 +16,13 @@ namespace asset
         using namespace spv;
         switch (_em)
         {
-			case ExecutionModelVertex: return IShader::ESS_VERTEX;
-			case ExecutionModelTessellationControl: return IShader::ESS_TESSELLATION_CONTROL;
-			case ExecutionModelTessellationEvaluation: return IShader::ESS_TESSELLATION_EVALUATION;
-			case ExecutionModelGeometry: return IShader::ESS_GEOMETRY;
-			case ExecutionModelFragment: return IShader::ESS_FRAGMENT;
-			case ExecutionModelGLCompute: return IShader::ESS_COMPUTE;
-			default: return IShader::ESS_UNKNOWN;
+			case ExecutionModelVertex: return IShader::E_SHADER_STAGE::ESS_VERTEX;
+			case ExecutionModelTessellationControl: return IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL;
+			case ExecutionModelTessellationEvaluation: return IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION;
+			case ExecutionModelGeometry: return IShader::E_SHADER_STAGE::ESS_GEOMETRY;
+			case ExecutionModelFragment: return IShader::E_SHADER_STAGE::ESS_FRAGMENT;
+			case ExecutionModelGLCompute: return IShader::E_SHADER_STAGE::ESS_COMPUTE;
+			default: return IShader::E_SHADER_STAGE::ESS_UNKNOWN;
         }
     }
     inline spv::ExecutionModel ESS2spvExecModel(IShader::E_SHADER_STAGE _ss)
@@ -30,12 +30,12 @@ namespace asset
         using namespace spv;
         switch (_ss)
         {
-			case IShader::ESS_VERTEX: return ExecutionModelVertex;
-			case IShader::ESS_TESSELLATION_CONTROL: return ExecutionModelTessellationControl;
-			case IShader::ESS_TESSELLATION_EVALUATION: return ExecutionModelTessellationEvaluation;
-			case IShader::ESS_GEOMETRY: return ExecutionModelGeometry;
-			case IShader::ESS_FRAGMENT: return ExecutionModelFragment;
-			case IShader::ESS_COMPUTE: return ExecutionModelGLCompute;
+			case IShader::E_SHADER_STAGE::ESS_VERTEX: return ExecutionModelVertex;
+			case IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: return ExecutionModelTessellationControl;
+			case IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION: return ExecutionModelTessellationEvaluation;
+			case IShader::E_SHADER_STAGE::ESS_GEOMETRY: return ExecutionModelGeometry;
+			case IShader::E_SHADER_STAGE::ESS_FRAGMENT: return ExecutionModelFragment;
+			case IShader::E_SHADER_STAGE::ESS_COMPUTE: return ExecutionModelGLCompute;
 			default: return ExecutionModelMax;
         }
     }

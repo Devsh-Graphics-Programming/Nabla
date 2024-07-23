@@ -29,16 +29,16 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	auto filenameEnding = filename.filename().string();
 
 	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
-		{".vert.hlsl",IShader::ESS_VERTEX},
-		{".tesc.hlsl",IShader::ESS_TESSELLATION_CONTROL},
-		{".tese.hlsl",IShader::ESS_TESSELLATION_EVALUATION},
-		{".geom.hlsl",IShader::ESS_GEOMETRY},
-		{".frag.hlsl",IShader::ESS_FRAGMENT},
-		{".comp.hlsl",IShader::ESS_COMPUTE},
-		{".mesh.hlsl",IShader::ESS_MESH},
-		{".task.hlsl",IShader::ESS_TASK},
+		{".vert.hlsl",IShader::E_SHADER_STAGE::ESS_VERTEX},
+		{".tesc.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL},
+		{".tese.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION},
+		{".geom.hlsl",IShader::E_SHADER_STAGE::ESS_GEOMETRY},
+		{".frag.hlsl",IShader::E_SHADER_STAGE::ESS_FRAGMENT},
+		{".comp.hlsl",IShader::E_SHADER_STAGE::ESS_COMPUTE},
+		{".mesh.hlsl",IShader::E_SHADER_STAGE::ESS_MESH},
+		{".task.hlsl",IShader::E_SHADER_STAGE::ESS_TASK},
 	};
-	auto shaderStage = IShader::ESS_UNKNOWN;
+	auto shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 	for (auto& it : typeFromExt) {
 		if (filenameEnding.size() <= it.first.size()) continue;
 		auto stringPart = filenameEnding.substr(filenameEnding.size() - it.first.size());

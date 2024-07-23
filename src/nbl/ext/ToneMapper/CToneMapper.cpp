@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/ToneMapper/CToneMapper.h"
-#include "../source/Nabla/COpenGLExtensionHandler.h"
+// #include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
@@ -13,16 +13,16 @@ using namespace nbl::video;
 using namespace ext::ToneMapper;
 
 
-core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(IVideoDriver* driver, bool usingLumaMeter)
+core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(ILogicalDevice* device, bool usingLumaMeter)
 {
-	auto lumaBindings = ext::LumaMeter::CLumaMeter::getDefaultBindings(driver);
+	auto lumaBindings = ext::LumaMeter::CLumaMeter::getDefaultBindings(device);
 	const auto inputImageBinding = lumaBindings.begin()[2];
 	if (usingLumaMeter)
 	{
 		assert(lumaBindings.size()==3ull);
 		const auto uniformBinding = lumaBindings.begin()[0];
 		const auto ssboBinding = lumaBindings.begin()[1];
-		static const IGPUDescriptorSetLayout::SBinding bnd[MAX_DESCRIPTOR_COUNT] =
+		static const IGPUDescriptorSetLayout::SBinding bnd[DEFAULT_MAX_DESCRIPTOR_COUNT] =
 		{
 			uniformBinding,
 			ssboBinding,
@@ -31,7 +31,7 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBin
 				3u,
 				EDT_STORAGE_IMAGE,
 				1u,
-				ISpecializedShader::ESS_COMPUTE,
+				IShader::ESS_COMPUTE,
 				nullptr
 			}
 		};
@@ -45,21 +45,21 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBin
 				0u,
 				EDT_STORAGE_IMAGE,
 				1u,
-				ISpecializedShader::ESS_COMPUTE,
+				IShader::ESS_COMPUTE,
 				nullptr
 			},
 			{
 				1u,
-				EDT_STORAGE_BUFFER_DYNAMIC,
+				EDT_STORAGE_BUFFER,
 				1u,
-				ISpecializedShader::ESS_COMPUTE,
+				IShader::ESS_COMPUTE,
 				nullptr
 			},
 			{
 				2u,
 				EDT_COMBINED_IMAGE_SAMPLER,
 				1u,
-				ISpecializedShader::ESS_COMPUTE,
+				IShader::ESS_COMPUTE,
 				inputImageBinding.samplers
 			}
 		};
@@ -76,7 +76,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 	bool usingTemporalAdaptation
 )
 {
-	constexpr char* eotfs[EOTF_UNKNOWN+1] =
+	const char* eotfs[EOTF_UNKNOWN+1] =
 	{
 		"nbl_glsl_eotf_identity",
 		"nbl_glsl_eotf_sRGB",
@@ -89,7 +89,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 		"nbl_glsl_eotf_ACEScct",
 		"#error \"UNDEFINED EOTF!\""
 	};
-	constexpr char* inXYZMatrices[ECP_COUNT+1] =
+	const char* inXYZMatrices[ECP_COUNT+1] =
 	{
 		"nbl_glsl_sRGBtoXYZ",
 		"nbl_glsl_Display_P3toXYZ",
@@ -101,7 +101,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
-	constexpr char* outXYZMatrices[ECP_COUNT+1] =
+	const char* outXYZMatrices[ECP_COUNT+1] =
 	{
 		"nbl_glsl_XYZtosRGB",
 		"nbl_glsl_XYZtoDisplay_P3",
@@ -113,7 +113,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
-	constexpr char* oetfs[EOTF_UNKNOWN+1] =
+	const char* oetfs[EOTF_UNKNOWN+1] =
 	{
 		"nbl_glsl_oetf_identity",
 		"nbl_glsl_oetf_sRGB",
@@ -128,7 +128,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 	};
 
 	const auto inputFormat = std::get<E_FORMAT>(inputColorSpace);
-	const auto outputFormat = std::get<E_FORMAT>(outputColorSpace);
+	auto outputFormat = std::get<E_FORMAT>(outputColorSpace);
 
 	const auto inViewFormat = getInputViewFormat(inputFormat);
 	if (inViewFormat==EF_UNKNOWN)
@@ -174,7 +174,15 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 	quantizedColor[1] = packHalf2x16(preQuant.ba);
 		)==="},
 	};
+
+	// B8G8R8A8_SRGB can get identical treatment to R8G8B8A8_SRGB, but
+	// the `quantizations` map above don't know that, so silently change
+	// B8G8R8A8_SRGB to R8G8B8A8_SRGB, just to get the correct quantization
+	if (outputFormat == asset::EF_B8G8R8A8_SRGB)
+		outputFormat = asset::EF_R8G8B8A8_SRGB;
+
 	const char* quantization = quantizations.find(outputFormat)->second;
+	
 	const char* outViewFormatQualifier;
 	switch (outViewFormat)
 	{
@@ -193,7 +201,7 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 
 	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "#define _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
 
-	constexpr char* sourceFmt =
+	const char* sourceFmt =
 R"===(#version 430 core
 
 
@@ -501,12 +509,6 @@ void main()
 	);
 
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
-		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
-	);
-}
-
-void CToneMapper::defaultBarrier()
-{
-	COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl, asset::IShader::ESS_COMPUTE, "????"),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main"});
 }

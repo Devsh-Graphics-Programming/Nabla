@@ -1,30 +1,27 @@
 # Creates a c++ file for builtin resources that contains binary data of all resources
 
-# parameters are
-# 0 - path to the .py file
-# 1 - output file path
-# 2 - cmake source dir
-# 3 - list of paths to resource files
+# TODO: use argparse not this by-hand-shit
 
 import sys, os, subprocess, json
 from datetime import datetime, timezone
 
-if  len(sys.argv) < 4 :
+if  len(sys.argv) < 8 :
     print(sys.argv[0] + " - Incorrect argument count")
 else:
-    outputFilename = sys.argv[1]
-    cmakeSourceDir = sys.argv[2]
-    resourcesFile  = sys.argv[3]
-    resourcesNamespace = sys.argv[4]
-    correspondingHeaderFile = sys.argv[5]
-    xxHash256Exe = sys.argv[6]
+    outputBuiltinPath = sys.argv[1]
+    outputArchivePath = sys.argv[2]
+    bundleAbsoluteEntryPath = sys.argv[3]
+    resourcesFile  = sys.argv[4]
+    resourcesNamespace = sys.argv[5]
+    correspondingHeaderFile = sys.argv[6]
+    xxHash256Exe = sys.argv[7]
     
     forceConstexprHash = True if not xxHash256Exe else False
 
     file = open(resourcesFile, 'r')
     resourcePaths = file.readlines()
 
-    outp = open(outputFilename, "w+")
+    outp = open(outputBuiltinPath, "w+")
     
     outp.write(f"""
     #include "{correspondingHeaderFile}"
@@ -38,12 +35,14 @@ else:
     template<nbl::core::StringLiteral Path>
     const nbl::system::SBuiltinFile& get_resource();
     """)
-     
-    # writing binary data of all files
-    for z in resourcePaths:
+
+    resourcesInitList = ""
+
+    # writing binary data of all files + archive source in-place
+    for id, z in enumerate(resourcePaths):
         itemData = z.split(',')
         x = itemData[0].rstrip()
-        inputBuiltinResource = cmakeSourceDir+'/'+x
+        inputBuiltinResource = bundleAbsoluteEntryPath+'/'+x
         
         outp.write(f"""
         template<> const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>()
@@ -70,6 +69,12 @@ else:
             outp.write(f"""
             Error: BuiltinResources - file with the following path not found: {x}
             """)
+            raise(IOError) # must throw back and fail the script
+
+        fileSize = os.path.getsize(inputBuiltinResource)
+
+        for item in itemData:
+            resourcesInitList += f"\t\t\t{{\"{item.rstrip()}\", {fileSize}, 0xdeadbeefu, {id}, nbl::system::IFileArchive::E_ALLOCATOR_TYPE::EAT_NULL}},\n"
             
         modificationDateT = datetime.fromtimestamp(os.path.getmtime(inputBuiltinResource), timezone.utc) # since the Unix epoch (00:00:00 UTC on 1 January 1970).
         
@@ -170,4 +175,25 @@ else:
     }}
     """)
     
+    outp.close()
+
+    archiveSource = f"""
+#include "CArchive.h"
+
+using namespace {resourcesNamespace};
+
+static const std::shared_ptr<nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>> k_builtinArchiveFileList = std::make_shared<nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>>(
+	nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>{{
+{resourcesInitList}
+}});
+
+CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
+	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)
+{{
+	
+}}
+"""
+    
+    outp = open(outputArchivePath, "w+")
+    outp.write(archiveSource)
     outp.close()

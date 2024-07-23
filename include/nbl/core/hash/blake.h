@@ -12,8 +12,10 @@ struct blake3_hash_t
 {
 	inline bool operator==(const blake3_hash_t&) const = default;
 
-	uint8_t data[BLAKE3_OUT_LEN];
+	uint8_t data[BLAKE3_OUT_LEN] = { {0} };
 };
+
+static_assert(sizeof(blake3_hash_t) == BLAKE3_OUT_LEN);
 
 template<typename T>
 inline void blake3_hasher_update(blake3_hasher& self, const T& input)
@@ -28,7 +30,6 @@ inline blake3_hash_t blake3_hasher_finalize(blake3_hasher& self)
 	return retval;
 }
 }
-
 
 namespace std
 {

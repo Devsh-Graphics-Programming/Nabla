@@ -822,6 +822,8 @@ class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd final : publi
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandPool::CREATE_FLAGS)
+
 }
 
 

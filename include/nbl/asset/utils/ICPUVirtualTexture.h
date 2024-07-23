@@ -59,7 +59,7 @@ public:
             params.arrayLayers = _layers;
             params.mipLevels = 1u;
             params.type = IImage::ET_2D;
-            params.samples = IImage::ESCF_1_BIT;
+            params.samples = IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
             params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
             image = ICPUImage::create(std::move(params));

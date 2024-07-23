@@ -49,7 +49,7 @@ struct load_to_string final
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
     preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::ESS_UNKNOWN), m_dxc_compile_flags_override() 
+        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
     {
         hash_token_occurences = 0;
     }
@@ -90,12 +90,12 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
             auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
             const static core::unordered_map<std::string,IShader::E_SHADER_STAGE> stageFromIdent =
             {
-                { "vertex", IShader::ESS_VERTEX },
-                { "fragment", IShader::ESS_FRAGMENT },
-                { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
-                { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
-                { "geometry", IShader::ESS_GEOMETRY },
-                { "compute", IShader::ESS_COMPUTE }
+                { "vertex", IShader::E_SHADER_STAGE::ESS_VERTEX },
+                { "fragment", IShader::E_SHADER_STAGE::ESS_FRAGMENT },
+                { "tesscontrol", IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL },
+                { "tesseval", IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION },
+                { "geometry", IShader::E_SHADER_STAGE::ESS_GEOMETRY },
+                { "compute", IShader::E_SHADER_STAGE::ESS_COMPUTE }
             };
             auto found = stageFromIdent.find(shaderStageIdentifier);
             if (found == stageFromIdent.end())

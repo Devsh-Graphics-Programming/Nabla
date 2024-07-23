@@ -1,29 +1,26 @@
 # Creates a header file for builtin resources
 
-# parameters are
-# 0 - path to the .py file
-# 1 - output file path
-# 2 - cmake source dir
-# 3 - list of paths to resource files
+# TODO: use argparse not this by-hand-shit
 
 import sys, os
 
-if  len(sys.argv) < 4 :
+if  len(sys.argv) < 8 :
     print(sys.argv[0] + " - Incorrect argument count")
 else:
-    outputFilename = sys.argv[1]
-    cmakeSourceDir = sys.argv[2]
-    resourcesFile  = sys.argv[3]
-    resourcesNamespace = sys.argv[4]
-    guardSuffix = sys.argv[5]
-    isSharedLibrary = True if sys.argv[6] == "True" else False
+    outputBuiltinPath = sys.argv[1]
+    outputArchivePath = sys.argv[2]
+    archiveBundlePath = sys.argv[3]
+    resourcesFile  = sys.argv[4]
+    resourcesNamespace = sys.argv[5]
+    guardSuffix = sys.argv[6]
+    isSharedLibrary = True if sys.argv[7] == "True" else False
     
     NBL_BR_API = "NBL_BR_API" if isSharedLibrary else ""
 
     file = open(resourcesFile, 'r')
     resourcePaths = file.readlines()
 
-    outp = open(outputFilename, "w+")
+    outp = open(outputBuiltinPath, "w+")
     
     outp.write(f"""
 #ifndef _{guardSuffix}_BUILTINRESOURCEDATA_H_
@@ -95,4 +92,45 @@ else:
 #endif // _{guardSuffix}_BUILTINRESOURCEDATA_H_
     """)
     
+    outp.close()
+
+    archiveHeader = f"""
+#ifndef _{guardSuffix}_C_ARCHIVE_H_
+#define _{guardSuffix}_C_ARCHIVE_H_
+
+#include "nbl/system/CFileArchive.h"
+#include "nbl/core/def/smart_refctd_ptr.h"
+#include "{os.path.basename(outputBuiltinPath)}"
+#include <memory>
+
+namespace {resourcesNamespace}
+{{
+constexpr std::string_view pathPrefix = "{archiveBundlePath}";
+
+inline bool hasPathPrefix(nbl::system::path _path)
+{{
+	_path.make_preferred();
+	const auto prefix = nbl::system::path(pathPrefix).make_preferred();
+	return _path.string().find(prefix.string())==0ull;
+}}
+
+class {NBL_BR_API} CArchive final : public nbl::system::CFileArchive
+{{
+	public:
+		CArchive(nbl::system::logger_opt_smart_ptr&& logger);
+			
+	protected:
+		file_buffer_t getFileBuffer(const nbl::system::IFileArchive::SFileList::found_t& found) override
+		{{
+				auto resource = get_resource_runtime(found->pathRelativeToArchive.string());
+				return {{const_cast<uint8_t*>(resource.contents),resource.size,nullptr}};
+		}}			
+}};
+}}
+
+#endif // _{guardSuffix}_C_ARCHIVE_H_
+"""
+
+    outp = open(outputArchivePath, "w+")
+    outp.write(archiveHeader)
     outp.close()

@@ -354,7 +354,7 @@ protected:
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
         params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
-        params.samples = IImage::ESCF_1_BIT;
+        params.samples = IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         params.type = IImage::ET_2D;
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
@@ -1047,7 +1047,7 @@ protected:
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
             bnd.count = _count;
-            bnd.stageFlags = asset::IShader::ESS_ALL;
+            bnd.stageFlags = asset::IShader::E_SHADER_STAGE::ESS_ALL;
             bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
             bnd.immutableSamplers = _samplers;
         };

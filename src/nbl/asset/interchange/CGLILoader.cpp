@@ -120,7 +120,7 @@ namespace nbl
 
 			ICPUImage::SCreationParams imageInfo = {};
 			imageInfo.type = imageType;
-			imageInfo.samples = ICPUImage::ESCF_1_BIT;
+			imageInfo.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 			imageInfo.format = format.first;
 			imageInfo.extent.width = texture.extent().x;
 			imageInfo.extent.height = texture.extent().y;
@@ -202,6 +202,10 @@ namespace nbl
 			}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
+
+			// TODO: inline hashing while reading
+			auto hash = image->computeContentHash();
+			image->setContentHash(hash);
 
 			ICPUImageView::SCreationParams imageViewInfo = {};
 			imageViewInfo.image = std::move(image);
