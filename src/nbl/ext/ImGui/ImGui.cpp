@@ -34,14 +34,14 @@ namespace nbl::ext::imgui
 				.binding = 0u,
 				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 				.createFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT,
-				.stageFlags = IShader::ESS_FRAGMENT,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
 				.count = NBL_MAX_IMGUI_TEXTURES
 			},
 			{
 				.binding = 1u,
 				.type = IDescriptor::E_TYPE::ET_SAMPLER,
 				.createFlags = binding_flags_t::ECF_NONE,
-				.stageFlags = IShader::ESS_FRAGMENT,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
 				.count = 1u,
 				.immutableSamplers = &m_fontSampler
 			}
@@ -56,7 +56,7 @@ namespace nbl::ext::imgui
 		SPushConstantRange pushConstantRanges[] = 
 		{
 			{
-				.stageFlags = IShader::ESS_VERTEX | IShader::ESS_FRAGMENT,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT,
 				.offset = 0u,
 				.size = sizeof(PushConstants)
 			}
@@ -88,8 +88,8 @@ namespace nbl::ext::imgui
 				return m_device->createShader(shader.get());
 			};
 
-			shaders.vertex = createShader(spirv.vertex, IShader::ESS_VERTEX);
-			shaders.fragment = createShader(spirv.fragment, IShader::ESS_FRAGMENT);
+			shaders.vertex = createShader(spirv.vertex, IShader::E_SHADER_STAGE::ESS_VERTEX);
+			shaders.fragment = createShader(spirv.fragment, IShader::E_SHADER_STAGE::ESS_FRAGMENT);
 		}
 	
 		SVertexInputParams vertexInputParams{};
@@ -199,7 +199,6 @@ namespace nbl::ext::imgui
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 		const auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(image_size, pixels, core::adopt_memory);
 		
-		constexpr auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 		params.type = IImage::ET_2D;
@@ -1056,7 +1055,7 @@ namespace nbl::ext::imgui
 					.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
 				};
 
-				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX | IShader::ESS_FRAGMENT, 0u, sizeof(constants), &constants);
+				commandBuffer->pushConstants(pipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT, 0u, sizeof(constants), &constants);
 			}
 
 			const asset::SBufferBinding<const video::IGPUBuffer> binding =
