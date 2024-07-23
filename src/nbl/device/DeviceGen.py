@@ -7,8 +7,8 @@ emptyline = f""
 class ContinueEx(Exception):
     pass
 
-ExposeStatus = IntFlag("Expose", ["DEFAULT", "REQUIRE", "DISABLE", "MOVE_TO_LIMIT"])
-CompareStatus = IntFlag("Compare", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
+ExposeStatus = IntFlag("ExposeStatus", ["DEFAULT", "REQUIRE", "DISABLE", "MOVE_TO_LIMIT"])
+CompareStatus = IntFlag("CompareStatus", ["DEFAULT", "DISABLE", "SKIP", "REVERSE"])
 
 MovedLimits = []
 
