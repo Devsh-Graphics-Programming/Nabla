@@ -154,7 +154,7 @@ public:
 		if (!device_base_t::onAppInitialized(smart_refctd_ptr(system)))
 			return false;
 
-		m_semaphore = m_device->createSemaphore(m_submitIx);
+		m_semaphore = m_device->createSemaphore(m_realFrameIx);
 		if (!m_semaphore)
 			return logFail("Failed to Create a Semaphore!");
 
@@ -377,7 +377,7 @@ public:
 			{
 				{
 					.semaphore = m_semaphore.get(),
-					.value = ++m_submitIx,
+					.value = ++m_realFrameIx,
 					.stageMask = PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT
 				}
 			};
@@ -406,7 +406,7 @@ public:
 					};
 
 					if (queue->submit(infos) != IQueue::RESULT::SUCCESS)
-						m_submitIx--;
+						m_realFrameIx--;
 				}
 			}
 
@@ -460,7 +460,6 @@ private:
 	smart_refctd_ptr<ISemaphore> m_semaphore;
 	smart_refctd_ptr<IGPUCommandPool> m_cmdPool;
 	uint64_t m_realFrameIx : 59 = 0;
-	uint64_t m_submitIx : 59 = 0;
 	uint64_t m_maxFramesInFlight : 5;
 	std::array<smart_refctd_ptr<IGPUCommandBuffer>, ISwapchain::MaxImages> m_cmdBufs;
 	ISimpleManagedSurface::SAcquireResult m_currentImageAcquire = {};
