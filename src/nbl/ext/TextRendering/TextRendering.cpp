@@ -18,7 +18,7 @@ namespace ext
 namespace TextRendering
 {
 
-core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
+core::smart_refctd_ptr<ICPUImage> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, uint32_t msdfMipLevels, float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
@@ -66,7 +66,7 @@ FontFace::GlyphMetrics FontFace::getGlyphMetricss(uint32_t glyphId)
 	};
 }
 
-core::smart_refctd_ptr<ICPUBuffer> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents)
+core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
 {
 	auto shape = generateGlyphShape(glyphId);
 
@@ -92,7 +92,7 @@ core::smart_refctd_ptr<ICPUBuffer> FontFace::generateGlyphMSDF(uint32_t msdfPixe
 	const float32_t2 shapeSpaceCenter = float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
 	const float32_t2 translate = float32_t2(textureExtents) / (float32_t2(2.0) * uniformScale) - shapeSpaceCenter;
 
-	return m_textRenderer->generateShapeMSDF(shape, msdfPixelRange, textureExtents, float32_t2(uniformScale, uniformScale), translate);
+	return m_textRenderer->generateShapeMSDF(shape, msdfPixelRange, textureExtents, mipLevels, float32_t2(uniformScale, uniformScale), translate);
 }
 
 float32_t2 FontFace::getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange)
