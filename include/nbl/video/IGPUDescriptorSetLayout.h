@@ -50,6 +50,8 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         bool m_versionChangeInvalidatesCommandBuffer = false;
 };
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS)
+
 }
 
 #endif

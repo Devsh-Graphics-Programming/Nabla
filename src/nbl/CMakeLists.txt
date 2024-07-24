@@ -508,6 +508,7 @@ else()
 	target_link_libraries(Nabla PRIVATE simdjson)
 endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)
