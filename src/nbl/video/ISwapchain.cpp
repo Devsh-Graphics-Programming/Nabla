@@ -10,7 +10,7 @@ namespace nbl::video
 ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain) :
     IBackendObject(std::move(dev)), m_params(std::move(params)), m_imgCreationParams({
         .type = IGPUImage::ET_2D,
-        .samples = IGPUImage::ESCF_1_BIT,
+        .samples = IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT,
         .format = m_params.surfaceFormat.format,
         .extent = {m_params.sharedParams.width,m_params.sharedParams.height,1u},
         .mipLevels = 1u,

@@ -32,10 +32,11 @@ core::smart_refctd_ptr<ICPUImage> TextRenderer::generateShapeMSDF(msdfgen::Shape
 
 	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 4);
 	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
-
+	
 	auto floatToSNORM8 = [](const float fl) -> int8_t
 		{
-			return (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
+			// we need to invert values because msdfgen assigns positive values for shape interior which is the exact opposite of our convention
+			return -1 * (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
 		};
 
 	for (int y = 0; y < msdfMap.height(); ++y)

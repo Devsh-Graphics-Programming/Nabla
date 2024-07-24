@@ -107,22 +107,22 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
                         if (!extra(info))
                             return false;
                         const auto stage = info.shader->getStage();
-                        if (stage>ICPUShader::ESS_FRAGMENT)
+                        if (stage>ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT)
                             return false;
                         if (stagePresence.hasFlags(stage))
                             return false;
                         stagePresence |= stage;
                     }
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
-                    if (!stagePresence.hasFlags(ICPUShader::ESS_VERTEX))
+                    if (!stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_VERTEX))
                         return false;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
-                    if (stagePresence.hasFlags(ICPUShader::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(ICPUShader::ESS_TESSELLATION_EVALUATION))
+                    if (stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION))
                         return false;
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
-                    if (stagePresence.hasFlags(ICPUShader::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==EPT_PATCH_LIST))
+                    if (stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==EPT_PATCH_LIST))
                         return false;
                     
                     return true;
