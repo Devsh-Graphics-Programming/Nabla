@@ -30,8 +30,17 @@ core::smart_refctd_ptr<ICPUImage> TextRenderer::generateShapeMSDF(msdfgen::Shape
 
 	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
 
-	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 4);
-	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
+
+	asset::ICPUImage::SCreationParams creationParams;
+	creationParams.type = asset::IImage::ET_2D;
+	creationParams.samples = asset::IImage::ESCF_1_BIT;
+	creationParams.format = TextRenderer::MSDFTextureFormat;
+	creationParams.extent = { msdfExtents.x, msdfExtents.y, 1 };
+	creationParams.mipLevels = msdfMipLevels;
+	creationParams.arrayLayers = 1;
+	auto image = asset::ICPUImage::create(std::move(creationParams));
+
+	int8_t* data = reinterpret_cast<int8_t*>(image->getBuffer()->getPointer());
 	
 	auto floatToSNORM8 = [](const float fl) -> int8_t
 		{
@@ -51,7 +60,7 @@ core::smart_refctd_ptr<ICPUImage> TextRenderer::generateShapeMSDF(msdfgen::Shape
 		}
 	}
 
-	return std::move(cpuBuf);
+	return std::move(image);
 }
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
