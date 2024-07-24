@@ -151,6 +151,11 @@ struct asset_cached_t final
 			return value==other.value;
 		}
 
+		explicit inline operator bool() const
+		{
+			return bool(get());
+		}
+
 		inline const auto& get() const
 		{
 			if constexpr (RefCtd)
