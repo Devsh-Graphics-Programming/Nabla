@@ -231,6 +231,8 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/shared_nor
 
 # HLSL
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/macros.h")
+#impl
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/impl/emulated_float64_t_impl.hlsl")
 #emulated
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated_float64_t.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tgmath.hlsl")

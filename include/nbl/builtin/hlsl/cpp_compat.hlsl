@@ -11,6 +11,8 @@
 #define NBL_CONSTEXPR constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
+#define NBL_CONSTEXPR_FUNC constexpr
+#define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
 #define NBL_CONST_MEMBER_FUNC const
 
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
@@ -41,6 +43,8 @@ using add_pointer = std::add_pointer<T>;
 #define ARROW .arrow().
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
+#define NBL_CONSTEXPR_FUNC
+#define NBL_CONSTEXPR_INLINE_FUNC
 #define NBL_CONST_MEMBER_FUNC
 
 namespace nbl

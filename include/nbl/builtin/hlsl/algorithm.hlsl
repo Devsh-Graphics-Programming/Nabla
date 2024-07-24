@@ -18,7 +18,7 @@ namespace impl
     // TODO: use structs
 
     template<typename T>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
     {
         T tmp = lhs;
         lhs = rhs;
@@ -26,7 +26,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(uint16_t) lhs, NBL_REF_ARG(uint16_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint16_t) lhs, NBL_REF_ARG(uint16_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -34,7 +34,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(uint32_t) lhs, NBL_REF_ARG(uint32_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint32_t) lhs, NBL_REF_ARG(uint32_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -42,7 +42,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(uint64_t) lhs, NBL_REF_ARG(uint64_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint64_t) lhs, NBL_REF_ARG(uint64_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -50,7 +50,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(int16_t) lhs, NBL_REF_ARG(int16_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int16_t) lhs, NBL_REF_ARG(int16_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -58,7 +58,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(int32_t) lhs, NBL_REF_ARG(int32_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int32_t) lhs, NBL_REF_ARG(int32_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -66,7 +66,7 @@ namespace impl
     }
 
     template<>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(int64_t) lhs, NBL_REF_ARG(int64_t) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int64_t) lhs, NBL_REF_ARG(int64_t) rhs)
     {
         lhs ^= rhs;
         rhs ^= lhs;
@@ -74,7 +74,7 @@ namespace impl
     }
 #else
     template<typename T>
-    NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
     {
         std::swap(lhs, rhs);
     }
@@ -82,7 +82,7 @@ namespace impl
 }
 
 template<typename T>
-NBL_CONSTEXPR_STATIC_INLINE void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
 {
     impl::swap<T>(lhs, rhs);
 }

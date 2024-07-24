@@ -61,8 +61,8 @@ namespace impl
 template<typename Float>
 struct traits_base
 {
-	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 0xbeef;
-	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 0xbeef;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = int16_t(0xbeef);
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = int16_t(0xbeef);
 };
 
 template<>
@@ -89,6 +89,8 @@ struct traits_base<float64_t>
 template<typename Float>
 struct traits : traits_base<Float>
 {
+	//static_assert(is_same_v<Float, float16_t> || is_same_v<Float, float32_t> || is_same_v<Float, float64_t>);
+
 	using bit_rep_t = typename unsigned_integer_of_size<sizeof(Float)>::type;
 	using base_t = traits_base<Float>;
 
@@ -96,6 +98,7 @@ struct traits : traits_base<Float>
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentMask = ((~bit_rep_t(0)) << base_t::mantissaBitCnt) ^ signMask;
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t mantissaMask = (bit_rep_t(0x1u) << base_t::mantissaBitCnt) - 1;
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentBias = (int(0x1) << (base_t::exponentBitCnt - 1)) - 1;
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t inf = exponentMask;
 };
 
 template <typename T>
