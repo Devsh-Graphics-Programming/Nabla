@@ -61,7 +61,7 @@ class CNullAllocator : public IFileViewAllocator
 #ifdef _NBL_PLATFORM_WINDOWS_
 #include "nbl/system/CFileViewVirtualAllocatorWin32.h"
 	using VirtualMemoryAllocator = nbl::system::CFileViewVirtualAllocatorWin32;
-#elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+#elif defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_MACOS_)
 #include "nbl/system/CFileViewVirtualAllocatorPOSIX.h"
 	using VirtualMemoryAllocator = nbl::system::CFileViewVirtualAllocatorPOSIX;
 #else

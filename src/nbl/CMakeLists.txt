@@ -5,40 +5,6 @@
 
 include(ProcessorCount)
 
-#[[
-macro(FindLibraryAndSONAME _LIB)
-  string(TOUPPER ${_LIB} _UPPERLNAME)
-  string(REGEX REPLACE "\\-" "_" _LNAME "${_UPPERLNAME}")
-
-  find_library(${_LNAME}_LIB ${_LIB})
-  #message(FATAL_ERROR ${${_LNAME}_LIB})
-  if(${_LNAME}_LIB)
-    # reduce the library name for shared linking
-
-    get_filename_component(_LIB_REALPATH ${${_LNAME}_LIB} REALPATH)  # resolves symlinks
-    get_filename_component(_LIB_JUSTNAME ${_LIB_REALPATH} NAME)
-
-    if(APPLE)
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*dylib$" "\\1.dylib" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    else()
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*$" "\\1" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    endif()
-
-    SET(_DEBUG_FindSONAME TRUE)
-    #if(_DEBUG_FindSONAME)
-      #message(WARNING "DYNLIB OUTPUTVAR: ${_LIB} ... ${_LNAME}_LIB")
-      message(WARNING "DYNLIB ORIGINAL LIB: ${_LIB} ... ${${_LNAME}_LIB}")
-      #message(WARNING "DYNLIB REALPATH LIB: ${_LIB} ... ${_LIB_REALPATH}")
-      #message(WARNING "DYNLIB JUSTNAME LIB: ${_LIB} ... ${_LIB_JUSTNAME}")
-      #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
-    #endif()
-
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
-    set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
-  endif()
-endmacro()
-]]
-
 if(UNIX AND NOT ANDROID)
 	# TODO: Now we require the `-dev` package or maybe ship headers ourselves?
 	find_package(X11 REQUIRED)
@@ -63,12 +29,16 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 			set(PLATFORM android-gcc)
 		endif()
-	elseif (UNIX AND NOT APPLE)
+	elseif (UNIX)
 		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 			set(PLATFORM linux-clang)
 		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 			set(PLATFORM linux-gcc)
 		endif()
+    elseif(APPLE)
+        if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+            set(PLATFORM macos-clang)
+        endif()
 	endif()
 	
 	if ("${PLATFORM}" STREQUAL "NOTFOUND")
@@ -176,6 +146,7 @@ set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
 	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
+    ${NBL_ROOT_PATH}/src/nbl/system/CSystemMacOS.cpp
 )
 set(NBL_UI_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
@@ -349,7 +320,7 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-# just gather all the header files and later put them into project so it's easy to search for things using IDE
+# just gather all the header files and later put them into project so its easy to search for things using IDE
 file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/nbl/*.h")
 
@@ -573,15 +544,11 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-add_custom_target(dxcompiler 
+add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
-	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
-
-add_dependencies(Nabla dxcompiler)
-add_dependencies(3rdparty dxcompiler)
 
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
@@ -768,7 +735,10 @@ if(NBL_STATIC_BUILD)
 	if(_NBL_BUILD_DPL_)
 		nbl_install_program(tbb)
 		nbl_install_program(tbbmalloc)
-		nbl_install_program(tbbmalloc_proxy)
+  
+        if(NOT (APPLE AND "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang"))
+            nbl_install_program(tbbmalloc_proxy)
+        endif()
 	endif()
 else()
 	nbl_install_program_spec(Nabla "nbl")

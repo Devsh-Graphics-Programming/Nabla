@@ -3,9 +3,20 @@
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
 cmake_minimum_required(VERSION 3.29)
+cmake_policy(SET CMP0042 NEW)
 cmake_policy(SET CMP0112 NEW)
 cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES "x86_64" CACHE STRING "" FORCE)
+    
+    if("${CMAKE_GENERATOR}" STREQUAL "Xcode")
+        if(NOT "${CMAKE_GENERATOR_TOOLSET}" STREQUAL "buildsystem=1")
+            message("Nabla build isn't supported with new Xcode buildsystem, you must specify CMake generator toolset as '-T buildsystem=1' in order to use legacy Xcode build system")
+        endif()
+    endif()
+endif()
 
 set(NBL_BUILD_ANDROID OFF)
 
@@ -30,14 +41,13 @@ endif()
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
 else()
+	# TODO: needs correcting those checks
 	if(WIN32 AND MSVC)
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
 			message(STATUS "Shared Nabla build enabled!")
 		else()
 			message(FATAL_ERROR "Turn NBL_DYNAMIC_MSVC_RUNTIME on! For dynamic Nabla builds dynamic MSVC runtime is mandatory!")
 		endif()
-	else()
-		message(FATAL_ERROR "Nabla can't be built with shared libraries! Please make sure you are targetting Windows OS and MSVC compiler!")
 	endif()
 endif()
 
@@ -148,6 +158,8 @@ if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
 elseif(ANDROID)
 	set(_NBL_PLATFORM_ANDROID_ 1)
+elseif(APPLE)
+    set(_NBL_PLATFORM_MACOS_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
@@ -158,6 +170,9 @@ if(NBL_STATIC_BUILD)
 else()
 	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
 endif()
+
+#uncomment in the future
+#option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)

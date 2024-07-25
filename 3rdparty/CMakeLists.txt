@@ -29,8 +29,10 @@ add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
 add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
 
 # msdfgen
+
+set(MSDFGEN_USE_SKIA OFF)
 set(MSDFGEN_USE_VCPKG OFF)
-set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
+set(MSDFGEN_CORE_ONLY OFF)
 set(MSDFGEN_INSTALL OFF)
 set(MSDFGEN_BUILD_STANDALONE OFF)
 set(MSDFGEN_USE_CPP11 ON)
@@ -76,7 +78,7 @@ add_subdirectory(volk volk EXCLUDE_FROM_ALL)
 target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
 
@@ -100,11 +102,16 @@ file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE N
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
+if(APPLE)
+    target_compile_options(zlibstatic PUBLIC "-includeunistd.h")
+endif()
+
 get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
 get_filename_component(_ORIGINAL_SOURCE_ "${ZLIB_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(_COPY_BIN_SOURCE_ "${ZLIB_BINARY_DIR}/copy_source" ABSOLUTE)
 
+# TODO: add coresponding custom command and mark proper dependencies [zlib_copy]
 add_custom_target(zlib_copy
 	COMMAND ${CMAKE_COMMAND} -E rm -Rf "${_COPY_BIN_SOURCE_}"
 	COMMAND ${CMAKE_COMMAND} -E copy_directory "${_ORIGINAL_SOURCE_}" "${_COPY_BIN_SOURCE_}"
@@ -331,6 +338,31 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
+# MacOS patches
+if(APPLE)
+    set(_NBL_MACOS_PATCH_INCLUDE_ "${CMAKE_CURRENT_BINARY_DIR}/macos/include" CACHE INTERNAL "")
+
+    set(_NBL_MACOS_BYTESWAP_H_
+"#if defined(__APPLE__)\n\
+// Mac OS X / Darwin features\n\
+#include <libkern/OSByteOrder.h>\n\n\
+#define bswap_16(x) OSSwapInt16(x)\n\
+#define bswap_32(x) OSSwapInt32(x)\n\
+#define bswap_64(x) OSSwapInt64(x)\n\
+#endif // __APPLE__"
+    )
+
+    set(_NBL_MACOS_ENDIAN_H_
+"#if defined(__APPLE__)\n\
+#include <machine/endian.h>\n\
+#endif // __APPLE__"
+    )
+
+    file(WRITE "${_NBL_MACOS_PATCH_INCLUDE_}/byteswap.h" "${_NBL_MACOS_BYTESWAP_H_}")
+    file(WRITE "${_NBL_MACOS_PATCH_INCLUDE_}/endian.h" "${_NBL_MACOS_ENDIAN_H_}")
+
+    include_directories(BEFORE SYSTEM "${_NBL_MACOS_PATCH_INCLUDE_}")
+endif()
 add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)

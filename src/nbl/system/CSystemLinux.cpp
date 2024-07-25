@@ -9,7 +9,7 @@ using namespace nbl::system;
 ISystem::SystemInfo CSystemLinux::getSystemInfo() const
 {
     SystemInfo info;
-
+    
     // TODO
     // info.cpuFrequencyHz = 3000000000u;
 

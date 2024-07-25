@@ -2,7 +2,7 @@
 
 using namespace nbl::system;
 
-#if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_)
+#if defined(_NBL_PLATFORM_LINUX_) || defined(_NBL_PLATFORM_ANDROID_) || defined(_NBL_PLATFORM_MACOS_)
 #include <sys/mman.h>
 
 void* CFileViewVirtualAllocatorPOSIX::alloc(size_t size)

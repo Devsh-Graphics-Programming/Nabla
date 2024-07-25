@@ -117,7 +117,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	_file->read(success, buffer, 0, sizeof(buffer));
 	if (!success)
 	{
-		_params.logger.log("LOAD PNG: can't read _file\n", system::ILogger::ELL_ERROR, _file->getFileName().string());
+		_params.logger.log("LOAD PNG: can't read _file\n", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
         return {};
 	}
 
