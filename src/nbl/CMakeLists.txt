@@ -544,15 +544,11 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
-add_custom_target(dxcompiler 
+add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
-	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
-
-add_dependencies(Nabla dxcompiler)
-add_dependencies(3rdparty dxcompiler)
 
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")

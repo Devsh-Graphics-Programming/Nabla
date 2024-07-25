@@ -435,8 +435,10 @@ function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
 			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
 		endforeach()
 	
-		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
-		
+		if(MSVC)
+			install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		endif()
+
 		get_property(_DEFINED_PROPERTY_
             TARGET ${_TRGT}
             PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
