@@ -93,8 +93,6 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 			return cp;
 		}
 
-		constexpr static inline bool HasDependents = true;
-
 		constexpr static inline auto AssetType = ET_ANIMATION_LIBRARY;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 

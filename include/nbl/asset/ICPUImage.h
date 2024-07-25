@@ -38,9 +38,6 @@ class ICPUImage final : public IImage, public IPreHashed
             return cp;
         }
 
-		// The buffer used to back the ranges used in the regions are is not a real dependent
-		constexpr static inline bool HasDependents = false;
-
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 

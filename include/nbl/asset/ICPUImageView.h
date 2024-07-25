@@ -46,9 +46,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
         }
 
 		//!
-		constexpr static inline bool HasDependents = true;
-
-		//!
 		constexpr static inline auto AssetType = ET_IMAGE_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 

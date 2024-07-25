@@ -45,8 +45,6 @@ class ICPUPipelineCache final : public IAsset // TODO: PreHashed ?
 
 		//
 		const auto& getEntries() const {return m_cache;}
-
-		constexpr static inline bool HasDependents = false;
 		
 		constexpr static inline auto AssetType = ET_PIPELINE_CACHE;
 		inline E_TYPE getAssetType() const override { return AssetType; }

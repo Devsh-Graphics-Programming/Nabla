@@ -41,8 +41,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
 		}
 
-		constexpr static inline bool HasDependents = true;
-
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 		

@@ -53,8 +53,6 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return cp;
         }
 
-        constexpr static inline bool HasDependents = true;
-
         constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 

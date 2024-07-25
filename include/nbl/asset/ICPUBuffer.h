@@ -48,8 +48,6 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
             return cp;
         }
 
-        constexpr static inline bool HasDependents = false;
-
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 

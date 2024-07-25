@@ -33,6 +33,8 @@ struct asset_traits<asset::ICPUShader>
 {
 	// the asset type
 	using asset_t = asset::ICPUShader;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
 	// the video type
 	using video_t = IGPUShader;
 	// lookup type
@@ -44,6 +46,8 @@ struct asset_traits<asset::ICPUDescriptorSetLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUDescriptorSetLayout;
+	// DS layout can have immutable samplers
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUDescriptorSetLayout;
 	// lookup type
@@ -55,6 +59,8 @@ struct asset_traits<asset::ICPUPipelineLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUPipelineLayout;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUPipelineLayout;
 	// lookup type
@@ -72,7 +78,11 @@ struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = IGPUComp
 template<>
 struct asset_traits<asset::ICPUBuffer>
 {
+	// the asset type
 	using asset_t = asset::ICPUBuffer;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
 	using video_t = asset::SBufferRange<IGPUBuffer>;
 	// lookup type
 	using lookup_t = video_t;
@@ -83,6 +93,8 @@ struct asset_traits<asset::ICPUBufferView>
 {
 	// the asset type
 	using asset_t = asset::ICPUBufferView;
+	// depends on ICPUBuffer
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUBufferView;
 	// lookup type
@@ -103,6 +115,8 @@ struct asset_traits<asset::ICPUSampler>
 {
 	// the asset type
 	using asset_t = asset::ICPUSampler;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
 	// the video type
 	using video_t = IGPUSampler;
 	// lookup type
