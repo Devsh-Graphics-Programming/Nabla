@@ -2,7 +2,7 @@ include(ProcessorCount)
 find_package(Git REQUIRED)
 
 option(NBL_UPDATE_GIT_SUBMODULE "Turn this ON to let CMake update all public submodules for you" ON)
-option(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE "Submodules will be updated with --force flag if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, use with caution - if there are any uncommited files in submodules' working tree they will be removed!" OFF)
+option(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE "Submodules will be updated with --force flag if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON + ALL SUBMODULES' CONTENT will be WIPED, use with caution - if there are any uncommited files in submodules' working tree they will be removed!" OFF)
 option(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE "Sync initialized submodule paths if NBL_FORCE_UPDATE_GIT_SUBMODULE is turned ON, this is useful when any submodule remote path got modified and you want to apply this modification to your local repository. Turning NBL_FORCE_ON_UPDATE_GIT_SUBMODULE implies this option" OFF)
 option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to update private Nabla submodules" OFF)
 option(NBL_UPDATE_GIT_SUBMODULE_NO_SEPARATE_SHELL "Turn this ON to prevent CMake from executing git submodules update or sync in a separate shell - be aware that the interaction with shell will be impossible in case of paraphrase prompt request of your key!" ON)
@@ -97,6 +97,16 @@ function(NBL_UPDATE_SUBMODULES)
 		
 		if(NBL_SYNC_ON_UPDATE_GIT_SUBMODULE)
 			execute_process(COMMAND "${GIT_EXECUTABLE}" submodule sync --recursive
+				WORKING_DIRECTORY "${NBL_ROOT_PATH}"
+			)
+		endif()
+
+		if(NBL_FORCE_ON_UPDATE_GIT_SUBMODULE)
+			execute_process(COMMAND "${GIT_EXECUTABLE}" submodule foreach --recursive "${GIT_EXECUTABLE}" clean -fdx
+				WORKING_DIRECTORY "${NBL_ROOT_PATH}"
+			)
+
+			execute_process(COMMAND "${GIT_EXECUTABLE}" submodule foreach --recursive "${GIT_EXECUTABLE}" reset --hard
 				WORKING_DIRECTORY "${NBL_ROOT_PATH}"
 			)
 		endif()
