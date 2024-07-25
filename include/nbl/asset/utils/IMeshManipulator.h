@@ -29,7 +29,7 @@ fixing problems with wrong imported or exported meshes quickly after
 loading. It is not intended for doing mesh modifications and/or
 animations during runtime.
 */
-class IMeshManipulator : public virtual core::IReferenceCounted
+class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 {
 	public:
 		//! Comparison methods
@@ -75,9 +75,6 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			core::vector3df_SIMD parentTriangleFaceNormal;			//
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
-
-
-		
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
@@ -158,7 +155,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			if (!ppln)
 				return 0u;
 
-			const auto& vtxInputParams = ppln->getVertexInputParams();
+			const auto& vtxInputParams = ppln->getCachedCreationParams().vertexInput;
 			uint32_t size = 0u;
 			for (uint32_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
 			if (vtxInputParams.enabledAttribFlags & (1u<<i))
@@ -216,7 +213,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
             if (!meshbuffer->getPipeline())
                 return false;
 
-            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
+            const auto& assemblyParams = meshbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly;
             const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
 			switch (primType)
 			{
@@ -256,7 +253,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
 			{
 				uint32_t offset;
-				switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
+				switch (mb->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType)
 				{
 					case EPT_TRIANGLE_LIST:
 						offset = triangleIx*3u;
@@ -351,6 +348,10 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 
 			return vertexCount;
 		}
+
+		static float DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint);
+		static float DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal);
+		static core::matrix3x4SIMD calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
 
 		//! Calculates bounding box of the meshbuffer
 		static inline core::aabbox3df calculateBoundingBox(
@@ -477,6 +478,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
 				});
 
+
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
         \param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).
@@ -515,7 +517,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				assert(!cpumb->isADummyObjectForCache());
 				assert(cpumb->isMutable());
 
-				const auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				const auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				switch (params.primitiveType)
 				{
 					case EPT_POINT_LIST:
@@ -567,7 +569,7 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				const auto indexType = cpumb->getIndexType();
 				auto indexCount = cpumb->getIndexCount();
 
-				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
 
 				void* correctlyOffsetIndexBufferPtr;

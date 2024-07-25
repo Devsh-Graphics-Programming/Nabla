@@ -74,7 +74,7 @@ vec4 nbl_sample_Ns(in vec2 uv, in mat2 dUV) { return texture(map_Ns, uv); }
 vec4 nbl_sample_d(in vec2 uv, in mat2 dUV) { return texture(map_d, uv); }
 #endif
 #ifndef _NBL_bump_SAMPLE_FUNCTION_DEFINED_
-vec2 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv).xy * 2.f - vec2(1.f); }
+vec2 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv).xy; }
 #endif
 #endif //_NBL_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 

@@ -271,7 +271,7 @@ protected:
             #ifdef _NBL_DEBUG
                assert(byteSize>=minBlockSz); // logic fail
             #endif // _NBL_DEBUG
-            return findMSB(byteSize/minBlockSz);
+            return hlsl::findMSB(byteSize/minBlockSz);
         }
         //!
         void copyState(const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc)

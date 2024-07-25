@@ -3,38 +3,71 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/CHLSLCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
-
+#include "spirv/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #ifdef _NBL_PLATFORM_WINDOWS_
 
-#include <wrl.h>
-#include <combaseapi.h>
-
-#include <dxc/dxcapi.h>
-
-#include <sstream>
 #include <regex>
 #include <iterator>
 #include <codecvt>
-
-#define TCPP_IMPLEMENTATION
-#include <tcpp/source/tcppLibrary.hpp>
-#undef TCPP_IMPLEMENTATION
+#include <wrl.h>
+#include <combaseapi.h>
+#include <sstream>
+#include <dxc/dxcapi.h>
 
 using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_6";
-
-namespace nbl::asset::hlsl::impl
-{
-    struct DXC {
-        ComPtr<IDxcUtils> m_dxcUtils;
-        ComPtr<IDxcCompiler3> m_dxcCompiler;
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
+static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
+    switch (stage)
+    {
+    case asset::IShader::E_SHADER_STAGE::ESS_VERTEX:
+        return L"vs";
+    case asset::IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL:
+        return L"ds";
+    case asset::IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
+        return L"hs";
+    case asset::IShader::E_SHADER_STAGE::ESS_GEOMETRY:
+        return L"gs";
+    case asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT:
+        return L"ps";
+    case asset::IShader::E_SHADER_STAGE::ESS_COMPUTE:
+        return L"cs";
+    case asset::IShader::E_SHADER_STAGE::ESS_TASK:
+        return L"as";
+    case asset::IShader::E_SHADER_STAGE::ESS_MESH:
+        return L"ms";
+    default:
+        return nullptr;
     };
 }
+
+namespace nbl::asset::impl
+{
+struct DXC 
+{
+    ComPtr<IDxcUtils> m_dxcUtils;
+    ComPtr<IDxcCompiler3> m_dxcCompiler;
+};
+}
+
+struct DxcCompilationResult
+{
+    Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorMessages;
+    Microsoft::WRL::ComPtr<IDxcBlob> objectBlob;
+    Microsoft::WRL::ComPtr<IDxcResult> compileResult;
+
+    std::string GetErrorMessagesString()
+    {
+        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
+    }
+};
+
 
 CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     : IShaderCompiler(std::move(system))
@@ -47,7 +80,7 @@ CHLSLCompiler::CHLSLCompiler(core::smart_refctd_ptr<system::ISystem>&& system)
     res = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler.GetAddressOf()));
     assert(SUCCEEDED(res));
 
-    m_dxcCompilerTypes = new nbl::asset::hlsl::impl::DXC{
+    m_dxcCompilerTypes = new impl::DXC{
         utils,
         compiler
     };
@@ -58,85 +91,159 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
-static tcpp::IInputStream* getInputStreamInclude(
-    const IShaderCompiler::CIncludeFinder* inclFinder,
-    const system::ISystem* fs,
-    uint32_t maxInclCnt,
-    const char* requestingSource,
-    const char* requestedSource,
-    bool isRelative, // true for #include "string"; false for #include <string>
-    uint32_t lexerLineIndex,
-    uint32_t leadingLinesImports,
-    std::vector<std::pair<uint32_t, std::string>>& includeStack
-)
+
+static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
 {
-    std::string res_str;
-
-    std::filesystem::path relDir;
-    const bool reqFromBuiltin = builtin::hasPathPrefix(requestingSource);
-    const bool reqBuiltin = builtin::hasPathPrefix(requestedSource);
-    if (!reqFromBuiltin && !reqBuiltin)
+    auto stageArgumentPos = std::find(arguments.begin(), arguments.end(), L"-HV");
+    if (stageArgumentPos != arguments.end() && stageArgumentPos + 1 != arguments.end())
     {
-        //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-        //  This rule applies also while a builtin is #includ`ing another builtin.
-        //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-        //  or path relative to executable's working directory (""-type).
-        relDir = std::filesystem::path(requestingSource).parent_path();
+        std::wstring version = *(++stageArgumentPos);
+        if (!isalpha(version.back()))
+        {
+            try
+            {
+                if (version.length() != 4)
+                    throw std::invalid_argument("-HV argument is of incorrect length, expeciting 4. Fallign back to 2021");
+                if (std::stoi(version) < 2021)
+                    throw std::invalid_argument("-HV argument is too low");
+            }
+            catch (const std::exception& ex)
+            {
+                version = L"2021";
+            }
+        }
+        *stageArgumentPos = version;
     }
-    std::filesystem::path name = isRelative ? (relDir / requestedSource) : (requestedSource);
-
-    if (std::filesystem::exists(name) && !reqBuiltin)
-        name = std::filesystem::absolute(name);
-
-    if (isRelative)
-        res_str = inclFinder->getIncludeRelative(relDir, requestedSource);
-    else //shaderc_include_type_standard
-        res_str = inclFinder->getIncludeStandard(relDir, requestedSource);
-
-    if (!res_str.size()) {
-        return new tcpp::StringInputStream("#error File not found");
+    else
+    {
+        logger.log("Compile flag error: Required compile flag not found -HV. Force enabling -HV 202x, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+        arguments.push_back(L"-HV");
+        arguments.push_back(L"202x");
     }
-
-    // Figure out what line in the current file this #include was
-    // That would be the current lexer line, minus the line where the current file was included
-    uint32_t lineInCurrentFileWithInclude = lexerLineIndex -
-        // if this is 2 includes deep (include within include), subtract leading import lines
-        // from the previous include
-        (includeStack.size() > 1 ? leadingLinesImports : 0);
-    auto lastItemInIncludeStack = includeStack.back();
-
-    IShaderCompiler::disableAllDirectivesExceptIncludes(res_str);
-    res_str = IShaderCompiler::encloseWithinExtraInclGuards(std::move(res_str), maxInclCnt, name.string().c_str());
-    res_str = res_str + "\n" +
-        IShaderCompiler::PREPROC_DIRECTIVE_DISABLER + "line " + std::to_string(lineInCurrentFileWithInclude - lastItemInIncludeStack.first - 1).c_str() + " \"" + lastItemInIncludeStack.second.c_str() + "\"\n";
-
-    // Offset the lines this include takes up for subsequent includes
-    includeStack.back().first += std::count(res_str.begin(), res_str.end(), '\n');
-
-    includeStack.push_back(std::pair<uint32_t, std::string>(lineInCurrentFileWithInclude, IShaderCompiler::escapeFilename(name.string())));
-
-    return new tcpp::StringInputStream(std::move(res_str));
 }
 
-class DxcCompilationResult
-{
-public:
-    ComPtr<IDxcBlobEncoding> errorMessages;
-    ComPtr<IDxcBlob> objectBlob;
-    ComPtr<IDxcResult> compileResult;
+static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
 
-    std::string GetErrorMessagesString()
+    constexpr int MajorReqVersion = 6, MinorReqVersion = 7;
+    auto overrideStageStr = ShaderStageToString(shaderStageOverrideFromPragma);
+    if (shaderStageOverrideFromPragma != IShader::E_SHADER_STAGE::ESS_UNKNOWN && !overrideStageStr)
     {
-        return std::string(reinterpret_cast<char*>(errorMessages->GetBufferPointer()), errorMessages->GetBufferSize());
+        logger.log("Invalid shader stage with int value '%i'.\nThis value does not have a known string representation.",
+            system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
+        return;
     }
-};
+    bool setDefaultValue = true;
+    auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
+    if (foundShaderStageArgument != arguments.end() && foundShaderStageArgument +1 != arguments.end()) {
+        auto foundShaderStageArgumentValueIdx = foundShaderStageArgument - arguments.begin() + 1;
+        std::wstring stageStr;
+        std::wstring s = arguments[foundShaderStageArgumentValueIdx];
+        if (s.length() >= 6) {
+            std::vector<std::wstring::iterator> underscorePositions = {};
+            auto it = std::find(s.begin(), s.end(), '_');
+            while (it != s.end()) {
+                underscorePositions.push_back(it);
+                it = std::find(it + 1, s.end(), '_');
+            }
 
-DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
+            if (underscorePositions.size() == 2) 
+            {   
+                stageStr = shaderStageOverrideFromPragma != IShader::E_SHADER_STAGE::ESS_UNKNOWN ? std::wstring(overrideStageStr) : std::wstring(s.begin(), underscorePositions[0]);
+                // Version
+                std::wstring majorVersionString, minorVersionString;
+                int size = underscorePositions.size();
+                auto secondLastUnderscore = underscorePositions[size - 2];
+                auto lastUnderscore = underscorePositions[size - 1];
+                majorVersionString = std::wstring(secondLastUnderscore + 1, lastUnderscore);
+                minorVersionString = std::wstring(lastUnderscore + 1, s.end());
+                try
+                {
+                    int major = std::stoi(majorVersionString);
+                    int minor = std::stoi(minorVersionString);
+                    if (major < MajorReqVersion || (major == MajorReqVersion && minor < MinorReqVersion))
+                    {
+                        // Overwrite the version 
+                        logger.log("Upgrading shader stage version number to %i %i", system::ILogger::ELL_DEBUG, MajorReqVersion, MinorReqVersion);
+                        arguments[foundShaderStageArgumentValueIdx] = stageStr + L"_" + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion);
+                    }
+                    else
+                    {
+                        // keep the version as it was
+                        arguments[foundShaderStageArgumentValueIdx] = stageStr + L"_" + majorVersionString + L"_" + minorVersionString;
+                    }
+                    return;
+                }
+                catch (const std::invalid_argument& e)
+                {
+                    logger.log("Parsing shader version failed, invalid argument exception: %s", system::ILogger::ELL_ERROR, e.what());
+                }
+                catch (const std::out_of_range& e)
+                {
+                    logger.log("Parsing shader version failed, out of range exception: %s", system::ILogger::ELL_ERROR, e.what());
+                }
+            }
+            else
+            {
+                logger.log("Incorrect -T argument value.\nExpecting string with exactly 2 '_' delimiters: between shader stage, version major and version minor.",
+                    system::ILogger::ELL_ERROR);
+            }
+        }
+        else 
+        {
+            logger.log("invalid shader stage '%s' argument, expecting a string of length >= 6 ", system::ILogger::ELL_ERROR, s);
+        } 
+        // In case of an exception or str < 6
+        arguments[foundShaderStageArgumentValueIdx] = stageStr + L"_" + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion);
+        setDefaultValue = false;
+    }
+    if (setDefaultValue) 
+    { 
+        // in case of no -T
+        // push back default values for -T argument
+        // can be safely pushed to the back of argument list as output files should be evicted from args before passing to this func
+        // leaving only compiler flags
+        arguments.push_back(L"-T");
+        arguments.push_back(std::wstring(overrideStageStr) + L"_" + std::to_wstring(MajorReqVersion) + L"_" + std::to_wstring(MinorReqVersion));
+    }
+}
+
+static void add_required_arguments_if_not_present(std::vector<std::wstring>& arguments, system::logger_opt_ptr &logger) {
+    auto set = std::unordered_set<std::wstring>();
+    for (int i = 0; i < arguments.size(); i++)
+        set.insert(arguments[i]);
+    for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
+    {
+        bool missing = set.find(CHLSLCompiler::RequiredArguments[j]) == set.end();
+        if (missing) {
+            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
+            arguments.push_back(CHLSLCompiler::RequiredArguments[j]);
+        }
+    }
+}
+
+// adds missing required arguments
+// converts arguments from std::string to std::wstring
+template <typename T>
+static void populate_arguments_with_type_conversion(std::vector<std::wstring> &arguments, T &iterable_collection, system::logger_opt_ptr &logger) {
+    size_t arg_size = iterable_collection.size();
+    arguments.reserve(arg_size);
+    for (auto it = iterable_collection.begin(); it != iterable_collection.end(); it++) {
+        auto temp = std::wstring(it->begin(), it->end()); // *it is string, therefore create wstring
+        arguments.push_back(temp);
+    }
+    add_required_arguments_if_not_present(arguments, logger);
+}
+
+
+static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::impl::DXC* dxc, std::string& source, LPCWSTR* args, uint32_t argCount, const CHLSLCompiler::SOptions& options)
 {
-    if (options.genDebugInfo)
+    // Emit compile flags as a #pragma directive
+    // "#pragma wave dxc_compile_flags allows" intended use is to be able to recompile a shader with the same* flags as initial compilation
+    // mainly meant to be used while debugging in RenderDoc.
+    // * (except "-no-nbl-builtins") 
     {
         std::ostringstream insertion;
-        insertion << "// commandline compiler options : ";
+        insertion << "#pragma wave dxc_compile_flags( ";
 
         std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
         for (uint32_t arg = 0; arg < argCount; arg ++)
@@ -145,10 +252,9 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
             insertion << str.c_str() << " ";
         }
 
-        insertion << "\n";
+        insertion << ")\n";
         compiler->insertIntoStart(source, std::move(insertion));
     }
-    
     ComPtr<IDxcBlobEncoding> src;
     auto res = dxc->m_dxcUtils->CreateBlob(reinterpret_cast<const void*>(source.data()), source.size(), CP_UTF8, &src);
     assert(SUCCEEDED(res));
@@ -200,187 +306,157 @@ DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset::hlsl:
 }
 
 
-std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions) const
-{
-    // Line 1 comes before all the extra defines in the main shader
-    insertIntoStart(code, std::ostringstream(std::string(IShaderCompiler::PREPROC_DIRECTIVE_ENABLER) + "line 1\n"));
+#include "nbl/asset/utils/waveContext.h"
 
-    uint32_t defineLeadingLinesMain = 1;
-    uint32_t leadingLinesImports = IShaderCompiler::encloseWithinExtraInclGuardsLeadingLines(preprocessOptions.maxSelfInclusionCount + 1u);
-    if (preprocessOptions.extraDefines.size())
+
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+{
+    nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
+    // If dependencies were passed, we assume we want caching
+    context.set_caching(bool(dependencies));
+    context.add_macro_definition("__HLSL_VERSION");
+   
+    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+    // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
+    // to match boost wave syntax
+    // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
+    for (const auto& define : preprocessOptions.extraDefines)
+        context.add_macro_definition(define.identifier.data()+core::string("=")+define.definition.data());
+
+    // preprocess
+    core::string resolvedString;
+    try
     {
-        insertExtraDefines(code, preprocessOptions.extraDefines);
-        defineLeadingLinesMain += preprocessOptions.extraDefines.size();
+        std::stringstream stream = std::stringstream();
+        for (auto i=context.begin(); i!=context.end(); i++)
+            stream << i->get_value();
+        resolvedString = stream.str();
+    }
+    catch (boost::wave::preprocess_exception& e)
+    {
+        preprocessOptions.logger.log("Boost.Wave %s exception caught!",system::ILogger::ELL_ERROR,e.what());
+    }
+    catch (...)
+    {
+        preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
+    }
+    
+    // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
+    if constexpr (true)
+    {
+        system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
+        m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
+        if (auto file=future.acquire(); file&&bool(*file))
+        {
+            system::IFile::success_t succ;
+            (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
+            succ.getBytesProcessed(true);
+        }
     }
 
-    IShaderCompiler::disableAllDirectivesExceptIncludes(code);
+    if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
+        dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
 
-    // Keep track of the line in the original file where each #include was on each level of the include stack
-    std::vector<std::pair<uint32_t, std::string>> lineOffsetStack = { std::pair<uint32_t, std::string>(defineLeadingLinesMain, preprocessOptions.sourceIdentifier) };
+    if(context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
+        stage = context.get_hooks().m_pragmaStage;
 
-    tcpp::StringInputStream codeIs = tcpp::StringInputStream(code);
-    tcpp::Lexer lexer(codeIs);
-    tcpp::Preprocessor proc(
-        lexer,
-        [&](auto errorInfo) {
-            preprocessOptions.logger.log("Pre-processor error at line %i:\n%s", nbl::system::ILogger::ELL_ERROR, errorInfo.mLine, tcpp::ErrorTypeToString(errorInfo.mType).c_str());
-        },
-        [&](auto path, auto isSystemPath) {
-            if (preprocessOptions.includeFinder)
-            {
-                return getInputStreamInclude(
-                    preprocessOptions.includeFinder, m_system.get(), preprocessOptions.maxSelfInclusionCount + 1u,
-                    preprocessOptions.sourceIdentifier.data(), path.c_str(), !isSystemPath,
-                    lexer.GetCurrLineIndex(), leadingLinesImports, lineOffsetStack
-                );
-            }
-            else
-            {
-                return static_cast<tcpp::IInputStream*>(new tcpp::StringInputStream(std::string("#error No include handler")));
-            }
-        },
-        [&]() {
-            lineOffsetStack.pop_back();
-        }
-    );
-
-    proc.AddCustomDirectiveHandler(std::string("pragma shader_stage"), [&](tcpp::Preprocessor& preprocessor, tcpp::Lexer& lexer, const std::string& text) {
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        auto token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::OPEN_BRACKET) return std::string("#error Malformed shader_stage pragma");
-
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::IDENTIFIER) return std::string("#error Malformed shader_stage pragma");
-
-        auto& shaderStageIdentifier = token.mRawView;
-        core::unordered_map<std::string, IShader::E_SHADER_STAGE> stageFromIdent = {
-            { "vertex", IShader::ESS_VERTEX },
-            { "fragment", IShader::ESS_FRAGMENT },
-            { "tesscontrol", IShader::ESS_TESSELLATION_CONTROL },
-            { "tesseval", IShader::ESS_TESSELLATION_EVALUATION },
-            { "geometry", IShader::ESS_GEOMETRY },
-            { "compute", IShader::ESS_COMPUTE }
-        };
-
-        auto found = stageFromIdent.find(shaderStageIdentifier);
-        if (found == stageFromIdent.end())
-        {
-            return std::string("#error Malformed shader_stage pragma, unknown stage");
-        }
-        stage = found->second;
-
-        if (!lexer.HasNextToken()) return std::string("#error Malformed shader_stage pragma");
-        token = lexer.GetNextToken();
-        if (token.mType != tcpp::E_TOKEN_TYPE::CLOSE_BRACKET) return std::string("#error Malformed shader_stage pragma");
-
-        while (lexer.HasNextToken()) {
-            auto token = lexer.GetNextToken();
-            if (token.mType == tcpp::E_TOKEN_TYPE::NEWLINE) break;
-            if (token.mType != tcpp::E_TOKEN_TYPE::SPACE) return std::string("#error Malformed shader_stage pragma");
-        }
-
-        return std::string("");
-    });
-
-    auto resolvedString = proc.Process();
-    IShaderCompiler::reenableDirectives(resolvedString);
+    if (dependencies) {
+        *dependencies = std::move(context.get_dependencies());
+    }
 
     return resolvedString;
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* code, const IShaderCompiler::SCompilerOptions& options) const
+std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+{
+    std::vector<std::string> extra_dxc_compile_flags = {};
+    return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
+}
+
+core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     auto hlslOptions = option_cast(options);
-
-    if (!code)
+    auto logger = hlslOptions.preprocessorOptions.logger;
+    if (code.empty())
     {
-        hlslOptions.preprocessorOptions.logger.log("code is nullptr", system::ILogger::ELL_ERROR);
+        logger.log("code is nullptr", system::ILogger::ELL_ERROR);
         return nullptr;
     }
-
-    auto stage = hlslOptions.stage;
-    auto newCode = preprocessShader(code, stage, hlslOptions.preprocessorOptions);
+    std::vector<std::string> dxc_compile_flags = {};
+    IShader::E_SHADER_STAGE stage = options.stage;
+    auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
 
     // Suffix is the shader model version
-    // TODO: Figure out a way to get the shader model version automatically
-    // 
-    // We can't get it from the DXC library itself, as the different versions and the parsing
-    // use a weird lexer based system that resolves to a hash, and all of that is in a scoped variable
-    // (lib/DXIL/DxilShaderModel.cpp:83)
-    // 
-    // Another option is trying to fetch it from the commandline tool, either from parsing the help message
-    // or from brute forcing every -T option until one isn't accepted
-    //
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
-
-    // Set profile two letter prefix based on stage
-    switch (stage) {
-    case asset::IShader::ESS_VERTEX:
-        targetProfile.replace(0, 2, L"vs");
-        break;
-    case asset::IShader::ESS_TESSELLATION_CONTROL:
-        targetProfile.replace(0, 2, L"ds");
-        break;
-    case asset::IShader::ESS_TESSELLATION_EVALUATION:
-        targetProfile.replace(0, 2, L"hs");
-        break;
-    case asset::IShader::ESS_GEOMETRY:
-        targetProfile.replace(0, 2, L"gs");
-        break;
-    case asset::IShader::ESS_FRAGMENT:
-        targetProfile.replace(0, 2, L"ps");
-        break;
-    case asset::IShader::ESS_COMPUTE:
-        targetProfile.replace(0, 2, L"cs");
-        break;
-    case asset::IShader::ESS_TASK:
-        targetProfile.replace(0, 2, L"as");
-        break;
-    case asset::IShader::ESS_MESH:
-        targetProfile.replace(0, 2, L"ms");
-        break;
-    default:
-        hlslOptions.preprocessorOptions.logger.log("invalid shader stage %i", system::ILogger::ELL_ERROR, stage);
-        return nullptr;
-    };
-
-    std::vector<LPCWSTR> arguments = {
-        L"-spirv",
-        L"-HV", L"2021",
-        L"-T", targetProfile.c_str(),
-    };
-
-    // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
-    // This is how we can get more optimizer options.
-    // 
-    // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
-    // optimization levels greater than zero; they will all invoke the same optimization recipe. 
-    // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-    if (hlslOptions.spirvOptimizer)
+   
+    std::vector<std::wstring> arguments = {};
+    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
+        populate_arguments_with_type_conversion(arguments, dxc_compile_flags, logger);
+    }
+    else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
+        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
+    }
+    else { // lastly default arguments
+        arguments = {};
+        for (size_t i = 0; i < RequiredArgumentCount; i++)
+            arguments.push_back(RequiredArguments[i]);
+        arguments.push_back(L"-HV");
+        arguments.push_back(L"202x");
+        // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
+        arguments.push_back(L"-E");
+        arguments.push_back(L"main");
+        // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+        // This is how we can get more optimizer options.
+        // 
+        // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+        // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+        // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+        if (hlslOptions.spirvOptimizer)
+            arguments.push_back(L"-O0");
+    }
+    if (dxc_compile_flags.empty())
     {
-        arguments.push_back(L"-O0");
+        auto set = std::unordered_set<std::wstring>();
+        for (int i = 0; i < arguments.size(); i++)
+            set.insert(arguments[i]);
+        auto add_if_missing = [&arguments, &set, logger](std::wstring flag) {
+            if (set.find(flag) == set.end()) {
+                logger.log("Adding debug flag %ls", nbl::system::ILogger::ELL_DEBUG, flag.c_str());
+                arguments.push_back(flag);
+            }
+        };
+        // Debug only values
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_FILE_BIT))
+            add_if_missing(L"-fspv-debug=file");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT))
+            add_if_missing(L"-fspv-debug=source");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_LINE_BIT))
+            add_if_missing(L"-fspv-debug=line");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT))
+            add_if_missing(L"-fspv-debug=tool");
+        if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
+            add_if_missing(L"-fspv-debug=vulkan-with-source");
     }
 
-    // Debug only values
-    if (hlslOptions.genDebugInfo)
-    {
-        arguments.insert(arguments.end(), {
-            DXC_ARG_DEBUG,
-            L"-Qembed_debug",
-            L"-fspv-debug=vulkan-with-source",
-            L"-fspv-debug=file"
-        });
-    }
-
-    auto compileResult = dxcCompile(
-        this, 
-        m_dxcCompilerTypes, 
+    try_upgrade_shader_stage(arguments, stage, logger);
+    try_upgrade_hlsl_version(arguments, logger);
+    
+    uint32_t argc = arguments.size();
+    LPCWSTR* argsArray = new LPCWSTR[argc];
+    for (size_t i = 0; i < argc; i++)
+        argsArray[i] = arguments[i].c_str();
+    
+    auto compileResult = dxcCompile( 
+        this,
+        m_dxcCompilerTypes,
         newCode,
-        &arguments[0],
-        arguments.size(),
+        argsArray,
+        argc,
         hlslOptions
     );
+
+    if (argsArray)
+        delete[] argsArray;
 
     if (!compileResult.objectBlob)
     {
@@ -392,15 +468,16 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV(const char* cod
     
     // Optimizer step
     if (hlslOptions.spirvOptimizer)
-        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), hlslOptions.preprocessorOptions.logger);
-
+        outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
     return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
+
 
 void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins) const
 {
     code.insert(0u, ins.str());
 }
+
 
 #endif

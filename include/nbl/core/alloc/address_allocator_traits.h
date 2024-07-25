@@ -53,6 +53,18 @@ namespace nbl::core
                 }
             }
 
+            static inline void         multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses, const size_type* bytes,
+                                                        const size_type alignment, const size_type* hint=nullptr) noexcept
+            {
+                for (uint32_t i=0; i<count; i++)
+                {
+                    if (outAddresses[i]!=AddressAlloc::invalid_address)
+                        continue;
+
+                    outAddresses[i] = alloc.alloc_addr(bytes[i],alignment,hint ? hint[i]:0ull);
+                }
+            }
+
             static inline void         multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept
             {
                 for (uint32_t i=0; i<count; i++)
@@ -155,6 +167,7 @@ namespace nbl::core
             _NBL_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
             _NBL_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
 
+            // TODO: make the printer customizable without making a `core`->`system` circular dep
             static inline void          printDebugInfo()
             {
                 printf("has_func_multi_alloc_addr : %s\n",                  has_func_multi_alloc_addr<AddressAlloc>::value ? "true":"false");
@@ -183,6 +196,14 @@ namespace nbl::core
                 for (uint32_t i=0; i<count; i+=maxMultiOps)
                     impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
                                                                 alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment+i,hint ? (hint+i):nullptr);
+            }
+
+            static inline void              multi_alloc_addr(AddressAlloc& alloc, uint32_t count, size_type* outAddresses,
+                                                             const size_type* bytes, const size_type alignment, const size_type* hint=nullptr) noexcept
+            {
+                for (uint32_t i=0; i<count; i+=maxMultiOps)
+                    impl::address_allocator_traits_base<AddressAlloc,has_func_multi_alloc_addr<AddressAlloc>::value>::multi_alloc_addr(
+                                                                alloc,std::min(count-i,maxMultiOps),outAddresses+i,bytes+i,alignment,hint ? (hint+i):nullptr);
             }
 
             static inline void             multi_free_addr(AddressAlloc& alloc, uint32_t count, const size_type* addr, const size_type* bytes) noexcept

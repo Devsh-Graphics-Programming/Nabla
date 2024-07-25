@@ -26,13 +26,13 @@ IWindowManager::SDisplayInfo CWindowManagerWin32::getPrimaryDisplayInfo() const
 	return info;
 }
 
-static inline DWORD getWindowStyle(IWindow::E_CREATE_FLAGS flags)
+static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> flags)
 {
 	DWORD style = WS_POPUP;
 
-	if ((flags & IWindow::ECF_FULLSCREEN) == 0)
+	if (!flags.hasFlags(IWindow::ECF_FULLSCREEN))
 	{
-		if ((flags & IWindow::ECF_BORDERLESS) == 0)
+		if (!flags.hasFlags(IWindow::ECF_BORDERLESS))
 		{
 			style |= WS_BORDER;
 			style |= (WS_SYSMENU | WS_CAPTION);
@@ -41,29 +41,48 @@ static inline DWORD getWindowStyle(IWindow::E_CREATE_FLAGS flags)
 		style |= WS_CLIPCHILDREN;
 		style |= WS_CLIPSIBLINGS;
 	}
-	if (flags & IWindow::ECF_MINIMIZED)
+	if (flags.hasFlags(IWindow::ECF_MINIMIZED))
 	{
 		style |= WS_MINIMIZE;
 	}
-	if (flags & IWindow::ECF_MAXIMIZED)
+	if (flags.hasFlags(IWindow::ECF_MAXIMIZED))
 	{
 		style |= WS_MAXIMIZE;
 	}
-	if (flags & IWindow::ECF_ALWAYS_ON_TOP)
+	if (flags.hasFlags(IWindow::ECF_ALWAYS_ON_TOP))
 	{
 		style |= WS_EX_TOPMOST;
 	}
-	if ((flags & IWindow::ECF_HIDDEN) == 0)
+	if (!flags.hasFlags(IWindow::ECF_HIDDEN))
 	{
 		style |= WS_VISIBLE;
 	}
 	style |= WS_OVERLAPPEDWINDOW;
+	if (!flags.hasFlags(IWindow::ECF_CAN_RESIZE))
+	{
+		style &= ~WS_SIZEBOX;
+	}
+	if (!flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
+	{
+		style &= ~WS_MAXIMIZEBOX;
+	}
+	if (!flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
+	{
+		style &= ~WS_MINIMIZEBOX;
+	}
 
 	return style;
 }
 
 core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCreationParams&& creationParams)
 {
+	// this could be common to all `createWindow` impl
+	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_RESIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
+		creationParams.flags |= IWindow::ECF_RESIZABLE;
+	// win32 minimize is weird, its a resize to 0,0
+	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
+		creationParams.flags |= IWindow::ECF_CAN_RESIZE;
+
 	CAsyncQueue::future_t<IWindowWin32::native_handle_t> future;
 	m_windowThreadManager.request(&future, SRequestParams_CreateWindow{
 		.windowCaption = std::move(creationParams.windowCaption),
@@ -72,7 +91,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCrea
 		.x = creationParams.x,
 		.y = creationParams.y,
 		.flags = creationParams.flags
-		});
+	});
 	if (auto handle = future.acquire())
 		return core::make_smart_refctd_ptr<CWindowWin32>(std::move(creationParams),core::smart_refctd_ptr<CWindowManagerWin32>(this),*handle);
 	return nullptr;
@@ -174,7 +193,7 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 	);
 
 	//
-	if ((flags&CWindowWin32::ECF_HIDDEN)==0)
+	if (!flags.hasFlags(CWindowWin32::ECF_HIDDEN))
 		ShowWindow(nativeWindow, SW_SHOWNORMAL);
 	UpdateWindow(nativeWindow);
 

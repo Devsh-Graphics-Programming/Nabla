@@ -28,7 +28,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 	if (!inbuffer)
 		return;
     auto* pipeline = inbuffer->getPipeline();
-    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getPrimitiveAssemblyParams().primitiveType;
+    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getCachedCreationParams().primitiveAssembly.primitiveType;
 
     const uint32_t idxcnt = inbuffer->getIndexCount();
     if (!inbuffer->getIndices())
@@ -181,12 +181,12 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 		const size_t vertexSize = lastOffset + lastSize;
 
         constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
-        auto& vtxParams = outbuffer->getPipeline()->getVertexInputParams();
+        auto& vtxParams = outbuffer->getPipeline()->getCachedCreationParams().vertexInput;
         vtxParams = SVertexInputParams();
-        vtxParams.enabledAttribFlags = _inbuffer->getPipeline()->getVertexInputParams().enabledAttribFlags;
+        vtxParams.enabledAttribFlags = _inbuffer->getPipeline()->getCachedCreationParams().vertexInput.enabledAttribFlags;
         vtxParams.enabledBindingFlags = 1u << NEW_VTX_BUF_BINDING;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = vertexSize;
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 
 		auto newVertBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCount*vertexSize);
         outbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertBuffer) }, NEW_VTX_BUF_BINDING);
@@ -269,14 +269,14 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
     if (idxCnt<2u || !inbuffer->getIndices())
         return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer); // yes we want an extra grab
     
-    const auto& oldVtxParams = oldPipeline->getVertexInputParams();
+    const auto& oldVtxParams = oldPipeline->getCachedCreationParams().vertexInput;
     
 	auto clone = core::move_and_static_cast<ICPUMeshBuffer>(inbuffer->clone(0u));
 
     constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
 
     auto pipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
-    auto& vtxParams = pipeline->getVertexInputParams();
+    auto& vtxParams = pipeline->getCachedCreationParams().vertexInput;
     vtxParams = SVertexInputParams();
 
     vtxParams.enabledBindingFlags = (1u<<NEW_VTX_BUF_BINDING);
@@ -308,7 +308,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 				offset[i] = -1;
 		}
 
-        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = stride;
 
 		auto vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(stride*idxCnt);
@@ -403,14 +403,14 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
         const auto normalAttr = inbuffer->getNormalAttributeIx();
         auto normalBinding = inbuffer->getBindingNumForAttribute(normalAttr);
         const auto oldPipeline = inbuffer->getPipeline();
-        auto vertexParams = oldPipeline->getVertexInputParams();
+        auto vertexParams = oldPipeline->getCachedCreationParams().vertexInput;
         bool notUniqueBinding = false;
         for (uint16_t attr=0u; attr<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; attr++)
         if (attr!=normalAttr && (vertexParams.enabledAttribFlags&(0x1u<<attr))!=0u && vertexParams.attributes[attr].binding==normalBinding)
             notUniqueBinding = true;
         if (notUniqueBinding)
         {
-            int32_t firstBindingNotUsed = core::findLSB(vertexParams.enabledBindingFlags^0xffffu);
+            int32_t firstBindingNotUsed = hlsl::findLSB(vertexParams.enabledBindingFlags^0xffffu);
             assert(firstBindingNotUsed>0 && firstBindingNotUsed<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT);
             normalBinding = static_cast<uint32_t>(firstBindingNotUsed);
 
@@ -425,7 +425,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
         auto pipeline = core::move_and_static_cast<ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
         vertexParams.bindings[normalBinding].stride = normalFormatBytesize;
         vertexParams.attributes[normalAttr].relativeOffset = 0u;
-        pipeline->getVertexInputParams() = vertexParams;
+        pipeline->getCachedCreationParams().vertexInput = vertexParams;
         outbuffer->setPipeline(std::move(pipeline));
     }
     else
@@ -641,7 +641,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	// convert index buffer for triangle primitives
     constexpr auto canonicalMeshBufferIndexType = EIT_32BIT;
     IMeshManipulator::homogenizePrimitiveTypeAndIndices(&outbuffer.get(),&outbuffer.get()+1,EPT_TRIANGLE_LIST,canonicalMeshBufferIndexType);
-    if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
+    if (outbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType != EPT_TRIANGLE_LIST)
 		return nullptr;
 
 	// STEP: weld
@@ -749,7 +749,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
             const uint32_t posId = outbuffer->getPositionAttributeIx();
             const size_t bufsz = outbuffer->getAttribBoundBuffer(posId).buffer->getSize();
 
-			const size_t vertexSize = pipeline->getVertexInputParams().bindings[0].stride;
+			const size_t vertexSize = pipeline->getCachedCreationParams().vertexInput.bindings[0].stride;
 			uint8_t* const v = (uint8_t*)(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
 			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT);
 			memcpy(vCopy, v, bufsz);
@@ -831,10 +831,10 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
     _meshbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertexBuffer) }, VTX_BUF_BINDING);
 
     auto* pipeline = _meshbuffer->getPipeline();
-    auto& vtxParams = pipeline->getVertexInputParams();
+    auto& vtxParams = pipeline->getCachedCreationParams().vertexInput;
 
     vtxParams.bindings[VTX_BUF_BINDING].stride = vertexSize;
-    vtxParams.bindings[VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+    vtxParams.bindings[VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
         const uint32_t vaid = newAttribs[i].vaid;
@@ -1509,6 +1509,220 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanTo
             return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint32_t>(_input, _idxCount);
     }
 	return nullptr;
+}
+
+float IMeshManipulator::DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint) 
+{
+    core::vectorSIMDf PointToStart = InPoint - P0;
+    core::vectorSIMDf Diff = core::cross(P0 - P1, PointToStart);
+
+    return core::dot(Diff, Diff).x;
+}
+
+float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal) 
+{
+    core::vectorSIMDf PointToPlane = InPoint - PlanePoint;
+
+    return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? core::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
+}
+
+core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 
+{
+    auto FindMinMaxProj = [&](const core::vectorSIMDf& Dir, const core::vectorSIMDf Extrema[]) -> core::vectorSIMDf
+    {
+        float MinPoint, MaxPoint;
+        MinPoint = MaxPoint = core::dot(Dir, Extrema[0]).x;
+
+        for (int i = 1; i < 12; i++) {
+            float Proj = core::dot(Dir, Extrema[i]).x;
+            if (MinPoint > Proj) MinPoint = Proj;
+            if (MaxPoint < Proj) MaxPoint = Proj;
+        }
+
+        return core::vectorSIMDf(MaxPoint, MinPoint, 0);
+    };
+
+    auto ComputeAxis = [&](const core::vectorSIMDf& P0, const core::vectorSIMDf& P1, const core::vectorSIMDf& P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, const core::vectorSIMDf Extrema[]) -> void
+    {
+        core::vectorSIMDf e0 = P1 - P0;
+        core::vectorSIMDf Edges[3];
+        Edges[0] = e0 / core::length(e0);
+        Edges[1] = core::cross(P2 - P1, P1 - P0);
+        Edges[1] = Edges[1] / core::length(Edges[1]);
+        Edges[2] = core::cross(Edges[0], Edges[1]);
+
+        core::vectorSIMDf Edge10Proj = FindMinMaxProj(Edges[0], Extrema);
+        core::vectorSIMDf Edge20Proj = FindMinMaxProj(Edges[1], Extrema);
+        core::vectorSIMDf Edge30Proj = FindMinMaxProj(Edges[2], Extrema);
+        core::vectorSIMDf Max2 = core::vectorSIMDf(Edge10Proj.x, Edge20Proj.x, Edge30Proj.x);
+        core::vectorSIMDf Min2 = core::vectorSIMDf(Edge10Proj.y, Edge20Proj.y, Edge30Proj.y);
+        core::vectorSIMDf Diff = Max2 - Min2;
+        float Quality = Diff.x * Diff.y + Diff.x * Diff.z + Diff.y * Diff.z;
+
+        if (Quality < PrevQuality) {
+            PrevQuality = Quality;
+            for (int i = 0; i < 3; i++) {
+                AxesEdge[i] = Edges[i];
+            }
+        }
+    };
+
+    core::vectorSIMDf Extrema[12];
+    float A = (core::sqrt(5.0f) - 1.0f) / 2.0f;
+    core::vectorSIMDf N[6];
+    N[0] = core::vectorSIMDf(0, 1, A);
+    N[1] = core::vectorSIMDf(0, 1, -A);
+    N[2] = core::vectorSIMDf(1, A, 0);
+    N[3] = core::vectorSIMDf(1, -A, 0);
+    N[4] = core::vectorSIMDf(A, 0, 1);
+    N[5] = core::vectorSIMDf(A, 0, -1);
+    float Bs[12];
+    float B;
+    int indexcount = meshbuffer->getIndexCount();
+    core::vectorSIMDf CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(0));
+    core::vectorSIMDf AABBMax = CachedVertex;
+    core::vectorSIMDf AABBMin = CachedVertex;
+    for (int k = 0; k < 12; k += 2) {
+        B = core::dot(N[k / 2], CachedVertex).x;
+        Extrema[k] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B;
+        Extrema[k + 1] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B;
+    }
+    for (uint32_t j = 1u; j < indexcount; j += 1u) {
+        CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(j));
+        for (int k = 0; k < 12; k += 2) {
+            B = core::dot(N[k / 2], CachedVertex).x;
+            if (B > Bs[k] || j == 0) { Extrema[k] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B; }
+            if (B < Bs[k + 1] || j == 0) { Extrema[k + 1] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B; }
+        }
+        AABBMax = core::max(AABBMax, CachedVertex);
+        AABBMin = core::min(AABBMin, CachedVertex);
+    }
+
+    int LBTE1 = -1;
+    float MaxDiff = 0;
+    for (int i = 0; i < 12; i += 2) {
+        core::vectorSIMDf C = (Extrema[i]) - (Extrema[i + 1]); float TempDiff = core::dot(C, C).x; if (TempDiff > MaxDiff) { MaxDiff = TempDiff; LBTE1 = i; }
+    }
+    assert(LBTE1 != -1);
+
+    core::vectorSIMDf P0 = Extrema[LBTE1];
+    core::vectorSIMDf P1 = Extrema[LBTE1 + 1];
+
+    int LBTE3 = 0;
+    float MaxDist = 0;
+    int RemoveAt = 0;
+
+    for (int i = 0; i < 10; i++) {
+        int index = i;
+        if (index >= LBTE1) index += 2;
+        float TempDist = DistanceToLine(P0, P1, core::vectorSIMDf(Extrema[index].x, Extrema[index].y, Extrema[index].z));
+        if (TempDist > MaxDist || i == 0) {
+            MaxDist = TempDist;
+            LBTE3 = index;
+            RemoveAt = i;
+        }
+    }
+
+    core::vectorSIMDf P2 = Extrema[LBTE3];
+    core::vectorSIMDf ExtremaRemainingTemp[9];
+    for (int i = 0; i < 9; i++) {
+        int index = i;
+        if (index >= RemoveAt) index += 1;
+        if (index >= LBTE1) index += 2;
+        ExtremaRemainingTemp[i] = core::vectorSIMDf(Extrema[index].x, Extrema[index].y, Extrema[index].z, index);
+    }
+
+    float MaxDistPlane = -9999999.0f;
+    float MinDistPlane = -9999999.0f;
+    float TempDistPlane = 0;
+    core::vectorSIMDf Q0 = core::vectorSIMDf(0, 0, 0);
+    core::vectorSIMDf Q1 = core::vectorSIMDf(0, 0, 0);
+    core::vectorSIMDf Norm = core::cross(P2 - P1, P2 - P0);
+    Norm /= core::length(Norm);
+    for (int i = 0; i < 9; i++) {
+        TempDistPlane = DistanceToPlane(core::vectorSIMDf(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, Norm);
+        if (TempDistPlane > MaxDistPlane || i == 0) {
+            MaxDistPlane = TempDistPlane;
+            Q0 = Extrema[(int)ExtremaRemainingTemp[i].w];
+        }
+        TempDistPlane = DistanceToPlane(core::vectorSIMDf(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, -Norm);
+        if (TempDistPlane > MinDistPlane || i == 0) {
+            MinDistPlane = TempDistPlane;
+            Q1 = Extrema[(int)ExtremaRemainingTemp[i].w];
+        }
+    }
+
+    float BestQuality = 99999999999999.0f;
+    core::vectorSIMDf BestAxis[3];
+    ComputeAxis(P0, P1, P2, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P2, P0, P1, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P1, P2, P0, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P1, Q0, P0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P0, P1, Q0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q0, P0, P1, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P2, Q0, P0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P0, P2, Q0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q0, P0, P2, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P1, Q0, P2, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P2, P1, Q0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q0, P2, P1, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P1, Q1, P0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P0, P1, Q1, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q1, P0, P1, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P2, Q1, P0, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P0, P2, Q1, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q1, P0, P2, BestAxis, BestQuality, Extrema);
+
+    ComputeAxis(P1, Q1, P2, BestAxis, BestQuality, Extrema);
+    ComputeAxis(P2, P1, Q1, BestAxis, BestQuality, Extrema);
+    ComputeAxis(Q1, P2, P1, BestAxis, BestQuality, Extrema);
+
+    core::matrix3x4SIMD TransMat = core::matrix3x4SIMD(
+        BestAxis[0].x, BestAxis[1].x, BestAxis[2].x, 0,
+        BestAxis[0].y, BestAxis[1].y, BestAxis[2].y, 0,
+        BestAxis[0].z, BestAxis[1].z, BestAxis[2].z, 0);
+
+    core::vectorSIMDf MinPoint;
+    core::vectorSIMDf MaxPoint;
+    CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(0));
+    MinPoint = core::vectorSIMDf(core::dot(BestAxis[0], CachedVertex).x, core::dot(BestAxis[1], CachedVertex).x, core::dot(BestAxis[2], CachedVertex).x);
+    MaxPoint = MinPoint;
+    for (uint32_t j = 1u; j < indexcount; j += 1u)
+    {
+        CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(j));
+        core::vectorSIMDf Proj = core::vectorSIMDf(core::dot(BestAxis[0], CachedVertex).x, core::dot(BestAxis[1], CachedVertex).x, core::dot(BestAxis[2], CachedVertex).x);
+        MinPoint = core::min(MinPoint, Proj);
+        MaxPoint = core::max(MaxPoint, Proj);
+    }
+
+    core::vectorSIMDf OBBDiff = MaxPoint - MinPoint;
+    float OBBQuality = OBBDiff.x * OBBDiff.y + OBBDiff.y * OBBDiff.z + OBBDiff.z * OBBDiff.x;
+
+    core::vectorSIMDf ABBDiff = AABBMax - AABBMin;
+    float ABBQuality = ABBDiff.x * ABBDiff.y + ABBDiff.y * ABBDiff.z + ABBDiff.z * ABBDiff.x;
+    core::matrix3x4SIMD scaleMat;
+    core::matrix3x4SIMD translationMat;
+    translationMat.setTranslation(-(MinPoint) / OBBDiff);
+    scaleMat.setScale(OBBDiff);
+    TransMat = core::concatenateBFollowedByA(TransMat, scaleMat);
+    TransMat = core::concatenateBFollowedByA(TransMat, translationMat);
+    if (ABBQuality < OBBQuality) {
+        translationMat.setTranslation(-(AABBMin) / ABBDiff);
+        scaleMat.setScale(ABBDiff);
+        TransMat = core::matrix3x4SIMD(
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0);
+        TransMat = core::concatenateBFollowedByA(TransMat, scaleMat);
+        TransMat = core::concatenateBFollowedByA(TransMat, translationMat);
+    }
+
+    return TransMat;
 }
 
 } // end namespace nbl::asset

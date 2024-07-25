@@ -1,154 +1,80 @@
 #include "nbl/asset/utils/CDerivativeMapCreator.h"
 
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
-#include "nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
-#include "nbl/asset/filters/kernels/CGaussianImageFilterKernel.h"
 #include "nbl/asset/filters/CBlitImageFilter.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
-
 using namespace nbl;
 using namespace nbl::asset;
-
-
-namespace
-{
-
-template<class Kernel>
-class MyKernel : public CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
-{
-		using Base = CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
-
-		Kernel kernel;
-		float multiplier;
-
-	public:
-		using value_type = typename Base::value_type;
-
-		MyKernel(Kernel&& k, uint32_t _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(float(_imgExtent)) {}
-
-		// no special user data by default
-		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
-
-		inline float weight(float x, int32_t channel) const
-		{
-			return kernel.weight(x, channel) * multiplier;
-		}
-		
-		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
-		template<class PreFilter, class PostFilter>
-		struct sample_functor_t
-		{
-				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
-
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
-				{
-					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
-					for (int32_t i=0; i< Kernel::MaxChannels; i++)
-					{
-						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->weight(relativePos.x, i);
-						if (scale)
-							windowSample[i] *= scale->factor[i];
-					}
-					postFilter(windowSample, relativePos, globalTexelCoord, userData);
-				}
-
-			private:
-				const MyKernel* _this;
-				PreFilter& preFilter;
-				PostFilter& postFilter;
-		};
-
-		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
-
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-};
-	
-template<class Kernel>
-class SeparateOutXAxisKernel : public CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
-{
-		using Base = CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
-
-		Kernel kernel;
-
-	public:
-		// passthrough everything
-		using value_type = typename Kernel::value_type;
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
-
-		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
-
-		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-					
-		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
-		template<class PreFilter, class PostFilter>
-		struct sample_functor_t
-		{
-				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
-
-				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
-				{
-					preFilter(windowSample, relativePos, globalTexelCoord, userData);
-					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
-					for (int32_t i=0; i<MaxChannels; i++)
-					{
-						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
-						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
-						if (scale)
-							windowSample[i] *= scale->factor[i];
-					}
-					postFilter(windowSample, relativePos, globalTexelCoord, userData);
-				}
-
-			private:
-				const SeparateOutXAxisKernel<Kernel>* _this;
-				PreFilter& preFilter;
-				PostFilter& postFilter;
-		};
-
-		// the method all kernels must define and overload
-		template<class PreFilter, class PostFilter>
-		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
-		{
-			return sample_functor_t<PreFilter, PostFilter>(this,preFilter,postFilter);
-		}
-};
-
-}
-
 
 template<bool isotropicNormalization>
 core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFromHeightMap(ICPUImage* _inImg, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor, float* out_normalizationFactor)
 {
 	using namespace asset;
 
-	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
-	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
-	using DerivKernel = MyKernel<DerivKernel_>;
-	using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
-	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
-	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
-	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
+	// or Mitchell
+	using ReconstructionFunction = CWeightFunction1D<SDiracFunction>;
+	using DerivativeFunction = CWeightFunction1D<SGaussianFunction<>, 1>;
+
 	using DerivativeMapFilter = CBlitImageFilter
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		XDerivKernel,YDerivKernel,CBoxImageFilterKernel
+		CBlitUtilities<
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>,
+
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>,
+
+			CChannelIndependentWeightFunction1D<
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
+				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
+			>
+		>
 	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
+
 	// derivative values should not change depending on resolution of the texture, so they need to be done w.r.t. normalized UV coordinates  
-	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), extent.width), CBoxImageFilterKernel()));
-	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), extent.height)));
+	DerivativeFunction derivX;
+	derivX.scale(extent.width);
 
+	DerivativeFunction derivY;
+	derivY.scale(extent.height);
 
-	typename DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	const core::vectorSIMDu32 extent_vector(extent.width, extent.height, extent.depth);
+
+	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
+		extent_vector,
+		extent_vector,
+
+		ReconstructionFunction(), std::move(derivX),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), std::move(derivY),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
+		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>());
+
+	typename DerivativeMapFilter::state_type state(convolutionKernels);
 
 	const auto& inParams = _inImg->getCreationParameters();
 	auto outParams = inParams;
@@ -187,6 +113,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
+	state.recomputeScaledKernelPhasedLUT();
 	const bool result = DerivativeMapFilter::execute(core::execution::par_unseq,&state);
 	if (result)
 	{
@@ -206,7 +133,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 	auto img = createDerivativeMapFromHeightMap<isotropicNormalization>(_inImg, _uwrap, _vwrap, _borderColor, out_normalizationFactor);
 	const auto& iparams = img->getCreationParameters();
 
-	ICPUImageView::SCreationParams params;
+	ICPUImageView::SCreationParams params = {};
 	params.format = iparams.format;
 	params.subresourceRange.baseArrayLayer = 0u;
 	params.subresourceRange.layerCount = iparams.arrayLayers;
@@ -306,7 +233,7 @@ core::smart_refctd_ptr<ICPUImageView> CDerivativeMapCreator::createDerivativeMap
 {
 	auto cpuDerivativeImage = createDerivativeMapFromNormalMap<isotropicNormalization>(_inImg,out_normalizationFactor);
 
-	ICPUImageView::SCreationParams imageViewInfo;
+	ICPUImageView::SCreationParams imageViewInfo = {};
 	imageViewInfo.image = core::smart_refctd_ptr(cpuDerivativeImage);
 	imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 	imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;

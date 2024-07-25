@@ -1,20 +1,17 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_COMPILE_CONFIG_H_INCLUDED_
+#define _NBL_CORE_COMPILE_CONFIG_H_INCLUDED_
 
-#ifndef __NBL_CORE_COMPILE_CONFIG_H_INCLUDED__
-#define __NBL_CORE_COMPILE_CONFIG_H_INCLUDED__
-
-//! Irrlicht SDK Version
+//! Nabla SDK Version
 #define NABLA_VERSION_MAJOR 0
-#define NABLA_VERSION_MINOR 4
+#define NABLA_VERSION_MINOR 5
 #define NABLA_VERSION_REVISION 0
 #define NABLA_VERSION_INTEGER (NABLA_VERSION_MAJOR*100 + NABLA_VERSION_MINOR*10 + NABLA_VERSION_REVISION)
-#define NABLA_SDK_VERSION "0.4.0-alpha1"
+#define NABLA_SDK_VERSION "0.5.0-alpha1"
 
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
-
-//#define _NBL_TEST_WAYLAND // TODO: need!?
 
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
@@ -37,26 +34,5 @@
 #	define _ENABLE_EXTENDED_ALIGNED_STORAGE
 #endif
 
-//! Uncomment the following line if you want to ignore the deprecated warnings
-//#define IGNORE_DEPRECATED_WARNING
-
-#ifdef _NBL_WINDOWS_API_
-
-// Declare the calling convention.
-#if defined(_STDCALL_SUPPORTED)
-#define NBLCALLCONV __stdcall
-#else
-#define NBLCALLCONV __cdecl
-#endif // STDCALL_SUPPORTED
-
-#else // _NBL_WINDOWS_API_
-
-#define NBLCALLCONV
-
-#endif // _NBL_WINDOWS_API_
-
-#ifndef _NBL_WINDOWS_API_
-#   undef _NBL_WCHAR_FILESYSTEM // TODO: need?
-#endif
 
 #endif

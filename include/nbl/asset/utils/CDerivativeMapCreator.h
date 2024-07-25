@@ -1,5 +1,5 @@
-#ifndef __NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED__
-#define __NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED__
+#ifndef _NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED_
+#define _NBL_I_DERIVATIVE_MAP_CREATOR_H_INCLUDED_
 
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/ICPUImageView.h"

@@ -61,7 +61,7 @@ class COIT
                     params.queueFamilyIndexCount = 0;
                     params.queueFamilyIndices = nullptr;
                     params.samples = asset::IImage::ESCF_1_BIT;
-                    params.tiling = asset::IImage::ET_OPTIMAL;
+                    params.tiling = video::IGPUImage::TILING::OPTIMAL;
                     params.type = asset::IImage::ET_2D;
                     params.usage = asset::IImage::EUF_STORAGE_BIT;
 
@@ -74,9 +74,10 @@ class COIT
                     if (!img || !imgMem.isValid())
                         return nullptr;
 
-                    video::IGPUImageView::SCreationParams vparams;
+                    video::IGPUImageView::SCreationParams vparams = {};
                     vparams.format = params.format;
                     vparams.flags = static_cast<decltype(vparams.flags)>(0);
+                    //vparams.subUsages = ? ? ? ; TODO
                     vparams.viewType = decltype(vparams.viewType)::ET_2D;
                     vparams.subresourceRange.baseArrayLayer = 0u;
                     vparams.subresourceRange.layerCount = 1u;
@@ -259,7 +260,7 @@ class COIT
             }
 
             const uint32_t bindingCount = m_images.spinlock ? MaxImgBindingCount:(MaxImgBindingCount-1u);
-            cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT, asset::EPSF_FRAGMENT_SHADER_BIT, asset::EDF_BY_REGION_BIT, 0u, nullptr, 0u, nullptr, bindingCount, imgbarrier);
+            cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, asset::PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, asset::EDF_BY_REGION_BIT, 0u, nullptr, 0u, nullptr, bindingCount, imgbarrier);
         }
 
         void resolvePass(video::IGPUCommandBuffer* cmdbuf, video::IGPUGraphicsPipeline* gfx, video::IGPUDescriptorSet* ds, uint32_t set = DefaultSetNum)
@@ -281,7 +282,7 @@ class COIT
             imgbarrier.image = m_images.vis->getCreationParameters().image;
             imgbarrier.subresourceRange = m_images.vis->getCreationParameters().subresourceRange;
 
-            cmdbuf->pipelineBarrier(asset::EPSF_FRAGMENT_SHADER_BIT, asset::EPSF_FRAGMENT_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &imgbarrier);
+            cmdbuf->pipelineBarrier(asset::PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, asset::PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, 1u, &imgbarrier);
         }
 
         const proto_pipeline_t& getResolveProtoPipeline() const { return m_proto_pipeline; }

@@ -2,10 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+// TODO: kill this file
 #ifndef __NBL_MATH_H_INCLUDED__
 #define __NBL_MATH_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
+
+#include "nbl/macros.h"
+#include "nbl/core/math/glslFunctions.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
 #include <cstdint>
 #include <limits.h> // For INT_MAX / UINT_MAX
@@ -14,9 +19,6 @@
 #ifdef _MSC_VER
     #include <intrin.h>
 #endif
-
-#include "nbl/macros.h"
-#include "nbl/core/math/glslFunctions.h"
 
 namespace nbl
 {
@@ -40,13 +42,13 @@ NBL_FORCE_INLINE constexpr bool isPoT(INT_TYPE value)
 template<typename INT_TYPE>
 NBL_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
 {
-        return INT_TYPE(0x1u)<<INT_TYPE(1+core::findMSB<INT_TYPE>(value-INT_TYPE(1)));
+        return INT_TYPE(0x1u)<<INT_TYPE(1+hlsl::findMSB<INT_TYPE>(value-INT_TYPE(1)));
 }
 
 template<typename INT_TYPE>
 NBL_FORCE_INLINE constexpr INT_TYPE roundDownToPoT(INT_TYPE value)
 {
-    return INT_TYPE(0x1u)<<core::findMSB<INT_TYPE>(value);
+    return INT_TYPE(0x1u)<<hlsl::findMSB<INT_TYPE>(value);
 }
 
 template<typename INT_TYPE>

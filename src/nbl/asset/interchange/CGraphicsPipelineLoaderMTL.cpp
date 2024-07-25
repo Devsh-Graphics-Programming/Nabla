@@ -27,10 +27,22 @@ using namespace asset;
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : 
     IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
 {
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     //create vertex shaders and insert them into cache
     auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
     {
-        core::smart_refctd_ptr<const system::IFile> data = m_assetMgr->getSystem()->loadBuiltinData<Path>();
+        auto fileSystem = m_assetMgr->getSystem();
+
+        auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+        {
+            nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+            fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+            if (future.wait())
+                return future.copy();
+            return nullptr;
+        };
+
+        core::smart_refctd_ptr<const system::IFile> data = loadBuiltinData(Path.value);
         auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize()+1u);
         char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
         memcpy(bufferPtr, data->getMappedPointer(), data->getSize());
@@ -55,6 +67,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
     registerShader.operator()<core::StringLiteral(VERT_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_VERTEX);
     registerShader.operator()<core::StringLiteral(FRAG_SHADER_NO_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
     registerShader.operator()<core::StringLiteral(FRAG_SHADER_UV_CACHE_KEY)>(ICPUShader::ESS_FRAGMENT);
+#endif
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -72,22 +85,35 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUShader::ESS_FRAGMENT;
+            pcRng.stageFlags = ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
-            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
+            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(std::span<const SPushConstantRange>(&pcRng,1),nullptr,core::smart_refctd_ptr(ds1layout),nullptr,nullptr);
             auto assetbundle = SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) });
             insertBuiltinAssetIntoCache(m_assetMgr, assetbundle, "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }
     }
 
+    // wrong solution because `__TIME__` has a non-portable timezone definition, included only for illustrative purpose only
+    std::tm tm = {
+        .tm_sec = 6,
+        .tm_min = 9,
+        .tm_hour = 6,
+        .tm_mday = 9,
+        .tm_mon = 6,
+        .tm_year = 69,
+        .tm_isdst = 0
+    };
+    const auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+
     // default pipelines
     auto default_mtl_file = core::make_smart_refctd_ptr<system::CFileView<system::CNullAllocator>>(
         system::path("Nabla default MTL material"),
         system::IFile::ECF_READ,
+        std::chrono::clock_cast<system::IFile::time_point_t::clock>(tp),
         const_cast<char*>(DUMMY_MTL_CONTENT),
         strlen(DUMMY_MTL_CONTENT)
     );
@@ -174,6 +200,8 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
 
 core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
 {
+    return nullptr;
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     SBlendParams blendParams;
 
     std::string cacheKey("nbl/builtin/renderpass_independent_pipeline/loader/mtl/");
@@ -295,6 +323,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
         ppln = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), shaders, shaders+2u, vtxParams, blendParams, SPrimitiveAssemblyParams{}, SRasterizationParams{});
     }
     return ppln;
+#endif
 }
 
 namespace
@@ -578,7 +607,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
         size_t bufSz = 0ull;
         //assuming all cubemap layer images are same size and same format
-        const size_t alignment = 1u<<core::findLSB(images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        const size_t alignment = 1u<<hlsl::findLSB(images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
         core::vector<ICPUImage::SBufferCopy> regions_;
         regions_.reserve(6ull);
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
@@ -669,7 +698,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
 
         const bool isCubemap = (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
-        ICPUImageView::SCreationParams viewParams;
+        ICPUImageView::SCreationParams viewParams = {};
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
         viewParams.format = image->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
@@ -709,9 +738,9 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
-        auto descriptorInfos = ds->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+        auto descriptorInfos = ds->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(i), IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
         descriptorInfos.begin()[0].desc = _views[i] ? std::move(_views[i]) : dummy2d;
-        descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+        descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
     }
 
     return ds;

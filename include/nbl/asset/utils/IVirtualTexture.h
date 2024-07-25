@@ -13,7 +13,6 @@
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-#include "nbl/asset/ISpecializedShader.h"
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/IImageView.h"
 #include "nbl/asset/IDescriptorSetLayout.h"
@@ -251,7 +250,7 @@ protected:
     ISampler::SParams getPhysicalStorageFloatSamplerParams() const
     {
         ISampler::SParams params;
-        params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
+        params.AnisotropicFilter = m_tilePadding ? hlsl::findMSB(m_tilePadding<<1) : 0u;
         params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
         params.CompareEnable = false;
         params.CompareFunc = ISampler::ECO_NEVER;
@@ -334,7 +333,7 @@ protected:
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u) const
     {
         const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height))>>_baseLevel;
-        const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
+        const int32_t lastFullMip = hlsl::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
 
         //assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
@@ -355,7 +354,7 @@ protected:
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
         params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
-        params.samples = IImage::ESCF_1_BIT;
+        params.samples = IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         params.type = IImage::ET_2D;
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
@@ -485,7 +484,7 @@ protected:
             image(nullptr),//initialized in derived class's constructor
             m_alctrReservedSpace(allocReservedSpaceForAllocator(_tilesPerDim, _layers)),
             tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
+            m_decodeAddr_layerShift(hlsl::findLSB(_tilesPerDim)<<1),
             m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
         {
             assert(_tilesPerDim<=MAX_TILES_PER_DIM);
@@ -497,7 +496,7 @@ protected:
             image(nullptr),//deferred initialization, when layer count is known
             m_alctrReservedSpace(nullptr),
             tileAlctr(), // default constructor, deferred initialization, when layer count is known
-            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
+            m_decodeAddr_layerShift(hlsl::findLSB(_tilesPerDim)<<1),
             m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
         {
             assert(_tilesPerDim<=MAX_TILES_PER_DIM);
@@ -514,9 +513,10 @@ protected:
 
         }
 
-        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u)
+        // TODO: refactor into the `_impl` pattern, and always add the MUTABLE FORMAT creation flag
+        virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u/*, TODO: const IImage::E_USAGE_FLAGS usages=IImage::EUF_SAMPLED_BIT, const bool extendedUsage=false*/)
         {
-            assert(_layers != 0u);
+            assert(_layers != 0u); // Why the F have the default be 0 then!?
 
             const bool uninitialized = (tileAlctr.get_align_offset() == phys_pg_addr_alctr_t::invalid_address);
             if (uninitialized)
@@ -543,14 +543,16 @@ protected:
             return x | (y<<SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer<<SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
         }
 
-        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
+        // last parameter default means to inherit all usages for a view from the main image
+        core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format, const IImage::E_USAGE_FLAGS usages=IImage::EUF_NONE) const
         {
             auto found = m_viewsCache.find(_format);
             if (found!=m_viewsCache.end())
                 return found->second;
 
-            typename image_view_t::SCreationParams params;
+            typename image_view_t::SCreationParams params = {};
             params.flags = static_cast<typename IImageView<image_t>::E_CREATE_FLAGS>(0);
+            params.subUsages = usages;
             params.format = _format;
             params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
             params.subresourceRange.baseArrayLayer = 0u;
@@ -996,7 +998,7 @@ public:
     image_t* getPageTable() const { return m_pageTable.get(); }
     uint32_t getPageTableExtent_log2() const { return m_pgSzxy_log2; }
     uint32_t getPageExtent() const { return m_pgSzxy; }
-    uint32_t getPageExtent_log2() const { return core::findLSB(m_pgSzxy); }
+    uint32_t getPageExtent_log2() const { return hlsl::findLSB(m_pgSzxy); }
     uint32_t getTilePadding() const { return m_tilePadding; }
     const auto& getResidentStorages() const { return m_storage; }
     typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }
@@ -1045,9 +1047,9 @@ protected:
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
             bnd.count = _count;
-            bnd.stageFlags = asset::IShader::ESS_ALL;
+            bnd.stageFlags = asset::IShader::E_SHADER_STAGE::ESS_ALL;
             bnd.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-            bnd.samplers = _samplers;
+            bnd.immutableSamplers = _samplers;
         };
 
         fillBinding(bindings[0], _pgtBinding, 1u, samplers);

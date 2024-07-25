@@ -47,7 +47,18 @@ using namespace nbl::asset;
 		{
 			auto registerShader = [&](auto constexprStringType, IShader::E_SHADER_STAGE stage, const char* extraDefine=nullptr) -> void
 			{
-				core::smart_refctd_ptr<const system::IFile> glslFile = assetManager->getSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto fileSystem = assetManager->getSystem();
+
+				auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
+				{
+					nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
+					fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
+					if (future.wait())
+						return future.copy();
+					return nullptr;
+				};
+
+				core::smart_refctd_ptr<const system::IFile> glslFile = loadBuiltinData(decltype(constexprStringType)::value);
 				auto glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
@@ -326,7 +337,7 @@ using namespace nbl::asset;
 				{
 					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptorInfos.begin()[0].desc = defaultImageView;
-					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
 					descriptorInfos.begin()[0].info.image.sampler = defaultSampler;
 				}
 				auto setImage = [&cpuTextures,&material](uint32_t globalTextureIndex, SGLTF::SGLTFMaterial::E_GLTF_TEXTURES localTextureIndex)
@@ -335,7 +346,7 @@ using namespace nbl::asset;
 
 					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(localTextureIndex, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptorInfos.begin()[0].desc = imageView;
-					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
 					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				};
 
@@ -377,7 +388,7 @@ using namespace nbl::asset;
 
 					auto descriptorInfos = material.descriptorSet->getDescriptorInfos(CGLTFPipelineMetadata::SGLTFMaterialParameters::EGT_NORMAL_TEXTURE, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
 					descriptorInfos.begin()[0].desc = imageView;
-					descriptorInfos.begin()[0].info.image.imageLayout = IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+					descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
 					descriptorInfos.begin()[0].info.image.sampler = sampler;
 				}
 				if (glTFMaterial.occlusionTexture.has_value() && glTFMaterial.occlusionTexture.value().index.has_value())

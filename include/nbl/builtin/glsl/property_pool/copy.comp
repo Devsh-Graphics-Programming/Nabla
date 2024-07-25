@@ -1,5 +1,5 @@
 #version 440 core
-layout(local_size_x=NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 #include "nbl/builtin/glsl/property_pool/transfer.glsl"
 
@@ -68,7 +68,7 @@ void main()
     const uint dstIndexOffset = transfer.dstIndexOffset-indicesToSkip;
     // set up loop
     const uint DWORDs = min(transfer.elementCount*propDWORDs,pc.endDWORD);
-    const uint dispatchSize = gl_NumWorkGroups[0]*NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
+    const uint dispatchSize = gl_NumWorkGroups[0]*NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS;
     //
     const bool fill = bool(transfer.propertyDWORDsize_flags&(NBL_BUILTIN_PROPERTY_POOL_TRANSFER_EF_SRC_FILL<<flagsBitOffset));
     if (fill)

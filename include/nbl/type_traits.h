@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <array>
 
+// TODO: Unify with the HLSL Header!
 namespace nbl
 {
 

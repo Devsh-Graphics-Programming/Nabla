@@ -234,7 +234,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     imgInfo.extent.depth = 1u;
     imgInfo.mipLevels = 1u;
     imgInfo.arrayLayers = 1u;
-    imgInfo.samples = ICPUImage::ESCF_1_BIT;
+    imgInfo.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
     imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
     core::smart_refctd_ptr<ICPUImage> image = nullptr;
 
