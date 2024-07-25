@@ -29,8 +29,10 @@ add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
 add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
 
 # msdfgen
+
+set(MSDFGEN_USE_SKIA OFF)
 set(MSDFGEN_USE_VCPKG OFF)
-set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
+set(MSDFGEN_CORE_ONLY OFF)
 set(MSDFGEN_INSTALL OFF)
 set(MSDFGEN_BUILD_STANDALONE OFF)
 set(MSDFGEN_USE_CPP11 ON)
@@ -79,6 +81,9 @@ target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/V
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
 endif()
+
+# boost
+add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
