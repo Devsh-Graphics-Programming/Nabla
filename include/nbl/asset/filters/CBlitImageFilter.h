@@ -445,7 +445,7 @@ class CBlitImageFilter :
 				const ICPUImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1};
 				const IImageFilter::IState::TexelRange range = {outOffset,outExtent};
 				CBasicImageFilterCommon::clip_region_functor_t clip(subresource, range, outFormat);
-				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions.data(), outRegions.data() + outRegions.size(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions, clip);
 			};
 			
 			// process

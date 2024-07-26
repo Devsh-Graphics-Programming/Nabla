@@ -165,8 +165,8 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			const uint32_t outBlockByteSize;
 			const uint8_t* const inData;
 			uint8_t* const outData;
-			const core::SRange<const IImage::SBufferCopy> inRegions;
-			const core::SRange<const IImage::SBufferCopy> outRegions;
+			const std::span<const IImage::SBufferCopy> inRegions;
+			const std::span<const IImage::SBufferCopy> outRegions;
 			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
 			core::vectorSIMDu32 offsetDifferenceInBlocks;
 			core::vectorSIMDu32 offsetDifferenceInTexels;
@@ -196,8 +196,8 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				getTexelOrBlockBytesize(outParams.format),
 				reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer()),
 				reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer()),
-				{inRegions.data(), inRegions.data() + inRegions.size()},
-				{outRegions.data(), outRegions.data() + outRegions.size()},
+				inRegions,
+				outRegions,
 				outRegions.data(), {}, {}
 			};
 
@@ -205,7 +205,8 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			const asset::TexelBlockInfo dstImageTexelBlockInfo(commonExecuteData.outFormat);
 
 			// iterate over output regions, then input cause read cache miss is faster
-			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
+			const auto endit = commonExecuteData.outRegions.data() + commonExecuteData.outRegions.size();
+			for (; commonExecuteData.oit != endit; commonExecuteData.oit++)
 			{
 				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 				state_type::TexelRange range = {state->inOffset,state->extent};

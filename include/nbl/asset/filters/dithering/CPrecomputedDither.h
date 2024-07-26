@@ -77,7 +77,7 @@ namespace nbl
 								asset::encodePixels<decodeFormat>(outData + offset, decodeBuffer);
 							};
 
-							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap).data(), flattenDitheringImage->getRegions(chosenMipmap).data() + flattenDitheringImage->getRegions(chosenMipmap).size());
+							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap));
 
 							auto decodeCreationParams = creationParams;
 							decodeCreationParams.format = decodeFormat;
