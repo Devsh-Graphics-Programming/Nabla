@@ -1,20 +1,26 @@
 # Creates a c++ file for builtin resources that contains binary data of all resources
 
-# TODO: use argparse not this by-hand-shit
-
-import sys, os, subprocess, json
+import argparse, os, subprocess, json
 from datetime import datetime, timezone
 
-if  len(sys.argv) < 8 :
-    print(sys.argv[0] + " - Incorrect argument count")
-else:
-    outputBuiltinPath = sys.argv[1]
-    outputArchivePath = sys.argv[2]
-    bundleAbsoluteEntryPath = sys.argv[3]
-    resourcesFile  = sys.argv[4]
-    resourcesNamespace = sys.argv[5]
-    correspondingHeaderFile = sys.argv[6]
-    xxHash256Exe = sys.argv[7]
+
+parser = argparse.ArgumentParser(description="Creates a c++ file for builtin resources that contains binary data of all resources")
+parser.add_argument('--outputBuiltinPath', required=True, help="output path of generated C++ builtin data source")
+parser.add_argument('--outputArchivePath', required=True, help="output path of generated C++ archive data source")
+parser.add_argument('--bundleAbsoluteEntryPath', required=True, help="\"absolute path\" for an archive which will store a given bundle of builtin resources")
+parser.add_argument('--resourcesFile', required=True, help="path to file containing resources list")
+parser.add_argument('--resourcesNamespace', required=True, help="a C++ namespace builtin resources will be wrapped into")
+parser.add_argument('--correspondingHeaderFile', required=True, help="filename of previosly generated header (via buitinHeaderGen.py)")
+parser.add_argument('--xxHash256Exe', default="", nargs='?', help="path to xxHash256 executable")
+
+def execute(args):
+    outputBuiltinPath = args.outputBuiltinPath
+    outputArchivePath = args.outputArchivePath
+    bundleAbsoluteEntryPath = args.bundleAbsoluteEntryPath
+    resourcesFile = args.resourcesFile
+    resourcesNamespace = args.resourcesNamespace
+    correspondingHeaderFile = args.correspondingHeaderFile
+    xxHash256Exe = args.xxHash256Exe
     
     forceConstexprHash = True if not xxHash256Exe else False
 
@@ -197,3 +203,8 @@ CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
     outp = open(outputArchivePath, "w+")
     outp.write(archiveSource)
     outp.close()
+
+
+if __name__ == "__main__":
+    args: argparse.Namespace = parser.parse_args()
+    execute(args)
