@@ -10,7 +10,6 @@
 #include "nbl/video/utilities/CPropertyPool.h"
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
-#include <nbl/ext/TextRendering/TextRendering.h>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
