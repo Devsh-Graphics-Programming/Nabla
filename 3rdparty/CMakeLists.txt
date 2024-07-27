@@ -7,6 +7,70 @@ include(../cmake/common.cmake)
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
+find_package(Vulkan)
+if (Vulkan_FOUND)
+	message(STATUS "Building with Vulkan driver")
+else()
+	message(STATUS "Vulkan driver is not enabled")
+endif()
+
+option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+
+if(NBL_COMPILE_WITH_CUDA)
+	find_package(CUDAToolkit REQUIRED)
+	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
+		message(STATUS "CUDA version 9.0+ found!")
+	else()
+		message(FATAL_ERROR "CUDA version 9.0+ needed for C++14 support!")
+	endif()
+	
+	set(CMAKE_CUDA_STANDARD 14 CACHE INTERNAL "")
+	set(CMAKE_CUDA_STANDARD_REQUIRED ON CACHE INTERNAL "")
+	
+	message(STATUS "Building with CUDA interop")
+	
+	if(NBL_BUILD_OPTIX)
+		find_package(OPTIX REQUIRED)
+		message(STATUS "CUDA enabled and OptiX found!")
+	endif()
+	
+	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA}
+	PARENT_SCOPE)
+	
+	if (NBL_BUILD_OPTIX)
+		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX}
+		PARENT_SCOPE)
+	endif()
+else()
+	if(NBL_BUILD_OPTIX)
+		message(FATAL_ERROR "You cannot build Optix without enabled CUDA! NBL_COMPILE_WITH_CUDA must be ON!")
+	endif()
+endif()
+
+# TODO: update correctly
+if (UNIX)	
+	if(NOT ANDROID)
+		find_package(X11 REQUIRED)
+		set(CMAKE_THREAD_PREFER_PTHREAD 1)
+		find_package(Threads REQUIRED)
+		
+		if(NOT APPLE)
+			add_library(DisplaySystemProxy INTERFACE)
+			target_include_directories(DisplaySystemProxy PUBLIC ${X11_INCLUDE_DIR} ${X11_xf86vmode_INCLUDE_PATH})
+		endif()
+	endif()
+endif()
+
+add_library(ThreadsProxy INTERFACE)
+target_link_libraries(ThreadsProxy PUBLIC ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
+
+if (ANDROID)
+	add_library(android_native_app_glue STATIC
+    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
+	)
+	target_include_directories(android_native_app_glue PUBLIC "${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue")
+endif()
+
 # nlohmann_json
 set(JSON_BuildTests OFF)
 add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
@@ -67,6 +131,9 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
 endif()
 
+# Vulkan-Headers
+add_subdirectory(Vulkan-Headers EXCLUDE_FROM_ALL)
+
 # volk
 set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
 	
@@ -74,9 +141,8 @@ if (WIN32)
 	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 endif()
 add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-	
-target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
-target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+target_include_directories(volk PUBLIC $<TARGET_PROPERTY:Vulkan-Headers,INCLUDE_DIRECTORIES>)
+target_include_directories(volk_headers INTERFACE $<TARGET_PROPERTY:Vulkan-Headers,INCLUDE_DIRECTORIES>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
@@ -193,7 +259,6 @@ option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
-
 
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
@@ -362,16 +427,12 @@ if (NBL_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-if (NBL_BUILD_BULLET)
-	set(BULLET_INCLUDE_PATH
-		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
-	)
+add_library(renderdoc INTERFACE)
+target_include_directories(renderdoc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/renderdoc")
 
-	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
-endif()
-
-# Final gather
+# Final gather TODO: it should be possible to grep for handled CMake sources to get them
 set(NBL_3RDPARTY_TARGETS
+				renderdoc
 				lzma
 				lz4
 				aesGladman
@@ -401,11 +462,32 @@ set(NBL_3RDPARTY_TARGETS
 				${NBL_MSDFGEN_TARGETS}
 				blake3
 				${NBL_BOOST_TARGETS}
+				gli
+				glm
+				dxcompiler
+				volk
+				Vulkan-Headers
+				ThreadsProxy
 )
+
+if(TARGET CUDA::toolkit)
+	list(APPEND NBL_3RDPARTY_TARGETS CUDA::toolkit)
+endif()
+
+if(TARGET DisplaySystemProxy)
+	list(APPEND NBL_3RDPARTY_TARGETS DisplaySystemProxy)
+endif()
+
+if(UNIX)
+	list(APPEND NBL_3RDPARTY_TARGETS atomic)
+endif()
+
+if (ANDROID)
+	list(APPEND NBL_3RDPARTY_TARGETS android_native_app_glue android log)
+endif()
+
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenEXR
-	)
+	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR)
 endif()
 
 #TODO insert more targets that are conditionally built
@@ -418,6 +500,9 @@ endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
+
+# be careful, needs handling with no multi config generators
+set(NBL_3RDPARTY_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-3rdparty-export.cmake")
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		if(NBL_DYNAMIC_MSVC_RUNTIME)
@@ -445,13 +530,35 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 				target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
 			endif()
 		endif()
+		
+		if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
+			export(TARGETS ${trgt} NAMESPACE Nabla::3rdparty:: APPEND FILE "${NBL_3RDPARTY_EXPORT_INCLUDE}")
+		endif()
 endforeach()
+
 nbl_adjust_definitions()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
+if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
+	list(TRANSFORM NBL_3RDPARTY_TARGETS PREPEND Nabla::3rdparty::)
+endif()
+
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
+
+# TODO: instead of NBL_3RDPARTY_TARGETS use var with minumum targets to build nabla no extensions etc
+function(NBL_HOOK_3RDPARTY NBL_TO_TARGET)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(${NBL_TO_TARGET} INTERFACE ${NBL_3RDPARTY_TARGETS})
+	else()
+		target_link_libraries(${NBL_TO_TARGET} PRIVATE ${NBL_3RDPARTY_TARGETS})
+	endif()
+	
+	foreach(NBL_TARGET IN LISTS NBL_3RDPARTY_TARGETS)
+		target_include_directories(${NBL_TO_TARGET} PRIVATE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
+	endforeach()
+endfunction()
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 
@@ -460,4 +567,8 @@ PARENT_SCOPE)
 
 set(NBL_MSDFGEN_TARGETS
 	${NBL_MSDFGEN_TARGETS}
+PARENT_SCOPE)
+
+set(NBL_3RDPARTY_EXPORT_INCLUDE
+	${NBL_3RDPARTY_EXPORT_INCLUDE}
 PARENT_SCOPE)

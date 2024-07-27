@@ -161,3 +161,12 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
     ADD_CUSTOM_BUILTIN_RESOURCES(spirvBuiltinResourceData SPIRV_RESOURCES_TO_EMBED "${_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}" "spirv" "spirv::builtin" "${_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_}" "${_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
 endif()
 
+add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
+	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
+	VERBATIM
+	COMMAND_EXPAND_LISTS
+)
+
+add_library(dxcompiler SHARED IMPORTED GLOBAL)
+target_link_libraries(dxcompiler "${DXC_LIB}")
+target_include_directories(dxcompiler PUBLIC "${DXC_INCLUDE_DIRECTORIES}")

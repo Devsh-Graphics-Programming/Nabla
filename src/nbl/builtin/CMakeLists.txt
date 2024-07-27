@@ -325,3 +325,35 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/memory.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/enums.hlsl")
 
 ADD_CUSTOM_BUILTIN_RESOURCES(nblBuiltinResourceData NBL_RESOURCES_TO_EMBED "${NBL_ROOT_PATH}/include" "nbl/builtin" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src" "STATIC" "INTERNAL")
+
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)
+		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
+	
+		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
+			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+			target_include_directories(${NBL_TARGET} PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}")
+			target_include_directories(Nabla PUBLIC "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+			nbl_install_builtin_resources(${NBL_TARGET})
+		endforeach()
+	
+		add_dependencies(Nabla ${NBL_TARGETS})
+		
+		if(NBL_STATIC_BUILD)
+			set(_NBL_LINK_QUALIFIER_ INTERFACE)
+		else()
+			set(_NBL_LINK_QUALIFIER_ PRIVATE)
+		endif()
+	
+		target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_} ${NBL_TARGETS})
+	endfunction()
+	
+	set(NBL_INTERNAL_BUILTIN_TARGETS
+		nblBuiltinResourceData 
+		spirvBuiltinResourceData 
+		boostBuiltinResourceData 
+		deviceGenBuiltinResourceData
+	)
+	
+	NBL_HOOK_INTERNAL_BUILTIN_RESOURCES("${NBL_INTERNAL_BUILTIN_TARGETS}")
+endif()

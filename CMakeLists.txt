@@ -7,17 +7,24 @@ cmake_policy(SET CMP0112 NEW)
 cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
-set(NBL_BUILD_ANDROID OFF)
-
-include(ExternalProject)
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
-
 project(Nabla LANGUAGES CXX C)
 enable_language(C CXX ASM)
+
+get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
+get_filename_component(NBL_PYTHON_MODULE_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests" ABSOLUTE)
+set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
+get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+
+set(NBL_BUILD_ANDROID OFF) # TODO: WRONG, do it differently , detectgiven toolset, platform etc
+include(ExternalProject)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake) # TODO: WRONG, do not hardcode this
 
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
+option(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE "Export 3rdparty targets into build tree. Nabla & examples will use them as imported targets - optimizes solutions' build time & intelisense PCH and limits logical targets to minimum but locks up 3rdparty build and requires manual build on-change. [TODO: I may do something with it]" OFF)
 
 if(MSVC)
 	if(NBL_SANITIZE_ADDRESS)
@@ -40,31 +47,6 @@ else()
 	endif()
 endif()
 
-find_package(Vulkan)
-if (Vulkan_FOUND)
-	message(STATUS "Building with Vulkan driver")
-else()
-	message(STATUS "Vulkan driver is not enabled")
-endif()
-
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-
-if(NBL_COMPILE_WITH_CUDA)
-	find_package(CUDAToolkit REQUIRED)
-	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
-		message(STATUS "CUDA version 9.0+ found!")
-	else()
-		message(FATAL_ERROR "CUDA version 9.0+ needed for C++14 support!")
-	endif()
-endif()
-
-get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
-get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
-get_filename_component(NBL_PYTHON_MODULE_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests" ABSOLUTE)
-set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
-get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
@@ -82,11 +64,6 @@ set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# Cause CUDA is a special snowflake
-if (NBL_COMPILE_WITH_CUDA)
-	set(CMAKE_CUDA_STANDARD 14)
-	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-endif()
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
@@ -158,22 +135,14 @@ else()
 	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
 endif()
 
+# TODO reorganize
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
 option(NBL_FAST_MATH "Enable fast low-precision math" ON)
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
-
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
-if(NBL_COMPILE_WITH_CUDA)
-	find_package(OPTIX REQUIRED)
-	message(STATUS "CUDA enabled and OptiX found!")
-else()
-	if(NBL_BUILD_OPTIX)
-		message(FATAL_ERROR "You cannot build Optix without enabled CUDA! NBL_COMPILE_WITH_CUDA must be ON!")
-	endif()
-endif()
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
@@ -189,6 +158,38 @@ get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE
 include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 include(common)
+
+# TODO MOVE TO INCLUDE FILE
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+	set(PLATFORM NOTFOUND)
+	if (WIN32)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM win64-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM win64-gcc)
+		elseif (MSVC)
+			set(PLATFORM win64-msvc)
+		endif()
+	elseif (ANDROID)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM android-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM android-gcc)
+		endif()
+	elseif (UNIX AND NOT APPLE)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM linux-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM linux-gcc)
+		endif()
+	endif()
+	
+	if ("${PLATFORM}" STREQUAL "NOTFOUND")
+		message(FATAL_ERROR "Unsupported compiler!")
+	endif()
+	
+	set(CMAKE_INSTALL_PREFIX "${NBL_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
+endif()
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
@@ -209,5 +210,3 @@ add_subdirectory(artifacts)
 
 option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
-
-export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

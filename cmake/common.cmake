@@ -339,10 +339,12 @@ function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
-macro(nbl_generate_conf_files)
+function(nbl_generate_conf_files)
 	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
 	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
 	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+	
+	# TODO: STILL NEEDS MORE LOVE & BETTER HANDLE FOR NON MULTI CONFIG GENERATORS
 
 	set(_NBL_DEBUG 0)
 	set(_NBL_RELWITHDEBINFO 0)
@@ -361,11 +363,14 @@ macro(nbl_generate_conf_files)
 
 	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
 	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
-
-	unset(NBL_CONF_DIR_DEBUG)
-	unset(NBL_CONF_DIR_RELEASE)
-	unset(NBL_CONF_DIR_RELWITHDEBINFO)
-endmacro()
+	
+	add_library(Nabla::config INTERFACE)
+	target_include_directories(Nabla::config INTERFACE 
+		"$<$<CONFIG:DEBUG>:${NBL_CONF_DIR_DEBUG}>"
+		"$<$<CONFIG:RELEASE>:${NBL_CONF_DIR_RELEASE}>"
+		"$<$<CONFIG:RELWITHDEBINFO>:${NBL_CONF_DIR_RELWITHDEBINFO}>"
+	)
+endfunction()
 
 ###########################################
 # Nabla install rules, directory structure:
