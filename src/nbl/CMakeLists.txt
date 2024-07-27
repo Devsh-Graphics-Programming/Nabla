@@ -84,7 +84,7 @@ nbl_handle_runtime_lib_properties(Nabla)
 
 target_include_directories(Nabla 
 	PUBLIC "${NBL_ROOT_PATH}/include"
-	PUBLIC $<TARGET_PROPERTY:Nabla::config,INCLUDE_DIRECTORIES>
+	PUBLIC $<TARGET_PROPERTY:config,INCLUDE_DIRECTORIES>
 )
 
 target_compile_definitions(Nabla 

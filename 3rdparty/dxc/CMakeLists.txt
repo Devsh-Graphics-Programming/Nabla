@@ -168,5 +168,8 @@ add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 )
 
 add_library(dxcompiler SHARED IMPORTED GLOBAL)
-target_link_libraries(dxcompiler "${DXC_LIB}")
-target_include_directories(dxcompiler PUBLIC "${DXC_INCLUDE_DIRECTORIES}")
+
+set_target_properties(dxcompiler PROPERTIES
+	INTERFACE_INCLUDE_DIRECTORIES "${DXC_INCLUDE_DIRECTORIES}"
+	INTERFACE_LINK_LIBRARIES "${DXC_LIB}"
+)

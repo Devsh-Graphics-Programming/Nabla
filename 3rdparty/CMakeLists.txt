@@ -132,7 +132,8 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 endif()
 
 # Vulkan-Headers
-add_subdirectory(Vulkan-Headers EXCLUDE_FROM_ALL)
+add_library(Vulkan-Headers INTERFACE) # do not add subdirectory, messed target there
+target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 # volk
 set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
@@ -402,7 +403,7 @@ add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)
-#add_subdirectory(glm EXCLUDE_FROM_ALL)
+add_subdirectory(glm EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
@@ -428,7 +429,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 endif()
 
 add_library(renderdoc INTERFACE)
-target_include_directories(renderdoc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/renderdoc")
+target_include_directories(renderdoc INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/renderdoc")
 
 # Final gather TODO: it should be possible to grep for handled CMake sources to get them
 set(NBL_3RDPARTY_TARGETS
@@ -517,17 +518,20 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		
 		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
 		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
-			# maybe explicit global mapping would be better, to discuss
-			if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
-				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
-			elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
-				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
-			else()
-				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
-			endif()
+			get_target_property(IS_IMPORTED ${trgt} IMPORTED)
 			
-			if(MSVC)
-				target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+			if(NOT IS_IMPORTED)
+				if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+				elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+				else()
+					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+				endif()
+				
+				if(MSVC)
+					target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+				endif()
 			endif()
 		endif()
 		
