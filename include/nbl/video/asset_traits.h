@@ -83,9 +83,9 @@ struct asset_traits<asset::ICPUBuffer>
 	// we don't need to descend during DFS into other assets
 	constexpr static inline bool HasChildren = false;
 	// the video type
-	using video_t = asset::SBufferRange<IGPUBuffer>;
+	using video_t = IGPUBuffer;
 	// lookup type
-	using lookup_t = video_t;
+	using lookup_t = const video_t*;
 };
 
 template<>
