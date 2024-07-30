@@ -84,7 +84,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 
 					const uint32_t foundIndex = found - m_bindingNumbers;
 					assert(foundIndex < m_count);
-					return {};
+					return storage_range_index_t(foundIndex);
 				}
 
 				inline binding_number_t getBinding(const storage_range_index_t index) const
@@ -319,7 +319,7 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 			uint32_t count;
 			// Use this if you want immutable samplers that are baked into the DS layout itself.
 			// If it's `nullptr` then the samplers used are mutable and can be specified while writing the image descriptor to a binding while updating the DS.
-			const core::smart_refctd_ptr<sampler_type>* immutableSamplers;
+			const core::smart_refctd_ptr<sampler_type>* immutableSamplers; // TODO: dumb (or either) pointer maybe?
 		};
 
 		// utility functions
