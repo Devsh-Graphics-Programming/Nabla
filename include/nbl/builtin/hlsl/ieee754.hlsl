@@ -97,8 +97,10 @@ struct traits : traits_base<Float>
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t signMask = bit_rep_t(0x1u) << (sizeof(Float) * 8 - 1);
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentMask = ((~bit_rep_t(0)) << base_t::mantissaBitCnt) ^ signMask;
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t mantissaMask = (bit_rep_t(0x1u) << base_t::mantissaBitCnt) - 1;
-	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentBias = (int(0x1) << (base_t::exponentBitCnt - 1)) - 1;
+	NBL_CONSTEXPR_STATIC_INLINE int exponentBias = (int(0x1) << (base_t::exponentBitCnt - 1)) - 1;
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t inf = exponentMask;
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t specialValueExp = (1ull << base_t::exponentBitCnt) - 1;
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t quietNaN = exponentMask | (1ull << (base_t::mantissaBitCnt - 1));
 };
 
 template <typename T>

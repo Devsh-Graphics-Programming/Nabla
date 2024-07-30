@@ -6,6 +6,12 @@
 #include <nbl/builtin/hlsl/algorithm.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 
+#define FLOAT_ROUND_NEAREST_EVEN    0
+#define FLOAT_ROUND_TO_ZERO         1
+#define FLOAT_ROUND_DOWN            2
+#define FLOAT_ROUND_UP              3
+#define FLOAT_ROUNDING_MODE         FLOAT_ROUND_NEAREST_EVEN
+
 // TODO: when it will be possible, use this unions wherever they fit:
 /*
 * union Mantissa
@@ -41,97 +47,13 @@ namespace hlsl
 {
 namespace impl
 {
-    struct uint128Mantissa
+    uint64_t2 shiftMantissaLeftBy52(uint64_t mantissa64)
     {
-        uint64_t highBits;
-        uint64_t lowBits;
+        uint64_t2 output;
+        output.x = mantissa64 >> (64 - ieee754::traits<float64_t>::mantissaBitCnt);
+        output.y = mantissa64 << ieee754::traits<float64_t>::mantissaBitCnt;
 
-        static uint128Mantissa create(uint64_t mantissa64)
-        {
-            uint128Mantissa output;
-            output.highBits = 0u;
-            output.lowBits = mantissa64;
-
-            return output;
-        }
-
-        void shiftLeftByOne()
-        {
-            highBits = (highBits << 1) | (lowBits >> 63);
-            lowBits <<= 1;
-        }
-
-        void shiftRightByOne()
-        {
-            highBits >>= 1;
-            lowBits = (highBits >> 63) | (lowBits >> 1);
-        }
-
-        // TODO: more efficient comparisions
-        bool operator>=(uint128Mantissa rhs)
-        {
-            return (highBits > rhs.highBits) || (highBits == rhs.highBits && lowBits >= rhs.lowBits);
-        }
-
-        bool operator<(uint128Mantissa rhs)
-        {
-            return (highBits < rhs.highBits) || (highBits == rhs.highBits && lowBits < rhs.lowBits);
-        }
-
-        uint128Mantissa operator-(uint128Mantissa rhs)
-        {
-            uint128Mantissa result;
-            result.lowBits = lowBits - rhs.lowBits;
-            result.highBits = highBits - rhs.highBits - (lowBits < rhs.lowBits);
-            return result;
-        }
-
-        static uint128Mantissa createAsShiftedByMantissaBitCnt(uint64_t mantissa64)
-        {
-            uint128Mantissa output;
-            output.highBits = mantissa64 >> (64 - nbl::hlsl::ieee754::traits<float64_t>::mantissaBitCnt);
-            output.lowBits = mantissa64 << nbl::hlsl::ieee754::traits<float64_t>::mantissaBitCnt;
-
-            return output;
-        }
-
-        uint64_t divByFloat64(uint64_t floatRep)
-        {
-            uint128Mantissa output = create(0);
-
-            uint128Mantissa divisor = create(floatRep);
-            uint128Mantissa remainder;
-            remainder.highBits = highBits;
-            remainder.lowBits = lowBits;
-            uint128Mantissa one = create(1);
-
-
-            while ((divisor.highBits < (1ULL << 63)) && (divisor < remainder))
-            {
-                divisor.shiftLeftByOne();
-                one.shiftLeftByOne();
-            }
-
-            while (one.highBits != 0 || one.lowBits != 0)
-            {
-                if (remainder >= divisor)
-                {
-                    remainder = remainder - divisor;
-                    output.highBits |= one.highBits;
-                    output.lowBits |= one.lowBits;
-                }
-                output.shiftRightByOne();
-                one.shiftRightByOne();
-            }
-
-            return output.lowBits;
-        }
-    };
-
-    uint64_t divMantissas(uint64_t lhs, uint64_t rhs)
-    {
-        uint128Mantissa lhs128 = uint128Mantissa::createAsShiftedByMantissaBitCnt(lhs);
-        return lhs128.divByFloat64(rhs);
+        return output;
     }
 
     template <typename T>
@@ -154,7 +76,7 @@ namespace impl
     uint32_t2 umulExtended(uint32_t lhs, uint32_t rhs)
     {
         uint64_t product = uint64_t(lhs) * uint64_t(rhs);
-        nbl::hlsl::uint32_t2 output;
+        uint32_t2 output;
         output.x = uint32_t((product & 0xFFFFFFFF00000000) >> 32);
         output.y = uint32_t(product & 0x00000000FFFFFFFFull);
         return output;
@@ -165,18 +87,18 @@ namespace impl
 #if defined RELAXED_NAN_PROPAGATION
         return lhs | rhs;
 #else
-        const bool lhsIsNaN = isnan(bit_cast<float64_t>(lhs));
-        const bool rhsIsNaN = isnan(bit_cast<float64_t>(rhs));
-        lhs |= 0x0000000000080000ull;
-        rhs |= 0x0000000000080000ull;
 
-        return lerp(rhs, lerp(lhs, rhs, rhsIsNaN), lhsIsNaN);
+        lhs |= 0x0008000000000000ull;
+        rhs |= 0x0008000000000000ull;
+        return lerp(rhs, lerp(lhs, rhs, isnan(rhs)), isnan(lhs));
+        return 0;
 #endif
     }
 
+
     uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
     {
-        nbl::hlsl::uint32_t2 z;
+        uint32_t2 z;
 
         z.x = zSign + (uint32_t(zExp) << 20) + zFrac0;
         z.y = zFrac1;
@@ -197,9 +119,9 @@ namespace impl
         return ((uint64_t(val.x) & 0x00000000FFFFFFFFull) << 32) | uint64_t(val.y);
     }
 
-    nbl::hlsl::uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
+    uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
     {
-       nbl::hlsl::uint32_t2 output;
+       uint32_t2 output;
        output.y = a1 + b1;
        output.x = a0 + b0 + uint32_t(output.y < a1);
 
@@ -207,9 +129,9 @@ namespace impl
     }
 
 
-    nbl::hlsl::uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
+    uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
     {
-        nbl::hlsl::uint32_t2 output;
+        uint32_t2 output;
         output.y = a1 - b1;
         output.x = a0 - b0 - uint32_t(a1 < b1);
         
@@ -220,7 +142,7 @@ namespace impl
     int countLeadingZeros32(uint32_t val)
     {
 #ifndef __HLSL_VERSION
-        return 31 - nbl::hlsl::findMSB(val);
+        return 31 - findMSB(val);
 #else
         return 31 - firstbithigh(val);
 #endif
@@ -285,7 +207,7 @@ namespace impl
         return output;
     }
     
-    nbl::hlsl::uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
+    uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
     {
         uint32_t3 output;
         output.x = 0u;
@@ -317,13 +239,11 @@ namespace impl
     {
         const uint32_t2 packed = packUint64(val);
         
-        nbl::hlsl::uint32_t2 output;
+        uint32_t2 output;
         output.y = packed.y << count;
         // TODO: fix
         output.x = lerp((packed.x << count | (packed.y >> ((-count) & 31))), packed.x, count == 0);
 
-        // y = 3092377600
-        // x = 2119009566
         return unpackUint64(output);
     };
 
@@ -407,13 +327,13 @@ namespace impl
             zExp = lerp(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
         }
        
-        return assembleFloat64(zSign, uint64_t(zExp) << nbl::hlsl::ieee754::traits<float64_t>::mantissaBitCnt, unpackUint64(mantissaExtended.xy));
+        return assembleFloat64(zSign, uint64_t(zExp) << ieee754::traits<float64_t>::mantissaBitCnt, unpackUint64(mantissaExtended.xy));
     }
     
     uint64_t normalizeRoundAndPackFloat64(uint64_t sign, int exp, uint32_t frac0, uint32_t frac1)
     {
         int shiftCount;
-        nbl::hlsl::uint32_t3 frac = nbl::hlsl::uint32_t3(frac0, frac1, 0u);
+        uint32_t3 frac = uint32_t3(frac0, frac1, 0u);
     
         if (frac.x == 0u)
         {
@@ -425,7 +345,8 @@ namespace impl
         shiftCount = countLeadingZeros32(frac.x) - 11;
         if (0 <= shiftCount)
         {
-            frac.xy = shortShift64Left(unpackUint64(frac.xy), shiftCount);
+            // TODO: this is packing and unpacking madness, fix it
+            frac.xy = packUint64(shortShift64Left(unpackUint64(frac.xy), shiftCount));
         }
         else
         {
@@ -459,11 +380,105 @@ namespace impl
         rhs ^= ieee754::traits<float64_t>::signMask;
         
         bool output = lhs == rhs && ieee754::traits<float64_t>::inf;
-        bool output = output && ((lhs & (~ieee754::traits<float64_t>::signMask)) == ieee754::traits<float64_t>::inf);
+        output = output && ((lhs & (~ieee754::traits<float64_t>::signMask)) == ieee754::traits<float64_t>::inf);
 
         return output;
     }
 
-}
+    bool areBothZero(uint64_t lhs, uint64_t rhs)
+    {
+        return ((lhs << 1) == 0ull) && ((rhs << 1) == 0ull);
+    }
 
+    bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
+    {
+        return ((lhs << 1) == 0ull) && (lhs == rhs);
+    }
+
+    // TODO: find more efficient algorithm
+    uint64_t nlz64(uint64_t x)
+    {
+        static const uint64_t MASK = 1ull << 63;
+
+        uint64_t counter = 0;
+
+        while ((x & MASK) == 0)
+        {
+            x <<= 1;
+            ++counter;
+        }
+        return counter;
+    }
+
+    uint64_t2 divmod128by64(const uint64_t u1, const uint64_t u0, uint64_t v)
+    {
+        const uint64_t b = 1ull << 32;
+        uint64_t un1, un0, vn1, vn0, q1, q0, un32, un21, un10, rhat, left, right;
+        uint64_t s;
+
+        s = nlz64(v);
+        v <<= s;
+        vn1 = v >> 32;
+        vn0 = v & 0xffffffff;
+
+        if (s > 0)
+        {
+            un32 = (u1 << s) | (u0 >> (64 - s));
+            un10 = u0 << s;
+        }
+        else
+        {
+            un32 = u1;
+            un10 = u0;
+        }
+
+        un1 = un10 >> 32;
+        un0 = un10 & 0xffffffff;
+
+        q1 = un32 / vn1;
+        rhat = un32 % vn1;
+
+        left = q1 * vn0;
+        right = (rhat << 32) + un1;
+        while ((q1 >= b) || (left > right))
+        {
+            --q1;
+            rhat += vn1;
+            if (rhat < b)
+            {
+                left -= vn0;
+                right = (rhat << 32) | un1;
+            }
+            break;
+        }
+
+        un21 = (un32 << 32) + (un1 - (q1 * v));
+
+        q0 = un21 / vn1;
+        rhat = un21 % vn1;
+
+        left = q0 * vn0;
+        right = (rhat << 32) | un0;
+        while ((q0 >= b) || (left > right))
+        {
+            --q0;
+            rhat += vn1;
+            if (rhat < b)
+            {
+                left -= vn0;
+                right = (rhat << 32) | un0;
+                continue;
+            }
+            break;
+        }
+
+        uint64_t2 output;
+        output.x = (q1 << 32) | q0; // quotient
+        output.y = ((un21 << 32) + (un0 - (q0 * v))) >> s; // remainder
+
+        return output;
+    }
+}
+}
+}
 #endif
