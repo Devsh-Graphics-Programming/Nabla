@@ -18,49 +18,71 @@ namespace ext
 namespace TextRendering
 {
 
-core::smart_refctd_ptr<ICPUImage> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, uint32_t msdfMipLevels, float32_t2 scale, float32_t2 translate)
+// TODO find an alternative for this (we need it because msdfgen consumes the glyphs when doing generateMSDF)
+msdfgen::Shape deepCloneShape(const msdfgen::Shape& original) {
+	msdfgen::Shape copy;
+	for (uint32_t contour = 0; contour < original.contours.size(); contour++)
+	{
+		msdfgen::Contour c;
+		auto originalEdges = original.contours[contour].edges;
+		c.edges.reserve(originalEdges.size());
+
+		for (uint32_t edge = 0; edge < originalEdges.size(); edge++)
+		{
+			auto segment = msdfgen::EdgeHolder();
+			segment = originalEdges[edge];
+			c.edges.push_back(segment);
+		}
+
+		copy.contours.push_back(c);
+	}
+	return copy;
+}
+
+core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, uint32_t msdfMipLevels, float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
 
-	auto shapeBounds = glyph.getBounds();
-
-	msdfgen::edgeColoringSimple(glyph, 3.0);
-	msdfgen::Bitmap<float, 4> msdfMap(glyphW, glyphH);
-
-	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
-
-
-	asset::ICPUImage::SCreationParams creationParams;
-	creationParams.type = asset::IImage::ET_2D;
-	creationParams.samples = asset::IImage::ESCF_1_BIT;
-	creationParams.format = TextRenderer::MSDFTextureFormat;
-	creationParams.extent = { msdfExtents.x, msdfExtents.y, 1 };
-	creationParams.mipLevels = msdfMipLevels;
-	creationParams.arrayLayers = 1;
-	auto image = asset::ICPUImage::create(std::move(creationParams));
-
-	int8_t* data = reinterpret_cast<int8_t*>(image->getBuffer()->getPointer());
+	uint32_t size = 0;
+	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
 	
 	auto floatToSNORM8 = [](const float fl) -> int8_t
-		{
-			// we need to invert values because msdfgen assigns positive values for shape interior which is the exact opposite of our convention
-			return -1 * (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
-		};
-
-	for (int y = 0; y < msdfMap.height(); ++y)
 	{
-		for (int x = 0; x < msdfMap.width(); ++x)
+		// we need to invert values because msdfgen assigns positive values for shape interior which is the exact opposite of our convention
+		return -1 * (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
+	};
+
+	msdfgen::edgeColoringSimple(glyph, 3.0);
+
+	for (uint32_t mip = 0; mip < msdfMipLevels; mip++)
+	{
+		msdfgen::Shape glyphCopy = deepCloneShape(glyph);
+		uint32_t mipW = glyphW / (1 << mip);
+		uint32_t mipH = glyphH / (1 << mip);
+
+		auto shapeBounds = glyphCopy.getBounds();
+
+		msdfgen::Bitmap<float, 4> msdfMap(mipW, mipH);
+
+		msdfgen::generateMTSDF(msdfMap, glyphCopy, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
+
+		for (int y = 0; y < mipW; ++y)
 		{
-			auto pixel = msdfMap(x, glyphH - 1 - y);
-			data[(x + y * glyphW) * 4 + 0] = floatToSNORM8(pixel[0]);
-			data[(x + y * glyphW) * 4 + 1] = floatToSNORM8(pixel[1]);
-			data[(x + y * glyphW) * 4 + 2] = floatToSNORM8(pixel[2]);
-			data[(x + y * glyphW) * 4 + 3] = floatToSNORM8(pixel[3]);
+			for (int x = 0; x < mipH; ++x)
+			{
+				auto pixel = msdfMap(x, mipH - 1 - y);
+				data[(x + y * mipW) * 4 + 0] = floatToSNORM8(pixel[0]);
+				data[(x + y * mipW) * 4 + 1] = floatToSNORM8(pixel[1]);
+				data[(x + y * mipW) * 4 + 2] = floatToSNORM8(pixel[2]);
+				data[(x + y * mipW) * 4 + 3] = floatToSNORM8(pixel[3]);
+			}
 		}
+		data += mipW * mipH * 4;
 	}
 
-	return std::move(image);
+	return std::move(cpuBuf);
 }
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
@@ -76,7 +98,7 @@ FontFace::GlyphMetrics FontFace::getGlyphMetricss(uint32_t glyphId)
 	};
 }
 
-core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
+core::smart_refctd_ptr<ICPUBuffer> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
 {
 	auto shape = generateGlyphShape(glyphId);
 
