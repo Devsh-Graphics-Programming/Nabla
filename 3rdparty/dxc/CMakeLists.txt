@@ -42,15 +42,6 @@ if(NOT NBL_IS_MULTI_CONFIG)
 	list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 endif()
 
-#if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
-#	NBL_EXT_P_APPEND_COMPILE_OPTIONS(NBL_DXC_CMAKE_OPTIONS Release Release Release)
-#elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
-#	NBL_EXT_P_APPEND_COMPILE_OPTIONS(NBL_DXC_CMAKE_OPTIONS RelWithDebInfo RelWithDebInfo RelWithDebInfo)
-#else()
-#	NBL_EXT_P_APPEND_COMPILE_OPTIONS(NBL_DXC_CMAKE_OPTIONS Release RelWithDebInfo Debug)
-#endif()
-#list(TRANSFORM NBL_DXC_CMAKE_OPTIONS REPLACE "/fp:fast" "/fp:precise")
-
 if(WIN32)
 	if(NOT DEFINED HLSL_AUTOCRLF)
 		list(APPEND NBL_DXC_CMAKE_OPTIONS "-DHLSL_AUTOCRLF:BOOL=ON")
@@ -115,9 +106,6 @@ else()
 	endif()
 endif()
 
-# this whole shit needs to be changed, 
-# leaving it till we get to relocatable packages
-
 set(DXC_INCLUDE_DIRECTORIES
 	$<IF:$<CONFIG:Debug>,${NBL_DXC_DEBUG_INCLUDE_DIRECTORIES},${NBL_DXC_RELEASE_INCLUDE_DIRECTORIES}>
 CACHE INTERNAL "" FORCE)
@@ -167,9 +155,7 @@ add_custom_command(OUTPUT "${DXC_LIB}" "${DXC_DLL}"
 	COMMAND_EXPAND_LISTS
 )
 
-add_library(dxcompiler SHARED IMPORTED GLOBAL)
-
-set_target_properties(dxcompiler PROPERTIES
-	INTERFACE_INCLUDE_DIRECTORIES "${DXC_INCLUDE_DIRECTORIES}"
-	INTERFACE_LINK_LIBRARIES "${DXC_LIB}"
-)
+# this seems to not generate build rules but according to docs it should (should not compile sources but build rules) https://cmake.org/cmake/help/latest/command/add_library.html#interface-with-sources
+add_library(dxcompiler INTERFACE "${DXC_LIB}" "${DXC_DLL}")
+target_include_directories(dxcompiler INTERFACE "${DXC_INCLUDE_DIRECTORIES}")
+target_link_libraries(dxcompiler INTERFACE "${DXC_LIB}")

@@ -24,7 +24,6 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake) # TODO
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
-option(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE "Export 3rdparty targets into build tree. Nabla & examples will use them as imported targets - optimizes solutions' build time & intelisense PCH and limits logical targets to minimum but locks up 3rdparty build and requires manual build on-change. [TODO: I may do something with it]" OFF)
 
 if(MSVC)
 	if(NBL_SANITIZE_ADDRESS)
@@ -60,61 +59,23 @@ if(USE_CCACHE)
 endif(USE_CCACHE)
 
 # global IDE stuff for examples
-set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
+set(CMAKE_CODELITE_USE_TARGETS ON CACHE INTERNAL "")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
-set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
-set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
+set(CMAKE_CONFIGURATION_TYPES 
+	Debug
+	Release
+	RelWithDebInfo
+)
+
+set(LLVM_USE_CRT_DEBUG MTd CACHE INTERNAL "Nabla developer note: No idea what subfolder provides this")
+set(LLVM_USE_CRT_RELEASE MT CACHE INTERNAL "Nabla developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
-endif()
-
-option(NBL_MEMORY_CONSUMPTION_CHECK_SKIP "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" ON)
-option(NBL_JOBS_OVERRIDE "Override jobs with safe bias if required to respect currently available memory" OFF)
-
-include(ProcessorCount)
-
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	if(NOT "$ENV{_NBL_JOBS_AMOUNT_}" STREQUAL "")
-		set(_NBL_JOBS_AMOUNT_ "$ENV{_NBL_JOBS_AMOUNT_}")
-	else()
-		ProcessorCount(_NBL_JOBS_AMOUNT_)
-		if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-			set(_NBL_JOBS_AMOUNT_ 1)
-		endif()
-	endif()
-endif()
-
-cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
-cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
-
-if(NBL_JOBS_OVERRIDE)
-	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
-	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
-		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
-	
-		set(_NBL_JOBS_AMOUNT_ "${_CI_NBL_JOBS_AMOUNT_}")
-	endif()
-endif()
-
-message(STATUS "_NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\"")
-
-math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
-math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
-
-if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
-	if(NBL_MEMORY_CONSUMPTION_CHECK_SKIP)
-		set(_NBL_CMAKE_STATUS_ WARNING)
-	else()
-		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
-	endif()
-	
-	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define 'NBL_MEMORY_CONSUMPTION_CHECK_SKIP' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
 include(adjust/flags)
@@ -136,15 +97,9 @@ else()
 endif()
 
 # TODO reorganize
-option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
-option(NBL_FAST_MATH "Enable fast low-precision math" ON)
+option(NBL_FAST_MATH "Enable fast low-precision math" ON) # Nabla only thing
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
-option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
-option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
-option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
-
-option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
@@ -191,7 +146,13 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set(CMAKE_INSTALL_PREFIX "${NBL_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
+# OK: with NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE we need to configure 3rdparty separately, build & reuse its export here
+
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
+
+if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
+	include("${NBL_3RDPARTY_EXPORT_INCLUDE}")
+endif()
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework

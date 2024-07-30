@@ -1,11 +1,103 @@
-# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
-include(../cmake/common.cmake)
+# TODO put to common include file and share + use global include guards to make sure we include it only once regardless build modes
+### <-
+cmake_minimum_required(VERSION 3.29)
+cmake_policy(SET CMP0112 NEW)
+cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
+cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
+set(CMAKE_CONFIGURATION_TYPES 
+	Debug
+	Release
+	RelWithDebInfo
+)
+
+option(NBL_MEMORY_CONSUMPTION_CHECK_SKIP "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" ON)
+option(NBL_JOBS_OVERRIDE "Override jobs with safe bias if required to respect currently available memory" OFF)
+
+include(ProcessorCount)
+
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	if(NOT "$ENV{_NBL_JOBS_AMOUNT_}" STREQUAL "")
+		set(_NBL_JOBS_AMOUNT_ "$ENV{_NBL_JOBS_AMOUNT_}")
+	else()
+		ProcessorCount(_NBL_JOBS_AMOUNT_)
+		if(_NBL_JOBS_AMOUNT_ EQUAL 0)
+			set(_NBL_JOBS_AMOUNT_ 1)
+		endif()
+	endif()
+endif()
+
+cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
+cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
+
+if(NBL_JOBS_OVERRIDE)
+	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
+	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
+		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
+	
+		set(_NBL_JOBS_AMOUNT_ "${_CI_NBL_JOBS_AMOUNT_}")
+	endif()
+endif()
+
+message(STATUS "_NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\"")
+
+math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
+math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
+
+if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
+	if(NBL_MEMORY_CONSUMPTION_CHECK_SKIP)
+		set(_NBL_CMAKE_STATUS_ WARNING)
+	else()
+		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
+	endif()
+	
+	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define 'NBL_MEMORY_CONSUMPTION_CHECK_SKIP' but be aware - you are doing it on your own risk of possible build failures.")
+endif()
+
+if(NOT DEFINED CMAKE_MODULE_PATH) # TODO: use list directory it will be put into instead of CMAKE_CURRENT_SOURCE_DIR
+	set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+endif()
+
+include(adjust/flags)
+include(adjust/definitions)
+### <-
+
+option(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE "Export all targets to file as 3rdparty & extensions interface targets")
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
+project(3rdparty LANGUAGES CXX C ASM)
+enable_language(C CXX ASM)
+
+# 3rdparty
+option(NBL_COMPILE_WITH_CUDA "[Nabla]: Compile with CUDA interop" OFF)
+option(_NBL_COMPILE_WITH_OPEN_EXR_ "[Nabla]: Build with OpenEXR library" ON)
+option(_NBL_COMPILE_WITH_GLI_ "[Nabla]: Build with GLI library" ON)
+option(NBL_BUILD_DPL "[Nabla]: Enable DPL (Dynamic Parallelism Library)" OFF) # TODO: rename to COMPILE_WITH & update references
+
+# extensions
+option(NBL_BUILD_IMGUI "[EXT]: Build with IMGUI libraries, enable nbl::ext::ImGui" OFF)
+option(NBL_BUILD_MSDF "[EXT]: Build with MSDF library, enable nbl::ext::TextRendering" OFF)
+option(NBL_BUILD_MITSUBA_LOADER "[EXT]: Build with expact, enable nbl::ext::MitsubaLoader" OFF) # TODO: once it compies turn this ON by default!
+# option(NBL_BUILD_BULLET "[EXT]: Enable Bullet Physics building and integration" OFF) TODO: is this still used anywhere? Check it
+
+include(../cmake/common.cmake)
+
+# we have 2 interface targets shared with Nabla build system
+# - "3rdparty" consist of dependencies required to build Nabla library, some of them can be controled with NBL_BUILD_WITH_* options
+# - "extensions" are dependencies which are not compiled as part of Nabla library itself but they can be used to create Nabla extensions
+# NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE controls if targets available as part of those 2 interfaces are "normal" or "imported"
+
+add_library(3rdparty INTERFACE)
+add_library(extensions INTERFACE)
+
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_TESTING OFF)
+set(SKIP_INSTALL_ALL ON)
 
 find_package(Vulkan)
 if (Vulkan_FOUND)
@@ -13,8 +105,6 @@ if (Vulkan_FOUND)
 else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
-
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(CUDAToolkit REQUIRED)
@@ -65,9 +155,7 @@ add_library(ThreadsProxy INTERFACE)
 target_link_libraries(ThreadsProxy PUBLIC ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 if (ANDROID)
-	add_library(android_native_app_glue STATIC
-    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
-	)
+	add_library(android_native_app_glue STATIC ${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c)
 	target_include_directories(android_native_app_glue PUBLIC "${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue")
 endif()
 
@@ -76,24 +164,15 @@ set(JSON_BuildTests OFF)
 add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
 
 # simdjson
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
 add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+set_target_properties(simdjson PROPERTIES CXX_STANDARD 17)
 
 # freetype2
 set(FT_WITH_HARFBUZZ OFF)
-add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
+add_subdirectory(freetype2 EXCLUDE_FROM_ALL)
 add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
 
 # msdfgen
-
 set(MSDFGEN_USE_VCPKG OFF)
 set(MSDFGEN_USE_SKIA OFF)
 set(MSDFGEN_CORE_ONLY OFF)
@@ -110,8 +189,6 @@ else()
 	set(NBL_MSDFGEN_TARGETS msdfgen-ext msdfgen-core)
 endif()
 
-set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
-
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
 get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
@@ -122,42 +199,34 @@ if(WIN32)
 elseif(UNIX)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
 endif()
-option(_NBL_ENABLE_DXC_COMPILE_TESTS_ "Enable it in order to test compilation of Nabla shaders at build time" OFF)
-option(_NBL_DXC_COMPILE_TESTS_ENABLE_CMAKE_LOG_ "Enable more verbose log when creating DXC compile test target - only for Nabla developers!" OFF)
-set(_NBL_DXC_CT_PREFIX_CMAKE_LOG_DEBUG_ "[DXC_CT]:" CACHE INTERNAL "only for Nabla developers")
 add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
-
-if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-	message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
-endif()
 
 # Vulkan-Headers
 add_library(Vulkan-Headers INTERFACE) # do not add subdirectory, messed target there
 target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 # volk
-set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulkan library will not be linked in examples
+set(VOLK_PULL_IN_VULKAN OFF) # need to make sure vulkan library will not be linked in examples
 	
 if (WIN32)
 	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 endif()
-add_subdirectory(volk volk EXCLUDE_FROM_ALL)
-target_include_directories(volk PUBLIC $<TARGET_PROPERTY:Vulkan-Headers,INCLUDE_DIRECTORIES>)
-target_include_directories(volk_headers INTERFACE $<TARGET_PROPERTY:Vulkan-Headers,INCLUDE_DIRECTORIES>)
+
+add_subdirectory(volk EXCLUDE_FROM_ALL)
+target_include_directories(volk PUBLIC $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(volk_headers INTERFACE $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
+	add_subdirectory(pstl EXCLUDE_FROM_ALL) # TODO: check targets when dealing with UNIX builds
 endif()
 
 # boost
 add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 
-# zlib (target is zlibstatic)
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
-set(BUILD_SHARED_LIBS OFF)
-set(SKIP_INSTALL_ALL ON)
+# TODO: update this + PNG target to latest and refactor following code chunk
+######################################## <-
 
+# zlib
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
@@ -166,8 +235,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
 	) # clean zlib git working-tree
 endif()
 file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
-set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
 get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
@@ -184,127 +251,84 @@ add_custom_target(zlib_copy
 unset(_ORIGINAL_SOURCE_)
 unset(_COPY_BIN_SOURCE_)
 
-#https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
 set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
 set_target_properties(zlibstatic PROPERTIES DEBUG_POSTFIX "d")
-if (MSVC)
-	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}")
-	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}")
-	set(ZLIB_BINARY_DIR_RELWITHDEBINFO "${ZLIB_BINARY_DIR}")
-	get_target_property(ZLIB_NAME zlibstatic "NAME")
-else()
-	set(ZLIB_BINARY_DIR_DEBUG ${ZLIB_BINARY_DIR})
-	set(ZLIB_BINARY_DIR_RELEASE ${ZLIB_BINARY_DIR})
-	set(ZLIB_BINARY_DIR_RELWITHDEBINFO ${ZLIB_BINARY_DIR})
-	get_target_property(ZLIB_NAME zlibstatic "OUTPUT_NAME")
-endif()
+set(ZLIB_INCLUDE_DIR $<TARGET_PROPERTY:zlibstatic,INCLUDE_DIRECTORIES>)
+set(ZLIB_LIBRARY $<TARGET_LINKER_FILE:zlibstatic>)
 
-get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
-set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY_RELWITHDEBINFO "${ZLIB_BINARY_DIR_RELWITHDEBINFO}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
-set(ZLIB_LIBRARY # for PNGLIB purposes
-		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>	
-		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
-		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
-CACHE INTERNAL "" FORCE)
+# png
+set(PNG_BUILD_ZLIB ON)
+set(PNG_SHARED OFF)
+set(PNG_TESTS OFF)
+add_subdirectory(libpng EXCLUDE_FROM_ALL)
+add_dependencies(png_static zlibstatic)
+##################################### <-
 
-set(SPIRV_HEADERS_SKIP_INSTALL ON CACHE INTERNAL "Skip SPIRV-Headers install")
-set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE INTERNAL "Skip SPIRV-Headers examples")
+set(SPIRV_HEADERS_SKIP_INSTALL ON)
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON)
 add_subdirectory("${DXC_SPIRV_HEADERS_DIR}" SPIRV-Headers EXCLUDE_FROM_ALL)
-set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE INTERNAL "Skip SPIRV-Tools install")
-set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "Skip SPIRV-Tools tests")
-set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "Skip SPIRV-Tools executable build")
+set(SKIP_SPIRV_TOOLS_INSTALL ON)
+set(SPIRV_SKIP_TESTS ON)
+set(SPIRV_SKIP_EXECUTABLES ON)
 add_subdirectory("${DXC_SPIRV_TOOLS_DIR}" SPIRV-Tools EXCLUDE_FROM_ALL)
-set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "Skip glslang install")
-set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "SPVRemapper is a spirv compression experimental library")
-set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "Build glslangValidator and spirv-remap?")
-set(BUILD_TESTING OFF CACHE INTERNAL "Enable glslang build testing?")
-set_property(TARGET SPIRV-Tools-opt PROPERTY CXX_STANDARD 17)
-add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
-# because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
-target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
-
-set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
-set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
+set(SKIP_GLSLANG_INSTALL ON)
+set(ENABLE_SPVREMAPPER OFF)
+set(ENABLE_GLSLANG_BINARIES OFF)
+set_target_properties(SPIRV-Tools-opt PROPERTIES CXX_STANDARD 17)
+add_subdirectory(glslang EXCLUDE_FROM_ALL)
+target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}") # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 # https://github.com/google/shaderc/issues/568
 if (UNIX)
-	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
+	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") # W T F, TODO take closer look at it when dealing with UNIX builds
 endif()
-add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
+set(SHADERC_SKIP_TESTS ON)
+set(SHADERC_SKIP_INSTALL ON)
+add_subdirectory(shaderc EXCLUDE_FROM_ALL)
 
 # libjpeg-turbo
-option(WITH_SIMD "libjpeg-turbo" ON)
-option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
-option(WITH_TURBOJPEG "libjpeg-turbo" ON)
-option(ENABLE_STATIC "libjpeg-turbo" ON)
-option(ENABLE_SHARED "libjpeg-turbo" OFF)
-option(WITH_CRT_DLL "libjpeg-turbo" OFF)
-option(WITH_FUZZ "libjpeg-turbo" OFF)
-option(WITH_JAVA "libjpeg-turbo" OFF)
+set(WITH_SIMD ON)
+set(WITH_MEM_SRCDST ON)
+set(WITH_TURBOJPEG ON)
+set(ENABLE_STATIC ON)
+set(ENABLE_SHARED OFF)
+set(WITH_CRT_DLL OFF)
+set(WITH_FUZZ OFF)
+set(WITH_JAVA OFF)
 set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
 set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
-add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
+add_subdirectory(libjpeg-turbo EXCLUDE_FROM_ALL)
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
 # blake3
 add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
-#manipulating libpng cmake options from within cmake script
-set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
-option(PNG_SHARED "Build shared lib" OFF)
-option(PNG_TESTS  "Build libpng tests" OFF)
-add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
-add_dependencies(png_static zlibstatic)
-
 # OpenEXR
-option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
-
-# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
+# note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
 # it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
 # here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
 # but it's core 
 
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
-set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
-set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
-set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
+set(PYILMBASE_ENABLE OFF)
+set(OPENEXR_BUILD_UTILS OFF)
+set(OPENEXR_FORCE_INTERNAL_IMATH ON) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
+set(OPENEXR_BUILD_TOOLS OFF) 
+set(OPENEXR_INSTALL OFF)
+set(OPENEXR_INSTALL_DOCS OFF)
+set(OPENEXR_INSTALL_EXAMPLES OFF)
+set(OPENEXR_INSTALL_PKG_CONFIG OFF)
+set(OPENEXR_INSTALL_TOOLS OFF)
 
 add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
-#gli
-option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
+# gli
 if(_NBL_COMPILE_WITH_GLI_)
-	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-	set(BUILD_SHARED_LIBS OFF)
-	set(BUILD_STATIC_LIBS OFF)
-	set(BUILD_TESTING OFF)
-	add_subdirectory(gli gli EXCLUDE_FROM_ALL)
-	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+	add_subdirectory(gli EXCLUDE_FROM_ALL)
 endif()
 
+# TODO check for updates + better move to separate file if possible (if CMake provided use its target)
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
@@ -313,7 +337,7 @@ add_library(lzma OBJECT
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
-
+# TODO check for updates + better move to separate file if possible (if CMake provided use its target)
 add_library(lz4 OBJECT
 	lz4/lib/lz4.c
 	lz4/lib/lz4frame.c
@@ -321,7 +345,7 @@ add_library(lz4 OBJECT
 	lz4/lib/xxhash.c
 )
 
-
+# TODO check for updates + better move to separate file if possible (if CMake provided use its target)
 add_library(bzip2 OBJECT
 	bzip2/blocksort.c
 	bzip2/bzlib.c
@@ -332,6 +356,7 @@ add_library(bzip2 OBJECT
 	bzip2/randtable.c
 )
 
+# TODO check for updates + better move to separate file if possible (if CMake provided use its target)
 add_library(spirv_cross OBJECT
 	nbl_spirv_cross/spirv_cfg.cpp
 	nbl_spirv_cross/spirv_cross.cpp
@@ -387,6 +412,7 @@ if(NBL_BUILD_IMGUI)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
 endif()
 
+# TODO check for updates + better move to separate file if possible (if CMake provided use its target)
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -401,75 +427,64 @@ add_library(aesGladman OBJECT
 
 add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
-option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
-option(GLM_TEST_ENABLE "Build unit tests" OFF)
+set(GLM_TEST_ENABLE_SIMD_SSE4_2 ON)
+set(GLM_TEST_ENABLE OFF)
 add_subdirectory(glm EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (NBL_BUILD_MITSUBA_LOADER)
-   option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
-   option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
-   option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
-   option(BUILD_shared "EXPAT: build a shared expat library" OFF)
-   option(BUILD_doc "EXPAT: build man page for xmlwf" OFF)
-   option(USE_libbsd "EXPAT: utilize libbsd (for arc4random_buf)" OFF)
-   option(INSTALL "EXPAT: install expat files in cmake install target" OFF)
-   set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
+   set(BUILD_tools OFF)
+   set(BUILD_examples OFF)
+   set(BUILD_tests OFF)
+   set(BUILD_shared OFF)
+   set(BUILD_doc OFF)
+   set(USE_libbsd OFF)
+   set(INSTALL OFF)
+   set(MSVC_USE_STATIC_CRT ON)
    add_subdirectory(libexpat/expat EXCLUDE_FROM_ALL)
-
-   set(MITSUBA_LOADER_DEPENDENTS
-      expat
-   )
-   set(MITSUBA_LOADER_DEPENDENTS ${MITSUBA_LOADER_DEPENDENTS} PARENT_SCOPE)
-   set(MITSUBA_LOADER_DEPENDENT_LIBS
-      expat
-   )
-   set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
 add_library(renderdoc INTERFACE)
 target_include_directories(renderdoc INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/renderdoc")
 
-# Final gather TODO: it should be possible to grep for handled CMake sources to get them
+# minimum required to build Nabla
+
 set(NBL_3RDPARTY_TARGETS
-				renderdoc
-				lzma
-				lz4
-				aesGladman
-				spirv_cross
-				png_static
-				zlibstatic
-				shaderc_util
-				shaderc
-				jpeg-static
-				bzip2
-				simdjson
-				nlohmann_json
-				glslang
-				OGLCompiler 
-				OSDependent
-				MachineIndependent
-				GenericCodeGen
-				SPIRV 
-				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-				SPIRV-Tools-opt
-				OpenEXRUtil
-				OpenEXRCore
-				Iex
-				IlmThread
-				Imath
-				freetype
-				${NBL_MSDFGEN_TARGETS}
-				blake3
-				${NBL_BOOST_TARGETS}
-				gli
-				glm
-				dxcompiler
-				volk
-				Vulkan-Headers
-				ThreadsProxy
+	renderdoc
+	lzma
+	lz4
+	aesGladman
+	spirv_cross
+	png_static
+	zlibstatic
+	shaderc_util
+	shaderc
+	jpeg-static
+	bzip2
+	simdjson
+	nlohmann_json
+	glslang
+	OGLCompiler 
+	OSDependent
+	MachineIndependent
+	GenericCodeGen
+	SPIRV 
+	SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
+	SPIRV-Tools-opt
+	OpenEXRUtil
+	OpenEXRCore
+	Iex
+	IlmThread
+	Imath
+	blake3
+	${NBL_BOOST_TARGETS}
+	glm
+	dxcompiler
+	volk
+	Vulkan-Headers
+	ThreadsProxy
 )
+
+# dependencies deps which build is toggled or depends on the platform/toolset used
 
 if(TARGET CUDA::toolkit)
 	list(APPEND NBL_3RDPARTY_TARGETS CUDA::toolkit)
@@ -483,96 +498,102 @@ if(UNIX)
 	list(APPEND NBL_3RDPARTY_TARGETS atomic)
 endif()
 
-if (ANDROID)
+if(ANDROID)
 	list(APPEND NBL_3RDPARTY_TARGETS android_native_app_glue android log)
 endif()
 
-if (_NBL_COMPILE_WITH_OPEN_EXR_)
+if(_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR)
 endif()
 
-#TODO insert more targets that are conditionally built
-if (NBL_BUILD_MITSUBA_LOADER)
-	list(APPEND NBL_3RDPARTY_TARGETS expat)
+if(_NBL_COMPILE_WITH_GLI_)
+	list(APPEND NBL_3RDPARTY_TARGETS gli)
 endif()
-if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
+
+if(NBL_BUILD_MITSUBA_LOADER)
+	list(APPEND NBL_3RDPARTY_TARGETS expat) # TODO: check if its an extension or integrated with Nabla directly
 endif()
+
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
 
-# be careful, needs handling with no multi config generators
-set(NBL_3RDPARTY_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-3rdparty-export.cmake")
+# extensions which are not part of Nabla library
 
-foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+set(NBL_EXTENSIONS_TARGETS
+	argparse
+)
+
+if(NBL_BUILD_IMGUI)
+	list(APPEND NBL_EXTENSIONS_TARGETS imgui implot imguizmo)
+endif()
+
+if(NBL_BUILD_MSDF)
+	list(APPEND NBL_EXTENSIONS_TARGETS freetype ${NBL_MSDFGEN_TARGETS})
+endif()
+
+if(NBL_BUILD_MITSUBA_LOADER)
+	list(APPEND NBL_EXTENSIONS_TARGETS expact)
+endif()
+
+function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INCLUDE_OUTPUT)
+	foreach(NBL_TARGET IN LISTS ${NBL_TARGETS_LIST_NAME})
+		nbl_handle_runtime_lib_properties(${NBL_TARGET})
+		set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL FALSE) # pull all targets we listed ourselves to expose them in 3rdparty solution
+		
+		get_target_property(NBL_FOLDER ${NBL_TARGET} FOLDER)
+		
+		if(NBL_FOLDER)
+			set_target_properties(${NBL_TARGET} PROPERTIES FOLDER ${NBL_INTERFACE}/${NBL_FOLDER})
 		else()
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+			set_target_properties(${NBL_TARGET} PROPERTIES FOLDER ${NBL_INTERFACE})
 		endif()
 		
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
-			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+			set_target_properties(${NBL_TARGET} PROPERTIES COMPILE_OPTIONS /fsanitize=address)
 		endif()
 		
-		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
-		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
-			get_target_property(IS_IMPORTED ${trgt} IMPORTED)
+		get_target_property(NBL_TARGET_TYPE ${NBL_TARGET} TYPE)
+		if("${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
+			target_include_directories(${NBL_INTERFACE} INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INTERFACE_INCLUDE_DIRECTORIES>)
+		else()
+			target_include_directories(${NBL_INTERFACE} INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
+			get_target_property(IS_IMPORTED ${NBL_TARGET} IMPORTED)
 			
 			if(NOT IS_IMPORTED)
 				if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
-					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+					nbl_adjust_flags(TARGET ${NBL_TARGET} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
 				elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
-					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+					nbl_adjust_flags(TARGET ${NBL_TARGET} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
 				else()
-					nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+					nbl_adjust_flags(TARGET ${NBL_TARGET} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 				endif()
 				
 				if(MSVC)
-					target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+					target_compile_definitions(${NBL_TARGET} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
 				endif()
 			endif()
 		endif()
 		
 		if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
-			export(TARGETS ${trgt} NAMESPACE Nabla::3rdparty:: APPEND FILE "${NBL_3RDPARTY_EXPORT_INCLUDE}")
+			export(TARGETS ${NBL_TARGET} NAMESPACE Nabla::${NBL_INTERFACE}:: APPEND FILE "${NBL_EXPORT_INCLUDE_OUTPUT}")
 		endif()
-endforeach()
+	endforeach()
+	
+	target_link_libraries(${NBL_INTERFACE} INTERFACE "${${NBL_TARGETS_LIST_NAME}}")
+endfunction()
 
 nbl_adjust_definitions()
 
-add_custom_target(3rdparty)
-add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
+set(NBL_3RDPARTY_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-3rdparty-export.cmake")
+set(NBL_EXTENSIONS_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-extensions-export.cmake")
+
+NBL_FINALIZE_TARGETS(NBL_3RDPARTY_TARGETS 3rdparty "${NBL_3RDPARTY_EXPORT_INCLUDE}")
+NBL_FINALIZE_TARGETS(NBL_EXTENSIONS_TARGETS extensions "${NBL_EXTENSIONS_EXPORT_INCLUDE}")
 
 if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
-	list(TRANSFORM NBL_3RDPARTY_TARGETS PREPEND Nabla::3rdparty::)
+	export(TARGETS 3rdparty NAMESPACE "" APPEND FILE "${NBL_3RDPARTY_EXPORT_INCLUDE}")
+	export(TARGETS extensions NAMESPACE "" APPEND FILE "${NBL_EXTENSIONS_EXPORT_INCLUDE}")
 endif()
 
-nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
-
-# TODO: instead of NBL_3RDPARTY_TARGETS use var with minumum targets to build nabla no extensions etc
-function(NBL_HOOK_3RDPARTY NBL_TO_TARGET)
-	if(NBL_STATIC_BUILD)
-		target_link_libraries(${NBL_TO_TARGET} INTERFACE ${NBL_3RDPARTY_TARGETS})
-	else()
-		target_link_libraries(${NBL_TO_TARGET} PRIVATE ${NBL_3RDPARTY_TARGETS})
-	endif()
-	
-	foreach(NBL_TARGET IN LISTS NBL_3RDPARTY_TARGETS)
-		target_include_directories(${NBL_TO_TARGET} PRIVATE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
-	endforeach()
-endfunction()
-
-# parent scope exports, must be at the end of the file
-set(_NBL_3RDPARTY_TARGETS_ 
-	${NBL_3RDPARTY_TARGETS}
-PARENT_SCOPE)
-
-set(NBL_MSDFGEN_TARGETS
-	${NBL_MSDFGEN_TARGETS}
-PARENT_SCOPE)
-
-set(NBL_3RDPARTY_EXPORT_INCLUDE
-	${NBL_3RDPARTY_EXPORT_INCLUDE}
-PARENT_SCOPE)
+# nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap") # TODO: THIS SHOULD NOT BE EXPOSED

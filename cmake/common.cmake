@@ -39,10 +39,6 @@ function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 endfunction()
 
 function(nbl_handle_runtime_lib_properties _TARGET_)
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
 	if(NBL_DYNAMIC_MSVC_RUNTIME)
 		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 	else()
