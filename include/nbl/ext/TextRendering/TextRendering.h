@@ -138,7 +138,7 @@ public:
 	void lineTo(const float64_t2 to)
 	{
 		if (to != lastPosition) {
-			currentContour->addEdge(new msdfgen::LinearSegment(msdfPoint(lastPosition), msdfPoint(to)));
+			currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(to)));
 			lastPosition = to;
 		}
 	}
@@ -147,7 +147,7 @@ public:
 	// [last position, control, end]
 	void quadratic(const float64_t2 control, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::QuadraticSegment(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
 		lastPosition = to;
 	}
 
@@ -155,7 +155,7 @@ public:
 	// [last position, control1, control2, end]
 	void cubic(const float64_t2 control1, const float64_t2 control2, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::CubicSegment(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
 		lastPosition = to;
 	}
 
