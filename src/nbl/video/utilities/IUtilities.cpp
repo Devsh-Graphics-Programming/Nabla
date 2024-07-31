@@ -28,7 +28,7 @@ bool IUtilities::updateImageViaStagingBuffer(
     }
     
 
-    if (dstImage->getCreationParameters().samples != asset::IImage::ESCF_1_BIT)
+    if (dstImage->getCreationParameters().samples != asset::IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
     {
         _NBL_TODO(); // "Erfan hasn't figured out yet how to copy to multisampled images"
         return false;

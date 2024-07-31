@@ -230,7 +230,7 @@ void IAssetManager::insertBuiltinAssets()
     asset::ICPUDescriptorSetLayout::SBinding binding1;
     binding1.count = 1u;
     binding1.binding = 0u;
-    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
     binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
@@ -244,14 +244,14 @@ void IAssetManager::insertBuiltinAssets()
     binding3.binding = 0u;
     binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
-    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
-    binding3.samplers = nullptr;
+    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
+    binding3.immutableSamplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
 			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
 			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
@@ -294,7 +294,7 @@ void IAssetManager::insertBuiltinAssets()
         info.extent.depth = 1u;
         info.mipLevels = 1u;
         info.arrayLayers = 1u;
-        info.samples = asset::ICPUImage::ESCF_1_BIT;
+        info.samples = asset::ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
         info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
@@ -345,7 +345,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
@@ -360,7 +360,7 @@ void IAssetManager::insertBuiltinAssets()
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 
-            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            auto descriptorInfos = ds1->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(0), IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
             descriptorInfos.begin()[0].desc = std::move(ubo);
             descriptorInfos.begin()[0].info.buffer.offset = 0ull;
             descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
@@ -375,7 +375,7 @@ void IAssetManager::insertBuiltinAssets()
         asset::ICPUDescriptorSetLayout::SBinding bnd;
         bnd.count = 1u;
         bnd.binding = 0u;
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 

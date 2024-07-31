@@ -14,7 +14,6 @@ namespace hlsl
 {
 namespace glsl
 {
-
 template <typename T>
 T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
 {
@@ -225,7 +224,6 @@ void tess_ctrl_barrier() {
 void memoryBarrierShared() {
     spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 }
-
 #endif
 
 }

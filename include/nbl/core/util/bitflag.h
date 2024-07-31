@@ -38,5 +38,8 @@ struct bitflag final
 	constexpr bool hasFlags(const bitflag<ENUM_TYPE> val) const {return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) == static_cast<UNDERLYING_TYPE>(val.value);}
 };
 
+template<typename T>
+concept Bitflag = std::is_same_v<bitflag<typename T::enum_t>, T>;
+
 }
 #endif
