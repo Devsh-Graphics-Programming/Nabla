@@ -1,5 +1,3 @@
-option(NBL_SANITIZE_THREAD OFF)
-
 # Debug
 set(NBL_C_DEBUG_COMPILE_OPTIONS
 	-Wall -fno-omit-frame-pointer -fstack-protector-strong
@@ -17,10 +15,6 @@ PARENT_SCOPE)
 set(NBL_C_RELEASE_COMPILE_OPTIONS
 	# empty
 )
-
-if(FAST_MATH)
-	list(APPEND -ffast-math -ffast-math)
-endif()
 
 set(NBL_CXX_RELEASE_COMPILE_OPTIONS
 	${NBL_C_RELEASE_COMPILE_OPTIONS}
@@ -63,6 +57,10 @@ list(APPEND NBL_C_COMPILE_OPTIONS
 	-fno-exceptions
 	$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 )
+
+if(FAST_MATH)
+	list(APPEND NBL_C_COMPILE_OPTIONS -ffast-math)
+endif()
 
 if(NBL_SANITIZE_ADDRESS)
 	list(APPEND NBL_C_COMPILE_OPTIONS -fsanitize=address)

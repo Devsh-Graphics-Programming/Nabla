@@ -15,6 +15,7 @@
 *_d.exe
 # usually where people build
 android_build/*
+3rdparty/build*/*
 build*/*
 # default install paths
 install/*

@@ -55,6 +55,8 @@ else()
 	set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>)	
 endif()
 
+set(CMAKE_CXX_STANDARD 17) # cannot use 20 yet
+
 # use with their default params
 include("${CMAKE_CURRENT_SOURCE_DIR}/dxc/cmake/caches/PredefinedParams.cmake")
 add_subdirectory(dxc EXCLUDE_FROM_ALL)
