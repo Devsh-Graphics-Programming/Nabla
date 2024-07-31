@@ -107,20 +107,20 @@ namespace hlsl
                         swap<int>(lhsBiasedExp, rhsBiasedExp);
                      }
 
-                     if (lhsBiasedExp == 0x7FF)
+                     if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                      {
                         const bool propagate = (lhsMantissa) != 0u;
                         return createPreserveBitPattern(lerp(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
                      }
 
                      expDiff = lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                     rhsMantissa = lerp(rhsMantissa | 0x0010000000000000ull, rhsMantissa, rhsBiasedExp == 0);
+                     rhsMantissa = lerp(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
                      const uint32_t3 shifted = impl::shift64ExtraRightJamming(uint32_t3(impl::packUint64(rhsMantissa), 0u), expDiff);
                      rhsMantissa = impl::unpackUint64(shifted.xy);
                      mantissaExtended.z = shifted.z;
                      biasedExp = lhsBiasedExp;
 
-                     lhsMantissa |= 0x0010000000000000ull;
+                     lhsMantissa |= (1ull << 52);
                      mantissaExtended.xy = impl::packUint64(lhsMantissa + rhsMantissa);
                      --biasedExp;
                      if (!(mantissaExtended.x < 0x00200000u))
@@ -151,7 +151,7 @@ namespace hlsl
                         lhsSign ^= ieee754::traits<float64_t>::signMask;
                     }
                     
-                    if (lhsBiasedExp == 0x7FF)
+                    if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
                        bool propagate = lhsMantissa != 0u;
                        return createPreserveBitPattern(lerp(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
@@ -233,7 +233,7 @@ namespace hlsl
             {
                 if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                 {
-                    if ((lhsMantissa != 0u) || ((rhsBiasedExp == 0x7FF) && (rhsMantissa != 0u)))
+                    if ((lhsMantissa != 0u) || ((rhsBiasedExp == ieee754::traits<float64_t>::specialValueExp) && (rhsMantissa != 0u)))
                         return createPreserveBitPattern(impl::propagateFloat64NaN(data, rhs.data));
                     if ((uint64_t(rhsBiasedExp) | rhsMantissa) == 0u)
                         return createPreserveBitPattern(ieee754::traits<float64_t>::quietNaN);
@@ -296,7 +296,7 @@ namespace hlsl
             int exp = ieee754::extractExponent(data) - ieee754::extractExponent(rhs.data) + ieee754::traits<float64_t>::exponentBias;
 
             uint64_t2 lhsMantissaShifted = impl::shiftMantissaLeftBy52(lhsRealMantissa);
-            uint64_t mantissa = impl::divmod128by64(lhsMantissaShifted.x, lhsMantissaShifted.y, rhsRealMantissa).x;
+            uint64_t mantissa = impl::divmod128by64(lhsMantissaShifted.x, lhsMantissaShifted.y, rhsRealMantissa);
 
             if (mantissa & (0x1ull << 53))
             {
@@ -445,8 +445,6 @@ unsigned_integer_of_size<sizeof(Type)>::type extractMantissa(Type x)\
 {\
     return extractMantissa(x.data);\
 }\
-
-
 
 namespace ieee754
 {

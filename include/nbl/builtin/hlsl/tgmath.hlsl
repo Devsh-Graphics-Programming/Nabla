@@ -15,6 +15,7 @@ template <typename Float>
 bool isnan(Float val)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(Float)>::type;
+	using AsFloat = typename float_of_size<sizeof(Float)>::type;
 	AsUint asUint = bit_cast<AsUint, Float>(val);
 	return bool((ieee754::extractBiasedExponent<Float>(val) == ieee754::traits<Float>::specialValueExp) && (asUint & ieee754::traits<Float>::mantissaMask));
 }

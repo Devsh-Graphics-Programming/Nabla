@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_LIMITS_INCLUDED_
 
+#include <nbl/builtin/hlsl/macros.h>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
 
@@ -127,7 +128,7 @@ struct num_base : type_identity<T>
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*S16 + 30*S32 + 232*S64;
     
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - float_digits - 1;
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1l << float_exponent_bits;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1 << float_exponent_bits;
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
     NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
 
@@ -236,7 +237,7 @@ template<>
 struct num_traits<float64_t> : num_base<float64_t>
 {
     NBL_CONSTEXPR_STATIC_INLINE float64_t max           = 1.7976931348623158e+308;
-    NBL_CONSTEXPR_STATIC_INLINE float64_t min           = 2.2250738585072014e-308;
+    NBL_CONSTEXPR_STATIC_INLINE NBL_FP64_LITERAL(float64_t) min           = 2.2250738585072014e-308;
     NBL_CONSTEXPR_STATIC_INLINE float64_t denorm_min    = 4.9406564584124654e-324;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  quiet_NaN     = 0x7FF8000000000000ull;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  signaling_NaN = 0x7FF0000000000001ull;

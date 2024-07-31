@@ -287,10 +287,10 @@ namespace impl
                 // ((zSign != 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_UP)) ||
                 // ((zSign == 0u) && (FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN)))
                 {
-                    return packFloat64(zSign, 0x7FE, 0x000FFFFFu, 0xFFFFFFFFu);
+                    return assembleFloat64(zSign, 0x7FE << ieee754::traits<float64_t>::mantissaBitCnt, 0x000FFFFFFFFFFFFFull);
                 }
                  
-            return packFloat64(zSign, 0x7FF, 0u, 0u);
+            return assembleFloat64(zSign, ieee754::traits<float64_t>::exponentMask, 0ull);
         }
         }
     
@@ -410,30 +410,33 @@ namespace impl
         return counter;
     }
 
-    uint64_t2 divmod128by64(const uint64_t u1, const uint64_t u0, uint64_t v)
+    // returns pair of quotient and remainder
+    uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t dividentLow, uint64_t divisor)
     {
         const uint64_t b = 1ull << 32;
         uint64_t un1, un0, vn1, vn0, q1, q0, un32, un21, un10, rhat, left, right;
         uint64_t s;
 
-        s = nlz64(v);
-        v <<= s;
-        vn1 = v >> 32;
-        vn0 = v & 0xffffffff;
+        //TODO: countl_zero
+        s = countl_zero(divisor);
+        //s = nlz64(divisor);
+        divisor <<= s;
+        vn1 = divisor >> 32;
+        vn0 = divisor & 0xFFFFFFFF;
 
         if (s > 0)
         {
-            un32 = (u1 << s) | (u0 >> (64 - s));
-            un10 = u0 << s;
+            un32 = (dividentHigh << s) | (dividentLow >> (64 - s));
+            un10 = dividentLow << s;
         }
         else
         {
-            un32 = u1;
-            un10 = u0;
+            un32 = dividentHigh;
+            un10 = dividentLow;
         }
 
         un1 = un10 >> 32;
-        un0 = un10 & 0xffffffff;
+        un0 = un10 & 0xFFFFFFFF;
 
         q1 = un32 / vn1;
         rhat = un32 % vn1;
@@ -452,7 +455,7 @@ namespace impl
             break;
         }
 
-        un21 = (un32 << 32) + (un1 - (q1 * v));
+        un21 = (un32 << 32) + (un1 - (q1 * divisor));
 
         q0 = un21 / vn1;
         rhat = un21 % vn1;
@@ -472,11 +475,7 @@ namespace impl
             break;
         }
 
-        uint64_t2 output;
-        output.x = (q1 << 32) | q0; // quotient
-        output.y = ((un21 << 32) + (un0 - (q0 * v))) >> s; // remainder
-
-        return output;
+        return (q1 << 32) | q0;
     }
 }
 }
