@@ -48,14 +48,12 @@ class ICPUImage final : public IImage, public IPreHashed
 		inline core::blake3_hash_t computeContentHash() const override
 		{
 			// TODO: Arek turn this into an image filter maybe?
-			::blake3_hasher hasher;
-			::blake3_hasher_init(&hasher);
+			core::blake3_hasher hasher;
 			for (auto m=0; m<m_creationParams.mipLevels; m++)
 			{
 				const auto blockInfo = getTexelBlockInfo();
 				const auto mipExtentInBlocks = blockInfo.convertTexelsToBlocks(getMipSize(m));
-				::blake3_hasher levelHasher;
-				::blake3_hasher_init(&levelHasher);
+				core::blake3_hasher levelHasher;
 				if (missingContent())
 				{
 					const auto zeroLength = blockInfo.getBlockByteSize()*mipExtentInBlocks[0];
@@ -63,21 +61,20 @@ class ICPUImage final : public IImage, public IPreHashed
 					for (auto l=0; l<m_creationParams.arrayLayers; l++)
 					{
 						// layers could be run in parallel
-						::blake3_hasher layerHasher;
-						::blake3_hasher_init(&layerHasher);
+						core::blake3_hasher layerHasher;
 						for (auto z=0; z<mipExtentInBlocks[2]; z++)
 						for (auto y=0; y<mipExtentInBlocks[1]; y++)
-							::blake3_hasher_update(&layerHasher,zeroArray.get(),zeroLength);
-						core::blake3_hasher_update(levelHasher,core::blake3_hasher_finalize(layerHasher));
+							layerHasher.update(zeroArray.get(),zeroLength);
+						levelHasher << static_cast<core::blake3_hash_t>(layerHasher);
 					}
 				}
 				else
 				{
 					_NBL_TODO(); // TODO: Arek
 				}
-				core::blake3_hasher_update(hasher,core::blake3_hasher_finalize(levelHasher));
+				levelHasher << static_cast<core::blake3_hash_t>(levelHasher);
 			}
-			return core::blake3_hasher_finalize(hasher);
+			return static_cast<core::blake3_hash_t>(hasher);
 		}
 
 		inline bool missingContent() const override

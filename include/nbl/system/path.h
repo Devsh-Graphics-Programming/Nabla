@@ -7,18 +7,23 @@
 
 
 //TODO: Figure out where to move this
-namespace nbl::core
+namespace nbl
+{
+namespace core
 {
 using string = std::string;
 
-template<>
-inline void blake3_hasher_update(blake3_hasher& self, const core::string& input)
+template<typename Dummy>
+struct blake3_hasher::update_impl<core::string,Dummy>
 {
-	::blake3_hasher_update(&self,input.data(),input.length()+1);
-}
+	static inline void __call(blake3_hasher& hasher, const core::string& input)
+	{
+        hasher << std::span<const char>(input);
+	}
+};
 }
 
-namespace nbl::system
+namespace system
 {
 using path = std::filesystem::path;
  
@@ -35,6 +40,19 @@ inline path filename_wo_extension(const path& filename)
 {
     path ret = filename;
     return ret.replace_extension();
+}
+}
+
+namespace core
+{
+template<typename Dummy>
+struct blake3_hasher::update_impl<system::path,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const system::path& input)
+	{
+        hasher << input.string();
+	}
+};
 }
 }
 #endif

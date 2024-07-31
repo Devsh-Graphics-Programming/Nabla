@@ -161,10 +161,9 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 
 		inline core::blake3_hash_t computeContentHash() const //TODO: sort this out later, override
 		{
-			::blake3_hasher hasher;
-			::blake3_hasher_init(&hasher);
+			core::blake3_hasher hasher;
 			const bool isAABB = m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
-			core::blake3_hasher_update(hasher,isAABB);
+			hasher << isAABB;
 			if (m_geometryPrimitiveCount)
 			{
 				auto countIt = m_geometryPrimitiveCount->begin();
@@ -173,13 +172,13 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 					for (const auto& aabb : *m_AABBGeoms)
 					{
 						const auto count = *(countIt++);
-						core::blake3_hasher_update(hasher,count);
-						core::blake3_hasher_update(hasher,aabb.geometryFlags);
-						core::blake3_hasher_update(hasher,aabb.stride);
+						hasher << count;
+						hasher << aabb.geometryFlags;
+						hasher << aabb.stride;
 						const auto begin = reinterpret_cast<const uint8_t*>(aabb.data.buffer->getPointer())+aabb.data.offset; 
 						const auto end = begin+aabb.stride*count;
 						for (auto it=begin; it<end; it+=aabb.stride)
-							::blake3_hasher_update(&hasher,it,sizeof(AABB_t));
+							hasher.update(it,sizeof(AABB_t));
 					}
 				}
 				else
@@ -188,13 +187,13 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 					{
 						const auto count = *(countIt++);
 						const auto indexCount = count*3;
-						core::blake3_hasher_update(hasher,count);
-						core::blake3_hasher_update(hasher,triangles.transform);
-						core::blake3_hasher_update(hasher,triangles.maxVertex);
-						core::blake3_hasher_update(hasher,triangles.vertexStride);
-						core::blake3_hasher_update(hasher,triangles.vertexFormat);
-						core::blake3_hasher_update(hasher,triangles.indexType);
-						core::blake3_hasher_update(hasher,triangles.geometryFlags);
+						hasher << count;
+						hasher << triangles.transform;
+						hasher << triangles.maxVertex;
+						hasher << triangles.vertexStride;
+						hasher << triangles.vertexFormat;
+						hasher << triangles.indexType;
+						hasher << triangles.geometryFlags;
 						// now hash the triangle data
 						const bool usesMotion = triangles.vertexData[1].isValid();
 						const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
@@ -210,9 +209,9 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 								uint32_t vertexIndex = i;
 								if constexpr (std::is_integral_v<IndexType>)
 									vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
-								::blake3_hasher_update(&hasher,verticesA+vertexIndex*triangles.vertexStride,vertexSize);
+								hasher.update(verticesA+vertexIndex*triangles.vertexStride,vertexSize);
 								if (usesMotion)
-									::blake3_hasher_update(&hasher,verticesB+vertexIndex*triangles.vertexStride,vertexSize);
+									hasher.update(verticesB+vertexIndex*triangles.vertexStride,vertexSize);
 							}
 						};
 						switch (triangles.indexType)
@@ -230,7 +229,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 					}
 				}
 			}
-			return core::blake3_hasher_finalize(hasher);
+			return static_cast<core::blake3_hash_t>(hasher);
 		}
 
 		inline bool missingContent() const //TODO: sort this out later, override

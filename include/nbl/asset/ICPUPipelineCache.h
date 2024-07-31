@@ -65,16 +65,13 @@ class ICPUPipelineCache final : public IPreHashed
 		//
 		inline core::blake3_hash_t computeContentHash() const override
 		{
-			::blake3_hasher hasher;
-			::blake3_hasher_init(&hasher);
+			core::blake3_hasher hasher;
 			for (const auto& entry : m_cache)
 			{
-				core::blake3_hasher_update(hasher,entry.first.deviceAndDriverUUID);
-				if (entry.first.meta)
-					::blake3_hasher_update(&hasher,entry.first.meta->data(),entry.first.meta->size());
-				::blake3_hasher_update(&hasher,entry.second.bin->data(),entry.second.bin->size());
+				hasher << entry.second.bin->size();
+				hasher.update(entry.second.bin->data(),entry.second.bin->size());
 			}
-			return core::blake3_hasher_finalize(hasher);
+			return static_cast<core::blake3_hash_t>(hasher);
 		}
 
 		inline bool missingContent() const override
