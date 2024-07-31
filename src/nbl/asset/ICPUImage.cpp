@@ -249,7 +249,7 @@ public:
 							blake3_hasher_update(hasher, zeroArray.get(), zeroLength);
 				}
 				else
-					CBasicImageFilterCommon::executePerRegion(std::execution::seq, image, executePerTexelOrBlock, regions.begin(), regions.end(), clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
+					CBasicImageFilterCommon::executePerRegion(std::execution::seq, image, executePerTexelOrBlock, regions, clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
 
 				blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
 			};
