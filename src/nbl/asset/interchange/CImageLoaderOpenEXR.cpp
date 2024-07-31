@@ -13,6 +13,7 @@
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
+#include "nbl/asset/interchange/CImageHasher.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
@@ -383,20 +384,16 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			else if (params.format == EF_R32G32B32A32_UINT)
 				ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
+			CImageHasher contentHasher(params);
+			contentHasher.hashSeq(0, 0, image->getBuffer()->getPointer(), image->getImageDataSizeInBytes());
+			auto contentHash = contentHasher.finalizeSeq();
+			image->setContentHash(contentHash);
+			
 			meta->placeMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
-
 			images.push_back(std::move(image));
 		}
 	}	
 	_NBL_DELETE(nblIStream);
-
-	for (auto& image : images)
-	{
-		// TODO: inline hashing while reading
-		auto hash = image->computeContentHash();
-		image->setContentHash(hash);
-	}
-
 	return SAssetBundle(std::move(meta),std::move(images));
 }
 
