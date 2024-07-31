@@ -17,6 +17,7 @@ set(CMAKE_CONFIGURATION_TYPES
 
 option(NBL_MEMORY_CONSUMPTION_CHECK_SKIP "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" ON)
 option(NBL_JOBS_OVERRIDE "Override jobs with safe bias if required to respect currently available memory" OFF)
+option(NBL_3RDPARTY_ENABLE_FOLDER_GROUPING "Group 3rdparty into folders, useful for IDE but slows down a bit generate time" ON)
 
 include(ProcessorCount)
 
@@ -99,6 +100,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(BUILD_TESTING OFF)
 set(SKIP_INSTALL_ALL ON)
 
+# Vulkan SDK
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
@@ -106,6 +108,22 @@ else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
 
+# Vulkan-Headers
+add_library(Vulkan-Headers INTERFACE) # do not add subdirectory, messed target there
+target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+
+# volk
+set(VOLK_PULL_IN_VULKAN OFF) # need to make sure vulkan library will not be linked in examples
+	
+if (WIN32)
+	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
+endif()
+
+add_subdirectory(volk EXCLUDE_FROM_ALL)
+target_include_directories(volk PUBLIC $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
+target_include_directories(volk_headers INTERFACE $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
+
+# CUDA
 if(NBL_COMPILE_WITH_CUDA)
 	find_package(CUDAToolkit REQUIRED)
 	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
@@ -190,31 +208,14 @@ else()
 endif()
 
 # DXC
-get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
-get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers" ABSOLUTE)
-
-set(SPIRV-Headers_SOURCE_DIR "${DXC_SPIRV_HEADERS_DIR}" CACHE INTERNAL "")
-if(WIN32)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
-elseif(UNIX)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
-endif()
 add_subdirectory(dxc dxc EXCLUDE_FROM_ALL)
 
-# Vulkan-Headers
-add_library(Vulkan-Headers INTERFACE) # do not add subdirectory, messed target there
-target_include_directories(Vulkan-Headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
-
-# volk
-set(VOLK_PULL_IN_VULKAN OFF) # need to make sure vulkan library will not be linked in examples
-	
-if (WIN32)
-	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
-endif()
-
-add_subdirectory(volk EXCLUDE_FROM_ALL)
-target_include_directories(volk PUBLIC $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
-target_include_directories(volk_headers INTERFACE $<TARGET_PROPERTY:Vulkan-Headers,INTERFACE_INCLUDE_DIRECTORIES>)
+# glslang
+set(SKIP_GLSLANG_INSTALL ON)
+set(ENABLE_SPVREMAPPER OFF)
+set(ENABLE_GLSLANG_BINARIES OFF)
+add_subdirectory(glslang EXCLUDE_FROM_ALL)
+target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}") # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir: TODO CHECK IT
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	add_subdirectory(pstl EXCLUDE_FROM_ALL) # TODO: check targets when dealing with UNIX builds
@@ -263,20 +264,6 @@ set(PNG_TESTS OFF)
 add_subdirectory(libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 ##################################### <-
-
-set(SPIRV_HEADERS_SKIP_INSTALL ON)
-set(SPIRV_HEADERS_SKIP_EXAMPLES ON)
-add_subdirectory("${DXC_SPIRV_HEADERS_DIR}" SPIRV-Headers EXCLUDE_FROM_ALL)
-set(SKIP_SPIRV_TOOLS_INSTALL ON)
-set(SPIRV_SKIP_TESTS ON)
-set(SPIRV_SKIP_EXECUTABLES ON)
-add_subdirectory("${DXC_SPIRV_TOOLS_DIR}" SPIRV-Tools EXCLUDE_FROM_ALL)
-set(SKIP_GLSLANG_INSTALL ON)
-set(ENABLE_SPVREMAPPER OFF)
-set(ENABLE_GLSLANG_BINARIES OFF)
-set_target_properties(SPIRV-Tools-opt PROPERTIES CXX_STANDARD 17)
-add_subdirectory(glslang EXCLUDE_FROM_ALL)
-target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}") # because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
 
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 # https://github.com/google/shaderc/issues/568
@@ -448,7 +435,14 @@ target_include_directories(renderdoc INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/rend
 
 # minimum required to build Nabla
 
+set(NBL_IMMUTABLE_TARGETS # note we have a compiler here we do compile and to simply say - we do not want to break things so we do not override their compile options
+	dxcompiler
+	SPIRV-Tools-static
+	SPIRV-Tools-opt
+)
+
 set(NBL_3RDPARTY_TARGETS
+	${NBL_IMMUTABLE_TARGETS}
 	renderdoc
 	lzma
 	lz4
@@ -467,9 +461,7 @@ set(NBL_3RDPARTY_TARGETS
 	OSDependent
 	MachineIndependent
 	GenericCodeGen
-	SPIRV 
-	SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
-	SPIRV-Tools-opt
+	SPIRV
 	OpenEXRUtil
 	OpenEXRCore
 	Iex
@@ -478,7 +470,6 @@ set(NBL_3RDPARTY_TARGETS
 	blake3
 	${NBL_BOOST_TARGETS}
 	glm
-	dxcompiler
 	volk
 	Vulkan-Headers
 	ThreadsProxy
@@ -536,18 +527,32 @@ if(NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_EXTENSIONS_TARGETS expact)
 endif()
 
+function(NBL_ADJUST_FOLDER NBL_TARGET NBL_PREFIX KEEP_PRESENT_PREFIX)
+	get_target_property(NBL_FOLDER "${NBL_TARGET}" FOLDER)
+			
+	if(NBL_3RDPARTY_ENABLE_FOLDER_GROUPING)
+		if(NBL_FOLDER AND KEEP_PRESENT_PREFIX)
+			set_target_properties("${NBL_TARGET}" PROPERTIES FOLDER "${NBL_PREFIX}/${NBL_FOLDER}")
+		else()
+			set_target_properties("${NBL_TARGET}" PROPERTIES FOLDER "${NBL_PREFIX}")
+		endif()
+	else()
+		set_property(TARGET "${NBL_TARGET}" PROPERTY FOLDER)
+	endif()
+endfunction()
+
+NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+	NBL_ADJUST_FOLDER(${NBL_TARGET} 3rdparty/excluded ON) # first pass to group all targets in IDE
+	set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL TRUE) # in case somebody forgots to exclude subdirectory force all as excluded
+endforeach()
+
 function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INCLUDE_OUTPUT)
 	foreach(NBL_TARGET IN LISTS ${NBL_TARGETS_LIST_NAME})
 		nbl_handle_runtime_lib_properties(${NBL_TARGET})
 		set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL FALSE) # pull all targets we listed ourselves to expose them in 3rdparty solution
 		
-		get_target_property(NBL_FOLDER ${NBL_TARGET} FOLDER)
-		
-		if(NBL_FOLDER)
-			set_target_properties(${NBL_TARGET} PROPERTIES FOLDER ${NBL_INTERFACE}/${NBL_FOLDER})
-		else()
-			set_target_properties(${NBL_TARGET} PROPERTIES FOLDER ${NBL_INTERFACE})
-		endif()
+		NBL_ADJUST_FOLDER(${NBL_TARGET} ${NBL_INTERFACE} OFF) # second pass to assign to interface's group
 		
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_target_properties(${NBL_TARGET} PROPERTIES COMPILE_OPTIONS /fsanitize=address)
@@ -560,7 +565,7 @@ function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INC
 			target_include_directories(${NBL_INTERFACE} INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
 			get_target_property(IS_IMPORTED ${NBL_TARGET} IMPORTED)
 			
-			if(NOT IS_IMPORTED)
+			if(NOT IS_IMPORTED AND NOT NBL_TARGET IN_LIST NBL_IMMUTABLE_TARGETS)
 				if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
 					nbl_adjust_flags(TARGET ${NBL_TARGET} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
 				elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
