@@ -27,7 +27,20 @@ namespace nbl::video
 template<asset::Asset AssetType>
 struct asset_traits;
 
-//! Pipelines
+
+template<>
+struct asset_traits<asset::ICPUSampler>
+{
+	// the asset type
+	using asset_t = asset::ICPUSampler;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUSampler;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 template<>
 struct asset_traits<asset::ICPUShader>
 {
@@ -66,13 +79,36 @@ struct asset_traits<asset::ICPUPipelineLayout>
 	// lookup type
 	using lookup_t = const video_t*;
 };
-/*
+
+template<>
+struct asset_traits<asset::ICPUPipelineCache>
+{
+	// the asset type
+	using asset_t = asset::ICPUPipelineCache;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUPipelineCache;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUComputePipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUComputePipeline;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUComputePipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 /*
 template<>
 struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = IGPUDescriptorSetLayout; };
-
-template<>
-struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = IGPUComputePipeline; };
 */
 
 template<>
@@ -109,19 +145,6 @@ struct asset_traits<asset::ICPUImage> { using GPUObjectType = IGPUImage; };
 template<>
 struct asset_traits<asset::ICPUImageView> { using GPUObjectType = IGPUImageView; };
 */
-
-template<>
-struct asset_traits<asset::ICPUSampler>
-{
-	// the asset type
-	using asset_t = asset::ICPUSampler;
-	// we don't need to descend during DFS into other assets
-	constexpr static inline bool HasChildren = false;
-	// the video type
-	using video_t = IGPUSampler;
-	// lookup type
-	using lookup_t = const video_t*;
-};
 
 /*
 template<>
