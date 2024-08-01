@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_MESH_PACKER_H_INCLUDED__
 
 #include "nbl/asset/utils/IMeshManipulator.h"
-#include "nbl/core/math/morton.h"
+#include "nbl/builtin/hlsl/math/morton.hlsl"
 
 namespace nbl
 {

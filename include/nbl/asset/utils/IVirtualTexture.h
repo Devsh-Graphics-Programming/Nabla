@@ -7,7 +7,6 @@
 
 #include <functional>
 
-#include "nbl/core/math/morton.h"
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
@@ -18,6 +17,8 @@
 #include "nbl/asset/IDescriptorSetLayout.h"
 #include "nbl/asset/filters/CPaddedCopyImageFilter.h"
 #include "nbl/asset/filters/CFillImageFilter.h"
+
+#include "nbl/builtin/hlsl/math/morton.hlsl"
 
 namespace nbl::asset
 {
