@@ -66,3 +66,8 @@ if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
 
 	file(WRITE "${NBL_BOOST_WAVE_DEP_FILE}" "set(NBL_BOOST_LIBS ${NBL_BOOST_LIBS})")
 endif()
+
+add_library(boostConfig INTERFACE)
+target_include_directories(boostConfig 
+	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/superproject/libs/numeric/conversion/include" # the author doesn't use CMAKE_CURRENT_SOURCE_DIR for sources hence it will throw errors for someone trying to include our exports if not added
+)

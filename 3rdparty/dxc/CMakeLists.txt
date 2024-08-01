@@ -39,8 +39,7 @@ set(HLSL_ENABLE_DEBUG_ITERATORS ON)
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/external/SPIRV-Tools" ABSOLUTE)
 get_filename_component(DXC_SPIRV_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/external/SPIRV-Headers" ABSOLUTE)
 
-set(DXC_SPIRV_TOOLS_DIR "${DXC_SPIRV_TOOLS_DIR}")
-set(DXC_SPIRV_HEADERS_DIR "${DXC_SPIRV_HEADERS_DIR}")
+set(spirv-tools_SOURCE_DIR "${DXC_SPIRV_TOOLS_DIR}")
 set(SPIRV-Headers_SOURCE_DIR "${DXC_SPIRV_HEADERS_DIR}")
 
 if(WIN32)
@@ -61,3 +60,10 @@ set(CMAKE_CXX_STANDARD 17) # cannot use 20 yet
 include("${CMAKE_CURRENT_SOURCE_DIR}/dxc/cmake/caches/PredefinedParams.cmake")
 add_subdirectory(dxc EXCLUDE_FROM_ALL)
 set_target_properties(SPIRV-Tools-opt PROPERTIES CXX_STANDARD 17)
+
+add_library(dxcConfig INTERFACE)
+target_include_directories(dxcConfig INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/dxc/include")
+
+# required, shaderc still wants variables instead of targets
+set(spirv-tools_SOURCE_DIR "${spirv-tools_SOURCE_DIR}" PARENT_SCOPE)
+set(SPIRV-Headers_SOURCE_DIR "${SPIRV-Headers_SOURCE_DIR}" PARENT_SCOPE)

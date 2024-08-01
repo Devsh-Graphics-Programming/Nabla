@@ -104,8 +104,9 @@ endforeach()
 
 target_include_directories(Nabla 
 	PUBLIC "${NBL_ROOT_PATH}/include"
-	PUBLIC $<TARGET_PROPERTY:config,INTERFACE_INCLUDE_DIRECTORIES>
+	PUBLIC $<TARGET_PROPERTY:nblBuildConfig,INTERFACE_INCLUDE_DIRECTORIES>
 	PUBLIC ${NABLA_PUBLIC_DEFINE_H_DIRECTORY}
+	PRIVATE "${NBL_ROOT_PATH}/src" # this should never be exposed!
 )
 
 target_compile_definitions(Nabla 
@@ -134,7 +135,7 @@ add_dependencies(Nabla DeviceHeaders)
 target_include_directories(Nabla PRIVATE "${NBL_DEVICE_GEN_INCLUDE_DIR}") # TODO USE GEN EXPRESSION
 add_subdirectory(builtin EXCLUDE_FROM_ALL)
 
-# TODO: THIS NEEDS RETHINKING
+# TODO: THIS NEEDS RETHINKING - all of this can be generated at configure time with file(GENERATE *), doesn't make sense to make special rules for it because builtins include it too (multiple generated file reference issue)
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
@@ -148,7 +149,6 @@ if(NBL_PCH)
 endif()
 
 # exe
-
 add_subdirectory(exe)
 
 # extensions
@@ -189,3 +189,14 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+
+NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+	get_target_property(NBL_FOLDER "${NBL_TARGET}" FOLDER)
+	
+	if(NBL_FOLDER)
+		set_target_properties("${NBL_TARGET}" PROPERTIES FOLDER Nabla/${NBL_FOLDER})
+	endif()
+endforeach()
+
+set_target_properties(Nabla PROPERTIES FOLDER Nabla)

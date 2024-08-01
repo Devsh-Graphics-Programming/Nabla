@@ -30,7 +30,7 @@ include(common)
 if(NBL_3RDPARTY_FIND_EXPORTED_TARGETS)
 	find_file(NBL_3RDPARTY_EXPORT_MODULE
 		${NBL_3RDPARTY_EXPORT_MODULE_NAME}.cmake
-		PATHS 3rdparty/build ${NBL_3RDPARTY_EXPORT_DIRECTORY}
+		PATHS 3rdparty/build ${THIRD_PARTY_BINARY_DIR} ${NBL_3RDPARTY_EXPORT_DIRECTORY} # custom, you can override
 		DOC "Filepath to module with exported 3rdparty import targets"
 		NO_CACHE
 		REQUIRED
@@ -51,7 +51,6 @@ add_subdirectory(src/nbl) # Nabla library sources
 add_subdirectory(tests) # Python Framework
 
 if(NBL_BUILD_EXAMPLES)
-
 	# /Arek
 	# someone did really bad thing when designing this, NOTHING should be outputed to sources NEVER
 	# I'm aware of "what about CWD" guh now and shit but this makes git sources dirty (ok you .gitignore) + is a big problem for 

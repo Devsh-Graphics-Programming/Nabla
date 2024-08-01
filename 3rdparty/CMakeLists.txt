@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.29)
 include(../cmake/init/buildSystem.cmake NO_POLICY_SCOPE) 
 
 option(NBL_3RDPARTY_ENABLE_FOLDER_GROUPING "Group 3rdparty into folders, useful for IDE but slows down a bit generate time" ON)
-option(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE "Export all targets to file as 3rdparty & extensions interface targets")
+option(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE "Export all targets to file as 3rdparty & extensions interface targets" ON)
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
@@ -162,41 +162,30 @@ add_subdirectory(boost boost EXCLUDE_FROM_ALL)
 # TODO: update this + PNG target to latest and refactor following code chunk
 ######################################## <-
 
-# zlib
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
-	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
-	) # clean zlib git working-tree
-endif()
-file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
-
-get_target_property(ZLIB_SOURCE_DIR zlibstatic "SOURCE_DIR")
+# zlib TODO: update it to latest
+add_subdirectory(zlib EXCLUDE_FROM_ALL)
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
-get_filename_component(_ORIGINAL_SOURCE_ "${ZLIB_SOURCE_DIR}" ABSOLUTE)
-get_filename_component(_COPY_BIN_SOURCE_ "${ZLIB_BINARY_DIR}/copy_source" ABSOLUTE)
-
-add_custom_target(zlib_copy
-	COMMAND ${CMAKE_COMMAND} -E rm -Rf "${_COPY_BIN_SOURCE_}"
-	COMMAND ${CMAKE_COMMAND} -E copy_directory "${_ORIGINAL_SOURCE_}" "${_COPY_BIN_SOURCE_}"
-	COMMAND ${CMAKE_COMMAND} -E rm -f ${_COPY_BIN_SOURCE_}/zconf.h # no duplicates in include search paths!
-	COMMENT "Copying zlib..."
-)
-
-unset(_ORIGINAL_SOURCE_)
-unset(_COPY_BIN_SOURCE_)
-
-set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
+set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${ZLIB_BINARY_DIR})
 set_target_properties(zlibstatic PROPERTIES DEBUG_POSTFIX "d")
-set(ZLIB_INCLUDE_DIR $<TARGET_PROPERTY:zlibstatic,INCLUDE_DIRECTORIES>)
-set(ZLIB_LIBRARY $<TARGET_LINKER_FILE:zlibstatic>)
+
+set(ZLIB_INCLUDE_DIR $<TARGET_PROPERTY:zlibstatic,INCLUDE_DIRECTORIES>) # do not remove
+set(ZLIB_LIBRARY $<TARGET_LINKER_FILE:zlibstatic>) # do not remove
+
+add_library(zlibConfig INTERFACE)
+target_include_directories(zlibConfig INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/zlib")
 
 # png
 set(PNG_BUILD_ZLIB ON)
 set(PNG_SHARED OFF)
 set(PNG_TESTS OFF)
 add_subdirectory(libpng EXCLUDE_FROM_ALL)
+
+add_library(pngConfig INTERFACE)
+target_include_directories(pngConfig 
+	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/libpng"
+	INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/libpng"
+)
+
 add_dependencies(png_static zlibstatic)
 ##################################### <-
 
@@ -220,7 +209,13 @@ set(WITH_FUZZ OFF)
 set(WITH_JAVA OFF)
 set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
 set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
-add_subdirectory(libjpeg-turbo EXCLUDE_FROM_ALL)
+add_subdirectory(libjpeg-turbo EXCLUDE_FROM_ALL) # BY THE WAY WE NEVER USED THE TURBO VERSION WITH SIMD BUT PURE JPEG XD TODO: USE TUURBO
+add_library(jpegConfig INTERFACE)
+target_include_directories(jpegConfig
+	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo"
+	INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo"
+)
+
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
@@ -251,7 +246,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 
 # TODO check for updates + better move to separate file if possible (if CMake provided use its target)
-add_library(lzma OBJECT
+add_library(lzma STATIC
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
 	lzma/C/LzmaDec.c
@@ -260,7 +255,7 @@ add_library(lzma OBJECT
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
 # TODO check for updates + better move to separate file if possible (if CMake provided use its target)
-add_library(lz4 OBJECT
+add_library(lz4 STATIC
 	lz4/lib/lz4.c
 	lz4/lib/lz4frame.c
 	lz4/lib/lz4hc.c
@@ -268,7 +263,7 @@ add_library(lz4 OBJECT
 )
 
 # TODO check for updates + better move to separate file if possible (if CMake provided use its target)
-add_library(bzip2 OBJECT
+add_library(bzip2 STATIC
 	bzip2/blocksort.c
 	bzip2/bzlib.c
 	bzip2/compress.c
@@ -279,7 +274,7 @@ add_library(bzip2 OBJECT
 )
 
 # TODO check for updates + better move to separate file if possible (if CMake provided use its target)
-add_library(spirv_cross OBJECT
+add_library(spirv_cross STATIC
 	nbl_spirv_cross/spirv_cfg.cpp
 	nbl_spirv_cross/spirv_cross.cpp
 	nbl_spirv_cross/spirv_glsl.cpp
@@ -335,7 +330,7 @@ if(NBL_BUILD_IMGUI)
 endif()
 
 # TODO check for updates + better move to separate file if possible (if CMake provided use its target)
-add_library(aesGladman OBJECT
+add_library(aesGladman STATIC
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
 	aesGladman/aeskey.c
@@ -374,7 +369,9 @@ target_include_directories(renderdoc INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/rend
 # minimum required to build Nabla
 
 set(NBL_IMMUTABLE_TARGETS # note we have a compiler here we do compile and to simply say - we do not want to break things so we do not override their compile options
+	dxcConfig
 	dxcompiler
+	LLVMSupport
 	SPIRV-Tools-static
 	SPIRV-Tools-opt
 )
@@ -387,10 +384,13 @@ set(NBL_3RDPARTY_TARGETS
 	aesGladman
 	spirv_cross
 	png_static
+	pngConfig
 	zlibstatic
+	zlibConfig
 	shaderc_util
 	shaderc
 	jpeg-static
+	jpegConfig
 	bzip2
 	simdjson
 	nlohmann_json
@@ -408,6 +408,7 @@ set(NBL_3RDPARTY_TARGETS
 	ImathConfig
 	blake3
 	${NBL_BOOST_TARGETS}
+	boostConfig
 	glm
 	volk
 	Vulkan-Headers
@@ -415,7 +416,7 @@ set(NBL_3RDPARTY_TARGETS
 	phmap
 )
 
-# dependencies deps which build is toggled or depends on the platform/toolset used
+# deps which build is toggled or depends on the platform/toolset used, part of Nabla library
 
 if(TARGET CUDA::toolkit)
 	list(APPEND NBL_3RDPARTY_TARGETS CUDA::toolkit)
@@ -500,11 +501,13 @@ function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INC
 			set_target_properties(${NBL_TARGET} PROPERTIES COMPILE_OPTIONS /fsanitize=address)
 		endif()
 		
+		target_include_directories(${NBL_INTERFACE} 
+			INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INTERFACE_INCLUDE_DIRECTORIES>
+			INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>
+		)
+		
 		get_target_property(NBL_TARGET_TYPE ${NBL_TARGET} TYPE)
-		if("${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
-			target_include_directories(${NBL_INTERFACE} INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INTERFACE_INCLUDE_DIRECTORIES>)
-		else()
-			target_include_directories(${NBL_INTERFACE} INTERFACE $<TARGET_PROPERTY:${NBL_TARGET},INCLUDE_DIRECTORIES>)
+		if(NOT NBL_TARGET_TYPE STREQUAL "INTERFACE_LIBRARY")
 			get_target_property(IS_IMPORTED ${NBL_TARGET} IMPORTED)
 			
 			if(NOT IS_IMPORTED AND NOT NBL_TARGET IN_LIST NBL_IMMUTABLE_TARGETS)

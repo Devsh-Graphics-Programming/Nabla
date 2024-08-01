@@ -360,8 +360,8 @@ function(nbl_generate_conf_files)
 	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
 	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
 	
-	add_library(config INTERFACE)
-	target_include_directories(config INTERFACE 
+	add_library(nblBuildConfig INTERFACE)
+	target_include_directories(nblBuildConfig INTERFACE 
 		"$<$<CONFIG:DEBUG>:${NBL_CONF_DIR_DEBUG}>"
 		"$<$<CONFIG:RELEASE>:${NBL_CONF_DIR_RELEASE}>"
 		"$<$<CONFIG:RELWITHDEBINFO>:${NBL_CONF_DIR_RELWITHDEBINFO}>"
