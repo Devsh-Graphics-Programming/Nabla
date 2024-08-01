@@ -61,19 +61,3 @@ set(CMAKE_CXX_STANDARD 17) # cannot use 20 yet
 include("${CMAKE_CURRENT_SOURCE_DIR}/dxc/cmake/caches/PredefinedParams.cmake")
 add_subdirectory(dxc EXCLUDE_FROM_ALL)
 set_target_properties(SPIRV-Tools-opt PROPERTIES CXX_STANDARD 17)
-
-get_filename_component(_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${DXC_SPIRV_HEADERS_DIR}/include" ABSOLUTE)
-get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
-get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
-set(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH "${_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}/spirv" CACHE INTERNAL "" FORCE)
-
-if(NBL_EMBED_BUILTIN_RESOURCES)
-	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
-
-    # SPIRV Header in builtin resources, nbl paths as aliases
-    LIST_BUILTIN_RESOURCE(SPIRV_RESOURCES_TO_EMBED "unified1/spirv.h")
-    LIST_BUILTIN_RESOURCE(SPIRV_RESOURCES_TO_EMBED "unified1/spirv.hpp")
-    LIST_BUILTIN_RESOURCE(SPIRV_RESOURCES_TO_EMBED "unified1/GLSL.std.450.h")
-
-    ADD_CUSTOM_BUILTIN_RESOURCES(spirvBuiltinResourceData SPIRV_RESOURCES_TO_EMBED "${_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}" "spirv" "spirv::builtin" "${_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_}" "${_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
-endif()

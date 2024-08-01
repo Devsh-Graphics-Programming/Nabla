@@ -179,5 +179,21 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set(CMAKE_INSTALL_PREFIX "${NBL_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path") # TODO: wait what, check it
 endif()
 
+set(NBL_3RDPARTY_EXPORT_MODULE_NAME nabla-3rdparty-export)
+set(NBL_EXTENSIONS_EXPORT_MODULE_NAME nabla-extensions-export)
+
 include(adjust/flags)
 include(adjust/definitions)
+include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
+
+if (UNIX)	
+	if(NOT ANDROID)
+		set(CMAKE_THREAD_PREFER_PTHREAD 1)
+	endif()
+endif()
+
+enable_language(C CXX ASM)
+
+if(NOT TARGET Threads::Threads)
+	find_package(Threads REQUIRED)
+endif()

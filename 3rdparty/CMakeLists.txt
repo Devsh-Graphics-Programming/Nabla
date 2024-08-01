@@ -3,15 +3,14 @@
 # For conditions of distribution and use, see copyright notice in nabla.h
 
 cmake_minimum_required(VERSION 3.29)
-include(../cmake/init/buildSystem NO_POLICY_SCOPE) 
+include(../cmake/init/buildSystem.cmake NO_POLICY_SCOPE) 
 
 option(NBL_3RDPARTY_ENABLE_FOLDER_GROUPING "Group 3rdparty into folders, useful for IDE but slows down a bit generate time" ON)
-option(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE "Export all targets to file as 3rdparty & extensions interface targets")
+option(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE "Export all targets to file as 3rdparty & extensions interface targets")
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
 project(3rdparty LANGUAGES CXX C ASM)
-enable_language(C CXX ASM)
 
 # 3rdparty
 option(NBL_COMPILE_WITH_CUDA "[Nabla]: Compile with CUDA interop" OFF)
@@ -30,7 +29,7 @@ include(../cmake/common.cmake)
 # we have 2 interface targets shared with Nabla build system
 # - "3rdparty" consist of dependencies required to build Nabla library, some of them can be controled with NBL_BUILD_WITH_* options
 # - "extensions" are dependencies which are not compiled as part of Nabla library itself but they can be used to create Nabla extensions
-# NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE controls if targets available as part of those 2 interfaces are "normal" or "imported"
+# NBL_3RDPARTY_EXPORT_TO_BUILD_TREE controls if targets available as part of those 2 interfaces are exported to file as "imported" targets
 
 add_library(3rdparty INTERFACE)
 add_library(extensions INTERFACE)
@@ -95,11 +94,11 @@ else()
 endif()
 
 # TODO: update correctly
+
 if (UNIX)	
 	if(NOT ANDROID)
 		find_package(X11 REQUIRED)
 		set(CMAKE_THREAD_PREFER_PTHREAD 1)
-		find_package(Threads REQUIRED)
 		
 		if(NOT APPLE)
 			add_library(DisplaySystemProxy INTERFACE)
@@ -107,9 +106,6 @@ if (UNIX)
 		endif()
 	endif()
 endif()
-
-add_library(ThreadsProxy INTERFACE)
-target_link_libraries(ThreadsProxy PUBLIC ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC ${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c)
@@ -411,7 +407,7 @@ set(NBL_3RDPARTY_TARGETS
 	glm
 	volk
 	Vulkan-Headers
-	ThreadsProxy
+	argparse # used with x256Hash src/nbl/exe target
 )
 
 # dependencies deps which build is toggled or depends on the platform/toolset used
@@ -450,10 +446,6 @@ endif()
 
 # extensions which are not part of Nabla library
 
-set(NBL_EXTENSIONS_TARGETS
-	argparse
-)
-
 if(NBL_BUILD_IMGUI)
 	list(APPEND NBL_EXTENSIONS_TARGETS imgui implot imguizmo)
 endif()
@@ -487,6 +479,12 @@ foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
 endforeach()
 
 function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INCLUDE_OUTPUT)
+	if(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE)
+		if(EXISTS "${NBL_EXPORT_INCLUDE_OUTPUT}")
+			file(REMOVE "${NBL_EXPORT_INCLUDE_OUTPUT}") # flush
+		endif()
+	endif()
+
 	foreach(NBL_TARGET IN LISTS ${NBL_TARGETS_LIST_NAME})
 		nbl_handle_runtime_lib_properties(${NBL_TARGET})
 		set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL FALSE) # pull all targets we listed ourselves to expose them in 3rdparty solution
@@ -519,8 +517,8 @@ function(NBL_FINALIZE_TARGETS NBL_TARGETS_LIST_NAME NBL_INTERFACE NBL_EXPORT_INC
 			endif()
 		endif()
 		
-		if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
-			export(TARGETS ${NBL_TARGET} NAMESPACE Nabla::${NBL_INTERFACE}:: APPEND FILE "${NBL_EXPORT_INCLUDE_OUTPUT}")
+		if(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE)
+			export(TARGETS ${NBL_TARGET} APPEND FILE "${NBL_EXPORT_INCLUDE_OUTPUT}")
 		endif()
 	endforeach()
 	
@@ -529,15 +527,15 @@ endfunction()
 
 nbl_adjust_definitions()
 
-set(NBL_3RDPARTY_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-3rdparty-export.cmake")
-set(NBL_EXTENSIONS_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/nabla-extensions-export.cmake")
+set(NBL_3RDPARTY_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/${NBL_3RDPARTY_EXPORT_MODULE_NAME}.cmake")
+set(NBL_EXTENSIONS_EXPORT_INCLUDE "${CMAKE_CURRENT_BINARY_DIR}/${NBL_EXTENSIONS_EXPORT_MODULE_NAME}.cmake")
 
 NBL_FINALIZE_TARGETS(NBL_3RDPARTY_TARGETS 3rdparty "${NBL_3RDPARTY_EXPORT_INCLUDE}")
 NBL_FINALIZE_TARGETS(NBL_EXTENSIONS_TARGETS extensions "${NBL_EXTENSIONS_EXPORT_INCLUDE}")
 
-if(NBL_3RDPARTY_USE_EXPORT_FROM_BUILD_TREE)
-	export(TARGETS 3rdparty NAMESPACE "" APPEND FILE "${NBL_3RDPARTY_EXPORT_INCLUDE}")
-	export(TARGETS extensions NAMESPACE "" APPEND FILE "${NBL_EXTENSIONS_EXPORT_INCLUDE}")
+if(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE)
+	export(TARGETS 3rdparty APPEND FILE "${NBL_3RDPARTY_EXPORT_INCLUDE}")
+	export(TARGETS extensions APPEND FILE "${NBL_EXTENSIONS_EXPORT_INCLUDE}")
 endif()
 
 # nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap") # TODO: THIS SHOULD NOT BE EXPOSED

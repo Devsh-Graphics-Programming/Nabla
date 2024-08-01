@@ -36,8 +36,10 @@ set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 
 nbl_generate_conf_files()
 
+set(NABLA_PUBLIC_DEFINE_H "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
 file(GLOB_RECURSE NABLA_HEADERS_PUBLIC "${NBL_ROOT_PATH}/include/*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PUBLIC "${NBL_ROOT_PATH}/include/*.tcc")
+list(APPEND NABLA_HEADERS_PUBLIC "${NABLA_PUBLIC_DEFINE_H}")
 file(GLOB_RECURSE NABLA_HEADERS_PRIVATE "${NBL_ROOT_PATH}/src/nbl/*.h")
 
 file(GLOB_RECURSE NBL_CORE_SOURCES "${NBL_ROOT_PATH}/src/nbl/core/*.cpp")
@@ -106,14 +108,14 @@ if(WIN32)
 endif()
 
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
-	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla")
 endif()
 
 add_dependencies(Nabla DeviceHeaders)
 target_include_directories(Nabla PRIVATE "${NBL_DEVICE_GEN_INCLUDE_DIR}") # TODO USE GEN EXPRESSION
 add_subdirectory(builtin EXCLUDE_FROM_ALL)
 
+# TODO: THIS NEEDS RETHINKING
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
@@ -126,27 +128,33 @@ if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 
+# exe
+
+add_subdirectory(exe)
+
 # extensions
 start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
 if(NOT NBL_STATIC_BUILD)
-	add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
+	add_custom_command(OUTPUT "${NABLA_PUBLIC_DEFINE_H}"
 		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
-		COMMENT "Launching defines.h generation script!"
+		COMMENT "Generating \"${NABLA_PUBLIC_DEFINE_H}\"!"
 		VERBATIM
 	)
-	
-	add_custom_target(generate_nabla_defines ALL
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
-        VERBATIM
-    )
-	
-	add_dependencies(Nabla generate_nabla_defines)
 endif()
 
-NBL_HOOK_3RDPARTY(Nabla)
+target_include_directories(Nabla
+	PRIVATE $<TARGET_PROPERTY:3rdparty,INCLUDE_DIRECTORIES>
+	PRIVATE $<TARGET_PROPERTY:3rdparty,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE 3rdparty)
+else()
+	target_link_libraries(Nabla PRIVATE 3rdparty)
+endif()
 
 nbl_install_config_header(BuildConfigOptions.h)
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")

@@ -76,3 +76,8 @@ add_dependencies(deviceGenBuiltinResourceData DeviceHeaders)
 set(NBL_DEVICE_GEN_INCLUDE_DIR
 	"${NBL_DEVICE_GEN_INCLUDE_DIR}"
 PARENT_SCOPE)
+
+NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+	set_target_properties("${NBL_TARGET}" PROPERTIES FOLDER device)
+endforeach()
