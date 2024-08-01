@@ -22,7 +22,7 @@
 #include <vector>
 #include <utility>
 #include <iterator>
-#include <parallel-hashmap/parallel_hashmap/phmap.h>
+#include <parallel_hashmap/phmap.h>
 
 #include "nbl/core/memory/new_delete.h"
 

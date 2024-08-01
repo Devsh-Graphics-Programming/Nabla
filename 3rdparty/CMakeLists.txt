@@ -347,7 +347,10 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
-add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
+add_library(phmap INTERFACE) # do not add subdirectory yourself, the author doesn't use CMAKE_CURRENT_SOURCE_DIR for sources hence it will throw errors for someone trying to include our exports
+target_include_directories(phmap INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap")
+
+add_subdirectory(argparse EXCLUDE_FROM_ALL)
 
 set(GLM_TEST_ENABLE_SIMD_SSE4_2 ON)
 set(GLM_TEST_ENABLE OFF)
@@ -402,12 +405,14 @@ set(NBL_3RDPARTY_TARGETS
 	Iex
 	IlmThread
 	Imath
+	ImathConfig
 	blake3
 	${NBL_BOOST_TARGETS}
 	glm
 	volk
 	Vulkan-Headers
 	argparse # used with x256Hash src/nbl/exe target
+	phmap
 )
 
 # dependencies deps which build is toggled or depends on the platform/toolset used

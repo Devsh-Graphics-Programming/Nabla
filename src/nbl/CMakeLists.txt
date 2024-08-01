@@ -36,7 +36,8 @@ set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 
 nbl_generate_conf_files()
 
-set(NABLA_PUBLIC_DEFINE_H "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
+set(NABLA_PUBLIC_DEFINE_H_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated")
+set(NABLA_PUBLIC_DEFINE_H "${NABLA_PUBLIC_DEFINE_H_DIRECTORY}/define.h")
 file(GLOB_RECURSE NABLA_HEADERS_PUBLIC "${NBL_ROOT_PATH}/include/*.h")
 file(GLOB_RECURSE NABLA_HEADERS_PUBLIC "${NBL_ROOT_PATH}/include/*.tcc")
 list(APPEND NABLA_HEADERS_PUBLIC "${NABLA_PUBLIC_DEFINE_H}")
@@ -84,9 +85,27 @@ nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebI
 nbl_adjust_definitions()
 nbl_handle_runtime_lib_properties(Nabla)
 
+get_target_property(NBL_3RDPARTY_TARGETS_LIST 3rdparty INTERFACE_LINK_LIBRARIES)
+foreach(NBL_TARGET IN LISTS NBL_3RDPARTY_TARGETS_LIST)
+	get_target_property(NBL_INTERFACE_INCLUDE_DIRECTORIES ${NBL_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
+	get_target_property(NBL_INCLUDE_DIRECTORIES ${NBL_TARGET} INCLUDE_DIRECTORIES)
+	
+	# TODO: in perfect world NOTHING should be exposed here outside Nabla,
+	# currently we do it and some 3rdparties will need to be explicitly added with INTERFACE qualifier
+	
+	if(NBL_INTERFACE_INCLUDE_DIRECTORIES)
+		target_include_directories(Nabla PUBLIC "${NBL_INTERFACE_INCLUDE_DIRECTORIES}")
+	endif()
+
+	if(NBL_INCLUDE_DIRECTORIES)
+		target_include_directories(Nabla PUBLIC "${NBL_INCLUDE_DIRECTORIES}")
+	endif()
+endforeach()
+
 target_include_directories(Nabla 
 	PUBLIC "${NBL_ROOT_PATH}/include"
-	PUBLIC $<TARGET_PROPERTY:config,INCLUDE_DIRECTORIES>
+	PUBLIC $<TARGET_PROPERTY:config,INTERFACE_INCLUDE_DIRECTORIES>
+	PUBLIC ${NABLA_PUBLIC_DEFINE_H_DIRECTORY}
 )
 
 target_compile_definitions(Nabla 
@@ -139,16 +158,11 @@ propagate_changed_variables_to_parent_scope()
 
 if(NOT NBL_STATIC_BUILD)
 	add_custom_command(OUTPUT "${NABLA_PUBLIC_DEFINE_H}"
-		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
+		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${NABLA_PUBLIC_DEFINE_H_DIRECTORY} -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
 		COMMENT "Generating \"${NABLA_PUBLIC_DEFINE_H}\"!"
 		VERBATIM
 	)
 endif()
-
-target_include_directories(Nabla
-	PRIVATE $<TARGET_PROPERTY:3rdparty,INCLUDE_DIRECTORIES>
-	PRIVATE $<TARGET_PROPERTY:3rdparty,INTERFACE_INCLUDE_DIRECTORIES>
-)
 
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE 3rdparty)
@@ -160,7 +174,7 @@ nbl_install_config_header(BuildConfigOptions.h)
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 
 if(NOT NBL_STATIC_BUILD)
-	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
+	nbl_install_file("${NABLA_PUBLIC_DEFINE_H}")
 endif()
 
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
