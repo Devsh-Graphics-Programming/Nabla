@@ -297,7 +297,7 @@ namespace hlsl
             uint64_t2 lhsMantissaShifted = impl::shiftMantissaLeftBy53(lhsRealMantissa);
             uint64_t mantissa = impl::divmod128by64(lhsMantissaShifted.x, lhsMantissaShifted.y, rhsRealMantissa);
 
-            if (mantissa & (0x1ull << 54))
+            if (mantissa & (0x1ull << 53))
             {
                 ++exp;
             }
