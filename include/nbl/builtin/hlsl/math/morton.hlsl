@@ -21,7 +21,7 @@ namespace impl
 
 #ifdef __HLSL_VERSION
 template <typename T>
-T morton2d_mask(uint16_t _n) const
+T morton2d_mask(uint16_t _n)
 {
     const static uint64_t mask[5] =
     {
@@ -31,11 +31,11 @@ T morton2d_mask(uint16_t _n) const
         0x00FF00FF00FF00FFull,
         0x0000FFFF0000FFFFull
     };
-    return static_cast<T>(mask[_n]);
+    return mask[_n];
 }
 
 template <typename T>
-T morton3d_mask(uint16_t _n) const
+T morton3d_mask(uint16_t _n)
 {
     const static uint64_t mask[5] =
     {
@@ -45,10 +45,10 @@ T morton3d_mask(uint16_t _n) const
         0x001F0000FF0000FFull,
         0x001F00000000FFFFull
     };
-    return static_cast<T>(mask[_n]);
+    return mask[_n];
 }
 template <typename T>
-T morton4d_mask(uint16_t _n) const
+T morton4d_mask(uint16_t _n)
 {
     const static uint64_t mask[4] =
     {
@@ -57,7 +57,7 @@ T morton4d_mask(uint16_t _n) const
         0x000F000F000F000Full,
         0x000000FF000000FFull
     };
-    return static_cast<T>(mask[_n]);
+    return mask[_n];
 }
 
 template <typename T, uint32_t bitDepth>
