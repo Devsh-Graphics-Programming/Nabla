@@ -1,7 +1,7 @@
 // ArchiveCommandLine.h
 
-#ifndef __ARCHIVE_COMMAND_LINE_H
-#define __ARCHIVE_COMMAND_LINE_H
+#ifndef ZIP7_INC_ARCHIVE_COMMAND_LINE_H
+#define ZIP7_INC_ARCHIVE_COMMAND_LINE_H
 
 #include "../../../Common/CommandLineParser.h"
 #include "../../../Common/Wildcard.h"
@@ -51,7 +51,7 @@ struct CArcCmdLineOptions
   bool HelpMode;
 
   // bool LargePages;
-  bool CaseSensitiveChange;
+  bool CaseSensitive_Change;
   bool CaseSensitive;
 
   bool IsInTerminal;
@@ -60,25 +60,41 @@ struct CArcCmdLineOptions
   bool StdInMode;
   bool StdOutMode;
   bool EnableHeaders;
+  bool DisablePercents;
+
 
   bool YesToAll;
   bool ShowDialog;
+  bool TechMode;
+  bool ShowTime;
+  CBoolPair ListPathSeparatorSlash;
+
+  CBoolPair NtSecurity;
+  CBoolPair AltStreams;
+  CBoolPair HardLinks;
+  CBoolPair SymLinks;
+  
+  CBoolPair StoreOwnerId;
+  CBoolPair StoreOwnerName;
+
+  AString ListFields;
+
+  int ConsoleCodePage;
+
   NWildcard::CCensor Censor;
 
   CArcCommand Command;
   UString ArchiveName;
 
-  #ifndef _NO_CRYPTO
+  #ifndef Z7_NO_CRYPTO
   bool PasswordEnabled;
   UString Password;
   #endif
 
-  bool TechMode;
-  bool ShowTime;
-  
   UStringVector HashMethods;
+  // UString HashFilePath;
 
-  bool AppendName;
+  // bool AppendName;
   // UStringVector ArchivePathsSorted;
   // UStringVector ArchivePathsFullSorted;
   NWildcard::CCensor arcCensor;
@@ -87,11 +103,6 @@ struct CArcCmdLineOptions
   CObjectVector<CProperty> Properties;
 
   CExtractOptionsBase ExtractOptions;
-
-  CBoolPair NtSecurity;
-  CBoolPair AltStreams;
-  CBoolPair HardLinks;
-  CBoolPair SymLinks;
 
   CUpdateOptions UpdateOptions;
   CHashOptions HashOptions;
@@ -107,14 +118,30 @@ struct CArcCmdLineOptions
 
   // Benchmark
   UInt32 NumIterations;
+  bool NumIterations_Defined;
 
   CArcCmdLineOptions():
+      HelpMode(false),
       // LargePages(false),
-      CaseSensitiveChange(false),
+      CaseSensitive_Change(false),
       CaseSensitive(false),
+
+      IsInTerminal(false),
+      IsStdOutTerminal(false),
+      IsStdErrTerminal(false),
 
       StdInMode(false),
       StdOutMode(false),
+
+      EnableHeaders(false),
+      DisablePercents(false),
+      
+      YesToAll(false),
+      ShowDialog(false),
+      TechMode(false),
+      ShowTime(false),
+
+      ConsoleCodePage(-1),
 
       Number_for_Out(k_OutStream_stdout),
       Number_for_Errors(k_OutStream_stderr),
@@ -122,13 +149,20 @@ struct CArcCmdLineOptions
 
       LogLevel(0)
   {
-  };
+    ListPathSeparatorSlash.Val =
+#ifdef _WIN32
+        false;
+#else
+        true;
+#endif
+  }
 };
 
 class CArcCmdLineParser
 {
   NCommandLineParser::CParser parser;
 public:
+  UString Parse1Log;
   void Parse1(const UStringVector &commandStrings, CArcCmdLineOptions &options);
   void Parse2(CArcCmdLineOptions &options);
 };

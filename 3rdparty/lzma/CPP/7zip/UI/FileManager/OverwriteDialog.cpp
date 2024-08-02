@@ -17,7 +17,7 @@
 
 using namespace NWindows;
 
-#ifdef LANG
+#ifdef Z7_LANG
 static const UInt32 kLangIDs[] =
 {
   IDT_OVERWRITE_HEADER,
@@ -48,7 +48,7 @@ void COverwriteDialog::ReduceString(UString &s)
   }
 }
 
-void COverwriteDialog::SetFileInfoControl(int textID, int iconID,
+void COverwriteDialog::SetFileInfoControl(unsigned textID, unsigned iconID,
     const NOverwriteDialog::CFileInfo &fileInfo)
 {
   UString sizeString;
@@ -57,8 +57,8 @@ void COverwriteDialog::SetFileInfoControl(int textID, int iconID,
 
   const UString &fileName = fileInfo.Name;
   int slashPos = fileName.ReverseFind_PathSepar();
-  UString s1 = fileName.Left(slashPos + 1);
-  UString s2 = fileName.Ptr(slashPos + 1);
+  UString s1 = fileName.Left((unsigned)(slashPos + 1));
+  UString s2 = fileName.Ptr((unsigned)(slashPos + 1));
 
   ReduceString(s1);
   ReduceString(s2);
@@ -74,7 +74,7 @@ void COverwriteDialog::SetFileInfoControl(int textID, int iconID,
   {
     AddLangString(s, IDS_PROP_MTIME);
     s += ": ";
-    char t[32];
+    char t[64];
     ConvertUtcFileTimeToString(fileInfo.Time, t);
     s += t;
   }
@@ -96,17 +96,33 @@ void COverwriteDialog::SetFileInfoControl(int textID, int iconID,
 
 bool COverwriteDialog::OnInit()
 {
-  #ifdef LANG
+  #ifdef Z7_LANG
   LangSetWindowText(*this, IDD_OVERWRITE);
-  LangSetDlgItems(*this, kLangIDs, ARRAY_SIZE(kLangIDs));
+  LangSetDlgItems(*this, kLangIDs, Z7_ARRAY_SIZE(kLangIDs));
   #endif
   SetFileInfoControl(IDT_OVERWRITE_OLD_FILE_SIZE_TIME, IDI_OVERWRITE_OLD_FILE, OldFileInfo);
   SetFileInfoControl(IDT_OVERWRITE_NEW_FILE_SIZE_TIME, IDI_OVERWRITE_NEW_FILE, NewFileInfo);
   NormalizePosition();
+
+  if (!ShowExtraButtons)
+  {
+    HideItem(IDB_YES_TO_ALL);
+    HideItem(IDB_NO_TO_ALL);
+    HideItem(IDB_AUTO_RENAME);
+  }
+
+  if (DefaultButton_is_NO)
+  {
+    PostMsg(DM_SETDEFID, IDNO);
+    HWND h = GetItem(IDNO);
+    PostMsg(WM_NEXTDLGCTL, (WPARAM)h, TRUE);
+    // ::SetFocus(h);
+  }
+
   return CModalDialog::OnInit();
 }
 
-bool COverwriteDialog::OnButtonClicked(int buttonID, HWND buttonHWND)
+bool COverwriteDialog::OnButtonClicked(unsigned buttonID, HWND buttonHWND)
 {
   switch (buttonID)
   {
@@ -115,7 +131,7 @@ bool COverwriteDialog::OnButtonClicked(int buttonID, HWND buttonHWND)
     case IDB_YES_TO_ALL:
     case IDB_NO_TO_ALL:
     case IDB_AUTO_RENAME:
-      End(buttonID);
+      End((INT_PTR)buttonID);
       return true;
   }
   return CModalDialog::OnButtonClicked(buttonID, buttonHWND);

@@ -19,6 +19,8 @@ namespace NWindows {
 namespace NFile {
 namespace NSystem {
 
+#ifdef _WIN32
+
 bool MyGetVolumeInformation(
     CFSTR rootPath,
     UString &volumeName,
@@ -69,19 +71,26 @@ UINT MyGetDriveType(CFSTR pathName)
   }
 }
 
-typedef BOOL (WINAPI * GetDiskFreeSpaceExA_Pointer)(
+#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0400
+// GetDiskFreeSpaceEx requires Windows95-OSR2, NT4
+#define Z7_USE_DYN_GetDiskFreeSpaceEx
+#endif
+
+#ifdef Z7_USE_DYN_GetDiskFreeSpaceEx
+typedef BOOL (WINAPI * Func_GetDiskFreeSpaceExA)(
   LPCSTR lpDirectoryName,                  // directory name
   PULARGE_INTEGER lpFreeBytesAvailable,    // bytes available to caller
   PULARGE_INTEGER lpTotalNumberOfBytes,    // bytes on disk
   PULARGE_INTEGER lpTotalNumberOfFreeBytes // free bytes on disk
 );
 
-typedef BOOL (WINAPI * GetDiskFreeSpaceExW_Pointer)(
+typedef BOOL (WINAPI * Func_GetDiskFreeSpaceExW)(
   LPCWSTR lpDirectoryName,                 // directory name
   PULARGE_INTEGER lpFreeBytesAvailable,    // bytes available to caller
   PULARGE_INTEGER lpTotalNumberOfBytes,    // bytes on disk
   PULARGE_INTEGER lpTotalNumberOfFreeBytes // free bytes on disk
 );
+#endif
 
 bool MyGetDiskFreeSpace(CFSTR rootPath, UInt64 &clusterSize, UInt64 &totalSize, UInt64 &freeSize)
 {
@@ -90,12 +99,22 @@ bool MyGetDiskFreeSpace(CFSTR rootPath, UInt64 &clusterSize, UInt64 &totalSize, 
   #ifndef _UNICODE
   if (!g_IsNT)
   {
-    GetDiskFreeSpaceExA_Pointer pGetDiskFreeSpaceEx = (GetDiskFreeSpaceExA_Pointer)GetProcAddress(
-        GetModuleHandle(TEXT("kernel32.dll")), "GetDiskFreeSpaceExA");
-    if (pGetDiskFreeSpaceEx)
+#ifdef Z7_USE_DYN_GetDiskFreeSpaceEx
+    const
+    Func_GetDiskFreeSpaceExA f = Z7_GET_PROC_ADDRESS(
+    Func_GetDiskFreeSpaceExA, GetModuleHandle(TEXT("kernel32.dll")),
+        "GetDiskFreeSpaceExA");
+    if (f)
+#endif
     {
       ULARGE_INTEGER freeBytesToCaller2, totalSize2, freeSize2;
-      sizeIsDetected = BOOLToBool(pGetDiskFreeSpaceEx(fs2fas(rootPath), &freeBytesToCaller2, &totalSize2, &freeSize2));
+      sizeIsDetected = BOOLToBool(
+#ifdef Z7_USE_DYN_GetDiskFreeSpaceEx
+        f
+#else
+        GetDiskFreeSpaceExA
+#endif
+          (fs2fas(rootPath), &freeBytesToCaller2, &totalSize2, &freeSize2));
       totalSize = totalSize2.QuadPart;
       freeSize = freeSize2.QuadPart;
     }
@@ -105,12 +124,22 @@ bool MyGetDiskFreeSpace(CFSTR rootPath, UInt64 &clusterSize, UInt64 &totalSize, 
   else
   #endif
   {
-    GetDiskFreeSpaceExW_Pointer pGetDiskFreeSpaceEx = (GetDiskFreeSpaceExW_Pointer)GetProcAddress(
-        GetModuleHandle(TEXT("kernel32.dll")), "GetDiskFreeSpaceExW");
-    if (pGetDiskFreeSpaceEx)
+#ifdef Z7_USE_DYN_GetDiskFreeSpaceEx
+    const
+    Func_GetDiskFreeSpaceExW f = Z7_GET_PROC_ADDRESS(
+    Func_GetDiskFreeSpaceExW, GetModuleHandle(TEXT("kernel32.dll")),
+        "GetDiskFreeSpaceExW");
+    if (f)
+#endif
     {
       ULARGE_INTEGER freeBytesToCaller2, totalSize2, freeSize2;
-      sizeIsDetected = BOOLToBool(pGetDiskFreeSpaceEx(fs2us(rootPath), &freeBytesToCaller2, &totalSize2, &freeSize2));
+      sizeIsDetected = BOOLToBool(
+#ifdef Z7_USE_DYN_GetDiskFreeSpaceEx
+        f
+#else
+        GetDiskFreeSpaceExW
+#endif
+          (fs2us(rootPath), &freeBytesToCaller2, &totalSize2, &freeSize2));
       totalSize = totalSize2.QuadPart;
       freeSize = freeSize2.QuadPart;
     }
@@ -125,6 +154,8 @@ bool MyGetDiskFreeSpace(CFSTR rootPath, UInt64 &clusterSize, UInt64 &totalSize, 
   }
   return true;
 }
+
+#endif
 
 }}}
 

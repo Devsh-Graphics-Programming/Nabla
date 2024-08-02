@@ -1,7 +1,7 @@
 // Common/StringConvert.h
 
-#ifndef __COMMON_STRING_CONVERT_H
-#define __COMMON_STRING_CONVERT_H
+#ifndef ZIP7_INC_COMMON_STRING_CONVERT_H
+#define ZIP7_INC_COMMON_STRING_CONVERT_H
 
 #include "MyString.h"
 #include "MyWindows.h"
@@ -83,6 +83,28 @@ inline AString GetOemString(const UString &u)
 
 #ifndef UNDER_CE
 AString SystemStringToOemString(const CSysString &src);
+#endif
+
+
+#ifdef _WIN32
+/* we don't need locale functions in Windows
+   but we can define ENV_HAVE_LOCALE here for debug purposes */
+// #define ENV_HAVE_LOCALE
+#else
+#define ENV_HAVE_LOCALE
+#endif
+
+#ifdef ENV_HAVE_LOCALE
+void MY_SetLocale();
+const char *GetLocale(void);
+#endif
+
+#if !defined(_WIN32) || defined(ENV_HAVE_LOCALE)
+bool IsNativeUTF8();
+#endif
+
+#ifndef _WIN32
+extern bool g_ForceToUTF8;
 #endif
 
 #endif
