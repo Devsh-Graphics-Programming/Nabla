@@ -124,7 +124,7 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 				{
 					const auto index = findBindingStorageIndex(binding);
 					if (!index)
-						return IShader::ESS_UNKNOWN;
+						return IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 
 					return getStageFlags(index);
 				}
