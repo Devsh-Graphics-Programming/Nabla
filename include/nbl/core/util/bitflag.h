@@ -46,5 +46,8 @@ struct blake3_hasher::update_impl<core::bitflag<T>,Dummy>
 		hasher << input.value;
 	}
 };
+
+template<typename T>
+concept Bitflag = std::is_same_v<bitflag<typename T::enum_t>, T>;
 }
 #endif
