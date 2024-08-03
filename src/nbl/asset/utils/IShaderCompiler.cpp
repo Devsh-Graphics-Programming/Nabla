@@ -7,8 +7,6 @@
 
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
-#include "nbl/core/xxHash256.h"
-
 #include "nbl/asset/CVectorCPUBuffer.h"
 
 #include <sstream>

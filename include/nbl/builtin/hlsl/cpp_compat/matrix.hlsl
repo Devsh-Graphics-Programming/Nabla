@@ -72,6 +72,20 @@ NBL_TYPEDEF_MATRICES_FOR_SCALAR(float64_t);
 #undef NBL_TYPEDEF_MATRICES_FOR_ROW
 #undef NBL_TYPEDEF_MATRICES_FOR_SCALAR
 }
+
+#ifndef __HLSL_VERSION
+namespace core
+{
+template<typename T, uint16_t N, uint16_t M, typename Dummy>
+struct blake3_hasher::update_impl<hlsl::matrix<T,N,M>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const hlsl::matrix<T,N,M>& input)
+	{
+        hasher.update(&input,sizeof(input));
+	}
+};
+}
+#endif
 }
 
 #endif

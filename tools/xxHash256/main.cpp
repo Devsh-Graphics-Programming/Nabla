@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissionsand
 # limitations under the License.
 */
+#include "nbl/core/definitions.h"
 
 #include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <vector>
 #include <argparse/argparse.hpp>
-#include <nbl/core/xxHash256.h>
 
 constexpr std::string_view NBL_FILE_ARG = "--file";
 
