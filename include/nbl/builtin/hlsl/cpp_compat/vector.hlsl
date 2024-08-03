@@ -77,6 +77,7 @@ NBL_TYPEDEF_VECTORS(float64_t);
 #undef NBL_TYPEDEF_VECTORS
 }
 
+#ifndef __HLSL_VERSION 
 namespace core
 {
 template<typename T, uint16_t N, typename Dummy>
@@ -88,6 +89,6 @@ struct blake3_hasher::update_impl<hlsl::vector<T,N>,Dummy>
     }
 };
 }
+#endif
 }
-
 #endif
