@@ -1,4 +1,3 @@
-
 using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -57,7 +56,16 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shap
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
 
-FontFace::GlyphMetrics FontFace::getGlyphMetricss(uint32_t glyphId)
+FontFace::Metrics FontFace::getMetrics() const
+{
+	Metrics ret = {};
+	ret.height = float64_t(m_ftFace->height) * FreeTypeFontScaling;
+	ret.ascent = float64_t(m_ftFace->ascender) * FreeTypeFontScaling;
+	ret.descent = float64_t(m_ftFace->descender) * FreeTypeFontScaling;
+	return ret;
+}
+
+FontFace::GlyphMetrics FontFace::getGlyphMetrics(uint32_t glyphId)
 {
 	auto slot = getGlyphSlot(glyphId);
 

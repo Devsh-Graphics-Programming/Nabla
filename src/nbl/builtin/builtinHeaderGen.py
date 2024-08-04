@@ -1,19 +1,25 @@
 # Creates a header file for builtin resources
 
-# TODO: use argparse not this by-hand-shit
+import argparse, sys, os
 
-import sys, os
 
-if  len(sys.argv) < 8 :
-    print(sys.argv[0] + " - Incorrect argument count")
-else:
-    outputBuiltinPath = sys.argv[1]
-    outputArchivePath = sys.argv[2]
-    archiveBundlePath = sys.argv[3]
-    resourcesFile  = sys.argv[4]
-    resourcesNamespace = sys.argv[5]
-    guardSuffix = sys.argv[6]
-    isSharedLibrary = True if sys.argv[7] == "True" else False
+parser = argparse.ArgumentParser(description="Creates a c++ file for builtin resources that contains binary data of all resources")
+parser.add_argument('--outputBuiltinPath', required=True, help="output path of generated C++ builtin header source")
+parser.add_argument('--outputArchivePath', required=True, help="output path of generated C++ archive header source")
+parser.add_argument('--archiveBundlePath', required=True, help="path for an archive which will store a given bundle of builtin resources")
+parser.add_argument('--resourcesFile', required=True, help="path for a file which containins list of resources")
+parser.add_argument('--resourcesNamespace', required=True, help="a C++ namespace builtin resources will be wrapped into")
+parser.add_argument('--guardSuffix', required=True, help="include guard suffix name, for C header files")
+parser.add_argument('--isSharedLibrary', required=True, choices=["True", "False"])
+
+def execute(args):
+    outputBuiltinPath = args.outputBuiltinPath
+    outputArchivePath = args.outputArchivePath
+    archiveBundlePath = args.archiveBundlePath
+    resourcesFile = args.resourcesFile
+    resourcesNamespace = args.resourcesNamespace
+    guardSuffix = args.guardSuffix
+    isSharedLibrary = True if args.isSharedLibrary == "True" else False
     
     NBL_BR_API = "NBL_BR_API" if isSharedLibrary else ""
 
@@ -134,3 +140,7 @@ class {NBL_BR_API} CArchive final : public nbl::system::CFileArchive
     outp = open(outputArchivePath, "w+")
     outp.write(archiveHeader)
     outp.close()
+
+if __name__ == "__main__":
+    args: argparse.Namespace = parser.parse_args()
+    execute(args)

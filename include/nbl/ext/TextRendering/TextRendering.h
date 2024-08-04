@@ -7,10 +7,8 @@
 
 #include "nabla.h"
 
-#include "nbl/video/utilities/CPropertyPool.h"
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
-#include <nbl/ext/TextRendering/TextRendering.h>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
@@ -46,6 +44,12 @@ public:
 		auto error = FT_Init_FreeType(&m_ftLibrary);
 		assert(!error);
 	}
+
+	~TextRenderer()
+	{
+		auto error = FT_Done_FreeType(m_ftLibrary);
+		assert(!error);
+	}
 	
 	// TODO: Remove these here, it's only used for customized tests such as building shapes for hatches
 	const FT_Library& getFreetypeLibrary() const { return m_ftLibrary; }
@@ -59,11 +63,23 @@ protected:
 class FontFace : public nbl::core::IReferenceCounted
 {
 public:
+
+	// Face Global Metrics/Settings
+	struct Metrics
+	{
+		// This value is the vertical distance between two consecutive baselines, expressed in font units. It is always positive.
+		float64_t height;
+		// The distance from the baseline to the highest or upper grid coordinate used to place an outline point. It is a positive value.
+		float64_t ascent;
+		// The distance from the baseline to the lowest grid coordinate used to place an outline point. this is almost always a negative value.
+		float64_t descent;
+	};
+
 	struct GlyphMetrics
 	{
 		// Offset that should be applied to the current baseline after this glyph is placed
 		float64_t2 advance;
-		// Offset that the image of the glyph should be placed from the current baseline start, horizontal refers to horizonral LTR or RTL Languages
+		// Offset of the glyph's top left from the current baseline start, horizontal refers to horizonral LTR or RTL Languages
 		float64_t2 horizontalBearing;
 		// Size of the glyph in the text line
 		float64_t2 size;
@@ -79,6 +95,12 @@ public:
 		m_hash = std::hash<std::string>{}(path);
 	}
 
+	~FontFace()
+	{
+		auto error = FT_Done_Face(m_ftFace);
+		assert(!error);
+	}
+
 	static constexpr uint32_t InvalidGlyphIndex = ~0u;
 
 	uint32_t getGlyphIndex(wchar_t unicode)
@@ -91,7 +113,9 @@ public:
 		return FT_Get_Char_Index(m_ftFace, unicode);
 	}
 
-	GlyphMetrics getGlyphMetricss(uint32_t glyphId);
+	Metrics getMetrics() const;
+
+	GlyphMetrics getGlyphMetrics(uint32_t glyphId);
 
 	// returns the cpu buffer for the generated MSDF texture with "TextRenderer::MSDFTextureFormat" format
 	// it will place the glyph in the center of msdfExtents considering the margin of msdfPixelRange
@@ -142,7 +166,7 @@ public:
 	void lineTo(const float64_t2 to)
 	{
 		if (to != lastPosition) {
-			currentContour->addEdge(new msdfgen::LinearSegment(msdfPoint(lastPosition), msdfPoint(to)));
+			currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(to)));
 			lastPosition = to;
 		}
 	}
@@ -151,7 +175,7 @@ public:
 	// [last position, control, end]
 	void quadratic(const float64_t2 control, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::QuadraticSegment(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
 		lastPosition = to;
 	}
 
@@ -159,7 +183,7 @@ public:
 	// [last position, control1, control2, end]
 	void cubic(const float64_t2 control1, const float64_t2 control2, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::CubicSegment(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
 		lastPosition = to;
 	}
 

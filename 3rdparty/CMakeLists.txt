@@ -30,6 +30,7 @@ add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not tr
 
 # msdfgen
 set(MSDFGEN_USE_VCPKG OFF)
+set(MSDFGEN_USE_SKIA OFF)
 set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
 set(MSDFGEN_INSTALL OFF)
 set(MSDFGEN_BUILD_STANDALONE OFF)
