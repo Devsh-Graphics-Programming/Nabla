@@ -85,13 +85,14 @@ std::vector<core::smart_refctd_ptr<ICPUBuffer>> FontFace::generateGlyphMSDF(uint
 		uint32_t mipW = textureExtents.x / (1 << i);
 		uint32_t mipH = textureExtents.y / (1 << i);
 		float32_t2 mipExtents = float32_t2(float(mipW), float(mipH));
+		uint32_t mipPixelRange = msdfPixelRange / (1 << i);
 
 		float32_t2 frameSize = float32_t2(
 			(shapeBounds.r - shapeBounds.l),
 			(shapeBounds.t - shapeBounds.b)
 		);
 
-		const float32_t2 margin = float32_t2((msdfPixelRange / (1 << i)) * 2.0f);
+		const float32_t2 margin = float32_t2(mipPixelRange * 2);
 		const float32_t2 nonUniformScale = (mipExtents - margin) / frameSize;
 		const float32_t uniformScale = core::min(nonUniformScale.x, nonUniformScale.y);
 		
@@ -103,7 +104,7 @@ std::vector<core::smart_refctd_ptr<ICPUBuffer>> FontFace::generateGlyphMSDF(uint
 		const float32_t2 shapeSpaceCenter = float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
 		const float32_t2 translate = mipExtents / (float32_t2(2.0) * uniformScale) - shapeSpaceCenter;
 
-		buffers.push_back(m_textRenderer->generateShapeMSDF(shape, msdfPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate));
+		buffers.push_back(m_textRenderer->generateShapeMSDF(shape, mipPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate));
 	}
 	return buffers;
 }
