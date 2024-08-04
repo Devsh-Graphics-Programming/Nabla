@@ -76,6 +76,8 @@ struct SBufferBinding
 	inline operator SBufferBinding<const BufferType>&() {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
 	inline operator const SBufferBinding<const BufferType>&() const {return *reinterpret_cast<const SBufferBinding<const BufferType>*>(this);}
 
+	explicit inline operator bool() const {return isValid();}
+
 	inline bool isValid() const
 	{
 		return buffer && (offset<buffer->getSize());
@@ -97,6 +99,8 @@ struct SBufferRange
 	
 	inline operator SBufferRange<const BufferType>&() {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
 	inline operator const SBufferRange<const BufferType>&() const {return *reinterpret_cast<const SBufferRange<const BufferType>*>(this);}
+
+	explicit inline operator bool() const {return isValid();}
 
 	inline bool isValid() const
 	{

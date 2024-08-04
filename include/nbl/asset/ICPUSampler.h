@@ -67,8 +67,6 @@ class ICPUSampler : public ISampler, public IAsset
             return core::make_smart_refctd_ptr<ICPUSampler>(m_params);
         }
 
-		constexpr static inline bool HasDependents = false;
-
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 		

@@ -25,8 +25,6 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			return core::make_smart_refctd_ptr<ICPUBufferView>(SBufferRange<ICPUBuffer>{m_offset,m_size,m_buffer},m_format);
         }
 
-		constexpr static inline bool HasDependents = true;
-
 		constexpr static inline auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 

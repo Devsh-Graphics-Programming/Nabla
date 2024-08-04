@@ -39,8 +39,6 @@ class ICPUShader : public IAsset, public IShader
 			memcpy(m_code->getPointer(), code, m_code->getSize());
 		}
 
-		constexpr static inline bool HasDependents = false;
-
 		constexpr static inline auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 

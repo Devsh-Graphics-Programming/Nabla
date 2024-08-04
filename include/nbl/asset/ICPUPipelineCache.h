@@ -12,12 +12,12 @@
 namespace nbl::asset
 {
 
-class ICPUPipelineCache final : public IAsset // TODO: PreHashed ?
+class ICPUPipelineCache final : public IPreHashed
 {
 	public:
 		struct SCacheKey
 		{
-			std::string deviceAndDriverUUID = {};
+			core::string deviceAndDriverUUID = {};
 			core::smart_refctd_dynamic_array<uint8_t> meta = {};
 
 			bool operator<(const SCacheKey& _rhs) const
@@ -41,12 +41,15 @@ class ICPUPipelineCache final : public IAsset // TODO: PreHashed ?
 		using entries_map_t = core::map<SCacheKey,SCacheVal>;
 
 		// ctor
-		explicit ICPUPipelineCache(entries_map_t&& _entries) : m_cache(std::move(_entries)) {}
-
-		//
-		const auto& getEntries() const {return m_cache;}
-
-		constexpr static inline bool HasDependents = false;
+		explicit inline ICPUPipelineCache(entries_map_t&& _entries) : m_cache(std::move(_entries))
+		{
+			if (!missingContent())
+				setContentHash(computeContentHash());
+		}
+		explicit inline ICPUPipelineCache(entries_map_t&& _entries, const core::blake3_hash_t& contentHash) : m_cache(std::move(_entries))
+		{
+			setContentHash(contentHash);
+		}
 		
 		constexpr static inline auto AssetType = ET_PIPELINE_CACHE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
@@ -59,8 +62,37 @@ class ICPUPipelineCache final : public IAsset // TODO: PreHashed ?
 
 		inline size_t getDependantCount() const override {return 0;}
 
+		//
+		inline core::blake3_hash_t computeContentHash() const override
+		{
+			core::blake3_hasher hasher;
+			for (const auto& entry : m_cache)
+			{
+				hasher << entry.second.bin->size();
+				hasher.update(entry.second.bin->data(),entry.second.bin->size());
+			}
+			return static_cast<core::blake3_hash_t>(hasher);
+		}
+
+		inline bool missingContent() const override
+		{
+			for (const auto& entry : m_cache)
+			if (!entry.second.bin)
+				return true;
+			return false;
+		}
+
+		//
+		const auto& getEntries() const {return m_cache;}
+
 	protected:
 		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
+		inline void discardContent_impl() override
+		{
+			for (auto& entry : m_cache)
+				entry.second.bin = nullptr;
+		}
 
 	private:
 		entries_map_t m_cache;

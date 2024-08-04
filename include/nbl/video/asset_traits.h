@@ -27,12 +27,27 @@ namespace nbl::video
 template<asset::Asset AssetType>
 struct asset_traits;
 
-//! Pipelines
+
+template<>
+struct asset_traits<asset::ICPUSampler>
+{
+	// the asset type
+	using asset_t = asset::ICPUSampler;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUSampler;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 template<>
 struct asset_traits<asset::ICPUShader>
 {
 	// the asset type
 	using asset_t = asset::ICPUShader;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
 	// the video type
 	using video_t = IGPUShader;
 	// lookup type
@@ -44,6 +59,8 @@ struct asset_traits<asset::ICPUDescriptorSetLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUDescriptorSetLayout;
+	// DS layout can have immutable samplers
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUDescriptorSetLayout;
 	// lookup type
@@ -55,27 +72,56 @@ struct asset_traits<asset::ICPUPipelineLayout>
 {
 	// the asset type
 	using asset_t = asset::ICPUPipelineLayout;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUPipelineLayout;
 	// lookup type
 	using lookup_t = const video_t*;
 };
-/*
+
+template<>
+struct asset_traits<asset::ICPUPipelineCache>
+{
+	// the asset type
+	using asset_t = asset::ICPUPipelineCache;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUPipelineCache;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUComputePipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUComputePipeline;
+	// Pipeline Layout references Descriptor Set Layouts
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUComputePipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 /*
 template<>
 struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = IGPUDescriptorSetLayout; };
-
-template<>
-struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = IGPUComputePipeline; };
 */
 
 template<>
 struct asset_traits<asset::ICPUBuffer>
 {
+	// the asset type
 	using asset_t = asset::ICPUBuffer;
-	using video_t = asset::SBufferRange<IGPUBuffer>;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUBuffer;
 	// lookup type
-	using lookup_t = video_t;
+	using lookup_t = const video_t*;
 };
 
 template<>
@@ -83,6 +129,8 @@ struct asset_traits<asset::ICPUBufferView>
 {
 	// the asset type
 	using asset_t = asset::ICPUBufferView;
+	// depends on ICPUBuffer
+	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUBufferView;
 	// lookup type
@@ -97,17 +145,6 @@ struct asset_traits<asset::ICPUImage> { using GPUObjectType = IGPUImage; };
 template<>
 struct asset_traits<asset::ICPUImageView> { using GPUObjectType = IGPUImageView; };
 */
-
-template<>
-struct asset_traits<asset::ICPUSampler>
-{
-	// the asset type
-	using asset_t = asset::ICPUSampler;
-	// the video type
-	using video_t = IGPUSampler;
-	// lookup type
-	using lookup_t = const video_t*;
-};
 
 /*
 template<>
@@ -149,6 +186,11 @@ struct asset_cached_t final
 		inline bool operator==(const this_t& other) const
 		{
 			return value==other.value;
+		}
+
+		explicit inline operator bool() const
+		{
+			return bool(get());
 		}
 
 		inline const auto& get() const

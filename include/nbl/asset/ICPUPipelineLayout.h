@@ -73,8 +73,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             );
         }
 
-        static inline constexpr bool HasDependents = true;
-
         static inline constexpr auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
