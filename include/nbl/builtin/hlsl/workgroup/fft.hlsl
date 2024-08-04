@@ -219,8 +219,9 @@ struct FFT<K, true, Scalar, device_capabilities>
         }
         accessor = offsetAccessor.accessor;
       
-        for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ << 1; stride <= (K >> 1) * _NBL_HLSL_WORKGROUP_SIZE_; stride <<= 1)
+        for (uint32_t stride = 2 * _NBL_HLSL_WORKGROUP_SIZE_; stride < K * _NBL_HLSL_WORKGROUP_SIZE_; stride <<= 1)
         {
+            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
             //[unroll(K/2)]
             for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (K >> 1) * _NBL_HLSL_WORKGROUP_SIZE_; virtualThreadID += _NBL_HLSL_WORKGROUP_SIZE_)
             {
@@ -243,7 +244,7 @@ struct FFT<K, true, Scalar, device_capabilities>
                 accessor.set(loIx, lo);
                 accessor.set(hiIx, hi);
             }
-            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
+           
         }
         
     }
