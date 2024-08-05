@@ -226,8 +226,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Utility wrapper for the pointer based func
         inline bool flushMappedMemoryRanges(const std::span<const MappedMemoryRange>& ranges)
         {
-            if (invalidMappedRanges(ranges))
+            if (invalidMappedRanges(ranges)) {
+                m_logger.log("Invalid memory range [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__ , __FILE__, __LINE__);
                 return false;
+            }
             return flushMappedMemoryRanges_impl(ranges);
         }
         // For memory allocations without the video::IDeviceMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible
@@ -238,8 +240,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Utility wrapper for the pointer based func
         inline bool invalidateMappedMemoryRanges(const std::span<const MappedMemoryRange> ranges)
         {
-            if (invalidMappedRanges(ranges))
+            if (invalidMappedRanges(ranges)) {
+                m_logger.log("Invalid memory range [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             return invalidateMappedMemoryRanges_impl(ranges);
         }
         //!
@@ -334,8 +338,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
-            if (!params.image->wasCreatedBy(this))
+            if (!params.image->wasCreatedBy(this)) {
+                m_logger.log("Invalid image was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             // TODO: @Cyprian validation of params against the device's limits (sample counts, etc.) see vkCreateImage
             return createImageView_impl(std::move(params));
         }
@@ -344,16 +350,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // acceleration structures
         inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
         {
-            if (invalidCreationParams(params))
+            if (invalidCreationParams(params)) {
+                m_logger.log("Invalid creation parameters [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             return createBottomLevelAccelerationStructure_impl(std::move(params));
         }
         inline core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure(IGPUTopLevelAccelerationStructure::SCreationParams&& params)
         {
-            if (invalidCreationParams(params))
+            if (invalidCreationParams(params)) {
+                m_logger.log("Invalid creation parameters [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && (params.maxInstanceCount==0u || params.maxInstanceCount>getPhysicalDeviceLimits().maxAccelerationStructureInstanceCount))
+            }
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && (params.maxInstanceCount == 0u || params.maxInstanceCount > getPhysicalDeviceLimits().maxAccelerationStructureInstanceCount)) {
+                m_logger.log("Invalid creation parameters [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             return createTopLevelAccelerationStructure_impl(std::move(params));
         }
 
@@ -381,27 +393,37 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
-            if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur))
+            if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur)) {
+                m_logger.log("Required features are not supported by the device [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, m_enabledFeatures)) {
+                m_logger.log("Invalid build flags [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-            if (geometries.empty() && !pMaxPrimitiveCounts)
+            if (geometries.empty() && !pMaxPrimitiveCounts) {
+                m_logger.log("Invalid parameters, no geometry or primitives were specified [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-            if (geometries.size()>limits.maxAccelerationStructureGeometryCount)
+            if (geometries.size() > limits.maxAccelerationStructureGeometryCount) {
+                m_logger.log("Geometry count exceeds device limit [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             // not sure of VUID
             uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
 			for (auto i=0u; i<geometries.size(); i++)
             {
-			    if (pMaxPrimitiveCounts[i]>primsFree)
+                if (pMaxPrimitiveCounts[i] > primsFree) {
+                    m_logger.log("Primitive count exceeds device limit [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
 				    return {};
+                }
                 primsFree -= pMaxPrimitiveCounts[i];
             }
 
@@ -414,16 +436,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const uint32_t maxInstanceCount
         ) const
         {
-            if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur))
+            if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur)) {
+                m_logger.log("Required features are not supported by the device [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
-            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags))
+            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags)) {
+                m_logger.log("Invalid build flags [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
-            if (maxInstanceCount>limits.maxAccelerationStructureInstanceCount)
+            if (maxInstanceCount > limits.maxAccelerationStructureInstanceCount) {
+                m_logger.log("maxInstanceCount exceeds device limits [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             return getAccelerationStructureBuildSizes_impl(hostBuild,flags,motionBlur,maxInstanceCount);
         }
@@ -452,24 +480,33 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const typename AccelerationStructure::DirectBuildRangeRangeInfos pDirectBuildRangeRangeInfos
         )
         {
-            if (!acquireDeferredOperation(deferredOperation))
+            if (!acquireDeferredOperation(deferredOperation)) {
+                //TODO: disambiguate this log
+                m_logger.log("Couldn't acquire deferred operation [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-accelerationStructureHostCommands-03581
-            if (!m_enabledFeatures.accelerationStructureHostCommands)
+            if (!m_enabledFeatures.accelerationStructureHostCommands) {
+                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-infoCount-arraylength
-            if (infos.empty())
+            if (infos.empty()) {
+                m_logger.log("Invalid parameters, infos may not be empty [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
 
             uint32_t trackingReservation = 0; 
             uint32_t totalGeometryCount = 0; 
             for (auto i=0u; i<infos.size(); i++)
             {
                 const auto toTrack = infos[i].valid(pDirectBuildRangeRangeInfos[i]);
-                if (!toTrack)
+                if (!toTrack) {
+                    m_logger.log("Invalid info structure (infos[%u]) was given [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return false;
+                }
                 trackingReservation += toTrack;
                 totalGeometryCount += infos[i].inputCount();
             }
@@ -489,8 +526,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // write out props, the length of the bugger pointed to by `data` must be `>=count*stride`
         inline bool writeAccelerationStructuresProperties(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride=alignof(size_t))
         {
-            if (stride<sizeof(size_t) || !core::is_aligned_to(stride, alignof(size_t)))
+            if (stride < sizeof(size_t) || !core::is_aligned_to(stride, alignof(size_t))) {
+                m_logger.log("Invalid stride, must be a multiply of (%llu-byte) alignment [%s - %s:%p]", system::ILogger::ELL_ERROR, alignof(size_t), __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             switch (type)
             {
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
@@ -499,40 +538,59 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
                     break;
                 default:
+                    m_logger.log("Invalid query pool type [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                     break;
             }
-            if (!getEnabledFeatures().accelerationStructureHostCommands)
+            if (!getEnabledFeatures().accelerationStructureHostCommands) {
+                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             for (const auto& as : accelerationStructures)
-            if (invalidAccelerationStructureForHostOperations(as))
-                return false;
+                if (invalidAccelerationStructureForHostOperations(as)) {
+                    m_logger.log("Invalid acceleration structure for host operations [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                    return false;
+                }
             // unfortunately cannot validate if they're built and if they're built with the right flags
             return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
         // Host-side copy, DEFERRAL IS NOT OPTIONAL
         inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
         {
-            if (!acquireDeferredOperation(deferredOperation))
+            if (!acquireDeferredOperation(deferredOperation)) {
+                //TODO: disambiguate this log
+                m_logger.log("Couldn't acquire deferred operation [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (invalidAccelerationStructureForHostOperations(copyInfo.src) || invalidAccelerationStructureForHostOperations(copyInfo.dst))
+            }
+            if (invalidAccelerationStructureForHostOperations(copyInfo.src) || invalidAccelerationStructureForHostOperations(copyInfo.dst)) {
+                m_logger.log("Invalid Acceleration Structure for host operations [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             auto result = copyAccelerationStructure_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
                 });
+            
+
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
-            if (!acquireDeferredOperation(deferredOperation))
+            if (!acquireDeferredOperation(deferredOperation)) {
+                //TODO: disambiguate this log
+                m_logger.log("Couldn't acquire deferred operation [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (invalidAccelerationStructureForHostOperations(copyInfo.src))
+            }
+            if (invalidAccelerationStructureForHostOperations(copyInfo.src)) {
+                m_logger.log("Invalid Acceleration Structure for host operations [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (!core::is_aligned_to(ptrdiff_t(copyInfo.dst.buffer->getPointer())+copyInfo.dst.offset,16u))
+            }
+            if (!core::is_aligned_to(ptrdiff_t(copyInfo.dst.buffer->getPointer()) + copyInfo.dst.offset, 16u)) {
+                m_logger.log("Destination address is not aligned [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             auto result = copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
@@ -543,12 +601,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
-            if (!acquireDeferredOperation(deferredOperation))
+            if (!acquireDeferredOperation(deferredOperation)) {
+                //TODO: disambiguate this log
+                m_logger.log("Couldn't acquire deferred operation [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (!core::is_aligned_to(ptrdiff_t(copyInfo.src.buffer->getPointer())+copyInfo.src.offset,16u))
+            }
+            if (!core::is_aligned_to(ptrdiff_t(copyInfo.src.buffer->getPointer()) + copyInfo.src.offset, 16u)) {
+                m_logger.log("Source address is not aligned [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (invalidAccelerationStructureForHostOperations(copyInfo.dst))
+            }
+            if (invalidAccelerationStructureForHostOperations(copyInfo.dst)) {
+                m_logger.log("Invalid acceleration structure for host operations [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             auto result = copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
@@ -582,17 +647,27 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
         {
-            if (_layout0 && !_layout0->wasCreatedBy(this))
+            if ((_layout0 && !_layout0->wasCreatedBy(this))) {
+                m_logger.log("Invalid layout was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
-            if (_layout1 && !_layout1->wasCreatedBy(this))
+            }
+            if (_layout1 && !_layout1->wasCreatedBy(this)) {
+                m_logger.log("Invalid layout was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
-            if (_layout2 && !_layout2->wasCreatedBy(this))
+            }
+            if (_layout2 && !_layout2->wasCreatedBy(this)) {
+                m_logger.log("Invalid layout was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
-            if (_layout3 && !_layout3->wasCreatedBy(this))
+            }
+            if (_layout3 && !_layout3->wasCreatedBy(this)) {
+                m_logger.log("Invalid layout was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             // sanity check
-            if (pcRanges.size()>getPhysicalDeviceLimits().maxPushConstantsSize*MaxStagesPerPipeline)
+            if (pcRanges.size() > getPhysicalDeviceLimits().maxPushConstantsSize * MaxStagesPerPipeline) {
+                m_logger.log("Number of push constants ranges exceeds device limits [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
             uint32_t maxPCByte = 0u;
             for (auto range : pcRanges)
@@ -600,8 +675,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 stages |= range.stageFlags;
                 maxPCByte = core::max(range.offset+range.size,maxPCByte);
             }
-            if (maxPCByte>getPhysicalDeviceLimits().maxPushConstantsSize)
+            if (maxPCByte > getPhysicalDeviceLimits().maxPushConstantsSize) {
+                m_logger.log("Push constants size exceeds device limit [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             // TODO: validate `stages` against the supported ones as reported by enabled features
             return createPipelineLayout_impl(pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3));
         }
@@ -609,15 +686,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Descriptor Sets
         inline core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(const IDescriptorPool::SCreateInfo& createInfo)
         {
-            if (createInfo.maxSets==0u)
+            if (createInfo.maxSets == 0u) {
+                m_logger.log("Invalid maxSets, must be greater than 0 [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             // its also not useful to have pools with zero descriptors
             uint32_t t = 0;
             for (; t<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
             if (createInfo.maxDescriptorCount[t])
                 break;
-            if (t==static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT))
+            if (t == static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)) {
+                m_logger.log("Invalid maxDescriptorCount, must greater than 0 [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
             return createDescriptorPool_impl(createInfo);
         }
         // utility func
@@ -663,16 +744,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params)
         {
             // this validate already checks that Renderpass device creator matches with the images
-            if (!params.validate())
+            if (!params.validate()) {
+                m_logger.log("Invalid parameters were given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
 
-            if (params.width>getPhysicalDeviceLimits().maxFramebufferWidth ||
-                params.height>getPhysicalDeviceLimits().maxFramebufferHeight ||
-                params.layers>getPhysicalDeviceLimits().maxFramebufferLayers)
+            if (params.width > getPhysicalDeviceLimits().maxFramebufferWidth ||
+                params.height > getPhysicalDeviceLimits().maxFramebufferHeight ||
+                params.layers > getPhysicalDeviceLimits().maxFramebufferLayers) {
+                m_logger.log("Parameters exceed device limits [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
 
-            if (!params.renderpass->wasCreatedBy(this))
+            if (!params.renderpass->wasCreatedBy(this)) {
+                m_logger.log("Invalid renderpass was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
 
             // We won't support linear attachments
             auto anyNonOptimalTiling = [](const IGPUImageView* const* attachments, const uint32_t count)->bool
@@ -682,10 +769,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return true;
                 return false;
             };
-            if (anyNonOptimalTiling(params.depthStencilAttachments,params.renderpass->getDepthStencilAttachmentCount()))
+            if (anyNonOptimalTiling(params.depthStencilAttachments, params.renderpass->getDepthStencilAttachmentCount())) {
+                m_logger.log("Linear attachments are not supported [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
-            if (anyNonOptimalTiling(params.colorAttachments,params.renderpass->getColorAttachmentCount()))
+            }
+            if (anyNonOptimalTiling(params.colorAttachments, params.renderpass->getColorAttachmentCount())) {
+                m_logger.log("Linear attachments are not supported [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
+            }
 
             // Impossible to check:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-initialLayout-03100
@@ -725,15 +816,21 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
             {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
-                if (!info.shader->wasCreatedBy(this))
+                if (!info.shader->wasCreatedBy(this)) {
+                    m_logger.log("Invalid shader was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
+                }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-                if (info.requiredSubgroupSize>=IGPUShader::SSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.shader->getStage()))
+                if (info.requiredSubgroupSize >= IGPUShader::SSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.shader->getStage())) {
+                    m_logger.log("Invalid shader stage [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
+                }
                 return true;
             });
-            if (!specConstantValidation)
+            if (!specConstantValidation) {
+                m_logger.log("Invalid parameters were given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
 
             createComputePipelines_impl(pipelineCache,params,output,specConstantValidation);
             
@@ -741,8 +838,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (auto i=0u; i<params.size(); i++)
             {
                 const char* debugName = params[i].shader.shader->getObjectDebugName();
-                if (!output[i])
+                if (!output[i]) {
+                    m_logger.log("ComputeShader was not created (params[%u]) [%s - %s:%p]", system::ILogger::ELL_ERROR , i, __FUNCTION__, __FILE__, __LINE__);
                     retval = false;
+                }
                 else if (debugName && debugName[0])
                     output[i]->setObjectDebugName(debugName);
             }
@@ -761,17 +860,22 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             switch (params.queryType)
             {
                 case IQueryPool::TYPE::PIPELINE_STATISTICS:
-                    if (!getEnabledFeatures().pipelineStatisticsQuery)
+                    if (!getEnabledFeatures().pipelineStatisticsQuery) {
+                        m_logger.log("Pipeline statistics feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return nullptr;
+                    }
                     break;
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
-                    if (!getEnabledFeatures().accelerationStructure)
+                    if (!getEnabledFeatures().accelerationStructure) {
+                        m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return nullptr;
+                    }
                     break;
                 default:
+                    m_logger.log("Unsupported query pool type [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return nullptr;
             }
             return createQueryPool_impl(params);
@@ -779,14 +883,23 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // `pData` must be sufficient to store the results (@see `IQueryPool::calcQueryResultsSize`)
         inline bool getQueryPoolResults(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
         {
-            if (!queryPool || !queryPool->wasCreatedBy(this))
+            if (!queryPool || !queryPool->wasCreatedBy(this)) {
+                m_logger.log("Invalid query pool was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
+            }
+            if (firstQuery + queryCount >= queryPool->getCreationParameters().queryCount) {
+                m_logger.log("Query index out of bounds [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (stride&((flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t):alignof(uint32_t))-1))
+            }
+            if (stride & ((flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t) : alignof(uint32_t)) - 1)) {
+                auto aligment = (flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t) : alignof(uint32_t));
+                m_logger.log("Invalid stride, must be a multiply of the (%llu-byte) alignment [%s - %s:%p]", system::ILogger::ELL_ERROR, aligment, __FUNCTION__, __FILE__, __LINE__);
                 return false;
-            if (queryPool->getCreationParameters().queryType==IQueryPool::TYPE::TIMESTAMP && flags.hasFlags(IQueryPool::RESULTS_FLAGS::PARTIAL_BIT))
+            }
+            if (queryPool->getCreationParameters().queryType == IQueryPool::TYPE::TIMESTAMP && flags.hasFlags(IQueryPool::RESULTS_FLAGS::PARTIAL_BIT)) {
+                m_logger.log("Invalid query flag, partial results are not allowed for any timestamp pool [%s - %s:%p]", system::ILogger::ELL_ERROR, __FILE__, __FUNCTION__, __LINE__);
                 return false;
+            }
             return getQueryPoolResults_impl(queryPool,firstQuery,queryCount,pData,stride,flags);
         }
 
@@ -795,6 +908,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             if (getQueueCount(familyIx)!=0)
                 return createCommandPool_impl(familyIx,flags);
+
+            m_logger.log("Family index out of bounds [%s - %s:%p]", system::ILogger::ELL_ERROR, __FILE__, __FUNCTION__, __LINE__);
             return nullptr;
         }
 
