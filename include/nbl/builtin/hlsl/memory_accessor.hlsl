@@ -16,72 +16,42 @@ struct MemoryAdaptor
 {
     BaseAccessor accessor;
     
-    // TODO: template all get,set, atomic... then add static_asserts of `has_method<BaseAccessor,signature>::value`, do vectors and matrices in terms of each other
-    uint get(const uint ix) { return accessor.get(ix); }
-    void get(const uint ix, NBL_REF_ARG(uint) value) { value = accessor.get(ix);}
-    void get(const uint ix, NBL_REF_ARG(uint2) value) { value = uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_));}
-    void get(const uint ix, NBL_REF_ARG(uint3) value) { value = uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_));}
-    void get(const uint ix, NBL_REF_ARG(uint4) value) { value = uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_));}
+    // TODO: template atomic... then add static_asserts of `has_method<BaseAccessor,signature>::value`, do vectors and matrices in terms of each other
+    uint get(const uint ix) 
+    { 
+        uint retVal;
+        accessor.get(ix, retVal);
+        return retVal; 
+    }
 
-    void get(const uint ix, NBL_REF_ARG(int) value) { value = asint(accessor.get(ix));}
-    void get(const uint ix, NBL_REF_ARG(int2) value) { value = asint(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, NBL_REF_ARG(int3) value) { value = asint(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, NBL_REF_ARG(int4) value) { value = asint(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
+    template<typename Scalar>
+    void get(const uint ix, NBL_REF_ARG(Scalar) value) { accessor.get(ix, value);}
+    template<typename Scalar>
+    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) { accessor.get(ix, value.x), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y);}
+    template<typename Scalar>    
+    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) { accessor.get(ix, value.x), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, value.z);}
+    template<typename Scalar>   
+    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) { accessor.get(ix, value.x), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, value.z), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, value.w);}
 
-    void get(const uint ix, NBL_REF_ARG(float) value) { value = asfloat(accessor.get(ix));}
-    void get(const uint ix, NBL_REF_ARG(float2) value) { value = asfloat(uint2(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, NBL_REF_ARG(float3) value) { value = asfloat(uint3(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_)));}
-    void get(const uint ix, NBL_REF_ARG(float4) value) { value = asfloat(uint4(accessor.get(ix), accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_), accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_)));}
-
-    void set(const uint ix, const uint value) {accessor.set(ix, value);}
-    void set(const uint ix, const uint2 value) {
+    template<typename Scalar>
+    void set(const uint ix, const Scalar value) {accessor.set(ix, value);}
+    template<typename Scalar>    
+    void set(const uint ix, const vector <Scalar, 2> value) {
         accessor.set(ix, value.x);
         accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y);
     }
-    void set(const uint ix, const uint3 value)  {
+    template<typename Scalar>
+    void set(const uint ix, const <Scalar, 3> value)  {
         accessor.set(ix, value.x);
         accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y);
         accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, value.z);
     }
-    void set(const uint ix, const uint4 value) {
+    template<typename Scalar>
+    void set(const uint ix, const <Scalar, 4> value) {
         accessor.set(ix, value.x);
         accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, value.y);
         accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, value.z);
         accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, value.w);
-    }
-
-    void set(const uint ix, const int value) {accessor.set(ix, asuint(value));}
-    void set(const uint ix, const int2 value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-    }
-    void set(const uint ix, const int3 value)  {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-    }
-    void set(const uint ix, const int4 value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-        accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
-    }
-
-    void set(const uint ix, const float value) {accessor.set(ix, asuint(value));}
-    void set(const uint ix, const float2 value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-    }
-    void set(const uint ix, const float3 value)  {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-    }
-    void set(const uint ix, const float4 value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-        accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
     }
     
     void atomicAnd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
