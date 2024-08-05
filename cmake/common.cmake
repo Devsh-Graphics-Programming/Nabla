@@ -314,7 +314,10 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		)
 	endif()
 	
-	nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")	
+	if(LIB_HEADERS)
+		nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")
+	endif()	
+	
 	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"

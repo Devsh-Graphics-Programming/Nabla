@@ -260,7 +260,10 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
 {
     if (!creationParams.cpushader)
+    {
+        m_logger.log("No valid CPU Shader supplied",system::ILogger::ELL_ERROR);
         return nullptr;
+    }
 
     const asset::IShader::E_SHADER_STAGE shaderStage = creationParams.cpushader->getStage();
     const auto& features = getEnabledFeatures();
@@ -272,36 +275,46 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
     switch (shaderStage)
     {
-        case IGPUShader::ESS_VERTEX:
+        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX:
             break;
-        case IGPUShader::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-        case IGPUShader::ESS_TESSELLATION_EVALUATION:
+        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
             if (!features.tessellationShader)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
-        case IGPUShader::ESS_GEOMETRY:
+        case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
             if (!features.geometryShader)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
-        case IGPUShader::ESS_FRAGMENT: [[fallthrough]];
-        case IGPUShader::ESS_COMPUTE:
+        case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
             break;
         // unsupported yet
-        case IGPUShader::ESS_TASK: [[fallthrough]];
-        case IGPUShader::ESS_MESH:
+        case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_MESH:
             return nullptr;
             break;
-        case IGPUShader::ESS_RAYGEN: [[fallthrough]];
-        case IGPUShader::ESS_ANY_HIT: [[fallthrough]];
-        case IGPUShader::ESS_CLOSEST_HIT: [[fallthrough]];
-        case IGPUShader::ESS_MISS: [[fallthrough]];
-        case IGPUShader::ESS_INTERSECTION: [[fallthrough]];
-        case IGPUShader::ESS_CALLABLE:
+        case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
             if (!features.rayTracingPipeline)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
         default:
             // Implicit unsupported stages or weird multi-bit stage enum values
+            m_logger.log("Unknown Shader Stage %d",system::ILogger::ELL_ERROR,shaderStage);
             return nullptr;
             break;
     }
@@ -343,12 +356,18 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
             spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
 
         if (!spirvShader)
+        {
+            m_logger.log("SPIR-V Compilation from non SPIR-V shader %p failed.",system::ILogger::ELL_ERROR,creationParams.cpushader);
             return nullptr;
+        }
     }
 
     auto spirv = spirvShader->getContent();
     if (!spirv)
+    {
+        m_logger.log("SPIR-V Compilation from non SPIR-V shader %p failed.",system::ILogger::ELL_ERROR,creationParams.cpushader);
         return nullptr;
+    }
 
     // for debugging 
     if constexpr (true)
@@ -653,7 +672,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         if (subpass.colorAttachments[j].render.used())
             return nullptr;
         // TODO: support `VK_EXT_multisampled_render_to_single_sampled`
-        auto samplesForAllColor = (depthSamples>IGPUImage::ESCF_64_BIT||mixedAttachmentSamples/*||multisampledRenderToSingleSampled*/) ? static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0):depthSamples;
+        auto samplesForAllColor = (depthSamples>IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_64_BIT||mixedAttachmentSamples/*||multisampledRenderToSingleSampled*/) ? static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0):depthSamples;
         for (auto j=0u; j<maxColorAttachments; j++)
         {
             const auto& ref = subpass.colorAttachments[j].render;

@@ -15,7 +15,22 @@ namespace hlsl
 namespace glsl
 {
 
-#ifdef __HLSL_VERSION
+#ifndef __HLSL_VERSION
+
+// GLM Aliases
+template<typename genIUType>
+genIUType bitfieldExtract(genIUType Value, int Offset, int Bits)
+{
+	return glm::bitfieldExtract<genIUType>(Value, Offset, Bits);
+}
+
+template<typename genIUType>
+genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
+{
+	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
+}
+
+#else
 /**
 * Generic SPIR-V
 */
@@ -189,7 +204,7 @@ struct bitfieldExtract<T, false, true>
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
 }
 
 
@@ -199,7 +214,7 @@ namespace impl
 template<typename T>
 struct bitfieldInsert
 {
-    enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
+    static enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
     {
         return spirv::bitFieldInsert<T>( base, insert, offset, count );
     }
@@ -210,7 +225,7 @@ struct bitfieldInsert
 template<typename T>
 T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
 {
-    return impl::bitfieldInsert<T>::template  __call(base, insert, offset, count);
+    return impl::bitfieldInsert<T>::__call(base, insert, offset, count);
 }
 
 #endif
