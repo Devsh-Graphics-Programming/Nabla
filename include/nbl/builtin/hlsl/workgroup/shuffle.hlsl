@@ -24,7 +24,7 @@ struct shuffleXor
         // Wait until all writes are done before reading
         sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
     
-        value = sharedmemAccessor.get(threadID ^ mask);
+        sharedmemAccessor.get(threadID ^ mask, value);
     }
 
     static void __call(NBL_REF_ARG(T) value, uint32_t mask, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)

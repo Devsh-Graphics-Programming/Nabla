@@ -70,8 +70,9 @@ struct FFT<2,false, Scalar, device_capabilities>
 		const uint32_t hiIx = _NBL_HLSL_WORKGROUP_SIZE_ | loIx;
 
         // Read lo, hi values from global memory
-        complex_t<Scalar> lo = accessor.get(loIx);
-        complex_t<Scalar> hi = accessor.get(hiIx);
+        complex_t<Scalar> lo, hi;
+        accessor.get(loIx, lo);
+        accessor.get(hiIx, hi);
 
         // If for some reason you're running a small FFT, skip all the bigger-than-subgroup steps
         if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
@@ -124,8 +125,9 @@ struct FFT<2,true, Scalar, device_capabilities>
 		const uint32_t hiIx = _NBL_HLSL_WORKGROUP_SIZE_ | loIx;
 
         // Read lo, hi values from global memory
-        complex_t<Scalar> lo = accessor.get(loIx);
-        complex_t<Scalar> hi = accessor.get(hiIx);
+        complex_t<Scalar> lo, hi;
+        accessor.get(loIx, lo);
+        accessor.get(hiIx, hi);
 
         // Run a subgroup-sized FFT, then continue with bigger steps
         subgroup::FFT<true, Scalar, device_capabilities>::__call(lo, hi);
@@ -157,9 +159,6 @@ struct FFT<2,true, Scalar, device_capabilities>
     }
 };
 
-
-// ---------------------------- Below pending --------------------------------------------------
-
 // Forward FFT
 template<uint32_t K, typename Scalar, class device_capabilities>
 struct FFT<K, false, Scalar, device_capabilities>
@@ -175,8 +174,9 @@ struct FFT<K, false, Scalar, device_capabilities>
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));
                 const uint32_t hiIx = loIx | stride;
                 
-                complex_t<Scalar> lo = accessor.get(loIx);
-                complex_t<Scalar> hi = accessor.get(hiIx);
+                complex_t<Scalar> lo, hi;
+                accessor.get(loIx, lo);
+                accessor.get(hiIx, hi);
                 
                 hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false,Scalar>(virtualThreadID & (stride - 1), stride),lo,hi);
                 
@@ -187,7 +187,7 @@ struct FFT<K, false, Scalar, device_capabilities>
         }
 
         // do K/2 small workgroup FFTs
-        DynamicOffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        DynamicOffsetAccessor <Accessor> offsetAccessor;
         //[unroll(K/2)]
         for (uint32_t k = 0; k < K; k += 2)
         {
@@ -208,7 +208,7 @@ struct FFT<K, true, Scalar, device_capabilities>
     static enable_if_t< (mpl::is_pot_v<K> && K > 2), void > __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         // do K/2 small workgroup FFTs
-        DynamicOffsetAccessor < Accessor, complex_t<Scalar> > offsetAccessor;
+        DynamicOffsetAccessor <Accessor> offsetAccessor;
         //[unroll(K/2)]
         for (uint32_t k = 0; k < K; k += 2)
         {
@@ -228,8 +228,9 @@ struct FFT<K, true, Scalar, device_capabilities>
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));
                 const uint32_t hiIx = loIx | stride;
                 
-                complex_t<Scalar> lo = accessor.get(loIx);
-                complex_t<Scalar> hi = accessor.get(hiIx);
+                complex_t<Scalar> lo, hi;
+                accessor.get(loIx, lo);
+                accessor.get(hiIx, hi);
 
                 hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true,Scalar>(virtualThreadID & (stride - 1), stride), lo,hi);
                 
