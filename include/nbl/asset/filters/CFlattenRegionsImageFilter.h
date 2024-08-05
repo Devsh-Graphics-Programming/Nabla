@@ -42,7 +42,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 
 			const auto& inParams = state->inImage->getCreationParameters();
 			// TODO: remove this later when we can actually handle multi samples
-			if (inParams.samples!=IImage::ESCF_1_BIT)
+			if (inParams.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 				return false;
 
 			// Reject formats that can have more than one valid aspect masks, which are only depth-stencil formats.

@@ -7,6 +7,9 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
+
+template<typename E>
+concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
 
@@ -632,6 +635,14 @@ struct is_matrix : bool_constant<false> {};
 
 template<class T, uint32_t N>
 struct is_vector<vector<T, N> > : bool_constant<true> {};
+
+template<typename T>
+NBL_CONSTEXPR bool is_vector_v = is_vector<T>::value;
+
+#ifndef __HLSL_VERSION
+template<typename T>
+concept Vector = is_vector_v<T>;
+#endif
 
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};

@@ -64,7 +64,8 @@ struct reduce
             participate = SubgroupContiguousIndex() <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
             {
-                const type_t prevLevelScan = scratchAccessor.get(scanLoadIndex);
+                type_t prevLevelScan;
+                scratchAccessor.get(scanLoadIndex, prevLevelScan);
                 scan = subgroupOp(prevLevelScan);
             }
         }
@@ -121,7 +122,9 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
                     {
                         // this is fine if on the way up you also += under `if (participate)`
                         scanStoreIndex -= __base.lastInvocationInLevel+1;
-                        __base.lastLevelScan = binop(__base.lastLevelScan,scratchAccessor.get(scanStoreIndex));
+                        type_t higherLevelEPS;
+                        scratchAccessor.get(scanStoreIndex, higherLevelEPS);
+                        __base.lastLevelScan = binop(__base.lastLevelScan,higherLevelEPS);
                     }
                     // now `lastLevelScan` has current level's inclusive prefux sum computed properly
                     // note we're overwriting the same location with same invocation so no barrier needed
@@ -134,7 +137,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
                 if (__base.participate)
                 {
                     // we either need to prevent OOB read altogether OR cmov identity after the far
-                    __base.lastLevelScan = scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff);
+                    scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff, __base.lastLevelScan);
                 }
                 __base.lastInvocationInLevel = lastInvocation>>logShift;
             }

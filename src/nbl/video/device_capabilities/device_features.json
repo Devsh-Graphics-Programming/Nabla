@@ -1,0 +1,4272 @@
+{
+    "vulkan10core": [
+        {
+            "comment": [
+                "Vulkan 1.0 Core"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "robustBufferAccess",
+            "value": false,
+            "comment": ["widely supported but has performance overhead, so remains an optional feature to enable"]
+        },
+        {
+            "comment": [
+                "Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "fullDrawIndexUint32",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "imageCubeArray",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "independentBlend",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "I have no clue if these cause overheads from simply being enabled"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "geometryShader",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "tessellationShader",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "sampleRateShading",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ROADMAP 2022 and good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "dualSrcBlend",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "logicOp",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT] somewhat legacy features",
+                "mostly just desktops support this"
+            ]
+        },
+        {
+            "comment": [
+                "Roadmap 2022 requires support for these, device support is ubiquitous and enablement is unlikely to harm performance"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "multiDrawIndirect",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "drawIndirectFirstInstance",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "depthClamp",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "depthBiasClamp",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "fillModeNonSolid",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "depthBounds",
+            "value": false,
+            "comment": ["this is kinda like a weird clip-plane that doesn't count towards clip plane count"]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "wideLines",
+                    "value": false,
+                    "comment": ["good device support, but a somewhat useless feature (constant screenspace width with limits on width)"]
+                },
+                {
+                    "type": "bool",
+                    "name": "largePoints",
+                    "value": false,
+                    "comment": ["good device support, but a somewhat useless feature (axis aligned screenspace boxes with limits on size)"]
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "alphaToOne",
+            "value": true,
+            "comment": ["Some AMD don't support"]
+        },
+        {
+            "type": "bool",
+            "name": "multiViewport",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "samplerAnisotropy",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["Roadmap 2022 requires support for these, device support is ubiquitous"]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] these 3 don't make a difference, just shortcut from Querying support from PhysicalDevice"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "textureCompressionETC2",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "textureCompressionASTC_LDR",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "textureCompressionBC",
+                    "value": null,
+                    "expose": "DISABLE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "occlusionQueryPrecise",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ROADMAP 2022 and good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "pipelineStatisticsQuery",
+            "value": false
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT] Enabled by Default, Moved to Limits"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "vertexPipelineStoresAndAtomics",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "All iOS GPUs don't support"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "fragmentStoresAndAtomics",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "ROADMAP 2022 no supporton iOS GPUs"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderTessellationAndGeometryPointSize",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "Candidate for promotion, just need to look into Linux and Android"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderImageGatherExtended",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ROADMAP 2024 good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "shaderStorageImageExtendedFormats",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ROADMAP 2024 good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "shaderStorageImageMultisample",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS LIMIT] Cannot be always enabled cause Intel ARC is handicapped",
+                "Apple GPUs and some Intels don't support"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderStorageImageReadWithoutFormat",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "TODO: format feature reporting unimplemented yet for both of the below! (should we move to usage reporting?)",
+                "[EXPOSE AS LIMIT] always enable, shouldn't cause overhead by just being enabled"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderStorageImageWriteWithoutFormat",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["good device support"]
+        },
+        {
+            "comment": [
+                "ROADMAP 2022 and good device support"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderUniformBufferArrayDynamicIndexing",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderSampledImageArrayDynamicIndexing",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderStorageBufferArrayDynamicIndexing",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderStorageImageArrayDynamicIndexing",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT] ROADMAP 2022 but Apple GPUs have poor support",
+                "ROADMAP 2022 but no iOS GPU supports"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderClipDistance",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["good device support"]
+        },
+        {
+            "type": "bool",
+            "name": "shaderCullDistance",
+            "value": false
+        },
+        {
+            "type": "bool",
+            "name": "shaderFloat64",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT] Cannot be always enabled cause Intel ARC is handicapped",
+                "Intel Gen12 and ARC are special-boy drivers (TM)"
+            ]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderInt64",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": [""]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderInt16",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2024"]
+                }
+            ]
+        },
+        {
+            "comment": [
+                "poor support on Apple GPUs"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderResourceResidency",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderResourceMinLod",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] once we implemented sparse resources"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "sparseBinding",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidencyBuffer",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidencyImage2D",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidencyImage3D",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidency2Samples",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidency4Samples",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidency8Samples",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidency16Samples",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sparseResidencyAliased",
+                    "value": null,
+                    "expose": "DISABLE"
+                }
+            ]     
+        },
+        {
+            "type": "bool",
+            "name": "variableMultisampleRate",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS LIMIT] poor support on Apple GPUs"]
+        },
+        {
+            "type": "bool",
+            "name": "inheritedQueries",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["Always enabled, good device support."]
+        }
+    ],
+    "vulkan11core": [
+        {
+            "comment": [
+                "Vulkan 1.1 Core"
+            ]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "storageBuffer16BitAccess",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2024"]
+                },
+                {
+                    "type": "bool",
+                    "name": "uniformAndStorageBuffer16BitAccess",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["Force Enabled : ALIAS VK_KHR_16bit_storage"]
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits : ALIAS VK_KHR_16bit_storage",
+                "Core 1.1 Features or VK_KHR_16bit_storage"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "storagePushConstant16",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                },
+                {
+                    "type": "bool",
+                    "name": "storageInputOutput16",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "multiview",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["Required to be present when Vulkan 1.1 is supported"]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] VK_KHR_multiview required but these depend on pipelines and MoltenVK mismatches these",
+                "Core 1.1 Features or VK_KHR_multiview, normally would be required but MoltenVK mismatches these"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "multiviewGeometryShader",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                },
+                {
+                    "type": "bool",
+                    "name": "multiviewTessellationShader",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "Will eventually be required by HLSL202x if it implements references or pointers (even the non-generic type)"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "variablePointers",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "variablePointersStorageBuffer",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "protectedMemory",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] not gonna expose until we have a need to",
+                "or via VkPhysicalDeviceProtectedMemoryProperties provided by Vulkan 1.1"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "samplerYcbcrConversion",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] ROADMAP 2022 Enables certain formats in Vulkan",
+                "we just enable them if available or else we need to make format support query functions in LogicalDevice as well"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderDrawParameters",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ROADMAP2024 and Force Enabled : VK_KHR_shader_draw_parameters"]
+        }
+    ],
+    "vulkan12core": [
+        {
+            "comment": [
+                "Vulkan 1.2 Core"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "samplerMirrorClampToEdge",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": [
+                "ROADMAP 2022 and device support ubiquitous",
+                "ALIAS: VK_KHR_sampler_mirror_clamp_to_edge"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "drawIndirectCount",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support",
+                "exposed as a limit `drawIndirectCount`",
+                "ALIAS: VK_KHR_draw_indirect_count",
+                "Vulkan 1.2 Core or VK_KHR_draw_indirect_count"
+            ]
+        },
+        {
+            "comment": [
+                "or VK_KHR_8bit_storage:"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "storageBuffer8BitAccess",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2022 and device support ubiquitous"]
+                },
+                {
+                    "type": "bool",
+                    "name": "uniformAndStorageBuffer8BitAccess",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["good device coverage"]
+                },
+                {
+                    "type": "bool",
+                    "name": "storagePushConstant8",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "[EXPOSE AS LIMIT] not great support yet",
+                        "Vulkan 1.2 Core or VK_KHR_9bit_storage"
+                    ]
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT] or VK_KHR_shader_atomic_int64",
+                "Vulkan 1.2 Core or VK_KHR_shader_atomic_int64"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderBufferInt64Atomics",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderSharedInt64Atomics",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "or VK_KHR_shader_float16_int8:"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderFloat16",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "[EXPOSE AS LIMIT] ROADMAP 2024 but not great support yet",
+                        "Vulkan 1.2 Core or VK_KHR_shader_float16_int8"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderInt8",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2024 good device coverage"]
+                }
+            ]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "descriptorIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2022"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderInputAttachmentArrayDynamicIndexing",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "[EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability",
+                        "Vulkan 1.2 Core or VK_EXT_descriptor_indexing"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderUniformTexelBufferArrayDynamicIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["because we also require `descriptorIndexing`"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderStorageTexelBufferArrayDynamicIndexing",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderUniformBufferArrayNonUniformIndexing",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["[EXPOSE AS A LIMIT] ROADMAP 2022 mandates but poor device support"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderSampledImageArrayNonUniformIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["because we also require `descriptorIndexing`"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderStorageBufferArrayNonUniformIndexing",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderStorageImageArrayNonUniformIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2022"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderInputAttachmentArrayNonUniformIndexing",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["[EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderUniformTexelBufferArrayNonUniformIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["because we also require `descriptorIndexing`"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderStorageTexelBufferArrayNonUniformIndexing",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2022 and good device support"]
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingUniformBufferUpdateAfterBind",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": [
+                        "We have special bits on the Descriptor Layout Bindings and those should decide the overhead, not the enablement of a feature like the following",
+                        "[EXPOSE AS A LIMIT] not great coverage but still can enable when available"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingSampledImageUpdateAfterBind",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["because we also require `descriptorIndexing`"]
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingStorageImageUpdateAfterBind",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingStorageBufferUpdateAfterBind",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingUniformTexelBufferUpdateAfterBind",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingStorageTexelBufferUpdateAfterBind",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingUpdateUnusedWhilePending",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingPartiallyBound",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingVariableDescriptorCount",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["ROADMAP 2022 and good device support"]
+                },
+                {
+                    "type": "bool",
+                    "name": "runtimeDescriptorArray",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "samplerFilterMinmax",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "ALIAS: VK_EXT_sampler_filter_minmax",
+                "Vulkan 1.2 or VK_EXT_sampler_filter_minmax",
+                "TODO: Actually implement the sampler flag enums"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "scalarBlockLayout",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": [
+                "Roadmap 2022 requires support for these we always enable and they're unlikely to harm performance",
+                "or VK_EXT_scalar_block_layout"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "imagelessFramebuffer",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378",
+                "or VK_KHR_imageless_framebuffer"
+            ]
+        },
+        {
+            "comment": [
+                "Vulkan 1.2 requires these"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "uniformBufferStandardLayout",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["or VK_KHR_uniform_buffer_standard_layout"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderSubgroupExtendedTypes",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["or VK_KHR_shader_subgroup_extended_types"]
+                },
+                {
+                    "type": "bool",
+                    "name": "separateDepthStencilLayouts",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["or VK_KHR_separate_depth_stencil_layouts"]
+                },
+                {
+                    "type": "bool",
+                    "name": "hostQueryReset",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["or VK_EXT_host_query_reset [TODO Implement]"]
+                },
+                {
+                    "type": "bool",
+                    "name": "timelineSemaphore",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": ["or VK_KHR_timeline_semaphore [TODO Implement]"]
+                }
+            ]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "bufferDeviceAddress",
+                    "value": true,
+                    "expose": "REQUIRE",
+                    "comment": [
+                        "or VK_KHR_buffer_device_address:",
+                        "Vulkan 1.3 requires"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "bufferDeviceAddressCaptureReplay",
+                    "value": null,
+                    "expose": "DISABLE",
+                    "comment": ["[DO NOT EXPOSE] for capture tools not engines"]
+                },
+                {
+                    "type": "bool",
+                    "name": "bufferDeviceAddressMultiDevice",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "ROADMAP2022 wants them. ALIAS VK_KHR_vulkan_memory_model"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "vulkanMemoryModel",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "vulkanMemoryModelDeviceScope",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "vulkanMemoryModelAvailabilityVisibilityChains",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT] ROADMAP2022 wants them, but device support low",
+                "Vulkan 1.3 requires but we make concessions for MoltenVK"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "Vulkan 1.2 Core or VK_EXT_shader_viewport_index_layer"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderOutputViewportIndex",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderOutputLayer",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "subgroupBroadcastDynamicId",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": ["ubiquitous device support"]
+        }
+    ],
+    "vulkan13core": [
+        {
+            "comment": [
+                "Vulkan 1.3 Core"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "robustImageAccess",
+            "value": false,
+            "comment": [
+                "This feature adds stricter requirements for how out of bounds reads from images are handled.",
+                "Rather than returning undefined values,",
+                "most out of bounds reads return R, G, and B values of zero and alpha values of either zero or one.",
+                "Components not present in the image format may be set to zero",
+                "or to values based on the format as described in Conversion to RGBA in vulkan specification.",
+                "widely supported but has performance overhead, so remains an optional feature to enable",
+                "or VK_EXT_image_robustness"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] VK_EXT_inline_uniform_block EVIL regressive step back into OpenGL/Dx10 times? Or an intermediate step between PC and UBO?"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "inlineUniformBlock",
+                    "value": false,
+                    "expose": "DISABLE",
+                    "comment": ["Vulkan 1.3, Nabla Core Profile:"]
+                },
+                {
+                    "type": "bool",
+                    "name": "descriptorBindingInlineUniformBlockUpdateAfterBind",
+                    "value": false,
+                    "expose": "DISABLE",
+                    "comment": ["ROADMAP 2022, Nabla Core Profile:"]
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "pipelineCreationCacheControl",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": [
+                "Vulkan 1.3 non-optional and Nabla Core Profile but TODO: need impl",
+                "or VK_EXT_pipeline_creation_cache_control"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "privateData",
+            "value": false,
+            "expose":"DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] ever we have our own mechanism, unless we can somehow get the data out of `VkObject`?",
+                "or VK_EXT_private_data"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support",
+                "Vulkan 1.3 non-optional requires but poor support"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderDemoteToHelperInvocation",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["or VK_EXT_shader_demote_to_helper_invocation"]
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderTerminateInvocation",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
+                    "comment": ["or VK_KHR_shader_terminate_invocation"]
+                }
+            ]
+        },
+        {
+            "comment": [
+                "Nabla Core Profile, Vulkan 1.3 or VK_EXT_subgroup_size_control"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "subgroupSizeControl",
+                    "value": true,
+                    "expose": "REQUIRE"
+                },
+                {
+                    "type": "bool",
+                    "name": "computeFullSubgroups",
+                    "value": true,
+                    "expose": "REQUIRE"
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "synchronization2",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": [
+                "REQUIRE",
+                "or VK_KHR_synchronization2"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "textureCompressionASTC_HDR",
+            "value": null,
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] Doesn't make a difference, just shortcut from Querying support from PhysicalDevice",
+                "or VK_EXT_texture_compression_astc_hdr"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderZeroInitializeWorkgroupMemory",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS LIMIT] Vulkan 1.3 non-optional requires but poor support",
+                "or VK_KHR_zero_initialize_workgroup_memory"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "dynamicRendering",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] EVIL",
+                "or VK_KHR_dynamic_rendering"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderIntegerDotProduct",
+            "value": true,
+            "expose": "REQUIRE",
+            "comment": [
+                "Vulkan 1.3 non-optional requires, you probably want to look at the individual limits anyway",
+                "or VK_KHR_shader_integer_dot_product"
+            ]
+        }
+   ],
+    "nablacore": [
+        {
+            "comment": [
+                "Nabla Core Profile"
+            ]
+        },
+        {
+            "comment": [],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "robustBufferAccess2",
+                    "value": false,
+                    "comment": ["[TODO] Better descriptive name for the Vulkan robustBufferAccess2, robustImageAccess2 features"]
+                },
+                {
+                    "type": "bool",
+                    "name": "robustImageAccess2",
+                    "value": false,
+                    "comment": ["Nabla Core Profile but still a feature because enabling has overhead"]
+                },
+                {
+                    "type": "bool",
+                    "name": "nullDescriptor",
+                    "value": false,
+                    "comment": [
+                        "! nullDescriptor: you can use `nullptr` for writing descriptors to sets and Accesses to null descriptors have well-defined behavior.",
+                        "[TODO] Handle `nullDescriptor` feature in the engine."
+                    ]
+                }
+            ]
+        }
+    ],
+    "vulkanext": [
+        {
+            "comment": [
+                "Vulkan Extensions"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Instance extension & should enable implicitly if swapchain is enabled",
+                "VK_KHR_surface"
+            ]
+        },
+        {
+            "type": "core::bitflag<E_SWAPCHAIN_MODE>",
+            "name": "swapchainMode",
+            "value": "E_SWAPCHAIN_MODE::ESM_NONE",
+            "comment": [
+                "VK_KHR_swapchain",
+                "Dependant on `IAPIConnection::SFeatures::swapchainMode` enabled on apiConnection Creation"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_display"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] handle with a single num",
+                "VK_KHR_display_swapchain"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] OS-specific INSTANCE extensions we enable implicitly as we detect the platform",
+                "VK_KHR_xlib_surface",
+                "VK_KHR_xcb_surface",
+                "VK_KHR_wayland_surface",
+                "VK_KHR_mir_surface",
+                "VK_KHR_android_surface",
+                "VK_KHR_win32_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] supported=disabled",
+                "VK_ANDROID_native_buffer"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_EXT_debug_utils",
+                "VK_EXT_debug_report"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] EVER",
+                "VK_NV_glsl_shader"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Will expose some day",
+                "VK_EXT_depth_range_unrestricted"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] deprecated by Vulkan 1.2",
+                "VK_KHR_sampler_mirror_clamp_to_edge"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Vendor specific, superceeded by VK_EXT_filter_cubic, won't expose for a long time",
+                "VK_IMG_filter_cubic"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_17",
+                "VK_AMD_extension_18"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Meme extension",
+                "VK_AMD_rasterization_order"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_20"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT] Enabled by Default, Moved to Limits",
+                "VK_AMD_shader_trinary_minmax"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "VK_AMD_shader_explicit_vertex_parameter"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK_EXT_debug_utils (instance ext)",
+                "VK_EXT_debug_marker"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_video_queue"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Provisional",
+                "VK_KHR_video_decode_queue"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Core features, KHR, EXT and smaller AMD features supersede everything in here",
+                "VK_AMD_gcn_shader"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to KHR_dedicated_allocation, non-optional core VK 1.1",
+                "VK_NV_dedicated_allocation"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_28"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] ever because of our disdain for XForm feedback",
+                "TransformFeedbackFeaturesEXT ** VK_EXT_transform_feedback"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NVX_binary_import"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NVX_image_view_handle"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_32",
+                "VK_AMD_extension_33"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan core 1.2",
+                "VK_AMD_draw_indirect_count"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_35"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK_KHR_maintenance1, non-optional core VK 1.1",
+                "VK_AMD_negative_viewport_height"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT] The only reason we still keep it around is because it provides FP16 trig and special functions",
+                "VK_AMD_gpu_shader_half_float"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Superseded by KHR_shader_subgroup_ballot",
+                "VK_AMD_shader_ballot"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls",
+                "VK_EXT_video_encode_h264"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls",
+                "VK_EXT_video_encode_h265"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Don't want to be on the hook for the MPEG-LA useless Patent Trolls",
+                "VK_KHR_video_decode_h264"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Won't expose for now, API changes necessary",
+                "VK_AMD_texture_gather_bias_lod"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderInfoAMD",
+            "value": false,
+            "comment": [
+                "[TODO] need impl, also expose as a limit?",
+                "VK_AMD_shader_info"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_44"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_dynamic_rendering"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_46"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "VK_AMD_shader_image_load_store_lod"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NVX_extension_48",
+                "VK_GOOGLE_extension_49"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] This used to be for Stadia, Stadia is dead now",
+                "VK_GGP_stream_descriptor_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] for a very long time",
+                "CornerSampledImageFeaturesNV",
+                "VK_NV_corner_sampled_image"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_private_vendor_info"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_53"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_multiview"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well",
+                "VK_IMG_format_pvrtc"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_KHR_external_memory_capabilities",
+                "VK_NV_external_memory_capabilities"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_KHR_external_memory",
+                "VK_NV_external_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK_KHR_external_memory_win32 ",
+                "VK_NV_external_memory_win32"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK_KHR_win32_keyed_mutex ",
+                "VK_NV_win32_keyed_mutex"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_get_physical_device_properties2"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_device_group"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_EXT_validation_features",
+                "VK_EXT_validation_flags"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NN_vi_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.1 Core",
+                "VK_KHR_shader_draw_parameters"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_VERSION_1_2",
+                "VK_EXT_shader_subgroup_ballot"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_VERSION_1_1",
+                "VK_EXT_shader_subgroup_vote"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_texture_compression_astc_hdr"
+            ]
+        },
+        {
+            "type": "VkFormat",
+            "name": "decodeMode",
+            "value": null,
+            "expose": "DISABLE",
+            "comment": [
+                "[TODO]",
+                "ASTCDecodeFeaturesEXT",
+                "VK_EXT_astc_decode_mode"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_pipeline_robustness"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core",
+                "VK_KHR_maintenance1"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_device_group_creation"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core Vk 1.1",
+                "VK_KHR_external_memory_capabilities"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_external_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_memory_win32"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_memory_fd"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Always enabled, used for dx11 interop",
+                "VK_KHR_win32_keyed_mutex"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_external_semaphore_capabilities",
+                "VK_KHR_external_semaphore"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_semaphore_win32"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_semaphore_fd"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_push_descriptor"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] now we need API to deal with queries and begin/end conditional blocks",
+                "ConditionalRenderingFeaturesEXT",
+                "VK_EXT_conditional_rendering"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "conditionalRendering",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "inheritedConditionalRendering",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core",
+                "VK_KHR_shader_float16_int8"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core and Required",
+                "VK_KHR_16bit_storage"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] this is `swap with damage` known from EGL, cant be arsed to support",
+                "VK_KHR_incremental_present"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Promoted to VK1.1 non-optional core, haven't updated API to match",
+                "VK_KHR_descriptor_update_template"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] now VK_NV_device_generated_commands",
+                "VK_NVX_device_generated_commands"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Don't expose VR features for now",
+                "VK_NV_clip_space_w_scaling"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_direct_mode_display"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_acquire_xlib_display"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_display_surface_counter"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires handling display swapchain stuff",
+                "VK_EXT_display_control"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "VK_GOOGLE_display_timing"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_RESERVED_do_not_use_94"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "geometryShaderPassthrough",
+            "value": false,
+            "comment": [
+                "[TODO] Investigate",
+                "VK_NV_sample_mask_override_coverage",
+                "VK_NV_geometry_shader_passthrough",
+                "The only reason its not a limit is because it needs geometryShader to be enabled"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NVX_multiview_per_view_attributes"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] A silly Nvidia extension thats specific to singlepass cubemap rendering and voxelization with geometry shader",
+                "VK_NV_viewport_swizzle"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "VK_EXT_discard_rectangles"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_101"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "VK_EXT_conservative_rasterization"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] only useful for D3D emulators",
+                "DepthClipEnableFeaturesEXT",
+                "VK_EXT_depth_clip_enable"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_104"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_swapchain_colorspace"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "hdrMetadata",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "VK_EXT_hdr_metadata"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_IMG_extension_107",
+                "VK_IMG_extension_108"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_imageless_framebuffer"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it",
+                "VK_KHR_create_renderpass2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_IMG_extension_111"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Leave for later consideration",
+                "VK_KHR_shared_presentable_image"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_external_fence_capabilities"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_external_fence"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_fence_win32"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Always Enabled but requires Instance Extensions during API Connection Creation!",
+                "VK_KHR_external_fence_fd",
+                "PerformanceQueryFeaturesKHR",
+                "VK_EXT_hdr_metadataHR_performance_query"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "performanceCounterQueryPools",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "performanceCounterMultipleQueryPools",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core in Vulkan 1.x",
+                "VK_KHR_maintenance2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_119"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_get_surface_capabilities2"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.1 Core",
+                "VK_KHR_variable_pointers"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_get_display_properties2"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_EXT_metal_surface",
+                "VK_MVK_ios_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_EXT_metal_surface",
+                "VK_MVK_macos_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_MVK_moltenvk"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires exposing external memory first",
+                "VK_EXT_external_memory_dma_buf"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] ",
+                "VK_EXT_queue_family_foreign"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.1 core now",
+                "VK_KHR_dedicated_allocation"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_debug_utils"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires exposing external memory first",
+                "VK_ANDROID_external_memory_android_hardware_buffer"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_sampler_filter_minmax"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_storage_buffer_storage_class"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Just check for `shaderInt16` and related `16BitAccess` limits",
+                "VK_AMD_gpu_shader_int16"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_134"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_AMDX_shader_enqueue"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_136"
+            ]
+        },
+        {
+            
+            "type": "bool",
+            "name": "mixedAttachmentSamples",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "VK_AMD_mixed_attachment_samples",
+                "OR",
+                "VK_NV_framebuffer_mixed_samples"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful",
+                "VK_AMD_shader_fragment_mask"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Required wholly by ROADMAP 2022 and Nabla Core Profile",
+                "InlineUniformBlockFeaturesEXT",
+                "VK_EXT_inline_uniform_block"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_140",
+                "Enabled by Default, Moved to Limits",
+                "VK_EXT_shader_stencil_export"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_142",
+                "VK_AMD_extension_143"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_sample_locations"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non-optional core VK 1.1",
+                "VK_KHR_relaxed_block_layout"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_RESERVED_do_not_use_146"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to core non-optional VK 1.1",
+                "VK_KHR_get_memory_requirements2"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 core non-optional",
+                "VK_KHR_image_format_list"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] This is dumb, you can implement whatever blend equation you want with `EXT_fragment_shader_interlock` and EXT_shader_tile_image",
+                "BlendOperationAdvancedFeaturesEXT",
+                "VK_EXT_blend_operation_advanced"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires API changes",
+                "VK_NV_fragment_coverage_to_color"
+            ]
+        },
+        {
+            "comment": [
+                "AccelerationStructureFeaturesKHR",
+                "VK_KHR_acceleration_structure"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "accelerationStructure",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "accelerationStructureIndirectBuild",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "accelerationStructureHostCommands",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "descriptorBindingAccelerationStructureUpdateAfterBind",
+            "value": "accelerationStructure",
+            "expose": "DISABLE",
+            "comment": [
+                "[DO NOT EXPOSE] implied by `accelerationStructure`"
+            ]
+        },
+        {
+            "comment": [
+                "RayTracingPipelineFeaturesKHR",
+                "VK_KHR_ray_tracing_pipeline"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "rayTracingPipeline",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "rayTracingPipelineShaderGroupHandleCaptureReplay",
+                    "value": null,
+                    "expose": "DISABLE",
+                    "comment": ["[DO NOT EXPOSE] for capture tools"]
+                },
+                {
+                    "type": "bool",
+                    "name": "rayTracingPipelineShaderGroupHandleCaptureReplayMixed",
+                    "value": null,
+                    "expose": "DISABLE",
+                    "comment": ["[DO NOT EXPOSE] for capture tools"]
+                },
+                {
+                    "type": "bool",
+                    "name": "rayTracingPipelineTraceRaysIndirect",
+                    "value": "rayTracingPipeline",
+                    "expose": "DISABLE",
+                    "comment": ["[DO NOT EXPOSE] Vulkan feature requirements"]
+                },
+                {
+                    "type": "bool",
+                    "name": "rayTraversalPrimitiveCulling",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "rayQuery",
+            "value": false,
+            "comment": [
+                "RayQueryFeaturesKHR",
+                "VK_KHR_ray_query"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_152"
+            ]
+        },
+        {
+            "comment": [
+                "[ALIASED TO] VK_AMD_mixed_attachment_samples",
+                "VK_NV_framebuffer_mixed_samples"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] For now. For 2D ui",
+                "VK_NV_fill_rectangle"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits",
+                "ShaderSMBuiltinsFeaturesNV",
+                "VK_NV_shader_sm_builtins",
+                "Enabled by Default, Moved to Limits",
+                "VK_EXT_post_depth_coverage"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.1 Core and ROADMAP 2022",
+                "SamplerYcbcrConversionFeaturesKHR",
+                "VK_KHR_sampler_ycbcr_conversion"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core 1.1 implemented on default path and there's no choice in not using it",
+                "VK_KHR_bind_memory2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Too ",
+                "intrinsically",
+                "linux\"\"VK_EXT_image_drm_format_modifier"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_160"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Expose when we start to experience slowdowns from validation",
+                "VK_EXT_validation_cache"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] KHR extension supersedes and then Vulkan 1.2",
+                "VK_EXT_descriptor_indexing"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_shader_viewport_index_layer",
+                "VK_KHR_portability_subset - PROVISINAL/NOTAVAILABLEANYMORE"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] not implementing or exposing VRS in near or far future, also has interactions with fragment density maps",
+                "ShadingRateImageFeaturesNV",
+                "VK_NV_shading_rate_image"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "representativeFragmentTest",
+            "value": false,
+            "comment": [
+                "[DEPRECATED] Superseded by KHR",
+                "VK_NV_ray_tracing",
+                "RepresentativeFragmentTestFeaturesNV",
+                "VK_NV_representative_fragment_test"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_168"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_maintenance3"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core in Vulkan 1.x",
+                "VK_KHR_draw_indirect_count"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] limited utility and availability, might expose if feel like wasting time",
+                "VK_EXT_filter_cubic"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Wait until VK_AMD_shader_fragment_mask & VK_QCOM_render_pass_shader_resolve converge to something useful",
+                "VK_QCOM_render_pass_shader_resolve"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_QCOM_extension_173",
+                "VK_QCOM_extension_174"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_global_priority"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core non-optional",
+                "VK_KHR_shader_subgroup_extended_types"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_177"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK Core",
+                "VK_KHR_8bit_storage"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] TODO: support in the CUDA PR",
+                "VK_EXT_external_memory_host"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "bufferMarkerAMD",
+            "value": false,
+            "comment": [
+                "[TODO] need impl/more research",
+                "VK_AMD_buffer_marker"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core",
+                "VK_KHR_shader_atomic_int64"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "ShaderClockFeaturesKHR",
+                "VK_KHR_shader_clock"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "shaderDeviceClock",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                },
+                {
+                    "type": "bool",
+                    "name": "shaderSubgroupClock",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_183"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Too vendor specific",
+                "VK_AMD_pipeline_compiler_control"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires changes to API",
+                "VK_EXT_calibrated_timestamps"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Superseded by VK_AMD_shader_core_properties",
+                "VK_AMD_shader_core_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_187"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't want to be on the hook with the MPEG-LA patent trolls",
+                "VK_KHR_video_decode_h265"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] this one isn't in the headers yet",
+                "GlobalPriorityQueryFeaturesKHR",
+                "VK_KHR_global_priority"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE]",
+                "VK_AMD_memory_overallocation_behavior"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] we would have to change the API",
+                "VertexAttributeDivisorFeaturesEXT",
+                "VK_EXT_vertex_attribute_divisor"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Stadia is dead",
+                "VK_GGP_frame_token"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] would like to expose, but too much API to change",
+                "VK_EXT_pipeline_creation_feedback"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_GOOGLE_extension_194",
+                "VK_GOOGLE_extension_195",
+                "VK_GOOGLE_extension_196"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK Core 1.x",
+                "VK_KHR_driver_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK Core 1.x",
+                "VK_KHR_shader_float_controls"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Superseded by `clustered` subgroup ops",
+                "VK_NV_shader_subgroup_partitioned"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK Core 1.x",
+                "VK_KHR_depth_stencil_resolve"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 core non-optional",
+                "VK_KHR_swapchain_mutable_format"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "ComputeShaderDerivativesFeaturesNV",
+                "VK_NV_compute_shader_derivatives"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Expose the KHR extension instead",
+                "MeshShaderFeaturesNV",
+                "VK_NV_mesh_shader"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Deprecated by KHR version",
+                "FragmentShaderBarycentricFeaturesNV",
+                "VK_NV_fragment_shader_barycentric"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "imageFootprint",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS LIMIT] Enabled by Default, Moved to Limits",
+                "ShaderImageFootprintFeaturesNV",
+                "VK_NV_shader_image_footprint"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "exclusiveScissor",
+            "value": null,
+            "expose": "DISABLE",
+            "comment": [
+                "[TODO LATER] requires extra API work to use",
+                "GL Hint: in GL/GLES this is NV_scissor_exclusive",
+                "ExclusiveScissorFeaturesNV",
+                "VK_NV_scissor_exclusive"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_device_diagnostic_checkpoints"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core non-optional",
+                "VK_KHR_timeline_semaphore"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_209"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "shaderIntegerFunctions2",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS LIMIT] Enabled by Default, Moved to Limits ",
+                "ShaderIntegerFunctions2FeaturesINTEL",
+                "VK_INTEL_shader_integer_functions2"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to VK_KHR_performance_query, VK1.1 core",
+                "VK_INTEL_performance_query"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core but 1.3 non-optional and we require it",
+                "VK_KHR_vulkan_memory_model"
+            ]
+        },
+        {
+            "comment": [
+                "[LIMIT] We just report it",
+                "VK_EXT_pci_bus_info"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Waiting for cross platform",
+                "VK_AMD_display_native_hdr"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_FUCHSIA_imagepipe_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 Core",
+                "VK_KHR_shader_terminate_invocation"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_GOOGLE_extension_217"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_metal_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] need impl",
+                "FragmentDensityMapFeaturesEXT",
+                "VK_EXT_fragment_density_map"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "fragmentDensityMap",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "fragmentDensityMapDynamic",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "fragmentDensityMapNonSubsampledImages",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_220",
+                "VK_KHR_extension_221"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 core and Nabla core profile required",
+                "VK_EXT_scalar_block_layout"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_223"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We compile our own SPIR-V like real men",
+                "VK_GOOGLE_hlsl_functionality1",
+                "Enabled by Default, Moved to Limits",
+                "VK_GOOGLE_decorate_string"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet, but TODO",
+                "VK_EXT_subgroup_size_control"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] not implementing or exposing VRS in near or far future",
+                "FragmentShadingRateFeaturesKHR",
+                "VK_KHR_fragment_shading_rate"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_AMD_shader_core_properties2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_229"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "deviceCoherentMemory",
+            "value": false,
+            "comment": [
+                "[TODO] need impl/more research",
+                "CoherentMemoryFeaturesAMD",
+                "VK_AMD_device_coherent_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_231",
+                "VK_AMD_extension_232",
+                "VK_AMD_extension_233",
+                "VK_AMD_extension_234"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "VK_EXT_shader_image_atomic_int64"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_236"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] We now require it with Vulkan 1.2 and its non-optional",
+                "VK_KHR_spirv_1_4"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_memory_budget"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "memoryPriority",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "MemoryPriorityFeaturesEXT",
+                "VK_EXT_memory_priority"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_surface_protected_capabilities"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] insane oxymoron, dedicated means dedicated, not aliased, won't expose",
+                "DedicatedAllocationImageAliasingFeaturesNV",
+                "VK_NV_dedicated_allocation_image_aliasing"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core non-optional",
+                "VK_KHR_separate_depth_stencil_layouts",
+                "SeparateDepthStencilLayoutsFeaturesKHR"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_INTEL_extension_243",
+                "VK_MESA_extension_244"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_KHR_buffer_device_address",
+                "VK_EXT_buffer_device_address"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] we dont need to care or know about it, unless for BDA/RT Replays?",
+                "VK_EXT_tooling_info"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core 1.2 implemented on default path and there's no choice in not using it",
+                "VK_EXT_separate_stencil_usage"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_validation_features"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] won't expose, this extension is poop, I should have a Fence-andQuery-like object to query the presentation timestamp, not a blocking call that may unblock after an arbitrary delay from the present",
+                "PresentWaitFeaturesKHR",
+                "VK_KHR_present_wait"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] replaced by VK_KHR_cooperative_matrix",
+                "CooperativeMatrixFeaturesNV",
+                "VK_NV_cooperative_matrix"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "coverageReductionMode",
+            "value": false,
+            "expose": "DISABLE",
+            "comment": [
+                "[TODO] need impl or waaay too vendor specific?",
+                "CoverageReductionModeFeaturesNV",
+                "VK_NV_coverage_reduction_mode"
+            ]
+        },
+        {
+            "comment": [
+                "FragmentShaderInterlockFeaturesEXT",
+                "VK_EXT_fragment_shader_interlock"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "fragmentShaderSampleInterlock",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "fragmentShaderPixelInterlock",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "fragmentShaderShadingRateInterlock",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Expose nothing to do with video atm",
+                "YcbcrImageArraysFeaturesEXT",
+                "VK_EXT_ycbcr_image_arrays"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.2 Core non-optional",
+                "VK_KHR_uniform_buffer_standard_layout"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] provokingVertexLast will not expose (we always use First Vertex Vulkan-like convention), anything to do with XForm-feedback we don't expose",
+                "ProvokingVertexFeaturesEXT",
+                "VK_EXT_provoking_vertex"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Requires API changes",
+                "VK_EXT_full_screen_exclusive"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_headless_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core in Vulkan 1.3 and NAbla Core Profile",
+                "VK_KHR_buffer_device_address"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_extension_259"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] need impl, this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT",
+                "LineRasterizationFeaturesEXT",
+                "VK_EXT_line_rasterization"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "rectangularLines",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "bresenhamLines",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "smoothLines",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "stippledRectangularLines",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "stippledBresenhamLines",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "stippledSmoothLines",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[NAbla core Profile LIMIT] ",
+                "ShaderAtomicFloatFeaturesEXT",
+                "VK_EXT_shader_atomic_float"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] MOVED TO Vulkan 1.2 Core",
+                "HostQueryResetFeatures",
+                "VK_EXT_host_query_reset"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_GGP_extension_263",
+                "VK_BRCM_extension_264",
+                "VK_BRCM_extension_265"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "indexTypeUint8",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "IndexTypeUint8FeaturesEXT",
+                "VK_EXT_index_type_uint8"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_267"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.",
+                "ExtendedDynamicStateFeaturesEXT",
+                "VK_EXT_extended_dynamic_state"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "deferredHostOperations",
+            "value": false,
+            "comment": [
+                "VK_KHR_deferred_host_operations"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "pipelineExecutableInfo",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "PipelineExecutablePropertiesFeaturesKHR",
+                "VK_KHR_pipeline_executable_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet, but should when ubiquitous",
+                "VK_EXT_host_image_copy"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_map_memory2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_INTEL_extension_273"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "ShaderAtomicFloat2FeaturesEXT",
+                "VK_EXT_shader_atomic_float2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_surface_maintenance1"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_swapchain_maintenance1"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Core in Vulkan 1.3",
+                "VK_EXT_shader_demote_to_helper_invocation"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "deviceGeneratedCommands",
+            "value": false,
+            "comment": [
+                "[TODO] need impl",
+                "DeviceGeneratedCommandsFeaturesNV",
+                "VK_NV_device_generated_commands"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] won't expose, the existing inheritance of state is enough",
+                "InheritedViewportScissorFeaturesNV",
+                "VK_NV_inherited_viewport_scissor"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_280"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 Core non-optional",
+                "VK_KHR_shader_integer_dot_product"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 non-optional and Nabla Core Profile.",
+                "TexelBufferAlignmentFeaturesEXT",
+                "VK_EXT_texel_buffer_alignment"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Too vendor specific",
+                "VK_QCOM_render_pass_transform"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_depth_bias_control"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "DeviceMemoryReportFeaturesEXT",
+                "VK_EXT_device_memory_report"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_acquire_drm_display"
+            ]
+        },
+        {
+            "comment": [
+                "[Nabla CORE PROFILE]",
+                "Robustness2FeaturesEXT",
+                "VK_EXT_robustness2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] not going to expose custom border colors for now",
+                "CustomBorderColorFeaturesEXT",
+                "VK_EXT_custom_border_color"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_289"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] 0 documentation",
+                "VK_GOOGLE_user_type"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_pipeline_library"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_292"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Triage leftover extensions below    ",
+                "VK_NV_present_barrier"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits",
+                "VK_KHR_shader_non_semantic_info"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] no point exposing until an extension more useful than VK_KHR_present_wait arrives",
+                "PresentIdFeaturesKHR",
+                "VK_KHR_present_id"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 core non-optional",
+                "PrivateDataFeatures",
+                "VK_EXT_private_data"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_297"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_pipeline_creation_cache_control"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_299"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Provisional",
+                "VK_KHR_video_encode_queue"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE]",
+                "DiagnosticsConfigFeaturesNV",
+                "VK_NV_device_diagnostics_config"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] absorbed into VK_EXT_load_store_op_none",
+                "VK_QCOM_render_pass_store_ops"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_QCOM_extension_303",
+                "VK_QCOM_extension_304",
+                "VK_QCOM_extension_305",
+                "VK_QCOM_extension_306",
+                "VK_QCOM_extension_307",
+                "VK_NV_extension_308"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_object_refresh"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_QCOM_extension_310"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] 0 documentation",
+                "VK_NV_low_latency"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Expose when we support MoltenVK",
+                "VK_EXT_metal_objects"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_313",
+                "VK_AMD_extension_314"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 Core",
+                "VK_KHR_synchronization2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_316"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_descriptor_buffer"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_318",
+                "VK_AMD_extension_319",
+                "VK_AMD_extension_320"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "graphicsPipelineLibrary",
+            "value": null,
+            "expose": "DISABLE",
+            "comment": [
+                "[TODO] this one isn't in the headers yet",
+                "GraphicsPipelineLibraryFeaturesEXT",
+                "VK_EXT_graphics_pipeline_library"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "shaderEarlyAndLateFragmentTests",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "[EXPOSE AS A LIMIT]",
+                "VK_AMD_shader_early_and_late_fragment_tests"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS A LIMIT] Enabled by Default, Moved to Limits",
+                "VK_KHR_fragment_shader_barycentric"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "ShaderSubgroupUniformControlFlowFeaturesKHR",
+                "VK_KHR_shader_subgroup_uniform_control_flow"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_325"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 Core",
+                "VK_KHR_zero_initialize_workgroup_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] would first need to expose VK_KHR_fragment_shading_rate before",
+                "VK_NV_fragment_shading_rate_enums",
+                "RayTracingMotionBlurFeaturesNV",
+                "VK_NV_ray_tracing_motion_blur"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "rayTracingMotionBlur",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "rayTracingMotionBlurPipelineTraceRaysIndirect",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] By KHR_mesh_shader",
+                "VK_EXT_mesh_shader"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_330"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Enables certain formats in Vulkan, we just enable them if available or else we need to make format support query functions in LogicalDevice as well",
+                "Ycbcr2Plane444FormatsFeaturesEXT",
+                "VK_EXT_ycbcr_2plane_444_formats"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "fragmentDensityMapDeferred",
+            "value": false,
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_332",
+                "FragmentDensityMap2FeaturesEXT",
+                "VK_EXT_fragment_density_map2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Too vendor specific",
+                "VK_QCOM_rotated_copy_commands"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_335"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Vulkan 1.3 core non-optional",
+                "VK_EXT_image_robustness"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "WorkgroupMemoryExplicitLayoutFeaturesKHR",
+                "VK_KHR_workgroup_memory_explicit_layout"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Promoted to VK 1.3 non-optional core and present in Nabla Core Profile, but serves no purpose other than providing a pNext chain for the usage of a single QCOM extension",
+                "VK_KHR_copy_commands2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_image_compression_control"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_attachment_feedback_loop_layout"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Vulkan 1.3 non-optional, we just enable them if available or else we need to make format support query functions in LogicalDevice as well",
+                "4444FormatsFeaturesEXT",
+                "VK_EXT_4444_formats"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_device_fault"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] need impl or just expose `shader_tile_image` instead?",
+                "RasterizationOrderAttachmentAccessFeaturesARM",
+                "VK_ARM_rasterization_order_attachment_access"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "rasterizationOrderColorAttachmentAccess",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "rasterizationOrderDepthAttachmentAccess",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "rasterizationOrderStencilAttachmentAccess",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_ARM_extension_344"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] wont expose yet (or ever), requires VK_KHR_sampler_ycbcr_conversion",
+                "VK_EXT_rgba10x6_formats"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] won't decide yet, requires VK_EXT_direct_mode_display anyway",
+                "VK_NV_acquire_winrt_display"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_directfb_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_350",
+                "VK_NV_extension_351"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] its a D3D special use extension, shouldn't expose",
+                "VK_VALVE_mutable_descriptor_type"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] too much API Fudgery",
+                "VK_EXT_vertex_input_dynamic_state"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Too \"intrinsically\" linux",
+                "VK_EXT_physical_device_drm"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_device_address_binding_report"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] EVER, VULKAN DEPTH RANGE ONLY!",
+                "VK_EXT_depth_clip_control"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE]",
+                "VK_EXT_primitive_topology_list_restart"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_358",
+                "VK_EXT_extension_359",
+                "VK_EXT_extension_360"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] Promoted to non - optional Core 1.3, we always use it!",
+                "VK_KHR_format_feature_flags2Promoted to core 1.3;"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO]",
+                "lots of support for anything that isn't mobile (list of unsupported devices since the extension was published: https://pastebin.com/skZAbL4F)"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_362",
+                "VK_EXT_extension_363",
+                "VK_FUCHSIA_extension_364"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_FUCHSIA_external_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_FUCHSIA_external_semaphore"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_FUCHSIA_buffer_collection"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_FUCHSIA_extension_368",
+                "VK_QCOM_extension_369"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE]",
+                "SubpassShadingFeaturesHUAWEI",
+                "VK_HUAWEI_subpass_shading"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_HUAWEI_invocation_mask"
+            ]
+        },
+        {
+
+            "type": "bool",
+            "name": "externalMemoryRDMA",
+            "value": null,
+            "expose": "DISABLE",
+            "comment": [
+                "[TODO LATER] when we do multi-gpu",
+                "ExternalMemoryRDMAFeaturesNV",
+                "VK_NV_external_memory_rdma"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_pipeline_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] by VK_NV_external_sci_sync2",
+                "VK_NV_external_sci_sync"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_external_memory_sci_buf"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_frame_boundary"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet, probably only useful for stencil-K-routed OIT",
+                "VK_EXT_multisampled_render_to_single_sampled "
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] we're fully GPU driven anyway with sorted pipelines.",
+                "ExtendedDynamicState2FeaturesEXT",
+                "VK_EXT_extended_dynamic_state2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QNX_screen_surface"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_380",
+                "VK_KHR_extension_381"
+            ]
+        },
+        {
+            "comment": [
+                "[EXPOSE AS LIMIT]",
+                "ColorWriteEnableFeaturesEXT",
+                "VK_EXT_color_write_enable"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] requires and relates to EXT_transform_feedback which we'll never expose",
+                "PrimitivesGeneratedQueryFeaturesEXT",
+                "VK_EXT_primitives_generated_query"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "primitivesGeneratedQuery",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "primitivesGeneratedQueryWithRasterizerDiscard",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "primitivesGeneratedQueryWithNonZeroStreams",
+                    "value": null,
+                    "expose": "DISABLE"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_384",
+                "VK_MESA_extension_385",
+                "VK_GOOGLE_extension_386"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] when released in the SDK:",
+                "-Support for `GLSL_EXT_ray_cull_mask`, lets call it `rayCullMask`",
+                "- new pipeline stage and access masks but only in `KHR_synchronization2` which we don't use",
+                "- two new acceleration structure query parameters",
+                "- `rayTracingPipelineTraceRaysIndirect2` feature, same as `rayTracingPipelineTraceRaysIndirect` but with indirect SBTand dispatch dimensions",
+                "Lets have",
+                "```cpp",
+                "bool accelerationStructureSizeAndBLASPointersQuery = false;",
+                "// Do not expose, we don't use KHR_synchronization2 yet",
+                "//bool accelerationStructureCopyStageAndSBTAccessType;",
+                "bool rayCullMask = false;",
+                "bool rayTracingPipelineTraceRaysIndirectDimensionsAndSBT = false;",
+                "```",
+                "Lets enable `rayTracingMaintenance1`and `rayTracingPipelineTraceRaysIndirect2` whenever required by the above.",
+                "VK_KHR_ray_tracing_maintenance1",
+                "added in vk 1.3.213, the SDK isn't released yet at this moment :D"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_388"
+            ]
+        },
+        {
+            "comment": [
+                "[DEPRECATED] absorbed into KHR_global_priority",
+                "VK_EXT_global_priority_query"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_390",
+                "VK_EXT_extension_391"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] pointless to implement currently",
+                "ImageViewMinLodFeaturesEXT",
+                "VK_EXT_image_view_min_lod"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] this extension is dumb, if we're recording that many draws we will be using Multi Draw INDIRECT which is better supported",
+                "MultiDrawFeaturesEXT",
+                "VK_EXT_multi_draw"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO] Investigate later",
+                "Image2DViewOf3DFeaturesEXT",
+                "VK_EXT_image_2d_view_of_3d"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "image2DViewOf3D",
+                    "value": null,
+                    "expose": "DISABLE"
+                },
+                {
+                    "type": "bool",
+                    "name": "sampler2DViewOf3D",
+                    "value": null,
+                    "expose": "DISABLE"
+                }
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_portability_enumeration"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_shader_tile_image"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_opacity_micromap"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_displacement_micromap"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_JUICE_extension_399",
+                "VK_JUICE_extension_400"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] ROADMAP 2024 but need to figure out how extending our LOAD_OP enum would affect us",
+                "VK_EXT_load_store_op_none"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_FB_extension_402",
+                "VK_FB_extension_403",
+                "VK_FB_extension_404"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_HUAWEI_cluster_culling_shader"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_HUAWEI_extension_406",
+                "VK_GGP_extension_407",
+                "VK_GGP_extension_408",
+                "VK_GGP_extension_409",
+                "VK_GGP_extension_410",
+                "VK_GGP_extension_411"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] not going to expose custom border colors for now",
+                "BorderColorSwizzleFeaturesEXT",
+                "VK_EXT_border_color_swizzle"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] pointless to expose without exposing VK_EXT_memory_priority and the memory query feature first",
+                "PageableDeviceLocalMemoryFeaturesEXT",
+                "VK_EXT_pageable_device_local_memory"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_maintenance4"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_HUAWEI_extension_415"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_ARM_shader_core_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_417",
+                "VK_ARM_extension_418"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_image_sliced_view_of_3d"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_420"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] This extension is only intended for use in specific embedded environments with known implementation details, and is therefore undocumented.",
+                "DescriptorSetHostMappingFeaturesVALVE",
+                "VK_VALVE_descriptor_set_host_mapping"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_depth_clamp_zero_one"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] Never expose this, it was a mistake for that GL quirk to exist in the first place",
+                "VK_EXT_non_seamless_cube_map"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_ARM_extension_424",
+                "VK_ARM_extension_425"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] not implementing or exposing VRS in near or far future",
+                "FragmentDensityMapOffsetFeaturesQCOM",
+                "VK_QCOM_fragment_density_map_offset"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_copy_memory_indirect"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_memory_decompression"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_device_generated_commands_compute"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_430"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] no idea what real-world beneficial use case would be",
+                "LinearColorAttachmentFeaturesNV",
+                "VK_NV_linear_color_attachment"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_432",
+                "VK_NV_extension_433"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_GOOGLE_surfaceless_query"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_435"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_application_parameters"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_437"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_image_compression_control_swapchain"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_SEC_extension_439",
+                "VK_QCOM_extension_440"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_image_processing"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_COREAVI_extension_442",
+                "VK_COREAVI_extension_443",
+                "VK_COREAVI_extension_444",
+                "VK_COREAVI_extension_445",
+                "VK_COREAVI_extension_446",
+                "VK_COREAVI_extension_447",
+                "VK_SEC_extension_448",
+                "VK_SEC_extension_449",
+                "VK_SEC_extension_450",
+                "VK_SEC_extension_451",
+                "VK_NV_extension_452",
+                "VK_ARM_extension_453"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_external_memory_acquire_unmodified"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_GOOGLE_extension_455"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_extended_dynamic_state3"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_457",
+                "VK_EXT_extension_458"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_subpass_merge_feedback"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_LUNARG_direct_driver_loading"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_461",
+                "VK_EXT_extension_462"
+            ]
+        },
+        {
+            "comment": [
+                "[TODO LATER] Basically a custom hash/ID for which you can use instead of SPIR-V contents to look up IGPUShader in the cache",
+                "VK_EXT_shader_module_identifier"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_rasterization_order_attachment_access",
+                "TODO: implement",
+                "VK_NV_optical_flow"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_legacy_dithering"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_pipeline_protected_access"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_468",
+                "VK_ANDROID_extension_469",
+                "VK_AMD_extension_470"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_KHR_maintenance5"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_AMD_extension_472",
+                "VK_AMD_extension_473",
+                "VK_AMD_extension_474",
+                "VK_AMD_extension_475",
+                "VK_AMD_extension_476",
+                "VK_AMD_extension_477",
+                "VK_AMD_extension_478",
+                "VK_AMD_extension_479",
+                "VK_EXT_extension_480",
+                "VK_EXT_extension_481",
+                "TODO: implement",
+                "VK_KHR_ray_tracing_position_fetch"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_shader_object"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_extension_484"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_tile_properties"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_SEC_amigo_profiling"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_487",
+                "VK_EXT_extension_488"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_multiview_per_view_viewports"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_external_sci_sync2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet, but a TODO",
+                "VK_NV_ray_tracing_invocation_reorder"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_NV_extension_492",
+                "VK_NV_extension_493",
+                "VK_NV_extension_494"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_mutable_descriptor_type"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_496",
+                "VK_EXT_extension_497"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_ARM_shader_core_builtins"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_pipeline_library_group_handles"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_dynamic_rendering_unused_attachments"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_501",
+                "VK_EXT_extension_502",
+                "VK_EXT_extension_503",
+                "VK_NV_extension_504",
+                "VK_EXT_extension_505",
+                "VK_NV_extension_506",
+                "CooperativeMatrixFeaturesKHR",
+                "VK_KHR_cooperative_matrix"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "cooperativeMatrixRobustBufferAccess",
+            "value": false,
+            "comment": [
+                "[EXPOSE AS LIMIT] redundant",
+                "bool cooperativeMatrix = limits.cooperativeMatrixSupportedStages.any();",
+                "leaving as a feature because of overhead"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_508",
+                "VK_EXT_extension_509",
+                "VK_MESA_extension_510"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_multiview_per_view_render_areas"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_512",
+                "VK_KHR_extension_513",
+                "VK_KHR_extension_514",
+                "VK_KHR_extension_515",
+                "VK_KHR_extension_516",
+                "VK_EXT_extension_517",
+                "VK_MESA_extension_518"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_image_processing2"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_filter_cubic_weights"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_ycbcr_degamma"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QCOM_filter_cubic_clamp"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_523",
+                "VK_EXT_extension_524"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_EXT_attachment_feedback_loop_dynamic_state"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_EXT_extension_526",
+                "VK_EXT_extension_527",
+                "VK_EXT_extension_528",
+                "VK_KHR_extension_529"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_QNX_external_memory_screen_buffer"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_MSFT_layered_driver"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_KHR_extension_532",
+                "VK_EXT_extension_533",
+                "VK_KHR_extension_534",
+                "VK_KHR_extension_535",
+                "VK_QCOM_extension_536",
+                "VK_EXT_extension_537",
+                "VK_EXT_extension_538",
+                "VK_EXT_extension_539",
+                "VK_EXT_extension_540",
+                "VK_EXT_extension_541",
+                "VK_EXT_extension_542",
+                "VK_EXT_extension_543",
+                "VK_KHR_extension_544",
+                "VK_KHR_extension_545",
+                "VK_KHR_extension_546"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] We don't support yet",
+                "VK_NV_descriptor_pool_overallocation"
+            ]
+        },
+        {
+            "comment": [
+                "[DO NOT EXPOSE] just reserved numbers, extension never shipped",
+                "VK_QCOM_extension_548"
+            ]
+        },
+        {
+            "comment": [
+                "Eternal TODO: how many new extensions since we last looked? (We're up to ext number 548)"
+            ]
+        }
+    ],
+    "nabla": [
+        {
+            "comment": [
+                "Nabla",
+                "No Nabla Specific Features for now"
+            ]
+        }
+    ]
+}
