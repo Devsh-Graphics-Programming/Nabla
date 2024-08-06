@@ -11,6 +11,10 @@ namespace nbl
 {
 namespace hlsl
 {
+
+namespace tgmath
+{
+
 template <typename Float>
 bool isnan(Float val)
 {
@@ -25,6 +29,15 @@ bool isnan(uint64_t val)
 {
 	float64_t asFloat = bit_cast<float64_t, uint64_t>(val);
 	return bool((ieee754::extractBiasedExponent<float64_t>(asFloat) == ieee754::traits<float64_t>::specialValueExp) && (val & ieee754::traits<float64_t>::mantissaMask));
+}
+
+// TODO: better implementation, also i'm not sure this is the right place for this function
+template<typename UINT>
+UINT lerp(UINT a, UINT b, bool c)
+{
+	return c ? b : a;
+}
+
 }
 
 }

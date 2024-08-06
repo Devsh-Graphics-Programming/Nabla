@@ -126,7 +126,8 @@ uint32_t extractBiasedExponent(float64_t x)
 template <typename T>
 int extractExponent(T x)
 {
-	return int(extractBiasedExponent(x)) - int(traits<T>::exponentBias);
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return int(extractBiasedExponent(x)) - int(traits<AsFloat>::exponentBias);
 }
 
 template <typename T>

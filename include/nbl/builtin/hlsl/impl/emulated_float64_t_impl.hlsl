@@ -45,14 +45,6 @@ namespace nbl
 {
 namespace hlsl
 {
-    // TODO: better implementation, also this needs to be moved somewhere else
-    template<typename UINT>
-    UINT lerp(UINT a, UINT b, bool c)
-    {
-        return c ? b : a;
-    }
-
-
 namespace impl
 {
     uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
@@ -98,7 +90,7 @@ namespace impl
 
         lhs |= 0x0008000000000000ull;
         rhs |= 0x0008000000000000ull;
-        return nbl::hlsl::lerp(rhs, nbl::hlsl::lerp(lhs, rhs, nbl::hlsl::isnan(rhs)), nbl::hlsl::isnan(lhs));
+        return tgmath::lerp(rhs, tgmath::lerp(lhs, rhs, tgmath::isnan(rhs)), tgmath::isnan(lhs));
         return 0;
 #endif
     }
@@ -161,16 +153,16 @@ namespace impl
         uint32_t2 output;
         const int negCount = (-count) & 31;
     
-        output.x = nbl::hlsl::lerp(0u, val.x, count == 0);
-        output.x = nbl::hlsl::lerp(output.x, (val.x >> count), count < 32);
+        output.x = tgmath::lerp(0u, val.x, count == 0);
+        output.x = tgmath::lerp(output.x, (val.x >> count), count < 32);
     
         output.y = uint32_t((val.x | val.y) != 0u); /* count >= 64 */
         uint32_t z1_lt64 = (val.x>>(count & 31)) | uint32_t(((val.x<<negCount) | val.y) != 0u);
-        output.y = nbl::hlsl::lerp(output.y, z1_lt64, count < 64);
-        output.y = nbl::hlsl::lerp(output.y, (val.x | uint32_t(val.y != 0u)), count == 32);
+        output.y = tgmath::lerp(output.y, z1_lt64, count < 64);
+        output.y = tgmath::lerp(output.y, (val.x | uint32_t(val.y != 0u)), count == 32);
         uint32_t z1_lt32 = (val.x<<negCount) | (val.y>>count) | uint32_t((val.y<<negCount) != 0u);
-        output.y = nbl::hlsl::lerp(output.y, z1_lt32, count < 32);
-        output.y = nbl::hlsl::lerp(output.y, val.y, count == 0);
+        output.y = tgmath::lerp(output.y, z1_lt32, count < 32);
+        output.y = tgmath::lerp(output.y, val.y, count == 0);
         
         return output;
     }
@@ -222,23 +214,23 @@ namespace impl
        
         int negCount = (-count) & 31;
     
-        output.z = nbl::hlsl::lerp(uint32_t(val.x != 0u), val.x, count == 64);
-        output.z = nbl::hlsl::lerp(output.z, val.x << negCount, count < 64);
-        output.z = nbl::hlsl::lerp(output.z, val.y << negCount, count < 32);
+        output.z = tgmath::lerp(uint32_t(val.x != 0u), val.x, count == 64);
+        output.z = tgmath::lerp(output.z, val.x << negCount, count < 64);
+        output.z = tgmath::lerp(output.z, val.y << negCount, count < 32);
     
-        output.y = nbl::hlsl::lerp(0u, (val.x >> (count & 31)), count < 64);
-        output.y = nbl::hlsl::lerp(output.y, (val.x  << negCount) | (val.y >> count), count < 32);
+        output.y = tgmath::lerp(0u, (val.x >> (count & 31)), count < 64);
+        output.y = tgmath::lerp(output.y, (val.x  << negCount) | (val.y >> count), count < 32);
     
-        val.z = nbl::hlsl::lerp(val.z | val.y, val.z, count < 32);
-        output.x = nbl::hlsl::lerp(output.x, val.x >> count, count < 32);
+        val.z = tgmath::lerp(val.z | val.y, val.z, count < 32);
+        output.x = tgmath::lerp(output.x, val.x >> count, count < 32);
         output.z |= uint32_t(val.z != 0u);
     
-        output.x = nbl::hlsl::lerp(output.x, 0u, (count == 32));
-        output.y = nbl::hlsl::lerp(output.y, val.x, (count == 32));
-        output.z = nbl::hlsl::lerp(output.z, val.y, (count == 32));
-        output.x = nbl::hlsl::lerp(output.x, val.x, (count == 0));
-        output.y = nbl::hlsl::lerp(output.y, val.y, (count == 0));
-        output.z = nbl::hlsl::lerp(output.z, val.z, (count == 0));
+        output.x = tgmath::lerp(output.x, 0u, (count == 32));
+        output.y = tgmath::lerp(output.y, val.x, (count == 32));
+        output.z = tgmath::lerp(output.z, val.y, (count == 32));
+        output.x = tgmath::lerp(output.x, val.x, (count == 0));
+        output.y = tgmath::lerp(output.y, val.y, (count == 0));
+        output.z = tgmath::lerp(output.z, val.z, (count == 0));
        
         return output;
     }
@@ -250,7 +242,7 @@ namespace impl
         uint32_t2 output;
         output.y = packed.y << count;
         // TODO: fix
-        output.x = nbl::hlsl::lerp((packed.x << count | (packed.y >> ((-count) & 31))), packed.x, count == 0);
+        output.x = tgmath::lerp((packed.x << count | (packed.y >> ((-count) & 31))), packed.x, count == 0);
 
         return unpackUint64(output);
     };
@@ -332,7 +324,7 @@ namespace impl
         }
         else
         {
-            zExp = nbl::hlsl::lerp(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
+            zExp = tgmath::lerp(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
         }
        
         return assembleFloat64(zSign, uint64_t(zExp) << ieee754::traits<float64_t>::mantissaBitCnt, unpackUint64(mantissaExtended.xy));
@@ -371,15 +363,15 @@ namespace impl
         uint32_t2 mantissaPacked = packUint64(mantissa);
         int shiftCount;
         uint32_t2 temp;
-        shiftCount = countLeadingZeros32(nbl::hlsl::lerp(mantissaPacked.x, mantissaPacked.y, mantissaPacked.x == 0u)) - 11;
-        outExp = nbl::hlsl::lerp(1 - shiftCount, -shiftCount - 31, mantissaPacked.x == 0u);
+        shiftCount = countLeadingZeros32(tgmath::lerp(mantissaPacked.x, mantissaPacked.y, mantissaPacked.x == 0u)) - 11;
+        outExp = tgmath::lerp(1 - shiftCount, -shiftCount - 31, mantissaPacked.x == 0u);
 
-        temp.x = nbl::hlsl::lerp(mantissaPacked.y << shiftCount, mantissaPacked.y >> (-shiftCount), shiftCount < 0);
-        temp.y = nbl::hlsl::lerp(0u, mantissaPacked.y << (shiftCount & 31), shiftCount < 0);
+        temp.x = tgmath::lerp(mantissaPacked.y << shiftCount, mantissaPacked.y >> (-shiftCount), shiftCount < 0);
+        temp.y = tgmath::lerp(0u, mantissaPacked.y << (shiftCount & 31), shiftCount < 0);
 
         shortShift64Left(impl::unpackUint64(mantissaPacked), shiftCount);
 
-        outMantissa = nbl::hlsl::lerp(outMantissa, unpackUint64(temp), mantissaPacked.x == 0);
+        outMantissa = tgmath::lerp(outMantissa, unpackUint64(temp), mantissaPacked.x == 0);
     }
     
     bool areBothSameSignInfinity(uint64_t lhs, uint64_t rhs)

@@ -60,9 +60,91 @@ namespace hlsl
             return emulated_float64_t(val);
         }
 
+        uint64_t shiftLeftAllowNegBitCnt(uint64_t val, int n)
+        {
+            if (n < 0)
+                return val >> -n;
+            else
+                return val << n;
+        }
+
         // arithmetic operators
         emulated_float64_t operator+(const emulated_float64_t rhs)
         {
+//            {
+//                uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
+//                uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
+//                uint64_t lhsMantissa = ieee754::extractMantissa(data);
+//                uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
+//                int lhsBiasedExp = ieee754::extractBiasedExponent(data);
+//                int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
+//
+//                if (tgmath::isnan(data) || tgmath::isnan(rhs.data))
+//                    return createPreserveBitPattern(ieee754::traits<float64_t>::quietNaN);
+//                /*if (std::isinf(lhs) || std::isinf(rhs))
+//                {
+//                    if (std::isinf(lhs) && !std::isinf(rhs))
+//                        return lhs;
+//                    if (std::isinf(rhs) && !std::isinf(lhs))
+//                        return rhs;
+//                    if (rhs == lhs)
+//                        return rhs;
+//
+//                    return nan();
+//                }*/
+//
+//                int rp = min(ieee754::extractExponent(data), ieee754::extractExponent(rhs.data)) - ieee754::traits<float64_t>::mantissaBitCnt;
+//
+//                uint64_t lhsRealMantissa = lhsMantissa | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
+//                uint64_t rhsRealMantissa = rhsMantissa | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
+//                uint64_t lhsSignTmp = lhsSign >> (52 + 11);
+//                uint64_t rhsSignTmp = rhsSign >> (52 + 11);
+//
+//                uint64_t sign = 0u;
+//                if (lhsSign != rhsSign)
+//                {
+//                    uint64_t _min = max(data, rhs.data);
+//                    uint64_t _max = min(data, rhs.data);
+//                    uint64_t minAbs = _min ^ ieee754::traits<float64_t>::signMask;
+//                    if (minAbs > _max)
+//                        sign = ieee754::traits<float64_t>::signMask;
+//
+//                }
+//
+//                int64_t lhsMantissaTmp = (shiftLeftAllowNegBitCnt(lhsRealMantissa, lhsBiasedExp - rp - ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float64_t>::exponentBias) ^ (-lhsSignTmp)) + lhsSignTmp;
+//                int64_t rhsMantissaTmp = (shiftLeftAllowNegBitCnt(rhsRealMantissa, rhsBiasedExp - rp - ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float64_t>::exponentBias) ^ (-rhsSignTmp)) + rhsSignTmp;
+//
+//                uint64_t addTmp = bit_cast<uint64_t>(lhsMantissaTmp + rhsMantissaTmp);
+//
+//                // renormalize
+//                if (!FastMath && false) // TODO: hande nan
+//                {
+//
+//                }
+//                else
+//                {
+//#ifndef __HLSL_VERSION
+//                    int l2 = log2(double(addTmp));
+//#else
+//                    int intl2 = 0;
+//#endif
+//                    
+//                    if (!FastMath && (rp + l2 + 1 < nbl::hlsl::numeric_limits<float64_t>::min_exponent))
+//                    {
+//                        return createPreserveBitPattern(impl::assembleFloat64(0, ieee754::traits<float64_t>::exponentMask, 0));
+//                    }
+//                    else
+//                    {
+//                        rp = addTmp ? l2 + rp + ieee754::traits<float64_t>::exponentBias : 0;
+//                        return createPreserveBitPattern(impl::assembleFloat64(
+//                            sign,
+//                            (uint64_t(rp) << ieee754::traits<float64_t>::mantissaBitCnt) & ieee754::traits<float64_t>::exponentMask,
+//                            shiftLeftAllowNegBitCnt(addTmp, (ieee754::traits<float64_t>::mantissaBitCnt - l2)) & ieee754::traits<float64_t>::mantissaMask)
+//                        );
+//                    }
+//                }
+//            }
+
             emulated_float64_t retval = createPreserveBitPattern(0u);
 
             uint64_t mantissa;
@@ -85,7 +167,7 @@ namespace hlsl
                     if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
                        bool propagate = (lhsMantissa | rhsMantissa) != 0u;
-                       return createPreserveBitPattern(nbl::hlsl::lerp(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                       return createPreserveBitPattern(tgmath::lerp(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
                     }
                    
                     mantissa = lhsMantissa + rhsMantissa;
@@ -109,11 +191,11 @@ namespace hlsl
                      if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                      {
                         const bool propagate = (lhsMantissa) != 0u;
-                        return createPreserveBitPattern(nbl::hlsl::lerp(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                        return createPreserveBitPattern(tgmath::lerp(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
                      }
 
-                     expDiff = nbl::hlsl::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                     rhsMantissa = nbl::hlsl::lerp(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
+                     expDiff = tgmath::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                     rhsMantissa = tgmath::lerp(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
                      const uint32_t3 shifted = impl::shift64ExtraRightJamming(uint32_t3(impl::packUint64(rhsMantissa), 0u), expDiff);
                      rhsMantissa = impl::unpackUint64(shifted.xy);
                      mantissaExtended.z = shifted.z;
@@ -153,11 +235,11 @@ namespace hlsl
                     if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
                        bool propagate = lhsMantissa != 0u;
-                       return createPreserveBitPattern(nbl::hlsl::lerp(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
+                       return createPreserveBitPattern(tgmath::lerp(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
                     }
                     
-                    expDiff = nbl::hlsl::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                    rhsMantissa = nbl::hlsl::lerp(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
+                    expDiff = tgmath::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                    rhsMantissa = tgmath::lerp(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
                     rhsMantissa = impl::unpackUint64(impl::shift64RightJamming(impl::packUint64(rhsMantissa), expDiff));
                     lhsMantissa |= 0x4000000000000000ull;
                     frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
@@ -168,10 +250,10 @@ namespace hlsl
                 if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                 {
                    bool propagate = ((lhsMantissa) | (rhsMantissa)) != 0u;
-                   return createPreserveBitPattern(nbl::hlsl::lerp(ieee754::traits<float64_t>::quietNaN, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                   return createPreserveBitPattern(tgmath::lerp(ieee754::traits<float64_t>::quietNaN, impl::propagateFloat64NaN(data, rhs.data), propagate));
                 }
-                rhsBiasedExp = nbl::hlsl::lerp(rhsBiasedExp, 1, lhsBiasedExp == 0);
-                lhsBiasedExp = nbl::hlsl::lerp(lhsBiasedExp, 1, lhsBiasedExp == 0);
+                rhsBiasedExp = tgmath::lerp(rhsBiasedExp, 1, lhsBiasedExp == 0);
+                lhsBiasedExp = tgmath::lerp(lhsBiasedExp, 1, lhsBiasedExp == 0);
                 
 
                 const uint32_t2 lhsMantissaPacked = impl::packUint64(lhsMantissa);
@@ -199,11 +281,11 @@ namespace hlsl
                     signOfDifference = ieee754::traits<float64_t>::signMask;
                 }
                 
-                biasedExp = nbl::hlsl::lerp(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
+                biasedExp = tgmath::lerp(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
                 lhsSign ^= signOfDifference;
                 uint64_t retval_0 = impl::packFloat64(uint32_t(FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) << 31, 0, 0u, 0u);
                 uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 11, frac.x, frac.y);
-                return createPreserveBitPattern(nbl::hlsl::lerp(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
+                return createPreserveBitPattern(tgmath::lerp(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
             }
         }
 
@@ -285,9 +367,18 @@ namespace hlsl
             return createPreserveBitPattern(impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, newPseudoMantissa));
         }
 
+        /*emulated_float64_t<FastMath, FlushDenormToZero> reciprocal(uint64_t x)
+        {
+            using ThisType = emulated_float64_t<FastMath, FlushDenormToZero>;
+            ThisType output = ThisType::createPreserveBitPattern((0xbfcdd6a18f6a6f52ULL - x) >> 1);
+            output = output * output;
+            return output;
+        }*/
+
         emulated_float64_t operator/(const emulated_float64_t rhs)
         {
-            // TODO: maybe add function to extract real mantissa
+            //return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(data) * reciprocal(rhs.data);
+
             const uint64_t lhsRealMantissa = (ieee754::extractMantissa(data) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt));
             const uint64_t rhsRealMantissa = ieee754::extractMantissa(rhs.data) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
             
@@ -312,15 +403,15 @@ namespace hlsl
         }
 
         // relational operators
-        bool operator==(emulated_float64_t rhs)
+        bool operator==(emulated_float64_t<FastMath, FlushDenormToZero> rhs)
         {
-            if (!FastMath && (nbl::hlsl::isnan<uint64_t>(data) || nbl::hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return false;
             // TODO: i'm not sure about this one
             if (!FastMath && impl::areBothZero(data, rhs.data))
                 return true;
 
-            const emulated_float64_t xored = emulated_float64_t::createPreserveBitPattern(data ^ rhs.data);
+            const emulated_float64_t xored = createPreserveBitPattern(data ^ rhs.data);
             // TODO: check what fast math returns for -0 == 0
             if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
                 return true;
@@ -329,22 +420,11 @@ namespace hlsl
         }
         bool operator!=(emulated_float64_t rhs)
         {
-            if (!FastMath && (nbl::hlsl::isnan<uint64_t>(data) || nbl::hlsl::isnan<uint64_t>(rhs.data)))
-                return true;
-            // TODO: i'm not sure about this one
-            if (!FastMath && impl::areBothSameSignZero(data, rhs.data))
-                return false;
-
-            const emulated_float64_t xored = emulated_float64_t::createPreserveBitPattern(data ^ rhs.data);
-            // TODO: check what fast math returns for -0 == 0
-            if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
-                return false;
-
-            return xored.data;
+            return !(createPreserveBitPattern(data) == rhs);
         }
         bool operator<(emulated_float64_t rhs)
         {
-            if (!FastMath && (nbl::hlsl::isnan<uint64_t>(data) || nbl::hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return false;
             if (!FastMath && impl::areBothSameSignInfinity(data, rhs.data))
                 return false;
@@ -364,7 +444,7 @@ namespace hlsl
         }
         bool operator>(emulated_float64_t rhs) 
         {
-            if (!FastMath && (nbl::hlsl::isnan<uint64_t>(data) || nbl::hlsl::isnan<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return true;
             if (!FastMath && impl::areBothSameSignInfinity(data, rhs.data))
                 return false;
@@ -403,7 +483,7 @@ namespace hlsl
         
         bool isNaN()
         {
-            return nbl::hlsl::isnan(bit_cast<float64_t>(data));
+            return tgmath::isnan(bit_cast<float64_t>(data));
         }
     };
 
