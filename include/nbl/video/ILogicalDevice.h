@@ -105,16 +105,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03854
                 constexpr auto HostBit = asset::PIPELINE_STAGE_FLAGS::HOST_BIT;
                 if (barrier.dep.srcStageMask.hasFlags(HostBit)||barrier.dep.dstStageMask.hasFlags(HostBit))
+                    m_logger.log("Source and destination queue family index should be equal, HOST_BIT is set [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                 // spec doesn't require it now, but we do
                 switch (barrier.ownershipOp)
                 {
                     case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::ACQUIRE:
                         if (barrier.dep.srcStageMask || barrier.dep.srcAccessMask)
+                            m_logger.log("Ownership operation ACQUIRE requires, srcStageMask and srcAccessMask being set to 0, in  [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                             return false;
                         break;
                     case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:
                         if (barrier.dep.dstStageMask || barrier.dep.dstAccessMask)
+                            m_logger.log("Ownership operation RELEASE requires, dstStageMask and dstAccessMask being set to 0, in  [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                             return false;
                         break;
                     default:
@@ -134,12 +137,15 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const auto& range = barrier.range;
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-buffer-parameter
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01188
-            if (!range.buffer || range.size==0u)
+            if (!range.buffer || range.size == 0u) {
+                m_logger.log("No buffer was specified [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01187
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01189
             const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier<ResourceBarrier>{}.range.size ? range.size:1ull;
             if (range.offset+remain>range.buffer->getSize())
+                m_logger.log("Invalid range was specified [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
 
             if constexpr(std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
@@ -1030,10 +1036,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         template<typename CreationParams, typename ExtraLambda>
         inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
         {
-            if (pipelineCache && !pipelineCache->wasCreatedBy(this))
+            if (pipelineCache && !pipelineCache->wasCreatedBy(this)) {
+                m_logger.log("Invalid pipelineCache was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
-            if (params.empty())
+            }
+            if (params.empty()) {
+                m_logger.log("No parameters were given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
+            }
 
             typename CreationParams::SSpecializationValidationResult retval = {.count=0,.dataSize=0};
             for (auto i=0; i<params.size(); i++)
@@ -1041,27 +1051,39 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 const auto& ci = params[i];
                 
                 const auto validation = ci.valid();
-                if (!validation)
+                if (!validation) {
+                    m_logger.log("Invalid parameters were given (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return {};
+                }
 
-                if (!ci.layout->wasCreatedBy(this))
+                if (!ci.layout->wasCreatedBy(this)) {
+                    m_logger.log("Invalid layout was given (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return {};
+                }
 
                 constexpr auto AllowDerivativesFlag = CreationParams::FLAGS::ALLOW_DERIVATIVES;
                 if (ci.basePipeline)
                 {
-                    if (!ci.basePipeline->wasCreatedBy(this))
+                    if (!ci.basePipeline->wasCreatedBy(this)) {
+                        m_logger.log("Invalid basePipeline was specified (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                         return {};
-                    if (!ci.basePipeline->getCreationFlags().hasFlags(AllowDerivativesFlag))
+                    }
+                    if (!ci.basePipeline->getCreationFlags().hasFlags(AllowDerivativesFlag)) {
+                        m_logger.log("Invalid basePipeline was specified (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                         return {};
+                    }
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07985
-                else if (ci.basePipelineIndex<-1 || ci.basePipelineIndex>=i || ci.basePipelineIndex>=0 && !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag))
+                else if (ci.basePipelineIndex < -1 || ci.basePipelineIndex >= i || ci.basePipelineIndex >= 0 && !params[ci.basePipelineIndex].flags.hasFlags(AllowDerivativesFlag)) {
+                    m_logger.log("Invalid basePipeline was specified (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return {};
+                }
 
                 for (auto info : ci.getShaders())
-                if (info.shader && !extra(info))
-                    return {};
+                    if (info.shader && !extra(info)) {
+                        m_logger.log("Invalid shader were specified (params[%d]) [%s - %s:%p]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
+                        return {};
+                    }
 
                 retval += validation;
             }
@@ -1158,30 +1180,44 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         inline bool invalidCreationParams(const IGPUAccelerationStructure::SCreationParams& params)
         {
-            if (!getEnabledFeatures().accelerationStructure)
+            if (!getEnabledFeatures().accelerationStructure) {
+                m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
+            }
             constexpr size_t MinAlignment = 256u;
-            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset&(MinAlignment-1))!=0u)
+            if (!params.bufferRange.isValid() || !params.bufferRange.buffer->wasCreatedBy(this) || (params.bufferRange.offset & (MinAlignment - 1)) != 0u) {
+                m_logger.log("Invalid bufferRange was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
+            }
             const auto bufferUsages = params.bufferRange.buffer->getCreationParams().usage;
-            if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT))
+            if (!bufferUsages.hasFlags(IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT)) {
+                m_logger.log("Invalid bufferRange was given [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
-            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur)
+            }
+            if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur) {
+                m_logger.log("Ray tracing motion blur feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
+            }
             return false;
         }
         template<class BufferType>
         bool invalidFeaturesForASBuild(const bool motionBlur) const
         {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
-            if (!m_enabledFeatures.accelerationStructure)
+            if (!m_enabledFeatures.accelerationStructure) {
+                m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
+            }
 			// not sure of VUID
-			if (std::is_same_v<BufferType,asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+            if (std::is_same_v<BufferType, asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands) {
+                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
 				return true;
+            }
             // not sure of VUID
-            if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur)
+            if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur) {
+                m_logger.log("Ray tracing motion blur feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
+            }
 
             return false;
         }
@@ -1196,16 +1232,22 @@ template<typename ResourceBarrier>
 inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, const IGPUCommandBuffer::SImageMemoryBarrier<ResourceBarrier>& barrier) const
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-parameter
-    if (!barrier.image)
+    if (!barrier.image) {
+        m_logger.log("Invalid image handle [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
+    }
     const auto& params = barrier.image->getCreationParameters();
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01486
-    if (barrier.subresourceRange.baseMipLevel>=params.mipLevels)
+    if (barrier.subresourceRange.baseMipLevel >= params.mipLevels) {
+        m_logger.log("Invalid Mip level [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01488
-    if (barrier.subresourceRange.baseArrayLayer>=params.arrayLayers)
+    if (barrier.subresourceRange.baseArrayLayer >= params.arrayLayers) {
+        m_logger.log("Invalid array layer [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
+    }
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01724
     // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-subresourceRange-01725
 
@@ -1214,14 +1256,20 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-03319
         constexpr auto DepthStencilAspects = IGPUImage::EAF_DEPTH_BIT|IGPUImage::EAF_STENCIL_BIT;
-        if (aspectMask.value&(~DepthStencilAspects))
+        if (aspectMask.value & (~DepthStencilAspects)) {
+            m_logger.log("Invalid aspect mask [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
             return false;
-        if (bool(aspectMask.value&DepthStencilAspects))
+        }
+        if (bool(aspectMask.value & DepthStencilAspects)) {
+            m_logger.log("Invalid aspect mask [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
             return false;
+        }
     }
     //https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-image-01671
-    else if (aspectMask!=IGPUImage::EAF_COLOR_BIT)
+    else if (aspectMask != IGPUImage::EAF_COLOR_BIT) {
+        m_logger.log("Invalid aspect mask [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
+    }
     
     const bool layoutTransform = barrier.oldLayout!=barrier.newLayout;
     bool ownershipTransfer = false;
@@ -1238,7 +1286,8 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
     if (layoutTransform || ownershipTransfer)
     {
         const bool srcStageIsHost = inner->srcStageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::HOST_BIT);
-        auto mismatchedLayout = [&params,aspectMask,srcStageIsHost]<bool dst>(const IGPUImage::LAYOUT layout) -> bool
+        const auto logger = m_logger.get();
+        auto mismatchedLayout = [&params,aspectMask,srcStageIsHost, logger]<bool dst>(const IGPUImage::LAYOUT layout) -> bool
         {
             switch (layout)
             {
@@ -1256,42 +1305,66 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-aspectMask-08703
                 // and we check the following all at once:
                 case IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL:
-                    if (!dst && srcStageIsHost)
+                    if (!dst && srcStageIsHost) {
+                        logger->log("Invalid srcStageMask, must not include HOST_BIT [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-03938
-                    if (aspectMask && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT))
+                    if (aspectMask && !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_RENDER_ATTACHMENT_BIT)) {
+                        logger->log("Invalid image usage [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
                     break;
                 case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
-                    if (!dst && srcStageIsHost)
+                    if (!dst && srcStageIsHost) {
+                        logger->log("Invalid srcStageMask, must not include HOST_BIT [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
                     {
                         constexpr auto ValidUsages = IGPUImage::E_USAGE_FLAGS::EUF_SAMPLED_BIT|IGPUImage::E_USAGE_FLAGS::EUF_INPUT_ATTACHMENT_BIT;
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01211
                         if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT))
                         {
-                            if (!bool(params.actualStencilUsage()&ValidUsages))
+                            if (!bool(params.actualStencilUsage() & ValidUsages)) {
+                                logger->log("Invalid stencil usages [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                                 return true;
+                            }
                         }
-                        else if (!bool(params.usage&ValidUsages))
+                        else if (!bool(params.usage & ValidUsages)) {
+                            logger->log("Invalid image usages [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                             return true;
+                        }
                     }
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01212
                 case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
-                    if (!dst && srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT))
+                    if (!dst && srcStageIsHost) {
+                        logger->log("Invalid srcStageMask, must not include HOST_BIT [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
+                    if (!params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT)) {
+                        logger->log("Invalid image usage [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                        return true;
+                    }
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01213
                 case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
-                    if (!dst && srcStageIsHost || !params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+                    if (!dst && srcStageIsHost) {
+                        logger->log("Invalid srcStageMask, must not include HOST_BIT [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
+                    if(!params.usage.hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT)) {
+                        logger->log("Invalid image usage [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                        return true;
+                    }
                     break;
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01198
                 case IGPUImage::LAYOUT::UNDEFINED: [[fallthrough]];
                 case IGPUImage::LAYOUT::PREINITIALIZED:
-                    if constexpr (dst)
+                    if constexpr (dst) {
+                        logger->log("Invalid newLayout [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return true;
+                    }
                     break;
                 // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-02088
                 // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcQueueFamilyIndex-07006
