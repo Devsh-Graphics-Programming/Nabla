@@ -400,7 +400,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ) const
         {
             if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur)) {
-                m_logger.log("Required features are not supported by the device [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Required features are not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
             }
 
@@ -443,7 +443,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         ) const
         {
             if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur)) {
-                m_logger.log("Required features are not supported by the device [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Required features are not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
             }
 
@@ -494,13 +494,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-accelerationStructureHostCommands-03581
             if (!m_enabledFeatures.accelerationStructureHostCommands) {
-                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `acceleration structure host commands` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-infoCount-arraylength
             if (infos.empty()) {
-                m_logger.log("Invalid parameters, infos may not be empty [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Invalid parameters, infos must not be empty [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
 
@@ -549,7 +549,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     break;
             }
             if (!getEnabledFeatures().accelerationStructureHostCommands) {
-                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `acceleration structure` host commands is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
             for (const auto& as : accelerationStructures)
@@ -867,7 +867,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             {
                 case IQueryPool::TYPE::PIPELINE_STATISTICS:
                     if (!getEnabledFeatures().pipelineStatisticsQuery) {
-                        m_logger.log("Pipeline statistics feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                        m_logger.log("Feature `pipeline statistics` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return nullptr;
                     }
                     break;
@@ -876,7 +876,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: [[fallthrough]];
                 case IQueryPool::TYPE::ACCELERATION_STRUCTURE_SIZE:
                     if (!getEnabledFeatures().accelerationStructure) {
-                        m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                        m_logger.log("Feature `acceleration structure` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                         return nullptr;
                     }
                     break;
@@ -1181,7 +1181,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool invalidCreationParams(const IGPUAccelerationStructure::SCreationParams& params)
         {
             if (!getEnabledFeatures().accelerationStructure) {
-                m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `acceleration structure` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
             }
             constexpr size_t MinAlignment = 256u;
@@ -1195,7 +1195,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return true;
             }
             if (params.flags.hasFlags(IGPUAccelerationStructure::SCreationParams::FLAGS::MOTION_BIT) && !getEnabledFeatures().rayTracingMotionBlur) {
-                m_logger.log("Ray tracing motion blur feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `ray tracing motion blur` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
             }
             return false;
@@ -1205,17 +1205,17 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
             if (!m_enabledFeatures.accelerationStructure) {
-                m_logger.log("Acceleration structure feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `acceleration structure` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
             }
 			// not sure of VUID
             if (std::is_same_v<BufferType, asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands) {
-                m_logger.log("Acceleration structure host commands feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `acceleration structure` host commands is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
 				return true;
             }
             // not sure of VUID
             if (motionBlur && !m_enabledFeatures.rayTracingMotionBlur) {
-                m_logger.log("Ray tracing motion blur feature is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("Feature `ray tracing motion blur` is not enabled [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return true;
             }
 
