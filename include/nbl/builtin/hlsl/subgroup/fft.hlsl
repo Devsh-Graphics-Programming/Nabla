@@ -94,8 +94,8 @@ struct FFT<true, Scalar, device_capabilities>
         // special last iteration 
         fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);
         divides_assign< complex_t<Scalar> > divAss;
-        divAss(lo, doubleSubgroupSize);
-        divAss(hi, doubleSubgroupSize);
+        divAss(lo, Scalar(doubleSubgroupSize));
+        divAss(hi, Scalar(doubleSubgroupSize));
     }
 };
 

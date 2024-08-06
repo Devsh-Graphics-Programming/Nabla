@@ -34,9 +34,8 @@ namespace hlsl
 {
 
 template<class T, class U>
-T bit_cast(U val)
+enable_if_t<sizeof(T) <= sizeof(U), T> bit_cast(U val)
 {
-    static_assert(sizeof(T) <= sizeof(U));
     return spirv::bitcast<T, U>(val);
 }
 
