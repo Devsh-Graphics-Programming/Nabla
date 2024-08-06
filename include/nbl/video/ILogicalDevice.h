@@ -183,6 +183,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     for (const auto& queue : *m_queues)
                         queue->cullResources(info.semaphore);
                 }
+                if (waitStatus == retval_t::DEVICE_LOST) {
+                    m_logger.log("Device lost [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                    _NBL_DEBUG_BREAK_IF(true);
+                }
+
                 return waitStatus;
             }
             return retval_t::SUCCESS;
