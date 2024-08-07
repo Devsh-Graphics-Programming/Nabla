@@ -29,16 +29,20 @@ add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
 add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
 
 # msdfgen
+set(MSDFGEN_USE_VCPKG OFF)
+set(MSDFGEN_USE_SKIA OFF)
 set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
 set(MSDFGEN_INSTALL OFF)
 set(MSDFGEN_BUILD_STANDALONE OFF)
 set(MSDFGEN_USE_CPP11 ON)
+set(MSDFGEN_DISABLE_SVG ON)
+set(MSDFGEN_DISABLE_PNG ON)
 add_subdirectory(msdfgen msdfgen EXCLUDE_FROM_ALL)
 
 if(MSDFGEN_CORE_ONLY)
-	set(NBL_MSDFGEN_TARGETS msdfgen-core)
+	message(FATAL_ERROR "Internal error, MSDF must be used with extension target as well!")
 else()
-	set(NBL_MSDFGEN_TARGETS msdfgen-ext)
+	set(NBL_MSDFGEN_TARGETS msdfgen-ext msdfgen-core)
 endif()
 
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
@@ -446,7 +450,6 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
-				msdfgen-core
 				nlohmann_json
 				glslang
 				OGLCompiler 

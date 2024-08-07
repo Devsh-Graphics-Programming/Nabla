@@ -1,4 +1,3 @@
-
 using namespace nbl;
 using namespace nbl::core;
 using namespace nbl::asset;
@@ -18,32 +17,36 @@ namespace ext
 namespace TextRendering
 {
 
-// extents is the size of the MSDF that is generated (probably 32x32)
-// glyphExtents is the area of the "image" that msdf will consider (used as resizing, for fill patterns should be 8x8)
-core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMSDFForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
+core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
 
 	auto shapeBounds = glyph.getBounds();
 
-	msdfgen::edgeColoringSimple(glyph, 3.0); // TODO figure out what this is
+	msdfgen::edgeColoringSimple(glyph, 3.0);
 	msdfgen::Bitmap<float, 4> msdfMap(glyphW, glyphH);
 
 	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
 
-	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(float) * 4);
-	float* data = reinterpret_cast<float*>(cpuBuf->getPointer());
-	// TODO: Optimize this: negative values aren't being handled properly by the updateImageViaStagingBuffer function
+	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 4);
+	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
+	
+	auto floatToSNORM8 = [](const float fl) -> int8_t
+		{
+			// we need to invert values because msdfgen assigns positive values for shape interior which is the exact opposite of our convention
+			return -1 * (int8_t)(std::clamp(fl * 2.0f - 1.0f, -1.0f, 1.0f) * 127.f);
+		};
+
 	for (int y = 0; y < msdfMap.height(); ++y)
 	{
 		for (int x = 0; x < msdfMap.width(); ++x)
 		{
 			auto pixel = msdfMap(x, glyphH - 1 - y);
-			data[(x + y * glyphW) * 4 + 0] = std::clamp(pixel[0], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 1] = std::clamp(pixel[1], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 2] = std::clamp(pixel[2], 0.0f, 1.0f);
-			data[(x + y * glyphW) * 4 + 3] = std::clamp(pixel[3], 0.0f, 1.0f);
+			data[(x + y * glyphW) * 4 + 0] = floatToSNORM8(pixel[0]);
+			data[(x + y * glyphW) * 4 + 1] = floatToSNORM8(pixel[1]);
+			data[(x + y * glyphW) * 4 + 2] = floatToSNORM8(pixel[2]);
+			data[(x + y * glyphW) * 4 + 3] = floatToSNORM8(pixel[3]);
 		}
 	}
 
@@ -52,7 +55,16 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateMSDFForShape(msdfgen::S
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
 
-TextRenderer::GlyphMetric TextRenderer::Face::getGlyphMetrics(uint32_t glyphId)
+FontFace::Metrics FontFace::getMetrics() const
+{
+	Metrics ret = {};
+	ret.height = float64_t(m_ftFace->height) * FreeTypeFontScaling;
+	ret.ascent = float64_t(m_ftFace->ascender) * FreeTypeFontScaling;
+	ret.descent = float64_t(m_ftFace->descender) * FreeTypeFontScaling;
+	return ret;
+}
+
+FontFace::GlyphMetrics FontFace::getGlyphMetrics(uint32_t glyphId)
 {
 	auto slot = getGlyphSlot(glyphId);
 
@@ -61,6 +73,52 @@ TextRenderer::GlyphMetric TextRenderer::Face::getGlyphMetrics(uint32_t glyphId)
 		.horizontalBearing = float64_t2(slot->metrics.horiBearingX, slot->metrics.horiBearingY) * FreeTypeFontScaling,
 		.size = float64_t2(slot->metrics.width, slot->metrics.height) * FreeTypeFontScaling,
 	};
+}
+
+core::smart_refctd_ptr<ICPUBuffer> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents)
+{
+	auto shape = generateGlyphShape(glyphId);
+
+	// Empty shapes should've been filtered sooner
+	assert(!shape.contours.empty());
+
+	auto shapeBounds = shape.getBounds();
+
+	float32_t2 frameSize = float32_t2(
+		(shapeBounds.r - shapeBounds.l),
+		(shapeBounds.t - shapeBounds.b)
+	);
+
+	const float32_t2 margin = float32_t2(msdfPixelRange * 2.0f);
+	const float32_t2 nonUniformScale = (float32_t2(textureExtents) - margin) / frameSize;
+	const float32_t uniformScale = core::min(nonUniformScale.x, nonUniformScale.y);
+	
+	// Center before: ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
+	// Center after: msdfExtents / 2.0
+	// Transformation implementation: Center after = (Center before + Translation) * Scale
+	// Plugging in the values and solving for translate yields:
+	// Translate = (msdfExtents / (2 * scale)) - ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
+	const float32_t2 shapeSpaceCenter = float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
+	const float32_t2 translate = float32_t2(textureExtents) / (float32_t2(2.0) * uniformScale) - shapeSpaceCenter;
+
+	return m_textRenderer->generateShapeMSDF(shape, msdfPixelRange, textureExtents, float32_t2(uniformScale, uniformScale), translate);
+}
+
+float32_t2 FontFace::getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange)
+{
+	// NOTE[Erfan]: I don't know if the calculations here are the best way to do it, but it was the first solution that came to mind to transform glyph uv to actual texture uv
+	const float32_t2 margin = float32_t2(msdfPixelRange * 2);
+	const float32_t2 nonUniformScale = (float32_t2(textureExtents) - margin) / glyphSize;
+	const float32_t uniformScale = core::min(nonUniformScale.x, nonUniformScale.y);
+
+	// after finding the scale we solve this equation to get translate:
+	// uniformScale * V + translate = P ---> where V is in [0, GlyphSize] and P is in [0, TextureSize]
+	const float32_t2 translate = (float32_t2(textureExtents) / 2.0f) - (uniformScale * glyphSize / 2.0f);
+
+	// transform uv of glyph into position in actual texture.
+	const float32_t2 placeInTexture = (uniformScale * (uv * glyphSize) + translate);
+	// divide by textureExtents to get uv
+	return placeInTexture / float32_t2(textureExtents);
 }
 
 float64_t2 ftPoint2(const FT_Vector& vector) {
@@ -91,7 +149,7 @@ int ftCubicToMSDF(const FT_Vector* control1, const FT_Vector* control2, const FT
 	return 0;
 }
 
-msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
+msdfgen::Shape FontFace::generateGlyphShape(uint32_t glyphId)
 {
 	auto slot = getGlyphSlot(glyphId);
 	
@@ -104,47 +162,12 @@ msdfgen::Shape TextRenderer::Face::generateGlyphShape(uint32_t glyphId)
 	ftFunctions.cubic_to = &ftCubicToMSDF;
 	ftFunctions.shift = 0;
 	ftFunctions.delta = 0;
-	FT_Error error = FT_Outline_Decompose(&face->glyph->outline, &ftFunctions, &builder);
+	FT_Error error = FT_Outline_Decompose(&m_ftFace->glyph->outline, &ftFunctions, &builder);
 	if (error)
 		return msdfgen::Shape();
 
 	builder.finish();
 	return shape;
-}
-
-TextRenderer::Face::GeneratedGlyphShape TextRenderer::Face::generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents)
-{
-	auto shape = generateGlyphShape(glyphId);
-
-	// Empty shapes should've been filtered sooner
-	assert(!shape.contours.empty());
-
-	auto shapeBounds = shape.getBounds();
-
-	float32_t2 frameSize = float32_t2(
-		(shapeBounds.r - shapeBounds.l),
-		(shapeBounds.t - shapeBounds.b)
-	);
-	uint32_t biggerAxis = frameSize.y > frameSize.x ? 1 : 0;
-	uint32_t smallerAxis = 1 - biggerAxis;
-
-	float32_t smallerSizeRatio = float(frameSize[smallerAxis]) / float(frameSize[biggerAxis]);
-
-	const float32_t2 transfScale = float32_t2(
-		(float32_t2(msdfExtents) - float32_t2(textRenderer->msdfPixelRange * 2)) / max(frameSize.x, frameSize.y));
-	// Center before: ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
-	// Center after: msdfExtents / 2.0
-	// Transformation implementation: Center after = (Center before + Translation) * Scale
-	// Plugging in the values and solving for translate yields:
-	// Translate = (msdfExtents / (2 * scale)) - ((shapeBounds.l + shapeBounds.r) * 0.5, (shapeBounds.t + shapeBounds.b) * 0.5)
-	const float32_t2 transfTranslate = float32_t2(msdfExtents) / (float32_t2(2.0) * transfScale) - 
-		float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
-
-	return {
-		.msdfBitmap = textRenderer->generateMSDFForShape(shape, msdfExtents, transfScale, transfTranslate),
-		.smallerSizeRatio = smallerSizeRatio,
-		.biggerAxis = biggerAxis,
-	};
 }
 
 }

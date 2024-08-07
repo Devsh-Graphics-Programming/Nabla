@@ -7,10 +7,8 @@
 
 #include "nabla.h"
 
-#include "nbl/video/utilities/CPropertyPool.h"
 #include <msdfgen/msdfgen.h>
 #include <ft2build.h>
-#include <nbl/ext/TextRendering/TextRendering.h>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
@@ -33,87 +31,116 @@ namespace TextRendering
 class TextRenderer : public nbl::core::IReferenceCounted
 {
 public:
-	struct GlyphMetric
-	{
-		// These already have the scaling from FreeType's em (1.0 / 64.0) applied
 
+	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8A8_SNORM;
+
+	// Spits out CPUBuffer containing the image data in SNORM format
+	core::smart_refctd_ptr<ICPUBuffer> generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+
+	TextRenderer()
+	{
+		auto error = FT_Init_FreeType(&m_ftLibrary);
+		assert(!error);
+	}
+
+	~TextRenderer()
+	{
+		auto error = FT_Done_FreeType(m_ftLibrary);
+		assert(!error);
+	}
+	
+	// TODO: Remove these here, it's only used for customized tests such as building shapes for hatches
+	const FT_Library& getFreetypeLibrary() const { return m_ftLibrary; }
+	FT_Library& getFreetypeLibrary() { return m_ftLibrary; }
+
+protected:
+	friend class FontFace;
+	FT_Library m_ftLibrary;
+};
+
+class FontFace : public nbl::core::IReferenceCounted
+{
+public:
+
+	// Face Global Metrics/Settings
+	struct Metrics
+	{
+		// This value is the vertical distance between two consecutive baselines, expressed in font units. It is always positive.
+		float64_t height;
+		// The distance from the baseline to the highest or upper grid coordinate used to place an outline point. It is a positive value.
+		float64_t ascent;
+		// The distance from the baseline to the lowest grid coordinate used to place an outline point. this is almost always a negative value.
+		float64_t descent;
+	};
+
+	struct GlyphMetrics
+	{
 		// Offset that should be applied to the current baseline after this glyph is placed
 		float64_t2 advance;
-		// Offset that the image of the glyph should be placed from the current baseline start
+		// Offset of the glyph's top left from the current baseline start, horizontal refers to horizonral LTR or RTL Languages
 		float64_t2 horizontalBearing;
 		// Size of the glyph in the text line
 		float64_t2 size;
 	};
 
-	core::smart_refctd_ptr<ICPUBuffer> generateMSDFForShape(msdfgen::Shape glyph, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
-
-	struct Face : public nbl::core::IReferenceCounted
+	FontFace(core::smart_refctd_ptr<TextRenderer>&& textRenderer, const std::string& path)
 	{
-	public:
-		Face(TextRenderer* textRenderer, std::string path)
-		{
-			auto error = FT_New_Face(textRenderer->getFreetypeLibrary(), path.c_str(), 0, &face);
-			assert(!error);
+		m_textRenderer = std::move(textRenderer);
 
-			hash = std::hash<std::string>{}(path);
-		}
+		auto error = FT_New_Face(m_textRenderer->m_ftLibrary, path.c_str(), 0, &m_ftFace);
+		assert(!error);
 
-		uint32_t getGlyphIndex(wchar_t unicode)
-		{
-			return FT_Get_Char_Index(face, unicode);
-		}
+		m_hash = std::hash<std::string>{}(path);
+	}
 
-
-		GlyphMetric getGlyphMetrics(uint32_t glyphId);
-
-		msdfgen::Shape generateGlyphShape(uint32_t glyphId);
-
-		struct GeneratedGlyphShape
-		{
-			core::smart_refctd_ptr<ICPUBuffer> msdfBitmap;
-			float32_t smallerSizeRatio;
-			uint32_t biggerAxis;
-		};
-		GeneratedGlyphShape generateGlyphUploadInfo(TextRenderer* textRenderer, uint32_t glyphId, uint32_t2 msdfExtents);
-
-		// TODO: Should be private
-		FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
-		{
-			auto error = FT_Load_Glyph(face, glyphId, FT_LOAD_NO_SCALE);
-			assert(!error);
-			return face->glyph;
-		}
-		FT_Face& getFreetypeFace() { return face; }
-
-		size_t getHash() { return hash; }
-	protected:
-		FT_Face face;
-		size_t hash;
-	};
-
-	struct GlyphBox
+	~FontFace()
 	{
-		float64_t2 topLeft;
-		float64_t2 dirU;
-		float64_t2 dirV;
-		uint32_t glyphIdx;
-	};
-
-	TextRenderer(uint32_t in_msdfPixelRange) : msdfPixelRange(in_msdfPixelRange) {
-		auto error = FT_Init_FreeType(&m_ftLibrary);
+		auto error = FT_Done_Face(m_ftFace);
 		assert(!error);
 	}
 
-	const FT_Library& getFreetypeLibrary() const { return m_ftLibrary; }
+	static constexpr uint32_t InvalidGlyphIndex = ~0u;
 
-	FT_Library& getFreetypeLibrary() { return m_ftLibrary; }
+	uint32_t getGlyphIndex(wchar_t unicode)
+	{
+		if (m_ftFace == nullptr)
+		{
+			assert(false);
+			return InvalidGlyphIndex;
+		}
+		return FT_Get_Char_Index(m_ftFace, unicode);
+	}
 
-	const uint32_t GetPixelRange() { return msdfPixelRange; }
+	Metrics getMetrics() const;
+
+	GlyphMetrics getGlyphMetrics(uint32_t glyphId);
+
+	// returns the cpu buffer for the generated MSDF texture with "TextRenderer::MSDFTextureFormat" format
+	// it will place the glyph in the center of msdfExtents considering the margin of msdfPixelRange
+	// preserves aspect ratio of the glyph corresponding to metrics of the "glyphId"
+	// use the `getUV` to address the glyph in your texture correctly.
+	core::smart_refctd_ptr<ICPUBuffer> generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents);
+
+	// transforms uv in glyph space to uv in the actual texture
+	float32_t2 getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange);
+
+	size_t getHash() { return m_hash; }
+	
+	// TODO: make these protected, it's only used for customized tests such as building shapes for hatches
+	FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
+	{
+		auto error = FT_Load_Glyph(m_ftFace, glyphId, FT_LOAD_NO_SCALE);
+		assert(!error);
+		return m_ftFace->glyph;
+	}
+	FT_Face& getFreetypeFace() { return m_ftFace; }
+	msdfgen::Shape generateGlyphShape(uint32_t glyphId);
 
 protected:
-	uint32_t msdfPixelRange;
-	FT_Library m_ftLibrary;
 
+	core::smart_refctd_ptr<TextRenderer> m_textRenderer;
+	FT_Face m_ftFace;
+	size_t m_hash;
 };
 
 // Helper class for building an msdfgen shape from a glyph
@@ -136,7 +163,7 @@ public:
 	void lineTo(const float64_t2 to)
 	{
 		if (to != lastPosition) {
-			currentContour->addEdge(new msdfgen::LinearSegment(msdfPoint(lastPosition), msdfPoint(to)));
+			currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(to)));
 			lastPosition = to;
 		}
 	}
@@ -145,7 +172,7 @@ public:
 	// [last position, control, end]
 	void quadratic(const float64_t2 control, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::QuadraticSegment(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control), msdfPoint(to)));
 		lastPosition = to;
 	}
 
@@ -153,7 +180,7 @@ public:
 	// [last position, control1, control2, end]
 	void cubic(const float64_t2 control1, const float64_t2 control2, const float64_t2 to)
 	{
-		currentContour->addEdge(new msdfgen::CubicSegment(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
+		currentContour->addEdge(msdfgen::EdgeHolder(msdfPoint(lastPosition), msdfPoint(control1), msdfPoint(control2), msdfPoint(to)));
 		lastPosition = to;
 	}
 

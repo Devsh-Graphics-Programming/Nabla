@@ -130,24 +130,36 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         
         // One thing you might notice is that this results in a few implicit Memory and Execution Dependencies
         // So there's a little bit of non-deterministic behaviour we won't fight (will not insert a barrier every time you "could-have" overflown)
-        inline void overflowSubmit()
+        inline IQueue::RESULT overflowSubmit()
         {
             auto cmdbuf = getScratchCommandBuffer();
             // first sumbit the already buffered up work
             cmdbuf->end();
+            
             // we only signal the scratch semaphore when overflowing
             const auto submit = popSubmit({});
-            queue->submit(submit);
+            IQueue::RESULT res = queue->submit(submit);
+            if (res != IQueue::RESULT::SUCCESS)
+                return res;
+            
             // We wait (stall) on the immediately preceeding submission, this could be improved in the future with multiple buffering of the commandbuffers
             {
                 const ISemaphore::SWaitInfo info = {.semaphore=scratchSemaphore.semaphore,.value=scratchSemaphore.value};
-                const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
+                ISemaphore::WAIT_RESULT waitResult = const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
+                if (waitResult != ISemaphore::WAIT_RESULT::SUCCESS)
+                {
+                    assert(false);
+                    return IQueue::RESULT::OTHER_ERROR;
+                }
             }
             // since all the commandbuffers have submitted already we only reuse the last one
             commandBuffers = {&commandBuffers.back(),1};
+            
+            
             // we will still signal the same set in the future
             cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
             cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+            return res;
         }
 
         // Error Text to Log/Display if you try to use an invalid `SIntendedSubmitInfo`
