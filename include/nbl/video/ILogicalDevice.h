@@ -104,25 +104,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcStageMask-03851
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-srcStageMask-03854
                 constexpr auto HostBit = asset::PIPELINE_STAGE_FLAGS::HOST_BIT;
-                if (barrier.dep.srcStageMask.hasFlags(HostBit)||barrier.dep.dstStageMask.hasFlags(HostBit))
-                    m_logger.log("Source and destination queue family index should be equal, HOST_BIT is set [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                if (barrier.dep.srcStageMask.hasFlags(HostBit) || barrier.dep.dstStageMask.hasFlags(HostBit)) {
+                    m_logger.log("Invalid barrier, ownership transfer with host is not allowed [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
-                // spec doesn't require it now, but we do
-                switch (barrier.ownershipOp)
-                {
-                    case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::ACQUIRE:
-                        if (barrier.dep.srcStageMask || barrier.dep.srcAccessMask)
-                            m_logger.log("Ownership operation ACQUIRE requires, srcStageMask and srcAccessMask being set to 0, in  [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
-                            return false;
-                        break;
-                    case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:
-                        if (barrier.dep.dstStageMask || barrier.dep.dstAccessMask)
-                            m_logger.log("Ownership operation RELEASE requires, dstStageMask and dstAccessMask being set to 0, in  [%s - %s:%p]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
-                            return false;
-                        break;
-                    default:
-                        break;
                 }
+
                 // Will not check because it would involve a search:
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04088
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-srcQueueFamilyIndex-04089
