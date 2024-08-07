@@ -32,9 +32,9 @@ struct exchangeValues<SharedMemoryAdaptor, float16_t>
     {
         const bool topHalf = bool(threadID & stride);
         // Ternary won't take structs so we use this aux variable
-        uint32_t toExchange = bit_cast<uint32_t, vector <float16_t, 2> >(topHalf ? vector <float16_t, 2> (lo.real(), lo.imag()) : vector <float16_t, 2> (hi.real(), hi.imag()));
+        uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
         shuffleXor<SharedMemoryAdaptor, uint32_t>::__call(toExchange, stride, sharedmemAdaptor);
-        vector <float16_t, 2> exchanged = bit_cast<vector <float16_t, 2>, uint32_t>(toExchange);
+        float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -55,9 +55,9 @@ struct exchangeValues<SharedMemoryAdaptor, float32_t>
     {
         const bool topHalf = bool(threadID & stride);
         // Ternary won't take structs so we use this aux variable
-        vector <uint32_t, 2> toExchange = bit_cast<vector <uint32_t, 2>, vector <float32_t, 2> >(topHalf ? vector <float32_t, 2>(lo.real(), lo.imag()) : vector <float32_t, 2>(hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, vector <uint32_t, 2> >::__call(toExchange, stride, sharedmemAdaptor);
-        vector <float32_t, 2> exchanged = bit_cast<vector <float32_t, 2>, vector <uint32_t, 2> >(toExchange);
+        uint32_t2 toExchange = bit_cast<uint32_t2, float32_t2 >(topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag()));
+        shuffleXor<SharedMemoryAdaptor, uint32_t2 >::__call(toExchange, stride, sharedmemAdaptor);
+        float32_t2 exchanged = bit_cast<float32_t2, uint32_t2 >(toExchange);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -78,9 +78,9 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
     {
         const bool topHalf = bool(threadID & stride);
         // Ternary won't take structs so we use this aux variable
-        vector <uint32_t, 4> toExchange = bit_cast<vector <uint32_t, 4>, vector <float64_t, 2> > (topHalf ? vector <float64_t, 2>(lo.real(), lo.imag()) : vector <float64_t, 2>(hi.real(), hi.imag()));                       
-        shuffleXor<SharedMemoryAdaptor, vector <uint32_t, 4> >::__call(toExchange, stride, sharedmemAdaptor);
-        vector <float64_t, 2> exchanged = bit_cast<vector <float64_t, 2>, vector <uint32_t, 4> >(toExchange);
+        uint32_t4 toExchange = bit_cast<uint32_t4, float64_t2 > (topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag()));                       
+        shuffleXor<SharedMemoryAdaptor, uint32_t4 >::__call(toExchange, stride, sharedmemAdaptor);
+        float64_t2 exchanged = bit_cast<float64_t2, uint32_t4 >(toExchange);
         if (topHalf)
         {
             lo.real(exchanged.x);
