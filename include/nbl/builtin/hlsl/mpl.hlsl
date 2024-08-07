@@ -63,6 +63,11 @@ struct rotr
     static const T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : (X << (-r)) | (X >> (N - (-r)));
 };
 
+template<uint64_t N>
+struct is_pot : bool_constant< (N > 0 && !(N & (N - 1))) > {};
+
+template<uint64_t N>
+NBL_CONSTEXPR_STATIC_INLINE bool is_pot_v = is_pot<N>::value;
 
 }
 }
