@@ -29,7 +29,9 @@ T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor, const uint
     
     accessor.workgroupExecutionAndMemoryBarrier();
     
-    return accessor.get(0);
+    T retVal;
+    accessor.get(0, retVal);
+    return retVal;
 }
 
 template<typename T, class Accessor>

@@ -101,7 +101,9 @@ template<class Accessor>
 bool ballotBitExtract(const uint16_t index, NBL_REF_ARG(Accessor) accessor)
 {
     assert(index<Volume());
-    return bool(accessor.get(impl::getDWORD(index))&(1u<<(index&31u)));
+    uint32_t dwordAtIndex;
+    accessor.get(impl::getDWORD(index), dwordAtIndex);
+    return bool(dwordAtIndex & (1u<<(index&31u)));
 }
 
 /**

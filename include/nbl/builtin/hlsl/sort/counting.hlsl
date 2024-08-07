@@ -22,12 +22,12 @@ template<
     typename ValueAccessor,
     typename HistogramAccessor,
     typename SharedAccessor,
+    typename key_t = decltype(impl::declval < KeyAccessor > ().get(0)),
     bool robust=false
 >
 struct counting
 {
-    using key_t = decltype(impl::declval < KeyAccessor > ().get(0));
-    using this_t = counting<GroupSize, KeyBucketCount, KeyAccessor, ValueAccessor, HistogramAccessor, SharedAccessor>;
+    using this_t = counting<GroupSize, KeyBucketCount, KeyAccessor, ValueAccessor, HistogramAccessor, SharedAccessor, key_t>;
 
     static this_t create(const uint32_t workGroupIndex)
     {
@@ -58,7 +58,8 @@ struct counting
 
         for (; index < endIndex; index += GroupSize)
         {
-            uint32_t k = key.get(index);
+            uint32_t k;
+            key.get(index, k);
             if (robust && (k<params.minimum || k>params.maximum) )
                 continue;
             sdata.atomicAdd(k - params.minimum, (uint32_t) 1);
@@ -79,7 +80,8 @@ struct counting
 
         uint32_t tid = workgroup::SubgroupContiguousIndex();
         // because first chunk of histogram and workgroup scan scratch are aliased
-        uint32_t histogram_value = sdata.get(tid);
+        uint32_t histogram_value;
+        sdata.get(tid, histogram_value);
 
         sdata.workgroupExecutionAndMemoryBarrier();
 
@@ -97,14 +99,18 @@ struct counting
             // no if statement about the last iteration needed
             if (is_last_wg_invocation)
             {
-                sdata.set(keyBucketStart, sdata.get(keyBucketStart) + sum);
+                uint32_t beforeSum;
+                sdata.get(keyBucketStart, beforeSum);
+                sdata.set(keyBucketStart, beforeSum + sum);
             }
 
             // propagate last block tail to next block head and protect against subsequent scans stepping on each other's toes
             sdata.workgroupExecutionAndMemoryBarrier();
 
             // no aliasing anymore
-            sum = inclusive_scan(sdata.get(vid), sdata);
+            uint32_t atVid;
+            sdata.get(vid, atVid);
+            sum = inclusive_scan(atVid, sdata);
             if (vid < KeyBucketCount) {
                 histogram.atomicAdd(vid, sum);
             }
@@ -131,7 +137,8 @@ struct counting
         {
             // have to use modulo operator in case `KeyBucketCount<=2*GroupSize`, better hope KeyBucketCount is Power of Two
             const uint32_t shifted_tid = (vtid + shift) % KeyBucketCount;
-            const uint32_t bucket_value = sdata.get(shifted_tid);
+            const uint32_t bucket_value;
+            sdata.get(shifted_tid, bucket_value);
             const uint32_t firstOutputIndex = histogram.atomicSub(shifted_tid, bucket_value) - bucket_value;
 
             sdata.set(shifted_tid, firstOutputIndex);
@@ -145,10 +152,12 @@ struct counting
         [unroll]
         for (; index < endIndex; index += GroupSize)
         {
-            const key_t k = key.get(index);
+            key_t k;
+            key.get(index, k);
             if (robust && (k<params.minimum || k>params.maximum) )
                 continue;
-            const uint32_t v = val.get(index);
+            uint32_t v;
+            val.get(index, v);
             const uint32_t sortedIx = sdata.atomicAdd(k - params.minimum, 1);
             key.set(sortedIx, k);
             val.set(sortedIx, v);
