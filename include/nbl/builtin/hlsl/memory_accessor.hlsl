@@ -25,33 +25,59 @@ struct MemoryAdaptor
     }
 
     template<typename Scalar>
-    void get(const uint ix, NBL_REF_ARG(Scalar) value) { accessor.get(ix, value);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(Scalar) value) 
+    { 
+        uint32_t aux;
+        accessor.get(ix, aux);
+        value = bit_cast<Scalar, uint32_t>(aux);   
+    }
     template<typename Scalar>
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) { accessor.get(ix, value.x), accessor.get(ix + Stride, value.y);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) 
+    {
+        uint32_t2 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + Stride, aux.y);
+        value = bit_cast<vector<Scalar, 2>, uint32_t2>(aux);
+    }
     template<typename Scalar>    
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) { accessor.get(ix, value.x), accessor.get(ix + Stride, value.y), accessor.get(ix + 2 * Stride, value.z);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) 
+    { 
+        uint32_t3 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + Stride, aux.y);
+        accessor.get(ix + 2 * Stride, aux.z);
+        value = bit_cast<vector<Scalar, 3>, uint32_t3>(aux);
+    }
     template<typename Scalar>   
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) { accessor.get(ix, value.x), accessor.get(ix + Stride, value.y), accessor.get(ix + 2 * Stride, value.z), accessor.get(ix + 3 * Stride, value.w);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) 
+    { 
+        uint32_t4 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + Stride, aux.y);
+        accessor.get(ix + 2 * Stride, aux.z);
+        accessor.get(ix + 3 * Stride, aux.w);
+        value = bit_cast<vector<Scalar, 3>, uint32_t4>(aux);  
+    }
 
     template<typename Scalar>
-    void set(const uint ix, const Scalar value) {accessor.set(ix, value);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const Scalar value) {accessor.set(ix, asuint(value));}
     template<typename Scalar>    
-    void set(const uint ix, const vector <Scalar, 2> value) {
-        accessor.set(ix, value.x);
-        accessor.set(ix + Stride, value.y);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 2> value) {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + Stride, asuint(value.y));
     }
     template<typename Scalar>
-    void set(const uint ix, const vector <Scalar, 3> value)  {
-        accessor.set(ix, value.x);
-        accessor.set(ix + Stride, value.y);
-        accessor.set(ix + 2 * Stride, value.z);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 3> value)  {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + Stride, asuint(value.y));
+        accessor.set(ix + 2 * Stride, asuint(value.z));
     }
     template<typename Scalar>
-    void set(const uint ix, const vector <Scalar, 4> value) {
-        accessor.set(ix, value.x);
-        accessor.set(ix + Stride, value.y);
-        accessor.set(ix + 2 * Stride, value.z);
-        accessor.set(ix + 3 * Stride, value.w);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 4> value) {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + Stride, asuint(value.y));
+        accessor.set(ix + 2 * Stride, asuint(value.z));
+        accessor.set(ix + 3 * Stride, asuint(value.w));
     }
     
     void atomicAnd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
@@ -110,34 +136,68 @@ struct MemoryAdaptor<BaseAccessor, 0>
     BaseAccessor accessor;
     uint32_t stride;
    
-    template<typename Scalar>
-    void get(const uint ix, NBL_REF_ARG(Scalar) value) { accessor.get(ix, value);}
-    template<typename Scalar>
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) { accessor.get(ix, value.x), accessor.get(ix + stride, value.y);}
-    template<typename Scalar>    
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) { accessor.get(ix, value.x), accessor.get(ix + stride, value.y), accessor.get(ix + 2 * stride, value.z);}
-    template<typename Scalar>   
-    void get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) { accessor.get(ix, value.x), accessor.get(ix + stride, value.y), accessor.get(ix + 2 * stride, value.z), accessor.get(ix + 3 * stride, value.w);}
+    // TODO: template atomic... then add static_asserts of `has_method<BaseAccessor,signature>::value`, do vectors and matrices in terms of each other
+    uint get(const uint ix) 
+    { 
+        uint retVal;
+        accessor.get(ix, retVal);
+        return retVal; 
+    }
 
     template<typename Scalar>
-    void set(const uint ix, const Scalar value) {accessor.set(ix, value);}
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(Scalar) value) 
+    { 
+        uint32_t aux;
+        accessor.get(ix, aux);
+        value = bit_cast<Scalar, uint32_t>(aux);   
+    }
+    template<typename Scalar>
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) 
+    {
+        uint32_t2 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + stride, aux.y);
+        value = bit_cast<vector<Scalar, 2>, uint32_t2>(aux);
+    }
     template<typename Scalar>    
-    void set(const uint ix, const vector <Scalar, 2> value) {
-        accessor.set(ix, value.x);
-        accessor.set(ix + stride, value.y);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) 
+    { 
+        uint32_t3 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + stride, aux.y);
+        accessor.get(ix + 2 * stride, aux.z);
+        value = bit_cast<vector<Scalar, 3>, uint32_t3>(aux);
+    }
+    template<typename Scalar>   
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) 
+    { 
+        uint32_t4 aux;
+        accessor.get(ix, aux.x);
+        accessor.get(ix + stride, aux.y);
+        accessor.get(ix + 2 * stride, aux.z);
+        accessor.get(ix + 3 * stride, aux.w);
+        value = bit_cast<vector<Scalar, 3>, uint32_t4>(aux);  
+    }
+
+    template<typename Scalar>
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const Scalar value) {accessor.set(ix, asuint(value));}
+    template<typename Scalar>    
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 2> value) {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + stride, asuint(value.y));
     }
     template<typename Scalar>
-    void set(const uint ix, const vector <Scalar, 3> value)  {
-        accessor.set(ix, value.x);
-        accessor.set(ix + stride, value.y);
-        accessor.set(ix + 2 * stride, value.z);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 3> value)  {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + stride, asuint(value.y));
+        accessor.set(ix + 2 * stride, asuint(value.z));
     }
     template<typename Scalar>
-    void set(const uint ix, const vector <Scalar, 4> value) {
-        accessor.set(ix, value.x);
-        accessor.set(ix + stride, value.y);
-        accessor.set(ix + 2 * stride, value.z);
-        accessor.set(ix + 3 * stride, value.w);
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 4> value) {
+        accessor.set(ix, asuint(value.x));
+        accessor.set(ix + stride, asuint(value.y));
+        accessor.set(ix + 2 * stride, asuint(value.z));
+        accessor.set(ix + 3 * stride, asuint(value.w));
     }
 
     void atomicAnd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
