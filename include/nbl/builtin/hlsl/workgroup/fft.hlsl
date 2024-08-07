@@ -146,6 +146,7 @@ struct FFT<2,false, Scalar, device_capabilities>
             hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false, Scalar>(threadID, _NBL_HLSL_WORKGROUP_SIZE_), lo, hi);
 
             // Run bigger steps until Subgroup-sized
+            [unroll]
             for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
             {   
                 FFT_loop< MemoryAdaptor<SharedMemoryAccessor> >(stride, lo, hi, threadID, sharedmemAdaptor);
@@ -211,6 +212,7 @@ struct FFT<2,true, Scalar, device_capabilities>
             fft::exchangeValues<MemoryAdaptor<SharedMemoryAccessor>, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
         
             // The bigger steps
+            [unroll]
             for (uint32_t stride = glsl::gl_SubgroupSize() << 1; stride < _NBL_HLSL_WORKGROUP_SIZE_; stride <<= 1)
             {   
                 // Order of waiting for shared mem writes is also reversed here, since the shuffle came earlier
@@ -241,9 +243,10 @@ struct FFT<K, false, Scalar, device_capabilities>
     template<typename Accessor, typename SharedMemoryAccessor>
     static enable_if_t< (mpl::is_pot_v<K> && K > 2), void > __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
+        [unroll]
         for (uint32_t stride = (K / 2) * _NBL_HLSL_WORKGROUP_SIZE_; stride > _NBL_HLSL_WORKGROUP_SIZE_; stride >>= 1)
         {
-            //[unroll(K/2)]
+            [unroll]
             for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (K / 2) * _NBL_HLSL_WORKGROUP_SIZE_; virtualThreadID += _NBL_HLSL_WORKGROUP_SIZE_)
             {
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));
@@ -263,7 +266,7 @@ struct FFT<K, false, Scalar, device_capabilities>
 
         // do K/2 small workgroup FFTs
         DynamicOffsetAccessor <Accessor> offsetAccessor;
-        //[unroll(K/2)]
+        [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
@@ -284,7 +287,7 @@ struct FFT<K, true, Scalar, device_capabilities>
     {
         // do K/2 small workgroup FFTs
         DynamicOffsetAccessor <Accessor> offsetAccessor;
-        //[unroll(K/2)]
+        [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
@@ -293,11 +296,12 @@ struct FFT<K, true, Scalar, device_capabilities>
             FFT<2,true, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
         accessor = offsetAccessor.accessor;
-      
+        
+        [unroll]
         for (uint32_t stride = 2 * _NBL_HLSL_WORKGROUP_SIZE_; stride < K * _NBL_HLSL_WORKGROUP_SIZE_; stride <<= 1)
         {
             accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
-            //[unroll(K/2)]
+            [unroll]
             for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (K / 2) * _NBL_HLSL_WORKGROUP_SIZE_; virtualThreadID += _NBL_HLSL_WORKGROUP_SIZE_)
             {
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));

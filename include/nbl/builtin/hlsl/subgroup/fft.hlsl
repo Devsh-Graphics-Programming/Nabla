@@ -51,6 +51,7 @@ struct FFT<false, Scalar, device_capabilities>
         fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);                                                                                   
         
         // Decimation in Frequency
+        [unroll]
         for (uint32_t stride = subgroupSize >> 1; stride > 0; stride >>= 1)
             FFT_loop(stride, lo, hi);
     }
@@ -88,6 +89,7 @@ struct FFT<true, Scalar, device_capabilities>
         const uint32_t doubleSubgroupSize = subgroupSize << 1;  //This is N                                                                           
         
         // Decimation in Time
+        [unroll]
         for (uint32_t stride = 1; stride < subgroupSize; stride <<= 1)
             FFT_loop(stride, lo, hi);
         
