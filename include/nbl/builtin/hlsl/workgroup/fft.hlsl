@@ -11,6 +11,7 @@
 
 // Caveats
 // - Sin and Cos in HLSL take 32-bit floats. Using this library with 64-bit floats works perfectly fine, but DXC will emit warnings
+//   This also means that you don't really get the full precision of 64-bit since twiddle factors are only 32-bit precision
 
 namespace nbl 
 {

@@ -187,13 +187,13 @@ struct MemoryAdaptor<BaseAccessor, 0>
         accessor.set(ix + stride, asuint(value.y));
     }
     template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 3> value)  {
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 3> value)  {
         accessor.set(ix, asuint(value.x));
         accessor.set(ix + stride, asuint(value.y));
         accessor.set(ix + 2 * stride, asuint(value.z));
     }
     template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const <Scalar, 4> value) {
+    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 4> value) {
         accessor.set(ix, asuint(value.x));
         accessor.set(ix + stride, asuint(value.y));
         accessor.set(ix + 2 * stride, asuint(value.z));
