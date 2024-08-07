@@ -23,6 +23,12 @@ struct BdaAccessor
         return accessor;
     }
 
+    T get(const uint64_t index)
+    {
+        bda::__ptr<T> target = ptr + index;
+        return target.template deref().load();
+    }
+
     void get(const uint64_t index, NBL_REF_ARG(T) value)
     {
         bda::__ptr<T> target = ptr + index;
