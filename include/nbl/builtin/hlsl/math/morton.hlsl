@@ -13,7 +13,7 @@
 
 namespace nbl
 {
-namespace core
+namespace hlsl
 {
 
 namespace impl
