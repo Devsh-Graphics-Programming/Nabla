@@ -32,10 +32,12 @@ template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, ty
 struct geom_luma_meter {
     using this_t = geom_luma_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(NBL_REF_ARG(LumaMeteringWindow) window)
+    static this_t create(NBL_REF_ARG(LumaMeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
     {
         this_t retval;
         retval.window = window;
+        retval.minLuma = lumaMinimum;
+        retval.maxLuma = lumaMaximum;
         return retval;
     }
 
@@ -58,9 +60,6 @@ struct geom_luma_meter {
         float32_t3 color = colorspace::eotf::sRGB(tex.get(uvPos));
         float32_t luma = dot(colorspace::sRGBtoXYZ[1], color);
 
-        const float32_t minLuma = 1.0 / 4096.0;
-        const float32_t maxLuma = 32768.0;
-
         luma = clamp(luma, minLuma, maxLuma);
 
         return log2(luma / minLuma) / log2(maxLuma / minLuma);
@@ -72,7 +71,8 @@ struct geom_luma_meter {
         NBL_REF_ARG(SharedAccessor) sdata,
         uint32_t2 sampleCount,
         float32_t2 viewportSize
-    ) {
+    )
+    {
         uint32_t2 coord = {
             morton2d_decode_x(glsl::gl_LocalInvocationIndex()),
             morton2d_decode_y(glsl::gl_LocalInvocationIndex())
@@ -91,7 +91,9 @@ struct geom_luma_meter {
             if (tid == GroupSize - 1) {
                 uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
                 uint32_t fixedPointBitsLeft = 32 - uint32_t(ceil(log2(workGroupCount.x * workGroupCount.y * workGroupCount.z))) + glsl::gl_SubgroupSizeLog2();
-                uint32_t lumaSumBitPattern = uint32_t(clamp(lumaSum, 0.f, float((1 << fixedPointBitsLeft) - 1)));
+
+                uint32_t lumaSumBitPattern = uint32_t(clamp((lumaSum - log2(minLuma)) * (log2(maxLuma) - log2(minLuma)), 0.f, float32_t((1 << fixedPointBitsLeft) - 1)));
+
                 uint32_t3 workgroupSize = glsl::gl_WorkGroupSize();
                 uint32_t workgroupIndex = dot(uint32_t3(workgroupSize.y * workgroupSize.z, workgroupSize.z, 1), glsl::gl_WorkGroupID());
 
@@ -100,7 +102,18 @@ struct geom_luma_meter {
         }
     }
 
+    float32_t getGatheredLuma(
+        NBL_REF_ARG(ValueAccessor) val,
+        uint32_t2 sampleCount
+    )
+    {
+        uint32_t lumaSumBitPattern = val.get(glsl::gl_SubgroupInvocationID());
+        float32_t lumaSumValue = float32_t(lumaSumBitPattern) / (log2(maxLuma) - log2(minLuma)) + log2(minLuma);
+        return glsl::subgroupAdd(lumaSumValue) / (sampleCount.x * sampleCount.y);
+    }
+
     LumaMeteringWindow window;
+    float32_t minLuma, maxLuma;
 };
 }
 }
