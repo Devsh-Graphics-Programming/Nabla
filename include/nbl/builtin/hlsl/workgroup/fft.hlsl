@@ -32,7 +32,7 @@ struct exchangeValues<SharedMemoryAdaptor, float16_t>
     static void __call(NBL_REF_ARG(complex_t<float16_t>) lo, NBL_REF_ARG(complex_t<float16_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Ternary won't take structs so we use this aux variable
+        // Pack two halves into a single uint32_t
         uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
         shuffleXor<SharedMemoryAdaptor, uint32_t>::__call(toExchange, stride, sharedmemAdaptor);
         float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
@@ -55,7 +55,7 @@ struct exchangeValues<SharedMemoryAdaptor, float32_t>
     static void __call(NBL_REF_ARG(complex_t<float32_t>) lo, NBL_REF_ARG(complex_t<float32_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Ternary won't take structs so we use this aux variable
+        // Cast to uint32_t to use the shared memory for shuffling
         uint32_t2 toExchange = bit_cast<uint32_t2, float32_t2 >(topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag()));
         shuffleXor<SharedMemoryAdaptor, uint32_t2 >::__call(toExchange, stride, sharedmemAdaptor);
         float32_t2 exchanged = bit_cast<float32_t2, uint32_t2 >(toExchange);
@@ -78,7 +78,7 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
     static void __call(NBL_REF_ARG(complex_t<float64_t>) lo, NBL_REF_ARG(complex_t<float64_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Ternary won't take structs so we use this aux variable
+        // Unpack two doubles into four uint32_t
         uint32_t4 toExchange = bit_cast<uint32_t4, float64_t2 > (topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag()));                       
         shuffleXor<SharedMemoryAdaptor, uint32_t4 >::__call(toExchange, stride, sharedmemAdaptor);
         float64_t2 exchanged = bit_cast<float64_t2, uint32_t4 >(toExchange);
@@ -104,10 +104,19 @@ struct FFT;
 
 // For the FFT methods below, we assume:
 //      - Accessor is a global memory accessor to an array fitting 2 * _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT,
-//        that is, one "lo" and one "hi" complex numbers per thread, essentially 4 Scalars per thread. 
-//        There are no assumptions on the data layout: we just require the accessor to provide get and set methods for complex_t<Scalar>.
-//      - SharedMemoryAccessor accesses a shared memory array that can fit _NBL_HLSL_WORKGROUP_SIZE_ elements of type complex_t<Scalar>, with get and set 
-//        methods for complex_t<Scalar>. It benefits from coalesced accesses   
+//        that is, one "lo" and one "hi" complex numbers per thread, essentially 4 Scalars per thread. The arrays it accesses with `get` and `set` can optionally be
+//        different, if you don't want the FFT to be done in-place. 
+//        The Accessor MUST provide the following methods:
+//            * void get(uint32_t index, inout complex_t<Scalar> value);
+//            * void set(uint32_t index, in complex_t<Scalar> value);
+//            * void memoryBarrier();
+//        You might optionally want to provide a `workgroupExecutionAndMemoryBarrier()` method on it to wait on to be sure the whole FFT pass is done
+ 
+//      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `2 * sizeof(Scalar) * _NBL_HLSL_WORKGROUP_SIZE_`.
+//        The SharedMemoryAccessor MUST provide the following methods:
+//             * void get(uint32_t index, inout uint32_t value);  
+//             * void set(uint32_t index, in uint32_t value); 
+//             * void workgroupExecutionAndMemoryBarrier();
 
 // 2 items per invocation forward specialization
 template<typename Scalar, class device_capabilities>
