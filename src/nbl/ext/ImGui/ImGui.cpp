@@ -4,7 +4,6 @@
 #include <vector>
 #include <utility>
 
-// internal & nabla
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
@@ -12,7 +11,6 @@
 #include "ext/imgui/spirv/builtin/builtinResources.h"
 #include "ext/imgui/spirv/builtin/CArchive.h"
 
-// 3rdparty
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 
@@ -21,36 +19,50 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
 
+// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
+_NBL_STATIC_INLINE_CONSTEXPR ImTextureID NBL_FONT_ATLAS_TEX_ID = 0u;
+
 namespace nbl::ext::imgui
 {
-	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::CreateDescriptorSetLayout()
+	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::createDescriptorSetLayout()
 	{
-		nbl::video::IGPUDescriptorSetLayout::SBinding bindings[] = {
+		using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+
+		const IGPUDescriptorSetLayout::SBinding bindings[] = 
+		{ 
 			{
-				.binding = 0,
-				.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
-				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-				.stageFlags = IShader::ESS_FRAGMENT,
-				.count = 1,
-				.immutableSamplers = nullptr // TODO: m_fontSampler?
+				.binding = 0u,
+				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+				.createFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
+				.count = NBL_MAX_IMGUI_TEXTURES
+			},
+			{
+				.binding = 1u,
+				.type = IDescriptor::E_TYPE::ET_SAMPLER,
+				.createFlags = binding_flags_t::ECF_NONE,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
+				.count = 1u,
+				.immutableSamplers = &m_fontSampler
 			}
 		};
 
 		return m_device->createDescriptorSetLayout(bindings);
 	}
 
-	void UI::CreatePipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
+	void UI::createPipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
 	{
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
-		SPushConstantRange pushConstantRanges[] = {
+		SPushConstantRange pushConstantRanges[] = 
+		{
 			{
-				.stageFlags = IShader::ESS_VERTEX,
-				.offset = 0,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT,
+				.offset = 0u,
 				.size = sizeof(PushConstants)
 			}
 		};
 
-		auto descriptorSetLayout = CreateDescriptorSetLayout();
+		auto descriptorSetLayout = createDescriptorSetLayout();
 		m_gpuDescriptorSet = m_descriptorPool->createDescriptorSet(descriptorSetLayout); 
 		assert(m_gpuDescriptorSet);
 
@@ -76,8 +88,8 @@ namespace nbl::ext::imgui
 				return m_device->createShader(shader.get());
 			};
 
-			shaders.vertex = createShader(spirv.vertex, IShader::ESS_VERTEX);
-			shaders.fragment = createShader(spirv.fragment, IShader::ESS_FRAGMENT);
+			shaders.vertex = createShader(spirv.vertex, IShader::E_SHADER_STAGE::ESS_VERTEX);
+			shaders.fragment = createShader(spirv.fragment, IShader::E_SHADER_STAGE::ESS_FRAGMENT);
 		}
 	
 		SVertexInputParams vertexInputParams{};
@@ -141,7 +153,7 @@ namespace nbl::ext::imgui
 
 			IGPUGraphicsPipeline::SCreationParams params[1];
 			{
-				auto& param = params[0];
+				auto& param = params[0u];
 				param.layout = pipelineLayout.get();
 				param.shaders = specs;
 				param.renderpass = renderpass;
@@ -156,7 +168,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	ISemaphore::future_t<IQueue::RESULT> UI::CreateFontTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
+	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* transfer)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -177,10 +189,16 @@ namespace nbl::ext::imgui
 		uint8_t* pixels = nullptr;
 		int32_t width, height;
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+		io.Fonts->SetTexID(NBL_FONT_ATLAS_TEX_ID);
+
 		if (!pixels || width<=0 || height<=0)
 			return IQueue::RESULT::OTHER_ERROR;
+
+		const size_t componentsCount = 4, image_size = width * height * componentsCount * sizeof(uint8_t);
 		
-		constexpr auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
+		const auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(image_size, pixels, core::adopt_memory);
+		
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 		params.type = IImage::ET_2D;
@@ -212,7 +230,7 @@ namespace nbl::ext::imgui
 			region->imageSubresource = {};
 			region->imageSubresource.aspectMask = IImage::EAF_COLOR_BIT;
 			region->imageSubresource.layerCount = 1u;
-			region->imageOffset = { 0, 0, 0 };
+			region->imageOffset = { 0u, 0u, 0u };
 			region->imageExtent = { params.extent.width, params.extent.height, 1u };
 		}
 
@@ -230,6 +248,8 @@ namespace nbl::ext::imgui
 			logger->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
+		
+		image->setObjectDebugName("Nabla IMGUI extension Font Atlas");
 
 		SIntendedSubmitInfo sInfo;
 		{
@@ -246,10 +266,10 @@ namespace nbl::ext::imgui
 			sInfo.queue = transfer;
 			sInfo.waitSemaphores = {};
 			sInfo.commandBuffers = { &cmdInfo, 1 };
-			sInfo.scratchSemaphore = // TODO: do I really need it? YES, ALWAYS!
+			sInfo.scratchSemaphore =
 			{
 				.semaphore = scratchSemaphore.get(),
-				.value = 0,
+				.value = 0u,
 				.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
 			};
 			
@@ -304,41 +324,12 @@ namespace nbl::ext::imgui
 			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
-			m_fontTexture = m_device->createImageView(std::move(params));
+			m_fontAtlasTexture = m_device->createImageView(std::move(params));
 		}
 		
         ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
         retval.set({sInfo.scratchSemaphore.semaphore,sInfo.scratchSemaphore.value});
         return retval;
-	}
-
-	void prepareKeyMapForDesktop()
-	{
-		ImGuiIO& io = ImGui::GetIO();
-		// TODO:
-		// Keyboard mapping. ImGui will use those indices to peek into the io.KeysDown[] array.
-		//io.KeyMap[ImGuiKey_Tab] = MSDL::SDL_SCANCODE_TAB;
-		//io.KeyMap[ImGuiKey_LeftArrow] = MSDL::SDL_SCANCODE_LEFT;
-		//io.KeyMap[ImGuiKey_RightArrow] = MSDL::SDL_SCANCODE_RIGHT;
-		//io.KeyMap[ImGuiKey_UpArrow] = MSDL::SDL_SCANCODE_UP;
-		//io.KeyMap[ImGuiKey_DownArrow] = MSDL::SDL_SCANCODE_DOWN;
-		//io.KeyMap[ImGuiKey_PageUp] = MSDL::SDL_SCANCODE_PAGEUP;
-		//io.KeyMap[ImGuiKey_PageDown] = MSDL::SDL_SCANCODE_PAGEDOWN;
-		//io.KeyMap[ImGuiKey_Home] = MSDL::SDL_SCANCODE_HOME;
-		//io.KeyMap[ImGuiKey_End] = MSDL::SDL_SCANCODE_END;
-		//io.KeyMap[ImGuiKey_Insert] = MSDL::SDL_SCANCODE_INSERT;
-		//io.KeyMap[ImGuiKey_Delete] = MSDL::SDL_SCANCODE_DELETE;
-		//io.KeyMap[ImGuiKey_Backspace] = MSDL::SDL_SCANCODE_BACKSPACE;
-		//io.KeyMap[ImGuiKey_Space] = MSDL::SDL_SCANCODE_SPACE;
-		//io.KeyMap[ImGuiKey_Enter] = MSDL::SDL_SCANCODE_RETURN;
-		//io.KeyMap[ImGuiKey_Escape] = MSDL::SDL_SCANCODE_ESCAPE;
-		//io.KeyMap[ImGuiKey_KeyPadEnter] = MSDL::SDL_SCANCODE_KP_ENTER;
-		//io.KeyMap[ImGuiKey_A] = MSDL::SDL_SCANCODE_A;
-		//io.KeyMap[ImGuiKey_C] = MSDL::SDL_SCANCODE_C;
-		//io.KeyMap[ImGuiKey_V] = MSDL::SDL_SCANCODE_V;
-		//io.KeyMap[ImGuiKey_X] = MSDL::SDL_SCANCODE_X;
-		//io.KeyMap[ImGuiKey_Y] = MSDL::SDL_SCANCODE_Y;
-		//io.KeyMap[ImGuiKey_Z] = MSDL::SDL_SCANCODE_Z;
 	}
 
 	static void adjustGlobalFontScale()
@@ -347,26 +338,33 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::UpdateDescriptorSets()
+	void UI::updateDescriptorSets()
 	{
-		IGPUDescriptorSet::SDescriptorInfo info;
+		// texture atlas + user defined textures, note we don't create info & write pair for the font sampler because ours is immutable and baked into DS layout
+		std::array<IGPUDescriptorSet::SDescriptorInfo, NBL_MAX_IMGUI_TEXTURES> iInfo;
+		for (auto& it : iInfo)
 		{
-			info.desc = m_fontTexture;
-			info.info.combinedImageSampler.sampler = m_fontSampler;
-			info.info.combinedImageSampler.imageLayout = nbl::asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
+			it.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
+			it.desc = m_fontAtlasTexture;
 		}
 
-		IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet{};
-		writeDescriptorSet.dstSet = m_gpuDescriptorSet.get();
-		writeDescriptorSet.binding = 0;
-		writeDescriptorSet.arrayElement = 0;
-		writeDescriptorSet.count = 1;
-		writeDescriptorSet.info = &info;
+		ImGuiIO& io = ImGui::GetIO();
 
-		m_device->updateDescriptorSets(1, &writeDescriptorSet, 0, nullptr);
+		const IGPUDescriptorSet::SWriteDescriptorSet writes[] = 
+		{ 
+			{
+				.dstSet = m_gpuDescriptorSet.get(),
+				.binding = 0u,
+				.arrayElement = io.Fonts->TexID, // OK ITS TEMPORARY (filling all with font atlas index, I need to fill all with dummy texture to not throw validation errors which kills my app)
+				.count = 1,//NBL_MAX_IMGUI_TEXTURES,
+				.info = iInfo.data()
+			} 
+		};
+
+		m_device->updateDescriptorSets(writes, {});
 	}
 
-	void UI::CreateFontSampler()
+	void UI::createFontAtlasSampler()
 	{
 		// TODO: Recheck this settings
 		IGPUSampler::SParams params{};
@@ -378,66 +376,233 @@ namespace nbl::ext::imgui
 		params.TextureWrapW = ISampler::ETC_REPEAT;
 
 		m_fontSampler = m_device->createSampler(params);
+		m_fontSampler->setObjectDebugName("Nabla Font Atlas Sampler");
 	}
 
-	void UI::CreateDescriptorPool()
+	void UI::createDescriptorPool()
 	{
-		static constexpr int TotalSetCount = 1;
 		IDescriptorPool::SCreateInfo createInfo = {};
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)] = TotalSetCount;
-		createInfo.maxSets = 1;
-		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_NONE;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = 1u;
+		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = NBL_MAX_IMGUI_TEXTURES;
+		createInfo.maxSets = 1u;
+		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT;
 
 		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
 		assert(m_descriptorPool);
 	}
-	
-	void UI::HandleMouseEvents(
-		float const mousePosX, 
-		float const mousePosY,
-		size_t const mouseEventsCount,
-		SMouseEvent const * mouseEvents
-	) const
+
+	void UI::handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const
 	{
 		auto& io = ImGui::GetIO();
 
-		io.MousePos.x = mousePosX - m_window->getX();
-		io.MousePos.y = mousePosY - m_window->getY();
+		const auto position = mousePosition - nbl::hlsl::float32_t2(m_window->getX(), m_window->getY());
 
-		for (size_t i = 0; i < mouseEventsCount; ++i)
+		io.AddMousePosEvent(position.x, position.y);
+
+		for (const auto& e : events)
 		{
-			auto const & event = mouseEvents[i];
-			if(event.type == SMouseEvent::EET_CLICK)
+			switch (e.type)
 			{
-				int buttonIndex = -1;
-				if (event.clickEvent.mouseButton == EMB_LEFT_BUTTON) 
-				{
-					buttonIndex = 0;
-				} else if (event.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
-				{
-					buttonIndex = 1;
-				} else if (event.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
-				{
-					buttonIndex = 2;
-				}
+			case SMouseEvent::EET_CLICK:
+			{
+				ImGuiMouseButton_ button = ImGuiMouseButton_COUNT;
+				if (e.clickEvent.mouseButton == EMB_LEFT_BUTTON)
+					button = ImGuiMouseButton_Left;
+				else if (e.clickEvent.mouseButton == EMB_RIGHT_BUTTON)
+					button = ImGuiMouseButton_Right;
+				else if (e.clickEvent.mouseButton == EMB_MIDDLE_BUTTON)
+					button = ImGuiMouseButton_Middle;
 
-				if (buttonIndex == -1)
-				{
-					assert(false);
+				if (button == ImGuiMouseButton_COUNT)
 					continue;
-				}
 
-				if(event.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED) {
-					io.MouseDown[buttonIndex] = true;
-				} else if (event.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED) {
-					io.MouseDown[buttonIndex] = false;
-				}
+				if (e.clickEvent.action == SMouseEvent::SClickEvent::EA_PRESSED)
+					io.AddMouseButtonEvent(button, true);
+				else if (e.clickEvent.action == SMouseEvent::SClickEvent::EA_RELEASED)
+					io.AddMouseButtonEvent(button, false);
+			} break;
+
+			case SMouseEvent::EET_SCROLL:
+			{
+				_NBL_STATIC_INLINE_CONSTEXPR auto scalar = 0.02f;
+				const auto wheel = nbl::hlsl::float32_t2(e.scrollEvent.horizontalScroll, e.scrollEvent.verticalScroll) * scalar;
+
+				io.AddMouseWheelEvent(wheel.x, wheel.y);
+			} break;
+
+			case SMouseEvent::EET_MOVEMENT:
+
+			default:
+				break;
 			}
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> device, int maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window))
+	struct NBL_TO_IMGUI_KEY_BIND 
+	{
+		ImGuiKey target;
+		char physicalSmall;
+		char physicalBig;
+	};
+
+	// maps Nabla keys to IMGUIs
+	_NBL_STATIC_INLINE_CONSTEXPR std::array<NBL_TO_IMGUI_KEY_BIND, EKC_COUNT> createKeyMap()
+	{
+		std::array<NBL_TO_IMGUI_KEY_BIND, EKC_COUNT> map = { { NBL_TO_IMGUI_KEY_BIND{ImGuiKey_None, '0', '0'} } };
+
+		#define NBL_REGISTER_KEY(__NBL_KEY__, __IMGUI_KEY__) \
+			map[__NBL_KEY__] = NBL_TO_IMGUI_KEY_BIND{__IMGUI_KEY__, keyCodeToChar(__NBL_KEY__, false), keyCodeToChar(__NBL_KEY__, true)};
+
+		NBL_REGISTER_KEY(EKC_BACKSPACE, ImGuiKey_Backspace);
+		NBL_REGISTER_KEY(EKC_TAB, ImGuiKey_Tab);
+		NBL_REGISTER_KEY(EKC_ENTER, ImGuiKey_Enter);
+		NBL_REGISTER_KEY(EKC_LEFT_SHIFT, ImGuiKey_LeftShift);
+		NBL_REGISTER_KEY(EKC_RIGHT_SHIFT, ImGuiKey_RightShift);
+		NBL_REGISTER_KEY(EKC_LEFT_CONTROL, ImGuiKey_LeftCtrl);
+		NBL_REGISTER_KEY(EKC_RIGHT_CONTROL, ImGuiKey_RightCtrl);
+		NBL_REGISTER_KEY(EKC_LEFT_ALT, ImGuiKey_LeftAlt);
+		NBL_REGISTER_KEY(EKC_RIGHT_ALT, ImGuiKey_RightAlt);
+		NBL_REGISTER_KEY(EKC_PAUSE, ImGuiKey_Pause);
+		NBL_REGISTER_KEY(EKC_CAPS_LOCK, ImGuiKey_CapsLock);
+		NBL_REGISTER_KEY(EKC_ESCAPE, ImGuiKey_Escape);
+		NBL_REGISTER_KEY(EKC_SPACE, ImGuiKey_Space);
+		NBL_REGISTER_KEY(EKC_PAGE_UP, ImGuiKey_PageUp);
+		NBL_REGISTER_KEY(EKC_PAGE_DOWN, ImGuiKey_PageDown);
+		NBL_REGISTER_KEY(EKC_END, ImGuiKey_End);
+		NBL_REGISTER_KEY(EKC_HOME, ImGuiKey_Home);
+		NBL_REGISTER_KEY(EKC_LEFT_ARROW, ImGuiKey_LeftArrow);
+		NBL_REGISTER_KEY(EKC_RIGHT_ARROW, ImGuiKey_RightArrow);
+		NBL_REGISTER_KEY(EKC_DOWN_ARROW, ImGuiKey_DownArrow);
+		NBL_REGISTER_KEY(EKC_UP_ARROW, ImGuiKey_UpArrow);
+		NBL_REGISTER_KEY(EKC_PRINT_SCREEN, ImGuiKey_PrintScreen);
+		NBL_REGISTER_KEY(EKC_INSERT, ImGuiKey_Insert);
+		NBL_REGISTER_KEY(EKC_DELETE, ImGuiKey_Delete);
+		NBL_REGISTER_KEY(EKC_APPS, ImGuiKey_Menu);
+		NBL_REGISTER_KEY(EKC_COMMA, ImGuiKey_Comma);
+		NBL_REGISTER_KEY(EKC_PERIOD, ImGuiKey_Period);
+		NBL_REGISTER_KEY(EKC_SEMICOLON, ImGuiKey_Semicolon);
+		NBL_REGISTER_KEY(EKC_OPEN_BRACKET, ImGuiKey_LeftBracket);
+		NBL_REGISTER_KEY(EKC_CLOSE_BRACKET, ImGuiKey_RightBracket);
+		NBL_REGISTER_KEY(EKC_BACKSLASH, ImGuiKey_Backslash);
+		NBL_REGISTER_KEY(EKC_APOSTROPHE, ImGuiKey_Apostrophe);
+		NBL_REGISTER_KEY(EKC_ADD, ImGuiKey_KeypadAdd);
+		NBL_REGISTER_KEY(EKC_SUBTRACT, ImGuiKey_KeypadSubtract);
+		NBL_REGISTER_KEY(EKC_MULTIPLY, ImGuiKey_KeypadMultiply);
+		NBL_REGISTER_KEY(EKC_DIVIDE, ImGuiKey_KeypadDivide);
+		NBL_REGISTER_KEY(EKC_0, ImGuiKey_0);
+		NBL_REGISTER_KEY(EKC_1, ImGuiKey_1);
+		NBL_REGISTER_KEY(EKC_2, ImGuiKey_2);
+		NBL_REGISTER_KEY(EKC_3, ImGuiKey_3);
+		NBL_REGISTER_KEY(EKC_4, ImGuiKey_4);
+		NBL_REGISTER_KEY(EKC_5, ImGuiKey_5);
+		NBL_REGISTER_KEY(EKC_6, ImGuiKey_6);
+		NBL_REGISTER_KEY(EKC_7, ImGuiKey_7);
+		NBL_REGISTER_KEY(EKC_8, ImGuiKey_8);
+		NBL_REGISTER_KEY(EKC_9, ImGuiKey_9);
+		NBL_REGISTER_KEY(EKC_A, ImGuiKey_A);
+		NBL_REGISTER_KEY(EKC_B, ImGuiKey_B);
+		NBL_REGISTER_KEY(EKC_C, ImGuiKey_C);
+		NBL_REGISTER_KEY(EKC_D, ImGuiKey_D);
+		NBL_REGISTER_KEY(EKC_E, ImGuiKey_E);
+		NBL_REGISTER_KEY(EKC_F, ImGuiKey_F);
+		NBL_REGISTER_KEY(EKC_G, ImGuiKey_G);
+		NBL_REGISTER_KEY(EKC_H, ImGuiKey_H);
+		NBL_REGISTER_KEY(EKC_I, ImGuiKey_I);
+		NBL_REGISTER_KEY(EKC_J, ImGuiKey_J);
+		NBL_REGISTER_KEY(EKC_K, ImGuiKey_K);
+		NBL_REGISTER_KEY(EKC_L, ImGuiKey_L);
+		NBL_REGISTER_KEY(EKC_M, ImGuiKey_M);
+		NBL_REGISTER_KEY(EKC_N, ImGuiKey_N);
+		NBL_REGISTER_KEY(EKC_O, ImGuiKey_O);
+		NBL_REGISTER_KEY(EKC_P, ImGuiKey_P);
+		NBL_REGISTER_KEY(EKC_Q, ImGuiKey_Q);
+		NBL_REGISTER_KEY(EKC_R, ImGuiKey_R);
+		NBL_REGISTER_KEY(EKC_S, ImGuiKey_S);
+		NBL_REGISTER_KEY(EKC_T, ImGuiKey_T);
+		NBL_REGISTER_KEY(EKC_U, ImGuiKey_U);
+		NBL_REGISTER_KEY(EKC_V, ImGuiKey_V);
+		NBL_REGISTER_KEY(EKC_W, ImGuiKey_W);
+		NBL_REGISTER_KEY(EKC_X, ImGuiKey_X);
+		NBL_REGISTER_KEY(EKC_Y, ImGuiKey_Y);
+		NBL_REGISTER_KEY(EKC_Z, ImGuiKey_Z);
+		NBL_REGISTER_KEY(EKC_NUMPAD_0, ImGuiKey_Keypad0);
+		NBL_REGISTER_KEY(EKC_NUMPAD_1, ImGuiKey_Keypad1);
+		NBL_REGISTER_KEY(EKC_NUMPAD_2, ImGuiKey_Keypad2);
+		NBL_REGISTER_KEY(EKC_NUMPAD_3, ImGuiKey_Keypad3);
+		NBL_REGISTER_KEY(EKC_NUMPAD_4, ImGuiKey_Keypad4);
+		NBL_REGISTER_KEY(EKC_NUMPAD_5, ImGuiKey_Keypad5);
+		NBL_REGISTER_KEY(EKC_NUMPAD_6, ImGuiKey_Keypad6);
+		NBL_REGISTER_KEY(EKC_NUMPAD_7, ImGuiKey_Keypad7);
+		NBL_REGISTER_KEY(EKC_NUMPAD_8, ImGuiKey_Keypad8);
+		NBL_REGISTER_KEY(EKC_NUMPAD_9, ImGuiKey_Keypad9);
+		NBL_REGISTER_KEY(EKC_F1, ImGuiKey_F1);
+		NBL_REGISTER_KEY(EKC_F2, ImGuiKey_F2);
+		NBL_REGISTER_KEY(EKC_F3, ImGuiKey_F3);
+		NBL_REGISTER_KEY(EKC_F4, ImGuiKey_F4);
+		NBL_REGISTER_KEY(EKC_F5, ImGuiKey_F5);
+		NBL_REGISTER_KEY(EKC_F6, ImGuiKey_F6);
+		NBL_REGISTER_KEY(EKC_F7, ImGuiKey_F7);
+		NBL_REGISTER_KEY(EKC_F8, ImGuiKey_F8);
+		NBL_REGISTER_KEY(EKC_F9, ImGuiKey_F9);
+		NBL_REGISTER_KEY(EKC_F10, ImGuiKey_F10);
+		NBL_REGISTER_KEY(EKC_F11, ImGuiKey_F11);
+		NBL_REGISTER_KEY(EKC_F12, ImGuiKey_F12);
+		NBL_REGISTER_KEY(EKC_F13, ImGuiKey_F13);
+		NBL_REGISTER_KEY(EKC_F14, ImGuiKey_F14);
+		NBL_REGISTER_KEY(EKC_F15, ImGuiKey_F15);
+		NBL_REGISTER_KEY(EKC_F16, ImGuiKey_F16);
+		NBL_REGISTER_KEY(EKC_F17, ImGuiKey_F17);
+		NBL_REGISTER_KEY(EKC_F18, ImGuiKey_F18);
+		NBL_REGISTER_KEY(EKC_F19, ImGuiKey_F19);
+		NBL_REGISTER_KEY(EKC_F20, ImGuiKey_F20);
+		NBL_REGISTER_KEY(EKC_F21, ImGuiKey_F21);
+		NBL_REGISTER_KEY(EKC_F22, ImGuiKey_F22);
+		NBL_REGISTER_KEY(EKC_F23, ImGuiKey_F23);
+		NBL_REGISTER_KEY(EKC_F24, ImGuiKey_F24);
+		NBL_REGISTER_KEY(EKC_NUM_LOCK, ImGuiKey_NumLock);
+		NBL_REGISTER_KEY(EKC_SCROLL_LOCK, ImGuiKey_ScrollLock);
+		NBL_REGISTER_KEY(EKC_VOLUME_MUTE, ImGuiKey_None);
+		NBL_REGISTER_KEY(EKC_VOLUME_UP, ImGuiKey_None);
+		NBL_REGISTER_KEY(EKC_VOLUME_DOWN, ImGuiKey_None);
+
+		return map;
+	}
+
+	void UI::handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const
+	{
+		auto& io = ImGui::GetIO();
+
+		_NBL_STATIC_INLINE_CONSTEXPR auto keyMap = createKeyMap();
+
+		const bool useBigLetters = [&]()  // TODO: we can later improve it to check for CAPS, etc
+		{
+			for (const auto& e : events)
+				if (e.keyCode == EKC_LEFT_SHIFT && e.action == SKeyboardEvent::ECA_PRESSED)
+					return true;
+
+			return false;
+		}();
+
+		for (const auto& e : events)
+		{
+			const auto& bind = keyMap[e.keyCode];
+			const auto& iCharacter = useBigLetters ? bind.physicalBig : bind.physicalSmall;
+
+			if(bind.target == ImGuiKey_None)
+				logger->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), system::ILogger::ELL_ERROR);
+			else
+				if (e.action == SKeyboardEvent::ECA_PRESSED)
+				{
+					io.AddKeyEvent(bind.target, true);
+					io.AddInputCharacter(iCharacter);
+				}
+				else if (e.action == SKeyboardEvent::ECA_RELEASED)
+					io.AddKeyEvent(bind.target, false);
+		}
+	}
+
+	UI::UI(smart_refctd_ptr<ILogicalDevice> device, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
+		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window)), maxFramesInFlight(_maxFramesInFlight)
 	{
 		createSystem();
 		struct
@@ -469,6 +634,7 @@ namespace nbl::ext::imgui
 
 			logger->log(onError.data(), system::ILogger::ELL_ERROR);
 			assert(false);
+			return uint8_t(0); // silent warnings
 		};
 
 		// get & validate families' capabilities
@@ -509,23 +675,22 @@ namespace nbl::ext::imgui
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 
-			CreateFontSampler();
-			CreateDescriptorPool();
-			CreateDescriptorSetLayout();
-			CreatePipeline(renderpass, pipelineCache);
-			CreateFontTexture(transistentCMD.get(), tQueue);
-			prepareKeyMapForDesktop();
+			createFontAtlasSampler();
+			createDescriptorPool();
+			createDescriptorSetLayout();
+			createPipeline(renderpass, pipelineCache);
+			createFontAtlasTexture(transistentCMD.get(), tQueue);
 			adjustGlobalFontScale();
-			UpdateDescriptorSets();
+			updateDescriptorSets();
 		}
 		tQueue->endCapture();
 
 		auto & io = ImGui::GetIO();
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+		io.BackendUsingLegacyKeyArrays = 0; // 0: using AddKeyEvent() [new way of handling events in imgui]
 
-		m_vertexBuffers.resize(maxFramesInFlight);
-		m_indexBuffers.resize(maxFramesInFlight);
+		m_mdiBuffers.resize(maxFramesInFlight);
 	}
 
 	UI::~UI() = default;
@@ -548,32 +713,15 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	//-------------------------------------------------------------------------------------------------
-	// TODO: Handle mouse cursor for nabla
-	//static void UpdateMouseCursor()
-	//{
-		//auto & io = ImGui::GetIO();
-
-		//if (io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange)
-		//{
-		//    return;
-		//}
-		//ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
-		//if (io.MouseDrawCursor || imgui_cursor == ImGuiMouseCursor_None)
-		//{
-		//    // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
-		//    MSDL::SDL_ShowCursor(MSDL::SDL_FALSE);
-		//}
-		//else
-		//{
-		//    // Show OS mouse cursor
-		//    MSDL::SDL_SetCursor(mouseCursors[imgui_cursor] ? mouseCursors[imgui_cursor] : mouseCursors[ImGuiMouseCursor_Arrow]);
-		//    MSDL::SDL_ShowCursor(MSDL::SDL_TRUE);
-		//}
-	//}
-
-	bool UI::Render(IGPUCommandBuffer* commandBuffer, int const frameIndex)
+	bool UI::render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
 	{
+		const bool validFramesRange = frameIndex >= 0 && frameIndex < maxFramesInFlight;
+		if (!validFramesRange)
+		{
+			logger->log("Requested frame index is OOB!", system::ILogger::ELL_ERROR);
+			assert(false);
+		}
+
 		ImGuiIO& io = ImGui::GetIO();
 
 		if (!io.Fonts->IsBuilt())
@@ -581,10 +729,6 @@ namespace nbl::ext::imgui
 			logger->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
 			assert(false);
 		}
-
-		auto* rawPipeline = pipeline.get();
-		commandBuffer->bindGraphicsPipeline(rawPipeline);
-		commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
 		
 		auto const* drawData = ImGui::GetDrawData();
 
@@ -596,82 +740,265 @@ namespace nbl::ext::imgui
 		float const frameBufferHeight = drawData->DisplaySize.y * drawData->FramebufferScale.y;
 		if (frameBufferWidth > 0 && frameBufferHeight > 0 && drawData->TotalVtxCount > 0)
 		{
-			// Create or resize the vertex/index buffers
-			size_t const vertexSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-			size_t const indexSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
-
-			IGPUBuffer::SCreationParams vertexCreationParams = {};
-			vertexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			vertexCreationParams.size = vertexSize;
-
-			auto & vertexBuffer = m_vertexBuffers[frameIndex];
-
-			if (static_cast<bool>(vertexBuffer) == false || vertexBuffer->getSize() < vertexSize)
+			const struct
 			{
-				vertexBuffer = m_device->createBuffer(std::move(vertexCreationParams));
+				ImVec2 off;			// (0,0) unless using multi-viewports
+				ImVec2 scale;		// (1,1) unless using retina display which are often (2,2)
+				ImVec2 framebuffer; // width, height
 
-				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = vertexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-				auto memOffset = m_device->allocate(memReq, vertexBuffer.get());
-				assert(memOffset.isValid());
-			}
-
-			IGPUBuffer::SCreationParams indexCreationParams = {};
-			indexCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT
-				| nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			indexCreationParams.size = indexSize;
-
-			auto & indexBuffer = m_indexBuffers[frameIndex];
-
-			if (static_cast<bool>(indexBuffer) == false || indexBuffer->getSize() < indexSize)
-			{
-				indexBuffer = m_device->createBuffer(std::move(indexCreationParams));
-
-				video::IDeviceMemoryBacked::SDeviceMemoryRequirements memReq = indexBuffer->getMemoryReqs();
-				memReq.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-				auto memOffset = m_device->allocate(memReq, indexBuffer.get());
-				assert(memOffset.isValid());
-			}
-
-			{
-				auto vBinding = vertexBuffer->getBoundMemory();
-				auto iBinding = indexBuffer->getBoundMemory();
-
+				// Project scissor/clipping rectangles into frame-buffer space
+				ImVec4 getClipRectangle(const ImDrawCmd* cmd) const
 				{
-					if (!vBinding.memory->map({ 0ull, vBinding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory for vertex buffer data!", system::ILogger::ELL_WARNING);
+					assert(cmd);
 
-					assert(vBinding.memory->isCurrentlyMapped());
+					ImVec4 rectangle;
+					rectangle.x = (cmd->ClipRect.x - off.x) * scale.x;
+					rectangle.y = (cmd->ClipRect.y - off.y) * scale.y;
+					rectangle.z = (cmd->ClipRect.z - off.x) * scale.x;
+					rectangle.w = (cmd->ClipRect.w - off.y) * scale.y;
+
+					return rectangle;
 				}
 
+				VkRect2D getScissor(ImVec4 clipRectangle) const
 				{
-					if (!iBinding.memory->map({ 0ull, iBinding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory for index buffer data!", system::ILogger::ELL_WARNING);
-				
-					assert(iBinding.memory->isCurrentlyMapped());
+					// Negative offsets are illegal for vkCmdSetScissor
+					if (clipRectangle.x < 0.0f)
+						clipRectangle.x = 0.0f;
+					if (clipRectangle.y < 0.0f)
+						clipRectangle.y = 0.0f;
+
+					{// Apply scissor/clipping rectangle
+						VkRect2D scissor {};
+						scissor.offset.x = static_cast<int32_t>(clipRectangle.x);
+						scissor.offset.y = static_cast<int32_t>(clipRectangle.y);
+						scissor.extent.width = static_cast<uint32_t>(clipRectangle.z - clipRectangle.x);
+						scissor.extent.height = static_cast<uint32_t>(clipRectangle.w - clipRectangle.y);
+						
+						return scissor;
+					}
 				}
 
-				auto* vertex_ptr = static_cast<ImDrawVert*>(vBinding.memory->getMappedPointer());
-				auto* index_ptr = static_cast<ImDrawIdx*>(iBinding.memory->getMappedPointer());
+				bool prepass(const ImDrawCmd* cmd) const
+				{
+					const auto rectangle = getClipRectangle(cmd);
+
+					return prepass(rectangle);
+				}
+
+				bool prepass(const ImVec4& clipRectangle) const
+				{
+					return clipRectangle.x < framebuffer.x && clipRectangle.y < framebuffer.y && clipRectangle.z >= 0.0f && clipRectangle.w >= 0.0f;
+				}
+
+			} clip { .off = drawData->DisplayPos, .scale = drawData->FramebufferScale, .framebuffer = { frameBufferWidth, frameBufferHeight } };
+			
+			struct TRS
+			{
+				core::vector2df_SIMD scale;
+				core::vector2df_SIMD translate;
+
+				core::vector2df_SIMD toNDC(core::vector2df_SIMD in) const
+				{
+					return in * scale + translate;
+				}
+			};
+
+			const TRS trs = [&]() 
+			{
+				TRS retV;
+
+				retV.scale = core::vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y };
+				retV.translate = core::vector2df_SIMD { -1.0f, -1.0f } - core::vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y } * trs.scale;
+
+				return std::move(retV);
+			}();
+			
+			struct
+			{
+				size_t vBufferSize = {}, iBufferSize = {},	// sizes in bytes
+				vPadding = {};								// indicies can break our alignment so small padding may be required before vertices in memory, vertices' offset must be multiple of 4
+
+				std::vector<VkDrawIndexedIndirectCommand> indirects;
+				std::vector<PerObjectData> elements;
+
+				size_t getMDIBufferSize() const				// buffer layout is [Draw Indirect structures] [Element Data] [All the Indices] [All the vertices]
+				{
+					return getVerticesOffset() + vBufferSize;
+				}
+
+				size_t getIndicesOffset() const
+				{
+					return getElementsOffset() + elements.size() * sizeof(PerObjectData);
+				}
+
+				size_t getVerticesOffset() const
+				{
+					return getIndicesOffset() + iBufferSize + vPadding;
+				}
+
+				size_t getVkDrawIndexedIndirectCommandOffset() const
+				{
+					return 0u;
+				}
+
+				size_t getElementsOffset() const
+				{
+					return elements.size() * sizeof(VkDrawIndexedIndirectCommand);
+				}
+
+				bool validate() const
+				{
+					return indirects.size() == elements.size();
+				}
+
+			} requestData;
+
+			{
+				/*
+					IMGUI Render command lists. We merged all buffers into a single one so we 
+					maintain our own offset into them, we pre-loop to get request data for 
+					MDI buffer alocation request/update.
+				*/
+
+				size_t globalIOffset = {}, globalVOffset = {}, drawID = {};
 
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
-					const ImDrawList* cmd = drawData->CmdLists[n];
-					::memcpy(vertex_ptr, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
-					::memcpy(index_ptr, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
-					vertex_ptr += cmd->VtxBuffer.Size;
-					index_ptr += cmd->IdxBuffer.Size;
+					const auto* cmd_list = drawData->CmdLists[n];
+					for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+					{
+						const auto* pcmd = &cmd_list->CmdBuffer[cmd_i];
+
+						const auto clipRectangle = clip.getClipRectangle(pcmd);
+
+						// count draw invocations and allocate cpu indirect + element data for mdi buffer
+						if (clip.prepass(clipRectangle))
+						{
+							// TODO: I guess we waste a lot of time on this emplace, we should reserve memory first or use some nice allocator probably?
+							auto& indirect = requestData.indirects.emplace_back();
+							auto& element = requestData.elements.emplace_back();
+
+							indirect.firstIndex = pcmd->IdxOffset + globalIOffset;
+							indirect.firstInstance = drawID; // use base instance as draw ID
+							indirect.indexCount = pcmd->ElemCount;
+							indirect.instanceCount = 1u;
+							indirect.vertexOffset = pcmd->VtxOffset + globalVOffset;
+
+							const auto scissor = clip.getScissor(clipRectangle);
+
+							auto packSnorm16 = [](float ndc) -> int16_t
+							{
+								return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+							};
+
+							const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+							const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+
+							element.aabbMin.x = packSnorm16(vMin.x);
+							element.aabbMin.y = packSnorm16(vMin.y);
+							element.aabbMax.x = packSnorm16(vMax.x);
+							element.aabbMax.y = packSnorm16(vMax.y);
+							element.texId = pcmd->TextureId;
+
+							++drawID;
+						}
+					}
+
+					globalIOffset += cmd_list->IdxBuffer.Size;
+					globalVOffset += cmd_list->VtxBuffer.Size;
 				}
 
-				vBinding.memory->unmap();
-				iBinding.memory->unmap();
+				requestData.iBufferSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+				requestData.vBufferSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
+				requestData.vPadding = requestData.getVerticesOffset() % 4u;
+				assert(requestData.validate());
+			}
+			
+			IGPUBuffer::SCreationParams mdiCreationParams = {};
+			mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT  | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+			mdiCreationParams.size = requestData.getMDIBufferSize();
+
+			auto mdiBuffer = m_mdiBuffers[frameIndex];
+			const uint32_t drawCount = requestData.elements.size();
+			const auto mdicBSize = drawCount * sizeof(VkDrawIndexedIndirectCommand);
+			const auto elementsBSize = drawCount * sizeof(PerObjectData);
+			const uint64_t elementsBOffset = requestData.getElementsOffset();
+
+			// create or resize the mdi buffer
+			if (!static_cast<bool>(mdiBuffer) || mdiBuffer->getSize() < mdiCreationParams.size)
+			{
+				mdiBuffer = m_device->createBuffer(std::move(mdiCreationParams));
+
+				auto mReqs = mdiBuffer->getMemoryReqs();
+				mReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+				
+				auto memOffset = m_device->allocate(mReqs, mdiBuffer.get(), core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_DEVICE_ADDRESS_BIT));
+				assert(memOffset.isValid());
+			}
+
+			auto* rawPipeline = pipeline.get();
+			commandBuffer->bindGraphicsPipeline(rawPipeline);
+			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
+
+			// update mdi buffer
+			{
+				auto binding = mdiBuffer->getBoundMemory();
+
+				{
+					if (!binding.memory->map({ 0ull, binding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
+						logger->log("Could not map device memory!", system::ILogger::ELL_WARNING);
+
+					assert(binding.memory->isCurrentlyMapped());
+				}
+
+				auto* mdiPointer = binding.memory->getMappedPointer();
+
+				auto getMDIPointer = [&mdiPointer]<typename T>(auto bOffset)
+				{
+					return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(mdiPointer) + bOffset);
+				};
+
+				auto* const indirectPointer = getMDIPointer.template operator() < VkDrawIndexedIndirectCommand > (requestData.getVkDrawIndexedIndirectCommandOffset());
+				auto* const elementPointer = getMDIPointer.template operator() < PerObjectData > (elementsBOffset);
+				auto* indicesPointer = getMDIPointer.template operator() < ImDrawIdx > (requestData.getIndicesOffset());
+				auto* verticesPointer = getMDIPointer.template operator() < ImDrawVert > (requestData.getVerticesOffset());
+
+				// fill indirect/element data
+				::memcpy(indirectPointer, requestData.indirects.data(), mdicBSize);
+				::memcpy(elementPointer, requestData.elements.data(), elementsBSize);
+
+				// flush elements data range if required
+				{
+					auto eData = mdiBuffer->getBoundMemory();
+
+					if (eData.memory->haveToMakeVisible())
+					{
+						const ILogicalDevice::MappedMemoryRange range(eData.memory, eData.offset, mdiBuffer->getSize());
+						m_device->flushMappedMemoryRanges(1, &range);
+					}
+				}
+
+				// fill vertex/index data, no flush request
+				for (int n = 0; n < drawData->CmdListsCount; n++)
+				{
+					const auto* cmd = drawData->CmdLists[n];
+
+					::memcpy(verticesPointer, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
+					::memcpy(indicesPointer, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+					verticesPointer += cmd->VtxBuffer.Size;
+					indicesPointer += cmd->IdxBuffer.Size;
+				}
+
+				binding.memory->unmap();
 			}
 
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
-					.offset = 0,
-					.buffer = core::smart_refctd_ptr(indexBuffer)
+					.offset = requestData.getIndicesOffset(),
+					.buffer = core::smart_refctd_ptr(mdiBuffer)
 				};
 
 				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
@@ -685,8 +1012,8 @@ namespace nbl::ext::imgui
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
 				{
 					{
-						.offset = 0,
-						.buffer = core::smart_refctd_ptr(vertexBuffer)
+						.offset = requestData.getVerticesOffset(),
+						.buffer = core::smart_refctd_ptr(mdiBuffer)
 					}
 				};
 
@@ -695,7 +1022,6 @@ namespace nbl::ext::imgui
 					logger->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
 					assert(false);
 				}
-
 			}
 
 			SViewport const viewport
@@ -707,108 +1033,62 @@ namespace nbl::ext::imgui
 				.minDepth = 0.0f,
 				.maxDepth = 1.0f,
 			};
+
 			commandBuffer->setViewport(0, 1, &viewport);
-
-			// Setup scale and translation:
-			// Our visible imgui space lies from draw_data->DisplayPps (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
 			{
-				PushConstants constants{};
-				constants.scale[0] = 2.0f / drawData->DisplaySize.x;
-				constants.scale[1] = 2.0f / drawData->DisplaySize.y;
-				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
-				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
-
-				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
+				VkRect2D scissor[] = { {.offset = {(int32_t)viewport.x, (int32_t)viewport.y}, .extent = {(uint32_t)viewport.width, (uint32_t)viewport.height}} };
+				commandBuffer->setScissor(scissor); // cover whole viewport (only to not throw validation errors)
 			}
 
-			// Will project scissor/clipping rectangles into frame-buffer space
-			ImVec2 const clip_off = drawData->DisplayPos;         // (0,0) unless using multi-viewports
-			ImVec2 const clip_scale = drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+			/*
+				Setup scale and translation, our visible imgui space lies from draw_data->DisplayPps (top left) to 
+				draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
+			*/
 
-			// Render command lists
-			// (Because we merged all buffers into a single one, we maintain our own offset into them)
-			int global_vtx_offset = 0;
-			int global_idx_offset = 0;
-			for (int n = 0; n < drawData->CmdListsCount; n++)
 			{
-				const ImDrawList* cmd_list = drawData->CmdLists[n];
-				for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+				PushConstants constants
 				{
-					const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+					.elementBDA = { mdiBuffer->getDeviceAddress() + elementsBOffset },
+					.elementCount = { drawCount },
+					.scale = { trs.scale[0u], trs.scale[1u] },
+					.translate = { trs.translate[0u], trs.translate[1u] },
+					.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
+				};
 
-					// Project scissor/clipping rectangles into frame-buffer space
-					ImVec4 clip_rect;
-					clip_rect.x = (pcmd->ClipRect.x - clip_off.x) * clip_scale.x;
-					clip_rect.y = (pcmd->ClipRect.y - clip_off.y) * clip_scale.y;
-					clip_rect.z = (pcmd->ClipRect.z - clip_off.x) * clip_scale.x;
-					clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
-
-					if (clip_rect.x < frameBufferWidth && clip_rect.y < frameBufferHeight && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
-					{
-						// Negative offsets are illegal for vkCmdSetScissor
-						if (clip_rect.x < 0.0f)
-							clip_rect.x = 0.0f;
-						if (clip_rect.y < 0.0f)
-							clip_rect.y = 0.0f;
-
-						{// Apply scissor/clipping rectangle
-							VkRect2D scissor{};
-							scissor.offset.x = static_cast<int32_t>(clip_rect.x);
-							scissor.offset.y = static_cast<int32_t>(clip_rect.y);
-							scissor.extent.width = static_cast<uint32_t>(clip_rect.z - clip_rect.x);
-							scissor.extent.height = static_cast<uint32_t>(clip_rect.w - clip_rect.y);
-							commandBuffer->setScissor(0, 1, &scissor);
-						}
-
-						// Draw
-						commandBuffer->drawIndexed(
-							pcmd->ElemCount,
-							1,
-							pcmd->IdxOffset + global_idx_offset,
-							pcmd->VtxOffset + global_vtx_offset,
-							0
-						);
-					}
-				}
-				global_idx_offset += cmd_list->IdxBuffer.Size;
-				global_vtx_offset += cmd_list->VtxBuffer.Size;
+				commandBuffer->pushConstants(pipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT, 0u, sizeof(constants), &constants);
 			}
+
+			const asset::SBufferBinding<const video::IGPUBuffer> binding =
+			{
+				.offset = requestData.getVkDrawIndexedIndirectCommandOffset(),
+				.buffer = core::smart_refctd_ptr(mdiBuffer)
+			};
+
+			commandBuffer->drawIndexedIndirect(binding, drawCount, sizeof(VkDrawIndexedIndirectCommand));
 		}
 
 		return true;
-
 	}
 
-	void UI::Update(float const deltaTimeInSec, float const mousePosX, float const mousePosY, size_t const mouseEventsCount, ui::SMouseEvent const * mouseEvents) // TODO: Keyboard events
+	void UI::update(float const deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents)
 	{
 		auto & io = ImGui::GetIO();
+
 		io.DeltaTime = deltaTimeInSec;
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 
-		HandleMouseEvents(mousePosX, mousePosY, mouseEventsCount, mouseEvents);
+		handleMouseEvents(mousePosition, mouseEvents);
+		handleKeyEvents(keyboardEvents);
 
 		ImGui::NewFrame();
-		hasFocus = false;
+
 		for (auto const& subscriber : m_subscribers)
 			subscriber.listener();
 
-		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call - open the function def for more details
+		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call for IMGUI cpu geometry buffers update
 	}
 
-	void UI::BeginWindow(char const* windowName)
-	{
-		ImGui::Begin(windowName);
-	}
-
-	void UI::EndWindow()
-	{
-		if (ImGui::IsWindowFocused())
-			hasFocus = true;
-
-		ImGui::End();
-	}
-
-	int UI::Register(std::function<void()> const& listener)
+	int UI::registerListener(std::function<void()> const& listener)
 	{
 		assert(listener != nullptr);
 		static int NextId = 0;
@@ -816,11 +1096,11 @@ namespace nbl::ext::imgui
 		return m_subscribers.back().id;
 	}
 
-	bool UI::UnRegister(int const listenerId)
+	bool UI::unregisterListener(const uint32_t id)
 	{
 		for (int i = m_subscribers.size() - 1; i >= 0; --i)
 		{
-			if (m_subscribers[i].id == listenerId)
+			if (m_subscribers[i].id == id)
 			{
 				m_subscribers.erase(m_subscribers.begin() + i);
 				return true;
@@ -829,131 +1109,14 @@ namespace nbl::ext::imgui
 		return false;
 	}
 
-	void UI::SetNextItemWidth(float const nextItemWidth)
+	void* UI::getContext()
 	{
-		ImGui::SetNextItemWidth(nextItemWidth);
+		return reinterpret_cast<void*>(ImGui::GetCurrentContext());
 	}
 
-	void UI::SetWindowSize(float const width, float const height)
+	void UI::setContext(void* imguiContext)
 	{
-		ImGui::SetWindowSize(ImVec2(width, height));
+		ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imguiContext));
 	}
 
-	void UI::Text(char const* label, ...)
-	{
-		va_list args;
-		va_start(args, label);
-		ImGui::TextV(label, args);
-		va_end(args);
-	}
-
-	void UI::InputFloat(char const* label, float* value)
-	{
-		ImGui::InputFloat(label, value);
-	}
-
-	void UI::InputFloat2(char const* label, float* value)
-	{
-		ImGui::InputFloat2(label, value);
-	}
-
-	void UI::InputFloat3(char const* label, float* value)
-	{
-		ImGui::InputFloat3(label, value);
-	}
-
-	void UI::InputFloat4(char const* label, float* value)
-	{
-		ImGui::InputFloat3(label, value);
-	}
-
-	void UI::InputFloat3(char const* label, nbl::core::vector3df&value)
-	{
-		float tempValue[3]{ value.X, value.Y, value.Z };
-		InputFloat3(label, tempValue);
-
-		if (memcmp(tempValue, &value.X, sizeof(float) * 3) != 0)
-		{
-			memcpy(&value.X, tempValue, sizeof(float) * 3);
-		}
-	}
-
-	bool UI::Combo(char const* label, int32_t* selectedItemIndex, char const** items, int32_t const itemsCount)
-	{
-		return ImGui::Combo(label, selectedItemIndex, items, itemsCount);
-	}
-
-	//-------------------------------------------------------------------------------------------------
-	// Based on https://eliasdaler.github.io/using-imgui-with-sfml-pt2/
-	static auto vector_getter = [](void* vec, int idx, const char** out_text)
-	{
-		auto const& vector = *static_cast<std::vector<std::string>*>(vec);
-		if (idx < 0 || idx >= static_cast<int>(vector.size())) { return false; }
-		*out_text = vector.at(idx).c_str();
-		return true;
-	};
-
-	bool UI::Combo(const char* label, int* selectedItemIndex, std::vector<std::string>& values)
-	{
-		if (values.empty())
-			return false;
-
-		return ImGui::Combo(label, selectedItemIndex, vector_getter, &values, static_cast<int>(values.size()));
-	}
-
-	void UI::SliderInt(char const* label, int* value, int const minValue, int const maxValue)
-	{
-		ImGui::SliderInt(label, value, minValue, maxValue);
-	}
-
-	void UI::SliderFloat(char const* label, float* value, float const minValue, float const maxValue)
-	{
-		ImGui::SliderFloat(label, value, minValue, maxValue);
-	}
-
-	void UI::Checkbox(char const* label, bool* value)
-	{
-		ImGui::Checkbox(label, value);
-	}
-
-	void UI::Spacing()
-	{
-		ImGui::Spacing();
-	}
-
-	void UI::Button(char const* label, std::function<void()> const& onPress)
-	{
-		if (ImGui::Button(label))
-		{
-			assert(onPress != nullptr);
-			//SceneManager::AssignMainThreadTask([onPress]()->void{
-			onPress();
-			//});
-		}
-	}
-
-	void UI::InputText(char const* label, std::string& outValue)
-	{
-		ImGui::InputText(label, &outValue);
-	}
-
-	bool UI::HasFocus()
-	{
-		return hasFocus;
-	}
-
-	bool UI::IsItemActive()
-	{
-		return ImGui::IsItemActive();
-	}
-
-	bool UI::TreeNode(char const* name)
-	{
-		return ImGui::TreeNode(name);
-	}
-
-	void UI::TreePop()
-	{
-		ImGui::TreePop();
-	}
 }

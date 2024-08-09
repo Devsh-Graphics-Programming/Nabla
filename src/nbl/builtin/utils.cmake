@@ -191,7 +191,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		endif()
 		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
-			target_link_libraries(${_TARGET_NAME_} Nabla)
+			target_link_libraries(${_TARGET_NAME_} PUBLIC Nabla)
 		endif()
 	endif()
 	

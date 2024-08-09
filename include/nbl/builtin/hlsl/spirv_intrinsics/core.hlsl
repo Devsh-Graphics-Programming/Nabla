@@ -175,9 +175,18 @@ template<typename T, typename P, uint32_t alignment >
 enable_if_t<is_spirv_type_v<P>, void> store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 //! Std 450 Extended set operations
+
+// COMMENTING OUT BECAUSE OF https://github.com/microsoft/DirectXShaderCompiler/issues/6751, bring back when fixed!
+/*
+
 template<typename SquareMatrix>
 [[vk::ext_instruction(GLSLstd450MatrixInverse)]]
 SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16)]]
+float32_t2 unpackSnorm2x16(uint32_t p);
+
+*/
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
