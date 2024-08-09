@@ -33,7 +33,7 @@ def execute(args):
 #define _{guardSuffix}_BUILTINRESOURCEDATA_H_
 
 #ifdef __INTELLISENSE__
-#include <codeanalysis\warnings.h>
+#include <codeanalysis/warnings.h>
 #pragma warning( push )
 #pragma warning ( disable : ALL_CODE_ANALYSIS_WARNINGS )
 #endif // __INTELLISENSE__
