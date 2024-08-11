@@ -337,8 +337,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
-            if (!params.image->wasCreatedBy(this)) {
-                m_logger.log("Invalid image was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if (!params.image->wasCreatedBy(this))
+            {
+                m_logger.log("The image was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
             // TODO: @Cyprian validation of params against the device's limits (sample counts, etc.) see vkCreateImage
@@ -646,20 +647,24 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
         {
-            if ((_layout0 && !_layout0->wasCreatedBy(this))) {
-                m_logger.log("Invalid layout was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if ((_layout0 && !_layout0->wasCreatedBy(this)))
+            {
+                m_logger.log("layout was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
-            if (_layout1 && !_layout1->wasCreatedBy(this)) {
-                m_logger.log("Invalid layout was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if (_layout1 && !_layout1->wasCreatedBy(this))
+            {
+                m_logger.log("layout was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
-            if (_layout2 && !_layout2->wasCreatedBy(this)) {
-                m_logger.log("Invalid layout was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if (_layout2 && !_layout2->wasCreatedBy(this))
+            {
+                m_logger.log("layout was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
-            if (_layout3 && !_layout3->wasCreatedBy(this)) {
-                m_logger.log("Invalid layout was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if (_layout3 && !_layout3->wasCreatedBy(this))
+            {
+                m_logger.log("layout was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
             // sanity check
@@ -755,8 +760,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return nullptr;
             }
 
-            if (!params.renderpass->wasCreatedBy(this)) {
-                m_logger.log("Invalid renderpass was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+            if (!params.renderpass->wasCreatedBy(this))
+            {
+                m_logger.log("The renderpass was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
 
@@ -816,7 +822,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
                 if (!info.shader->wasCreatedBy(this)) {
-                    m_logger.log("Invalid shader was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                    m_logger.log("The shader was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
@@ -883,7 +889,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool getQueryPoolResults(const IQueryPool* const queryPool, const uint32_t firstQuery, const uint32_t queryCount, void* const pData, const size_t stride, const core::bitflag<IQueryPool::RESULTS_FLAGS> flags)
         {
             if (!queryPool || !queryPool->wasCreatedBy(this)) {
-                m_logger.log("Invalid query pool was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("The queryPool was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
             if (firstQuery + queryCount >= queryPool->getCreationParameters().queryCount) {
@@ -1030,7 +1036,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this)) {
-                m_logger.log("Invalid pipelineCache was given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+                m_logger.log("The pipelineCache was not created by this device [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return {};
             }
             if (params.empty()) {
@@ -1050,7 +1056,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 }
 
                 if (!ci.layout->wasCreatedBy(this)) {
-                    m_logger.log("Invalid layout was given (params[%d]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
+                    m_logger.log("The layout was not created by this device (params[%d]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return {};
                 }
 
