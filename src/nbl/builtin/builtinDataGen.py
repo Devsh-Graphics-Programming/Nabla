@@ -1,30 +1,33 @@
 # Creates a c++ file for builtin resources that contains binary data of all resources
 
-# parameters are
-# 0 - path to the .py file
-# 1 - output file path
-# 2 - cmake source dir
-# 3 - list of paths to resource files
-
-import sys, os, subprocess, json
+import argparse, os, subprocess, json
 from datetime import datetime, timezone
 
-if  len(sys.argv) < 4 :
-    print(sys.argv[0] + " - Incorrect argument count")
-else:
-    outputFilename = sys.argv[1]
-    cmakeSourceDir = sys.argv[2]
-    resourcesFile  = sys.argv[3]
-    resourcesNamespace = sys.argv[4]
-    correspondingHeaderFile = sys.argv[5]
-    xxHash256Exe = sys.argv[6]
+
+parser = argparse.ArgumentParser(description="Creates a c++ file for builtin resources that contains binary data of all resources")
+parser.add_argument('--outputBuiltinPath', required=True, help="output path of generated C++ builtin data source")
+parser.add_argument('--outputArchivePath', required=True, help="output path of generated C++ archive data source")
+parser.add_argument('--bundleAbsoluteEntryPath', required=True, help="\"absolute path\" for an archive which will store a given bundle of builtin resources")
+parser.add_argument('--resourcesFile', required=True, help="path to file containing resources list")
+parser.add_argument('--resourcesNamespace', required=True, help="a C++ namespace builtin resources will be wrapped into")
+parser.add_argument('--correspondingHeaderFile', required=True, help="filename of previosly generated header (via buitinHeaderGen.py)")
+parser.add_argument('--xxHash256Exe', default="", nargs='?', help="path to xxHash256 executable")
+
+def execute(args):
+    outputBuiltinPath = args.outputBuiltinPath
+    outputArchivePath = args.outputArchivePath
+    bundleAbsoluteEntryPath = args.bundleAbsoluteEntryPath
+    resourcesFile = args.resourcesFile
+    resourcesNamespace = args.resourcesNamespace
+    correspondingHeaderFile = args.correspondingHeaderFile
+    xxHash256Exe = args.xxHash256Exe
     
     forceConstexprHash = True if not xxHash256Exe else False
 
     file = open(resourcesFile, 'r')
     resourcePaths = file.readlines()
 
-    outp = open(outputFilename, "w+")
+    outp = open(outputBuiltinPath, "w+")
     
     outp.write(f"""
     #include "{correspondingHeaderFile}"
@@ -38,12 +41,14 @@ else:
     template<nbl::core::StringLiteral Path>
     const nbl::system::SBuiltinFile& get_resource();
     """)
-     
-    # writing binary data of all files
-    for z in resourcePaths:
+
+    resourcesInitList = ""
+
+    # writing binary data of all files + archive source in-place
+    for id, z in enumerate(resourcePaths):
         itemData = z.split(',')
         x = itemData[0].rstrip()
-        inputBuiltinResource = cmakeSourceDir+'/'+x
+        inputBuiltinResource = bundleAbsoluteEntryPath+'/'+x
         
         outp.write(f"""
         template<> const nbl::system::SBuiltinFile& get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("{x}")>()
@@ -70,6 +75,12 @@ else:
             outp.write(f"""
             Error: BuiltinResources - file with the following path not found: {x}
             """)
+            raise(IOError) # must throw back and fail the script
+
+        fileSize = os.path.getsize(inputBuiltinResource)
+
+        for item in itemData:
+            resourcesInitList += f"\t\t\t{{\"{item.rstrip()}\", {fileSize}, 0xdeadbeefu, {id}, nbl::system::IFileArchive::E_ALLOCATOR_TYPE::EAT_NULL}},\n"
             
         modificationDateT = datetime.fromtimestamp(os.path.getmtime(inputBuiltinResource), timezone.utc) # since the Unix epoch (00:00:00 UTC on 1 January 1970).
         
@@ -171,3 +182,29 @@ else:
     """)
     
     outp.close()
+
+    archiveSource = f"""
+#include "CArchive.h"
+
+using namespace {resourcesNamespace};
+
+static const std::shared_ptr<nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>> k_builtinArchiveFileList = std::make_shared<nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>>(
+	nbl::core::vector<nbl::system::IFileArchive::SFileList::SEntry>{{
+{resourcesInitList}
+}});
+
+CArchive::CArchive(nbl::system::logger_opt_smart_ptr&& logger)
+	: nbl::system::CFileArchive(nbl::system::path(pathPrefix.data()),std::move(logger), k_builtinArchiveFileList)
+{{
+	
+}}
+"""
+    
+    outp = open(outputArchivePath, "w+")
+    outp.write(archiveSource)
+    outp.close()
+
+
+if __name__ == "__main__":
+    args: argparse.Namespace = parser.parse_args()
+    execute(args)

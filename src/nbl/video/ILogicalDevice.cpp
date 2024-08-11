@@ -260,7 +260,10 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
 {
     if (!creationParams.cpushader)
+    {
+        m_logger.log("No valid CPU Shader supplied",system::ILogger::ELL_ERROR);
         return nullptr;
+    }
 
     const asset::IShader::E_SHADER_STAGE shaderStage = creationParams.cpushader->getStage();
     const auto& features = getEnabledFeatures();
@@ -277,11 +280,17 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
             if (!features.tessellationShader)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
         case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
             if (!features.geometryShader)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
         case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
@@ -298,10 +307,14 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
             if (!features.rayTracingPipeline)
+            {
+                m_logger.log("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!",system::ILogger::ELL_ERROR,creationParams.cpushader);
                 return nullptr;
+            }
             break;
         default:
             // Implicit unsupported stages or weird multi-bit stage enum values
+            m_logger.log("Unknown Shader Stage %d",system::ILogger::ELL_ERROR,shaderStage);
             return nullptr;
             break;
     }
@@ -343,12 +356,18 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
             spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
 
         if (!spirvShader)
+        {
+            m_logger.log("SPIR-V Compilation from non SPIR-V shader %p failed.",system::ILogger::ELL_ERROR,creationParams.cpushader);
             return nullptr;
+        }
     }
 
     auto spirv = spirvShader->getContent();
     if (!spirv)
+    {
+        m_logger.log("SPIR-V Compilation from non SPIR-V shader %p failed.",system::ILogger::ELL_ERROR,creationParams.cpushader);
         return nullptr;
+    }
 
     // for debugging 
     if constexpr (true)

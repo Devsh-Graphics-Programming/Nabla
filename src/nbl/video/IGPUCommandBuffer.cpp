@@ -156,7 +156,7 @@ bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 {
     if (!canReset())
     {
-        m_logger.log("Failed to reset command buffer.", system::ILogger::ELL_ERROR);
+        m_logger.log("Failed to reset command buffer, state is: %d", system::ILogger::ELL_ERROR, (uint32_t)m_state);
         m_state = STATE::INVALID;
         return false;
     }

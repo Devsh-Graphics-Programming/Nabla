@@ -283,6 +283,29 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             return sum;
         }
 
+#ifdef DEBUG_PRINT_STATE
+        inline void debugPrintState()
+        {
+            std::cout << "<=== MultiTimelineEventHandlerST State Begin" << std::endl;
+            uint32_t t = 0u;
+            for (const auto& tl : m_timelines)
+            {
+                std::cout << std::format("\tm_timelines[{}].handler.getSemaphore()=",t).c_str() << tl.handler->getSemaphore() << std::endl;
+                std::cout << std::format("\tm_timelines[{}].waitInfoIx={}",t,tl.waitInfoIx).c_str() << std::endl;
+                t++;
+            }
+
+            uint32_t s = 0u;
+            for (const auto& waitInfo : m_scratchWaitInfos)
+            {
+                std::cout << std::format("\tm_scratchWaitInfos[{}].semaphore=",s).c_str() << waitInfo.semaphore << std::endl;
+                std::cout << std::format("\tm_scratchWaitInfos[{}].value={}",s,waitInfo.value).c_str() << std::endl;
+                s++;
+            }
+            std::cout << "MultiTimelineEventHandlerST State END ===>" << std::endl;
+        }
+#endif
+
         inline bool latch(const ISemaphore::SWaitInfo& futureWait, Functor&& function)
         {
             auto found = m_timelines.find(futureWait.semaphore);
@@ -296,6 +319,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                 };
                 found = m_timelines.insert(found,std::move(newTimeline));
                 m_scratchWaitInfos.emplace_back(futureWait.semaphore,0xdeadbeefBADC0FFEull);
+                assert(m_scratchWaitInfos.size() == m_timelines.size());
             }
             assert(found->handler->getSemaphore()==futureWait.semaphore);
             found->handler->latch(futureWait.value,std::move(function));
@@ -431,15 +455,15 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 
             inline auto operator<=>(const STimeline& rhs) const
             {
-                return handler->getSemaphore()-rhs.handler->getSemaphore();
+                return reinterpret_cast<const char*>(handler->getSemaphore()) - reinterpret_cast<const char*>(rhs.handler->getSemaphore());
             }
             inline auto operator<=>(const ISemaphore* rhs) const
             {
-                return handler->getSemaphore()-rhs;
+                return reinterpret_cast<const char*>(handler->getSemaphore()) - reinterpret_cast<const char*>(rhs);
             }
 
             TimelineEventHandler* handler;
-            size_t waitInfoIx;
+            mutable size_t waitInfoIx;
         };
         // We use a `set<>` instead of `unordered_set<>` because we assume you won't spam semaphores/timelines
         // also we need to be able to continue iteration after an erasure of a single element
@@ -453,7 +477,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                 // swap the mapping with the end scratch element
                 const auto& lastScratch = m_scratchWaitInfos.back();
                 typename container_t::iterator found = m_timelines.find(lastScratch.semaphore);
-//                found->waitInfoIx = timeline->waitInfoIx;
+                found->waitInfoIx = timeline->waitInfoIx;
                 m_scratchWaitInfos[timeline->waitInfoIx] = lastScratch;
             }
             m_scratchWaitInfos.pop_back();
