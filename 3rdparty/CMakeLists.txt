@@ -222,6 +222,9 @@ unset(CMAKE_INSTALL_MANDIR)
 # blake3
 add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
+# Imath
+add_subdirectory(imath imath EXCLUDE_FROM_ALL)
+
 # OpenEXR
 # note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
 # it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
@@ -230,7 +233,7 @@ add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
 set(PYILMBASE_ENABLE OFF)
 set(OPENEXR_BUILD_UTILS OFF)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
+set(OPENEXR_FORCE_INTERNAL_IMATH OFF) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
 set(OPENEXR_BUILD_TOOLS OFF) 
 set(OPENEXR_INSTALL OFF)
 set(OPENEXR_INSTALL_DOCS OFF)
