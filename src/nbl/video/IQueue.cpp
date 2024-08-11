@@ -83,8 +83,17 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
         commandBuffer.cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
     // do the submit
     auto result = submit_impl(_submits);
-    if (result!=RESULT::SUCCESS)
+    if (result == RESULT::DEVICE_LOST)
+    {
+        logger->log("Device lost [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
+        _NBL_DEBUG_BREAK_IF(true);
+    }
+
+    if (result != RESULT::SUCCESS)
+    {
+        logger->log("Failed submit command buffers to the queue [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return result;
+    }
     // poll for whatever is done, free up memory ASAP
     // we poll everything (full GC run) because we would release memory very slowly otherwise
     m_submittedResources->poll();
