@@ -131,8 +131,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkBufferMemoryBarrier2-offset-01189
             const size_t remain = range.size!=IGPUCommandBuffer::SBufferMemoryBarrier<ResourceBarrier>{}.range.size ? range.size:1ull;
             if (range.offset+remain>range.buffer->getSize())
+            {
                 m_logger.log("Invalid range was specified [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return false;
+            }
 
             if constexpr(std::is_same_v<IGPUCommandBuffer::SOwnershipTransferBarrier,ResourceBarrier>)
                 return validateMemoryBarrier(queueFamilyIndex,barrier.barrier,range.buffer->getCachedCreationParams().isConcurrentSharing());
