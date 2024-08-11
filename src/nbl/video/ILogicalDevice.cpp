@@ -156,11 +156,13 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
 
 bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asset::SMemoryBarrier barrier) const
 {
-    if (!supportsMask(queueFamilyIndex, barrier.srcStageMask) || !supportsMask(queueFamilyIndex, barrier.dstStageMask)) {
+    if (!supportsMask(queueFamilyIndex, barrier.srcStageMask) || !supportsMask(queueFamilyIndex, barrier.dstStageMask))
+    {
         m_logger.log("Invalid stage mask [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
-    if (!supportsMask(queueFamilyIndex, barrier.srcAccessMask) || !supportsMask(queueFamilyIndex, barrier.dstAccessMask)) {
+    if (!supportsMask(queueFamilyIndex, barrier.srcAccessMask) || !supportsMask(queueFamilyIndex, barrier.dstAccessMask))
+    {
         m_logger.log("Invalid access mask [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
@@ -254,11 +256,13 @@ IQueue::RESULT ILogicalDevice::waitIdle()
 
 core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
 {
-    if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this)) {
+    if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))
+    {
         m_logger.log("Invalid buffer range [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
-    if (!getPhysicalDevice()->getBufferFormatUsages()[_fmt].bufferView) {
+    if (!getPhysicalDevice()->getBufferFormatUsages()[_fmt].bufferView)
+    {
         m_logger.log("Invalid buffer format [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
@@ -426,7 +430,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         {
             auto* samplers = binding.immutableSamplers;
             for (uint32_t ii=0u; ii<binding.count; ++ii)
-            if ((not samplers[ii]) or (not samplers[ii]->wasCreatedBy(this))) {
+            if ((not samplers[ii]) or (not samplers[ii]->wasCreatedBy(this)))
+            {
                 m_logger.log("Invalid sampler (bindings[%u].immutableSamplers[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, ii, __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
@@ -439,7 +444,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         // validate if only last binding is run-time sized and there is only one run-time sized binding
         bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
         // no 2 run-time sized descriptors allowed
-        if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray) {
+        if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray)
+        {
             m_logger.log("Only one variable-sized binding is allowed (bindings[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return nullptr;
         }
@@ -453,20 +459,23 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     }
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutCreateInfo-descriptorType-03001
-    if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0) {
+    if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0)
+    {
         m_logger.log("UPDATE_AFTER_BIND bindings are mutually exclusive with DYNAMIC bindings [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
 
     // only last binding can be run-time sized
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutBindingFlagsCreateInfo-pBindingFlags-03004
-    if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr) {
+    if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)
+    {
         m_logger.log("Only last binding can be variable-sized [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
 
     const auto& limits = m_physicalDevice->getLimits();
-    if (dynamicSSBOCount > limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount > limits.maxDescriptorSetDynamicOffsetUBOs) {
+    if (dynamicSSBOCount > limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount > limits.maxDescriptorSetDynamicOffsetUBOs)
+    {
         m_logger.log("Number of dynamic bindings exceeds device limits [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
@@ -487,7 +496,8 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
     {
         const auto& write = descriptorWrites[i];
         auto* ds = write.dstSet;
-        if (!ds || !ds->wasCreatedBy(this)) {
+        if (!ds || !ds->wasCreatedBy(this))
+        {
             m_logger.log("Invalid write descriptor set was given (descriptorWrites[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
@@ -523,17 +533,20 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         const auto& copy = descriptorCopies[i];
         const auto* srcDS = copy.srcSet;
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
-        if (!dstDS || !dstDS->wasCreatedBy(this)) {
+        if (!dstDS || !dstDS->wasCreatedBy(this))
+        {
             m_logger.log("Invalid copy descriptor set (descriptorCopies[%d]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
-        if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS)) {
+        if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
+        {
             m_logger.log("Invalid copy descriptor set (descriptorCopies[%d]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
 
         copyValidationResults[i] = dstDS->validateCopy(copy);
-        if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type) {
+        if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
+        {
             m_logger.log("Invalid copy descriptor set (descriptorCopies[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
@@ -563,7 +576,8 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         const auto& drop = dropDescriptors[i];
         auto ds = drop.dstSet;
 
-        if (!ds || !ds->wasCreatedBy(this)) {
+        if (!ds || !ds->wasCreatedBy(this))
+        {
             m_logger.log("Invalid drop description set was given (dropDescriptors[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
@@ -592,7 +606,8 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         }
 
         // (no binding)
-        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT) {
+        if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
+        {
             m_logger.log("Invalid binding type (dropDescriptors[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
@@ -611,7 +626,8 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
 {
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
-    if (!validation) {
+    if (!validation)
+    {
         m_logger.log("Invalid parameters were given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
@@ -638,12 +654,14 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         return false;
     };
     for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
-    if (invalidAttachment(params.depthStencilAttachments[i])) {
+    if (invalidAttachment(params.depthStencilAttachments[i]))
+    {
         m_logger.log("Invalid depth stencil attachment was given (depthStencilAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
     for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
-    if (invalidAttachment(params.colorAttachments[i])) {
+    if (invalidAttachment(params.colorAttachments[i]))
+    {
         m_logger.log("Invalid color attachment was given (colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
         return nullptr;
     }
@@ -676,7 +694,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 const bool hasDepth = !asset::isStencilOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-depthResolveMode-03183
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06874
-                if (hasDepth && !supportedDepthResolveModes.hasFlags(depthResolve)) {
+                if (hasDepth && !supportedDepthResolveModes.hasFlags(depthResolve))
+                {
                     m_logger.log("Invalid stencil attachment's resolve mode (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return nullptr;
                 }
@@ -684,7 +703,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 const bool hasStencil = !asset::isDepthOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-stencilResolveMode-03184
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06875
-                if (hasStencil && !supportedStencilResolveModes.hasFlags(stencilResolve)) {
+                if (hasStencil && !supportedStencilResolveModes.hasFlags(stencilResolve))
+                {
                     m_logger.log("Invalid stencil attachment's resolve mode (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return nullptr;
                 }
@@ -697,14 +717,16 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                         {
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06877
-                            if (depthResolve != resolve_flag_t::NONE && stencilResolve != resolve_flag_t::NONE) {
+                            if (depthResolve != resolve_flag_t::NONE && stencilResolve != resolve_flag_t::NONE)
+                            {
                                 m_logger.log("Invalid stencil attachment's resolve mode (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                                 return nullptr;
                             }
                         }
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06876
-                        else {
+                        else
+                        {
                             m_logger.log("Invalid stencil attachment's resolve mode (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                             return nullptr;
                         }
@@ -712,7 +734,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 }
 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06873
-                if (/*multisampledToSingleSampledUsed*/false && depthResolve == resolve_flag_t::NONE && stencilResolve == resolve_flag_t::NONE) {
+                if (/*multisampledToSingleSampledUsed*/false && depthResolve == resolve_flag_t::NONE && stencilResolve == resolve_flag_t::NONE)
+                {
                     m_logger.log("Invalid stencil attachment's resolve mode (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
                     return nullptr;
                 }
@@ -721,7 +744,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-colorAttachmentCount-03063
         for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)
-        if (subpass.colorAttachments[j].render.used()) {
+        if (subpass.colorAttachments[j].render.used())
+        {
             m_logger.log("Invalid color attachment (subpasses[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, static_cast<uint32_t>(j), __FUNCTION__, __FILE__, __LINE__);
             return nullptr;
         }
@@ -741,21 +765,24 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
             if (mixedAttachmentSamples)
             {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-None-09456
-                if (samples > depthSamples) {
+                if (samples > depthSamples)
+                {
                     m_logger.log("Invalid color attachment (subpasses[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, static_cast<uint32_t>(j), __FUNCTION__, __FILE__, __LINE__);
                     return nullptr;
                 }
             }
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06869
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06872
-            else if (!false/*multisampledRenderToSingleSampled*/ && samples != samplesForAllColor) {
+            else if (!false/*multisampledRenderToSingleSampled*/ && samples != samplesForAllColor)
+            {
                 m_logger.log("Invalid color attachment (subpasses[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, static_cast<uint32_t>(j), __FUNCTION__, __FILE__, __LINE__);
                 return nullptr;
             }
         }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-viewMask-06706
-        if (hlsl::findMSB(subpass.viewMask) >= maxMultiviewViewCount) {
+        if (hlsl::findMSB(subpass.viewMask) >= maxMultiviewViewCount)
+        {
             m_logger.log("Invalid viewMask (subpasses[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return nullptr;
         }
@@ -799,7 +826,8 @@ bool ILogicalDevice::createGraphicsPipelines(
             return info.shader->wasCreatedBy(this);
         }
     );
-    if (!specConstantValidation) {
+    if (!specConstantValidation)
+    {
         m_logger.log("Invalid parameters were given [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
         return false;
     }
@@ -810,17 +838,20 @@ bool ILogicalDevice::createGraphicsPipelines(
     {
         const auto& ci = params[ix];
         auto renderpass = ci.renderpass;
-        if (!renderpass->wasCreatedBy(this)) {
+        if (!renderpass->wasCreatedBy(this))
+        {
             m_logger.log("Invalid renderpass was given (params[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
 
         const auto& rasterParams = ci.cached.rasterization;
-        if (rasterParams.alphaToOneEnable && !features.alphaToOne) {
+        if (rasterParams.alphaToOneEnable && !features.alphaToOne)
+        {
             m_logger.log("Feature `alpha to one` is not enabled [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
-        if (rasterParams.depthBoundsTestEnable && !features.depthBounds) {
+        if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
+        {
             m_logger.log("Feature `depth bounds` is not enabled [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
@@ -847,7 +878,8 @@ bool ILogicalDevice::createGraphicsPipelines(
             */
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
             //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
-            if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount) {
+            if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
+            {
                 m_logger.log("Invalid viewMask (params[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
@@ -861,7 +893,8 @@ bool ILogicalDevice::createGraphicsPipelines(
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
             if (/*detect NV version && */(rasterParams.depthTestEnable()||rasterParams.stencilTestEnable()||rasterParams.depthBoundsTestEnable))
                 sampleCountNeedsToMatch = true;
-            if (sampleCountNeedsToMatch && attachment.samples != samples) {
+            if (sampleCountNeedsToMatch && attachment.samples != samples)
+            {
                 m_logger.log("Invalid depth stencil attachment (params[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, __FUNCTION__, __FILE__, __LINE__);
                 return false;
             }
@@ -873,18 +906,21 @@ bool ILogicalDevice::createGraphicsPipelines(
             {
                 const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend) {
+                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                {
                     m_logger.log("Invalid color attachment (params[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, i, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                 }
                 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples) {
+                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
+                {
                     m_logger.log("Invalid color attachment (params[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, i, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
-                if (/*detect NV version && */(attachment.samples > samples)) {
+                if (/*detect NV version && */(attachment.samples > samples))
+                {
                     m_logger.log("Invalid color attachment (params[%u].colorAttachments[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, ix, i, __FUNCTION__, __FILE__, __LINE__);
                     return false;
                 }
@@ -894,7 +930,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
             
     for (auto i=0u; i<params.size(); i++)
-        if (!output[i]) {
+        if (!output[i])
+        {
             m_logger.log("GraphicPipeline was not created (params[%u]) [%s - %s:%d]", system::ILogger::ELL_ERROR, i, __FUNCTION__, __FILE__, __LINE__);
             return false;
         }
