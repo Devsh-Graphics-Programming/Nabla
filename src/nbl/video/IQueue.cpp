@@ -30,7 +30,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
-                    logger->log("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?", system::ILogger::ELL_ERROR);
+                    logger->log("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!? [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                     return true;
                 }
             }
@@ -44,7 +44,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
             auto* cmdbuf = commandBuffer.cmdbuf;
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
-                logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
+                logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!? [%s - %s:%d]", system::ILogger::ELL_ERROR, __FUNCTION__, __FILE__, __LINE__);
                 return RESULT::OTHER_ERROR;
             }
 
@@ -54,12 +54,12 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 
             if (cmdbuf->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
             {
-                logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL [%s - %s:%d]", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf, __FUNCTION__, __FILE__, __LINE__);
                 return RESULT::OTHER_ERROR;
             }
             if (cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
             {
-                logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE [%s - %s:%d]", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf, __FUNCTION__, __FILE__, __LINE__);
                 return RESULT::OTHER_ERROR;
             }
 
@@ -69,7 +69,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 const auto& [ds, cachedDSVersion] = dsRecord;
                 if (ds->getVersion() > cachedDSVersion)
                 {
-                    logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf);
+                    logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p).. [%s - %s:%d]", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf, __FUNCTION__, __FILE__, __LINE__);
                     cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
                     return RESULT::OTHER_ERROR;
                 }
