@@ -222,6 +222,14 @@ unset(CMAKE_INSTALL_MANDIR)
 # blake3
 add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
+# Deflate
+set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+set(LIBDEFLATE_GZIP_SUPPORT OFF)
+set(LIBDEFLATE_BUILD_GZIP OFF)
+add_subdirectory(libdeflate libdeflate EXCLUDE_FROM_ALL)
+set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
+
 # Imath
 add_subdirectory(imath imath EXCLUDE_FROM_ALL)
 

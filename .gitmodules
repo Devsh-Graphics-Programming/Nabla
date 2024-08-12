@@ -105,3 +105,6 @@
 [submodule "3rdparty/imath"]
 	path = 3rdparty/imath
 	url = git@github.com:AcademySoftwareFoundation/Imath.git
+[submodule "3rdparty/libdeflate"]
+	path = 3rdparty/libdeflate
+	url = git@github.com:ebiggers/libdeflate.git
