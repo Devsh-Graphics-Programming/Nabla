@@ -31,7 +31,7 @@ T morton2d_mask(uint16_t _n)
         0x00FF00FF00FF00FFull,
         0x0000FFFF0000FFFFull
     };
-    return mask[_n];
+    return (T)mask[_n];
 }
 
 template <typename T>
@@ -45,7 +45,7 @@ T morton3d_mask(uint16_t _n)
         0x001F0000FF0000FFull,
         0x001F00000000FFFFull
     };
-    return mask[_n];
+    return (T)mask[_n];
 }
 template <typename T>
 T morton4d_mask(uint16_t _n)
@@ -57,7 +57,7 @@ T morton4d_mask(uint16_t _n)
         0x000F000F000F000Full,
         0x000000FF000000FFull
     };
-    return mask[_n];
+    return (T)mask[_n];
 }
 
 template <typename T, uint32_t bitDepth>
