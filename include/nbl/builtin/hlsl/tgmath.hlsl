@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
@@ -16,7 +17,7 @@ namespace tgmath
 {
 
 template <typename Float>
-bool isnan(Float val)
+static inline bool isnan(Float val)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(Float)>::type;
 	using AsFloat = typename float_of_size<sizeof(Float)>::type;
@@ -25,17 +26,24 @@ bool isnan(Float val)
 }
 
 template <>
-bool isnan(uint64_t val)
+static inline bool isnan(uint64_t val)
 {
 	float64_t asFloat = bit_cast<float64_t, uint64_t>(val);
 	return bool((ieee754::extractBiasedExponent<float64_t>(asFloat) == ieee754::traits<float64_t>::specialValueExp) && (val & ieee754::traits<float64_t>::mantissaMask));
 }
 
 // TODO: better implementation, also i'm not sure this is the right place for this function
-template<typename UINT>
-UINT lerp(UINT a, UINT b, bool c)
+template<typename Uint>
+NBL_CONSTEXPR_STATIC_INLINE Uint lerp(Uint a, Uint b, bool c)
 {
 	return c ? b : a;
+}
+
+template<typename Uint>
+NBL_CONSTEXPR_STATIC_INLINE bool isInf(Uint val)
+{
+	using AsFloat = typename float_of_size<sizeof(Uint)>::type;
+	return (val & ~ieee754::traits<AsFloat>::signMask) == ieee754::traits<AsFloat>::inf;
 }
 
 }

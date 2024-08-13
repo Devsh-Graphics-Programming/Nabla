@@ -10,6 +10,7 @@
 #include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
 #include <nbl/builtin/hlsl/math/equations/quartic.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -26,16 +27,52 @@ namespace nbl
 {
 namespace hlsl
 {
+
+// TODO(emulated_float64_t): this shouldn't be in the nbl::hlsl space
+// struct VecT is solution to
+// error: 'nbl::hlsl::emulated_float64_t<false, true>' cannot be used as a type parameter where a scalar is required
+// using float_t2 = typename conditional<is_same<float_t, emulated_float64_t<false, true> >::value, ef64_t2, vector<float_t, 2> >::type;
+#ifdef __HLSL_VERSION
+template<typename T, uint16_t N>
+struct VecT { using type = void; };
+template<>
+struct VecT<float, 2> { using type = vector<float, 2>; };
+template<>
+struct VecT<float, 3> { using type = vector<float, 3>; };
+template<>
+struct VecT<float, 4> { using type = vector<float, 4>; };
+template<>
+struct VecT<emulated_float64_t<false, true>, 2> { using type = ef64_t2; };
+template<>
+struct VecT<emulated_float64_t<false, true>, 3> { using type = ef64_t3; };
+template<>
+struct VecT<emulated_float64_t<false, true>, 4> { using type = float64_t4; };
+
+template<typename T>
+struct Mat2x2T { using type = float64_t2x2; };
+template<>
+struct Mat2x2T<double> { using type = float64_t2x2; };
+template<>
+struct Mat2x2T<emulated_float64_t<false, true> > { using type = ef64_t2x2; };
+
+#endif
+
 namespace shapes
 {
 template<typename float_t>
 struct QuadraticBezier
 {
+#ifndef __HLSL_VERSION
     using float_t2 = vector<float_t, 2>;
     using float_t3 = vector<float_t, 3>;
     using float_t4 = vector<float_t, 4>;
     using float_t2x2 = matrix<float_t, 2, 2>;
-
+#else
+    using float_t2 = typename VecT<float_t, 2>::type;
+    using float_t3 = typename VecT<float_t, 3>::type;
+    using float_t4 = typename VecT<float_t, 4>::type;
+    using float_t2x2 = typename Mat2x2T<float_t>::type;
+#endif
     float_t2 P0;
     float_t2 P1;
     float_t2 P2;
