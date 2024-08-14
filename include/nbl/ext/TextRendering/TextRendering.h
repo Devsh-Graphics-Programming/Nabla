@@ -34,10 +34,11 @@ public:
 
 	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8A8_SNORM;
 
-	// Spits out CPUBuffer containing the image data in SNORM format
-	core::smart_refctd_ptr<ICPUBuffer> generateShapeMSDF(
-		msdfgen::Shape glyph, uint32_t msdfPixelRange, 
-		uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+	// Takes the CPUBuffer containing the image data in SNORM format and an offset into it
+	uint32_t generateShapeMSDF(
+		core::smart_refctd_ptr<ICPUBuffer>& buffer, uint32_t bufferOffset, 
+		msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, 
+		float32_t2 scale, float32_t2 translate);
 
 	TextRenderer()
 	{
@@ -121,7 +122,7 @@ public:
 	// it will place the glyph in the center of msdfExtents considering the margin of msdfPixelRange
 	// preserves aspect ratio of the glyph corresponding to metrics of the "glyphId"
 	// use the `getUV` to address the glyph in your texture correctly.
-	std::vector<core::smart_refctd_ptr<ICPUBuffer>> generateGlyphMSDF(
+	core::smart_refctd_ptr<ICPUImage> generateGlyphMSDF(
 		uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels);
 
 	// transforms uv in glyph space to uv in the actual texture

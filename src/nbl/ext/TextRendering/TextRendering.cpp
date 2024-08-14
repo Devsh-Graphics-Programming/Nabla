@@ -17,13 +17,21 @@ namespace ext
 namespace TextRendering
 {
 
-core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate)
+uint32_t TextRenderer::generateShapeMSDF(
+	core::smart_refctd_ptr<ICPUBuffer>& buffer, uint32_t bufferOffset, 
+	msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, 
+	float32_t2 scale, float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
 
-	auto cpuBuf = core::make_smart_refctd_ptr<ICPUBuffer>(glyphW * glyphH * sizeof(int8_t) * 4);
-	int8_t* data = reinterpret_cast<int8_t*>(cpuBuf->getPointer());
+	uint32_t bufferSize = glyphW * glyphH * sizeof(int8_t) * 4;
+	if (buffer->getSize() + bufferOffset < bufferSize)
+	{
+		return 0u;
+	}
+
+	int8_t* data = reinterpret_cast<int8_t*>(buffer->getPointer()) + bufferOffset;
 	
 	auto floatToSNORM8 = [](const float fl) -> int8_t
 	{
@@ -51,7 +59,7 @@ core::smart_refctd_ptr<ICPUBuffer> TextRenderer::generateShapeMSDF(msdfgen::Shap
 		}
 	}
 
-	return std::move(cpuBuf);
+	return bufferSize;
 }
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
@@ -76,9 +84,24 @@ FontFace::GlyphMetrics FontFace::getGlyphMetrics(uint32_t glyphId)
 	};
 }
 
-std::vector<core::smart_refctd_ptr<ICPUBuffer>> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
+core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
 {
-	std::vector<core::smart_refctd_ptr<ICPUBuffer>> buffers;
+	ICPUImage::SCreationParams imgParams;
+	{
+		imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
+		imgParams.type = ICPUImage::ET_2D;
+		imgParams.format = TextRenderer::MSDFTextureFormat;
+		imgParams.extent = { textureExtents.x, textureExtents.y, 1 };
+		imgParams.mipLevels = mipLevels;
+		imgParams.arrayLayers = 1u;
+		imgParams.samples = ICPUImage::ESCF_1_BIT;
+	}
+
+	auto image = ICPUImage::create(std::move(imgParams));
+	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(textureExtents.x * textureExtents.y * sizeof(uint8_t) * 4 * 2);
+	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(mipLevels);
+
+	uint32_t bufferOffset = 0u;
 	for (uint32_t i = 0; i < mipLevels; i++)
 	{
 		// we need to generate a msdfgen per mip map, because the msdf generate call consumes the shape
@@ -88,10 +111,22 @@ std::vector<core::smart_refctd_ptr<ICPUBuffer>> FontFace::generateGlyphMSDF(uint
 		// Empty shapes should've been filtered sooner
 		assert(!shape.contours.empty());
 
-		auto shapeBounds = shape.getBounds();
-
 		uint32_t mipW = textureExtents.x / (1 << i);
 		uint32_t mipH = textureExtents.y / (1 << i);
+
+		auto& region = regions->begin()[i];
+		region.bufferOffset = 0u;
+		region.bufferRowLength = 0u;
+		region.bufferImageHeight = 0u;
+		//region.imageSubresource.aspectMask = wait for Vulkan;
+		region.imageSubresource.mipLevel = i;
+		region.imageSubresource.baseArrayLayer = 0u;
+		region.imageSubresource.layerCount = 1u;
+		region.imageOffset = { 0u,0u,0u };
+		region.imageExtent = { mipW, mipH };
+
+		auto shapeBounds = shape.getBounds();
+
 		float32_t2 mipExtents = float32_t2(float(mipW), float(mipH));
 		uint32_t mipPixelRange = msdfPixelRange / (1 << i);
 
@@ -112,9 +147,14 @@ std::vector<core::smart_refctd_ptr<ICPUBuffer>> FontFace::generateGlyphMSDF(uint
 		const float32_t2 shapeSpaceCenter = float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
 		const float32_t2 translate = mipExtents / (float32_t2(2.0) * uniformScale) - shapeSpaceCenter;
 
-		buffers.push_back(m_textRenderer->generateShapeMSDF(shape, mipPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate));
+		uint32_t result = m_textRenderer->generateShapeMSDF(buffer, bufferOffset, shape, mipPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate);
+		// Failing here means the buffer didn't have enough space
+		assert(result);
+		bufferOffset += result;
 	}
-	return buffers;
+	image->setBufferAndRegions(std::move(buffer), std::move(regions));
+
+	return image;
 }
 
 float32_t2 FontFace::getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange)
