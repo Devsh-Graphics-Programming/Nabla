@@ -115,10 +115,10 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixel
 		uint32_t mipH = textureExtents.y / (1 << i);
 
 		auto& region = regions->begin()[i];
-		region.bufferOffset = 0u;
+		region.bufferOffset = bufferOffset;
 		region.bufferRowLength = 0u;
 		region.bufferImageHeight = 0u;
-		//region.imageSubresource.aspectMask = wait for Vulkan;
+		region.imageSubresource.aspectMask = asset::IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
 		region.imageSubresource.mipLevel = i;
 		region.imageSubresource.baseArrayLayer = 0u;
 		region.imageSubresource.layerCount = 1u;
