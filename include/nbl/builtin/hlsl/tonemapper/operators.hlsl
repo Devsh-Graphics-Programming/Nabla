@@ -11,15 +11,34 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace tonemapper
+{
 
 struct ReinhardParams
 {
+	using this_t = ReinhardParams;
+	static this_t create(float EV, float key = 0.18f, float WhitePointRelToEV = 16.f)
+	{
+		this_t retval;
+		retval.keyAndManualLinearExposure = key * exp2(EV);
+		retval.rcpWhite2 = 1.f / (WhitePointRelToEV * WhitePointRelToEV);
+		return retval;
+	}
+
 	float32_t keyAndManualLinearExposure;
 	float32_t rcpWhite2;
 };
 
 struct ACESParams
 {
+	using this_t = ACESParams;
+	static this_t create(float EV, float key = 0.18f, float Contrast = 1.f) {
+		this_t retval;
+		retval.gamma = Contrast;
+		retval.exposure = EV + log2(key * 0.77321666f);
+		return retval;
+	}
+
 	float32_t gamma; // 1.0
 	float32_t exposure; // actualExposure+midGrayLog2
 };
@@ -49,8 +68,8 @@ float32_t3 aces(ACESParams params, float32_t3 rawCIEXYZcolor)
 
 	// this is obviously fitted to some particular simulated sensor/film and display
 	float32_t3 v = mul(XYZ_RRT_Input, tonemapped);
-	float32_t3 a = v * (v + float32_t3(0.0245786)) - float32_t3(0.000090537);
-	float32_t3 b = v * (v * float32_t(0.983729) + float32_t3(0.4329510)) + float32_t3(0.238081);
+	float32_t3 a = v * (v + float32_t3(0.0245786, 0.0245786, 0.0245786)) - float32_t3(0.000090537, 0.000090537, 0.000090537);
+	float32_t3 b = v * (v * float32_t3(0.983729, 0.983729, 0.983729) + float32_t3(0.4329510, 0.4329510, 0.4329510)) + float32_t3(0.238081, 0.238081, 0.238081);
 	v = a / b;
 
 	// ODT_SAT => XYZ
@@ -67,6 +86,7 @@ float32_t3 aces(ACESParams params, float32_t3 rawCIEXYZcolor)
 // or get proper ACES RRT and ODTs
 // https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000622487-I-m-using-ACES-Which-Output-Transform-should-I-use-
 
+}
 }
 }
 
