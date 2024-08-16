@@ -13,6 +13,7 @@
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/math/morton.hlsl"
 #include "nbl/builtin/hlsl/colorspace/EOTF.hlsl"
+#include "nbl/builtin/hlsl/colorspace/OETF.hlsl"
 #include "nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl"
 
 namespace nbl
@@ -57,7 +58,7 @@ struct geom_luma_meter {
         float32_t2 stride = window.meteringWindowScale / (sampleCount + float32_t2(1.0f, 1.0f));
         float32_t2 samplePos = stride * sampleIndex;
         float32_t2 uvPos = (samplePos + float32_t2(0.5f, 0.5f)) / viewportSize;
-        float32_t3 color = colorspace::eotf::sRGB(tex.get(uvPos));
+        float32_t3 color = colorspace::oetf::sRGB(tex.get(uvPos));
         float32_t luma = dot(colorspace::sRGBtoXYZ[1], color);
 
         luma = clamp(luma, minLuma, maxLuma);
@@ -100,16 +101,6 @@ struct geom_luma_meter {
                 val.atomicAdd(workgroupIndex & ((1 << glsl::gl_SubgroupSizeLog2()) - 1), lumaSumBitPattern);
             }
         }
-    }
-
-    float32_t getGatheredLuma(
-        NBL_REF_ARG(ValueAccessor) val,
-        uint32_t2 sampleCount
-    )
-    {
-        uint32_t lumaSumBitPattern = val.get(glsl::gl_SubgroupInvocationID());
-        float32_t lumaSumValue = float32_t(lumaSumBitPattern) / (log2(maxLuma) - log2(minLuma)) + log2(minLuma);
-        return glsl::subgroupAdd(lumaSumValue) / (sampleCount.x * sampleCount.y);
     }
 
     LumaMeteringWindow window;
