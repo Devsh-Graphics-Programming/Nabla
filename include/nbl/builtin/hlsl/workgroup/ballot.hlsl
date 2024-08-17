@@ -26,7 +26,7 @@ uint16_t getDWORD(uint16_t invocation)
 // essentially means 'how many DWORDs are needed to store ballots in bitfields, for each invocation of `itemCount`
 uint16_t BallotDWORDCount(const uint16_t itemCount)
 {
-    return getDWORD(itemCount+31); // round up, in case all items don't fit in even number of DWORDs
+    return getDWORD(itemCount+_static_cast<uint16_t>(31)); // round up, in case all items don't fit in even number of DWORDs
 }
 
 // this silly thing exists only because we can't make the above `constexpr`

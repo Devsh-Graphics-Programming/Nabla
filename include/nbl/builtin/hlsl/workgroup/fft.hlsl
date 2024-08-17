@@ -55,10 +55,9 @@ struct exchangeValues<SharedMemoryAdaptor, float32_t>
     static void __call(NBL_REF_ARG(complex_t<float32_t>) lo, NBL_REF_ARG(complex_t<float32_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Cast to uint32_t to use the shared memory for shuffling
-        uint32_t2 toExchange = bit_cast<uint32_t2, float32_t2 >(topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, uint32_t2 >::__call(toExchange, stride, sharedmemAdaptor);
-        float32_t2 exchanged = bit_cast<float32_t2, uint32_t2 >(toExchange);
+        // pack into `float32_t2` because ternary operator doesn't support structs
+        float32_t2 exchanged = topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag());
+        shuffleXor<SharedMemoryAdaptor, float32_t2>::__call(exchanged, stride, sharedmemAdaptor);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -78,10 +77,9 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
     static void __call(NBL_REF_ARG(complex_t<float64_t>) lo, NBL_REF_ARG(complex_t<float64_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Unpack two doubles into four uint32_t
-        uint32_t4 toExchange = bit_cast<uint32_t4, float64_t2 > (topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag()));                       
-        shuffleXor<SharedMemoryAdaptor, uint32_t4 >::__call(toExchange, stride, sharedmemAdaptor);
-        float64_t2 exchanged = bit_cast<float64_t2, uint32_t4 >(toExchange);
+        // pack into `float64_t2` because ternary operator doesn't support structs
+        float64_t2 exchanged = topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag());                    
+        shuffleXor<SharedMemoryAdaptor, float64_t2 >::__call(exchanged, stride, sharedmemAdaptor);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -149,7 +147,8 @@ struct FFT<2,false, Scalar, device_capabilities>
         if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize())
         {
             // Set up the memory adaptor
-            MemoryAdaptor<SharedMemoryAccessor> sharedmemAdaptor;
+            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor,uint32_t,uint32_t,1,_NBL_HLSL_WORKGROUP_SIZE_>;
+            adaptor_t sharedmemAdaptor;
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             // special first iteration
@@ -159,12 +158,12 @@ struct FFT<2,false, Scalar, device_capabilities>
             [unroll]
             for (uint32_t stride = _NBL_HLSL_WORKGROUP_SIZE_ >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
             {   
-                FFT_loop< MemoryAdaptor<SharedMemoryAccessor> >(stride, lo, hi, threadID, sharedmemAdaptor);
+                FFT_loop< adaptor_t >(stride, lo, hi, threadID, sharedmemAdaptor);
                 sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
             }
 
             // special last workgroup-shuffle     
-            fft::exchangeValues<MemoryAdaptor<SharedMemoryAccessor>, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);  
+            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
             
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
@@ -215,11 +214,12 @@ struct FFT<2,true, Scalar, device_capabilities>
         if (_NBL_HLSL_WORKGROUP_SIZE_ > glsl::gl_SubgroupSize()) 
         { 
             // Set up the memory adaptor
-            MemoryAdaptor<SharedMemoryAccessor> sharedmemAdaptor;
+            using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor,uint32_t,uint32_t,1,_NBL_HLSL_WORKGROUP_SIZE_>;
+            adaptor_t sharedmemAdaptor;
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             // special first workgroup-shuffle
-            fft::exchangeValues<MemoryAdaptor<SharedMemoryAccessor>, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
         
             // The bigger steps
             [unroll]
@@ -227,7 +227,7 @@ struct FFT<2,true, Scalar, device_capabilities>
             {   
                 // Order of waiting for shared mem writes is also reversed here, since the shuffle came earlier
                 sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
-                FFT_loop< MemoryAdaptor<SharedMemoryAccessor> >(stride, lo, hi, threadID, sharedmemAdaptor);
+                FFT_loop< adaptor_t >(stride, lo, hi, threadID, sharedmemAdaptor);
             }
 
             // special last iteration 
@@ -237,7 +237,7 @@ struct FFT<2,true, Scalar, device_capabilities>
             divAss(hi, Scalar(_NBL_HLSL_WORKGROUP_SIZE_ / glsl::gl_SubgroupSize()));  
 
             // Remember to update the accessor's state
-            sharedmemAccessor = sharedmemAdaptor.accessor;    
+            sharedmemAccessor = sharedmemAdaptor.accessor;
         }   
         
         // Put values back in global mem
@@ -275,12 +275,12 @@ struct FFT<K, false, Scalar, device_capabilities>
         }
 
         // do K/2 small workgroup FFTs
-        DynamicOffsetAccessor <Accessor> offsetAccessor;
+        accessor_adaptors::Offset<Accessor> offsetAccessor;
         [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
-            sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
+                sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
             offsetAccessor.offset = _NBL_HLSL_WORKGROUP_SIZE_*k;
             FFT<2,false, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
@@ -296,12 +296,12 @@ struct FFT<K, true, Scalar, device_capabilities>
     static enable_if_t< (mpl::is_pot_v<K> && K > 2), void > __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         // do K/2 small workgroup FFTs
-        DynamicOffsetAccessor <Accessor> offsetAccessor;
+        accessor_adaptors::Offset<Accessor> offsetAccessor;
         [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
             if (k)
-            sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
+                sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
             offsetAccessor.offset = _NBL_HLSL_WORKGROUP_SIZE_*k;
             FFT<2,true, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
