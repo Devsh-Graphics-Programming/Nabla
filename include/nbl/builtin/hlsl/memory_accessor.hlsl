@@ -35,9 +35,10 @@ struct pair
 
 
 // TODO: find some cool way to SFINAE the default into `_NBL_HLSL_WORKGROUP_SIZE_` if defined, and something like 1 otherwise
-template<class BaseAccessor, typename AccessType=uint32_t, typename IndexType=uint32_t, typename Strides=pair<integral_constant<IndexType,1>,integral_constant<IndexType,_NBL_HLSL_WORKGROUP_SIZE_> > >
+template<class BaseAccessor, typename AccessType, typename IndexType=uint32_t, typename Strides=pair<integral_constant<IndexType,1>,integral_constant<IndexType,_NBL_HLSL_WORKGROUP_SIZE_> > >
 struct MemoryAdaptor // TODO: rename to something nicer like StructureOfArrays and add a `namespace accessor_adaptors`
 {
+    // Question: should the `BaseAccessor` let us know what this is?
     using access_t = AccessType;
     using index_t = IndexType;
     NBL_CONSTEXPR index_t ElementStride = Strides::first_type::value;
@@ -52,6 +53,7 @@ struct MemoryAdaptor // TODO: rename to something nicer like StructureOfArrays a
         return retVal; 
     }
 
+    // Question: shall we go back to requiring a `access_t get(index_t)` on the `BaseAccessor`, then we could `enable_if` check the return type (via `has_method_get`) matches and we won't get Nasty HLSL copy-in copy-out conversions
     template<typename T>
     enable_if_t<sizeof(T)%sizeof(access_t)==0,void> get(const index_t ix, NBL_REF_ARG(T) value)
     { 
