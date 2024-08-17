@@ -15,6 +15,7 @@ namespace hlsl
 template<typename T>
 struct BdaAccessor
 {
+    using type_t = T;
     static BdaAccessor<T> create(const bda::__ptr<T> ptr)
     {
         BdaAccessor<T> accessor;
@@ -26,6 +27,12 @@ struct BdaAccessor
     {
         bda::__ptr<T> target = ptr + index;
         return target.template deref().load();
+    }
+
+    void get(const uint64_t index, NBL_REF_ARG(T) value)
+    {
+        bda::__ptr<T> target = ptr + index;
+        value = target.template deref().load();
     }
 
     void set(const uint64_t index, const T value)
