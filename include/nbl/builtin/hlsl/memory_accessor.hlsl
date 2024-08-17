@@ -116,7 +116,7 @@ struct StructureOfArrays : impl::StructureOfArraysBase<IndexType,ElementStride,S
     enable_if_t<sizeof(T)%sizeof(access_t)==0,void> get(const index_t ix, NBL_REF_ARG(T) value)
     {
         NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
-        // `vector` for now, we'll use `array` later
+        // `vector` for now, we'll use `array` later when `bit_cast` gets fixed
         vector<access_t,SubElementCount> aux;
         for (index_t i=0; i<SubElementCount; i++)
             accessor.get(base_t::getIx(ix,i),aux[i]);
@@ -127,7 +127,7 @@ struct StructureOfArrays : impl::StructureOfArraysBase<IndexType,ElementStride,S
     enable_if_t<sizeof(T)%sizeof(access_t)==0,void> set(const index_t ix, NBL_CONST_REF_ARG(T) value)
     { 
         NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
-        // `vector` for now, we'll use `array` later
+        // `vector` for now, we'll use `array` later when `bit_cast` gets fixed
         vector<access_t,SubElementCount> aux;
         aux = bit_cast<vector<access_t,SubElementCount>,T>(value);
         for (index_t i=0; i<SubElementCount; i++)

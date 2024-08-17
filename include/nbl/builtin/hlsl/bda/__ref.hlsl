@@ -1,27 +1,15 @@
 // Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
-
 #ifndef _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
+
+#include "nbl/builtin/hlsl/functional.hlsl"
 
 namespace nbl
 {
 namespace hlsl
 {
-
-// TODO: make a common `nbl/builtin/hlsl/__ref.hlsl`
-// TODO: also refactor `bda::__base_ref` into just `__ref` and make it a typedef
-template<uint32_t StorageClass, typename T>
-using __spv_ptr_t = spirv::pointer_t<StorageClass,T>;
-
-template<uint32_t StorageClass, typename T>
-[[vk::ext_instruction(spv::OpCopyObject)]]
-__spv_ptr_t<StorageClass,T> addrof([[vk::ext_reference]] T v);
-
 namespace bda
 {
 template<typename T>
@@ -30,6 +18,7 @@ using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
 template<typename T>
 struct __ptr;
 
+// TODO: refactor this in terms of `nbl::hlsl::` when they fix the composite struct inline SPIR-V BDA issue
 template<typename T, uint32_t alignment, bool _restrict>
 struct __base_ref
 {
@@ -52,12 +41,12 @@ struct __base_ref
 
     T load()
     {
-        return spirv::load < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr());
+        return spirv::load<T,alignment>(__get_spv_ptr());
     }
 
     void store(const T val)
     {
-        spirv::store < T, __spv_ptr_t<T>, alignment > (__get_spv_ptr(), val);
+        spirv::store<T,alignment>(__get_spv_ptr(),val);
     }
 };
 
