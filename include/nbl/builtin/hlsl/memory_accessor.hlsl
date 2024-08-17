@@ -6,125 +6,131 @@
 
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 
+// weird namespace placing, see the comment where the macro is defined
+GENERATE_METHOD_TESTER(atomicExchange)
+GENERATE_METHOD_TESTER(atomicCompSwap)
+GENERATE_METHOD_TESTER(atomicAnd)
+GENERATE_METHOD_TESTER(atomicOr)
+GENERATE_METHOD_TESTER(atomicXor)
+GENERATE_METHOD_TESTER(atomicAdd)
+GENERATE_METHOD_TESTER(atomicMin)
+GENERATE_METHOD_TESTER(atomicMax)
+GENERATE_METHOD_TESTER(workgroupExecutionAndMemoryBarrier)
+
 namespace nbl 
 {
 namespace hlsl
 {
 
-template<class BaseAccessor>
-struct MemoryAdaptor
+// TODO: flesh out and move to `nbl/builtin/hlsl/utility.hlsl`
+template<typename T1, typename T2>
+struct pair
 {
+    using first_type = T1;
+    using second_type = T2;
+
+    first_type first;
+    second_type second;
+};
+
+
+// TODO: find some cool way to SFINAE the default into `_NBL_HLSL_WORKGROUP_SIZE_` if defined, and something like 1 otherwise
+template<class BaseAccessor, typename AccessType=uint32_t, typename IndexType=uint32_t, typename Strides=pair<integral_constant<IndexType,1>,integral_constant<IndexType,_NBL_HLSL_WORKGROUP_SIZE_> > >
+struct MemoryAdaptor // TODO: rename to something nicer like StructureOfArrays and add a `namespace accessor_adaptors`
+{
+    using access_t = AccessType;
+    using index_t = IndexType;
+    NBL_CONSTEXPR index_t ElementStride = Strides::first_type::value;
+    NBL_CONSTEXPR index_t SubElementStride = Strides::second_type::value;
+
     BaseAccessor accessor;
     
-    // TODO: template atomic... then add static_asserts of `has_method<BaseAccessor,signature>::value`, do vectors and matrices in terms of each other
-    uint get(const uint ix) 
+    access_t get(const index_t ix)
     { 
-        uint retVal;
-        accessor.get(ix, retVal);
+        access_t retVal;
+        get<access_t>(ix,retVal);
         return retVal; 
     }
 
-    template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(Scalar) value) 
+    template<typename T>
+    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> get(const index_t ix, NBL_REF_ARG(T) value)
     { 
-        uint32_t aux;
-        accessor.get(ix, aux);
-        value = bit_cast<Scalar, uint32_t>(aux);   
-    }
-    template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 2>) value) 
-    {
-        uint32_t2 aux;
-        accessor.get(ix, aux.x);
-        accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, aux.y);
-        value = bit_cast<vector<Scalar, 2>, uint32_t2>(aux);
-    }
-    template<typename Scalar>    
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 3>) value) 
-    { 
-        uint32_t3 aux;
-        accessor.get(ix, aux.x);
-        accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, aux.y);
-        accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, aux.z);
-        value = bit_cast<vector<Scalar, 3>, uint32_t3>(aux);
-    }
-    template<typename Scalar>   
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> get(const uint ix, NBL_REF_ARG(vector <Scalar, 4>) value) 
-    { 
-        uint32_t4 aux;
-        accessor.get(ix, aux.x);
-        accessor.get(ix + _NBL_HLSL_WORKGROUP_SIZE_, aux.y);
-        accessor.get(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, aux.z);
-        accessor.get(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, aux.w);
-        value = bit_cast<vector<Scalar, 3>, uint32_t4>(aux);  
+        NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
+        access_t aux[SubElementCount];
+        for (uint64_t i=0; i<SubElementCount; i++)
+            accessor.get(ix*ElementStride+i*SubElementStride,aux[i]);
+        value = bit_cast<T,access_t[SubElementCount]>(aux);
     }
 
-    template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const Scalar value) {accessor.set(ix, asuint(value));}
-    template<typename Scalar>    
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 2> value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-    }
-    template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 3> value)  {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-    }
-    template<typename Scalar>
-    enable_if_t<sizeof(Scalar) == sizeof(uint32_t), void> set(const uint ix, const vector <Scalar, 4> value) {
-        accessor.set(ix, asuint(value.x));
-        accessor.set(ix + _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.y));
-        accessor.set(ix + 2 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.z));
-        accessor.set(ix + 3 * _NBL_HLSL_WORKGROUP_SIZE_, asuint(value.w));
+    template<typename T>
+    enable_if_t<sizeof(T)%sizeof(access_t)==0,void> set(const index_t ix, NBL_CONST_REF_ARG(T) value)
+    { 
+        NBL_CONSTEXPR uint64_t SubElementCount = sizeof(T)/sizeof(access_t);
+        access_t aux[SubElementCount] = bit_cast<access_t[SubElementCount],T>(value);
+        for (uint64_t i=0; i<SubElementCount; i++)
+            accessor.set(ix*ElementStride+i*SubElementStride,aux[i]);
     }
     
-    void atomicAnd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicAnd(ix, value);
+    template<typename T, typename S=BaseAccessor>
+    enable_if_t<
+        sizeof(T)==sizeof(access_t) && is_same_v<S,BaseAccessor> && is_same_v<has_method_atomicExchange<S,index_t,access_t>::return_type,access_t>,void
+    > atomicExchange(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = bit_cast<T,access_t>(accessor.atomicExchange(ix,bit_cast<access_t,T>(value)));
     }
-    void atomicAnd(const uint ix, const int value, NBL_REF_ARG(int) orig) {
-       orig = asint(accessor.atomicAnd(ix, asuint(value)));
+    template<typename T, typename S=BaseAccessor>
+    enable_if_t<
+        sizeof(T)==sizeof(access_t) && is_same_v<S,BaseAccessor> && is_same_v<has_method_atomicCompSwap<S,index_t,access_t,access_t>::return_type,access_t>,void
+    > atomicCompSwap(const index_t ix, const T value, const T comp, NBL_REF_ARG(T) orig)
+    {
+       orig = bit_cast<T,access_t>(accessor.atomicCompSwap(ix,bit_cast<access_t,T>(comp),bit_cast<access_t,T>(value)));
     }
-    void atomicAnd(const uint ix, const float value, NBL_REF_ARG(float) orig) {
-       orig = asfloat(accessor.atomicAnd(ix, asuint(value)));
+
+    template<typename T, typename S=BaseAccessor>
+    enable_if_t<
+        sizeof(T)==sizeof(access_t) && is_same_v<S,BaseAccessor> && is_same_v<has_method_atomicAnd<S,index_t,access_t>::return_type,access_t>,void
+    > atomicAnd(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = bit_cast<T,access_t>(accessor.atomicAnd(ix,bit_cast<access_t,T>(value)));
     }
-    void atomicOr(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicOr(ix, value);
+    template<typename T, typename S=BaseAccessor>
+    enable_if_t<
+        sizeof(T)==sizeof(access_t) && is_same_v<S,BaseAccessor> && is_same_v<has_method_atomicOr<S,index_t,access_t>::return_type,access_t>,void
+    > atomicOr(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = bit_cast<T,access_t>(accessor.atomicOr(ix,bit_cast<access_t,T>(value)));
     }
-    void atomicOr(const uint ix, const int value, NBL_REF_ARG(int) orig) {
-       orig = asint(accessor.atomicOr(ix, asuint(value)));
+    template<typename T, typename S=BaseAccessor>
+    enable_if_t<
+        sizeof(T)==sizeof(access_t) && is_same_v<S,BaseAccessor> && is_same_v<has_method_atomicXor<S,index_t,access_t>::return_type,access_t>,void
+    > atomicXor(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = bit_cast<T,access_t>(accessor.atomicXor(ix,bit_cast<access_t,T>(value)));
     }
-    void atomicOr(const uint ix, const float value, NBL_REF_ARG(float) orig) {
-       orig = asfloat(accessor.atomicOr(ix, asuint(value)));
+
+    // This has the upside of never calling a `(uint32_t)(uint32_t,uint32_t)` overload of `atomicAdd` because it checks the return type!
+    // If someone makes a `(float)(uint32_t,uint32_t)` they will break this detection code, but oh well.
+    template<typename T>
+    enable_if_t<is_same_v<has_method_atomicAdd<BaseAccessor,index_t,T>::return_type,T>,void> atomicAdd(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = accessor.atomicAdd(ix,value);
     }
-    void atomicXor(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicXor(ix, value);
+    template<typename T>
+    enable_if_t<is_same_v<has_method_atomicMin<BaseAccessor,index_t,T>::return_type,T>,void> atomicMin(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+       orig = accessor.atomicMin(ix,value);
     }
-    void atomicXor(const uint ix, const int value, NBL_REF_ARG(int) orig) {
-       orig = asint(accessor.atomicXor(ix, asuint(value)));
-    }
-    void atomicXor(const uint ix, const float value, NBL_REF_ARG(float) orig) {
-       orig = asfloat(accessor.atomicXor(ix, asuint(value)));
-    }
-    void atomicAdd(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicAdd(ix, value);
-    }
-    void atomicMin(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicMin(ix, value);
-    }
-    void atomicMax(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicMax(ix, value);
-    }
-    void atomicExchange(const uint ix, const uint value, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicExchange(ix, value);
-    }
-    void atomicCompSwap(const uint ix, const uint value, const uint comp, NBL_REF_ARG(uint) orig) {
-       orig = accessor.atomicCompSwap(ix, comp, value);
+    template<typename T>
+    enable_if_t<is_same_v<has_method_atomicMax<BaseAccessor,index_t,T>::return_type,T>,void> atomicMax(const index_t ix, const T value, NBL_REF_ARG(T) orig)
+    {
+        orig = accessor.atomicMax(ix,value);
     }
     
-    // TODO: figure out the `enable_if` syntax for this
-    void workgroupExecutionAndMemoryBarrier() {
+    template<typename S=BaseAccessor>
+    enable_if_t<
+        is_same_v<S,BaseAccessor> && is_same_v<has_method_workgroupExecutionAndMemoryBarrier<S>::return_type,void>,void
+    > workgroupExecutionAndMemoryBarrier()
+    {
         accessor.workgroupExecutionAndMemoryBarrier();
     }
 };
