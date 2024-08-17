@@ -199,7 +199,7 @@ struct bitfieldExtract<T, false, true>
     } 
 };
 
-}
+} //namespace impl
 
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )

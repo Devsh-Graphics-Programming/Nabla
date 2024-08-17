@@ -12,10 +12,20 @@ namespace nbl
 {
 namespace hlsl
 {
+
+// TODO: make a common `nbl/builtin/hlsl/__ref.hlsl`
+// TODO: also refactor `bda::__base_ref` into just `__ref` and make it a typedef
+template<uint32_t StorageClass, typename T>
+using __spv_ptr_t = spirv::pointer_t<StorageClass,T>;
+
+template<uint32_t StorageClass, typename T>
+[[vk::ext_instruction(spv::OpCopyObject)]]
+__spv_ptr_t<StorageClass,T> addrof([[vk::ext_reference]] T v);
+
 namespace bda
 {
 template<typename T>
-using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer, T>;
+using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
 
 template<typename T>
 struct __ptr;

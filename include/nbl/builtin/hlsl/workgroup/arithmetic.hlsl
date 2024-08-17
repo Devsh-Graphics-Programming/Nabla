@@ -22,6 +22,8 @@ namespace workgroup
 //#define NBL_ALIAS_CALL_OPERATOR_TO_STATIC_IMPL(OPTIONAL_TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
 //#define NBL_ALIAS_TEMPLATED_CALL_OPERATOR_TO_IMPL(TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
 
+// TODO: ban binops whose type is not scalar
+// TODO: Uses ShaderMemoryAdapter to wrap the accessor
 template<class BinOp, uint16_t ItemCount, class device_capabilities=void>
 struct reduction
 {

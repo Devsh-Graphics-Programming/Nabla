@@ -32,9 +32,8 @@ namespace hlsl
 {
 
 template<class T, class U>
-T bit_cast(U val)
+enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(U val)
 {
-    static_assert(sizeof(T)==sizeof(U));
     return spirv::bitcast<T,U>(val);
 }
 
@@ -92,7 +91,7 @@ uint16_t clz(uint64_t N)
 template<>
 uint16_t clz<1>(uint64_t N) { return uint16_t(1u-N&1); }
 
-}
+} //namespace impl
 
 template<typename T>
 uint16_t countl_zero(T n)
