@@ -54,6 +54,11 @@ using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integra
 
 //! General Operations
 
+// The holy operation that makes addrof possible
+template<uint32_t StorageClass, typename T>
+[[vk::ext_instruction(spv::OpCopyObject)]]
+pointer_t<StorageClass,T> copyObject([[vk::ext_reference]] T v);
+
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
