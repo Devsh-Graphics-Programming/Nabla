@@ -222,34 +222,31 @@ unset(CMAKE_INSTALL_MANDIR)
 # blake3
 add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
-# Deflate
-set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
-set(LIBDEFLATE_BUILD_STATIC_LIB ON)
-set(LIBDEFLATE_GZIP_SUPPORT OFF)
-set(LIBDEFLATE_BUILD_GZIP OFF)
-add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
-set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
-
 # Imath
 add_subdirectory(imath EXCLUDE_FROM_ALL)
 
-# OpenEXR
-# note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
-# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
-# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
-# but it's core 
+if(_NBL_COMPILE_WITH_OPEN_EXR_)
+	# Deflate
+	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+	set(LIBDEFLATE_GZIP_SUPPORT OFF)
+	set(LIBDEFLATE_BUILD_GZIP OFF)
+	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
+	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
 
-set(PYILMBASE_ENABLE OFF)
-set(OPENEXR_BUILD_UTILS OFF)
-set(OPENEXR_FORCE_INTERNAL_IMATH OFF)
-set(OPENEXR_BUILD_TOOLS OFF) 
-set(OPENEXR_INSTALL OFF)
-set(OPENEXR_INSTALL_DOCS OFF)
-set(OPENEXR_INSTALL_EXAMPLES OFF)
-set(OPENEXR_INSTALL_PKG_CONFIG OFF)
-set(OPENEXR_INSTALL_TOOLS OFF)
+	# OpenEXR
+	set(PYILMBASE_ENABLE OFF)
+	set(OPENEXR_BUILD_UTILS OFF)
+	set(OPENEXR_FORCE_INTERNAL_IMATH OFF)
+	set(OPENEXR_BUILD_TOOLS OFF) 
+	set(OPENEXR_INSTALL OFF)
+	set(OPENEXR_INSTALL_DOCS OFF)
+	set(OPENEXR_INSTALL_EXAMPLES OFF)
+	set(OPENEXR_INSTALL_PKG_CONFIG OFF)
+	set(OPENEXR_INSTALL_TOOLS OFF)
 
-add_subdirectory(openexr EXCLUDE_FROM_ALL)
+	add_subdirectory(openexr EXCLUDE_FROM_ALL)
+endif()
 
 # gli
 if(_NBL_COMPILE_WITH_GLI_)
@@ -411,10 +408,6 @@ set(NBL_3RDPARTY_TARGETS
 	MachineIndependent
 	GenericCodeGen
 	SPIRV
-	OpenEXRUtil
-	OpenEXRCore
-	Iex
-	IlmThread
 	Imath
 	ImathConfig
 	blake3
@@ -446,7 +439,7 @@ if(ANDROID)
 endif()
 
 if(_NBL_COMPILE_WITH_OPEN_EXR_)
-	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR)
+	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR OpenEXRUtil OpenEXRCore Iex IlmThread)
 endif()
 
 if(_NBL_COMPILE_WITH_GLI_)
