@@ -22,7 +22,7 @@ template<
     typename ValueAccessor,
     typename HistogramAccessor,
     typename SharedAccessor,
-    typename key_t = decltype(impl::declval < KeyAccessor > ().get(0)),
+    typename key_t = decltype(impl::declval<KeyAccessor>().get(0)),
     bool robust=false
 >
 struct counting
@@ -88,8 +88,8 @@ struct counting
         uint32_t sum = inclusive_scan(histogram_value, sdata);
         histogram.atomicAdd(tid, sum);
 
-        const bool is_last_wg_invocation = tid == (GroupSize - 1);
-        const static uint16_t RoundedKeyBucketCount = (KeyBucketCount - 1) / GroupSize + 1;
+        const bool is_last_wg_invocation = tid == (GroupSize-_static_cast<uint16_t>(1));
+        const static uint16_t RoundedKeyBucketCount = (KeyBucketCount-_static_cast<uint16_t>(1))/GroupSize+_static_cast<uint16_t>(1);
 
         for (int i = 1; i < RoundedKeyBucketCount; i++)
         {

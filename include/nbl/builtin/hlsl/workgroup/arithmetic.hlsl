@@ -87,9 +87,9 @@ uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
         uint32_t bitfield;
         ballotAccessor.get(index, bitfield);
         // strip unwanted bits from bitfield of the last item
-        const uint16_t Remainder = ItemCount&31;
+        const uint16_t Remainder = ItemCount&_static_cast<uint16_t>(31);
         if (Remainder!=0 && index==DWORDCount-1)
-            bitfield &= (0x1u<<Remainder)-1;
+            bitfield &= (0x1<<Remainder)-1;
         return uint16_t(countbits(bitfield));
     }
     return 0;
