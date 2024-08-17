@@ -148,12 +148,12 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 
 	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel), true>;
 	typename StreamToEXR::state_type state(writeTexel, image, nullptr);
-	for (auto rit = image->getRegions().begin(); rit != image->getRegions().end(); rit++)
+	for (auto region : image->getRegions())
 	{
-		if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
+		if (region.imageSubresource.mipLevel || region.imageSubresource.baseArrayLayer)
 			continue;
 
-		state.regionIterator = rit;
+		state.regionIterator = &region;
 		StreamToEXR::execute(core::execution::par_unseq, &state);
 	}
 

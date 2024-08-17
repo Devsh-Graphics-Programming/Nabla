@@ -467,7 +467,6 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				if ((b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and b.immutableSamplers)
 				{
 					const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
-					assert(bool(localOffset));
 
 					auto* dst = m_immutableSamplers->begin() + localOffset;
 					std::copy_n(b.immutableSamplers, b.count, dst);

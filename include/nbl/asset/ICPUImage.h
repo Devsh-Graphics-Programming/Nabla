@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class ICPUImage final : public IImage, public IPreHashed
+class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)
@@ -44,38 +44,7 @@ class ICPUImage final : public IImage, public IPreHashed
 		// Having regions specififed to upload is optional!
 		inline size_t getDependantCount() const override {return !missingContent()&&buffer ? 1:0;}
 
-		//!
-		inline core::blake3_hash_t computeContentHash() const override
-		{
-			// TODO: Arek turn this into an image filter maybe?
-			core::blake3_hasher hasher;
-			for (auto m=0; m<m_creationParams.mipLevels; m++)
-			{
-				const auto blockInfo = getTexelBlockInfo();
-				const auto mipExtentInBlocks = blockInfo.convertTexelsToBlocks(getMipSize(m));
-				core::blake3_hasher levelHasher;
-				if (missingContent())
-				{
-					const auto zeroLength = blockInfo.getBlockByteSize()*mipExtentInBlocks[0];
-					auto zeroArray = std::make_unique<uint8_t[]>(zeroLength);
-					for (auto l=0; l<m_creationParams.arrayLayers; l++)
-					{
-						// layers could be run in parallel
-						core::blake3_hasher layerHasher;
-						for (auto z=0; z<mipExtentInBlocks[2]; z++)
-						for (auto y=0; y<mipExtentInBlocks[1]; y++)
-							layerHasher.update(zeroArray.get(),zeroLength);
-						levelHasher << static_cast<core::blake3_hash_t>(layerHasher);
-					}
-				}
-				else
-				{
-					_NBL_TODO(); // TODO: Arek
-				}
-				levelHasher << static_cast<core::blake3_hash_t>(levelHasher);
-			}
-			return static_cast<core::blake3_hash_t>(hasher);
-		}
+		core::blake3_hash_t computeContentHash() const override;
 
 		inline bool missingContent() const override
 		{
@@ -95,14 +64,14 @@ class ICPUImage final : public IImage, public IPreHashed
 		}
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions() const
+		inline std::span<const IImage::SBufferCopy> getRegions() const
 		{
 			if (regions)
 				return {regions->begin(),regions->end()};
-			return {nullptr,nullptr};
+			return {};
 		}
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
+		inline std::span<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
 		{
 			const IImage::SBufferCopy dummy = { 0ull,0u,0u,{static_cast<E_ASPECT_FLAGS>(0u),mipLevel,0u,0u},{},{} };
 			auto begin = std::lower_bound(regions->begin(),regions->end(),dummy,mip_order_t());
