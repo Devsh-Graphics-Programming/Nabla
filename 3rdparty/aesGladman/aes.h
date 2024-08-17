@@ -15,7 +15,7 @@ This software is provided 'as is' with no explicit or implied warranties
 in respect of its operation, including, but not limited to, correctness
 and fitness for purpose.
 ---------------------------------------------------------------------------
-Issue Date: 20/12/2007
+Issue Date: 02/09/2018
 
  This file contains the definitions required to use AES in C. See aesopt.h
  for optimisation details.
@@ -26,7 +26,7 @@ Issue Date: 20/12/2007
 
 #include <stdlib.h>
 
-/*  This include is used to find 8 & 32 bit unsigned integer types  */
+/*  This include is used to find 8 & 32 bit unsigned integer types   */
 #include "brg_types.h"
 
 #if defined(__cplusplus)
@@ -34,23 +34,30 @@ extern "C"
 {
 #endif
 
-#define AES_128     /* if a fast 128 bit key scheduler is needed    */
-#define AES_192     /* if a fast 192 bit key scheduler is needed    */
-#define AES_256     /* if a fast 256 bit key scheduler is needed    */
-#define AES_VAR     /* if variable key size scheduler is needed     */
-#define AES_MODES   /* if support is needed for modes               */
+#define AES_128     /* if a fast 128 bit key scheduler is needed     */
+#define AES_192     /* if a fast 192 bit key scheduler is needed     */
+#define AES_256     /* if a fast 256 bit key scheduler is needed     */
+#define AES_VAR     /* if variable key size scheduler is needed      */
+#if 1
+#  define AES_MODES /* if support is needed for modes in the C code  */
+#endif              /* (these will use AES_NI if it is present)      */
+#if 0               /* add this to make direct calls to the AES_NI   */
+#                   /* implemented CBC and CTR modes available       */
+#   define ADD_AESNI_MODE_CALLS
+#endif
 
-/* The following must also be set in assembler files if being used  */
+/* The following must also be set in assembler files if being used   */
 
-#define AES_ENCRYPT /* if support for encryption is needed          */
-#define AES_DECRYPT /* if support for decryption is needed          */
+#define AES_ENCRYPT /* if support for encryption is needed           */
+#define AES_DECRYPT /* if support for decryption is needed           */
 
-#define AES_BLOCK_SIZE  16  /* the AES block size in bytes          */
-#define N_COLS           4  /* the number of columns in the state   */
+#define AES_BLOCK_SIZE_P2  4  /* AES block size as a power of 2      */
+#define AES_BLOCK_SIZE    (1 << AES_BLOCK_SIZE_P2) /* AES block size */
+#define N_COLS             4  /* the number of columns in the state  */
 
-/* The key schedule length is 11, 13 or 15 16-byte blocks for 128,  */
-/* 192 or 256-bit keys respectively. That is 176, 208 or 240 bytes  */
-/* or 44, 52 or 60 32-bit words.                                    */
+/* The key schedule length is 11, 13 or 15 16-byte blocks for 128,   */
+/* 192 or 256-bit keys respectively. That is 176, 208 or 240 bytes   */
+/* or 44, 52 or 60 32-bit words.                                     */
 
 #if defined( AES_VAR ) || defined( AES_256 )
 #define KS_LENGTH       60
@@ -62,15 +69,26 @@ extern "C"
 
 #define AES_RETURN INT_RETURN
 
-/* the character array 'inf' in the following structures is used    */
-/* to hold AES context information. This AES code uses cx->inf.b[0] */
-/* to hold the number of rounds multiplied by 16. The other three   */
-/* elements can be used by code that implements additional modes    */
+/* the character array 'inf' in the following structures is used     */
+/* to hold AES context information. This AES code uses cx->inf.b[0]  */
+/* to hold the number of rounds multiplied by 16. The VIA_ACE code   */
+/* uses cx->inf.b[1] to manage the interface to the hardware. The    */
+/* main AES code uses cx->b[2] to signal that an encryption context  */
+/* has been set for encryption or decryption. The modes code uses    */
+/* ctx->inf.b[3] to hold the position within an AES block for modes  */
+/* that require this.                                                */
 
 typedef union
 {   uint32_t l;
     uint8_t b[4];
 } aes_inf;
+
+/* Macros for detecting whether a given context was initialized for  */
+/* use with encryption or decryption code. These should only be used */
+/* by e.g. language bindings which lose type information when the    */
+/* context pointer is passed to the calling language's runtime.      */
+#define IS_ENCRYPTION_CTX(cx) (((cx)->inf.b[2] & (uint8_t)0x01) == 1)
+#define IS_DECRYPTION_CTX(cx) (((cx)->inf.b[2] & (uint8_t)0x01) == 0)
 
 #ifdef _MSC_VER
 #  pragma warning( disable : 4324 )
@@ -87,12 +105,10 @@ typedef union
 typedef struct ALIGNED_(16)
 {   uint32_t ks[KS_LENGTH];
     aes_inf inf;
-} aes_encrypt_ctx;
+} aes_crypt_ctx;
 
-typedef struct ALIGNED_(16)
-{   uint32_t ks[KS_LENGTH];
-    aes_inf inf;
-} aes_decrypt_ctx;
+typedef aes_crypt_ctx aes_encrypt_ctx;
+typedef aes_crypt_ctx aes_decrypt_ctx;
 
 #ifdef _MSC_VER
 #  pragma warning( default : 4324 )
@@ -206,10 +222,6 @@ AES_RETURN aes_ctr_crypt(const unsigned char *ibuf, unsigned char *obuf,
 
 #endif
 
-#if 0
-#  define ADD_AESNI_MODE_CALLS
-#endif
-
 #if 0 && defined( ADD_AESNI_MODE_CALLS )
 #  define USE_AES_CONTEXT
 #endif
@@ -252,7 +264,7 @@ void aes_CBC_decrypt(const unsigned char *in,
     unsigned char *key,
     int number_of_rounds);
 
-void AES_CTR_encrypt(const unsigned char *in,
+void aes_CTR_encrypt(const unsigned char *in,
     unsigned char *out,
     const unsigned char ivec[8],
     const unsigned char nonce[4],

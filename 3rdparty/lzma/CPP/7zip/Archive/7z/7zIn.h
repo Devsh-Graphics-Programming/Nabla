@@ -1,7 +1,7 @@
 // 7zIn.h
 
-#ifndef __7Z_IN_H
-#define __7Z_IN_H
+#ifndef ZIP7_INC_7Z_IN_H
+#define ZIP7_INC_7Z_IN_H
 
 #include "../../../Common/MyCom.h"
 
@@ -22,12 +22,12 @@ namespace N7z {
   We don't need to init isEncrypted and passwordIsDefined
   We must upgrade them only */
 
-#ifdef _NO_CRYPTO
-#define _7Z_DECODER_CRYPRO_VARS_DECL
-#define _7Z_DECODER_CRYPRO_VARS
+#ifdef Z7_NO_CRYPTO
+#define Z7_7Z_DECODER_CRYPRO_VARS_DECL
+#define Z7_7Z_DECODER_CRYPRO_VARS
 #else
-#define _7Z_DECODER_CRYPRO_VARS_DECL , ICryptoGetTextPassword *getTextPassword, bool &isEncrypted, bool &passwordIsDefined, UString &password
-#define _7Z_DECODER_CRYPRO_VARS , getTextPassword, isEncrypted, passwordIsDefined, password
+#define Z7_7Z_DECODER_CRYPRO_VARS_DECL , ICryptoGetTextPassword *getTextPassword, bool &isEncrypted, bool &passwordIsDefined, UString &password
+#define Z7_7Z_DECODER_CRYPRO_VARS , getTextPassword, isEncrypted, passwordIsDefined, password
 #endif
 
 struct CParsedMethods
@@ -174,13 +174,14 @@ struct CDatabase: public CFolders
   HRESULT GetPath_Prop(unsigned index, PROPVARIANT *path) const throw();
 };
 
+
 struct CInArchiveInfo
 {
   CArchiveVersion Version;
-  UInt64 StartPosition;
-  UInt64 StartPositionAfterHeader;
-  UInt64 DataStartPosition;
-  UInt64 DataStartPosition2;
+  UInt64 StartPosition;               // in stream
+  UInt64 StartPositionAfterHeader;    // in stream
+  UInt64 DataStartPosition;           // in stream
+  UInt64 DataStartPosition2;          // in stream. it's for headers
   CRecordVector<UInt64> FileInfoPopIDs;
   
   void Clear()
@@ -193,6 +194,7 @@ struct CInArchiveInfo
   }
 };
 
+
 struct CDbEx: public CDatabase
 {
   CInArchiveInfo ArcInfo;
@@ -202,6 +204,7 @@ struct CDbEx: public CDatabase
 
   UInt64 HeadersSize;
   UInt64 PhySize;
+  // UInt64 EndHeaderOffset; // relative to position after StartHeader (32 bytes)
 
   /*
   CRecordVector<size_t> SecureOffsets;
@@ -255,6 +258,7 @@ struct CDbEx: public CDatabase
 
     HeadersSize = 0;
     PhySize = 0;
+    // EndHeaderOffset = 0;
   }
 
   bool CanUpdate() const
@@ -269,33 +273,36 @@ struct CDbEx: public CDatabase
 
   void FillLinks();
   
-  UInt64 GetFolderStreamPos(CNum folderIndex, unsigned indexInFolder) const
+  UInt64 GetFolderStreamPos(size_t folderIndex, size_t indexInFolder) const
   {
-    return ArcInfo.DataStartPosition +
-        PackPositions[FoStartPackStreamIndex[folderIndex] + indexInFolder];
+    return ArcInfo.DataStartPosition + PackPositions.ConstData()
+        [FoStartPackStreamIndex.ConstData()[folderIndex] + indexInFolder];
   }
   
-  UInt64 GetFolderFullPackSize(CNum folderIndex) const
+  UInt64 GetFolderFullPackSize(size_t folderIndex) const
   {
     return
-      PackPositions[FoStartPackStreamIndex[folderIndex + 1]] -
-      PackPositions[FoStartPackStreamIndex[folderIndex]];
+      PackPositions[FoStartPackStreamIndex.ConstData()[folderIndex + 1]] -
+      PackPositions[FoStartPackStreamIndex.ConstData()[folderIndex]];
   }
   
-  UInt64 GetFolderPackStreamSize(CNum folderIndex, unsigned streamIndex) const
+  UInt64 GetFolderPackStreamSize(size_t folderIndex, size_t streamIndex) const
   {
-    size_t i = FoStartPackStreamIndex[folderIndex] + streamIndex;
-    return PackPositions[i + 1] - PackPositions[i];
+    const size_t i = FoStartPackStreamIndex.ConstData()[folderIndex] + streamIndex;
+    return PackPositions.ConstData()[i + 1] -
+           PackPositions.ConstData()[i];
   }
 
-  UInt64 GetFilePackSize(CNum fileIndex) const
+  /*
+  UInt64 GetFilePackSize(size_t fileIndex) const
   {
-    CNum folderIndex = FileIndexToFolderIndexMap[fileIndex];
+    const CNum folderIndex = FileIndexToFolderIndexMap[fileIndex];
     if (folderIndex != kNumNoIndex)
       if (FolderStartFileIndex[folderIndex] == fileIndex)
         return GetFolderFullPackSize(folderIndex);
     return 0;
   }
+  */
 };
 
 const unsigned kNumBufLevelsMax = 4;
@@ -348,6 +355,8 @@ class CInArchive
  
   UInt64 _arhiveBeginStreamPosition;
   UInt64 _fileEndPosition;
+
+  UInt64 _rangeLimit; // relative to position after StartHeader (32 bytes)
 
   Byte _header[kHeaderSize];
 
@@ -412,17 +421,17 @@ class CInArchive
       DECL_EXTERNAL_CODECS_LOC_VARS
       UInt64 baseOffset, UInt64 &dataOffset,
       CObjectVector<CByteBuffer> &dataVector
-      _7Z_DECODER_CRYPRO_VARS_DECL
+      Z7_7Z_DECODER_CRYPRO_VARS_DECL
       );
   HRESULT ReadHeader(
       DECL_EXTERNAL_CODECS_LOC_VARS
       CDbEx &db
-      _7Z_DECODER_CRYPRO_VARS_DECL
+      Z7_7Z_DECODER_CRYPRO_VARS_DECL
       );
   HRESULT ReadDatabase2(
       DECL_EXTERNAL_CODECS_LOC_VARS
       CDbEx &db
-      _7Z_DECODER_CRYPRO_VARS_DECL
+      Z7_7Z_DECODER_CRYPRO_VARS_DECL
       );
 public:
   CInArchive(bool useMixerMT):
@@ -436,7 +445,7 @@ public:
   HRESULT ReadDatabase(
       DECL_EXTERNAL_CODECS_LOC_VARS
       CDbEx &db
-      _7Z_DECODER_CRYPRO_VARS_DECL
+      Z7_7Z_DECODER_CRYPRO_VARS_DECL
       );
 };
   

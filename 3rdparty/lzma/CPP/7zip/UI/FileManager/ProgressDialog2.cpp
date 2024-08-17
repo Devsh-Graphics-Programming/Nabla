@@ -2,10 +2,14 @@
 
 #include "StdAfx.h"
 
+#ifdef Z7_OLD_WIN_SDK
+#include <ShlGuid.h>
+#endif
+
 #include "../../../Common/IntToString.h"
 #include "../../../Common/StringConvert.h"
 
-#include "../../../Windows/Control/Static.h"
+#include "../../../Windows/Clipboard.h"
 #include "../../../Windows/ErrorMsg.h"
 
 #include "../GUI/ExtractRes.h"
@@ -19,6 +23,7 @@
 using namespace NWindows;
 
 extern HINSTANCE g_hInstance;
+extern bool g_DisableUserQuestions;
 
 static const UINT_PTR kTimerID = 3;
 
@@ -43,7 +48,7 @@ static const UINT kCreateDelay =
 
 static const DWORD kPauseSleepTime = 100;
 
-#ifdef LANG
+#ifdef Z7_LANG
 
 static const UInt32 kLangIDs[] =
 {
@@ -67,19 +72,19 @@ static const UInt32 kLangIDs_Colon[] =
 #endif
 
 
-#define UNDEFINED_VAL ((UInt64)(Int64)-1)
-#define INIT_AS_UNDEFINED(v) v = UNDEFINED_VAL;
-#define IS_UNDEFINED_VAL(v) ((v) == UNDEFINED_VAL)
-#define IS_DEFINED_VAL(v) ((v) != UNDEFINED_VAL)
+#define UNDEFINED_VAL         ((UInt64)(Int64)-1)
+#define INIT_AS_UNDEFINED(v)  v = UNDEFINED_VAL;
+#define IS_UNDEFINED_VAL(v)   ((v) == UNDEFINED_VAL)
+#define IS_DEFINED_VAL(v)     ((v) != UNDEFINED_VAL)
 
 CProgressSync::CProgressSync():
     _stopped(false), _paused(false),
     _bytesProgressMode(true),
+    _isDir(false),
     _totalBytes(UNDEFINED_VAL), _completedBytes(0),
     _totalFiles(UNDEFINED_VAL), _curFiles(0),
     _inSize(UNDEFINED_VAL),
-    _outSize(UNDEFINED_VAL),
-    _isDir(false)
+    _outSize(UNDEFINED_VAL)
     {}
 
 #define CHECK_STOP  if (_stopped) return E_ABORT; if (!_paused) return S_OK;
@@ -228,7 +233,7 @@ void CProgressSync::AddError_Message_Name(const wchar_t *message, const wchar_t 
   AddError_Message(s);
 }
 
-void CProgressSync::AddError_Code_Name(DWORD systemError, const wchar_t *name)
+void CProgressSync::AddError_Code_Name(HRESULT systemError, const wchar_t *name)
 {
   UString s = NError::MyFormatMessage(systemError);
   if (systemError == 0)
@@ -239,7 +244,7 @@ void CProgressSync::AddError_Code_Name(DWORD systemError, const wchar_t *name)
 CProgressDialog::CProgressDialog():
    _timer(0),
    CompressingMode(true),
-   MainWindow(0)
+   MainWindow(NULL)
 {
   _isDir = false;
 
@@ -262,25 +267,25 @@ CProgressDialog::CProgressDialog():
     throw 1334987;
   if (_createDialogEvent.Create() != S_OK)
     throw 1334987;
-  #ifdef __ITaskbarList3_INTERFACE_DEFINED__
+  // #ifdef __ITaskbarList3_INTERFACE_DEFINED__
   CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList3, (void**)&_taskbarList);
   if (_taskbarList)
     _taskbarList->HrInit();
-  #endif
+  // #endif
 }
 
-#ifndef _SFX
+#ifndef Z7_SFX
 
 CProgressDialog::~CProgressDialog()
 {
-  #ifdef __ITaskbarList3_INTERFACE_DEFINED__
+  // #ifdef __ITaskbarList3_INTERFACE_DEFINED__
   SetTaskbarProgressState(TBPF_NOPROGRESS);
-  #endif
+  // #endif
   AddToTitle(L"");
 }
 void CProgressDialog::AddToTitle(LPCWSTR s)
 {
-  if (MainWindow != 0)
+  if (MainWindow)
   {
     CWindow window(MainWindow);
     window.SetText((UString)s + MainTitle);
@@ -292,7 +297,7 @@ void CProgressDialog::AddToTitle(LPCWSTR s)
 
 void CProgressDialog::SetTaskbarProgressState()
 {
-  #ifdef __ITaskbarList3_INTERFACE_DEFINED__
+  // #ifdef __ITaskbarList3_INTERFACE_DEFINED__
   if (_taskbarList && _hwndForTaskbar)
   {
     TBPFLAG tbpFlags;
@@ -302,7 +307,7 @@ void CProgressDialog::SetTaskbarProgressState()
       tbpFlags = _errorsWereDisplayed ? TBPF_ERROR: TBPF_NORMAL;
     SetTaskbarProgressState(tbpFlags);
   }
-  #endif
+  // #endif
 }
 
 static const unsigned kTitleFileNameSizeLimit = 36;
@@ -331,37 +336,40 @@ bool CProgressDialog::OnInit()
   if (!_hwndForTaskbar)
     _hwndForTaskbar = *this;
 
-  INIT_AS_UNDEFINED(_progressBar_Range);
-  INIT_AS_UNDEFINED(_progressBar_Pos);
+  INIT_AS_UNDEFINED(_progressBar_Range)
+  INIT_AS_UNDEFINED(_progressBar_Pos)
 
-  INIT_AS_UNDEFINED(_prevPercentValue);
-  INIT_AS_UNDEFINED(_prevElapsedSec);
-  INIT_AS_UNDEFINED(_prevRemainingSec);
+  INIT_AS_UNDEFINED(_prevPercentValue)
+  INIT_AS_UNDEFINED(_prevElapsedSec)
+  INIT_AS_UNDEFINED(_prevRemainingSec)
 
-  INIT_AS_UNDEFINED(_prevSpeed);
+  INIT_AS_UNDEFINED(_prevSpeed)
   _prevSpeed_MoveBits = 0;
   
   _prevTime = ::GetTickCount();
   _elapsedTime = 0;
 
-  INIT_AS_UNDEFINED(_totalBytes_Prev);
-  INIT_AS_UNDEFINED(_processed_Prev);
-  INIT_AS_UNDEFINED(_packed_Prev);
-  INIT_AS_UNDEFINED(_ratio_Prev);
+  INIT_AS_UNDEFINED(_totalBytes_Prev)
+  INIT_AS_UNDEFINED(_processed_Prev)
+  INIT_AS_UNDEFINED(_packed_Prev)
+  INIT_AS_UNDEFINED(_ratio_Prev)
+  
   _filesStr_Prev.Empty();
+  _filesTotStr_Prev.Empty();
 
   _foreground = true;
 
   m_ProgressBar.Attach(GetItem(IDC_PROGRESS1));
   _messageList.Attach(GetItem(IDL_PROGRESS_MESSAGES));
   _messageList.SetUnicodeFormat();
+  _messageList.SetExtendedListViewStyle(LVS_EX_FULLROWSELECT);
 
   _wasCreated = true;
   _dialogCreatedEvent.Set();
 
-  #ifdef LANG
-  LangSetDlgItems(*this, kLangIDs, ARRAY_SIZE(kLangIDs));
-  LangSetDlgItems_Colon(*this, kLangIDs_Colon, ARRAY_SIZE(kLangIDs_Colon));
+  #ifdef Z7_LANG
+  LangSetDlgItems(*this, kLangIDs, Z7_ARRAY_SIZE(kLangIDs));
+  LangSetDlgItems_Colon(*this, kLangIDs_Colon, Z7_ARRAY_SIZE(kLangIDs_Colon));
   #endif
 
   CWindow window(GetItem(IDB_PROGRESS_BACKGROUND));
@@ -423,13 +431,14 @@ static const UINT kIDs[] =
   IDT_PROGRESS_ELAPSED,   IDT_PROGRESS_ELAPSED_VAL,
   IDT_PROGRESS_REMAINING, IDT_PROGRESS_REMAINING_VAL,
   IDT_PROGRESS_FILES,     IDT_PROGRESS_FILES_VAL,
-  IDT_PROGRESS_RATIO,     IDT_PROGRESS_RATIO_VAL,
+  0,                      IDT_PROGRESS_FILES_TOTAL,
   IDT_PROGRESS_ERRORS,    IDT_PROGRESS_ERRORS_VAL,
   
   IDT_PROGRESS_TOTAL,     IDT_PROGRESS_TOTAL_VAL,
   IDT_PROGRESS_SPEED,     IDT_PROGRESS_SPEED_VAL,
   IDT_PROGRESS_PROCESSED, IDT_PROGRESS_PROCESSED_VAL,
-  IDT_PROGRESS_PACKED,    IDT_PROGRESS_PACKED_VAL
+  IDT_PROGRESS_PACKED,    IDT_PROGRESS_PACKED_VAL,
+  IDT_PROGRESS_RATIO,     IDT_PROGRESS_RATIO_VAL
 };
 
 bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
@@ -449,12 +458,12 @@ bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
 
   InvalidateRect(NULL);
 
-  int xSizeClient = xSize - mx * 2;
+  const int xSizeClient = xSize - mx * 2;
 
   {
-    int i;
+    unsigned i;
     for (i = 800; i > 40; i = i * 9 / 10)
-      if (Units_To_Pixels_X(i) <= xSizeClient)
+      if (Units_To_Pixels_X((int)i) <= xSizeClient)
         break;
     _numReduceSymbols = i / 4;
   }
@@ -469,7 +478,7 @@ bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
   int mx2 = mx;
   for (;; mx2--)
   {
-    int bSize2 = bSizeX * 3 + mx2 * 2;
+    const int bSize2 = bSizeX * 3 + mx2 * 2;
     if (bSize2 <= xSizeClient)
       break;
     if (mx2 < 5)
@@ -484,7 +493,7 @@ bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
   {
     RECT r;
     GetClientRectOfItem(IDL_PROGRESS_MESSAGES, r);
-    int y = r.top;
+    const int y = r.top;
     int ySize2 = yPos - my - y;
     const int kMinYSize = _buttonSizeY + _buttonSizeY * 3 / 4;
     int xx = xSize - mx * 2;
@@ -515,13 +524,13 @@ bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
   labelSize = Units_To_Pixels_X(MY_PROGRESS_LABEL_UNITS_MIN);
   valueSize = Units_To_Pixels_X(MY_PROGRESS_VAL_UNITS);
   padSize = Units_To_Pixels_X(MY_PROGRESS_PAD_UNITS);
-  int requiredSize = (labelSize + valueSize) * 2 + padSize;
+  const int requiredSize = (labelSize + valueSize) * 2 + padSize;
 
   int gSize;
   {
     if (requiredSize < xSizeClient)
     {
-      int incr = (xSizeClient - requiredSize) / 3;
+      const int incr = (xSizeClient - requiredSize) / 3;
       labelSize += incr;
     }
     else
@@ -536,16 +545,17 @@ bool CProgressDialog::OnSize(WPARAM /* wParam */, int xSize, int ySize)
   labelSize = gSize - valueSize;
 
   yPos = my;
-  for (int i = 0; i < ARRAY_SIZE(kIDs); i += 2)
+  for (unsigned i = 0; i < Z7_ARRAY_SIZE(kIDs); i += 2)
   {
     int x = mx;
-    const int kNumColumn1Items = 5 * 2;
+    const unsigned kNumColumn1Items = 5 * 2;
     if (i >= kNumColumn1Items)
     {
       if (i == kNumColumn1Items)
         yPos = my;
       x = mx + gSize + padSize;
     }
+    if (kIDs[i] != 0)
     MoveItem(kIDs[i], x, yPos, labelSize, sY);
     MoveItem(kIDs[i + 1], x + labelSize, yPos, valueSize, sY);
     yPos += sStep;
@@ -561,7 +571,7 @@ void CProgressDialog::SetProgressRange(UInt64 range)
   if (range == _progressBar_Range)
     return;
   _progressBar_Range = range;
-  INIT_AS_UNDEFINED(_progressBar_Pos);
+  INIT_AS_UNDEFINED(_progressBar_Pos)
   _progressConv.Init(range);
   m_ProgressBar.SetRange32(0, _progressConv.Count(range));
 }
@@ -573,16 +583,17 @@ void CProgressDialog::SetProgressPos(UInt64 pos)
       pos - _progressBar_Pos >= (_progressBar_Range >> 10))
   {
     m_ProgressBar.SetPos(_progressConv.Count(pos));
-    #ifdef __ITaskbarList3_INTERFACE_DEFINED__
+    // #ifdef __ITaskbarList3_INTERFACE_DEFINED__
     if (_taskbarList && _hwndForTaskbar)
       _taskbarList->SetProgressValue(_hwndForTaskbar, pos, _progressBar_Range);
-    #endif
+    // #endif
     _progressBar_Pos = pos;
   }
 }
 
 #define UINT_TO_STR_2(val) { s[0] = (wchar_t)('0' + (val) / 10); s[1] = (wchar_t)('0' + (val) % 10); s += 2; }
 
+void GetTimeString(UInt64 timeValue, wchar_t *s);
 void GetTimeString(UInt64 timeValue, wchar_t *s)
 {
   UInt64 hours = timeValue / 3600;
@@ -597,10 +608,10 @@ void GetTimeString(UInt64 timeValue, wchar_t *s)
   else
   {
     UInt32 hours32 = (UInt32)hours;
-    UINT_TO_STR_2(hours32);
+    UINT_TO_STR_2(hours32)
   }
-  *s++ = ':'; UINT_TO_STR_2(minutes);
-  *s++ = ':'; UINT_TO_STR_2(seconds);
+  *s++ = ':'; UINT_TO_STR_2(minutes)
+  *s++ = ':'; UINT_TO_STR_2(seconds)
   *s = 0;
 }
 
@@ -616,11 +627,12 @@ static void ConvertSizeToString(UInt64 v, wchar_t *s)
     s += MyStringLen(s);
     *s++ = ' ';
     *s++ = c;
+    *s++ = 'B';
     *s++ = 0;
   }
 }
 
-void CProgressDialog::ShowSize(int id, UInt64 val, UInt64 &prev)
+void CProgressDialog::ShowSize(unsigned id, UInt64 val, UInt64 &prev)
 {
   if (val == prev)
     return;
@@ -764,7 +776,7 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       {
         if (IS_DEFINED_VAL(_prevRemainingSec))
         {
-          INIT_AS_UNDEFINED(_prevRemainingSec);
+          INIT_AS_UNDEFINED(_prevRemainingSec)
           SetItemText(IDT_PROGRESS_REMAINING_VAL, L"");
         }
       }
@@ -783,8 +795,9 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
         }
       }
       {
-        UInt64 elapsedTime = (_elapsedTime == 0) ? 1 : _elapsedTime;
-        UInt64 v = (progressCompleted * 1000) / elapsedTime;
+        const UInt64 elapsedTime = (_elapsedTime == 0) ? 1 : _elapsedTime;
+        // 22.02: progressCompleted can be for number of files
+        UInt64 v = (completed * 1000) / elapsedTime;
         Byte c = 0;
         unsigned moveBits = 0;
              if (v >= ((UInt64)10000 << 10)) { moveBits = 20; c = 'M'; }
@@ -828,16 +841,24 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
     
     {
       wchar_t s[64];
+      
       ConvertUInt64ToString(completedFiles, s);
-      if (IS_DEFINED_VAL(totalFiles))
-      {
-        MyStringCat(s, L" / ");
-        ConvertUInt64ToString(totalFiles, s + MyStringLen(s));
-      }
       if (_filesStr_Prev != s)
       {
         _filesStr_Prev = s;
         SetItemText(IDT_PROGRESS_FILES_VAL, s);
+      }
+      
+      s[0] = 0;
+      if (IS_DEFINED_VAL(totalFiles))
+      {
+        MyStringCopy(s, L" / ");
+        ConvertUInt64ToString(totalFiles, s + MyStringLen(s));
+      }
+      if (_filesTotStr_Prev != s)
+      {
+        _filesTotStr_Prev = s;
+        SetItemText(IDT_PROGRESS_FILES_TOTAL, s);
       }
     }
     
@@ -892,8 +913,8 @@ void CProgressDialog::UpdateStatInfo(bool showAll)
       int slashPos = _filePath.ReverseFind_PathSepar();
       if (slashPos >= 0)
       {
-        s1.SetFrom(_filePath, slashPos + 1);
-        s2 = _filePath.Ptr(slashPos + 1);
+        s1.SetFrom(_filePath, (unsigned)(slashPos + 1));
+        s2 = _filePath.Ptr((unsigned)(slashPos + 1));
       }
       else
         s2 = _filePath;
@@ -942,7 +963,7 @@ INT_PTR CProgressDialog::Create(const UString &title, NWindows::CThread &thread,
       CWaitCursor waitCursor;
       HANDLE h[] = { thread, _createDialogEvent };
       
-      WRes res2 = WaitForMultipleObjects(ARRAY_SIZE(h), h, FALSE, kCreateDelay);
+      const DWORD res2 = WaitForMultipleObjects(Z7_ARRAY_SIZE(h), h, FALSE, kCreateDelay);
       if (res2 == WAIT_OBJECT_0 && !Sync.ThereIsMessage())
         return 0;
     }
@@ -954,10 +975,10 @@ INT_PTR CProgressDialog::Create(const UString &title, NWindows::CThread &thread,
   {
     _wasCreated = true;
     _dialogCreatedEvent.Set();
-    res = res;
   }
-  thread.Wait();
+  thread.Wait_Close();
   if (!MessagesDisplayed)
+  if (!g_DisableUserQuestions)
     MessageBoxW(wndParent, L"Progress Error", L"7-Zip", MB_ICONERROR);
   return res;
 }
@@ -965,9 +986,9 @@ INT_PTR CProgressDialog::Create(const UString &title, NWindows::CThread &thread,
 bool CProgressDialog::OnExternalCloseMessage()
 {
   // it doesn't work if there is MessageBox.
-  #ifdef __ITaskbarList3_INTERFACE_DEFINED__
+  // #ifdef __ITaskbarList3_INTERFACE_DEFINED__
   SetTaskbarProgressState(TBPF_NOPROGRESS);
-  #endif
+  // #endif
   // AddToTitle(L"Finished ");
   // SetText(L"Finished2 ");
 
@@ -993,7 +1014,8 @@ bool CProgressDialog::OnExternalCloseMessage()
     MessagesDisplayed = true;
     if (fm.ErrorMessage.Title.IsEmpty())
       fm.ErrorMessage.Title = "7-Zip";
-    MessageBoxW(*this, fm.ErrorMessage.Message, fm.ErrorMessage.Title, MB_ICONERROR);
+    if (!g_DisableUserQuestions)
+      MessageBoxW(*this, fm.ErrorMessage.Message, fm.ErrorMessage.Title, MB_ICONERROR);
   }
   else if (!thereAreMessages)
   {
@@ -1003,10 +1025,12 @@ bool CProgressDialog::OnExternalCloseMessage()
     {
       if (fm.OkMessage.Title.IsEmpty())
         fm.OkMessage.Title = "7-Zip";
-      MessageBoxW(*this, fm.OkMessage.Message, fm.OkMessage.Title, MB_OK);
+      if (!g_DisableUserQuestions)
+        MessageBoxW(*this, fm.OkMessage.Message, fm.OkMessage.Title, MB_OK);
     }
   }
 
+  if (!g_DisableUserQuestions)
   if (thereAreMessages && !_cancelWasPressed)
   {
     _waitCloseByCancelButton = true;
@@ -1024,10 +1048,17 @@ bool CProgressDialog::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
   {
     case kCloseMessage:
     {
-      KillTimer(_timer);
-      _timer = 0;
+      if (_timer)
+      {
+        /* 21.03 : KillTimer(kTimerID) instead of KillTimer(_timer).
+           But (_timer == kTimerID) in Win10. So it worked too */
+        KillTimer(kTimerID);
+        _timer = 0;
+      }
       if (_inCancelMessageBox)
       {
+        /* if user is in MessageBox(), we will call OnExternalCloseMessage()
+           later, when MessageBox() will be closed */
         _externalCloseMessageWasReceived = true;
         break;
       }
@@ -1058,7 +1089,7 @@ void CProgressDialog::SetTitleText()
     char temp[32];
     ConvertUInt64ToString(_prevPercentValue, temp);
     s += temp;
-    s += '%';
+    s.Add_Char('%');
   }
   if (!_foreground)
   {
@@ -1067,7 +1098,7 @@ void CProgressDialog::SetTitleText()
   }
 
   s.Add_Space();
-  #ifndef _SFX
+  #ifndef Z7_SFX
   {
     unsigned len = s.Len();
     s += MainAddTitle;
@@ -1124,13 +1155,16 @@ void CProgressDialog::OnPriorityButton()
 
 void CProgressDialog::AddMessageDirect(LPCWSTR message, bool needNumber)
 {
-  int itemIndex = _messageList.GetItemCount();
   wchar_t sz[16];
   sz[0] = 0;
   if (needNumber)
     ConvertUInt32ToString(_numMessages + 1, sz);
-  _messageList.InsertItem(itemIndex, sz);
-  _messageList.SetSubItem(itemIndex, 1, message);
+  const unsigned itemIndex = _messageStrings.Size(); // _messageList.GetItemCount();
+  if (_messageList.InsertItem(itemIndex, sz) == (int)itemIndex)
+  {
+    _messageList.SetSubItem(itemIndex, 1, message);
+    _messageStrings.Add(message);
+  }
 }
 
 void CProgressDialog::AddMessage(LPCWSTR message)
@@ -1139,12 +1173,12 @@ void CProgressDialog::AddMessage(LPCWSTR message)
   bool needNumber = true;
   while (!s.IsEmpty())
   {
-    int pos = s.Find(L'\n');
+    const int pos = s.Find(L'\n');
     if (pos < 0)
       break;
-    AddMessageDirect(s.Left(pos), needNumber);
+    AddMessageDirect(s.Left((unsigned)pos), needNumber);
     needNumber = false;
-    s.DeleteFrontal(pos + 1);
+    s.DeleteFrontal((unsigned)pos + 1);
   }
   AddMessageDirect(s, needNumber);
   _numMessages++;
@@ -1186,7 +1220,7 @@ void CProgressDialog::UpdateMessagesDialog()
 }
 
 
-bool CProgressDialog::OnButtonClicked(int buttonID, HWND buttonHWND)
+bool CProgressDialog::OnButtonClicked(unsigned buttonID, HWND buttonHWND)
 {
   switch (buttonID)
   {
@@ -1199,24 +1233,42 @@ bool CProgressDialog::OnButtonClicked(int buttonID, HWND buttonHWND)
         End(IDCLOSE);
         break;
       }
+      
+      if (_cancelWasPressed)
+        return true;
         
-      bool paused = Sync.Get_Paused();
+      const bool paused = Sync.Get_Paused();
+      
       if (!paused)
-        OnPauseButton();
-      _inCancelMessageBox = true;
-      int res = ::MessageBoxW(*this, LangString(IDS_PROGRESS_ASK_CANCEL), _title, MB_YESNOCANCEL);
-      _inCancelMessageBox = false;
-      if (!paused)
-        OnPauseButton();
-      if (res == IDCANCEL || res == IDNO)
       {
-        if (_externalCloseMessageWasReceived)
-          OnExternalCloseMessage();
+        OnPauseButton();
+      }
+
+      _inCancelMessageBox = true;
+      const int res = ::MessageBoxW(*this, LangString(IDS_PROGRESS_ASK_CANCEL), _title, MB_YESNOCANCEL);
+      _inCancelMessageBox = false;
+      if (res == IDYES)
+        _cancelWasPressed = true;
+      
+      if (!paused)
+      {
+        OnPauseButton();
+      }
+
+      if (_externalCloseMessageWasReceived)
+      {
+        /* we have received kCloseMessage while we were in MessageBoxW().
+           so we call OnExternalCloseMessage() here.
+           it can show MessageBox and it can close dialog */
+        OnExternalCloseMessage();
         return true;
       }
 
-      _cancelWasPressed = true;
+      if (!_cancelWasPressed)
+        return true;
+
       MessagesDisplayed = true;
+      // we will call Sync.Set_Stopped(true) in OnButtonClicked() : OnCancel()
       break;
     }
 
@@ -1252,6 +1304,87 @@ void CProgressDialog::ProcessWasFinished()
 }
 
 
+bool CProgressDialog::OnNotify(UINT /* controlID */, LPNMHDR header)
+{
+  if (header->hwndFrom != _messageList)
+    return false;
+  switch (header->code)
+  {
+    case LVN_KEYDOWN:
+    {
+      LPNMLVKEYDOWN keyDownInfo = LPNMLVKEYDOWN(header);
+      switch (keyDownInfo->wVKey)
+      {
+        case 'A':
+        {
+          if (IsKeyDown(VK_CONTROL))
+          {
+            _messageList.SelectAll();
+            return true;
+          }
+          break;
+        }
+        case VK_INSERT:
+        case 'C':
+        {
+          if (IsKeyDown(VK_CONTROL))
+          {
+            CopyToClipboard();
+            return true;
+          }
+          break;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+
+static void ListView_GetSelected(NControl::CListView &listView, CUIntVector &vector)
+{
+  vector.Clear();
+  int index = -1;
+  for (;;)
+  {
+    index = listView.GetNextSelectedItem(index);
+    if (index < 0)
+      break;
+    vector.Add((unsigned)index);
+  }
+}
+
+
+void CProgressDialog::CopyToClipboard()
+{
+  CUIntVector indexes;
+  ListView_GetSelected(_messageList, indexes);
+  UString s;
+  unsigned numIndexes = indexes.Size();
+  if (numIndexes == 0)
+    numIndexes = (unsigned)_messageList.GetItemCount();
+  
+  for (unsigned i = 0; i < numIndexes; i++)
+  {
+    const unsigned index = (i < indexes.Size() ? indexes[i] : i);
+    // s.Add_UInt32(index);
+    // s += ": ";
+    s += _messageStrings[index];
+    {
+      s +=
+        #ifdef _WIN32
+          "\r\n"
+        #else
+          "\n"
+        #endif
+        ;
+    }
+  }
+  
+  ClipboardSetText(*this, s);
+}
+
+
 static THREAD_FUNC_DECL MyThreadFunction(void *param)
 {
   CProgressThreadVirt *p = (CProgressThreadVirt *)param;
@@ -1268,7 +1401,9 @@ static THREAD_FUNC_DECL MyThreadFunction(void *param)
 HRESULT CProgressThreadVirt::Create(const UString &title, HWND parentWindow)
 {
   NWindows::CThread thread;
-  RINOK(thread.Create(MyThreadFunction, this));
+  const WRes wres = thread.Create(MyThreadFunction, this);
+  if (wres != 0)
+    return HRESULT_FROM_WIN32(wres);
   CProgressDialog::Create(title, thread, parentWindow);
   return S_OK;
 }
@@ -1294,7 +1429,7 @@ void CProgressThreadVirt::Process()
   catch(int v)
   {
     m = "Error #";
-    m.Add_UInt32(v);
+    m.Add_UInt32((unsigned)v);
   }
   catch(...) { m = "Error"; }
   if (Result != E_ABORT)

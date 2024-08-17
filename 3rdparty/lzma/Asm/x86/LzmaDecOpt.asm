@@ -1,5 +1,5 @@
 ; LzmaDecOpt.asm -- ASM version of LzmaDec_DecodeReal_3() function
-; 2018-02-06: Igor Pavlov : Public domain
+; 2024-06-18: Igor Pavlov : Public domain
 ;
 ; 3 - is the code compatibility version of LzmaDec_DecodeReal_*()
 ; function for check at link time.
@@ -17,11 +17,41 @@ include 7zAsm.asm
 
 MY_ASM_START
 
-_TEXT$LZMADECOPT SEGMENT ALIGN(64) 'CODE'
+; if Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT is     defined, we use additional SEGMENT with 64-byte alignment.
+; if Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT is not defined, we use default SEGMENT (where default 16-byte alignment of segment is expected).
+; The performance is almost identical in our tests.
+; But the performance can depend from position of lzmadec code inside instruction cache
+; or micro-op cache line (depending from low address bits in 32-byte/64-byte cache lines).
+; And 64-byte alignment provides a more consistent speed regardless
+; of the code's position in the executable.
+; But also it's possible that code without Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT can be
+; slightly faster than 64-bytes aligned code in some cases, if offset of lzmadec
+; code in 64-byte block after compilation provides better speed by some reason.
+; Note that Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT adds an extra section to the ELF file.
+; If you don't want to get that extra section, do not define Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT.
 
+ifndef Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT
+if (IS_LINUX gt 0)
+  Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT equ 1
+else
+  Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT equ 1
+endif
+endif
+
+ifdef Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT
+_TEXT$LZMADECOPT SEGMENT ALIGN(64) 'CODE'
 MY_ALIGN macro num:req
         align  num
+        ; align  16
 endm
+else
+MY_ALIGN macro num:req
+        ; We expect that ".text" is aligned for 16-bytes.
+        ; So we don't need large alignment inside out function.
+        align  16
+endm
+endif
+
 
 MY_ALIGN_16 macro
         MY_ALIGN 16
@@ -62,6 +92,7 @@ PMULT           equ (1 SHL PSHIFT)
 PMULT_HALF      equ (1 SHL (PSHIFT - 1))
 PMULT_2         equ (1 SHL (PSHIFT + 1))
 
+kMatchSpecLen_Error_Data equ (1 SHL 9)
 
 ;       x0      range
 ;       x1      pbPos / (prob) TREE
@@ -416,7 +447,7 @@ REV_1_VAR macro prob:req
         NORM_CALC prob
 
         cmovae  range, t0
-        lea     t0_R, [sym_R + sym2_R]
+        lea     t0_R, [sym_R + 1 * sym2_R]
         cmovae  sym_R, t0_R
         mov     t0, kBitModelOffset
         cmovb   cod, t1
@@ -583,7 +614,7 @@ IsMatchBranch_Pre macro reg
         mov     pbPos, LOC pbMask
         and     pbPos, processedPos
         shl     pbPos, (kLenNumLowBits + 1 + PSHIFT)
-        lea     probs_state_R, [probs + state_R]
+        lea     probs_state_R, [probs + 1 * state_R]
 endm
 
 
@@ -605,13 +636,17 @@ endm
 ; RSP is (16x + 8) bytes aligned in WIN64-x64
 ; LocalSize equ ((((SIZEOF CLzmaDec_Asm_Loc) + 7) / 16 * 16) + 8)
 
-PARAM_lzma      equ REG_PARAM_0
-PARAM_limit     equ REG_PARAM_1
-PARAM_bufLimit  equ REG_PARAM_2
+PARAM_lzma      equ REG_ABI_PARAM_0
+PARAM_limit     equ REG_ABI_PARAM_1
+PARAM_bufLimit  equ REG_ABI_PARAM_2
 
+ifdef Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT
 ; MY_ALIGN_64
+else
+  MY_ALIGN_16
+endif
 MY_PROC LzmaDec_DecodeReal_3, 3
-MY_PUSH_PRESERVED_REGS
+MY_PUSH_PRESERVED_ABI_REGS
 
         lea     r0, [RSP - (SIZEOF CLzmaDec_Asm_Loc)]
         and     r0, -128
@@ -777,7 +812,7 @@ len8_loop:
         jb      len8_loop
         
         mov     len_temp, (kLenNumHighSymbols - kLenNumLowSymbols * 2) - 1 - kMatchMinLen
-        jmp     len_mid_2
+        jmp     short len_mid_2 ; we use short here for MASM that doesn't optimize that code as another assembler programs
         
 MY_ALIGN_32
 len_mid_0:
@@ -890,11 +925,16 @@ decode_dist_end:
 
         ; if (distance >= (checkDicSize == 0 ? processedPos: checkDicSize))
 
+        mov     t1, LOC rep0
+        mov     x1, LOC rep1
+        mov     x2, LOC rep2
+        
         mov     t0, LOC checkDicSize
         test    t0, t0
         cmove   t0, processedPos
         cmp     sym, t0
         jae     end_of_payload
+        ; jmp     end_of_payload ; for debug
         
         ; rep3 = rep2;
         ; rep2 = rep1;
@@ -902,15 +942,12 @@ decode_dist_end:
         ; rep0 = distance + 1;
 
         inc     sym
-        mov     t0, LOC rep0
-        mov     t1, LOC rep1
-        mov     x1, LOC rep2
         mov     LOC rep0, sym
         ; mov     sym, LOC remainLen
         mov     sym, len_temp
-        mov     LOC rep1, t0
-        mov     LOC rep2, t1
-        mov     LOC rep3, x1
+        mov     LOC rep1, t1
+        mov     LOC rep2, x1
+        mov     LOC rep3, x2
         
         ; state = (state < kNumStates + kNumLitStates) ? kNumLitStates : kNumLitStates + 3;
         cmp     state, (kNumStates + kNumLitStates) * PMULT
@@ -932,7 +969,7 @@ copy_match:
         ; }
         mov     cnt_R, LOC limit
         sub     cnt_R, dicPos
-        jz      fin_ERROR
+        jz      fin_dicPos_LIMIT
 
         ; curLen = ((rem < len) ? (unsigned)rem : len);
         cmp     cnt_R, sym_R
@@ -1091,11 +1128,23 @@ IsRep0Short_label:
         sub     t0_R, dic
         
         sub     probs, RepLenCoder * PMULT
-        inc     processedPos
+        
         ; state = state < kNumLitStates ? 9 : 11;
         or      state, 1 * PMULT
+        
+        ; the caller doesn't allow (dicPos >= limit) case for REP_SHORT
+        ; so we don't need the following (dicPos == limit) check here:
+        ; cmp     dicPos, LOC limit
+        ; jae     fin_dicPos_LIMIT_REP_SHORT
+
+        inc     processedPos
+
         IsMatchBranch_Pre
        
+;        xor     sym, sym
+;        sub     t0_R, probBranch_R
+;        cmovb   sym_R, LOC dicBufSize
+;        add     t0_R, sym_R
         sub     t0_R, probBranch_R
         jae     @f
         add     t0_R, LOC dicBufSize
@@ -1210,15 +1259,45 @@ copy_match_cross:
 
 
 
-fin_ERROR:
+; fin_dicPos_LIMIT_REP_SHORT:
+        ; mov     sym, 1
+
+fin_dicPos_LIMIT:
+        mov     LOC remainLen, sym
+        jmp     fin_OK
+        ; For more strict mode we can stop decoding with error
+        ; mov     sym, 1
+        ; jmp     fin
+
+
+fin_ERROR_MATCH_DIST:
+
+        ; rep3 = rep2;
+        ; rep2 = rep1;
+        ; rep1 = rep0;
+        ; rep0 = distance + 1;
+        
+        add     len_temp, kMatchSpecLen_Error_Data
         mov     LOC remainLen, len_temp
-; fin_ERROR_2:
+
+        mov     LOC rep0, sym
+        mov     LOC rep1, t1
+        mov     LOC rep2, x1
+        mov     LOC rep3, x2
+        
+        ; state = (state < kNumStates + kNumLitStates) ? kNumLitStates : kNumLitStates + 3;
+        cmp     state, (kNumStates + kNumLitStates) * PMULT
+        mov     state, kNumLitStates * PMULT
+        mov     t0, (kNumLitStates + 3) * PMULT
+        cmovae  state, t0
+
+        ; jmp     fin_OK
         mov     sym, 1
         jmp     fin
 
 end_of_payload:
-        cmp     sym, 0FFFFFFFFh ; -1
-        jne     fin_ERROR
+        inc     sym
+        jnz     fin_ERROR_MATCH_DIST
 
         mov     LOC remainLen, kMatchSpecLenStart
         sub     state, kNumStates * PMULT
@@ -1250,9 +1329,11 @@ fin:
         
         mov     RSP, LOC Old_RSP
 
-MY_POP_PRESERVED_REGS
+MY_POP_PRESERVED_ABI_REGS
 MY_ENDP
 
+ifdef Z7_LZMA_DEC_OPT_ASM_USE_SEGMENT
 _TEXT$LZMADECOPT ENDS
+endif
 
 end

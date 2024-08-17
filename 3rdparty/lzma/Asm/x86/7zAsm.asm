@@ -1,5 +1,50 @@
 ; 7zAsm.asm -- ASM macros
-; 2018-02-03 : Igor Pavlov : Public domain
+; 2023-12-08 : Igor Pavlov : Public domain
+
+
+; UASM can require these changes
+; OPTION FRAMEPRESERVEFLAGS:ON
+; OPTION PROLOGUE:NONE
+; OPTION EPILOGUE:NONE
+
+ifdef @wordsize
+; @wordsize is defined only in JWASM and ASMC and is not defined in MASM
+; @wordsize eq 8 for 64-bit x64
+; @wordsize eq 2 for 32-bit x86
+if @wordsize eq 8
+  x64 equ 1
+endif
+else
+ifdef RAX
+  x64 equ 1
+endif
+endif
+
+
+ifdef x64
+  IS_X64 equ 1
+else
+  IS_X64 equ 0
+endif
+
+ifdef ABI_LINUX
+  IS_LINUX equ 1
+else
+  IS_LINUX equ 0
+endif
+
+ifndef x64
+; Use ABI_CDECL for x86 (32-bit) only
+; if ABI_CDECL is not defined, we use fastcall abi
+ifdef ABI_CDECL
+  IS_CDECL equ 1
+else
+  IS_CDECL equ 0
+endif
+endif
+
+OPTION PROLOGUE:NONE
+OPTION EPILOGUE:NONE
 
 MY_ASM_START macro
   ifdef x64
@@ -14,8 +59,12 @@ endm
 MY_PROC macro name:req, numParams:req
   align 16
   proc_numParams = numParams
-  ifdef x64
+  if (IS_X64 gt 0)
     proc_name equ name
+  elseif (IS_LINUX gt 0)
+    proc_name equ name
+  elseif (IS_CDECL gt 0)
+    proc_name equ @CatStr(_,name)
   else
     proc_name equ @CatStr(@,name,@, %numParams * 4)
   endif
@@ -23,17 +72,18 @@ MY_PROC macro name:req, numParams:req
 endm
 
 MY_ENDP macro
-  ifdef x64
-    ret
-  else
-    if proc_numParams LT 3
-      ret
+    if (IS_X64 gt 0)
+        ret
+    elseif (IS_CDECL gt 0)
+        ret
+    elseif (proc_numParams LT 3)
+        ret
     else
-      ret (proc_numParams - 2) * 4
+        ret (proc_numParams - 2) * 4
     endif
-  endif
   proc_name ENDP
 endm
+
 
 ifdef x64
   REG_SIZE equ 8
@@ -71,10 +121,29 @@ endif
   x2_H equ DH
   x3_H equ BH
 
+;  r0_L equ AL
+;  r1_L equ CL
+;  r2_L equ DL
+;  r3_L equ BL
+
+;  r0_H equ AH
+;  r1_H equ CH
+;  r2_H equ DH
+;  r3_H equ BH
+
+
 ifdef x64
   x5_L equ BPL
   x6_L equ SIL
   x7_L equ DIL
+  x8_L equ r8b
+  x9_L equ r9b
+  x10_L equ r10b
+  x11_L equ r11b
+  x12_L equ r12b
+  x13_L equ r13b
+  x14_L equ r14b
+  x15_L equ r15b
 
   r0 equ RAX
   r1 equ RCX
@@ -103,6 +172,40 @@ else
   r7 equ x7
 endif
 
+  x0_R equ r0
+  x1_R equ r1
+  x2_R equ r2
+  x3_R equ r3
+  x4_R equ r4
+  x5_R equ r5
+  x6_R equ r6
+  x7_R equ r7
+  x8_R equ r8
+  x9_R equ r9
+  x10_R equ r10
+  x11_R equ r11
+  x12_R equ r12
+  x13_R equ r13
+  x14_R equ r14
+  x15_R equ r15
+
+ifdef x64
+ifdef ABI_LINUX
+
+MY_PUSH_2_REGS macro
+    push    r3
+    push    r5
+endm
+
+MY_POP_2_REGS macro
+    pop     r5
+    pop     r3
+endm
+
+endif
+endif
+
+
 MY_PUSH_4_REGS macro
     push    r3
     push    r5
@@ -118,30 +221,121 @@ MY_POP_4_REGS macro
 endm
 
 
-ifdef x64
+; for fastcall and for WIN-x64
+REG_PARAM_0_x   equ x1
+REG_PARAM_0     equ r1
+REG_PARAM_1_x   equ x2
+REG_PARAM_1     equ r2
 
-; for WIN64-x64 ABI:
+ifndef x64
+; for x86-fastcall
 
-REG_PARAM_0 equ r1
-REG_PARAM_1 equ r2
-REG_PARAM_2 equ r8
-REG_PARAM_3 equ r9
+REG_ABI_PARAM_0_x equ REG_PARAM_0_x
+REG_ABI_PARAM_0   equ REG_PARAM_0
+REG_ABI_PARAM_1_x equ REG_PARAM_1_x
+REG_ABI_PARAM_1   equ REG_PARAM_1
 
-MY_PUSH_PRESERVED_REGS macro
-    MY_PUSH_4_REGS
-    push    r12
-    push    r13
-    push    r14
-    push    r15
+MY_PUSH_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11 macro
+        MY_PUSH_4_REGS
+endm
+
+MY_POP_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11 macro
+        MY_POP_4_REGS
+endm
+
+else
+; x64
+
+if  (IS_LINUX eq 0)
+
+; for WIN-x64:
+REG_PARAM_2_x   equ x8
+REG_PARAM_2     equ r8
+REG_PARAM_3     equ r9
+
+REG_ABI_PARAM_0_x equ REG_PARAM_0_x
+REG_ABI_PARAM_0   equ REG_PARAM_0
+REG_ABI_PARAM_1_x equ REG_PARAM_1_x
+REG_ABI_PARAM_1   equ REG_PARAM_1
+REG_ABI_PARAM_2_x equ REG_PARAM_2_x
+REG_ABI_PARAM_2   equ REG_PARAM_2
+REG_ABI_PARAM_3   equ REG_PARAM_3
+
+else
+; for LINUX-x64:
+REG_LINUX_PARAM_0_x equ x7
+REG_LINUX_PARAM_0   equ r7
+REG_LINUX_PARAM_1_x equ x6
+REG_LINUX_PARAM_1   equ r6
+REG_LINUX_PARAM_2   equ r2
+REG_LINUX_PARAM_3   equ r1
+REG_LINUX_PARAM_4_x equ x8
+REG_LINUX_PARAM_4   equ r8
+REG_LINUX_PARAM_5   equ r9
+
+REG_ABI_PARAM_0_x equ REG_LINUX_PARAM_0_x
+REG_ABI_PARAM_0   equ REG_LINUX_PARAM_0
+REG_ABI_PARAM_1_x equ REG_LINUX_PARAM_1_x
+REG_ABI_PARAM_1   equ REG_LINUX_PARAM_1
+REG_ABI_PARAM_2   equ REG_LINUX_PARAM_2
+REG_ABI_PARAM_3   equ REG_LINUX_PARAM_3
+REG_ABI_PARAM_4_x equ REG_LINUX_PARAM_4_x
+REG_ABI_PARAM_4   equ REG_LINUX_PARAM_4
+REG_ABI_PARAM_5   equ REG_LINUX_PARAM_5
+
+MY_ABI_LINUX_TO_WIN_2 macro
+        mov     r2, r6
+        mov     r1, r7
+endm
+
+MY_ABI_LINUX_TO_WIN_3 macro
+        mov     r8, r2
+        mov     r2, r6
+        mov     r1, r7
+endm
+
+MY_ABI_LINUX_TO_WIN_4 macro
+        mov     r9, r1
+        mov     r8, r2
+        mov     r2, r6
+        mov     r1, r7
+endm
+
+endif ; IS_LINUX
+
+
+MY_PUSH_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11 macro
+    if  (IS_LINUX gt 0)
+        MY_PUSH_2_REGS
+    else
+        MY_PUSH_4_REGS
+    endif
+endm
+
+MY_POP_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11 macro
+    if  (IS_LINUX gt 0)
+        MY_POP_2_REGS
+    else
+        MY_POP_4_REGS
+    endif
 endm
 
 
-MY_POP_PRESERVED_REGS macro
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    MY_POP_4_REGS
+MY_PUSH_PRESERVED_ABI_REGS macro
+    MY_PUSH_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11
+        push    r12
+        push    r13
+        push    r14
+        push    r15
 endm
 
-endif
+
+MY_POP_PRESERVED_ABI_REGS macro
+        pop     r15
+        pop     r14
+        pop     r13
+        pop     r12
+    MY_POP_PRESERVED_ABI_REGS_UP_TO_INCLUDING_R11
+endm
+
+endif ; x64
