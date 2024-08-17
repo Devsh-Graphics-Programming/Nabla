@@ -466,9 +466,10 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 			{
 				if ((b.type == IDescriptor::E_TYPE::ET_SAMPLER or b.type == IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and b.immutableSamplers)
 				{
-					const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding)).data;
+					const auto localOffset = m_immutableSamplerRedirect.getStorageOffset(typename CBindingRedirect::binding_number_t(b.binding));
+					assert(bool(localOffset));
 
-					auto* dst = m_immutableSamplers->begin() + localOffset;
+					auto* dst = m_immutableSamplers->begin() + localOffset.data;
 					std::copy_n(b.immutableSamplers, b.count, dst);
 				}
 			}
