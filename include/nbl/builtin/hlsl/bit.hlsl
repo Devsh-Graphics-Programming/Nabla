@@ -31,11 +31,33 @@ namespace nbl
 namespace hlsl
 {
 
+#if 0 // enable this if you run into bit_cast not working for a non fundamental type
+template<class T, class U>
+enable_if_t<sizeof(T)==sizeof(U)&&(is_scalar_v<T>||is_vector_v<T>)==(is_scalar_v<U>||is_vector_v<U>),T> bit_cast(U val)
+{
+    return spirv::bitcast<T,U>(val);
+}
+// unfortunately its impossible to deduce Storage Class right now,
+// also this function will only work as long as `inout` behaves as `__restrict &` in DXC
+template<class T, class U, uint32_t StorageClass>
+enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(inout U val)
+{
+    using ptr_u_t = spirv::pointer_t<U,StorageClass>;
+    // get the address of U
+    ptr_u_t ptr_u = spirv::copyObject<StorageClass,U>(val);
+    using ptr_t_t = spirv::pointer_t<T,StorageClass>;
+    // reinterpret cast the pointers
+    ptr_t_t ptr_t = spirv::bitcast<ptr_t_t.ptr_u_t>(ptr_u);
+    // actually load and return the value
+    return spirv::load<T,ptr_t_t>(ptr_t);
+}
+#else
 template<class T, class U>
 enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(U val)
 {
     return spirv::bitcast<T,U>(val);
 }
+#endif
 
 template<typename T, typename S>
 T rotl(T x, S s);
