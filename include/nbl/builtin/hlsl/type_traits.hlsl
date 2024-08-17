@@ -13,7 +13,7 @@ concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::und
 #endif
 
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s

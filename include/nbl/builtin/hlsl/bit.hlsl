@@ -2,11 +2,10 @@
 #define _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/macros.h>
 
 
 #ifndef __HLSL_VERSION
-
 #include <bit>
 
 namespace nbl::hlsl
@@ -25,7 +24,6 @@ NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
 
 }
 #else
-
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 
 namespace nbl
@@ -36,8 +34,8 @@ namespace hlsl
 template<class T, class U>
 T bit_cast(U val)
 {
-    static_assert(sizeof(T) <= sizeof(U));
-    return spirv::bitcast<T, U>(val);
+    static_assert(sizeof(T)==sizeof(U));
+    return spirv::bitcast<T,U>(val);
 }
 
 template<typename T, typename S>
