@@ -19,38 +19,9 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
 
-// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
-_NBL_STATIC_INLINE_CONSTEXPR ImTextureID NBL_FONT_ATLAS_TEX_ID = 0u;
-
 namespace nbl::ext::imgui
 {
-	smart_refctd_ptr<IGPUDescriptorSetLayout> UI::createDescriptorSetLayout()
-	{
-		using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
-
-		const IGPUDescriptorSetLayout::SBinding bindings[] = 
-		{ 
-			{
-				.binding = 0u,
-				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
-				.createFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT,
-				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
-				.count = NBL_MAX_IMGUI_TEXTURES
-			},
-			{
-				.binding = 1u,
-				.type = IDescriptor::E_TYPE::ET_SAMPLER,
-				.createFlags = binding_flags_t::ECF_NONE,
-				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
-				.count = 1u,
-				.immutableSamplers = &m_fontSampler
-			}
-		};
-
-		return m_device->createDescriptorSetLayout(bindings);
-	}
-
-	void UI::createPipeline(video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
+	void UI::createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
 	{
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = 
@@ -62,11 +33,7 @@ namespace nbl::ext::imgui
 			}
 		};
 
-		auto descriptorSetLayout = createDescriptorSetLayout();
-		m_gpuDescriptorSet = m_descriptorPool->createDescriptorSet(descriptorSetLayout); 
-		assert(m_gpuDescriptorSet);
-
-		auto pipelineLayout = m_device->createPipelineLayout(pushConstantRanges, std::move(descriptorSetLayout));
+		auto pipelineLayout = m_device->createPipelineLayout(pushConstantRanges, core::smart_refctd_ptr(descriptorSetLayout));
 
 		struct
 		{
@@ -338,59 +305,6 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::updateDescriptorSets()
-	{
-		// texture atlas + user defined textures, note we don't create info & write pair for the font sampler because ours is immutable and baked into DS layout
-		std::array<IGPUDescriptorSet::SDescriptorInfo, NBL_MAX_IMGUI_TEXTURES> iInfo;
-		for (auto& it : iInfo)
-		{
-			it.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
-			it.desc = m_fontAtlasTexture;
-		}
-
-		ImGuiIO& io = ImGui::GetIO();
-
-		const IGPUDescriptorSet::SWriteDescriptorSet writes[] = 
-		{ 
-			{
-				.dstSet = m_gpuDescriptorSet.get(),
-				.binding = 0u,
-				.arrayElement = io.Fonts->TexID, // OK ITS TEMPORARY (filling all with font atlas index, I need to fill all with dummy texture to not throw validation errors which kills my app)
-				.count = 1,//NBL_MAX_IMGUI_TEXTURES,
-				.info = iInfo.data()
-			} 
-		};
-
-		m_device->updateDescriptorSets(writes, {});
-	}
-
-	void UI::createFontAtlasSampler()
-	{
-		// TODO: Recheck this settings
-		IGPUSampler::SParams params{};
-		params.MinLod = -1000;
-		params.MaxLod = 1000;
-		params.AnisotropicFilter = 1.0f;
-		params.TextureWrapU = ISampler::ETC_REPEAT;
-		params.TextureWrapV = ISampler::ETC_REPEAT;
-		params.TextureWrapW = ISampler::ETC_REPEAT;
-
-		m_fontSampler = m_device->createSampler(params);
-		m_fontSampler->setObjectDebugName("Nabla Font Atlas Sampler");
-	}
-
-	void UI::createDescriptorPool()
-	{
-		IDescriptorPool::SCreateInfo createInfo = {};
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = 1u;
-		createInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = NBL_MAX_IMGUI_TEXTURES;
-		createInfo.maxSets = 1u;
-		createInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT;
-
-		m_descriptorPool = m_device->createDescriptorPool(std::move(createInfo));
-		assert(m_descriptorPool);
-	}
-
 	void UI::handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const
 	{
 		auto& io = ImGui::GetIO();
@@ -601,8 +515,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> device, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(core::smart_refctd_ptr(device)), m_window(core::smart_refctd_ptr(window)), maxFramesInFlight(_maxFramesInFlight)
+	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
+		: m_device(core::smart_refctd_ptr(_device)), m_window(core::smart_refctd_ptr(window)), maxFramesInFlight(_maxFramesInFlight)
 	{
 		createSystem();
 		struct
@@ -613,7 +527,7 @@ namespace nbl::ext::imgui
 			} id;
 		} families;
 
-		const nbl::video::IPhysicalDevice* pDevice = device->getPhysicalDevice();
+		const nbl::video::IPhysicalDevice* pDevice = m_device->getPhysicalDevice();
 		ILogicalDevice::SCreationParams params = {};
 
 		auto properties = pDevice->getQueueFamilyProperties();
@@ -642,7 +556,7 @@ namespace nbl::ext::imgui
 		families.id.graphics = requestFamilyQueueId(IQueue::FAMILY_FLAGS::GRAPHICS_BIT, "Could not find any queue with GRAPHICS_BIT enabled!");
 
 		// allocate temporary command buffer
-		auto* tQueue = device->getThreadSafeQueue(families.id.transfer, 0);
+		auto* tQueue = m_device->getThreadSafeQueue(families.id.transfer, 0);
 
 		if (!tQueue)
 		{
@@ -654,7 +568,7 @@ namespace nbl::ext::imgui
 		{
 			using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
 			// need to be individually resettable such that we can form a valid SIntendedSubmit out of the commandbuffer allocated from the pool
-			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = device->createCommandPool(families.id.transfer, pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
+			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = m_device->createCommandPool(families.id.transfer, pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
 			if (!pool)
 			{
 				logger->log("Could not create command pool!", system::ILogger::ELL_ERROR);
@@ -675,13 +589,9 @@ namespace nbl::ext::imgui
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 
-			createFontAtlasSampler();
-			createDescriptorPool();
-			createDescriptorSetLayout();
-			createPipeline(renderpass, pipelineCache);
+			createPipeline(core::smart_refctd_ptr(_descriptorSetLayout), renderpass, pipelineCache);
 			createFontAtlasTexture(transistentCMD.get(), tQueue);
 			adjustGlobalFontScale();
-			updateDescriptorSets();
 		}
 		tQueue->endCapture();
 
@@ -713,7 +623,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	bool UI::render(IGPUCommandBuffer* commandBuffer, const uint32_t frameIndex)
+	bool UI::render(IGPUCommandBuffer* commandBuffer, const IGPUDescriptorSet* const descriptorSet, const uint32_t frameIndex)
 	{
 		const bool validFramesRange = frameIndex >= 0 && frameIndex < maxFramesInFlight;
 		if (!validFramesRange)
@@ -939,7 +849,7 @@ namespace nbl::ext::imgui
 
 			auto* rawPipeline = pipeline.get();
 			commandBuffer->bindGraphicsPipeline(rawPipeline);
-			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &m_gpuDescriptorSet.get());
+			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &descriptorSet);
 
 			// update mdi buffer
 			{
