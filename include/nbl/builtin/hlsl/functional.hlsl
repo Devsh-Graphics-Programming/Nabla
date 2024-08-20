@@ -60,8 +60,18 @@ struct reference_wrapper_base<spv::StorageClassPhysicalStorageBuffer,T>
     // normally would have specializations of load and store
 };
 
+// we need to explicitly white-list storage classes due to
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6578#issuecomment-2297181671
 template<uint32_t StorageClass, typename T>
-struct reference_wrapper : reference_wrapper_base<StorageClass,T>
+struct reference_wrapper : enable_if_t<
+    is_same_v<StorageClass,spv::StorageClassInput>||
+    is_same_v<StorageClass,spv::StorageClassUniform>||
+    is_same_v<StorageClass,spv::StorageClassWorkgroup>||
+    is_same_v<StorageClass,spv::StorageClassPushConstant>||
+    is_same_v<StorageClass,spv::StorageClassImage>||
+    is_same_v<StorageClass,spv::StorageClassStorageBuffer>,
+    reference_wrapper_base<StorageClass,T>
+>
 {
 };
 // TODO: generate atomic Add,Sub,Min,Max through partial template specializations on T
