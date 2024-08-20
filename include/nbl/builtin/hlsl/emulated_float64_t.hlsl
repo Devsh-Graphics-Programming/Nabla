@@ -3,13 +3,6 @@
 
 #include <nbl/builtin/hlsl/impl/emulated_float64_t_impl.hlsl>
 
-// weird dxc compiler errors
-#ifndef __HLSL_VERSION
-#define CONST const
-#else
-#define CONST
-#endif
-
 namespace nbl
 {
 namespace hlsl
@@ -29,32 +22,54 @@ namespace hlsl
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(emulated_float64_t<FastMath, FlushDenormToZero> val)
         {
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return createPreserveBitPattern(val.data);
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int32_t val)
         {
-            return emulated_float64_t<FastMath, FlushDenormToZero>(bit_cast<uint64_t>(float64_t(val)));
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+            return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(int64_t(val)));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int64_t val)
         {
-            return emulated_float64_t<FastMath, FlushDenormToZero>(bit_cast<uint64_t>(float64_t(val)));
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+            return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(val));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint32_t val)
         {
-            return emulated_float64_t<FastMath, FlushDenormToZero>(bit_cast<uint64_t>(float64_t(val)));
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+            return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(uint64_t(val)));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint64_t val)
         {
-            return emulated_float64_t<FastMath, FlushDenormToZero>(bit_cast<uint64_t>(float64_t(val)));
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+            return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(val));
+        }
+
+        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(float32_t val)
+        {
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+            emulated_float64_t<FastMath, FlushDenormToZero> output;
+            output.data = impl::castToUint64WithFloat64BitPattern(val);
+            return output;
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(float64_t val)
         {
-            return emulated_float64_t<FastMath, FlushDenormToZero>(bit_cast<uint64_t>(val));
+            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
+#ifdef __HLSL_VERSION
+            emulated_float64_t retval;
+            uint32_t lo, hi;
+            asuint(val, lo, hi);
+            retval.data = (uint64_t(hi) << 32) | lo;
+            return retval;
+#else
+            return createPreserveBitPattern(reinterpret_cast<uint64_t&>(val));
+#endif
         }
         
         // TODO: unresolved external symbol imath_half_to_float_table
@@ -63,11 +78,6 @@ namespace hlsl
             return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }*/
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t create(float32_t val)
-        {
-            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
-        }
-
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t createPreserveBitPattern(uint64_t val)
         {
             return emulated_float64_t(val);
@@ -75,9 +85,11 @@ namespace hlsl
 
         inline float getAsFloat32()
         {
-            // TODO: don't use double
-            return float(bit_cast<float64_t>(data));
-
+            // TODO: fix
+            uint32_t sign = uint32_t((data & ieee754::traits<float>::signMask) >> 32);
+            uint32_t exponent = (uint32_t(ieee754::extractExponent(data)) + ieee754::traits<float>::exponentBias) + ieee754::traits<float>::mantissaBitCnt;
+            uint32_t mantissa = uint32_t(data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;
+            return sign | exponent | mantissa;
         }
 
 #if 0
@@ -91,7 +103,7 @@ namespace hlsl
 #endif
 
         // arithmetic operators
-        emulated_float64_t operator+(const emulated_float64_t rhs) CONST
+        emulated_float64_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
 #if 0
             {
@@ -321,7 +333,12 @@ namespace hlsl
             }
         }
 
-        emulated_float64_t operator-(emulated_float64_t rhs) CONST
+        emulated_float64_t operator+(float rhs)
+        {
+            return createPreserveBitPattern(data) + create(rhs);
+        }
+
+        emulated_float64_t operator-(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             emulated_float64_t lhs = createPreserveBitPattern(data);
             emulated_float64_t rhsFlipped = rhs.flipSign();
@@ -329,7 +346,12 @@ namespace hlsl
             return lhs + rhsFlipped;
         }
 
-        emulated_float64_t operator*(emulated_float64_t rhs) CONST
+        emulated_float64_t operator-(float rhs) NBL_CONST_MEMBER_FUNC
+        {
+            return createPreserveBitPattern(data) - create(rhs);
+        }
+
+        emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if(FlushDenormToZero)
             {
@@ -407,6 +429,11 @@ namespace hlsl
             }
         }
 
+        emulated_float64_t operator*(float rhs)
+        {
+            return createPreserveBitPattern(data) * create(rhs);
+        }
+
         /*emulated_float64_t<FastMath, FlushDenormToZero> reciprocal(uint64_t x)
         {
             using ThisType = emulated_float64_t<FastMath, FlushDenormToZero>;
@@ -415,7 +442,7 @@ namespace hlsl
             return output;
         }*/
 
-        emulated_float64_t operator/(const emulated_float64_t rhs) CONST
+        emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (FlushDenormToZero)
             {
@@ -466,7 +493,7 @@ namespace hlsl
 
         // relational operators
         // TODO: should `FlushDenormToZero` affect relational operators?
-        bool operator==(emulated_float64_t<FastMath, FlushDenormToZero> rhs) CONST
+        bool operator==(emulated_float64_t<FastMath, FlushDenormToZero> rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return false;
@@ -481,11 +508,11 @@ namespace hlsl
 
             return !(xored.data);
         }
-        bool operator!=(emulated_float64_t rhs) CONST
+        bool operator!=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             return !(createPreserveBitPattern(data) == rhs);
         }
-        bool operator<(emulated_float64_t rhs) CONST
+        bool operator<(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return false;
@@ -505,7 +532,7 @@ namespace hlsl
 
             return (lhsFlipped & diffBits) < (rhsFlipped & diffBits);
         }
-        bool operator>(emulated_float64_t rhs) CONST
+        bool operator>(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return true;
@@ -525,13 +552,13 @@ namespace hlsl
 
             return (lhsFlipped & diffBits) > (rhsFlipped & diffBits);
         }
-        bool operator<=(emulated_float64_t rhs) CONST { return !(emulated_float64_t::createPreserveBitPattern(data) > emulated_float64_t::createPreserveBitPattern(rhs.data)); }
+        bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return !(emulated_float64_t::createPreserveBitPattern(data) > emulated_float64_t::createPreserveBitPattern(rhs.data)); }
         bool operator>=(emulated_float64_t rhs) { return !(emulated_float64_t::createPreserveBitPattern(data) < emulated_float64_t::createPreserveBitPattern(rhs.data)); }
 
         //logical operators
-        bool operator&&(emulated_float64_t rhs) CONST { return bool(data) && bool(rhs.data); }
-        bool operator||(emulated_float64_t rhs) CONST { return bool(data) || bool(rhs.data); }
-        bool operator!() CONST { return !bool(data); }
+        bool operator&&(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return bool(data) && bool(rhs.data); }
+        bool operator||(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return bool(data) || bool(rhs.data); }
+        bool operator!() NBL_CONST_MEMBER_FUNC { return !bool(data); }
         
         // TODO: should modify self?
         emulated_float64_t flipSign()
@@ -541,7 +568,7 @@ namespace hlsl
         
         bool isNaN()
         {
-            return tgmath::isnan(bit_cast<float64_t>(data));
+            return tgmath::isnan(data);
         }
     };
 
@@ -554,31 +581,31 @@ struct traits_base<Type >\
     NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 52;\
 };\
 template<>\
-static inline uint32_t extractBiasedExponent(Type x)\
+inline uint32_t extractBiasedExponent(Type x)\
 {\
     return extractBiasedExponent<uint64_t>(x.data);\
 }\
 \
 template<>\
-static inline int extractExponent(Type x)\
+inline int extractExponent(Type x)\
 {\
     return extractExponent(x.data);\
 }\
 \
 template<>\
-NBL_CONSTEXPR_STATIC_INLINE Type replaceBiasedExponent(Type x, typename unsigned_integer_of_size<sizeof(Type)>::type biasedExp)\
+NBL_CONSTEXPR_INLINE_FUNC Type replaceBiasedExponent(Type x, typename unsigned_integer_of_size<sizeof(Type)>::type biasedExp)\
 {\
     return Type(replaceBiasedExponent(x.data, biasedExp));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_STATIC_INLINE Type fastMulExp2(Type x, int n)\
+NBL_CONSTEXPR_INLINE_FUNC Type fastMulExp2(Type x, int n)\
 {\
     return Type(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_STATIC_INLINE unsigned_integer_of_size<sizeof(Type)>::type extractMantissa(Type x)\
+NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(Type)>::type extractMantissa(Type x)\
 {\
     return extractMantissa(x.data);\
 }\
@@ -591,295 +618,8 @@ namespace ieee754
     IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false COMMA true>);
 }
 
-// TODO: finish it
-
-// TODO: this is mess, refactorize it
-#ifndef __HLSL_VERSION
-using ef64_t2 = vector<double, 2>;
-using ef64_t3 = vector<double, 3>;
-using ef64_t4 = vector<double, 4>;
-using ef64_t3x3 = matrix<double, 3, 3>;
-using ef64_t2x2 = matrix<double, 2, 2>;
-#else
-struct ef64_t2
-{
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
-
-    emulated_float64_t<false, true> calcComponentSum() CONST
-    {
-        return x + y;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(emulated_float64_t<false, true> x, emulated_float64_t<false, true> y)
-    {
-        ef64_t2 output;
-        output.x = x;
-        output.y = y;
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(float val)
-    {
-        ef64_t2 output;
-        output.x = emulated_float64_t<false, true>::create(val);
-        output.y = emulated_float64_t<false, true>::create(val);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(float32_t2 val)
-    {
-        ef64_t2 output;
-        output.x = emulated_float64_t<false, true>::create(val.x);
-        output.y = emulated_float64_t<false, true>::create(val.y);
-
-        return output;
-    }
-
-    ef64_t2 operator+(float rhs)
-    {
-        ef64_t2 output;
-        emulated_float64_t<false, true> rhsAsEF64 = emulated_float64_t<false, true>::create(rhs);
-        output.x = x + rhsAsEF64;
-        output.y = y + rhsAsEF64;
-
-        return output;
-    }
-
-    ef64_t2 operator+(emulated_float64_t<false, true> rhs)
-    {
-        ef64_t2 output;
-        output.x = x + rhs;
-        output.y = y + rhs;
-
-        return output;
-    }
-
-    ef64_t2 operator+(ef64_t2 rhs)
-    {
-        ef64_t2 output;
-        output.x = x + rhs.x;
-        output.y = y + rhs.y;
-
-        return output;
-    }
-
-    ef64_t2 operator-(float rhs)
-    {
-        return create(x, y) + (-rhs);
-    }
-
-    ef64_t2 operator-(emulated_float64_t<false, true> rhs)
-    {
-        return create(x, y) + (rhs.flipSign());
-    }
-
-    ef64_t2 operator-(ef64_t2 rhs)
-    {
-        rhs.x = rhs.x.flipSign();
-        rhs.y = rhs.y.flipSign();
-        return create(x, y) + rhs;
-    }
-
-    ef64_t2 operator*(float rhs)
-    {
-        ef64_t2 output;
-        emulated_float64_t<false, true> rhsAsEF64 = emulated_float64_t<false, true>::create(rhs);
-        output.x = x * rhsAsEF64;
-        output.y = y * rhsAsEF64;
-
-        return output;
-    }
-
-    ef64_t2 operator*(emulated_float64_t<false, true> rhs)
-    {
-        ef64_t2 output;
-        output.x = x * rhs;
-        output.y = y * rhs;
-
-        return output;
-    }
-
-    ef64_t2 operator*(ef64_t2 rhs)
-    {
-        ef64_t2 output;
-        output.x = x * rhs.x;
-        output.y = y * rhs.y;
-
-        return output;
-    }
-
-    float2 getAsFloat2()
-    {
-        return float2(x.getAsFloat32(), y.getAsFloat32());
-    }
-};
-
-struct ef64_t3
-{
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
-    emulated_float64_t<false, true> z;
-
-    static ef64_t3 create(NBL_REF_ARG(ef64_t3) other)
-    {
-        ef64_t3 output;
-
-        output.x = other.x;
-        output.y = other.y;
-        output.z = other.z;
-
-        return output;
-    }
-
-    static ef64_t3 create(NBL_REF_ARG(ef64_t2) other, emulated_float64_t<false, true> z)
-    {
-        ef64_t3 output;
-
-        output.x = other.x;
-        output.y = other.y;
-        output.z = z;
-
-        return output;
-    }
-
-    static ef64_t3 create(NBL_REF_ARG(ef64_t2) other, int z)
-    {
-        ef64_t3 output;
-
-        output.x = other.x;
-        output.y = other.y;
-        output.z = emulated_float64_t<false, true>::create(z);
-
-        return output;
-    }
-
-    emulated_float64_t<false, true> calcComponentSum() CONST
-    {
-        return x + y + z;
-    }
-
-    ef64_t3 operator*(NBL_CONST_REF_ARG(ef64_t3) rhs) CONST
-    {
-        ef64_t3 output;
-        output.x = x * rhs.x;
-        output.y = x * rhs.y;
-        output.z = x * rhs.z;
-
-        return output;
-    }
-};
-
-struct ef64_t4
-{
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
-    emulated_float64_t<false, true> z;
-    emulated_float64_t<false, true> w;
-};
-
-struct ef64_t3x3
-{
-    ef64_t3 columns[3];
-
-    ef64_t3x3 getTransposed() CONST
-    {
-        ef64_t3x3 output;
-
-        output.columns[1].x = columns[0].y;
-        output.columns[2].x = columns[0].z;
-
-        output.columns[0].y = columns[1].x;
-        output.columns[2].y = columns[1].z;
-
-        output.columns[0].z = columns[3].x;
-        output.columns[1].z = columns[3].y;
-
-        return output;
-    }
-
-    ef64_t3x3 operator*(NBL_CONST_REF_ARG(ef64_t3x3) rhs) CONST
-    {
-        ef64_t3x3 output;
-        ef64_t3x3 lhsTransposed = getTransposed();
-
-        output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
-        output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
-        output.columns[0].z = (lhsTransposed.columns[0] * rhs.columns[2]).calcComponentSum();
-
-        output.columns[1].x = (lhsTransposed.columns[1] * rhs.columns[0]).calcComponentSum();
-        output.columns[1].y = (lhsTransposed.columns[1] * rhs.columns[1]).calcComponentSum();
-        output.columns[1].z = (lhsTransposed.columns[1] * rhs.columns[2]).calcComponentSum();
-
-        output.columns[2].x = (lhsTransposed.columns[2] * rhs.columns[0]).calcComponentSum();
-        output.columns[2].y = (lhsTransposed.columns[2] * rhs.columns[1]).calcComponentSum();
-        output.columns[2].z = (lhsTransposed.columns[2] * rhs.columns[2]).calcComponentSum();
-
-        return output;
-    }
-
-    ef64_t3 operator*(NBL_CONST_REF_ARG(ef64_t3) rhs)
-    {
-        ef64_t3 output;
-        ef64_t3x3 lhsTransposed = getTransposed();
-
-        output.x = (columns[0] * rhs).calcComponentSum();
-        output.y = (columns[1] * rhs).calcComponentSum();
-        output.z = (columns[2] * rhs).calcComponentSum();
-
-        return output;
-    }
-};
-
-struct ef64_t2x2
-{
-    ef64_t2 columns[2];
-
-    ef64_t2x2 getTransposed() CONST
-    {
-        ef64_t2x2 output;
-
-        output.columns[1].x = columns[0].y;
-        output.columns[0].y = columns[1].x;
-
-        return output;
-    }
-
-    ef64_t2x2 operator*(NBL_CONST_REF_ARG(ef64_t2x2) rhs) CONST
-    {
-        ef64_t2x2 output;
-        ef64_t2x2 lhsTransposed = getTransposed();
-
-        output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
-        output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
-
-        output.columns[1].x = (lhsTransposed.columns[1] * rhs.columns[0]).calcComponentSum();
-        output.columns[1].y = (lhsTransposed.columns[1] * rhs.columns[1]).calcComponentSum();
-
-        return output;
-    }
-
-    ef64_t2 operator*(NBL_CONST_REF_ARG(ef64_t2) rhs)
-    {
-        ef64_t2 output;
-        ef64_t2x2 lhsTransposed = getTransposed();
-
-        output.x = (columns[0] * rhs).calcComponentSum();
-        output.y = (columns[1] * rhs).calcComponentSum();
-
-        return output;
-    }
-};
-
-#endif
-
 }
-
 }
-
-#undef CONST
 
 #undef FLOAT_ROUND_NEAREST_EVEN
 #undef FLOAT_ROUND_TO_ZERO

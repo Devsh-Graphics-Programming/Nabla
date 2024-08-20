@@ -11,6 +11,7 @@
 #include <nbl/builtin/hlsl/math/equations/quartic.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
+#include <nbl/builtin/hlsl/emulated_float64_t_utils.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -28,51 +29,16 @@ namespace nbl
 namespace hlsl
 {
 
-// TODO(emulated_float64_t): this shouldn't be in the nbl::hlsl space
-// struct VecT is solution to
-// error: 'nbl::hlsl::emulated_float64_t<false, true>' cannot be used as a type parameter where a scalar is required
-// using float_t2 = typename conditional<is_same<float_t, emulated_float64_t<false, true> >::value, ef64_t2, vector<float_t, 2> >::type;
-#ifdef __HLSL_VERSION
-template<typename T, uint16_t N>
-struct VecT { using type = void; };
-template<>
-struct VecT<float, 2> { using type = vector<float, 2>; };
-template<>
-struct VecT<float, 3> { using type = vector<float, 3>; };
-template<>
-struct VecT<float, 4> { using type = vector<float, 4>; };
-template<>
-struct VecT<emulated_float64_t<false, true>, 2> { using type = ef64_t2; };
-template<>
-struct VecT<emulated_float64_t<false, true>, 3> { using type = ef64_t3; };
-template<>
-struct VecT<emulated_float64_t<false, true>, 4> { using type = float64_t4; };
-
-template<typename T>
-struct Mat2x2T { using type = float64_t2x2; };
-template<>
-struct Mat2x2T<double> { using type = float64_t2x2; };
-template<>
-struct Mat2x2T<emulated_float64_t<false, true> > { using type = ef64_t2x2; };
-
-#endif
-
 namespace shapes
 {
 template<typename float_t>
 struct QuadraticBezier
 {
-#ifndef __HLSL_VERSION
-    using float_t2 = vector<float_t, 2>;
-    using float_t3 = vector<float_t, 3>;
-    using float_t4 = vector<float_t, 4>;
-    using float_t2x2 = matrix<float_t, 2, 2>;
-#else
     using float_t2 = typename VecT<float_t, 2>::type;
     using float_t3 = typename VecT<float_t, 3>::type;
     using float_t4 = typename VecT<float_t, 4>::type;
     using float_t2x2 = typename Mat2x2T<float_t>::type;
-#endif
+
     float_t2 P0;
     float_t2 P1;
     float_t2 P2;
@@ -245,18 +211,29 @@ struct QuadraticBezier
 template<typename float_t>
 struct Quadratic
 {
+#ifndef __HLSL_VERSION
     using scalar_t = float_t;
     using float_t2 = vector<float_t, 2>;
     using float_t3 = vector<float_t, 3>;
     using float_t2x2 = matrix<float_t, 2, 2>;
-        
+#else
+    using scalar_t = float_t;
+    using float_t2 = typename VecT<float_t, 2>::type;
+    using float_t3 = typename VecT<float_t, 3>::type;
+    using float_t2x2 = typename Mat2x2T<float_t>::type;
+#endif
+
     float_t2 A;
     float_t2 B;
     float_t2 C;
         
     struct AnalyticArcLengthCalculator
     {
+#ifndef __HLSL_VERSION
         using float_t2 = vector<float_t, 2>;
+#else
+        using float_t2 = typename VecT<float_t, 2>::type;
+#endif
         
         static AnalyticArcLengthCalculator construct(float_t lenA2, float_t AdotB, float_t a, float_t b, float_t  c, float_t b_over_4a)
         {
@@ -547,6 +524,13 @@ struct Quadratic
 template<typename float_t>
 static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) lhs, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) rhs)
 {
+#ifndef __HLSL_VERSION
+    using scalar_t = double;
+#else
+    using scalar_t = emulated_float64_t<false, true>;
+#endif
+    using float_t2 = typename VecT<scalar_t, 2>::type;
+
     // Algorithm based on Computer Aided Geometric Design: 
     // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#page99
     // Chapter 17.6 describes the implicitization of a curve, which transforms it into the following format:
@@ -581,30 +565,37 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
         
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(lhs);
     // for convenience
-    const float64_t2 A = quadratic.A;
-    const float64_t2 B = quadratic.B;
-    const float64_t2 C = quadratic.C;
+    const float_t2 A = quadratic.A;
+    const float_t2 B = quadratic.B;
+    const float_t2 C = quadratic.C;
 
     // substitute parametric into implicit equation:
         
     // Getting the quartic params
-    double a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
-    double b = (2 * A.x * B.x * k0) + (A.x * B.y * k1) + (B.x * A.y * k1) + (2 * A.y * B.y * k2);
-    double c = (2 * A.x * C.x * k0) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (2 * A.y * C.y * k2) + (A.y * k4) + ((B.y * B.y) * k2);
-    double d = (2 * B.x * C.x * k0) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (2 * B.y * C.y * k2) + (B.y * k4);
-    double e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
+    scalar_t a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
+    scalar_t b = (A.x * B.x * k0 * 2.0f) + (A.x * B.y * k1) + (B.x * A.y * k1) + (A.y * B.y * k2 * 2.0f);
+    scalar_t c = (A.x * C.x * k0 * 2.0f) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (A.y * C.y * k2 * 2.0f) + (A.y * k4) + ((B.y * B.y) * k2);
+    scalar_t d = (B.x * C.x * k0 * 2.0f) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (B.y * C.y * k2 * 2.0f) + (B.y * k4);
+    scalar_t e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
 
-    return math::equations::Quartic<double>::construct(a, b, c, d, e);
+    return math::equations::Quartic<F64_t>::construct(a, b, c, d, e);
 }
     
 // This function returns the analytic quadratic equation to solve for bezier's t value for intersection with another bezier curve
 template<typename float_t>
-static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(QuadraticBezier<float_t> bezier, NBL_CONST_REF_ARG(vector<float_t, 2>) lineStart, NBL_CONST_REF_ARG(vector<float_t, 2>) lineVector)
+static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(QuadraticBezier<float_t> bezier, NBL_CONST_REF_ARG(typename VecT<float_t, 2>::type) lineStart, NBL_CONST_REF_ARG(typename VecT<float_t, 2>::type) lineVector)
 {
+#ifndef __HLSL_VERSION
     using float_t2 = vector<float_t, 2>;
     using float_t3 = vector<float_t, 3>;
     using float_t4 = vector<float_t, 4>;
     using float_t2x2 = matrix<float_t, 2, 2>;
+#else
+    using float_t2 = typename VecT<float_t, 2>::type;
+    using float_t3 = typename VecT<float_t, 3>::type;
+    using float_t4 = typename VecT<float_t, 4>::type;
+    using float_t2x2 = typename Mat2x2T<float_t>::type;
+#endif
 
     float_t2 lineDir = normalize(lineVector);
     float_t2x2 rotate = float_t2x2(float_t2(lineDir.x, lineDir.y), float_t2(-lineDir.y, lineDir.x));
@@ -612,7 +603,7 @@ static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(Qua
     bezier.P1 = mul(rotate, bezier.P1 - lineStart);
     bezier.P2 = mul(rotate, bezier.P2 - lineStart);
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(bezier);
-    return math::equations::Quadratic<float64_t>::construct(quadratic.A.y, quadratic.B.y, quadratic.C.y);
+    return math::equations::Quadratic<F64_t>::construct(quadratic.A.y, quadratic.B.y, quadratic.C.y);
 }
 
 } // namespace shapes

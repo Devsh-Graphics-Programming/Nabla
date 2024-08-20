@@ -16,31 +16,25 @@ namespace hlsl
 namespace tgmath
 {
 
-template <typename Float>
-static inline bool isnan(Float val)
+template <typename T>
+inline bool isnan(T val)
 {
-	using AsUint = typename unsigned_integer_of_size<sizeof(Float)>::type;
-	using AsFloat = typename float_of_size<sizeof(Float)>::type;
-	AsUint asUint = bit_cast<AsUint, Float>(val);
-	return bool((ieee754::extractBiasedExponent<Float>(val) == ieee754::traits<Float>::specialValueExp) && (asUint & ieee754::traits<Float>::mantissaMask));
-}
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
 
-template <>
-static inline bool isnan(uint64_t val)
-{
-	float64_t asFloat = bit_cast<float64_t, uint64_t>(val);
-	return bool((ieee754::extractBiasedExponent<float64_t>(asFloat) == ieee754::traits<float64_t>::specialValueExp) && (val & ieee754::traits<float64_t>::mantissaMask));
+	AsUint asUint = bit_cast<AsUint, T>(val);
+	return bool((ieee754::extractBiasedExponent<T>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
 }
 
 // TODO: better implementation, also i'm not sure this is the right place for this function
 template<typename Uint>
-NBL_CONSTEXPR_STATIC_INLINE Uint lerp(Uint a, Uint b, bool c)
+NBL_CONSTEXPR_INLINE_FUNC Uint lerp(Uint a, Uint b, bool c)
 {
 	return c ? b : a;
 }
 
 template<typename Uint>
-NBL_CONSTEXPR_STATIC_INLINE bool isInf(Uint val)
+NBL_CONSTEXPR_INLINE_FUNC bool isInf(Uint val)
 {
 	using AsFloat = typename float_of_size<sizeof(Uint)>::type;
 	return (val & ~ieee754::traits<AsFloat>::signMask) == ieee754::traits<AsFloat>::inf;

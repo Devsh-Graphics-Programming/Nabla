@@ -24,9 +24,9 @@ namespace equations
     template<typename float_t>
     struct Quartic
     {
-        using float_t2 = vector<float_t, 2>;
-        using float_t3 = vector<float_t, 3>;
-        using float_t4 = vector<float_t, 4>;
+        using float_t2 = typename VecT<float_t, 2>::type;
+        using float_t3 = typename VecT<float_t, 3>::type;
+        using float_t4 = typename VecT<float_t, 4>::type;
 
         // form: ax^4 + bx^3 + cx^2 + dx + e
         float_t a;

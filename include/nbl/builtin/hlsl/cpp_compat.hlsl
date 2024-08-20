@@ -44,7 +44,7 @@ using add_pointer = std::add_pointer<T>;
 #define NBL_CONSTEXPR const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONSTEXPR_FUNC
-#define NBL_CONSTEXPR_INLINE_FUNC
+#define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONST_MEMBER_FUNC
 
 namespace nbl

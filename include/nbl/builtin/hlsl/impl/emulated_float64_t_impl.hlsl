@@ -47,7 +47,7 @@ namespace hlsl
 {
 namespace impl
 {
-NBL_CONSTEXPR_STATIC_INLINE uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
 {
     uint64_t2 output;
     output.x = mantissa64 >> (64 - ieee754::traits<float64_t>::mantissaBitCnt);
@@ -56,46 +56,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
     return output;
 }
 
-template <typename T>
-NBL_CONSTEXPR_STATIC_INLINE uint64_t promoteToUint64(T val)
-{
-    using AsFloat = typename float_of_size<sizeof(T)>::type;
-    uint64_t asUint = ieee754::impl::castToUintType(val);
-
-    const uint64_t sign = (uint64_t(ieee754::traits<float64_t>::signMask) & asUint) << (sizeof(float64_t) - sizeof(T));
-    const int64_t newExponent = ieee754::extractExponent(val) + ieee754::traits<float64_t>::exponentBias;
-
-    const uint64_t exp = (uint64_t(ieee754::extractExponent(val)) + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
-    const uint64_t mantissa = (uint64_t(ieee754::traits<float64_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::exponentBias - ieee754::traits<AsFloat>::mantissaBitCnt);
-
-    return sign | exp | mantissa;
-};
-
-template<> NBL_CONSTEXPR_STATIC_INLINE uint64_t promoteToUint64(float64_t val) { return bit_cast<uint64_t, float64_t>(val); }
-
-NBL_CONSTEXPR_STATIC_INLINE uint32_t2 umulExtended(uint32_t lhs, uint32_t rhs)
-{
-    uint64_t product = uint64_t(lhs) * uint64_t(rhs);
-    uint32_t2 output;
-    output.x = uint32_t((product & 0xFFFFFFFF00000000) >> 32);
-    output.y = uint32_t(product & 0x00000000FFFFFFFFull);
-    return output;
-}
-
-NBL_CONSTEXPR_STATIC_INLINE uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rhs)
-{
-#if defined RELAXED_NAN_PROPAGATION
-    return lhs | rhs;
-#else
-
-    lhs |= 0x0008000000000000ull;
-    rhs |= 0x0008000000000000ull;
-    return tgmath::lerp(rhs, tgmath::lerp(lhs, rhs, tgmath::isnan(rhs)), tgmath::isnan(lhs));
-    return 0;
-#endif
-}
-
-NBL_CONSTEXPR_STATIC_INLINE uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
 {
     uint32_t2 z;
 
@@ -108,17 +69,111 @@ NBL_CONSTEXPR_STATIC_INLINE uint64_t packFloat64(uint32_t zSign, int zExp, uint3
     return  output;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t2 packUint64(uint64_t val)
+NBL_CONSTEXPR_INLINE_FUNC uint32_t2 packUint64(uint64_t val)
 {
     return uint32_t2((val & 0xFFFFFFFF00000000ull) >> 32, val & 0x00000000FFFFFFFFull);
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint64_t unpackUint64(uint32_t2 val)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t unpackUint64(uint32_t2 val)
 {
     return ((uint64_t(val.x) & 0x00000000FFFFFFFFull) << 32) | uint64_t(val.y);
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
+inline uint64_t castToUint64WithFloat64BitPattern(float32_t val)
+{
+    uint32_t asUint = ieee754::impl::castToUintType(val);
+
+    const uint64_t sign = (uint64_t(ieee754::traits<float32_t>::signMask) & asUint) << (sizeof(float32_t) * 8);
+
+    const uint64_t biasedExp = (uint64_t(ieee754::extractExponent(val)) + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
+    const uint64_t mantissa = (uint64_t(ieee754::traits<float32_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float32_t>::mantissaBitCnt);
+
+    return sign | biasedExp | mantissa;
+};
+
+inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
+{
+    if (val == 0)
+        return val;
+
+#ifndef __HLSL_VERSION
+    int exp = findMSB(val);
+#else
+    uint32_t2 valPacked = packUint64(val);
+    int exp = valPacked.x ? firstbithigh(valPacked.x) + 32 : firstbithigh(valPacked.y);
+#endif
+    uint64_t mantissa;
+
+    int shiftCnt = 52 - exp;
+    if (shiftCnt >= 0)
+    {
+        mantissa = val << shiftCnt;
+    }
+    else
+    {
+        const int shiftCntAbs = -shiftCnt;
+        uint64_t roundingBit = 1ull << (shiftCnt - 1);
+        uint64_t stickyBitMask = roundingBit - 1;
+        uint64_t stickyBit = val & stickyBitMask;
+
+        mantissa = val >> shiftCntAbs;
+
+        if ((val & roundingBit) && (!stickyBit))
+        {
+            bool isEven = mantissa & 1;
+            if (!isEven)
+                mantissa++;
+        }
+        else if ((val & roundingBit) && (stickyBit || (mantissa & 1)))
+            val += roundingBit;
+
+        
+
+        //val += (1ull << (shiftCnt)) - 1;
+        //mantissa = val >> shiftCntAbs;
+
+        if (mantissa & 1ull << 53)
+        {
+            mantissa >>= 1;
+            exp++;
+        }
+    }
+    mantissa &= ieee754::traits<float64_t>::mantissaMask;
+    const uint64_t biasedExp = uint64_t(ieee754::traits<float64_t>::exponentBias + exp) << ieee754::traits<float64_t>::mantissaBitCnt;
+
+    return biasedExp | mantissa;
+};
+
+inline uint64_t castToUint64WithFloat64BitPattern(int64_t val)
+{
+    const uint64_t sign = val & ieee754::traits<float64_t>::signMask;
+    const uint64_t absVal = abs(val);
+    return sign | castToUint64WithFloat64BitPattern(absVal);
+};
+
+NBL_CONSTEXPR_INLINE_FUNC uint32_t2 umulExtended(uint32_t lhs, uint32_t rhs)
+{
+    uint64_t product = uint64_t(lhs) * uint64_t(rhs);
+    uint32_t2 output;
+    output.x = uint32_t((product & 0xFFFFFFFF00000000) >> 32);
+    output.y = uint32_t(product & 0x00000000FFFFFFFFull);
+    return output;
+}
+
+NBL_CONSTEXPR_INLINE_FUNC uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rhs)
+{
+#if defined RELAXED_NAN_PROPAGATION
+    return lhs | rhs;
+#else
+
+    lhs |= 0x0008000000000000ull;
+    rhs |= 0x0008000000000000ull;
+    return tgmath::lerp(rhs, tgmath::lerp(lhs, rhs, tgmath::isnan(rhs)), tgmath::isnan(lhs));
+    return 0;
+#endif
+}
+
+NBL_CONSTEXPR_INLINE_FUNC uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
 {
    uint32_t2 output;
    output.y = a1 + b1;
@@ -127,7 +182,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b
    return output;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
+NBL_CONSTEXPR_INLINE_FUNC uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
 {
     uint32_t2 output;
     output.y = a1 - b1;
@@ -146,7 +201,7 @@ static inline int countLeadingZeros32(uint32_t val)
 #endif
 }
     
-NBL_CONSTEXPR_STATIC_INLINE uint32_t2 shift64RightJamming(uint32_t2 val, int count)
+NBL_CONSTEXPR_INLINE_FUNC uint32_t2 shift64RightJamming(uint32_t2 val, int count)
 {
     uint32_t2 output;
     const int negCount = (-count) & 31;
@@ -166,7 +221,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t2 shift64RightJamming(uint32_t2 val, int cou
 }
 
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t4 mul64to128(uint32_t4 mantissasPacked)
+NBL_CONSTEXPR_INLINE_FUNC uint32_t4 mul64to128(uint32_t4 mantissasPacked)
 {
     uint32_t4 output;
     uint32_t more1 = 0u;
@@ -205,7 +260,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t4 mul64to128(uint32_t4 mantissasPacked)
     return output;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
+NBL_CONSTEXPR_INLINE_FUNC uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
 {
     uint32_t3 output;
     output.x = 0u;
@@ -233,7 +288,7 @@ NBL_CONSTEXPR_STATIC_INLINE uint32_t3 shift64ExtraRightJamming(uint32_t3 val, in
     return output;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint64_t shortShift64Left(uint64_t val, int count)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t shortShift64Left(uint64_t val, int count)
 {
     const uint32_t2 packed = packUint64(val);
     
@@ -245,12 +300,12 @@ NBL_CONSTEXPR_STATIC_INLINE uint64_t shortShift64Left(uint64_t val, int count)
     return unpackUint64(output);
 };
 
-NBL_CONSTEXPR_STATIC_INLINE uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
     return  signShifted + expShifted + mantissa;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE uint64_t roundAndPackFloat64(uint64_t zSign, int zExp, uint32_t3 mantissaExtended)
+NBL_CONSTEXPR_INLINE_FUNC uint64_t roundAndPackFloat64(uint64_t zSign, int zExp, uint32_t3 mantissaExtended)
 {
     bool roundNearestEven;
     bool increment;
@@ -372,7 +427,7 @@ static inline void normalizeFloat64Subnormal(uint64_t mantissa,
     outMantissa = tgmath::lerp(outMantissa, unpackUint64(temp), mantissaPacked.x == 0);
 }
 
-NBL_CONSTEXPR_STATIC_INLINE bool areBothInfinity(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
 {
     lhs &= ~ieee754::traits<float64_t>::signMask;
     rhs &= ~ieee754::traits<float64_t>::signMask;
@@ -380,17 +435,17 @@ NBL_CONSTEXPR_STATIC_INLINE bool areBothInfinity(uint64_t lhs, uint64_t rhs)
     return lhs == rhs && lhs == ieee754::traits<float64_t>::inf;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE bool areBothSameSignInfinity(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignInfinity(uint64_t lhs, uint64_t rhs)
 {
     return lhs == rhs && (lhs & ~ieee754::traits<float64_t>::signMask) == ieee754::traits<float64_t>::inf;
 }
 
-NBL_CONSTEXPR_STATIC_INLINE bool areBothZero(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
 {
     return ((lhs << 1) == 0ull) && ((rhs << 1) == 0ull);
 }
 
-NBL_CONSTEXPR_STATIC_INLINE bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
+NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
 {
     return ((lhs << 1) == 0ull) && (lhs == rhs);
 }
