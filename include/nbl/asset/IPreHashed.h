@@ -123,7 +123,8 @@ class IPreHashed : public IAsset
 		virtual void discardContent_impl() = 0;
 
 	private:
-		core::blake3_hash_t m_contentHash = {};
+		// The initial value is a hash of an "as if" of a zero-length array
+		core::blake3_hash_t m_contentHash = static_cast<core::blake3_hash_t>(core::blake3_hasher{});
 };
 }
 
