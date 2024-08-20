@@ -22,37 +22,31 @@ namespace hlsl
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(emulated_float64_t<FastMath, FlushDenormToZero> val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return createPreserveBitPattern(val.data);
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int32_t val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(int64_t(val)));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int64_t val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(val));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint32_t val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(uint64_t(val)));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint64_t val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             return emulated_float64_t<FastMath, FlushDenormToZero>::createPreserveBitPattern(impl::castToUint64WithFloat64BitPattern(val));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(float32_t val)
         {
-            return createPreserveBitPattern(bit_cast<uint64_t>(float64_t(val)));
             emulated_float64_t<FastMath, FlushDenormToZero> output;
             output.data = impl::castToUint64WithFloat64BitPattern(val);
             return output;
@@ -85,11 +79,25 @@ namespace hlsl
 
         inline float getAsFloat32()
         {
+            int exponent = ieee754::extractExponent(data);
+            if (!FastMath)
+            {
+                if (exponent > 127)
+                    return bit_cast<float>(ieee754::traits<float>::inf);
+                if (exponent < -126)
+                    return -bit_cast<float>(ieee754::traits<float>::inf);
+                if (tgmath::isnan(data))
+                    return bit_cast<float>(ieee754::traits<float>::quietNaN);
+            }
+
+            //return float(bit_cast<double>(data));
             // TODO: fix
-            uint32_t sign = uint32_t((data & ieee754::traits<float>::signMask) >> 32);
-            uint32_t exponent = (uint32_t(ieee754::extractExponent(data)) + ieee754::traits<float>::exponentBias) + ieee754::traits<float>::mantissaBitCnt;
+            uint32_t sign = uint32_t((data & ieee754::traits<float64_t>::signMask) >> 32);
+            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;
             uint32_t mantissa = uint32_t(data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;
-            return sign | exponent | mantissa;
+
+            return bit_cast<float>(sign | biasedExponent | mantissa);
+
         }
 
 #if 0
