@@ -188,7 +188,8 @@ public:
 			flatten.preFill = true;
 			memset(flatten.fillValue.pointer, 0, sizeof(flatten.fillValue.pointer));
 
-			assert(CFlattenRegionsImageFilter::execute(policy, &proxy.flatten)); // this should never fail, at this point we are already validated
+			auto status = CFlattenRegionsImageFilter::execute(policy, &proxy.flatten);
+			assert(status); // this should never fail, at this point we are already validated
 		}
 
 		/*
