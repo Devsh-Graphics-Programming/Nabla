@@ -90,22 +90,6 @@ struct DoubleBdaAccessor
         return target.template deref().store(value);
     }
 
-    template<typename S = T>
-    enable_if_t<is_same_v<S,T> && is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
-    atomicAdd(const uint64_t index, const T value)
-    {
-        bda::__ptr<T> target = outputPtr + index;
-        return glsl::atomicAdd(target.template deref().get_ptr(), value);
-    }
-
-    template<typename S = T>
-    enable_if_t<is_same_v<S,T> && is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
-    atomicSub(const uint64_t index, const T value)
-    {
-        bda::__ptr<T> target = outputPtr + index;
-        return glsl::atomicSub(target.template deref().get_ptr(), value);
-    }
-
     bda::__ptr<T> inputPtr, outputPtr;
 };
 
