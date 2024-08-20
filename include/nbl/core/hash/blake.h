@@ -92,7 +92,7 @@ struct blake3_hasher::update_impl<std::span<U,N>,Dummy>
 			hasher.update(input.data(),input.size()*sizeof(U));
 		else // Note ideally I'd have some check for a `trivially_serializable` trait or something
 		for (const auto& item : input)
-			hasher << input;
+			hasher << item;
 
 	}
 };
