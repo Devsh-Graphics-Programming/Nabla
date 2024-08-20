@@ -24,8 +24,8 @@ namespace luma_meter
 {
 
 template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
-struct geom_luma_meter {
-    using this_t = geom_luma_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
+struct geom_meter {
+    using this_t = geom_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
     static this_t create(NBL_REF_ARG(MeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
     {
