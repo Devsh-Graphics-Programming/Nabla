@@ -240,16 +240,7 @@ public:
 				const auto regions = image->getRegions(miplevel);
 				const bool performNullHash = regions.empty();
 
-				if (performNullHash)
-				{
-					const auto mipExtentInBlocks = info.convertTexelsToBlocks(image->getMipSize(miplevel));
-					const auto zeroLength = info.getBlockByteSize() * mipExtentInBlocks.x;
-					auto zeroArray = std::make_unique<uint8_t[]>(zeroLength);
-					for (auto z = 0; z < mipExtentInBlocks.z; z++)
-						for (auto y = 0; y < mipExtentInBlocks.y; y++)
-							blake3_hasher_update(hasher, zeroArray.get(), zeroLength);
-				}
-				else
+				if (!performNullHash)
 					CBasicImageFilterCommon::executePerRegion(std::execution::seq, image, executePerTexelOrBlock, regions, clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
 
 				blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
