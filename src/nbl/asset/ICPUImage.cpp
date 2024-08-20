@@ -132,10 +132,10 @@ public:
 		{
 			auto buffer = getScratchAsBuffer(state->scratch.size);
 			const auto product = parameters.mipLevels * parameters.arrayLayers;
-
-			scratch.hashes = { .offset = 0u, .size = product * sizeof(CState::outHash), .buffer = buffer };
-			scratch.hashers = { .offset = scratch.hashes.size, .size = product * sizeof(blake3_hasher), .buffer = buffer };
-			scratch.flatten = { .offset = scratch.hashers.offset + scratch.hashers.size, .size = state->scratch.size - scratch.hashers.size - scratch.hashes.size, .buffer = buffer };
+			
+			scratch.hashes = { static_cast<CState::hash_t*>(state->scratch.memory), product };
+			scratch.hashers = { reinterpret_cast<blake3_hasher*>(scratch.hashes.data() + scratch.hashes.size()), product };
+			scratch.flatten = { .offset = scratch.hashes.size_bytes() + scratch.hashers.size_bytes(), .size = state->scratch.size - scratch.hashers.size_bytes() - scratch.hashes.size_bytes(), .buffer = buffer};
 		}
 
 		const auto isFullyFlatten = scratch.flatten.size == 0ull;
@@ -212,8 +212,8 @@ public:
 			we stream-hash texels per given mip level & layer
 		*/
 
-		auto* const hashes = reinterpret_cast<CState::hash_t*>(getScratchAsBuffer(scratch.hashes.size, scratch.hashes.offset)->getPointer());
-		auto* const hashers = reinterpret_cast<blake3_hasher*>(getScratchAsBuffer(scratch.hashers.size, scratch.hashers.offset)->getPointer());
+		auto* const hashes = scratch.hashes.data();
+		auto* const hashers = scratch.hashers.data();
 
 		auto executePerMipLevel = [&](const uint32_t miplevel)
 		{
@@ -292,8 +292,8 @@ private:
 
 	struct ScratchMap
 	{
-		asset::SBufferRange<asset::ICPUBuffer> hashes; // hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this hash buffer
-		asset::SBufferRange<asset::ICPUBuffer> hashers; // hashers, used to produce a hash
+		std::span<CState::hash_t> hashes; // hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this hash buffer
+		std::span<blake3_hasher> hashers; // hashers, used to produce a hash
 		asset::SBufferRange<asset::ICPUBuffer> flatten; // tightly packed texels from input, no memory gaps
 	};
 };
