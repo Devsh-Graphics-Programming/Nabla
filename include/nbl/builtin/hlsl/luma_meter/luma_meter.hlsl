@@ -5,7 +5,6 @@
 #ifndef _NBL_BUILTIN_HLSL_LUMA_METER_INCLUDED_
 #define _NBL_BUILTIN_HLSL_LUMA_METER_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
@@ -15,6 +14,7 @@
 #include "nbl/builtin/hlsl/colorspace/EOTF.hlsl"
 #include "nbl/builtin/hlsl/colorspace/OETF.hlsl"
 #include "nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl"
+#include "nbl/builtin/hlsl/luma_meter/common.hlsl"
 
 namespace nbl
 {
@@ -23,17 +23,11 @@ namespace hlsl
 namespace luma_meter
 {
 
-struct LumaMeteringWindow
-{
-	float32_t2 meteringWindowScale;
-	float32_t2 meteringWindowOffset;
-};
-
 template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
 struct geom_luma_meter {
     using this_t = geom_luma_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(NBL_REF_ARG(LumaMeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
+    static this_t create(NBL_REF_ARG(MeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
     {
         this_t retval;
         retval.window = window;
@@ -103,7 +97,7 @@ struct geom_luma_meter {
         }
     }
 
-    LumaMeteringWindow window;
+    MeteringWindow window;
     float32_t minLuma, maxLuma;
 };
 }

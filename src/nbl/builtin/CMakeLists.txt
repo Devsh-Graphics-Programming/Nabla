@@ -35,6 +35,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/__ref.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/__ptr.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/bda_accessor.hlsl")
 # luma metering
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/common.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/luma_meter/luma_meter.hlsl")
 # tonemapper
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tonemapper/operators.hlsl")
