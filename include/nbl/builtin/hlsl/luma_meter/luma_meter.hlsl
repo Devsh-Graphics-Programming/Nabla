@@ -27,7 +27,7 @@ template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, ty
 struct geom_meter {
     using this_t = geom_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(NBL_REF_ARG(MeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
+    static this_t create(NBL_CONST_REF_ARG(MeteringWindow) window, float32_t lumaMinimum, float32_t lumaMaximum)
     {
         this_t retval;
         retval.window = window;
@@ -68,11 +68,12 @@ struct geom_meter {
         float32_t2 viewportSize
     )
     {
-        uint32_t2 coord = {
-            morton2d_decode_x(glsl::gl_LocalInvocationIndex()),
-            morton2d_decode_y(glsl::gl_LocalInvocationIndex())
-        };
+
         uint32_t tid = workgroup::SubgroupContiguousIndex();
+        uint32_t2 coord = {
+            morton2d_decode_x(tid),
+            morton2d_decode_y(tid)
+        };
 
         uint32_t2 sampleIndex = coord * GroupSize + float32_t2(glsl::gl_SubgroupID() + 1, glsl::gl_SubgroupInvocationID() + 1);
         float32_t luma = 0.0f;
@@ -80,8 +81,6 @@ struct geom_meter {
         if (sampleIndex.x <= sampleCount.x && sampleIndex.y <= sampleCount.y) {
             luma = computeLuma(tex, sampleCount, sampleIndex, viewportSize);
             float32_t lumaSum = reduction(luma, sdata);
-
-            sdata.workgroupExecutionAndMemoryBarrier();
 
             if (tid == GroupSize - 1) {
                 uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
