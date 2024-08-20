@@ -35,7 +35,8 @@ struct ACESParams
 	static this_t create(float EV, float key = 0.18f, float Contrast = 1.f) {
 		this_t retval;
 		retval.gamma = Contrast;
-		retval.exposure = EV + log2(key * 0.77321666f);
+		const float reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
+		retval.exposure = EV + log2(key * reinhardMatchCorrection);
 		return retval;
 	}
 
