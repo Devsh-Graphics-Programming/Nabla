@@ -71,8 +71,8 @@ struct ACES
 
 		// this is obviously fitted to some particular simulated sensor/film and display
 		float_t3 v = mul(XYZ_RRT_Input, tonemapped);
-		float_t3 a = v * (v + float_t3(0.0245786, 0.0245786, 0.0245786)) - float_t3(0.000090537, 0.000090537, 0.000090537);
-		float_t3 b = v * (v * float_t3(0.983729, 0.983729, 0.983729) + float_t3(0.4329510, 0.4329510, 0.4329510)) + float_t3(0.238081, 0.238081, 0.238081);
+		float_t3 a = v * (v + promote<float_t3>(0.0245786)) - promote<float_t3>(0.000090537);
+		float_t3 b = v * (v * promote<float_t3>(0.983729) + promote<float_t3>(0.4329510)) + promote<float_t3>(0.238081);
 		v = a / b;
 
 		// ODT_SAT => XYZ
