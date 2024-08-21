@@ -92,7 +92,7 @@ struct blake3_hasher::update_impl<std::span<U,N>,Dummy>
 			hasher.update(input.data(),input.size()*sizeof(U));
 		else // Note ideally I'd have some check for a `trivially_serializable` trait or something
 		for (const auto& item : input)
-			hasher << input;
+			hasher << item;
 
 	}
 };
@@ -116,7 +116,7 @@ struct hash<nbl::core::blake3_hash_t>
 	{
 		auto* as_p_uint64_t = reinterpret_cast<const size_t*>(blake3.data);
 		size_t retval = as_p_uint64_t[0];
-		for (auto i=1; i<BLAKE3_OUT_LEN; i++)
+		for (auto i=1; i<BLAKE3_OUT_LEN/sizeof(size_t); i++)
 			retval ^= as_p_uint64_t[i] + 0x9e3779b97f4a7c15ull + (retval << 6) + (retval >> 2);
 		return retval;
 	}
