@@ -79,12 +79,6 @@ struct reference_wrapper : enable_if_t<
 // TODO: partial specializations for T being a special SPIR-V type for image ops, etc.
 
 
-#else // CPP
-
-
-#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
-    using type_t = T;
-#else
 #define ALIAS_STD(NAME,OP) template<typename T> struct NAME { \
     using type_t = T; \
     \
@@ -92,8 +86,15 @@ struct reference_wrapper : enable_if_t<
     { \
         return lhs OP rhs; \
     }
-#endif
 
+
+#else // CPP
+
+
+#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
+    using type_t = T;
+
+#endif
 
 ALIAS_STD(bit_and,&)
     using scalar_t = typename scalar_type<T>::type;
