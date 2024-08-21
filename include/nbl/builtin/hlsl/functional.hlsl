@@ -13,6 +13,7 @@ namespace nbl
 {
 namespace hlsl
 {
+#ifdef __HLSL_VERSION // CPP
 template<uint32_t StorageClass, typename T>
 using __spv_ptr_t = spirv::pointer_t<StorageClass,T>;
 
@@ -78,7 +79,9 @@ struct reference_wrapper : enable_if_t<
 // TODO: partial specializations for T being a special SPIR-V type for image ops, etc.
 
 
-#ifndef __HLSL_VERSION // CPP
+#else // CPP
+
+
 #define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
     using type_t = T;
 #else
