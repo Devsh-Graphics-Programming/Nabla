@@ -36,8 +36,8 @@ struct Reinhard
 		return rawCIEXYZcolor * colorMultiplier;
 	}
 
-	float_t3 keyAndManualLinearExposure;
-	float_t3 rcpWhite2;
+	float_t keyAndManualLinearExposure;
+	float_t rcpWhite2;
 };
 
 template<typename T = float32_t>
