@@ -81,6 +81,56 @@ public:
 
 	using state_type = CState;
 
+	// A wrapper for an additive, in[de]crementable value, so you can use values as iterators
+	template <typename Type, typename DiffType = std::ptrdiff_t>
+	struct ValueIterator {
+
+		// Iterator type traits
+		using iterator_category = std::random_access_iterator_tag;
+		using difference_type = DiffType; //must be a signed integer-like type
+		using value_type = Type;
+		using reference = Type;
+		using pointer = Type;
+
+		inline explicit ValueIterator(value_type value) : m_value(value) {};
+		inline ValueIterator() : m_value{} {};
+		ValueIterator(const ValueIterator& other) = default;
+		ValueIterator(ValueIterator&& other) = default;
+
+		ValueIterator& operator=(const ValueIterator& other) = default;
+		ValueIterator& operator=(ValueIterator&& other) = default;
+
+		// Iterator traits
+		inline reference operator*() const { return m_value; }
+		inline ValueIterator& operator++() { m_value++; return *this; }
+		inline ValueIterator operator++(int) { ValueIterator tmp = *this; ++(*this); return tmp; }
+
+		// InputIterator traits
+		inline bool operator==(const ValueIterator& other) const { return m_value == other.operator*(); }
+		inline bool operator!=(const ValueIterator& other) const { return !operator==(other); }
+		inline pointer operator->() const { return m_value; }
+
+		// BidirectionalIterator traits
+		inline ValueIterator& operator--() { m_value--; return *this; }
+		inline ValueIterator operator--(int) { ValueIterator tmp = *this; --(*this); return tmp; }
+
+		//RandomAccessIterator traits
+		inline ValueIterator& operator+=(difference_type advance) { m_value += advance; return *this; }
+		inline ValueIterator operator+(difference_type advance) const { return ValueIterator(m_value + advance); }
+		friend inline ValueIterator operator+(difference_type advance, const ValueIterator& other) { return valueIterator(advance + *other); }
+		inline ValueIterator& operator-=(difference_type advance) { m_value -= advance; return *this; }
+		inline ValueIterator operator-(difference_type advance) const { return ValueIterator(m_value - advance); }
+		inline value_type operator[] (int index) const { return m_value + index; }
+		inline difference_type operator-(const ValueIterator& other) const { return m_value - *other; }
+		inline bool operator< (const ValueIterator& other) const { return m_value < *other; }
+		inline bool operator> (const ValueIterator& other) const { return m_value > *other; }
+		inline bool operator>= (const ValueIterator& other) const { return m_value >= *other; }
+		inline bool operator<= (const ValueIterator& other) const { return m_value <= *other; }
+
+	private:
+		value_type m_value;
+	};
+
 	static inline bool validate(state_type* state)
 	{
 		if (!state)
@@ -203,11 +253,13 @@ public:
 		const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(parameters.format);
 		const uint8_t* inData = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 
-		std::vector<uint32_t> layers(parameters.arrayLayers);
-		std::iota(layers.begin(), layers.end(), 0);
+		struct range {
+			ValueIterator<uint32_t> begin;
+			ValueIterator<uint32_t> end;
+		};
 
-		std::vector<uint32_t> levels(parameters.mipLevels);
-		std::iota(levels.begin(), levels.end(), 0);
+		range layers = { .begin{0}, .end{parameters.arrayLayers} };
+		range levels = { .begin{0}, .end{parameters.mipLevels} };
 
 		/*
 			we stream-hash texels per given mip level & layer
@@ -246,10 +298,10 @@ public:
 				blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
 			};
 
-			std::for_each(policy, layers.begin(), layers.end(), executePerLayer); // fire per layer for given given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
+			std::for_each(policy, layers.begin, layers.end, executePerLayer); // fire per layer for given given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
 		};
 
-		std::for_each(policy, levels.begin(), levels.end(), executePerMipLevel); // fire per block of layers for given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
+		std::for_each(policy, levels.begin, levels.end, executePerMipLevel); // fire per block of layers for given mip level with specified execution policy, yes you can use parallel policy here if you want at it will work
 
 		/*
 			scratch's heap is filled with all hashes,
