@@ -16,8 +16,16 @@ namespace luma_meter
 
 struct MeteringWindow
 {
+	using this_t = MeteringWindow;
 	float32_t2 meteringWindowScale;
 	float32_t2 meteringWindowOffset;
+
+	static this_t create(float32_t2 scale, float32_t2 offset) {
+		this_t retval;
+		retval.meteringWindowScale = scale;
+		retval.meteringWindowOffset = offset;
+		return retval;
+	}
 };
 
 }
