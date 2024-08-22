@@ -1,197 +1,146 @@
 #ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_UTILS_INCLUDED_
 
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
 
 namespace nbl
 {
 namespace hlsl
 {
-// should i use this namespace?
-//namespace ef64_util
-//{
-// TODO: this is mess, refactorize it
-#ifndef __HLSL_VERSION
-using ef64_t2 = float64_t2;
-using ef64_t3 = float64_t3;
-using ef64_t4 = float64_t4;
-using ef64_t3x3 = float64_t3x3;
-using ef64_t2x2 = float64_t4x4;
-#else
-struct ef64_t2
-{
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
+// TODO: enable
+//template<typename device_capabilities = void, bool FastMath = false, bool FlushDenormToZero = true>
+//using portable_float64_t = conditional_t<device_capability_traits<device_capabilities>::shaderFloat64, float64_t, typename emulated_float64_t<FastMath, FlushDenormToZero> >;
 
-    emulated_float64_t<false, true> calcComponentSum() NBL_CONST_MEMBER_FUNC
+#ifndef __HLSL_VERSION
+template<typename device_capabilities = void, bool FastMathIfEmulated = false, bool FlushDenormToZeroIfEmulated = true>
+using portable_float64_t = typename conditional<true, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
+#else
+template<typename device_capabilities = void, bool FastMathIfEmulated = false, bool FlushDenormToZeroIfEmulated = true>
+using portable_float64_t = typename conditional<false, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
+#endif
+
+template<typename EmulatedType, uint32_t N>
+struct emulated_vector {};
+
+template<typename EmulatedType>
+struct emulated_vector<EmulatedType, 2>
+{
+    using type = emulated_vector<EmulatedType, 2>;
+
+    EmulatedType x;
+    EmulatedType y;
+
+    EmulatedType calcComponentSum() NBL_CONST_MEMBER_FUNC
     {
         return x + y;
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(emulated_float64_t<false, true> x, emulated_float64_t<false, true> y)
+    NBL_CONSTEXPR_STATIC_INLINE type create(EmulatedType x, EmulatedType y)
     {
-        ef64_t2 output;
+        type output;
         output.x = x;
         output.y = y;
 
         return output;
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(float val)
+    type operator+(float rhs)
     {
-        ef64_t2 output;
-        output.x = emulated_float64_t<false, true>::create(val);
-        output.y = emulated_float64_t<false, true>::create(val);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(float32_t2 val)
-    {
-        ef64_t2 output;
-        output.x = emulated_float64_t<false, true>::create(val.x);
-        output.y = emulated_float64_t<false, true>::create(val.y);
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t2 create(uint32_t2 val)
-    {
-        ef64_t2 output;
-        output.x = emulated_float64_t<false, true>::create(val.x);
-        output.y = emulated_float64_t<false, true>::create(val.y);
-
-        return output;
-    }
-
-    ef64_t2 operator+(float rhs)
-    {
-        ef64_t2 output;
-        emulated_float64_t<false, true> rhsAsEF64 = emulated_float64_t<false, true>::create(rhs);
+        type output;
+        EmulatedType rhsAsEF64 = EmulatedType::create(rhs);
         output.x = x + rhsAsEF64;
         output.y = y + rhsAsEF64;
 
         return output;
     }
 
-    ef64_t2 operator+(emulated_float64_t<false, true> rhs)
+    type operator+(EmulatedType rhs)
     {
-        ef64_t2 output;
+        type output;
         output.x = x + rhs;
         output.y = y + rhs;
 
         return output;
     }
 
-    ef64_t2 operator+(ef64_t2 rhs)
+    type operator+(type rhs)
     {
-        ef64_t2 output;
+        type output;
         output.x = x + rhs.x;
         output.y = y + rhs.y;
 
         return output;
     }
 
-    ef64_t2 operator-(float rhs)
+    type operator-(float rhs)
     {
         return create(x, y) + (-rhs);
     }
 
-    ef64_t2 operator-(emulated_float64_t<false, true> rhs)
+    type operator-(EmulatedType rhs)
     {
         return create(x, y) + (rhs.flipSign());
     }
 
-    ef64_t2 operator-(ef64_t2 rhs)
+    type operator-(type rhs)
     {
         rhs.x = rhs.x.flipSign();
         rhs.y = rhs.y.flipSign();
         return create(x, y) + rhs;
     }
 
-    ef64_t2 operator*(float rhs)
+    type operator*(float rhs)
     {
-        ef64_t2 output;
-        emulated_float64_t<false, true> rhsAsEF64 = emulated_float64_t<false, true>::create(rhs);
+        type output;
+        EmulatedType rhsAsEF64 = EmulatedType::create(rhs);
         output.x = x * rhsAsEF64;
         output.y = y * rhsAsEF64;
 
         return output;
     }
 
-    ef64_t2 operator*(emulated_float64_t<false, true> rhs)
+    type operator*(EmulatedType rhs)
     {
-        ef64_t2 output;
+        type output;
         output.x = x * rhs;
         output.y = y * rhs;
 
         return output;
     }
 
-    ef64_t2 operator*(ef64_t2 rhs)
+    type operator*(type rhs)
     {
-        ef64_t2 output;
+        type output;
         output.x = x * rhs.x;
         output.y = y * rhs.y;
 
         return output;
     }
 
-#ifdef __HLSL_VERSION
-    float2 getAsFloat2()
+    float32_t2 getAsFloat2()
     {
-        return float2(x.getAsFloat32(), y.getAsFloat32());
+        return float32_t2(x.getAsFloat32(), y.getAsFloat32());
     }
-#endif
 };
 
-struct ef64_t3
+template<typename EmulatedType>
+struct emulated_vector<EmulatedType, 3>
 {
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
-    emulated_float64_t<false, true> z;
+    using type = emulated_vector<EmulatedType, 3>;
 
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t3 create(NBL_REF_ARG(ef64_t3) other)
-    {
-        ef64_t3 output;
+    EmulatedType x;
+    EmulatedType y;
+    EmulatedType z;
 
-        output.x = other.x;
-        output.y = other.y;
-        output.z = other.z;
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t3 create(NBL_REF_ARG(ef64_t2) other, emulated_float64_t<false, true> z)
-    {
-        ef64_t3 output;
-
-        output.x = other.x;
-        output.y = other.y;
-        output.z = z;
-
-        return output;
-    }
-
-    NBL_CONSTEXPR_STATIC_INLINE ef64_t3 create(NBL_REF_ARG(ef64_t2) other, int z)
-    {
-        ef64_t3 output;
-
-        output.x = other.x;
-        output.y = other.y;
-        output.z = emulated_float64_t<false, true>::create(z);
-
-        return output;
-    }
-
-    emulated_float64_t<false, true> calcComponentSum() NBL_CONST_MEMBER_FUNC
+    EmulatedType calcComponentSum() NBL_CONST_MEMBER_FUNC
     {
         return x + y + z;
     }
 
-    ef64_t3 operator*(NBL_CONST_REF_ARG(ef64_t3) rhs) NBL_CONST_MEMBER_FUNC
+    type operator*(NBL_CONST_REF_ARG(type) rhs) NBL_CONST_MEMBER_FUNC
     {
-        ef64_t3 output;
+        type output;
         output.x = x * rhs.x;
         output.y = y * rhs.y;
         output.z = z * rhs.z;
@@ -200,21 +149,92 @@ struct ef64_t3
     }
 };
 
-struct ef64_t4
+template<typename EmulatedType>
+struct emulated_vector<EmulatedType, 4>
 {
-    emulated_float64_t<false, true> x;
-    emulated_float64_t<false, true> y;
-    emulated_float64_t<false, true> z;
-    emulated_float64_t<false, true> w;
+    using type = emulated_vector<EmulatedType, 4>;
+
+    EmulatedType x;
+    EmulatedType y;
+    EmulatedType z;
+    EmulatedType w;
 };
 
-struct ef64_t3x3
-{
-    ef64_t3 columns[3];
+template<typename EmulatedType>
+using emulated_vector_t2 = emulated_vector<EmulatedType, 2>;
+template<typename EmulatedType>
+using emulated_vector_t3 = emulated_vector<EmulatedType, 3>;
+template<typename EmulatedType>
+using emulated_vector_t4 = emulated_vector<EmulatedType, 4>;
 
-    ef64_t3x3 getTransposed() NBL_CONST_MEMBER_FUNC
+//template<typename EmulatedType, uint32_t N, uint32_t M>
+//struct emulated_matrix_base
+//{
+//    using vec_t = emulated_vector<EmulatedType, N>;
+//    vec_t columns[M];
+//};
+
+template<typename EmulatedType, uint32_t N, uint32_t M>
+struct emulated_matrix {}; // : emulated_matrix_base<EmulatedType, N, M> {};
+
+template<typename EmulatedType>
+struct emulated_matrix<EmulatedType, 2, 2>// : emulated_matrix_base<EmulatedType, 2, 2>
+{
+    using vec_t = emulated_vector_t2<EmulatedType>;
+    using type = emulated_matrix<EmulatedType, 2, 2>;
+
+    vec_t columns[2];
+
+    type getTransposed() NBL_CONST_MEMBER_FUNC
     {
-        ef64_t3x3 output;
+        type output;
+
+        output.columns[0].x = columns[0].x;
+        output.columns[1].x = columns[0].y;
+
+        output.columns[0].y = columns[1].x;
+        output.columns[1].y = columns[1].y;
+
+        return output;
+    }
+
+    type operator*(NBL_CONST_REF_ARG(type) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        type output;
+        type lhsTransposed = getTransposed();
+
+        output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
+        output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
+
+        output.columns[1].x = (lhsTransposed.columns[1] * rhs.columns[0]).calcComponentSum();
+        output.columns[1].y = (lhsTransposed.columns[1] * rhs.columns[1]).calcComponentSum();
+
+        return output.getTransposed();
+    }
+
+    vec_t operator*(NBL_CONST_REF_ARG(vec_t) rhs)
+    {
+        vec_t output;
+        type lhsTransposed = getTransposed();
+
+        output.x = (columns[0] * rhs).calcComponentSum();
+        output.y = (columns[1] * rhs).calcComponentSum();
+
+        return output;
+    }
+};
+
+template<typename EmulatedType>
+struct emulated_matrix<EmulatedType, 3, 3> // : emulated_matrix_base<EmulatedType, 3, 3>
+{
+    using vec_t = emulated_vector_t3<EmulatedType>;
+    using type = emulated_matrix<EmulatedType, 3, 3>;
+
+    vec_t columns[3];
+
+    type getTransposed() NBL_CONST_MEMBER_FUNC
+    {
+        type output;
 
         output.columns[0].x = columns[0].x;
         output.columns[1].x = columns[0].y;
@@ -231,10 +251,10 @@ struct ef64_t3x3
         return output;
     }
 
-    ef64_t3x3 operator*(NBL_CONST_REF_ARG(ef64_t3x3) rhs) NBL_CONST_MEMBER_FUNC
+    type operator*(NBL_CONST_REF_ARG(type) rhs) NBL_CONST_MEMBER_FUNC
     {
-        ef64_t3x3 output;
-        ef64_t3x3 lhsTransposed = getTransposed();
+        type output;
+        type lhsTransposed = getTransposed();
 
         output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
         output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
@@ -252,10 +272,10 @@ struct ef64_t3x3
         return output.getTransposed();
     }
 
-    ef64_t3 operator*(NBL_CONST_REF_ARG(ef64_t3) rhs)
+    vec_t operator*(NBL_CONST_REF_ARG(vec_t) rhs)
     {
-        ef64_t3 output;
-        ef64_t3x3 lhsTransposed = getTransposed();
+        vec_t output;
+        type lhsTransposed = getTransposed();
 
         output.x = (columns[0] * rhs).calcComponentSum();
         output.y = (columns[1] * rhs).calcComponentSum();
@@ -265,101 +285,179 @@ struct ef64_t3x3
     }
 };
 
-struct ef64_t2x2
+template<typename EmulatedType>
+using emulated_matrix_t2x2 = emulated_matrix<EmulatedType, 2, 2>;
+template<typename EmulatedType>
+using emulated_matrix_t3x3 = emulated_matrix<EmulatedType, 3, 3>;
+
+namespace impl
 {
-    ef64_t2 columns[2];
-
-    ef64_t2x2 getTransposed() NBL_CONST_MEMBER_FUNC
-    {
-        ef64_t2x2 output;
-
-        output.columns[0].x = columns[0].x;
-        output.columns[1].x = columns[0].y;
-
-        output.columns[0].y = columns[1].x;
-        output.columns[1].y = columns[1].y;
-
-        return output;
-    }
-
-    ef64_t2x2 operator*(NBL_CONST_REF_ARG(ef64_t2x2) rhs) NBL_CONST_MEMBER_FUNC
-    {
-        ef64_t2x2 output;
-        ef64_t2x2 lhsTransposed = getTransposed();
-
-        output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
-        output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
-
-        output.columns[1].x = (lhsTransposed.columns[1] * rhs.columns[0]).calcComponentSum();
-        output.columns[1].y = (lhsTransposed.columns[1] * rhs.columns[1]).calcComponentSum();
-
-        return output.getTransposed();
-    }
-
-    ef64_t2 operator*(NBL_CONST_REF_ARG(ef64_t2) rhs)
-    {
-        ef64_t2 output;
-        ef64_t2x2 lhsTransposed = getTransposed();
-
-        output.x = (columns[0] * rhs).calcComponentSum();
-        output.y = (columns[1] * rhs).calcComponentSum();
-
-        return output;
-    }
+template<typename T>
+struct is_emulated
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool value = is_same<T, emulated_float64_t<true, true> >::value ||
+        is_same<T, emulated_float64_t<false, false> >::value ||
+        is_same<T, emulated_float64_t<true, false> >::value ||
+        is_same<T, emulated_float64_t<false, true> >::value;
 };
 
-#endif
+template<typename T, uint32_t N, bool native = is_scalar<T>::value >
+struct portable_vector
+{
+    using type = emulated_vector<T, N>;
+};
+// specialization for builtins
+template<typename T, uint32_t N>
+struct portable_vector<T, N, true>
+{
+    using type = vector<T, N>;
+};
 
-// struct VecT is solution to
-// error: 'nbl::hlsl::emulated_float64_t<false, true>' cannot be used as a type parameter where a scalar is required
-// using float_t2 = typename conditional<is_same<float_t, emulated_float64_t<false, true> >::value, ef64_t2, vector<float_t, 2> >::type;
+template<typename T, uint32_t N, uint32_t M, bool native = is_scalar<T>::value >
+struct portable_matrix
+{
+    using type = emulated_matrix<T, N, M>;
+};
 
-// TODO: better solution
+template<typename T, uint32_t N, uint32_t M>
+struct portable_matrix<T, N, M, true>
+{
+    using type = matrix<T, N, M>;
+};
 
-#ifndef __HLSL_VERSION
-using F64_t = double;
-#else
-using F64_t = emulated_float64_t<false, true>;
-#endif
+}
 
-template<typename T, uint16_t N>
-struct VecT { using type = void; };
-
-template<>
-struct VecT<float, 2> { using type = vector<float, 2>; };
-template<>
-struct VecT<float, 3> { using type = vector<float, 3>; };
-template<>
-struct VecT<float, 4> { using type = vector<float, 4>; };
-
-#ifndef __HLSL_VERSION
-template<>
-struct VecT<double, 2> { using type = float64_t2; };
-template<>
-struct VecT<double, 3> { using type = float64_t3; };
-template<>
-struct VecT<double, 4> { using type = float64_t4; };
-#endif
-
-template<>
-struct VecT<emulated_float64_t<false, true>, 2> { using type = ef64_t2; };
-template<>
-struct VecT<emulated_float64_t<false, true>, 3> { using type = ef64_t3; };
-template<>
-struct VecT<emulated_float64_t<false, true>, 4> { using type = ef64_t4; };
+template<typename T, uint32_t N>
+using portable_vector_t = typename impl::portable_vector<T, N>::type;
 
 template<typename T>
-struct Mat2x2T { using type = void; };
-template<>
-struct Mat2x2T<float> { using type = float32_t2x2; };
-#ifndef __HLSL_VERSION
-template<>
-struct Mat2x2T<double> { using type = float64_t2x2; };
-#endif
-template<>
-struct Mat2x2T<emulated_float64_t<false, true> > { using type = ef64_t2x2; };
+using portable_vector_t2 = portable_vector_t<T, 2>;
+template<typename T>
+using portable_vector_t3 = portable_vector_t<T, 3>;
+template<typename T>
+using portable_vector_t4 = portable_vector_t<T, 4>;
 
-//}
+using portable_vector64_t2 = portable_vector_t2<portable_float64_t<> >;
+using portable_vector64_t3 = portable_vector_t3<portable_float64_t<> >;
+using portable_vector64_t4 = portable_vector_t4<portable_float64_t<> >;
+
+template<typename T, uint32_t N, uint32_t M>
+using portable_matrix_t = typename impl::portable_matrix<T, N, M>::type;
+
+template<typename T>
+using portable_matrix_t2x2 = portable_matrix_t<T, 2, 2>;
+template<typename T>
+using portable_matrix_t3x3 = portable_matrix_t<T, 3, 3>;
+
+using portable_matrix64_t2x2 = portable_matrix_t2x2<portable_float64_t<> >;
+using portable_matrix64_t3x3 = portable_matrix_t3x3<portable_float64_t<> >;
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC portable_float64_t<> create_portable_float64_t(T val)
+{
+    //return impl::portable_float64_t_creator::create(val);
+    if (impl::is_emulated<portable_float64_t<> >::value)
+        return portable_float64_t<>::create(val);
+    else
+        return portable_float64_t<>(val);
+}
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t2 create_portable_vector64_t2(T val)
+{
+    portable_vector64_t2 output;
+    output.x = create_portable_float64_t(val);
+    output.y = create_portable_float64_t(val);
+
+    return output;
+}
+
+template<typename X, typename Y>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t2 create_portable_vector64_t2(X x, Y y)
+{
+    portable_vector64_t2 output;
+    output.x = create_portable_float64_t(x);
+    output.y = create_portable_float64_t(y);
+
+    return output;
+}
+
+template<typename VecType>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t2 create_portable_vector64_t2_from_2d_vec(VecType vec)
+{
+    portable_vector64_t2 output;
+    output.x = create_portable_float64_t(vec.x);
+    output.y = create_portable_float64_t(vec.y);
+
+    return output;
+}
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t3 create_portable_vector64_t3(T val)
+{
+    portable_vector64_t3 output;
+    output.x = create_portable_float64_t(val);
+    output.y = create_portable_float64_t(val);
+    output.z = create_portable_float64_t(val);
+
+    return output;
+}
+
+template<typename X, typename Y, typename Z>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t3 create_portable_vector64_t3(X x, Y y, Z z)
+{
+    portable_vector64_t3 output;
+    output.x = create_portable_float64_t(x);
+    output.y = create_portable_float64_t(y);
+    output.z = create_portable_float64_t(z);
+
+    return output;
+}
+
+template<typename VecType>
+NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t3 create_portable_vector64_t2_from_3d_vec(VecType vec)
+{
+    portable_vector64_t3 output;
+    output.x = create_portable_float64_t(vec.x);
+    output.y = create_portable_float64_t(vec.y);
+    output.z = create_portable_float64_t(vec.z);
+
+    return output;
+}
+
+template<bool is_float64_emulated = impl::is_emulated<portable_float64_t<> >::value>
+inline float32_t2 convert_portable_vector64_t2_to_float32_t2(portable_vector64_t2 vec)
+{
+    return float32_t2(vec.x, vec.y);
+}
+
+template<>
+inline float32_t2 convert_portable_vector64_t2_to_float32_t2<true>(portable_vector64_t2 vec)
+{
+#ifdef __HLSL_VERSION
+    return emulated_vector<portable_float64_t<>, 2>::create(vec.x, vec.y).getAsFloat2();
+#else
+    return float32_t2(bit_cast<float>(0xdeadbeefu), bit_cast<float>(0xbadcaffeu));
+#endif
+}
+
+template<bool is_float64_emulated = impl::is_emulated<portable_float64_t<> >::value>
+inline float32_t convert_portable_float64_t_to_float(portable_float64_t<> val)
+{
+    
+    return float32_t(val);
+}
+
+template<>
+inline float32_t convert_portable_float64_t_to_float<true>(portable_float64_t<> val)
+{
+#ifdef __HLSL_VERSION
+    return val.getAsFloat32();
+#else
+    return float32_t(bit_cast<float>(0xdeadbeefu));
+#endif
+}
+
 }
 }
 #endif

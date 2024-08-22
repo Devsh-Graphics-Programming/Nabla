@@ -29,8 +29,7 @@ namespace equations
 template<typename float_t>
 struct Quadratic
 {
-    using float_t22 = typename VecT<float_t, 2>::type;
-    using float_t33 = typename VecT<float_t, 3>::type;
+    using float_t2 = portable_vector_t2<float_t>;
 
     float_t a;
     float_t b;
@@ -47,9 +46,9 @@ struct Quadratic
         return t * (a * t + b) + c;
     }
 
-    float_t22 computeRoots()
+    float_t2 computeRoots()
     {
-        float_t22 ret;
+        float_t2 ret;
 
         const float_t det = b * b - 4.0 * a * c;
         const float_t detSqrt = sqrt(det);
