@@ -11,9 +11,6 @@
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/math/morton.hlsl"
-#include "nbl/builtin/hlsl/colorspace/EOTF.hlsl"
-#include "nbl/builtin/hlsl/colorspace/OETF.hlsl"
-#include "nbl/builtin/hlsl/colorspace/encodeCIEXYZ.hlsl"
 #include "nbl/builtin/hlsl/luma_meter/common.hlsl"
 
 namespace nbl
@@ -25,42 +22,45 @@ namespace luma_meter
 
 template<uint32_t GroupSize, typename ValueAccessor, typename SharedAccessor, typename TexAccessor>
 struct geom_meter {
+    using float_t = typename SharedAccessor::type;
+    using float_t2 = typename conditional<is_same_v<float_t, float32_t>, float32_t2, float16_t2>::type;
+    using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
     using this_t = geom_meter<GroupSize, ValueAccessor, SharedAccessor, TexAccessor>;
 
-    static this_t create(float32_t2 lumaMinMax)
+    static this_t create(float_t2 lumaMinMax)
     {
         this_t retval;
         retval.lumaMinMax = lumaMinMax;
         return retval;
     }
 
-    float32_t reduction(float32_t value, NBL_REF_ARG(SharedAccessor) sdata)
+    float_t reduction(float_t value, NBL_REF_ARG(SharedAccessor) sdata)
     {
-        return workgroup::reduction < plus < float32_t >, GroupSize >::
+        return workgroup::reduction < plus < float_t >, GroupSize >::
             template __call <SharedAccessor>(value, sdata);
     }
 
-    float32_t computeLuma(
+    float_t computeLumaLog2(
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(TexAccessor) tex,
-        float32_t2 shiftedCoord
+        float_t2 shiftedCoord
     )
     {
-        float32_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
-        float32_t3 color = colorspace::oetf::sRGB(tex.get(uvPos));
-        float32_t luma = dot(colorspace::sRGBtoXYZ[1], color);
+        float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
+        float_t3 color = tex.get(uvPos);
+        float_t luma = TexAccessor::toXYZ(color);
 
         luma = clamp(luma, lumaMinMax.x, lumaMinMax.y);
 
-        return log2(luma / lumaMinMax.x) / log2(lumaMinMax.y / lumaMinMax.x);
+        return max(log2(luma), log2(lumaMinMax.x));
     }
 
-    void gatherLuma(
+    void sampleLuma(
         NBL_CONST_REF_ARG(MeteringWindow) window,
         NBL_REF_ARG(ValueAccessor) val,
         NBL_REF_ARG(TexAccessor) tex,
         NBL_REF_ARG(SharedAccessor) sdata,
-        float32_t2 tileOffset
+        float_t2 tileOffset
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -69,9 +69,9 @@ struct geom_meter {
             morton2d_decode_y(tid)
         };
 
-        float32_t luma = 0.0f;
-        luma = computeLuma(window, tex, tileOffset + (float32_t2)(coord));
-        float32_t lumaSum = reduction(luma, sdata);
+        float_t luma = 0.0f;
+        luma = computeLumaLog2(window, tex, tileOffset + (float32_t2)(coord));
+        float_t lumaSum = reduction(luma, sdata);
 
         if (tid == GroupSize - 1) {
             uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
@@ -86,7 +86,7 @@ struct geom_meter {
         }
     }
 
-    float32_t2 lumaMinMax;
+    float_t2 lumaMinMax;
 };
 }
 }
