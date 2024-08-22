@@ -24,12 +24,15 @@ namespace workgroup
 template<typename T, class Accessor>
 T Broadcast(NBL_CONST_REF_ARG(T) val, NBL_REF_ARG(Accessor) accessor, const uint32_t id)
 {
+    // TODO: use Shared Memory adaptor, and layout the `val` across multiple fields in smem
     if(SubgroupContiguousIndex()==id)
         accessor.set(0,val);
     
     accessor.workgroupExecutionAndMemoryBarrier();
     
-    return accessor.get(0);
+    T retVal;
+    accessor.get(0, retVal);
+    return retVal;
 }
 
 template<typename T, class Accessor>

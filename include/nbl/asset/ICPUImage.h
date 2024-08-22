@@ -33,7 +33,10 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
             if(regions && !regions->empty())
                 cp->regions = core::make_refctd_dynamic_array<decltype(regions)>(*regions);
 
-            cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
+			if (_depth > 0u && buffer)
+				cp->buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u));
+			else
+				cp->buffer = buffer;
 
             return cp;
         }
