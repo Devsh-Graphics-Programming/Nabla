@@ -4,7 +4,7 @@
 
 // single separable image sampler to handle all textures we descriptor-index
 [[vk::binding(0,0)]] Texture2D textures[NBL_MAX_IMGUI_TEXTURES];
-[[vk::binding(1,0)]] SamplerState samplerState;
+[[vk::binding(1,0)]] SamplerState samplerStates[NBL_MAX_IMGUI_TEXTURES];
 
 /*
     we use Indirect Indexed draw call to render whole GUI, note we do a cross 
@@ -15,8 +15,12 @@
 float4 PSMain(PSInput input) : SV_Target0
 {
     // BDA for requesting object data
-    // TODO: move this to vertex shader, then pass along as interpolant
     const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* input.drawID);
 
-    return input.color * textures[NonUniformResourceIndex(self.texId)].Sample(samplerState, input.uv);
+    float4 texel = textures[NonUniformResourceIndex(self.texId)].Sample(samplerStates[self.texId], input.uv) * input.color;
+
+    if(self.texId != 0) // TMP!
+        texel.w = 1.f;
+
+    return texel;
 }

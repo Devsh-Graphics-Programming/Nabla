@@ -88,22 +88,26 @@ namespace nbl::ext::imgui
 			blendParams.logicOp = ELO_NO_OP;
 
 			auto& param = blendParams.blendParams[0];
-			param.srcColorFactor = EBF_SRC_ALPHA;//VK_BLEND_FACTOR_SRC_ALPHA;
-			param.dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;//VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			param.colorBlendOp = EBO_ADD;//VK_BLEND_OP_ADD;
-			param.srcAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;//VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			param.dstAlphaFactor = EBF_ZERO;//VK_BLEND_FACTOR_ZERO;
-			param.alphaBlendOp = EBO_ADD;//VK_BLEND_OP_ADD;
-			param.colorWriteMask = (1u << 0u) | (1u << 1u) | (1u << 2u) | (1u << 3u);//VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
+			// color blending factors (for RGB)
+			param.srcColorFactor = EBF_SRC_ALPHA;
+			param.dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+			param.colorBlendOp = EBO_ADD;
+
+			// alpha blending factors (for A)
+			param.srcAlphaFactor = EBF_ONE;
+			param.dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+			param.alphaBlendOp = EBO_ADD;
+
+			// Write all components (R, G, B, A)
+			param.colorWriteMask = (1u << 0u) | (1u << 1u) | (1u << 2u) | (1u << 3u);
 		}
 	
 		SRasterizationParams rasterizationParams{};
 		{
 			rasterizationParams.faceCullingMode = EFCM_NONE;
-			rasterizationParams.depthWriteEnable = false; // TODO: check if it disabled depth test?
+			rasterizationParams.depthWriteEnable = false;
 			rasterizationParams.depthBoundsTestEnable = false;
-			// rasterizationParams.stencilTestEnable = false; // TODO: check if stencil test is disabled
 		}
 
 		SPrimitiveAssemblyParams primitiveAssemblyParams{};
