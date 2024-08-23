@@ -27,8 +27,8 @@ inline bool isnan(T val)
 }
 
 // TODO: better implementation, also i'm not sure this is the right place for this function
-template<typename Uint>
-NBL_CONSTEXPR_INLINE_FUNC Uint lerp(Uint a, Uint b, bool c)
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC enable_if<is_fundamental<T>::type, T>::type lerp(T a, T b, bool c)
 {
 	return c ? b : a;
 }

@@ -173,25 +173,6 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rh
 #endif
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint32_t2 add64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
-{
-   uint32_t2 output;
-   output.y = a1 + b1;
-   output.x = a0 + b0 + uint32_t(output.y < a1);
-
-   return output;
-}
-
-NBL_CONSTEXPR_INLINE_FUNC uint32_t2 sub64(uint32_t a0, uint32_t a1, uint32_t b0, uint32_t b1)
-{
-    uint32_t2 output;
-    output.y = a1 - b1;
-    output.x = a0 - b0 - uint32_t(a1 < b1);
-    
-    return output;
-}
-
-    // TODO: test
 static inline int countLeadingZeros32(uint32_t val)
 {
 #ifndef __HLSL_VERSION
@@ -217,46 +198,6 @@ NBL_CONSTEXPR_INLINE_FUNC uint32_t2 shift64RightJamming(uint32_t2 val, int count
     output.y = tgmath::lerp(output.y, z1_lt32, count < 32);
     output.y = tgmath::lerp(output.y, val.y, count == 0);
     
-    return output;
-}
-
-
-NBL_CONSTEXPR_INLINE_FUNC uint32_t4 mul64to128(uint32_t4 mantissasPacked)
-{
-    uint32_t4 output;
-    uint32_t more1 = 0u;
-    uint32_t more2 = 0u;
-
-    // a0 = x
-    // a1 = y
-    // b0 = z
-    // b1 = w
-
-    uint32_t2 z2z3 = umulExtended(mantissasPacked.y, mantissasPacked.w);
-    output.z = z2z3.x;
-    output.w = z2z3.y;
-    uint32_t2 z1more2 = umulExtended(mantissasPacked.y, mantissasPacked.z);
-    output.y = z1more2.x;
-    more2 = z1more2.y;
-    uint32_t2 z1z2 = add64(output.y, more2, 0u, output.z);
-    output.y = z1z2.x;
-    output.z = z1z2.y;
-    uint32_t2 z0more1 = umulExtended(mantissasPacked.x, mantissasPacked.z);
-    output.x = z0more1.x;
-    more1 = z0more1.y;
-    uint32_t2 z0z1 = add64(output.x, more1, 0u, output.y);
-    output.x = z0z1.x;
-    output.y = z0z1.y;
-    uint32_t2 more1more2 = umulExtended(mantissasPacked.x, mantissasPacked.w);
-    more1 = more1more2.x;
-    more2 = more1more2.y;
-    uint32_t2 more1z2 = add64(more1, more2, 0u, output.z);
-    more1 = more1z2.x;
-    output.z = more1z2.y;
-    uint32_t2 z0z12 = add64(output.x, output.y, 0u, more1);
-    output.x = z0z12.x;
-    output.y = z0z12.y;
-
     return output;
 }
 
