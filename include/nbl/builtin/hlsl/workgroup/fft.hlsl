@@ -276,6 +276,7 @@ struct FFT<K, false, Scalar, device_capabilities>
 
         // do K/2 small workgroup FFTs
         accessor_adaptors::Offset<Accessor> offsetAccessor;
+        offsetAccessor.accessor = accessor;
         [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
@@ -297,6 +298,7 @@ struct FFT<K, true, Scalar, device_capabilities>
     {
         // do K/2 small workgroup FFTs
         accessor_adaptors::Offset<Accessor> offsetAccessor;
+        offsetAccessor.accessor = accessor;
         [unroll]
         for (uint32_t k = 0; k < K; k += 2)
         {
