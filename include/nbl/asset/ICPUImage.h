@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class ICPUImage final : public IImage, public IAsset
+class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(const SCreationParams& _params)
@@ -29,35 +29,29 @@ class ICPUImage final : public IImage, public IAsset
         {
             auto par = m_creationParams;
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
-            clone_common(cp.get());
 
             if(regions && !regions->empty())
                 cp->regions = core::make_refctd_dynamic_array<decltype(regions)>(*regions);
 
-            cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
+			if (_depth > 0u && buffer)
+				cp->buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u));
+			else
+				cp->buffer = buffer;
 
             return cp;
         }
 
-        inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			if (buffer)
-				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-
-			if (canBeConvertedToDummy())
-				regions = nullptr;
-        }
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
+		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-        virtual size_t conservativeSizeEstimate() const override
+		// Having regions specififed to upload is optional!
+		inline size_t getDependantCount() const override {return !missingContent()&&buffer ? 1:0;}
+
+		core::blake3_hash_t computeContentHash() const override;
+
+		inline bool missingContent() const override
 		{
-			assert(regions);
-			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
+			return !regions || regions->empty() || !buffer;
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
@@ -67,20 +61,20 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline ICPUBuffer* getBuffer() 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			return buffer.get(); 
 		}
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions() const
+		inline std::span<const IImage::SBufferCopy> getRegions() const
 		{
 			if (regions)
 				return {regions->begin(),regions->end()};
-			return {nullptr,nullptr};
+			return {};
 		}
 
-		inline core::SRange<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
+		inline std::span<const IImage::SBufferCopy> getRegions(uint32_t mipLevel) const
 		{
 			const IImage::SBufferCopy dummy = { 0ull,0u,0u,{static_cast<E_ASPECT_FLAGS>(0u),mipLevel,0u,0u},{},{} };
 			auto begin = std::lower_bound(regions->begin(),regions->end(),dummy,mip_order_t());
@@ -133,7 +127,7 @@ class ICPUImage final : public IImage, public IAsset
 		//
 		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
@@ -146,7 +140,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
@@ -166,7 +160,7 @@ class ICPUImage final : public IImage, public IAsset
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 			{
@@ -188,7 +182,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline bool setImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			if(isImmutable_debug())
+			if(!isMutable())
 				return ((m_creationParams.usage & usage).value == usage.value);
 			m_creationParams.usage = usage;
 			return true;
@@ -196,52 +190,25 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline bool addImageUsageFlags(core::bitflag<E_USAGE_FLAGS> usage)
 		{
-			if(isImmutable_debug())
+			if(!isMutable())
 				return ((m_creationParams.usage & usage).value == usage.value);
 			m_creationParams.usage |= usage;
 			return true;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUImage*>(_other);
-			if (info != other->info)
-				return false;
-			if (m_creationParams != other->m_creationParams)
-				return false;
-			if (!buffer->canBeRestoredFrom(other->buffer.get()))
-				return false;
-
-			return true;
-		}
-
     protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUImage*>(_other);
-
-			const bool restorable = willBeRestoredFrom(_other);
-
-			if (restorable)
-				std::swap(regions, other->regions);
-
-			if (_levelsBelow)
-				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			return buffer->isAnyDependencyDummy(_levelsBelow);
-		}
-
-		ICPUImage(const SCreationParams& _params) : IImage(_params)
-		{
-		}
-
+		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
+		inline IAsset* getDependant_impl(const size_t ix) override {return buffer.get();}
+
+		inline void discardContent_impl() override
+		{
+			buffer = nullptr;
+			regions = nullptr;
+		}
 		
+		// TODO: maybe we shouldn't make a single buffer back all regions?
 		core::smart_refctd_ptr<asset::ICPUBuffer>				buffer;
 		core::smart_refctd_dynamic_array<IImage::SBufferCopy>	regions;
 

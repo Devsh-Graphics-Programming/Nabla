@@ -54,6 +54,11 @@ using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integra
 
 //! General Operations
 
+// The holy operation that makes addrof possible
+template<uint32_t StorageClass, typename T>
+[[vk::ext_instruction(spv::OpCopyObject)]]
+pointer_t<StorageClass,T> copyObject([[vk::ext_reference]] T v);
+
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
@@ -164,15 +169,24 @@ template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
-template<typename T, typename P, uint32_t alignment>
+
+template<typename T, uint32_t alignment>
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpLoad)]]
-enable_if_t<is_spirv_type_v<P>, T> load(P pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+T load(pointer_t<spv::StorageClassPhysicalStorageBuffer,T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
-template<typename T, typename P, uint32_t alignment >
+template<typename T, typename P>
+[[vk::ext_instruction(spv::OpLoad)]]
+enable_if_t<is_spirv_type_v<P>,T> load(P pointer);
+
+template<typename T, uint32_t alignment>
 [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpStore)]]
-enable_if_t<is_spirv_type_v<P>, void> store(P pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+void store(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>  pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+
+template<typename T, typename P>
+[[vk::ext_instruction(spv::OpStore)]]
+enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
 
 //! Std 450 Extended set operations
 

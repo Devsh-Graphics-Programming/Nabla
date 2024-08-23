@@ -13,8 +13,6 @@
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "nbl/core/xxHash256.h"
-
 // Less leakage than "nlohmann/json.hpp" only forward declarations
 #include "nlohmann/json_fwd.hpp"
 
@@ -444,6 +442,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return found;
 			}
 			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+			// compute the SPIR-V shader content hash
+			{
+				auto backingBuffer = retVal->getContent();
+				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+			}
 			if (options.writeCache)
 			{
 				entry.dependencies = std::move(dependencies);
@@ -505,7 +508,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
 		{
-			if (!original || original->isADummyObjectForCache() || !original->isContentHighLevelLanguage())
+			if (!original || !original->isContentHighLevelLanguage())
+				return nullptr;
+
+			const auto content = original->getContent();
+			if (!content || !content->getPointer())
 				return nullptr;
 
 			constexpr auto getMaxSize = [](auto num) -> size_t
