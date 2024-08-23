@@ -145,49 +145,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUBuffer** const _begin
     return res;
 }
 
-namespace impl
-{
-template<typename MapIterator>
-struct CustomBoneNameIterator
-{
-        inline CustomBoneNameIterator(const MapIterator& it) : m_it(it) {}
-        inline CustomBoneNameIterator(MapIterator&& it) : m_it(std::move(it)) {}
-
-        inline bool operator!=(const CustomBoneNameIterator<MapIterator>& other) const
-        {
-            return m_it!=other.m_it;
-        }
-
-        inline CustomBoneNameIterator<MapIterator>& operator++()
-        {
-            ++m_it;
-            return *this;
-        }
-        inline CustomBoneNameIterator<MapIterator> operator++(int)
-        {
-            return m_it++;
-        }
-
-        inline const auto& operator*() const
-        {
-            return m_it->first;
-        }
-        inline auto& operator*()
-        {
-            return m_it->first;
-        }
-
-        using iterator_category = typename std::iterator_traits<MapIterator>::iterator_category;
-        using difference_type = typename std::iterator_traits<MapIterator>::difference_type;
-        using value_type = const char*;
-        using reference = std::add_lvalue_reference_t<value_type>;
-        using pointer = std::add_pointer_t<value_type>;
-
-    private:
-        MapIterator m_it;
-};
-}
-
 
 // TODO: rewrite after GPU polyphase implementation
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin, const asset::ICPUImage** const _end, SParams& _params) -> created_gpu_object_array<asset::ICPUImage>
