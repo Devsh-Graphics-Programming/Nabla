@@ -27,7 +27,7 @@ namespace nbl::ext::imgui
 		SPushConstantRange pushConstantRanges[] = 
 		{
 			{
-				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT,
 				.offset = 0,
 				.size = sizeof(PushConstants)
 			}

@@ -12,11 +12,11 @@
     to request per object data with BDA
 */
 
-float4 PSMain(PSInput input, uint drawID : SV_InstanceID) : SV_Target0
+float4 PSMain(PSInput input) : SV_Target0
 {
     // BDA for requesting object data
     // TODO: move this to vertex shader, then pass along as interpolant
-    const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* drawID);
+    const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* input.drawID);
 
     return input.color * textures[NonUniformResourceIndex(self.texId)].Sample(samplerState, input.uv);
 }

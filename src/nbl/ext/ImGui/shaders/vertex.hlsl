@@ -13,6 +13,7 @@ PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
     PSInput output;
     output.color = input.color;
     output.uv = input.uv;
+    output.drawID = drawID;
 
     // BDA for requesting object data
     const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* drawID);

@@ -14,6 +14,7 @@
 		float4 position : SV_Position;
 		float2 uv : TEXCOORD0;
 		float4 color    : COLOR0;
+		uint drawID : SV_InstanceID;
 		float clip[4] : SV_ClipDistance;
 	};
 
