@@ -26,9 +26,10 @@ inline bool isnan(T val)
 	return bool((ieee754::extractBiasedExponent<T>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
 }
 
-// TODO: better implementation, also i'm not sure this is the right place for this function
+// TODO: better implementation
 template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC enable_if<is_fundamental<T>::type, T>::type lerp(T a, T b, bool c)
+//NBL_CONSTEXPR_INLINE_FUNC enable_if<is_fundamental<T>::type, T>::type lerp(T a, T b, bool c)
+NBL_CONSTEXPR_INLINE_FUNC T lerp(T a, T b, bool c)
 {
 	return c ? b : a;
 }

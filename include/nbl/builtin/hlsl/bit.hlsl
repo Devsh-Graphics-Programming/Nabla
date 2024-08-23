@@ -2,11 +2,10 @@
 #define _NBL_BUILTIN_HLSL_BIT_INCLUDED_
 
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/macros.h>
 
 
 #ifndef __HLSL_VERSION
-
 #include <bit>
 
 namespace nbl::hlsl
@@ -25,7 +24,6 @@ NBL_ALIAS_TEMPLATE_FUNCTION(std::countl_zero, countl_zero);
 
 }
 #else
-
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 
 namespace nbl
@@ -33,13 +31,33 @@ namespace nbl
 namespace hlsl
 {
 
-template<class To, class From>
-To bit_cast(From val)
+#if 0 // enable this if you run into bit_cast not working for a non fundamental type
+template<class T, class U>
+enable_if_t<sizeof(T)==sizeof(U)&&(is_scalar_v<T>||is_vector_v<T>)==(is_scalar_v<U>||is_vector_v<U>),T> bit_cast(U val)
 {
-    // TODO: fix
-    //static_assert(sizeof(To) <= sizeof(From));
-    return spirv::bitcast<To, From>(val);
+    return spirv::bitcast<T,U>(val);
 }
+// unfortunately its impossible to deduce Storage Class right now,
+// also this function will only work as long as `inout` behaves as `__restrict &` in DXC
+template<class T, class U, uint32_t StorageClass>
+enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(inout U val)
+{
+    using ptr_u_t = spirv::pointer_t<U,StorageClass>;
+    // get the address of U
+    ptr_u_t ptr_u = spirv::copyObject<StorageClass,U>(val);
+    using ptr_t_t = spirv::pointer_t<T,StorageClass>;
+    // reinterpret cast the pointers
+    ptr_t_t ptr_t = spirv::bitcast<ptr_t_t.ptr_u_t>(ptr_u);
+    // actually load and return the value
+    return spirv::load<T,ptr_t_t>(ptr_t);
+}
+#else
+template<class T, class U>
+enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(U val)
+{
+    return spirv::bitcast<T,U>(val);
+}
+#endif
 
 template<typename T, typename S>
 T rotl(T x, S s);
@@ -95,7 +113,7 @@ uint16_t clz(uint64_t N)
 template<>
 uint16_t clz<1>(uint64_t N) { return uint16_t(1u-N&1); }
 
-}
+} //namespace impl
 
 template<typename T>
 uint16_t countl_zero(T n)
