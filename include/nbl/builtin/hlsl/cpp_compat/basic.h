@@ -49,10 +49,23 @@ namespace nbl
 {
     namespace hlsl
     {
-        template<typename T, typename U>
-        T _static_cast(U v)
+        namespace impl
         {
-            return (T)v;
+            template<typename From, typename To>
+            struct static_cast_helper
+            {
+                static inline To cast(From u)
+                {
+                    return To(u);
+                }
+            };
+        }
+
+        template<typename To, typename From>
+        To _static_cast(From v)
+        {
+            return impl::static_cast_helper<To, From>(v);
+            //return (T)v;
         }
 
 #if 0 // TODO: for later

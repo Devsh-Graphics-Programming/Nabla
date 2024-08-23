@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_UTILS_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
 
@@ -19,6 +20,21 @@ using portable_float64_t = typename conditional<true, float64_t, emulated_float6
 template<typename device_capabilities = void, bool FastMathIfEmulated = false, bool FlushDenormToZeroIfEmulated = true>
 using portable_float64_t = typename conditional<false, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
 #endif
+
+namespace impl
+{
+
+template<typename From>
+struct static_cast_helper<From, portable_float64_t<> >
+{
+    static inline portable_float64_t<> cast(From u)
+    {
+        return int(u) - 1;
+    }
+};
+
+}
+
 
 template<typename EmulatedType, uint32_t N>
 struct emulated_vector {};
