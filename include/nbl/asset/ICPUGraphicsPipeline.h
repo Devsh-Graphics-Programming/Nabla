@@ -46,7 +46,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		
 		inline size_t getDependantCount() const override
 		{
-			auto stageCount = 1; // the layout
+			auto stageCount = 2; // the layout and renderpass
 			for (const auto& stage : m_stages)
 			if (stage.shader)
 				stageCount++;
@@ -79,12 +79,16 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		}
 		inline IAsset* getDependant_impl(const size_t ix) override
 		{
+			if (ix==0)
+				return m_layout.get();
+			if (ix==1)
+				return m_renderpass.get();
 			size_t stageCount = 0;
 			for (auto& stage : m_stages)
 			if (stage.shader)
-			if ((stageCount++)==ix)
+			if ((stageCount++)==ix-2)
 				return stage.shader.get();
-			return m_layout.get();
+			return nullptr;
 		}
 
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
