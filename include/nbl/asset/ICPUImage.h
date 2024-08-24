@@ -44,14 +44,15 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		// Having regions specififed to upload is optional!
-		inline size_t getDependantCount() const override {return !missingContent()&&buffer ? 1:0;}
+		// Do not report buffer as dependant, as we will simply drop it instead of discarding its contents!
+		inline size_t getDependantCount() const override {return 0;}
 
 		core::blake3_hash_t computeContentHash() const override;
 
+		// Having regions specififed to upload is optional! So to have content missing we must have regions but no buffer content
 		inline bool missingContent() const override
 		{
-			return !regions || regions->empty() || !buffer;
+			return regions && !regions->empty() && (!buffer || buffer->missingContent());
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
@@ -205,7 +206,6 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline void discardContent_impl() override
 		{
 			buffer = nullptr;
-			regions = nullptr;
 		}
 		
 		// TODO: maybe we shouldn't make a single buffer back all regions?
