@@ -106,10 +106,33 @@ struct asset_traits<asset::ICPUComputePipeline>
 	using lookup_t = const video_t*;
 };
 
-/*
+
 template<>
-struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = IGPUDescriptorSetLayout; };
-*/
+struct asset_traits<asset::ICPURenderpass>
+{
+	// the asset type
+	using asset_t = asset::ICPURenderpass;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPURenderpass;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUGraphicsPipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPUGraphicsPipeline;
+	// we reference a pipeline layout and a renderpass
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUGraphicsPipeline;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
 
 template<>
 struct asset_traits<asset::ICPUBuffer>
@@ -138,24 +161,80 @@ struct asset_traits<asset::ICPUBufferView>
 };
 
 
-/*
 template<>
-struct asset_traits<asset::ICPUImage> { using GPUObjectType = IGPUImage; };
+struct asset_traits<asset::ICPUImage>
+{
+	// the asset type
+	using asset_t = asset::ICPUImage;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = false;
+	// the video type
+	using video_t = IGPUImage;
+	// lookup type
+	using lookup_t = const video_t*;
+};
 
 template<>
-struct asset_traits<asset::ICPUImageView> { using GPUObjectType = IGPUImageView; };
+struct asset_traits<asset::ICPUImageView>
+{
+	// the asset type
+	using asset_t = asset::ICPUImageView;
+	// depends on ICPUImage
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUImageView;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+template<>
+struct asset_traits<asset::ICPUBottomLevelAccelerationStructure>
+{
+	// the asset type
+	using asset_t = asset::ICPUBottomLevelAccelerationStructure;
+	// we don't need to descend during DFS into other assets
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUImageView;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+template<>
+struct asset_traits<asset::ICPUTopLevelAccelerationStructure>
+{
+	// the asset type
+	using asset_t = asset::ICPUTopLevelAccelerationStructure;
+	// depends on ICPUBottomLevelAccelerationStructure
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUTopLevelAccelerationStructure;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+template<>
+struct asset_traits<asset::ICPUDescriptorSet>
+{
+	// the asset type
+	using asset_t = asset::ICPUDescriptorSet;
+	// depends on a lot of `IDescriptor` ICPU... types
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUDescriptorSet;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+/* TODO
+template<>
+struct asset_traits<asset::ICPUFramebuffer>;
 */
 
-/*
-template<>
-struct asset_traits<asset::ICPUShader> { using GPUObjectType = IGPUShader; };
-
-template<>
-struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = IGPUDescriptorSet; };
-
-template<>
-struct asset_traits<asset::ICPUAccelerationStructure> { using GPUObjectType = IGPUAccelerationStructure; };
-*/
+// Every other ICPU type not present in the list here is deprecated
 
 
 // Slight wrapper to allow copyable smart pointers
