@@ -21,21 +21,6 @@ template<typename device_capabilities = void, bool FastMathIfEmulated = false, b
 using portable_float64_t = typename conditional<false, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
 #endif
 
-namespace impl
-{
-
-template<typename From>
-struct static_cast_helper<From, portable_float64_t<> >
-{
-    static inline portable_float64_t<> cast(From u)
-    {
-        return int(u) - 1;
-    }
-};
-
-}
-
-
 template<typename EmulatedType, uint32_t N>
 struct emulated_vector {};
 
@@ -133,11 +118,6 @@ struct emulated_vector<EmulatedType, 2>
 
         return output;
     }
-
-    float32_t2 getAsFloat2()
-    {
-        return float32_t2(x.getAsFloat32(), y.getAsFloat32());
-    }
 };
 
 template<typename EmulatedType>
@@ -182,6 +162,64 @@ template<typename EmulatedType>
 using emulated_vector_t3 = emulated_vector<EmulatedType, 3>;
 template<typename EmulatedType>
 using emulated_vector_t4 = emulated_vector<EmulatedType, 4>;
+
+// TODO: works only for float, fix
+namespace impl
+{
+
+#if 1
+template<typename T, typename U, uint32_t Dim>
+struct static_cast_helper<vector<T,Dim>,emulated_vector<U,Dim>,void>
+{
+    static inline vector<T,Dim> cast(emulated_vector<U,Dim> vec)
+    {
+        return vector<T,Dim>(_static_cast<T,U>(vec.x), _static_cast<T,U>(vec.y));
+    }
+};
+#endif
+
+#if 0
+#define DEFINE_EMULATED_VECTOR_STATIC_CAST(COND,...)\
+template<typename To>\
+struct static_cast_helper<To, emulated_vector_t2<__VA_ARGS__ > >\
+{\
+    static inline To cast(emulated_vector_t2<__VA_ARGS__ > vec)\
+    {\
+        return To(_static_cast<float>(vec.x), _static_cast<float>(vec.y));\
+    }\
+};\
+\
+template<typename To>\
+struct static_cast_helper<To, emulated_vector_t3<__VA_ARGS__ > >\
+{\
+    static inline To cast(emulated_vector_t3<__VA_ARGS__ > vec)\
+    {\
+        return To(_static_cast<float>(vec.x), _static_cast<float>(vec.y), _static_cast<float>(vec.z));\
+    }\
+};\
+\
+template<typename To>\
+struct static_cast_helper<To, emulated_vector_t4<__VA_ARGS__ > >\
+{\
+    static inline To cast(emulated_vector_t4<__VA_ARGS__ > vec)\
+    {\
+        return To(_static_cast<float>(vec.x), _static_cast<float>(vec.y), _static_cast<float>(vec.z), _static_cast<float>(vec.w));\
+    }\
+};\
+\
+
+#define COND
+DEFINE_EMULATED_VECTOR_STATIC_CAST(COND,emulated_float64_t<true,true>);
+DEFINE_EMULATED_VECTOR_STATIC_CAST(COND,emulated_float64_t<false,false>);
+DEFINE_EMULATED_VECTOR_STATIC_CAST(COND,emulated_float64_t<true,false>);
+DEFINE_EMULATED_VECTOR_STATIC_CAST(COND,emulated_float64_t<false,true>);
+
+#undef DEFINE_EMULATED_VECTOR_STATIC_CAST
+#undef COND
+#endif
+
+
+}
 
 //template<typename EmulatedType, uint32_t N, uint32_t M>
 //struct emulated_matrix_base
@@ -311,10 +349,10 @@ namespace impl
 template<typename T>
 struct is_emulated
 {
-    NBL_CONSTEXPR_STATIC_INLINE bool value = is_same<T, emulated_float64_t<true, true> >::value ||
-        is_same<T, emulated_float64_t<false, false> >::value ||
-        is_same<T, emulated_float64_t<true, false> >::value ||
-        is_same<T, emulated_float64_t<false, true> >::value;
+    NBL_CONSTEXPR_STATIC_INLINE bool value = is_same_v<T, emulated_float64_t<true, true> > ||
+        is_same_v<T, emulated_float64_t<false, false> > ||
+        is_same_v<T, emulated_float64_t<true, false> > ||
+        is_same_v<T, emulated_float64_t<false, true> >;
 };
 
 template<typename T, uint32_t N, bool native = is_scalar<T>::value >
@@ -447,31 +485,17 @@ inline float32_t2 convert_portable_vector64_t2_to_float32_t2(portable_vector64_t
     return float32_t2(vec.x, vec.y);
 }
 
-template<>
-inline float32_t2 convert_portable_vector64_t2_to_float32_t2<true>(portable_vector64_t2 vec)
-{
-#ifdef __HLSL_VERSION
-    return emulated_vector<portable_float64_t<>, 2>::create(vec.x, vec.y).getAsFloat2();
-#else
-    return float32_t2(bit_cast<float>(0xdeadbeefu), bit_cast<float>(0xbadcaffeu));
-#endif
-}
+//template<>
+//inline float32_t2 convert_portable_vector64_t2_to_float32_t2<true>(portable_vector64_t2 vec)
+//{
+//    return _static_cast<float32_t2>(vec);
+//}
 
 template<bool is_float64_emulated = impl::is_emulated<portable_float64_t<> >::value>
 inline float32_t convert_portable_float64_t_to_float(portable_float64_t<> val)
 {
     
     return float32_t(val);
-}
-
-template<>
-inline float32_t convert_portable_float64_t_to_float<true>(portable_float64_t<> val)
-{
-#ifdef __HLSL_VERSION
-    return val.getAsFloat32();
-#else
-    return float32_t(bit_cast<float>(0xdeadbeefu));
-#endif
 }
 
 }

@@ -3,6 +3,28 @@
 
 #include <nbl/builtin/hlsl/macros.h>
 
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+    template<typename To, typename From, typename Enabled = void>
+    struct static_cast_helper
+    {
+        static inline To cast(From u)
+        {
+#ifndef __HLSL_VERSION
+            return static_cast<To>(u);
+#else
+            return To(u);
+#endif
+        }
+    };
+}
+}
+}
+
 #ifndef __HLSL_VERSION
 #include <type_traits>
 
@@ -16,10 +38,10 @@
 
 namespace nbl::hlsl
 {
-    template<typename T, typename U>
-    T _static_cast(U v)
+    template<typename To, typename From>
+    To _static_cast(From v)
     {
-        return static_cast<T>(v);
+        return impl::static_cast_helper<To, From>::cast(v);
     }
 
     template<typename T>
@@ -47,41 +69,29 @@ namespace nbl::hlsl
 
 namespace nbl
 {
-    namespace hlsl
-    {
-        namespace impl
-        {
-            template<typename From, typename To>
-            struct static_cast_helper
-            {
-                static inline To cast(From u)
-                {
-                    return To(u);
-                }
-            };
-        }
+namespace hlsl
+{
 
-        template<typename To, typename From>
-        To _static_cast(From v)
-        {
-            return impl::static_cast_helper<To, From>(v);
-            //return (T)v;
-        }
+template<typename To, typename From>
+To _static_cast(From v)
+{
+    return impl::static_cast_helper<To,From>::cast(v);
+}
 
 #if 0 // TODO: for later
-        template<typename T>
-        struct add_reference
-        {
-            using type = ref<T>;
-        };
-        template<typename T>
-        struct add_pointer
-        {
-            using type = ptr<T>;
-        };
+template<typename T>
+struct add_reference
+{
+    using type = ref<T>;
+};
+template<typename T>
+struct add_pointer
+{
+    using type = ptr<T>;
+};
 #endif
 
-    }
+}
 }
 
 #define NBL_REF_ARG(...) inout __VA_ARGS__

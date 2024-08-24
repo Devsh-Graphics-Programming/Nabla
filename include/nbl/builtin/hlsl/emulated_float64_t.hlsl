@@ -574,6 +574,11 @@ namespace hlsl
         {
             return tgmath::isnan(data);
         }
+
+        NBL_CONSTEXPR_STATIC_INLINE bool supportsFastMath()
+        {
+            return FastMath;
+        }
     };
 
 #define COMMA ,
@@ -627,6 +632,81 @@ return output; \
 }\
 \
 
+namespace impl
+{
+
+#if 0
+template<typename Scalar, bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<Scalar,emulated_float64_t<FastMath,FlushDenormToZero>,void>
+{
+    using From = emulated_float64_t<FastMath,FlushDenormToZero>;
+
+    static inline Scalar cast(From v)
+    {
+        if (is_floating_point<Scalar>::value) // DOUBLE ALSO REPORTS THIS AS TRUE! (so does float16_t)
+        {
+            int exponent = ieee754::extractExponent(v.data);
+            if (!From::supportsFastMath())
+            {
+                if (exponent > 127)
+                    return bit_cast<float>(ieee754::traits<float>::inf);
+                if (exponent < -126)
+                    return -bit_cast<float>(ieee754::traits<float>::inf);
+                if (tgmath::isnan(v.data))
+                    return bit_cast<float>(ieee754::traits<float>::quietNaN);
+            }
+
+            uint32_t sign = uint32_t((v.data & ieee754::traits<float64_t>::signMask) >> 32);
+            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;
+            uint32_t mantissa = uint32_t(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;
+
+            return bit_cast<Scalar>(sign | biasedExponent | mantissa);
+        }
+
+        return bit_cast<Scalar>(ieee754::traits<float>::quietNaN);
+    }
+};
+#endif 
+
+// TODO: fix cast to float
+#define DEFINE_EMULATED_FLOAT64_STATIC_CAST(Type)\
+template<typename To>\
+struct static_cast_helper<To, Type >\
+{\
+    static inline To cast(Type v)\
+    {\
+        if (is_floating_point<To>::value)\
+        {\
+            int exponent = ieee754::extractExponent(v.data);\
+            if (!Type::supportsFastMath())\
+            {\
+                if (exponent > 127)\
+                    return bit_cast<float>(ieee754::traits<float>::inf);\
+                if (exponent < -126)\
+                    return -bit_cast<float>(ieee754::traits<float>::inf);\
+                if (tgmath::isnan(v.data))\
+                    return bit_cast<float>(ieee754::traits<float>::quietNaN);\
+            }\
+\
+            uint32_t sign = uint32_t((v.data & ieee754::traits<float64_t>::signMask) >> 32);\
+            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;\
+            uint32_t mantissa = uint32_t(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;\
+\
+            return bit_cast<To>(sign | biasedExponent | mantissa);\
+        }\
+\
+        return bit_cast<To>(ieee754::traits<float>::quietNaN);\
+    }\
+};\
+\
+
+DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<true COMMA true>);
+DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<false COMMA false>);
+DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<true COMMA false>);
+DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<false COMMA true>);
+
+}
+
 
 DEFINE_BIT_CAST_SPEC(emulated_float64_t<true COMMA true>);
 DEFINE_BIT_CAST_SPEC(emulated_float64_t<false COMMA false>);
@@ -652,5 +732,7 @@ IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false COMMA
 
 #undef COMMA
 #undef IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE
+#undef DEFINE_BIT_CAST_SPEC
+#undef DEFINE_EMULATED_FLOAT64_STATIC_CAST
 
 #endif
