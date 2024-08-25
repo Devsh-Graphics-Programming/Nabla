@@ -62,7 +62,7 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
 			return static_cast<core::blake3_hash_t>(hasher);
         }
 
-        inline bool missingContent() const {return !data;}
+        inline bool missingContent() const override {return !data;}
 
         //! Returns pointer to data.
         const void* getPointer() const {return data;}
