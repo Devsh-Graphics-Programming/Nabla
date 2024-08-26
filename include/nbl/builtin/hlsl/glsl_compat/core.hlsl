@@ -15,6 +15,12 @@ namespace hlsl
 namespace glsl
 {
 
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC typename enable_if<is_fundamental<T>::value, T>::type mix(T a, T b, bool c)
+{
+    return c ? b : a;
+}
+
 #ifndef __HLSL_VERSION
 
 // GLM Aliases

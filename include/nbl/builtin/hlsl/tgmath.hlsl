@@ -26,19 +26,12 @@ inline bool isnan(T val)
 	return bool((ieee754::extractBiasedExponent<T>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
 }
 
-// TODO: better implementation
 template<typename T>
-//NBL_CONSTEXPR_INLINE_FUNC enable_if<is_fundamental<T>::type, T>::type lerp(T a, T b, bool c)
-NBL_CONSTEXPR_INLINE_FUNC T lerp(T a, T b, bool c)
+NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
 {
-	return c ? b : a;
-}
-
-template<typename Uint>
-NBL_CONSTEXPR_INLINE_FUNC bool isInf(Uint val)
-{
-	using AsFloat = typename float_of_size<sizeof(Uint)>::type;
-	return (val & ~ieee754::traits<AsFloat>::signMask) == ieee754::traits<AsFloat>::inf;
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	AsUint tmp = bit_cast<AsUint>(val);
+	return (tmp & ~ieee754::traits<T>::signMask) == ieee754::traits<T>::inf;
 }
 
 }

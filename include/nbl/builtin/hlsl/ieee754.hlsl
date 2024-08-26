@@ -93,6 +93,8 @@ struct traits : traits_base<Float>
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t quietNaN = exponentMask | (1ull << (base_t::mantissaBitCnt - 1));
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t max = ((1ull << (sizeof(Float) * 8 - 1)) - 1) & (~(1ull << base_t::mantissaBitCnt));
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t min = 1ull << base_t::mantissaBitCnt;
+	NBL_CONSTEXPR_STATIC_INLINE int exponentMax = exponentBias;
+	NBL_CONSTEXPR_STATIC_INLINE int exponentMin = -(exponentBias - 1);
 };
 
 template <typename T>

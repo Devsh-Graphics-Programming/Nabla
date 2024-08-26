@@ -22,9 +22,7 @@ namespace hlsl
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(emulated_float64_t<FastMath, FlushDenormToZero> val)
         {
-            //return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(val.data);
             return val;
-            //TODO: return val?
         }
 
         NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int32_t val)
@@ -210,7 +208,7 @@ namespace hlsl
                         if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                         {
                             bool propagate = (lhsMantissa | rhsMantissa) != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(tgmath::lerp(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
                         }
 
                         mantissa = lhsMantissa + rhsMantissa;
@@ -234,11 +232,11 @@ namespace hlsl
                         if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                         {
                             const bool propagate = (lhsMantissa) != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(tgmath::lerp(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
                         }
 
-                        expDiff = tgmath::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                        rhsMantissa = tgmath::lerp(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
+                        expDiff = glsl::mix(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                        rhsMantissa = glsl::mix(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
                         const uint32_t3 shifted = impl::shift64ExtraRightJamming(uint32_t3(impl::packUint64(rhsMantissa), 0u), expDiff);
                         rhsMantissa = impl::unpackUint64(shifted.xy);
                         mantissaExtended.z = shifted.z;
@@ -278,11 +276,11 @@ namespace hlsl
                         if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                         {
                             bool propagate = lhsMantissa != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(tgmath::lerp(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
+                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
                         }
 
-                        expDiff = tgmath::lerp(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                        rhsMantissa = tgmath::lerp(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
+                        expDiff = glsl::mix(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
+                        rhsMantissa = glsl::mix(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
                         rhsMantissa = impl::unpackUint64(impl::shift64RightJamming(impl::packUint64(rhsMantissa), expDiff));
                         lhsMantissa |= 0x4000000000000000ull;
                         frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
@@ -293,10 +291,10 @@ namespace hlsl
                     if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
                         bool propagate = ((lhsMantissa) | (rhsMantissa)) != 0u;
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(tgmath::lerp(ieee754::traits<float64_t>::quietNaN, impl::propagateFloat64NaN(data, rhs.data), propagate));
+                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(ieee754::traits<float64_t>::quietNaN, impl::propagateFloat64NaN(data, rhs.data), propagate));
                     }
-                    rhsBiasedExp = tgmath::lerp(rhsBiasedExp, 1, lhsBiasedExp == 0);
-                    lhsBiasedExp = tgmath::lerp(lhsBiasedExp, 1, lhsBiasedExp == 0);
+                    rhsBiasedExp = glsl::mix(rhsBiasedExp, 1, lhsBiasedExp == 0);
+                    lhsBiasedExp = glsl::mix(lhsBiasedExp, 1, lhsBiasedExp == 0);
 
 
                     const uint32_t2 lhsMantissaPacked = impl::packUint64(lhsMantissa);
@@ -324,11 +322,11 @@ namespace hlsl
                         signOfDifference = ieee754::traits<float64_t>::signMask;
                     }
 
-                    biasedExp = tgmath::lerp(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
+                    biasedExp = glsl::mix(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
                     lhsSign ^= signOfDifference;
                     uint64_t retval_0 = impl::packFloat64(uint32_t(FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) << 31, 0, 0u, 0u);
                     uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 11, frac.x, frac.y);
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(tgmath::lerp(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
+                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
                 }
             }
             else
@@ -581,51 +579,48 @@ namespace hlsl
         }
     };
 
-#define COMMA ,
-#define IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(Type) \
+#define IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(...) \
 template<>\
-struct traits_base<Type >\
+struct traits_base<__VA_ARGS__ >\
 {\
     NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = 11;\
     NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = 52;\
 };\
 template<>\
-inline uint32_t extractBiasedExponent(Type x)\
+inline uint32_t extractBiasedExponent(__VA_ARGS__ x)\
 {\
     return extractBiasedExponent<uint64_t>(x.data);\
 }\
 \
 template<>\
-inline int extractExponent(Type x)\
+inline int extractExponent(__VA_ARGS__ x)\
 {\
     return extractExponent(x.data);\
 }\
 \
 template<>\
-NBL_CONSTEXPR_INLINE_FUNC Type replaceBiasedExponent(Type x, typename unsigned_integer_of_size<sizeof(Type)>::type biasedExp)\
+NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type biasedExp)\
 {\
-    return Type(replaceBiasedExponent(x.data, biasedExp));\
+    return __VA_ARGS__(replaceBiasedExponent(x.data, biasedExp));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC Type fastMulExp2(Type x, int n)\
+NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
 {\
-    return Type(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
+    return __VA_ARGS__(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(Type)>::type extractMantissa(Type x)\
+NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type extractMantissa(__VA_ARGS__ x)\
 {\
     return extractMantissa(x.data);\
 }\
 
-
-// TODO: this is wrong! fix it
-#define DEFINE_BIT_CAST_SPEC(Type)\
+#define DEFINE_BIT_CAST_SPEC(...)\
 template<>\
-NBL_CONSTEXPR_FUNC Type bit_cast<Type, uint64_t>(NBL_CONST_REF_ARG(uint64_t) val)\
+NBL_CONSTEXPR_FUNC __VA_ARGS__ bit_cast<__VA_ARGS__, uint64_t>(NBL_CONST_REF_ARG(uint64_t) val)\
 {\
-Type output; \
+__VA_ARGS__ output; \
 output.data = val; \
 \
 return output; \
@@ -635,90 +630,92 @@ return output; \
 namespace impl
 {
 
-#if 0
-template<typename Scalar, bool FastMath, bool FlushDenormToZero>
-struct static_cast_helper<Scalar,emulated_float64_t<FastMath,FlushDenormToZero>,void>
+template<typename To, bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void>
 {
+    // TODO:
+    // static_assert(is_arithmetic<To>::value);
+
     using From = emulated_float64_t<FastMath,FlushDenormToZero>;
 
-    static inline Scalar cast(From v)
+    // TODO: test
+    static inline To cast(From v)
     {
-        if (is_floating_point<Scalar>::value) // DOUBLE ALSO REPORTS THIS AS TRUE! (so does float16_t)
+        if (is_same_v<To, float64_t>)
+            return To(bit_cast<float64_t>(v.data));
+
+        if (is_floating_point<To>::value)
         {
-            int exponent = ieee754::extractExponent(v.data);
+            const int exponent = ieee754::extractExponent(v.data);
             if (!From::supportsFastMath())
             {
-                if (exponent > 127)
-                    return bit_cast<float>(ieee754::traits<float>::inf);
-                if (exponent < -126)
-                    return -bit_cast<float>(ieee754::traits<float>::inf);
+                if (exponent > ieee754::traits<To>::exponentMax)
+                    return bit_cast<To>(ieee754::traits<To>::inf);
+                if (exponent < ieee754::traits<To>::exponentMin)
+                    return -bit_cast<To>(ieee754::traits<To>::inf);
                 if (tgmath::isnan(v.data))
-                    return bit_cast<float>(ieee754::traits<float>::quietNaN);
+                    return bit_cast<To>(ieee754::traits<To>::quietNaN);
             }
 
-            uint32_t sign = uint32_t((v.data & ieee754::traits<float64_t>::signMask) >> 32);
-            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;
-            uint32_t mantissa = uint32_t(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;
+            using AsUint = typename unsigned_integer_of_size<sizeof(To)>::type;
 
-            return bit_cast<Scalar>(sign | biasedExponent | mantissa);
+            const uint32_t toBitSize = sizeof(To) * 8;
+            const AsUint sign = AsUint(ieee754::extractSign(v.data) << (toBitSize - 1));
+            const AsUint biasedExponent = AsUint(exponent + ieee754::traits<To>::exponentBias) << ieee754::traits<To>::mantissaBitCnt;
+            const AsUint mantissa = AsUint(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<To>::mantissaBitCnt)) & ieee754::traits<To>::mantissaMask;
+
+            return bit_cast<To>(sign | biasedExponent | mantissa);
         }
 
-        return bit_cast<Scalar>(ieee754::traits<float>::quietNaN);
+        // NOTE: casting from negative float to unsigned int is an UB, function will return abs value in this case
+        if (is_integral<To>::value)
+        {
+            const int exponent = ieee754::extractExponent(v.data);
+            if (exponent < 0)
+                return 0;
+
+            uint64_t unsignedOutput = ieee754::extractMantissa(v.data) & 1ull << ieee754::traits<float64_t>::mantissaBitCnt;
+            const int shiftAmount = exponent - int(ieee754::traits<float64_t>::mantissaBitCnt);
+
+            if (shiftAmount < 0)
+                unsignedOutput <<= -shiftAmount;
+            else
+                unsignedOutput >>= shiftAmount;
+
+            if (is_signed<To>::value)
+            {
+                int64_t signedOutput64 = unsignedOutput & ((1ull << 63) - 1);
+                To signedOutput = To(signedOutput64);
+                if (ieee754::extractSignPreserveBitPattern(v.data) != 0)
+                    signedOutput = -signedOutput;
+
+                return signedOutput;
+            }
+
+            return To(unsignedOutput);
+        }
+
+        // assert(false);
+        return 0xdeadbeefbadcaffeull;
     }
 };
-#endif 
-
-// TODO: fix cast to float
-#define DEFINE_EMULATED_FLOAT64_STATIC_CAST(Type)\
-template<typename To>\
-struct static_cast_helper<To, Type >\
-{\
-    static inline To cast(Type v)\
-    {\
-        if (is_floating_point<To>::value)\
-        {\
-            int exponent = ieee754::extractExponent(v.data);\
-            if (!Type::supportsFastMath())\
-            {\
-                if (exponent > 127)\
-                    return bit_cast<float>(ieee754::traits<float>::inf);\
-                if (exponent < -126)\
-                    return -bit_cast<float>(ieee754::traits<float>::inf);\
-                if (tgmath::isnan(v.data))\
-                    return bit_cast<float>(ieee754::traits<float>::quietNaN);\
-            }\
-\
-            uint32_t sign = uint32_t((v.data & ieee754::traits<float64_t>::signMask) >> 32);\
-            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;\
-            uint32_t mantissa = uint32_t(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;\
-\
-            return bit_cast<To>(sign | biasedExponent | mantissa);\
-        }\
-\
-        return bit_cast<To>(ieee754::traits<float>::quietNaN);\
-    }\
-};\
-\
-
-DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<true COMMA true>);
-DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<false COMMA false>);
-DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<true COMMA false>);
-DEFINE_EMULATED_FLOAT64_STATIC_CAST(emulated_float64_t<false COMMA true>);
 
 }
 
+DEFINE_BIT_CAST_SPEC(emulated_float64_t<true, true>);
+DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, false>);
+DEFINE_BIT_CAST_SPEC(emulated_float64_t<true, false>);
+DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, true>);
 
-DEFINE_BIT_CAST_SPEC(emulated_float64_t<true COMMA true>);
-DEFINE_BIT_CAST_SPEC(emulated_float64_t<false COMMA false>);
-DEFINE_BIT_CAST_SPEC(emulated_float64_t<true COMMA false>);
-DEFINE_BIT_CAST_SPEC(emulated_float64_t<false COMMA true>);
+template<bool FastMath, bool FlushDenormToZero>
+struct is_floating_point<emulated_float64_t<FastMath, FlushDenormToZero> > : bool_constant<true> {};
 
 namespace ieee754
 {
-IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true COMMA true>);
-IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false COMMA false>);
-IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true COMMA false>);
-IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false COMMA true>);
+IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, true>);
+IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, false>);
+IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, false>);
+IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, true>);
 }
 
 }
@@ -730,7 +727,6 @@ IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false COMMA
 #undef FLOAT_ROUND_UP
 #undef FLOAT_ROUNDING_MODE
 
-#undef COMMA
 #undef IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE
 #undef DEFINE_BIT_CAST_SPEC
 #undef DEFINE_EMULATED_FLOAT64_STATIC_CAST

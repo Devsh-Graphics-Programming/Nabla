@@ -22,6 +22,13 @@ namespace impl
         }
     };
 }
+
+template<typename To, typename From>
+To _static_cast(From v)
+{
+    return impl::static_cast_helper<To, From>::cast(v);
+}
+
 }
 }
 
@@ -38,12 +45,6 @@ namespace impl
 
 namespace nbl::hlsl
 {
-    template<typename To, typename From>
-    To _static_cast(From v)
-    {
-        return impl::static_cast_helper<To, From>::cast(v);
-    }
-
     template<typename T>
     using add_reference = std::add_lvalue_reference<T>;
 
@@ -71,12 +72,6 @@ namespace nbl
 {
 namespace hlsl
 {
-
-template<typename To, typename From>
-To _static_cast(From v)
-{
-    return impl::static_cast_helper<To,From>::cast(v);
-}
 
 #if 0 // TODO: for later
 template<typename T>
