@@ -148,6 +148,14 @@ NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type ext
 }
 
 template <typename T>
+NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractNormalizeMantissa(T x)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return extractMantissa(x) | (AsUint(1) << traits<AsFloat>::mantissaBitCnt);
+}
+
+template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
 {
 	return (impl::castToUintType(x) & traits<T>::signMask) >> ((sizeof(T) * 8) - 1);

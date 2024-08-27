@@ -274,6 +274,9 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t roundAndPackFloat64(uint64_t zSign, int zExp,
             }
         }
     }
+
+    // overflow handling?
+    // if biased exp is lesser then 2045
     if (0x7FD <= zExp)
     {
         if ((0x7FD < zExp) || ((zExp == 0x7FD) && (0x001FFFFFu == mantissaExtended.x && 0xFFFFFFFFu == mantissaExtended.y) && increment))
@@ -319,6 +322,7 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t roundAndPackFloat64(uint64_t zSign, int zExp,
     }
     else
     {
+        // ??
         zExp = glsl::mix(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
     }
    

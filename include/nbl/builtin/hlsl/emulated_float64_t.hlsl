@@ -11,6 +11,7 @@ namespace hlsl
     struct emulated_float64_t
     {
         using storage_t = uint64_t;
+        using this_t = emulated_float64_t<FastMath, FlushDenormToZero>;
 
         storage_t data;
 
@@ -20,41 +21,41 @@ namespace hlsl
             return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }*/
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(emulated_float64_t<FastMath, FlushDenormToZero> val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t val)
         {
             return val;
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int32_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(int32_t val)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::castToUint64WithFloat64BitPattern(int64_t(val)));
+            return bit_cast<this_t >(impl::castToUint64WithFloat64BitPattern(int64_t(val)));
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(int64_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(int64_t val)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::castToUint64WithFloat64BitPattern(val));
+            return bit_cast<this_t >(impl::castToUint64WithFloat64BitPattern(val));
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint32_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(uint32_t val)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::castToUint64WithFloat64BitPattern(uint64_t(val)));
+            return bit_cast<this_t >(impl::castToUint64WithFloat64BitPattern(uint64_t(val)));
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(uint64_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(uint64_t val)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::castToUint64WithFloat64BitPattern(val));
+            return bit_cast<this_t >(impl::castToUint64WithFloat64BitPattern(val));
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(float32_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(float32_t val)
         {
-            emulated_float64_t<FastMath, FlushDenormToZero> output;
+            this_t output;
             output.data = impl::castToUint64WithFloat64BitPattern(val);
             return output;
         }
 
-        NBL_CONSTEXPR_STATIC_INLINE emulated_float64_t<FastMath, FlushDenormToZero> create(float64_t val)
+        NBL_CONSTEXPR_STATIC_INLINE this_t create(float64_t val)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(bit_cast<uint64_t>(float64_t(val)));
+            return bit_cast<this_t >(bit_cast<uint64_t>(float64_t(val)));
 #ifdef __HLSL_VERSION
             emulated_float64_t retval;
             uint32_t lo, hi;
@@ -62,7 +63,7 @@ namespace hlsl
             retval.data = (uint64_t(hi) << 32) | lo;
             return retval;
 #else
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(reinterpret_cast<uint64_t&>(val));
+            return bit_cast<this_t >(reinterpret_cast<uint64_t&>(val));
 #endif
         }
         
@@ -95,255 +96,89 @@ namespace hlsl
 
         }
 
-#if 0
-        uint64_t shiftLeftAllowNegBitCnt(uint64_t val, int n)
-        {
-            if (n < 0)
-                return val >> -n;
-            else
-                return val << n;
-        }
-#endif
-
         // arithmetic operators
         emulated_float64_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-#if 0
-            {
-                uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
-                uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
-                uint64_t lhsMantissa = ieee754::extractMantissa(data);
-                uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
-                int lhsBiasedExp = ieee754::extractBiasedExponent(data);
-                int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
-
-                if (tgmath::isnan(data) || tgmath::isnan(rhs.data))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN);
-                /*if (std::isinf(lhs) || std::isinf(rhs))
-                {
-                    if (std::isinf(lhs) && !std::isinf(rhs))
-                        return lhs;
-                    if (std::isinf(rhs) && !std::isinf(lhs))
-                        return rhs;
-                    if (rhs == lhs)
-                        return rhs;
-
-                    return nan();
-                }*/
-
-                int rp = min(ieee754::extractExponent(data), ieee754::extractExponent(rhs.data)) - ieee754::traits<float64_t>::mantissaBitCnt;
-
-                uint64_t lhsRealMantissa = lhsMantissa | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
-                uint64_t rhsRealMantissa = rhsMantissa | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
-                uint64_t lhsSignTmp = lhsSign >> (52 + 11);
-                uint64_t rhsSignTmp = rhsSign >> (52 + 11);
-
-                uint64_t sign = 0u;
-                if (lhsSign != rhsSign)
-                {
-                    uint64_t _min = max(data, rhs.data);
-                    uint64_t _max = min(data, rhs.data);
-                    uint64_t minAbs = _min ^ ieee754::traits<float64_t>::signMask;
-                    if (minAbs > _max)
-                        sign = ieee754::traits<float64_t>::signMask;
-
-                }
-
-                int64_t lhsMantissaTmp = (shiftLeftAllowNegBitCnt(lhsRealMantissa, lhsBiasedExp - rp - ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float64_t>::exponentBias) ^ (-lhsSignTmp)) + lhsSignTmp;
-                int64_t rhsMantissaTmp = (shiftLeftAllowNegBitCnt(rhsRealMantissa, rhsBiasedExp - rp - ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float64_t>::exponentBias) ^ (-rhsSignTmp)) + rhsSignTmp;
-
-                uint64_t addTmp = bit_cast<uint64_t>(lhsMantissaTmp + rhsMantissaTmp);
-
-                // renormalize
-                if (!FastMath && false) // TODO: hande nan
-                {
-
-                }
-                else
-                {
-#ifndef __HLSL_VERSION
-                    int l2 = log2(double(addTmp));
-#else
-                    int intl2 = 0;
-#endif
-
-                    if (!FastMath && (rp + l2 + 1 < nbl::hlsl::numeric_limits<float64_t>::min_exponent))
-                    {
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(0, ieee754::traits<float64_t>::exponentMask, 0));
-                    }
-                    else
-                    {
-                        rp = addTmp ? l2 + rp + ieee754::traits<float64_t>::exponentBias : 0;
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(
-                            sign,
-                            (uint64_t(rp) << ieee754::traits<float64_t>::mantissaBitCnt) & ieee754::traits<float64_t>::exponentMask,
-                            shiftLeftAllowNegBitCnt(addTmp, (ieee754::traits<float64_t>::mantissaBitCnt - l2)) & ieee754::traits<float64_t>::mantissaMask)
-                        );
-                    }
-                }
-            }
-#endif
-
             if (FlushDenormToZero)
             {
-                emulated_float64_t<FastMath, FlushDenormToZero> retval = emulated_float64_t<FastMath, FlushDenormToZero>::create(0ull);
+                if (!FastMath && (tgmath::isnan(data) || tgmath::isnan(rhs.data)))
+                    return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
+
+                this_t retval = this_t::create(0ull);
 
                 uint64_t mantissa;
                 uint32_t3 mantissaExtended;
                 int biasedExp;
 
-                uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
-                uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
+                uint64_t lhsSign = ieee754::extractSign(data);
+                uint64_t rhsSign = ieee754::extractSign(rhs.data);
+
+                // TODO: delete 2 below if not needed
                 uint64_t lhsMantissa = ieee754::extractMantissa(data);
                 uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
+
+                int64_t lhsNormMantissa = int64_t(ieee754::extractNormalizeMantissa(data));
+                int64_t rhsNormMantissa = int64_t(ieee754::extractNormalizeMantissa(rhs.data));
+
+                // TODO: branchless?
+                if (lhsSign != rhsSign)
+                {
+                    if (lhsSign)
+                        lhsNormMantissa *= -1;
+                    if (rhsSign)
+                        rhsNormMantissa *= -1;
+                }
+
                 int lhsBiasedExp = ieee754::extractBiasedExponent(data);
                 int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
 
                 int expDiff = lhsBiasedExp - rhsBiasedExp;
 
-                if (lhsSign == rhsSign)
+                int exp = max(lhsBiasedExp, rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
+                uint32_t shiftAmount = abs(expDiff);
+
+                // so lhsNormMantissa always holds mantissa of number with greater exponent
+                if (expDiff < 0)
+                    swap<int64_t>(lhsNormMantissa, rhsNormMantissa);
+
+                rhsNormMantissa >>= shiftAmount;
+                int64_t resultMantissa = lhsNormMantissa + rhsNormMantissa;
+                const uint64_t resultSign = uint64_t((lhsSign && rhsSign) || (bit_cast<uint64_t>(resultMantissa) & (lhsSign << 63))) << 63;
+                uint64_t resultBiasedExp = uint64_t(exp) + ieee754::traits<float64_t>::exponentBias;
+
+                resultMantissa = abs(resultMantissa);
+
+                if (resultMantissa & 1ull << 53)
                 {
-                    if (expDiff == 0)
-                    {
-                        if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
-                        {
-                            bool propagate = (lhsMantissa | rhsMantissa) != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(data, impl::propagateFloat64NaN(data, rhs.data), propagate));
-                        }
-
-                        mantissa = lhsMantissa + rhsMantissa;
-                        if (lhsBiasedExp == 0)
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(lhsSign, 0, mantissa));
-                        mantissaExtended.xy = impl::packUint64(mantissa);
-                        mantissaExtended.x |= 0x00200000u;
-                        mantissaExtended.z = 0u;
-                        biasedExp = lhsBiasedExp;
-
-                        mantissaExtended = impl::shift64ExtraRightJamming(mantissaExtended, 1);
-                    }
-                    else
-                    {
-                        if (expDiff < 0)
-                        {
-                            swap<uint64_t>(lhsMantissa, rhsMantissa);
-                            swap<int>(lhsBiasedExp, rhsBiasedExp);
-                        }
-
-                        if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
-                        {
-                            const bool propagate = (lhsMantissa) != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(ieee754::traits<float64_t>::exponentMask | lhsSign, impl::propagateFloat64NaN(data, rhs.data), propagate));
-                        }
-
-                        expDiff = glsl::mix(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                        rhsMantissa = glsl::mix(rhsMantissa | (1ull << 52), rhsMantissa, rhsBiasedExp == 0);
-                        const uint32_t3 shifted = impl::shift64ExtraRightJamming(uint32_t3(impl::packUint64(rhsMantissa), 0u), expDiff);
-                        rhsMantissa = impl::unpackUint64(shifted.xy);
-                        mantissaExtended.z = shifted.z;
-                        biasedExp = lhsBiasedExp;
-
-                        lhsMantissa |= (1ull << 52);
-                        mantissaExtended.xy = impl::packUint64(lhsMantissa + rhsMantissa);
-                        --biasedExp;
-                        if (!(mantissaExtended.x < 0x00200000u))
-                        {
-                            mantissaExtended = impl::shift64ExtraRightJamming(mantissaExtended, 1);
-                            ++biasedExp;
-                        }
-
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::roundAndPackFloat64(lhsSign, biasedExp, mantissaExtended.xyz));
-                    }
-
-                    // cannot happen but compiler cries about not every path returning value
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::roundAndPackFloat64(lhsSign, biasedExp, mantissaExtended));
+                    ++resultBiasedExp;
+                    resultMantissa >>= 1;
                 }
-                else
+
+                // TODO: better implementation with no loop
+                while (resultMantissa < (1ull << 52))
                 {
-                    lhsMantissa = impl::shortShift64Left(lhsMantissa, 10);
-                    rhsMantissa = impl::shortShift64Left(rhsMantissa, 10);
-
-                    if (expDiff != 0)
-                    {
-                        uint32_t2 frac;
-
-                        if (expDiff < 0)
-                        {
-                            swap<uint64_t>(lhsMantissa, rhsMantissa);
-                            swap<int>(lhsBiasedExp, rhsBiasedExp);
-                            lhsSign ^= ieee754::traits<float64_t>::signMask;
-                        }
-
-                        if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
-                        {
-                            bool propagate = lhsMantissa != 0u;
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(impl::assembleFloat64(lhsSign, ieee754::traits<float64_t>::exponentMask, 0ull), impl::propagateFloat64NaN(data, rhs.data), propagate));
-                        }
-
-                        expDiff = glsl::mix(abs(expDiff), abs(expDiff) - 1, rhsBiasedExp == 0);
-                        rhsMantissa = glsl::mix(rhsMantissa | 0x4000000000000000ull, rhsMantissa, rhsBiasedExp == 0);
-                        rhsMantissa = impl::unpackUint64(impl::shift64RightJamming(impl::packUint64(rhsMantissa), expDiff));
-                        lhsMantissa |= 0x4000000000000000ull;
-                        frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
-                        biasedExp = lhsBiasedExp;
-                        --biasedExp;
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 10, frac.x, frac.y));
-                    }
-                    if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
-                    {
-                        bool propagate = ((lhsMantissa) | (rhsMantissa)) != 0u;
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(ieee754::traits<float64_t>::quietNaN, impl::propagateFloat64NaN(data, rhs.data), propagate));
-                    }
-                    rhsBiasedExp = glsl::mix(rhsBiasedExp, 1, lhsBiasedExp == 0);
-                    lhsBiasedExp = glsl::mix(lhsBiasedExp, 1, lhsBiasedExp == 0);
-
-
-                    const uint32_t2 lhsMantissaPacked = impl::packUint64(lhsMantissa);
-                    const uint32_t2 rhsMantissaPacked = impl::packUint64(rhsMantissa);
-
-                    uint32_t2 frac;
-                    uint64_t signOfDifference = 0;
-                    if (rhsMantissaPacked.x < lhsMantissaPacked.x)
-                    {
-                        frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
-                    }
-                    else if (lhsMantissaPacked.x < rhsMantissaPacked.x)
-                    {
-                        frac.xy = impl::packUint64(rhsMantissa - lhsMantissa);
-                        signOfDifference = ieee754::traits<float64_t>::signMask;
-                    }
-                    else if (rhsMantissaPacked.y <= lhsMantissaPacked.y)
-                    {
-                        /* It is possible that frac.x and frac.y may be zero after this. */
-                        frac.xy = impl::packUint64(lhsMantissa - rhsMantissa);
-                    }
-                    else
-                    {
-                        frac.xy = impl::packUint64(rhsMantissa - lhsMantissa);
-                        signOfDifference = ieee754::traits<float64_t>::signMask;
-                    }
-
-                    biasedExp = glsl::mix(rhsBiasedExp, lhsBiasedExp, signOfDifference == 0u);
-                    lhsSign ^= signOfDifference;
-                    uint64_t retval_0 = impl::packFloat64(uint32_t(FLOAT_ROUNDING_MODE == FLOAT_ROUND_DOWN) << 31, 0, 0u, 0u);
-                    uint64_t retval_1 = impl::normalizeRoundAndPackFloat64(lhsSign, biasedExp - 11, frac.x, frac.y);
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(glsl::mix(retval_0, retval_1, frac.x != 0u || frac.y != 0u));
+                    --resultBiasedExp;
+                    resultMantissa <<= 1;
                 }
+
+                resultMantissa &= ieee754::traits<float64_t>::mantissaMask;
+                uint64_t output = impl::assembleFloat64(resultSign, uint64_t(resultBiasedExp) << ieee754::traits<float64_t>::mantissaBitCnt, abs(resultMantissa));
+                return bit_cast<this_t>(output);
             }
-            else
-            {
-                //static_assert(false, "not implemented yet");
-                return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(0xdeadbeefbadcaffeull);
-            }
+
+            // not implemented
+            if (!FlushDenormToZero)
+                return bit_cast<this_t>(0xdeadbeefbadcaffeull);
         }
 
         emulated_float64_t operator+(float rhs)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) + create(rhs);
+            return bit_cast<this_t >(data) + create(rhs);
         }
 
         emulated_float64_t operator-(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            emulated_float64_t lhs = bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data);
+            emulated_float64_t lhs = bit_cast<this_t >(data);
             emulated_float64_t rhsFlipped = rhs.flipSign();
             
             return lhs + rhsFlipped;
@@ -351,14 +186,14 @@ namespace hlsl
 
         emulated_float64_t operator-(float rhs) NBL_CONST_MEMBER_FUNC
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) - create(rhs);
+            return bit_cast<this_t >(data) - create(rhs);
         }
 
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if(FlushDenormToZero)
             {
-                emulated_float64_t retval = emulated_float64_t<FastMath, FlushDenormToZero>::create(0ull);
+                emulated_float64_t retval = this_t::create(0ull);
 
                 uint64_t lhsSign = data & ieee754::traits<float64_t>::signMask;
                 uint64_t rhsSign = rhs.data & ieee754::traits<float64_t>::signMask;
@@ -374,11 +209,11 @@ namespace hlsl
                     if (lhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
                         if ((lhsMantissa != 0u) || ((rhsBiasedExp == ieee754::traits<float64_t>::specialValueExp) && (rhsMantissa != 0u)))
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::propagateFloat64NaN(data, rhs.data));
+                            return bit_cast<this_t >(impl::propagateFloat64NaN(data, rhs.data));
                         if ((uint64_t(rhsBiasedExp) | rhsMantissa) == 0u)
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN);
+                            return bit_cast<this_t >(ieee754::traits<float64_t>::quietNaN);
 
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(sign, ieee754::traits<float64_t>::exponentMask, 0ull));
+                        return bit_cast<this_t >(impl::assembleFloat64(sign, ieee754::traits<float64_t>::exponentMask, 0ull));
                     }
                     if (rhsBiasedExp == ieee754::traits<float64_t>::specialValueExp)
                     {
@@ -387,23 +222,23 @@ namespace hlsl
 #ifdef RELAXED_NAN_PROPAGATION
                             return rhs.data;
 #else
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::propagateFloat64NaN(data, rhs.data));
+                            return bit_cast<this_t >(impl::propagateFloat64NaN(data, rhs.data));
 #endif
                         if ((uint64_t(lhsBiasedExp) | lhsMantissa) == 0u)
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN);
+                            return bit_cast<this_t >(ieee754::traits<float64_t>::quietNaN);
 
-                        return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(sign | ieee754::traits<float64_t>::exponentMask);
+                        return bit_cast<this_t >(sign | ieee754::traits<float64_t>::exponentMask);
                     }
                     if (lhsBiasedExp == 0)
                     {
                         if (lhsMantissa == 0u)
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(sign);
+                            return bit_cast<this_t >(sign);
                         impl::normalizeFloat64Subnormal(lhsMantissa, lhsBiasedExp, lhsMantissa);
                     }
                     if (rhsBiasedExp == 0)
                     {
                         if (rhsMantissa == 0u)
-                            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(sign);
+                            return bit_cast<this_t >(sign);
                         impl::normalizeFloat64Subnormal(rhsMantissa, rhsBiasedExp, rhsMantissa);
                     }
                 }
@@ -423,24 +258,24 @@ namespace hlsl
                 }
                 newPseudoMantissa &= (ieee754::traits<float64_t>::mantissaMask);
 
-                return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, newPseudoMantissa));
+                return bit_cast<this_t >(impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, newPseudoMantissa));
             }
             else
             {
                 //static_assert(false, "not implemented yet");
-                return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(0xdeadbeefbadcaffeull);
+                return bit_cast<this_t >(0xdeadbeefbadcaffeull);
             }
         }
 
         emulated_float64_t operator*(float rhs)
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) * create(rhs);
+            return bit_cast<this_t >(data) * create(rhs);
         }
 
-        /*emulated_float64_t<FastMath, FlushDenormToZero> reciprocal(uint64_t x)
+        /*this_t reciprocal(uint64_t x)
         {
-            using ThisType = emulated_float64_t<FastMath, FlushDenormToZero>;
-            ThisType output = ThisType::bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >((0xbfcdd6a18f6a6f52ULL - x) >> 1);
+            using ThisType = this_t;
+            ThisType output = ThisType::bit_cast<this_t >((0xbfcdd6a18f6a6f52ULL - x) >> 1);
             output = output * output;
             return output;
         }*/
@@ -449,23 +284,23 @@ namespace hlsl
         {
             if (FlushDenormToZero)
             {
-                //return emulated_float64_t<FastMath, FlushDenormToZero>::bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) * reciprocal(rhs.data);
+                //return this_t::bit_cast<this_t >(data) * reciprocal(rhs.data);
 
                 if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN);
+                    return bit_cast<this_t >(ieee754::traits<float64_t>::quietNaN);
                 if (!FastMath && ((rhs.data << 1) == 0))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN);
+                    return bit_cast<this_t >(ieee754::traits<float64_t>::quietNaN);
 
                 const uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
 
                 if (!FastMath && impl::areBothInfinity(data, rhs.data))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(ieee754::traits<float64_t>::quietNaN | sign);
+                    return bit_cast<this_t >(ieee754::traits<float64_t>::quietNaN | sign);
 
                 if (!FastMath && tgmath::isInf(data))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >((data & ~ieee754::traits<float64_t>::signMask) | sign);
+                    return bit_cast<this_t >((data & ~ieee754::traits<float64_t>::signMask) | sign);
 
                 if (!FastMath && tgmath::isInf(rhs.data))
-                    return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(0ull | sign);
+                    return bit_cast<this_t >(0ull | sign);
 
 
 
@@ -485,18 +320,18 @@ namespace hlsl
 
                 mantissa &= ieee754::traits<float64_t>::mantissaMask;
 
-                return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, mantissa));
+                return bit_cast<this_t >(impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, mantissa));
             }
             else
             {
                 //static_assert(false, "not implemented yet");
-                return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(0xdeadbeefbadcaffeull);
+                return bit_cast<this_t >(0xdeadbeefbadcaffeull);
             }
         }
 
         // relational operators
         // TODO: should `FlushDenormToZero` affect relational operators?
-        bool operator==(emulated_float64_t<FastMath, FlushDenormToZero> rhs) NBL_CONST_MEMBER_FUNC
+        bool operator==(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (tgmath::isnan<uint64_t>(data) || tgmath::isnan<uint64_t>(rhs.data)))
                 return false;
@@ -504,7 +339,7 @@ namespace hlsl
             if (!FastMath && impl::areBothZero(data, rhs.data))
                 return true;
 
-            const emulated_float64_t xored = bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data ^ rhs.data);
+            const emulated_float64_t xored = bit_cast<this_t >(data ^ rhs.data);
             // TODO: check what fast math returns for -0 == 0
             if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
                 return true;
@@ -513,7 +348,7 @@ namespace hlsl
         }
         bool operator!=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            return !(bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) == rhs);
+            return !(bit_cast<this_t >(data) == rhs);
         }
         bool operator<(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
@@ -555,8 +390,8 @@ namespace hlsl
 
             return (lhsFlipped & diffBits) > (rhsFlipped & diffBits);
         }
-        bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return !(bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) > bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(rhs.data)); }
-        bool operator>=(emulated_float64_t rhs) { return !(bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data) < bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(rhs.data)); }
+        bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return !(bit_cast<this_t >(data) > bit_cast<this_t >(rhs.data)); }
+        bool operator>=(emulated_float64_t rhs) { return !(bit_cast<this_t >(data) < bit_cast<this_t >(rhs.data)); }
 
         //logical operators
         bool operator&&(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC { return bool(data) && bool(rhs.data); }
@@ -565,7 +400,7 @@ namespace hlsl
 
         emulated_float64_t flipSign()
         {
-            return bit_cast<emulated_float64_t<FastMath, FlushDenormToZero> >(data ^ ieee754::traits<float64_t>::signMask);
+            return bit_cast<this_t >(data ^ ieee754::traits<float64_t>::signMask);
         }
         
         bool isNaN()
@@ -615,6 +450,13 @@ NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type ex
 {\
     return extractMantissa(x.data);\
 }\
+\
+template <>\
+NBL_CONSTEXPR_INLINE_FUNC uint64_t extractNormalizeMantissa(__VA_ARGS__ x)\
+{\
+    return extractNormalizeMantissa(x.data);\
+}\
+\
 
 #define DEFINE_BIT_CAST_SPEC(...)\
 template<>\
