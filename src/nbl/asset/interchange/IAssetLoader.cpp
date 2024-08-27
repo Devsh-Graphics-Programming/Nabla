@@ -45,6 +45,31 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const
     return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel, _override);
 }
 
+SAssetBundle IAssetLoader::interm_getAssetInHierarchyWithAllContent(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+{
+	auto firstLoad = interm_getAssetInHierarchy(_mgr,_filename,_params,_hierarchyLevel,_override);
+	auto bundleHasAllContent = [](const SAssetBundle& retval)->bool
+	{
+		for (const auto& asset : retval.getContents())
+		if (IPreHashed::anyDependantDiscardedContents(asset.get()))
+			return false;
+		return true;
+	};
+	if (bundleHasAllContent(firstLoad))
+		return firstLoad;
+
+	IAssetLoader::SAssetLoadParams paramCopy = _params;
+	paramCopy.cacheFlags = ECF_DUPLICATE_REFERENCES;
+	auto secondLoad = interm_getAssetInHierarchy(_mgr,_filename,paramCopy,_hierarchyLevel,_override);
+	if (bundleHasAllContent(secondLoad))
+	{
+		_mgr->removeAssetFromCache(firstLoad);
+		return secondLoad;
+	}
+	else
+		return {};
+}
+
 void IAssetLoader::interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, const bool _val)
 {
     _mgr->setAssetMutability(_asset, _val);

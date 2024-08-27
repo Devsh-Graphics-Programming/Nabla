@@ -297,6 +297,8 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 		// accessors for loaders
 		SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 		SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+		// only the overload we use for now
+		SAssetBundle interm_getAssetInHierarchyWithAllContent(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 
 		void interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, const bool _val);
 
