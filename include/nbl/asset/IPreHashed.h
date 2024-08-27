@@ -30,6 +30,7 @@ class IPreHashed : public IAsset
 		// One can free up RAM by discarding content, but keep the pointers and content hash around.
 		// This is a good alternative to simply ejecting assets from the <path,asset> cache as it prevents repeated loads.
 		// And you can still hash the asset DAG and find your already converted GPU objects.
+		// NOTE: `missingContent` is only about this DAG node!
 		virtual bool missingContent() const = 0;
 		inline void discardContent()
 		{
