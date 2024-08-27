@@ -42,6 +42,9 @@
 #include "nbl/core/containers/refctd_dynamic_array.h"
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
 #include "nbl/core/containers/LRUCache.h"
+// hash functions
+#include "nbl/core/hash/xxHash256.h"
+#include "nbl/core/hash/blake.h"
 // math
 #include "nbl/core/math/intutil.h"
 #include "nbl/core/math/colorutil.h"
