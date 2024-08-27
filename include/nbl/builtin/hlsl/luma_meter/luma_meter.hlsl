@@ -50,7 +50,7 @@ struct geom_meter {
     {
         float_t2 uvPos = shiftedCoord * window.meteringWindowScale + window.meteringWindowOffset;
         float_t3 color = tex.get(uvPos);
-        float_t luma = TexAccessor::toXYZ(color);
+        float_t luma = (float_t)TexAccessor::toXYZ(color);
 
         luma = clamp(luma, lumaMinMax.x, lumaMinMax.y);
 
@@ -80,7 +80,7 @@ struct geom_meter {
         float_t rangeLog2
     )
     {
-        float_t luma = (float_t)val.get(index & ((1 << glsl::gl_SubgroupSizeLog2()) - 1));
+        float_t luma = (float_t)val_accessor.get(index & ((1 << glsl::gl_SubgroupSizeLog2()) - 1));
         luma = luma / rangeLog2 + minLog2;
         return luma;
     }
@@ -90,7 +90,8 @@ struct geom_meter {
         NBL_REF_ARG(ValueAccessor) val,
         NBL_REF_ARG(TexAccessor) tex,
         NBL_REF_ARG(SharedAccessor) sdata,
-        float_t2 tileOffset
+        float_t2 tileOffset,
+        float_t2 viewportSize
     )
     {
         uint32_t tid = workgroup::SubgroupContiguousIndex();
@@ -100,7 +101,8 @@ struct geom_meter {
         };
 
         float_t luma = 0.0f;
-        luma = computeLumaLog2(window, tex, tileOffset + (float32_t2)(coord));
+        float_t2 shiftedCoord = (tileOffset + (float32_t2)(coord)) / viewportSize;
+        luma = computeLumaLog2(window, tex, shiftedCoord);
         float_t lumaSum = reduction(luma, sdata);
 
         if (tid == GroupSize - 1) {
@@ -117,7 +119,7 @@ struct geom_meter {
         }
     }
 
-    void gatherLuma(
+    float_t gatherLuma(
         NBL_REF_ARG(ValueAccessor) val
     )
     {
@@ -131,7 +133,7 @@ struct geom_meter {
             )
         );
 
-        uploadFloat(val, 0, lumaSum, log2(lumaMinMax.x), log2(lumaMinMax.y / lumaMinMax.x));
+        return lumaSum;
     }
 
     float_t sampleCount;
