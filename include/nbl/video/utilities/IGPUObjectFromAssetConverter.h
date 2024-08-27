@@ -437,29 +437,6 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
     return res;
 }
-
-auto IGPUObjectFromAssetConverter::create(const asset::ICPUBufferView** const _begin, const asset::ICPUBufferView** const _end, SParams& _params) -> created_gpu_object_array<asset::ICPUBufferView>
-{
-    const auto assetCount = std::distance(_begin, _end);
-    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUBufferView> >(assetCount);
-
-    core::vector<const asset::ICPUBuffer*> cpuBufs(assetCount, nullptr);
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-        cpuBufs[i] = _begin[i]->getUnderlyingBuffer();
-
-    core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuBufs);
-    auto gpuBufs = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBufs.data(), cpuBufs.data()+cpuBufs.size(), _params);
-
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        const asset::ICPUBufferView* cpubufview = _begin[i];
-        IGPUOffsetBufferPair* gpubuf = (*gpuBufs)[redirs[i]].get();
-        (*res)[i] = _params.device->createBufferView(gpubuf->getBuffer(), cpubufview->getFormat(), gpubuf->getOffset() + cpubufview->getOffsetInBuffer(), cpubufview->getByteSize());;
-    }
-
-    return res;
-}
-
 inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConverter::create(const asset::ICPUImageView** const _begin, const asset::ICPUImageView** const _end, SParams& _params)
 {
     const auto assetCount = std::distance(_begin, _end);
@@ -531,25 +508,6 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
 
 inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, SParams& _params)
 {
-                if (isBufferDesc(type))
-                {
-                    auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
-                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
-                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
-                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
-                    cpuBuffers.push_back(cpuBuf);
-                }
-                else if (isBufviewDesc(type))
-                {
-                    auto cpuBufView = static_cast<asset::ICPUBufferView*>(descriptor);
-                    auto cpuBuf = cpuBufView->getUnderlyingBuffer();
-                    if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER)
-                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_TEXEL_BUFFER_BIT);
-                    else if (cpuBuf && type == asset::IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER)
-                        cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT);
-                    cpuBufviews.push_back(cpuBufView);
-                }
                 else if (isSampledImgViewDesc(type))
                 {
                     auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
