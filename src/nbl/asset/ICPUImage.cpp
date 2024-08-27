@@ -3,6 +3,8 @@
 #include "nbl/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 
+#include <ranges>
+
 using namespace nbl;
 using namespace asset;
 
@@ -132,10 +134,10 @@ public:
 		{
 			auto buffer = getScratchAsBuffer(state->scratch.size);
 			const auto product = parameters.mipLevels * parameters.arrayLayers;
-
-			scratch.hashes = { .offset = 0u, .size = product * sizeof(CState::outHash), .buffer = buffer };
-			scratch.hashers = { .offset = scratch.hashes.size, .size = product * sizeof(blake3_hasher), .buffer = buffer };
-			scratch.flatten = { .offset = scratch.hashers.offset + scratch.hashers.size, .size = state->scratch.size - scratch.hashers.size - scratch.hashes.size, .buffer = buffer };
+			
+			scratch.hashes = { static_cast<CState::hash_t*>(state->scratch.memory), product };
+			scratch.hashers = { reinterpret_cast<blake3_hasher*>(scratch.hashes.data() + scratch.hashes.size()), product };
+			scratch.flatten = { .offset = scratch.hashes.size_bytes() + scratch.hashers.size_bytes(), .size = state->scratch.size - scratch.hashers.size_bytes() - scratch.hashes.size_bytes(), .buffer = buffer};
 		}
 
 		const auto isFullyFlatten = scratch.flatten.size == 0ull;
@@ -188,7 +190,8 @@ public:
 			flatten.preFill = true;
 			memset(flatten.fillValue.pointer, 0, sizeof(flatten.fillValue.pointer));
 
-			assert(CFlattenRegionsImageFilter::execute(policy, &proxy.flatten)); // this should never fail, at this point we are already validated
+			auto status = CFlattenRegionsImageFilter::execute(policy, &proxy.flatten);
+			assert(status); // this should never fail, at this point we are already validated
 		}
 
 		/*
@@ -202,18 +205,15 @@ public:
 		const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(parameters.format);
 		const uint8_t* inData = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 
-		std::vector<uint32_t> layers(parameters.arrayLayers);
-		std::iota(layers.begin(), layers.end(), 0);
-
-		std::vector<uint32_t> levels(parameters.mipLevels);
-		std::iota(levels.begin(), levels.end(), 0);
+		auto layers = std::views::iota(0u, parameters.arrayLayers);
+		auto levels = std::views::iota(0u, parameters.mipLevels);
 
 		/*
 			we stream-hash texels per given mip level & layer
 		*/
 
-		auto* const hashes = reinterpret_cast<CState::hash_t*>(getScratchAsBuffer(scratch.hashes.size, scratch.hashes.offset)->getPointer());
-		auto* const hashers = reinterpret_cast<blake3_hasher*>(getScratchAsBuffer(scratch.hashers.size, scratch.hashers.offset)->getPointer());
+		auto* const hashes = scratch.hashes.data();
+		auto* const hashers = scratch.hashers.data();
 
 		auto executePerMipLevel = [&](const uint32_t miplevel)
 		{
@@ -239,16 +239,7 @@ public:
 				const auto regions = image->getRegions(miplevel);
 				const bool performNullHash = regions.empty();
 
-				if (performNullHash)
-				{
-					const auto mipExtentInBlocks = info.convertTexelsToBlocks(image->getMipSize(miplevel));
-					const auto zeroLength = info.getBlockByteSize() * mipExtentInBlocks.x;
-					auto zeroArray = std::make_unique<uint8_t[]>(zeroLength);
-					for (auto z = 0; z < mipExtentInBlocks.z; z++)
-						for (auto y = 0; y < mipExtentInBlocks.y; y++)
-							blake3_hasher_update(hasher, zeroArray.get(), zeroLength);
-				}
-				else
+				if (!performNullHash)
 					CBasicImageFilterCommon::executePerRegion(std::execution::seq, image, executePerTexelOrBlock, regions, clipFunctor); // fire the hasher for a layer, note we forcing seq policy because texels/blocks cannot be handled with par policies when we hash them
 
 				blake3_hasher_finalize(hasher, reinterpret_cast<uint8_t*>(hash), sizeof(CState::hash_t)); // finalize hash for layer + put it to heap for given mip level	
@@ -292,8 +283,8 @@ private:
 
 	struct ScratchMap
 	{
-		asset::SBufferRange<asset::ICPUBuffer> hashes; // hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this hash buffer
-		asset::SBufferRange<asset::ICPUBuffer> hashers; // hashers, used to produce a hash
+		std::span<CState::hash_t> hashes; // hashes, single hash is obtained from given miplevel & layer, full hash for an image is a hash of this hash buffer
+		std::span<blake3_hasher> hashers; // hashers, used to produce a hash
 		asset::SBufferRange<asset::ICPUBuffer> flatten; // tightly packed texels from input, no memory gaps
 	};
 };
