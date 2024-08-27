@@ -7,7 +7,6 @@
 
 #include <functional>
 
-#include "nbl/core/math/morton.h"
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "nbl/core/alloc/PoolAddressAllocator.h"
@@ -18,6 +17,8 @@
 #include "nbl/asset/IDescriptorSetLayout.h"
 #include "nbl/asset/filters/CPaddedCopyImageFilter.h"
 #include "nbl/asset/filters/CFillImageFilter.h"
+
+#include "nbl/builtin/hlsl/math/morton.hlsl"
 
 namespace nbl::asset
 {
@@ -921,7 +922,7 @@ public:
         storage->incrTileCounter(neededPhysPages);
 
         return offsetToTextureData(
-            page_tab_offset_t(core::morton2d_decode_x(addr), core::morton2d_decode_y(addr), pgtLayer),
+            page_tab_offset_t(hlsl::morton2d_decode_x(addr), hlsl::morton2d_decode_y(addr), pgtLayer),
             extent,
             _subres.levelCount,
             _wrapu,
@@ -933,7 +934,7 @@ public:
     {
         uint32_t sz = computeSquareSz(_addr.origsize_x, _addr.origsize_y);
         sz *= sz;
-        const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
+        const uint32_t addr = hlsl::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
 
         core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pageTableLayerAllocators[_addr.pgTab_layer], 1u, &addr, &sz);
 
