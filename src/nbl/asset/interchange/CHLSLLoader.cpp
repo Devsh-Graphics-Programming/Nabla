@@ -14,21 +14,22 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	if (!_file)
         return {};
 
-	auto len = _file->getSize();
-	void* source = _NBL_ALIGNED_MALLOC(len+1u,_NBL_SIMD_ALIGNMENT);
+	const auto len = _file->getSize();
+	auto source = core::make_smart_refctd_ptr<ICPUBuffer>(len+1);
 
 	system::IFile::success_t success;
-	_file->read(success, source, 0, len);
+	_file->read(success, source->getPointer(), 0, len);
 	if (!success)
 		return {};
-
-	reinterpret_cast<char*>(source)[len] = 0;
+	// make sure put string end terminator
+	reinterpret_cast<char*>(source->getPointer())[len] = 0;
 
 
 	const auto filename = _file->getFileName();
 	auto filenameEnding = filename.filename().string();
 
-	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
+	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =
+	{
 		{".vert.hlsl",IShader::E_SHADER_STAGE::ESS_VERTEX},
 		{".tesc.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL},
 		{".tese.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION},
@@ -39,7 +40,8 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		{".task.hlsl",IShader::E_SHADER_STAGE::ESS_TASK},
 	};
 	auto shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
-	for (auto& it : typeFromExt) {
+	for (auto& it : typeFromExt)
+	{
 		if (filenameEnding.size() <= it.first.size()) continue;
 		auto stringPart = filenameEnding.substr(filenameEnding.size() - it.first.size());
 		if (stringPart  == it.first)
@@ -49,9 +51,6 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		}
 	}
 
-	// TODO: allocate the source as an ICPUBuffer right away!
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), shaderStage, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string());
-	_NBL_ALIGNED_FREE(source);
-
-	return SAssetBundle(nullptr,{std::move(shader)});
+	source->setContentHash(source->computeContentHash());
+	return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(source), shaderStage, IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string())});
 } 

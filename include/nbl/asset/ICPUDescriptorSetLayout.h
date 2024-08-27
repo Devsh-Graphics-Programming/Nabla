@@ -28,8 +28,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
-            clone_common(cp.get());
+            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr,nullptr);
 
             for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 cp->m_descriptorRedirects[t] = m_descriptorRedirects[t].clone();
@@ -54,89 +53,18 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             return cp;
         }
 
-		size_t conservativeSizeEstimate() const override
-        {
-            size_t result = 0ull;
-            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-                result += m_descriptorRedirects[t].conservativeSizeEstimate();
-            result += m_immutableSamplerRedirect.conservativeSizeEstimate();
-            result += m_mutableCombinedSamplerRedirect.conservativeSizeEstimate();
-
-            result += m_immutableSamplers->size() * sizeof(void*);
-
-            return result;
-        }
-
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-                --referenceLevelsBelowToConvert;
-                if (m_immutableSamplers)
-                {
-				    for (auto it=m_immutableSamplers->begin(); it!=m_immutableSamplers->end(); it++)
-					    it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
-                }
-			}
-		}
-
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
+        constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
-            if (getTotalBindingCount() != other->getTotalBindingCount())
-                return false;
-            if ((!m_immutableSamplers) != (!other->m_immutableSamplers))
-                return false;
-            if (m_immutableSamplers && m_immutableSamplers->size() != other->m_immutableSamplers->size())
-                return false;
-            if (m_immutableSamplers)
-            {
-                for (uint32_t i = 0u; i < m_immutableSamplers->size(); ++i)
-                {
-                    if (!(*m_immutableSamplers)[i]->canBeRestoredFrom((*other->m_immutableSamplers)[i].get()))
-                        return false;
-                }
-            }
-
-            return true;
-        }
+		inline size_t getDependantCount() const override {return m_immutableSamplers ? m_immutableSamplers->size():0;}
 
 	protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-        {
-            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
-
-            if (!_levelsBelow)
-                return;
-
-            --_levelsBelow;
-            if (m_immutableSamplers)
-            {
-                for (uint32_t i = 0u; i < m_immutableSamplers->size(); ++i)
-                    restoreFromDummy_impl_call((*m_immutableSamplers)[i].get(), (*other->m_immutableSamplers)[i].get(), _levelsBelow);
-            }
-        }
-
-        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-        {
-            --_levelsBelow;
-            if (m_immutableSamplers)
-            {
-                for (uint32_t i = 0u; i < m_immutableSamplers->size(); ++i)
-                {
-                    if ((*m_immutableSamplers)[i]->isAnyDependencyDummy(_levelsBelow))
-                        return true;
-                }
-            }
-            return false;
-        }
-
 		virtual ~ICPUDescriptorSetLayout() = default;
+
+        inline IAsset* getDependant_impl(const size_t ix) override
+        {
+            return m_immutableSamplers->operator[](ix).get();
+        }
 };
 
 }

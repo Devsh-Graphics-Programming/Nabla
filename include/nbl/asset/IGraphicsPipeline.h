@@ -66,12 +66,8 @@ struct SPrimitiveAssemblyParams
 static_assert(sizeof(SPrimitiveAssemblyParams)==2u, "Unexpected size!");
 
 
-template<typename PipelineLayoutType, typename ShaderType, typename RenderpassType>
-class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
+class IGraphicsPipelineBase : public virtual core::IReferenceCounted
 {
-    protected:
-        using renderpass_t = RenderpassType;
-
     public:
         constexpr static inline uint8_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
@@ -83,6 +79,15 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>
             SBlendParams blend = {};
             uint32_t subpassIx = 0u;
         };
+};
+
+template<typename PipelineLayoutType, typename ShaderType, typename RenderpassType>
+class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphicsPipelineBase
+{
+    protected:
+        using renderpass_t = RenderpassType;
+
+    public:
         struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
         {
             protected:

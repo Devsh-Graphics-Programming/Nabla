@@ -28,8 +28,9 @@ IDescriptorPool::IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& 
     m_descriptorSetAllocator = core::IteratablePoolAddressAllocator<uint32_t>(m_descriptorSetAllocatorReservedSpace.get(), 0, 0, 1, m_creationParameters.maxSets, 1);
 }
 
-uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+uint32_t IDescriptorPool::createDescriptorSets(const std::span<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
 {
+    const size_t count = layouts.size();
     core::vector<uint32_t> reverseMap(count,count);
 
     core::vector<const IGPUDescriptorSetLayout*> repackedLayouts;
@@ -73,7 +74,7 @@ uint32_t IDescriptorPool::createDescriptorSets(uint32_t count, const IGPUDescrip
     else
     {
         // Free the allocated offsets for all the successfully allocated descriptor sets and the offset of the descriptor sets themselves.
-        rewindLastStorageAllocations(successCount,offsets.data(),layouts);
+        rewindLastStorageAllocations(successCount,offsets.data(),layouts.data());
         std::fill_n(output,count,nullptr);
         successCount = 0;
     }

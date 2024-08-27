@@ -31,7 +31,7 @@ def execute(args):
     
     outp.write(f"""
     #include "{correspondingHeaderFile}"
-    #include "nbl/core/xxHash256.h"
+    #include "nbl/core/hash/xxHash256.h"
     
     namespace {resourcesNamespace}
     {{
