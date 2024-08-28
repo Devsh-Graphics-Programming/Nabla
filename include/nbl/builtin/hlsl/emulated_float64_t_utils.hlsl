@@ -308,14 +308,6 @@ using emulated_matrix_t3x3 = emulated_matrix<EmulatedType, 3, 3>;
 
 namespace impl
 {
-template<typename T>
-struct is_emulated
-{
-    NBL_CONSTEXPR_STATIC_INLINE bool value = is_same_v<T, emulated_float64_t<true, true> > ||
-        is_same_v<T, emulated_float64_t<false, false> > ||
-        is_same_v<T, emulated_float64_t<true, false> > ||
-        is_same_v<T, emulated_float64_t<false, true> >;
-};
 
 template<typename T, uint32_t N, bool native = is_scalar<T>::value >
 struct portable_vector
@@ -441,29 +433,29 @@ NBL_CONSTEXPR_INLINE_FUNC portable_vector64_t3 create_portable_vector64_t2_from_
 
 namespace impl
 {
-    template<typename M, typename V, typename PortableFloat>
-    struct PortableMul64Helper
+template<typename M, typename V, typename PortableFloat>
+struct PortableMul64Helper
+{
+    static inline V multiply(M mat, V vec)
     {
-        static inline V multiply(M mat, V vec)
-        {
-            return mat * vec;
-        }
-    };
+        return mat * vec;
+    }
+};
 
-    template<typename M, typename V>
-    struct PortableMul64Helper<M, V, float64_t>
+template<typename M, typename V>
+struct PortableMul64Helper<M, V, float64_t>
+{
+    static inline V multiply(M mat, V vec)
     {
-        static inline V multiply(M mat, V vec)
-        {
-            return mul(mat, vec);
-        }
-    };
+        return mul(mat, vec);
+    }
+};
 }
 
 template<typename M, typename V>
 V portableMul64(M mat, V vec)
 {
-    return PortableMul64Helper<M, V, portable_float64_t<> >::multiply(mat, vec);
+    return impl::PortableMul64Helper<M, V, portable_float64_t<> >::multiply(mat, vec);
 }
 
 

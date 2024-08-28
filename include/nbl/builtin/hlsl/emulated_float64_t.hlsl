@@ -72,29 +72,6 @@ namespace hlsl
             return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
         }*/
 
-        inline float getAsFloat32()
-        {
-            int exponent = ieee754::extractExponent(data);
-            if (!FastMath)
-            {
-                if (exponent > 127)
-                    return bit_cast<float>(ieee754::traits<float>::inf);
-                if (exponent < -126)
-                    return -bit_cast<float>(ieee754::traits<float>::inf);
-                if (tgmath::isnan(data))
-                    return bit_cast<float>(ieee754::traits<float>::quietNaN);
-            }
-
-            //return float(bit_cast<double>(data));
-            // TODO: fix
-            uint32_t sign = uint32_t((data & ieee754::traits<float64_t>::signMask) >> 32);
-            uint32_t biasedExponent = uint32_t(exponent + ieee754::traits<float>::exponentBias) << ieee754::traits<float>::mantissaBitCnt;
-            uint32_t mantissa = uint32_t(data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float>::mantissaBitCnt)) & ieee754::traits<float>::mantissaMask;
-
-            return bit_cast<float>(sign | biasedExponent | mantissa);
-
-        }
-
         // TODO: remove
         emulated_float64_t addOld(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
@@ -656,30 +633,34 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
     // TODO: test
     static inline To cast(From v)
     {
+        using ToAsFloat = typename float_of_size<sizeof(To)>::type;
+        using ToAsUint = typename unsigned_integer_of_size<sizeof(To)>::type;
+
+
         if (is_same_v<To, float64_t>)
             return To(bit_cast<float64_t>(v.data));
 
         if (is_floating_point<To>::value)
         {
+
             const int exponent = ieee754::extractExponent(v.data);
             if (!From::supportsFastMath())
             {
-                if (exponent > ieee754::traits<To>::exponentMax)
-                    return bit_cast<To>(ieee754::traits<To>::inf);
-                if (exponent < ieee754::traits<To>::exponentMin)
-                    return -bit_cast<To>(ieee754::traits<To>::inf);
+                if (exponent > ieee754::traits<ToAsFloat>::exponentMax)
+                    return bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
+                if (exponent < ieee754::traits<ToAsFloat>::exponentMin)
+                    return -bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
                 if (tgmath::isnan(v.data))
-                    return bit_cast<To>(ieee754::traits<To>::quietNaN);
+                    return bit_cast<To>(ieee754::traits<ToAsFloat>::quietNaN);
             }
 
-            using AsUint = typename unsigned_integer_of_size<sizeof(To)>::type;
 
             const uint32_t toBitSize = sizeof(To) * 8;
-            const AsUint sign = AsUint(ieee754::extractSign(v.data) << (toBitSize - 1));
-            const AsUint biasedExponent = AsUint(exponent + ieee754::traits<To>::exponentBias) << ieee754::traits<To>::mantissaBitCnt;
-            const AsUint mantissa = AsUint(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<To>::mantissaBitCnt)) & ieee754::traits<To>::mantissaMask;
+            const ToAsUint sign = ToAsUint(ieee754::extractSign(v.data) << (toBitSize - 1));
+            const ToAsUint biasedExponent = ToAsUint(exponent + ieee754::traits<ToAsFloat>::exponentBias) << ieee754::traits<ToAsFloat>::mantissaBitCnt;
+            const ToAsUint mantissa = ToAsUint(v.data >> (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<ToAsFloat>::mantissaBitCnt)) & ieee754::traits<ToAsFloat>::mantissaMask;
 
-            return bit_cast<To>(sign | biasedExponent | mantissa);
+            return bit_cast<ToAsFloat>(sign | biasedExponent | mantissa);
         }
 
         // NOTE: casting from negative float to unsigned int is an UB, function will return abs value in this case
@@ -711,7 +692,60 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
         }
 
         // assert(false);
-        return 0xdeadbeefbadcaffeull;
+        return To(0xdeadbeefbadcaffeull);
+    }
+};
+
+template<bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, float32_t, void>
+{
+    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
+
+    static inline To cast(float32_t v)
+    {
+        return To::create(v);
+    }
+};
+
+template<bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, float64_t, void>
+{
+    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
+
+    static inline To cast(float64_t v)
+    {
+        return To::create(v);
+    }
+};
+
+template<bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, uint32_t, void>
+{
+    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
+
+    static inline To cast(uint32_t v)
+    {
+        return To::create(v);
+    }
+};
+
+template<bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, uint64_t, void>
+{
+    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
+
+    static inline To cast(uint64_t v)
+    {
+        return To::create(v);
+    }
+};
+
+template<bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, emulated_float64_t<FastMath, FlushDenormToZero>, void>
+{
+    static inline emulated_float64_t<FastMath, FlushDenormToZero> cast(emulated_float64_t<FastMath, FlushDenormToZero> v)
+    {
+        return v;
     }
 };
 
@@ -744,6 +778,5 @@ IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, true
 
 #undef IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE
 #undef DEFINE_BIT_CAST_SPEC
-#undef DEFINE_EMULATED_FLOAT64_STATIC_CAST
 
 #endif
