@@ -55,7 +55,6 @@ namespace hlsl
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(float64_t val)
         {
-            return bit_cast<this_t >(bit_cast<uint64_t>(float64_t(val)));
 #ifdef __HLSL_VERSION
             emulated_float64_t retval;
             uint32_t lo, hi;
@@ -271,9 +270,6 @@ namespace hlsl
 
                 uint64_t lhsSign = ieee754::extractSign(data);
                 uint64_t rhsSign = ieee754::extractSign(rhs.data);
-
-                if (lhsSign != rhsSign)
-                    return addOld(rhs);
 
                 int64_t lhsNormMantissa = int64_t(ieee754::extractNormalizeMantissa(data));
                 int64_t rhsNormMantissa = int64_t(ieee754::extractNormalizeMantissa(rhs.data));
@@ -726,8 +722,8 @@ DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, false>);
 DEFINE_BIT_CAST_SPEC(emulated_float64_t<true, false>);
 DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, true>);
 
-template<bool FastMath, bool FlushDenormToZero>
-struct is_floating_point<emulated_float64_t<FastMath, FlushDenormToZero> > : bool_constant<true> {};
+//template<bool FastMath, bool FlushDenormToZero>
+//struct is_floating_point<emulated_float64_t<FastMath, FlushDenormToZero> > : bool_constant<true> {};
 
 namespace ieee754
 {

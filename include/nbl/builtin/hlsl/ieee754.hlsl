@@ -51,6 +51,7 @@ namespace impl
 template<typename Float>
 struct traits_base
 {
+	static_assert(is_same<Float, float32_t>::value || is_same<Float, float64_t>::value);
 	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = int16_t(0xbeef);
 	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = int16_t(0xbeef);
 };
@@ -158,13 +159,15 @@ NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type ext
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
 {
-	return (impl::castToUintType(x) & traits<T>::signMask) >> ((sizeof(T) * 8) - 1);
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return (impl::castToUintType(x) & traits<AsFloat>::signMask) >> ((sizeof(T) * 8) - 1);
 }
 
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSignPreserveBitPattern(T x)
 {
-	return impl::castToUintType(x) & traits<T>::signMask;
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return impl::castToUintType(x) & traits<AsFloat>::signMask;
 }
 
 }
