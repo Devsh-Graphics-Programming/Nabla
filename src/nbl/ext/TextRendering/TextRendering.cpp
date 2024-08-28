@@ -44,8 +44,9 @@ uint32_t TextRenderer::generateShapeMSDF(
 	auto shapeBounds = glyph.getBounds();
 
 	msdfgen::Bitmap<float, 4> msdfMap(msdfExtents.x, msdfExtents.y);
-
-	msdfgen::generateMTSDF(msdfMap, glyph, msdfPixelRange, { scale.x, scale.y }, { translate.x, translate.y });
+	
+	double pxRange = (double)msdfPixelRange / (min(scale.x, scale.y));
+	msdfgen::generateMTSDF(msdfMap, glyph, pxRange, { scale.x, scale.y }, { translate.x, translate.y });
 
 	for (int y = 0; y < msdfExtents.x; ++y)
 	{
@@ -84,7 +85,7 @@ FontFace::GlyphMetrics FontFace::getGlyphMetrics(uint32_t glyphId)
 	};
 }
 
-core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
+core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels)
 {
 	ICPUImage::SCreationParams imgParams;
 	{
@@ -136,7 +137,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixel
 		auto shapeBounds = shape.getBounds();
 
 		float32_t2 mipExtents = float32_t2(float(mipW), float(mipH));
-		uint32_t mipPixelRange = msdfPixelRange / (1 << i);
+		float32_t mipPixelRange = (float32_t)baseMSDFPixelRange / pow(2.0, double(i)); // TODO: Pixel range should be float
 
 		float32_t2 frameSize = float32_t2(
 			(shapeBounds.r - shapeBounds.l),
@@ -155,7 +156,10 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t msdfPixel
 		const float32_t2 shapeSpaceCenter = float32_t2(shapeBounds.l + shapeBounds.r, shapeBounds.t + shapeBounds.b) * float32_t2(0.5);
 		const float32_t2 translate = mipExtents / (float32_t2(2.0) * uniformScale) - shapeSpaceCenter;
 
-		uint32_t result = m_textRenderer->generateShapeMSDF(buffer.get(), bufferOffset, shape, mipPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate);
+		// We are using `baseMSDFPixelRange`, because we still need larger range for smaller mips when aa feather is relatively large.
+		// WARNING: HWTrilinear filtering will not give correct results.
+		//because now the baseMSDFPixelRange is being used for all mips as it's wrong to mix/lerp values that have different scales (pixel ranges)
+		uint32_t result = m_textRenderer->generateShapeMSDF(buffer.get(), bufferOffset, shape, baseMSDFPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate);
 		// Failing here means the buffer didn't have enough space
 		assert(result);
 		bufferOffset += result;

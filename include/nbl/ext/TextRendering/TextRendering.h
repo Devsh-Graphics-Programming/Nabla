@@ -37,7 +37,7 @@ public:
 	// Takes the CPUBuffer containing the image data in SNORM format and an offset into it
 	uint32_t generateShapeMSDF(
 		ICPUBuffer* buffer, uint32_t bufferOffset, 
-		msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, 
+		msdfgen::Shape glyph, uint32_t baseMSDFPixelRange, uint32_t2 msdfExtents, 
 		float32_t2 scale, float32_t2 translate);
 
 	TextRenderer()
