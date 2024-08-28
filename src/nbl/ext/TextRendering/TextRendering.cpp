@@ -17,9 +17,9 @@ namespace ext
 namespace TextRendering
 {
 
-uint32_t TextRenderer::generateShapeMSDF(
-	ICPUBuffer* buffer,
-	uint32_t bufferOffset, 
+void TextRenderer::generateShapeMSDF(
+	ICPUBuffer* bufferToFill,
+	size_t* bufferOffset,
 	msdfgen::Shape glyph,
 	float32_t msdfPixelRange,
 	uint32_t2 msdfExtents, 
@@ -29,13 +29,11 @@ uint32_t TextRenderer::generateShapeMSDF(
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
 
-	uint32_t bufferSize = glyphW * glyphH * sizeof(int8_t) * 4;
-	if (buffer->getSize() + bufferOffset < bufferSize)
-	{
-		return 0u;
-	}
+	size_t& offset = *bufferOffset;
+	size_t bufferSize = glyphW * glyphH * sizeof(int8_t) * 4;
+	assert(bufferToFill->getSize() >= bufferSize + bufferOffset);
 
-	int8_t* data = reinterpret_cast<int8_t*>(buffer->getPointer());
+	int8_t* data = reinterpret_cast<int8_t*>(bufferToFill->getPointer());
 	
 	auto floatToSNORM8 = [](const float fl) -> int8_t
 	{
@@ -57,14 +55,14 @@ uint32_t TextRenderer::generateShapeMSDF(
 		for (int x = 0; x < msdfExtents.y; ++x)
 		{
 			auto pixel = msdfMap(x, msdfExtents.y - 1 - y);
-			data[bufferOffset + (x + y * msdfExtents.x) * 4 + 0] = floatToSNORM8(pixel[0]);
-			data[bufferOffset + (x + y * msdfExtents.x) * 4 + 1] = floatToSNORM8(pixel[1]);
-			data[bufferOffset + (x + y * msdfExtents.x) * 4 + 2] = floatToSNORM8(pixel[2]);
-			data[bufferOffset + (x + y * msdfExtents.x) * 4 + 3] = floatToSNORM8(pixel[3]);
+			data[offset + (x + y * msdfExtents.x) * 4 + 0] = floatToSNORM8(pixel[0]);
+			data[offset + (x + y * msdfExtents.x) * 4 + 1] = floatToSNORM8(pixel[1]);
+			data[offset + (x + y * msdfExtents.x) * 4 + 2] = floatToSNORM8(pixel[2]);
+			data[offset + (x + y * msdfExtents.x) * 4 + 3] = floatToSNORM8(pixel[3]);
 		}
 	}
 
-	return bufferSize;
+	offset += bufferSize;
 }
 
 constexpr double FreeTypeFontScaling = 1.0 / 64.0;
@@ -114,7 +112,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(mipLevels);
 
-	uint32_t bufferOffset = 0u;
+	size_t bufferOffset = 0ull;
 	for (uint32_t i = 0; i < mipLevels; i++)
 	{
 		// we need to generate a msdfgen per mip map, because the msdf generate call consumes the shape
@@ -163,10 +161,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		// We are using `baseMSDFPixelRange`, because we still need larger range for smaller mips when aa feather is relatively large.
 		// WARNING: HWTrilinear filtering will not give correct results.
 		//because now the baseMSDFPixelRange is being used for all mips as it's wrong to mix/lerp values that have different scales (pixel ranges)
-		uint32_t result = m_textRenderer->generateShapeMSDF(buffer.get(), bufferOffset, shape, baseMSDFPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate);
-		// Failing here means the buffer didn't have enough space
-		assert(result);
-		bufferOffset += result;
+		m_textRenderer->generateShapeMSDF(buffer.get(), &bufferOffset, shape, baseMSDFPixelRange, mipExtents, float32_t2(uniformScale, uniformScale), translate);
 	}
 	assert(bufferOffset <= buffer->getCreationParams().size);
 	image->setBufferAndRegions(std::move(buffer), std::move(regions));

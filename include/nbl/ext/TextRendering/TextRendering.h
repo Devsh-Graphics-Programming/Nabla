@@ -35,9 +35,9 @@ public:
 	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8A8_SNORM;
 
 	// Takes the CPUBuffer containing the image data in SNORM format and an offset into it
-	uint32_t generateShapeMSDF(
-		ICPUBuffer* buffer,
-		uint32_t bufferOffset, 
+	void generateShapeMSDF(
+		ICPUBuffer* bufferToFill,
+		size_t*	bufferOffset,
 		msdfgen::Shape glyph,
 		float32_t msdfPixelRange,
 		uint32_t2 msdfExtents, 
