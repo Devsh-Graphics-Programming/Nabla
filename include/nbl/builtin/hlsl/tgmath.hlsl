@@ -30,8 +30,10 @@ template<typename T>
 NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+
 	AsUint tmp = bit_cast<AsUint>(val);
-	return (tmp & ~ieee754::traits<T>::signMask) == ieee754::traits<T>::inf;
+	return (tmp & ~ieee754::traits<T>::signMask) == ieee754::traits<AsFloat>::inf;
 }
 
 }

@@ -80,16 +80,28 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t unpackUint64(uint32_t2 val)
     return ((uint64_t(val.x) & 0x00000000FFFFFFFFull) << 32) | uint64_t(val.y);
 }
 
-inline uint64_t castToUint64WithFloat64BitPattern(float32_t val)
+template<bool FlushDenormToZero>
+inline uint64_t castFloat32ToStorageType(float32_t val)
 {
-    uint32_t asUint = ieee754::impl::castToUintType(val);
+    if (FlushDenormToZero)
+    {
+        const uint64_t sign = uint64_t(ieee754::extractSign(val)) << 63;
+        if (tgmath::isInf(val))
+            return ieee754::traits<float64_t>::inf | sign;
+        uint32_t asUint = ieee754::impl::castToUintType(val);
+        const int f32BiasedExp = ieee754::extractBiasedExponent(val);
+        if (f32BiasedExp == 0)
+            return sign;
+        const uint64_t biasedExp = uint64_t(f32BiasedExp - ieee754::traits<float32_t>::exponentBias + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
+        const uint64_t mantissa = (uint64_t(ieee754::traits<float32_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float32_t>::mantissaBitCnt);
 
-    const uint64_t sign = (uint64_t(ieee754::traits<float32_t>::signMask) & asUint) << (sizeof(float32_t) * 8);
-
-    const uint64_t biasedExp = (uint64_t(ieee754::extractExponent(val)) + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
-    const uint64_t mantissa = (uint64_t(ieee754::traits<float32_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float32_t>::mantissaBitCnt);
-
-    return sign | biasedExp | mantissa;
+        return sign | biasedExp | mantissa;
+    }
+    else
+    {
+        // static_assert(false);
+        return 0xdeadbeefbadcaffeull;
+    }
 };
 
 inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
@@ -100,8 +112,18 @@ inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
 #ifndef __HLSL_VERSION
     int exp = findMSB(val);
 #else
-    uint32_t2 valPacked = packUint64(val);
-    int exp = valPacked.x ? firstbithigh(valPacked.x) + 32 : firstbithigh(valPacked.y);
+    int exp = 63;
+    uint64_t mask = ieee754::traits<float64_t>::signMask;
+    while (!(val & mask))
+    {
+        --exp;
+        mask >>= 1;
+    }
+
+
+    //uint32_t2 valPacked = packUint64(val);
+    //int exp = valPacked.x ? firstbithigh(valPacked.x) + 32 : firstbithigh(valPacked.y);
+    //exp = 63 - exp;
 #endif
     uint64_t mantissa;
 
@@ -128,8 +150,6 @@ inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
         else if ((val & roundingBit) && (stickyBit || (mantissa & 1)))
             val += roundingBit;
 
-        
-
         //val += (1ull << (shiftCnt)) - 1;
         //mantissa = val >> shiftCntAbs;
 
@@ -148,7 +168,7 @@ inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
 inline uint64_t castToUint64WithFloat64BitPattern(int64_t val)
 {
     const uint64_t sign = val & ieee754::traits<float64_t>::signMask;
-    const uint64_t absVal = abs(val);
+    const uint64_t absVal = uint64_t(abs(val));
     return sign | castToUint64WithFloat64BitPattern(absVal);
 };
 
@@ -384,6 +404,11 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
 NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignInfinity(uint64_t lhs, uint64_t rhs)
 {
     return lhs == rhs && (lhs & ~ieee754::traits<float64_t>::signMask) == ieee754::traits<float64_t>::inf;
+}
+
+NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
+{
+    return (val << 1) == 0;
 }
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
