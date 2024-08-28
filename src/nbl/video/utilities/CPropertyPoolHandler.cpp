@@ -50,7 +50,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	}
 	auto dsLayout = m_device->createDescriptorSetLayout(bindings,bindings+4);
 	// TODO: if we decide to invalidate all cmdbuffs used for updates (make them non reusable), then we can use the ECF_NONE flag
-	auto descPool = m_device->createDescriptorPoolForDSLayouts(IDescriptorPool::ECF_UPDATE_AFTER_BIND_BIT,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
+	auto descPool = m_device->createDescriptorPoolForDSLayouts(0,&dsLayout.get(),&dsLayout.get()+1u,&CPropertyPoolHandler::DescriptorCacheSize);
 	m_dsCache = core::make_smart_refctd_ptr<TransferDescriptorSetCache>(m_device.get(),std::move(descPool),core::smart_refctd_ptr(dsLayout));
 	
 	const asset::SPushConstantRange baseDWORD = {asset::IShader::ESS_COMPUTE,0u,sizeof(uint32_t)*2u};
@@ -112,8 +112,6 @@ bool CPropertyPoolHandler::transferProperties(
 			return true;
 		
 		// update desc sets (TODO: handle acquire failure, by using push descriptors!)
-		// TODO: acquire the set just once for all streaming chunked dispatches (scratch, addresses, and destinations dont change)
-		// however this will require the usage of IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC for the source data bindings
 		auto setIx = m_dsCache->acquireSet(this,scratch,addresses,localRequests,propertiesThisPass);
 		if (setIx==IDescriptorSetCache::invalid_index)
 		{

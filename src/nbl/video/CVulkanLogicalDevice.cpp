@@ -544,7 +544,6 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
     vk_dsLayoutBindings.reserve(bindings.size());
     vk_bindingFlags.reserve(bindings.size());
 
-    bool updateAfterBindFound = false;
     for (const auto& binding : bindings)
     {
         auto& vkDescSetLayoutBinding = vk_dsLayoutBindings.emplace_back();
@@ -564,8 +563,6 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
             vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
         }
 
-        if (binding.createFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
-            updateAfterBindFound = true;
         vk_bindingFlags.emplace_back() = getVkDescriptorBindingFlagsFrom(binding.createFlags);
     }
 
@@ -573,9 +570,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
     VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, &vk_bindingFlagsInfo };
     // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
     // Answer: We don't actually support any extensions/features that would necessitate exposing any other flag than update_after_bind
-    vk_createInfo.flags = 0;
-    if (updateAfterBindFound)
-        vk_createInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    vk_createInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
     vk_createInfo.bindingCount = vk_bindingFlagsInfo.bindingCount = vk_dsLayoutBindings.size();
     vk_createInfo.pBindings = vk_dsLayoutBindings.data();
     vk_bindingFlagsInfo.pBindingFlags = vk_bindingFlags.data();
@@ -647,7 +642,7 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 
     VkDescriptorPoolCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
     vk_createInfo.pNext = nullptr; // no pNext of interest so far
-    vk_createInfo.flags = static_cast<VkDescriptorPoolCreateFlags>(createInfo.flags.value);
+    vk_createInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT | static_cast<VkDescriptorPoolCreateFlags>(createInfo.flags.value);
     vk_createInfo.maxSets = createInfo.maxSets;
     vk_createInfo.poolSizeCount = poolSizeCount;
     vk_createInfo.pPoolSizes = poolSizes;

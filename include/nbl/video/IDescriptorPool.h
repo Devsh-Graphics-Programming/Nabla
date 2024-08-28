@@ -26,7 +26,6 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         {
             ECF_NONE = 0x00u,
             ECF_FREE_DESCRIPTOR_SET_BIT = 0x01,
-            ECF_UPDATE_AFTER_BIND_BIT = 0x02,
             //ECF_HOST_ONLY_BIT_VALVE = 0x04
         };
 
@@ -128,12 +127,6 @@ class NBL_API2 IDescriptorPool : public IBackendObject
                 break;
             case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)];
-                break;
-            case asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)]);
-                break;
-            case asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_UBO_SSBOStorage.get()) + (m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)] + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)]);
                 break;
             case asset::IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE)];

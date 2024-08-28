@@ -397,10 +397,9 @@ bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline*
     return true;
 }
 
-bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* const dynamicOffsets)
+bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets)
 {
     VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
-    uint32_t dynamicOffsetCountPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = { 0u };
 
     // We allow null descriptor sets in our bind function to skip a certain set number we don't use
     // Will bind [first, last) with one call
@@ -408,16 +407,9 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
     if (pDescriptorSets[i])
     {
         vk_descriptorSets[i] = static_cast<const CVulkanDescriptorSet*>(pDescriptorSets[i])->getInternalObject();
-        // count dynamic offsets per set, if there are any
-        if (dynamicOffsets)
-        {
-            dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC).getTotalCount();
-            dynamicOffsetCountPerSet[i] += pDescriptorSets[i]->getLayout()->getDescriptorRedirect(asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC).getTotalCount();
-        }
     }
 
     uint32_t bindCallsCount = 0u;
-    uint32_t dynamicOffsetsBindOffset = 0u;
     uint32_t first = ~0u;
     uint32_t last = ~0u;
     const VkPipelineLayout vk_pipelineLayout = static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject();
@@ -432,16 +424,11 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
         const auto next = i+1;
         if (next>=descriptorSetCount || !pDescriptorSets[next])
         {
-            uint32_t dynamicOffsetCount = 0u;
-            for (auto setIndex=first; setIndex<last; ++setIndex)
-                dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
-
             getFunctionTable().vkCmdBindDescriptorSets(
                 m_cmdbuf,static_cast<VkPipelineBindPoint>(pipelineBindPoint),vk_pipelineLayout,
                 firstSet+first, last-first, vk_descriptorSets+first,
-                dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
+                0, nullptr
             );
-            dynamicOffsetsBindOffset += dynamicOffsetCount;
 
             first = last;
             ++bindCallsCount;

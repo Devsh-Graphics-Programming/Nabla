@@ -503,8 +503,6 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // Vulkan: const VkCommandBuffer*
         virtual const void* getNativeHandle() const = 0;
 
-        inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
-
     protected: 
         friend class IQueue;
 
@@ -590,8 +588,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
         virtual bool bindDescriptorSets_impl(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
-            const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
-            const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr
+            const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets
         ) = 0;
         virtual bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) = 0;
         virtual bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) = 0;
@@ -653,8 +650,6 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_resetCheckedStamp = m_cmdpool->getResetCounter();
             m_state = STATE::INITIAL;
 
-            m_boundDescriptorSetsRecord.clear();
-
             m_commandList.head = nullptr;
             m_commandList.tail = nullptr;
 
@@ -666,7 +661,6 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline void releaseResourcesBackToPool()
         {
             deleteCommandList();
-            m_boundDescriptorSetsRecord.clear();
             releaseResourcesBackToPool_impl();
         }
 
@@ -777,11 +771,6 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
-
-        // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
-        // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
-        // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
-        core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
     
         IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList = {};
 
