@@ -18,9 +18,13 @@ namespace TextRendering
 {
 
 uint32_t TextRenderer::generateShapeMSDF(
-	ICPUBuffer* buffer, uint32_t bufferOffset, 
-	msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, 
-	float32_t2 scale, float32_t2 translate)
+	ICPUBuffer* buffer,
+	uint32_t bufferOffset, 
+	msdfgen::Shape glyph,
+	float32_t msdfPixelRange,
+	uint32_t2 msdfExtents, 
+	float32_t2 scale,
+	float32_t2 translate)
 {
 	uint32_t glyphW = msdfExtents.x;
 	uint32_t glyphH = msdfExtents.y;
@@ -45,7 +49,7 @@ uint32_t TextRenderer::generateShapeMSDF(
 
 	msdfgen::Bitmap<float, 4> msdfMap(msdfExtents.x, msdfExtents.y);
 	
-	double pxRange = (double)msdfPixelRange / (min(scale.x, scale.y));
+	float32_t pxRange = msdfPixelRange / (min(scale.x, scale.y));
 	msdfgen::generateMTSDF(msdfMap, glyph, pxRange, { scale.x, scale.y }, { translate.x, translate.y });
 
 	for (int y = 0; y < msdfExtents.x; ++y)
