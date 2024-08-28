@@ -62,18 +62,6 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
-
-            const auto& descriptorSetsRecord = cmdbuf->getBoundDescriptorSetsRecord();
-            for (const auto& dsRecord : descriptorSetsRecord)
-            {
-                const auto& [ds, cachedDSVersion] = dsRecord;
-                if (ds->getVersion() > cachedDSVersion)
-                {
-                    logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf);
-                    cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
-                    return RESULT::OTHER_ERROR;
-                }
-            }
         }
     }
 

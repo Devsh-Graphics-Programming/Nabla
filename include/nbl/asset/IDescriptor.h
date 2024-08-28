@@ -22,8 +22,6 @@ class IDescriptor : public virtual core::IReferenceCounted
 			ET_STORAGE_TEXEL_BUFFER,
 			ET_UNIFORM_BUFFER,
 			ET_STORAGE_BUFFER,
-			ET_UNIFORM_BUFFER_DYNAMIC,
-			ET_STORAGE_BUFFER_DYNAMIC,
 			ET_INPUT_ATTACHMENT,
 			// Provided by VK_KHR_acceleration_structure
 			ET_ACCELERATION_STRUCTURE,
@@ -63,8 +61,6 @@ class IDescriptor : public virtual core::IReferenceCounted
 					return EC_BUFFER_VIEW;
 				case E_TYPE::ET_UNIFORM_BUFFER:
 				case E_TYPE::ET_STORAGE_BUFFER:
-				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
-				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
 					return EC_BUFFER;
 				case E_TYPE::ET_ACCELERATION_STRUCTURE:
 					return EC_ACCELERATION_STRUCTURE;

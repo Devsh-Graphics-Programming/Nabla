@@ -534,9 +534,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 if (isBufferDesc(type))
                 {
                     auto cpuBuf = static_cast<asset::ICPUBuffer*>(descriptor);
-                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER || type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+                    if (type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_UNIFORM_BUFFER_BIT);
-                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER || type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+                    else if (type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER)
                         cpuBuf->addUsageFlags(asset::IBuffer::EUF_STORAGE_BUFFER_BIT);
                     cpuBuffers.push_back(cpuBuf);
                 }

@@ -399,21 +399,15 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     // TODO: MORE VALIDATION, but after descriptor indexing.
 
     bool variableLengthArrayDescriptorFound = false;
-    bool updateableAfterBindBindingFound = false;
     uint32_t variableLengthArrayDescriptorBindingNr = 0;
     uint32_t highestBindingNr = 0u;
     uint32_t maxSamplersCount = 0u;
-    uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
     for (uint32_t i = 0u; i < bindings.size(); ++i)
     {
         const auto& binding = bindings[i];
 
-        if (binding.type==asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
-            dynamicSSBOCount++;
-        else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
-            dynamicUBOCount++;
         // If binding comes with samplers, we're specifying that this binding corresponds to immutable samplers
-        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
         {
             auto* samplers = binding.immutableSamplers;
             for (uint32_t i=0u; i<binding.count; ++i)
@@ -421,9 +415,6 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
                 return nullptr;
             maxSamplersCount += binding.count;
         }
-
-        if (bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)
-            updateableAfterBindBindingFound = true;
 
         // validate if only last binding is run-time sized and there is only one run-time sized binding
         bool isCurrentDescriptorVariableLengthArray = static_cast<bool>(bindings[i].createFlags & IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_VARIABLE_DESCRIPTOR_COUNT_BIT);
@@ -439,16 +430,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         highestBindingNr = std::max(highestBindingNr, bindings[i].binding);
     }
 
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutCreateInfo-descriptorType-03001
-    if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0)
-        return nullptr;
-
     // only last binding can be run-time sized
     if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)
-        return nullptr;
-
-    const auto& limits = m_physicalDevice->getLimits();
-    if (dynamicSSBOCount>limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount>limits.maxDescriptorSetDynamicOffsetUBOs)
         return nullptr;
 
     return createDescriptorSetLayout_impl(bindings,maxSamplersCount);

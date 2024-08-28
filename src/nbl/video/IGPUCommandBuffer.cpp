@@ -727,32 +727,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList,core::smart_refctd_ptr<const IGPUPipelineLayout>(layout),descriptorSetCount,pDescriptorSets))
         return false;
 
-    for (uint32_t i=0u; i<descriptorSetCount; ++i)
-    if (pDescriptorSets[i] && pDescriptorSets[i]->getLayout()->versionChangeInvalidatesCommandBuffer())
-    {
-        const auto currentVersion = pDescriptorSets[i]->getVersion();
-
-        auto found = m_boundDescriptorSetsRecord.find(pDescriptorSets[i]);
-
-        if (found != m_boundDescriptorSetsRecord.end())
-        {
-            if (found->second != currentVersion)
-            {
-                const char* debugName = pDescriptorSets[i]->getDebugName();
-                if (debugName)
-                    m_logger.log("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, debugName, pDescriptorSets[i]);
-                else
-                    m_logger.log("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, pDescriptorSets[i]);
-
-                m_state = STATE::INVALID;
-                return false;
-            }
-        }
-        else
-            m_boundDescriptorSetsRecord.insert({ pDescriptorSets[i], currentVersion });
-    }
-
-    return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, dynamicOffsets);
+    return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets);
 }
 
 bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
