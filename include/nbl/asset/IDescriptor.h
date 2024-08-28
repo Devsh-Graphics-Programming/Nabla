@@ -80,6 +80,8 @@ class IDescriptor : public virtual core::IReferenceCounted
 		virtual ~IDescriptor() = default;
 };
 
+template<typename T>
+concept Descriptor = std::is_base_of_v<IDescriptor,T>;
 }
 
 #endif
