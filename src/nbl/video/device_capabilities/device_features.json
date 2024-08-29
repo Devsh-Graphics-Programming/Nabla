@@ -141,7 +141,7 @@
         {
             "type": "bool",
             "name": "alphaToOne",
-            "value": true,
+            "value": false,
             "comment": ["Some AMD don't support"]
         },
         {
