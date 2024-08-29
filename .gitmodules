@@ -102,3 +102,9 @@
 [submodule "3rdparty/imguizmo"]
 	path = 3rdparty/imguizmo
 	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "3rdparty/imath"]
+	path = 3rdparty/imath
+	url = git@github.com:AcademySoftwareFoundation/Imath.git
+[submodule "3rdparty/libdeflate"]
+	path = 3rdparty/libdeflate
+	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
