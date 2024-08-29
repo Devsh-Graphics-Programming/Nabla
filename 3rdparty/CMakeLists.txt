@@ -227,10 +227,10 @@ add_subdirectory(imath EXCLUDE_FROM_ALL)
 
 if(_NBL_COMPILE_WITH_OPEN_EXR_)
 	# Deflate
-	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
-	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
-	set(LIBDEFLATE_GZIP_SUPPORT OFF)
-	set(LIBDEFLATE_BUILD_GZIP OFF)
+	option(LIBDEFLATE_BUILD_SHARED_LIB "" OFF)
+	option(LIBDEFLATE_BUILD_STATIC_LIB "" ON)
+	option(LIBDEFLATE_GZIP_SUPPORT "" OFF)
+	option(LIBDEFLATE_BUILD_GZIP "" OFF)
 	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
 	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
 
@@ -439,7 +439,7 @@ if(ANDROID)
 endif()
 
 if(_NBL_COMPILE_WITH_OPEN_EXR_)
-	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR OpenEXRUtil OpenEXRCore Iex IlmThread)
+	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread)
 endif()
 
 if(_NBL_COMPILE_WITH_GLI_)

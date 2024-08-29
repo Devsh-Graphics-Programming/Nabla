@@ -107,4 +107,4 @@
 	url = git@github.com:AcademySoftwareFoundation/Imath.git
 [submodule "3rdparty/libdeflate"]
 	path = 3rdparty/libdeflate
-	url = git@github.com:ebiggers/libdeflate.git
+	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
