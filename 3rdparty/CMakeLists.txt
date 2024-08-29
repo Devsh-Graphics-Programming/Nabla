@@ -380,6 +380,7 @@ set(NBL_IMMUTABLE_TARGETS # note we have a compiler here we do compile and to si
 	dxcConfig
 	dxcompiler
 	LLVMSupport
+	LLVMMSSupport
 	SPIRV-Tools-static
 	SPIRV-Tools-opt
 )
@@ -439,7 +440,7 @@ if(ANDROID)
 endif()
 
 if(_NBL_COMPILE_WITH_OPEN_EXR_)
-	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread)
+	list(APPEND NBL_3RDPARTY_TARGETS OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread IlmThreadConfig)
 endif()
 
 if(_NBL_COMPILE_WITH_GLI_)
