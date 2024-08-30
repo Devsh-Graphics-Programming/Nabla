@@ -404,7 +404,7 @@ namespace hlsl
 
         emulated_float64_t operator*(float rhs)
         {
-            return bit_cast<this_t >(data) * create(rhs);
+            return _static_cast<this_t >(data) * create(rhs);
         }
 
         /*this_t reciprocal(uint64_t x)
@@ -626,7 +626,7 @@ template<typename To, bool FastMath, bool FlushDenormToZero>
 struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void>
 {
     // TODO:
-    // static_assert(is_arithmetic<To>::value);
+    static_assert(is_scalar<To>::value);
 
     using From = emulated_float64_t<FastMath,FlushDenormToZero>;
 
@@ -646,12 +646,13 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
             const int exponent = ieee754::extractExponent(v.data);
             if (!From::supportsFastMath())
             {
-                if (exponent > ieee754::traits<ToAsFloat>::exponentMax)
-                    return bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
-                if (exponent < ieee754::traits<ToAsFloat>::exponentMin)
-                    return -bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
-                if (tgmath::isnan(v.data))
-                    return bit_cast<To>(ieee754::traits<ToAsFloat>::quietNaN);
+                // TODO: i have no idea why it doesn't work, fix
+                //if (exponent > ieee754::traits<ToAsFloat>::exponentMax)
+                //    return bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
+                //if (exponent < ieee754::traits<ToAsFloat>::exponentMin)
+                //    return -bit_cast<To>(ieee754::traits<ToAsFloat>::inf);
+                //if (tgmath::isnan(v.data))
+                //    return bit_cast<To>(ieee754::traits<ToAsFloat>::quietNaN);
             }
 
 

@@ -122,7 +122,7 @@ template <typename T>
 inline int extractExponent(T x)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
-	return int(extractBiasedExponent(x)) - int(traits<AsFloat>::exponentBias);
+	return int(extractBiasedExponent(x)) - traits<AsFloat>::exponentBias;
 }
 
 template <typename T>

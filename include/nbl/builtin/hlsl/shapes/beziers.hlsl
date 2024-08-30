@@ -563,7 +563,8 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
     portable_float64_t<> d = (B.x * C.x * k0 * 2.0f) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (B.y * C.y * k2 * 2.0f) + (B.y * k4);
     portable_float64_t<> e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
 
-    return math::equations::Quartic<portable_float64_t<> >::construct(a, b, c, d, e);
+    return math::equations::Quartic<float_t>::construct(
+        _static_cast<float_t>(a), _static_cast<float_t>(b), _static_cast<float_t>(c), _static_cast<float_t>(d), _static_cast<float_t>(e));
 }
     
 // This function returns the analytic quadratic equation to solve for bezier's t value for intersection with another bezier curve
@@ -581,7 +582,8 @@ static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(Qua
     bezier.P1 = mul(rotate, bezier.P1 - lineStart);
     bezier.P2 = mul(rotate, bezier.P2 - lineStart);
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(bezier);
-    return math::equations::Quadratic<portable_float64_t<> >::construct(quadratic.A.y, quadratic.B.y, quadratic.C.y);
+    return math::equations::Quadratic<float_t>::construct(
+        _static_cast<float_t>(quadratic.A.y), _static_cast<float_t>(quadratic.B.y), _static_cast<float_t>(quadratic.C.y));
 }
 
 } // namespace shapes
