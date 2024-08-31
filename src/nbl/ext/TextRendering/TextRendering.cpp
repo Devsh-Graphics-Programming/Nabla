@@ -31,7 +31,7 @@ void TextRenderer::generateShapeMSDF(
 
 	size_t& offset = *bufferOffset;
 	size_t bufferSize = glyphW * glyphH * sizeof(int8_t) * 4;
-	assert(bufferToFill->getSize() >= bufferSize + bufferOffset);
+	assert(bufferToFill->getSize() >= bufferSize + offset);
 
 	int8_t* data = reinterpret_cast<int8_t*>(bufferToFill->getPointer());
 	
