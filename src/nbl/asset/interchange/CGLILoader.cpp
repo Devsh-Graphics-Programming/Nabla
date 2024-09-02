@@ -210,8 +210,12 @@ namespace nbl
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			auto hash = contentHasher.finalizeSeq();
-			image->setContentHash(hash);
+			{
+				auto hash = contentHasher.finalizeSeq();
+				auto* buffer = image->getBuffer();
+				image->setContentHash(hash);
+				buffer->setContentHash(buffer->computeContentHash());
+			}
 
 			ICPUImageView::SCreationParams imageViewInfo = {};
 			imageViewInfo.image = std::move(image);

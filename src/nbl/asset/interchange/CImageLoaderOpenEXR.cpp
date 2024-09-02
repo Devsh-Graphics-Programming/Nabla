@@ -386,7 +386,10 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 
 			CImageHasher contentHasher(params);
 			contentHasher.hashSeq(0, 0, image->getBuffer()->getPointer(), image->getImageDataSizeInBytes());
+
 			auto contentHash = contentHasher.finalizeSeq();
+			auto* const buffer = image->getBuffer();
+			buffer->setContentHash(buffer->computeContentHash());
 			image->setContentHash(contentHash);
 			
 			meta->placeMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });

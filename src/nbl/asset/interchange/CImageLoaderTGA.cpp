@@ -321,8 +321,12 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	if (!image)
 		return {};
 
-	auto hash = image->computeContentHash();
-	image->setContentHash(hash);
+	{
+		auto hash = image->computeContentHash();
+		auto* const buffer = image->getBuffer();
+		buffer->setContentHash(buffer->getContentHash());
+		image->setContentHash(hash);
+	}
 
     return SAssetBundle(nullptr,{std::move(image)});
 }
