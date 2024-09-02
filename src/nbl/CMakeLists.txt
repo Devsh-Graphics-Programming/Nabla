@@ -68,6 +68,9 @@ option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
+# Compilation related options
+option(NBL_TREAT_WARNINGS_AS_ERRORS "Treat all warnings severe as errors" ON)
+option(NBL_SILENT_WARNINGS_WITH_WRAPPER "Silent all warnings with dedicated macro" ON) 
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
 option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
@@ -349,6 +352,8 @@ else()
 endif()
 
 target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+
+
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -653,9 +658,16 @@ glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
+if(NBL_SILENT_WARNINGS_WITH_WRAPPER)
+	target_compile_definitions(Nabla PUBLIC NBL_SILENT_WARNINGS_WITH_WRAPPER)
+endif()
+
 #on MSVC it won't compile without this option!
 if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
+	if (NBL_TREAT_WARNINGS_AS_ERRORS)
+		target_compile_options(Nabla PUBLIC /WX /W1)
+	endif()
 endif()
 
 #precompiled headers

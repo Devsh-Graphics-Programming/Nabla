@@ -8,7 +8,6 @@
 
 #include <volk.h>
 
-
 namespace nbl::video
 {
 class ILogicalDevice;
