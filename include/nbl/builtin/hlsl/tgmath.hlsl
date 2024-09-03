@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/ieee754/ieee754.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
 namespace nbl
@@ -27,7 +27,7 @@ inline bool isnan(T val)
 }
 
 template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
+NBL_CONSTEXPR_INLINE_FUNC bool isinf(T val)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 	using AsFloat = typename float_of_size<sizeof(T)>::type;

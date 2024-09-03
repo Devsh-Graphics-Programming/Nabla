@@ -27,15 +27,15 @@ namespace impl
 	}
 
 	template <typename T>
-	NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type castToUintType(T x)
+	NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type bitCastToUintType(T x)
 	{
 		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 		return bit_cast<AsUint, T>(x);
 	}
 	// to avoid bit cast from uintN_t to uintN_t
-	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<2>::type castToUintType(uint16_t x) { return x; }
-	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<4>::type castToUintType(uint32_t x) { return x; }
-	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<8>::type castToUintType(uint64_t x) { return x; }
+	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<2>::type bitCastToUintType(uint16_t x) { return x; }
+	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<4>::type bitCastToUintType(uint32_t x) { return x; }
+	template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<8>::type bitCastToUintType(uint64_t x) { return x; }
 
 	template <typename T>
 	NBL_CONSTEXPR_INLINE_FUNC T castBackToFloatType(T x)
@@ -102,7 +102,7 @@ template <typename T>
 inline uint32_t extractBiasedExponent(T x)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-	return glsl::bitfieldExtract<AsUint>(impl::castToUintType(x), traits<typename float_of_size<sizeof(T)>::type>::mantissaBitCnt, traits<typename float_of_size<sizeof(T)>::type>::exponentBitCnt);
+	return glsl::bitfieldExtract<AsUint>(impl::bitCastToUintType(x), traits<typename float_of_size<sizeof(T)>::type>::mantissaBitCnt, traits<typename float_of_size<sizeof(T)>::type>::exponentBitCnt);
 }
 
 template<>
@@ -115,7 +115,7 @@ inline uint32_t extractBiasedExponent(uint64_t x)
 template<>
 inline uint32_t extractBiasedExponent(float64_t x)
 {
-	return extractBiasedExponent<uint64_t>(impl::castToUintType(x));
+	return extractBiasedExponent<uint64_t>(impl::bitCastToUintType(x));
 }
 
 template <typename T>
@@ -131,7 +131,7 @@ NBL_CONSTEXPR_INLINE_FUNC T replaceBiasedExponent(T x, typename unsigned_integer
 	// TODO:
 	//staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
-	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(impl::castToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
+	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(impl::bitCastToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
 }
 
 // performs no overflow tests, returns x*exp2(n)
@@ -145,7 +145,7 @@ template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-	return impl::castToUintType(x) & traits<typename float_of_size<sizeof(T)>::type>::mantissaMask;
+	return impl::bitCastToUintType(x) & traits<typename float_of_size<sizeof(T)>::type>::mantissaMask;
 }
 
 template <typename T>
@@ -160,14 +160,14 @@ template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSign(T x)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
-	return (impl::castToUintType(x) & traits<AsFloat>::signMask) >> ((sizeof(T) * 8) - 1);
+	return (impl::bitCastToUintType(x) & traits<AsFloat>::signMask) >> ((sizeof(T) * 8) - 1);
 }
 
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractSignPreserveBitPattern(T x)
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
-	return impl::castToUintType(x) & traits<AsFloat>::signMask;
+	return impl::bitCastToUintType(x) & traits<AsFloat>::signMask;
 }
 
 }

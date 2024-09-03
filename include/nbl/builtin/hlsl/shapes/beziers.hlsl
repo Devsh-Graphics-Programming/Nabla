@@ -10,8 +10,8 @@
 #include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
 #include <nbl/builtin/hlsl/math/equations/quartic.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
-#include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
-#include <nbl/builtin/hlsl/emulated_float64_t_utils.hlsl>
+#include <nbl/builtin/hlsl/emulated/emulated_float64_t.hlsl>
+#include <nbl/builtin/hlsl/emulated/emulated_float64_t_utils.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON

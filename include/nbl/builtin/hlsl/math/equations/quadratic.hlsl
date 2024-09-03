@@ -5,7 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_EQUATIONS_QUADRATIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_EQUATIONS_QUADRATIC_INCLUDED_
 
-#include <nbl/builtin/hlsl/emulated_float64_t_utils.hlsl>
+#include <nbl/builtin/hlsl/emulated/emulated_float64_t_utils.hlsl>
 
 // TODO: Later include from correct hlsl header
 #ifndef nbl_hlsl_FLT_EPSILON

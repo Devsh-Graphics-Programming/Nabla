@@ -1615,8 +1615,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.shaderStorageImageArrayDynamicIndexing = limits.shaderStorageImageArrayDynamicIndexing;
         vk_deviceFeatures2.features.shaderClipDistance = true; // good device support
         vk_deviceFeatures2.features.shaderCullDistance = enabledFeatures.shaderCullDistance;
-        //vk_deviceFeatures2.features.shaderFloat64 = limits.shaderFloat64; // TODO: enable back
-        vk_deviceFeatures2.features.shaderFloat64 = VK_FALSE;
+        vk_deviceFeatures2.features.shaderFloat64 = limits.shaderFloat64;
         vk_deviceFeatures2.features.shaderInt64 = true; // always enable
         vk_deviceFeatures2.features.shaderInt16 = true; // always enable
         vk_deviceFeatures2.features.shaderResourceResidency = enabledFeatures.shaderResourceResidency;

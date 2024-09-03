@@ -3,7 +3,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-#include <nbl/builtin/hlsl/emulated_float64_t.hlsl>
+#include <nbl/builtin/hlsl/emulated/emulated_float64_t.hlsl>
 
 namespace nbl
 {
@@ -18,7 +18,7 @@ template<typename device_capabilities = void, bool FastMathIfEmulated = false, b
 using portable_float64_t = typename conditional<true, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
 #else
 template<typename device_capabilities = void, bool FastMathIfEmulated = false, bool FlushDenormToZeroIfEmulated = true>
-using portable_float64_t = typename conditional<false, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
+using portable_float64_t = typename conditional<true, float64_t, emulated_float64_t<FastMathIfEmulated, FlushDenormToZeroIfEmulated> >::type;
 #endif
 
 template<typename EmulatedType, uint32_t N>
