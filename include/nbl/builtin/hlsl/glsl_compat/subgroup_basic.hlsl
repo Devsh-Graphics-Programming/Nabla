@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_BASIC_INCLUDED_
 
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
-#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 
 {
@@ -16,16 +16,16 @@ namespace glsl
 #ifdef __HLSL_VERSION
 // TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
 // NOTE: These are not `uint16_t` even though they could be, because IIUtSC they're `uint32_t` in SPIR-V
-uint32_t gl_SubgroupSize() {return spirv::SubgroupSize;}
-uint32_t gl_SubgroupSizeLog2() {return firstbithigh(spirv::SubgroupSize);}
-uint32_t gl_SubgroupInvocationID() {return spirv::SubgroupLocalInvocationId;}
+uint32_t gl_SubgroupSize() {return spirv::builtin::SubgroupSize;}
+uint32_t gl_SubgroupSizeLog2() {return firstbithigh(spirv::builtin::SubgroupSize);}
+uint32_t gl_SubgroupInvocationID() {return spirv::builtin::SubgroupLocalInvocationId;}
 
 // only available in compute
-uint32_t gl_NumSubgroups() {return spirv::NumSubgroups;}
-uint32_t gl_SubgroupID() {return spirv::SubgroupId;}
+uint32_t gl_NumSubgroups() {return spirv::builtin::NumSubgroups;}
+uint32_t gl_SubgroupID() {return spirv::builtin::SubgroupId;}
 
 bool subgroupElect() {
-    return spirv::subgroupElect(spv::ScopeSubgroup);
+    return spirv::groupNonUniformElect(spv::ScopeSubgroup);
 }
 
 void subgroupBarrier() {

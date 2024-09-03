@@ -135,21 +135,21 @@ SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
  */
  // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `&` :(
 //void gl_Position() {spirv::}
-uint32_t gl_VertexIndex() {return spirv::VertexIndex;}
-uint32_t gl_InstanceIndex() {return spirv::InstanceIndex;}
+uint32_t gl_VertexIndex() {return spirv::builtin::VertexIndex;}
+uint32_t gl_InstanceIndex() {return spirv::builtin::InstanceIndex;}
 
 /**
  * For Compute Shaders
  */
 
 // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `const&` :(
-uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
+uint32_t3 gl_NumWorkGroups() {return spirv::builtin::NumWorkgroups;}
 // TODO: DXC BUG prevents us from defining this!
 uint32_t3 gl_WorkGroupSize();
-uint32_t3 gl_WorkGroupID() {return spirv::WorkgroupId;}
-uint32_t3 gl_LocalInvocationID() {return spirv::LocalInvocationId;}
-uint32_t3 gl_GlobalInvocationID() {return spirv::GlobalInvocationId;}
-uint32_t gl_LocalInvocationIndex() {return spirv::LocalInvocationIndex;}
+uint32_t3 gl_WorkGroupID() {return spirv::builtin::WorkgroupId;}
+uint32_t3 gl_LocalInvocationID() {return spirv::builtin::LocalInvocationId;}
+uint32_t3 gl_GlobalInvocationID() {return spirv::builtin::GlobalInvocationId;}
+uint32_t gl_LocalInvocationIndex() {return spirv::builtin::LocalInvocationIndex;}
 
 void barrier() {
     spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
@@ -182,21 +182,23 @@ struct bitfieldExtract<T, isSigned, false>
     }
 };
 
+// TODO: redundant T
 template<typename T>
 struct bitfieldExtract<T, true, true>
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
+        return spirv::bitFieldExtract( val, offsetBits, numBits );
     }
 };
 
+// TODO: redundant T
 template<typename T>
 struct bitfieldExtract<T, false, true>
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
+        return spirv::bitFieldExtract( val, offsetBits, numBits );
     } 
 };
 
