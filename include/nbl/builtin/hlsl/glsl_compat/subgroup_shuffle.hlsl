@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_SHUFFLE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_SUBGROUP_SHUFFLE_INCLUDED_
 
-#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_shuffle.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl 
 {
@@ -15,25 +15,25 @@ namespace glsl
 template<typename T>
 T subgroupShuffle(T value, uint32_t invocationId)
 {
-    return spirv::groupShuffle<T>(spv::ScopeSubgroup, value, invocationId);
+    return spirv::groupNonUniformShuffle<T>(spv::ScopeSubgroup, value, invocationId);
 }
 
 template<typename T>
 T subgroupShuffleXor(T value, uint32_t mask)
 {
-    return spirv::groupShuffleXor<T>(spv::ScopeSubgroup, value, mask);
+    return spirv::groupNonUniformShuffleXor<T>(spv::ScopeSubgroup, value, mask);
 }
 
 template<typename T>
 T subgroupShuffleUp(T value, uint32_t delta)
 {
-    return spirv::groupShuffleUp<T>(spv::ScopeSubgroup, value, delta);
+    return spirv::groupNonUniformShuffleUp<T>(spv::ScopeSubgroup, value, delta);
 }
 
 template<typename T>
 T subgroupShuffleDown(T value, uint32_t delta)
 {
-    return spirv::groupShuffleDown<T>(spv::ScopeSubgroup, value, delta);
+    return spirv::groupNonUniformShuffleDown<T>(spv::ScopeSubgroup, value, delta);
 }
 
 
