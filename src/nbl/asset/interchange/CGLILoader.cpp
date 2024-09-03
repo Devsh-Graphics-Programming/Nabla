@@ -193,7 +193,6 @@ namespace nbl
 			for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
 			{
 				const auto layerSize = getFullSizeOfLayer(mipLevel);
-				const auto mipOffset = (mipLevel * imageInfo.arrayLayers);
 
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
@@ -201,8 +200,6 @@ namespace nbl
 					const auto gliLayer = layersData.first;
 					const auto gliFace = layersData.second;
 					
-					const auto pOffset = mipOffset + layer;
-
 					auto regionData = (reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize));
 					assignGLIDataToRegion(regionData, texture, gliLayer, gliFace, mipLevel, layerSize);
 					
