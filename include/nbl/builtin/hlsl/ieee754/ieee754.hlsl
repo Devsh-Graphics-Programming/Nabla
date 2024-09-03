@@ -85,7 +85,7 @@ struct traits : traits_base<Float>
 	using bit_rep_t = typename unsigned_integer_of_size<sizeof(Float)>::type;
 	using base_t = traits_base<Float>;
 
-	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t signMask = bit_rep_t(0x1u) << (sizeof(Float) * 8 - 1);
+	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t signMask = bit_rep_t(0x1ull) << (sizeof(Float) * 8 - 1);
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t exponentMask = ((~bit_rep_t(0)) << base_t::mantissaBitCnt) ^ signMask;
 	NBL_CONSTEXPR_STATIC_INLINE bit_rep_t mantissaMask = (bit_rep_t(0x1u) << base_t::mantissaBitCnt) - 1;
 	NBL_CONSTEXPR_STATIC_INLINE int exponentBias = (int(0x1) << (base_t::exponentBitCnt - 1)) - 1;
