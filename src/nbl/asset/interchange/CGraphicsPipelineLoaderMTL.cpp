@@ -652,6 +652,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
+
+        {
+            auto* buffer = cubemap->getBuffer();
+            buffer->setContentHash(buffer->computeContentHash());
+            cubemap->setContentHash(cubemap->computeContentHash());
+        }
+
         //new image goes to EMP_REFL_POSX index and other ones get nulled-out
         images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX] = std::move(cubemap);
         std::fill_n(images.begin()+CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX+1u,5u,nullptr);

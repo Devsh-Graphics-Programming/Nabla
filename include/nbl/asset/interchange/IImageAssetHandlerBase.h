@@ -111,6 +111,9 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				}
 
 				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+				
+				texelBuffer->setContentHash({});
+				newImage->setContentHash({});
 
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
 			}
