@@ -193,6 +193,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
 
 			performImageFlip(entry, end, trueExtent.Y, stride);
+			image->setContentHash({}); //invalidate content hash
+			image->getBuffer()->setContentHash({});
 		}
 
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
