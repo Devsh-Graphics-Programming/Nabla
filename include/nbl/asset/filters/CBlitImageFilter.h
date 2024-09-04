@@ -448,6 +448,11 @@ class CBlitImageFilter :
 				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions, clip);
 			};
 			
+			{ // invalidate hash
+				outImg->setContentHash({});
+				outImg->getBuffer()->setContentHash({});
+			}
+
 			// process
 			state->normalization.template initialize<double>();
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);

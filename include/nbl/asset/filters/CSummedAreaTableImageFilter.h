@@ -407,6 +407,11 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				++state->outBaseLayer;
 			}
 
+			{ // invalidate image and buffer hash
+				state->outImage->setContentHash({});
+				state->outImage->getBuffer()->setContentHash({});
+			}
+
 			resetState();
 			return true;
 		}

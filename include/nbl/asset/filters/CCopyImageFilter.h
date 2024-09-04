@@ -73,6 +73,11 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 				return true;
 			};
 
+			{ // invalidate image and buffer hash
+				state->outImage->setContentHash({});
+				state->outImage->getBuffer()->setContentHash({});
+			}
+
 			return commonExecute(state,perOutputRegion);
 		}
 		static inline bool execute(state_type* state)

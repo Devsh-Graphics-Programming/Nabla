@@ -59,6 +59,7 @@ namespace nbl
 								
 							const core::vector3du32_SIMD decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(extent.x, extent.y, extent.z));
 							auto decodeFlattenBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(newDecodeBufferSize);
+							decodeFlattenBuffer->setContentHash({});
 					
 							auto* inData = reinterpret_cast<uint8_t*>(flattenDitheringImage->getBuffer()->getPointer());
 							auto* outData = reinterpret_cast<uint8_t*>(decodeFlattenBuffer->getPointer());

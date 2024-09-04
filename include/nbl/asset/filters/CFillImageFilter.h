@@ -54,6 +54,11 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			auto regions = img->getRegions(state->subresource.mipLevel);
 			CBasicImageFilterCommon::executePerRegion(std::forward<ExecutionPolicy>(policy),img,fill,regions,clip);
 
+			{ // invalidate image and buffer hash
+				state->outImage->setContentHash({});
+				state->outImage->getBuffer()->setContentHash({});
+			}
+
 			return true;
 		}
 		static inline bool execute(state_type* state)

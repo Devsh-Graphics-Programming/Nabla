@@ -373,6 +373,12 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
+
+			{ // invalidate image and buffer hash
+				state->outImage->setContentHash({});
+				state->outImage->getBuffer()->setContentHash({});
+			}
+
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
 		static inline bool execute(state_type* state)

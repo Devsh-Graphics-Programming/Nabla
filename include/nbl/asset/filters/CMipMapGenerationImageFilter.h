@@ -95,6 +95,12 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				if (!pseudo_base_t::template execute<ExecutionPolicy>(std::forward<ExecutionPolicy>(policy),&blit))
 					return false;
 			}
+
+			{ // invalidate image and buffer hash
+				state->inOutImage->setContentHash({});
+				state->inOutImage->getBuffer()->setContentHash({});
+			}
+
 			return true;
 		}
 		static inline bool execute(state_type* state)
