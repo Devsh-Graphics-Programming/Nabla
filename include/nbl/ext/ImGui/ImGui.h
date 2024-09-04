@@ -12,10 +12,10 @@ class UI final : public core::IReferenceCounted
 		// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
 
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
+		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
 		~UI() override;
 
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const nbl::video::IGPUDescriptorSet* const descriptorSet, const uint32_t frameIndex);
+		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const nbl::video::IGPUDescriptorSet* const descriptorSet);
 		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(uint32_t id);
@@ -41,8 +41,34 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
 		core::smart_refctd_ptr<ui::IWindow> m_window;
-		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_mdiBuffers;
-		const uint32_t maxFramesInFlight;
+
+		struct MDI
+		{
+			enum E_BUFFER_CONTENT : uint8_t
+			{
+				EBC_DRAW_INDIRECT_STRUCTURES,
+				EBC_ELEMENT_STRUCTURES,
+				EBC_INDEX_BUFFERS,
+				EBC_VERTEX_BUFFERS,
+
+				EBC_COUNT,
+			};
+
+			struct MULTI_ALLOC_PARAMS
+			{
+				static constexpr auto ALLOCATION_COUNT = EBC_COUNT;
+
+				using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;
+
+				std::array<typename COMPOSE_T::value_type, ALLOCATION_COUNT> alignments = {};
+				std::array<typename COMPOSE_T::size_type, ALLOCATION_COUNT> byteSizes = {};
+				std::array<typename COMPOSE_T::value_type, ALLOCATION_COUNT> offsets = { COMPOSE_T::invalid_value, COMPOSE_T::invalid_value, COMPOSE_T::invalid_value, COMPOSE_T::invalid_value };
+			};
+
+			nbl::core::smart_refctd_ptr<typename MULTI_ALLOC_PARAMS::COMPOSE_T> streamingTDBufferST; // composed buffer layout is [Draw Indirect structures] [Element structures] [Index buffers] [Vertex Buffers]
+		};
+
+		MDI m_mdi;
 
 		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
 		struct Subscriber 

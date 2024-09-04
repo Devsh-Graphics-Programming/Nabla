@@ -519,8 +519,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(core::smart_refctd_ptr(_device)), m_window(core::smart_refctd_ptr(window)), maxFramesInFlight(_maxFramesInFlight)
+	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
+		: m_device(core::smart_refctd_ptr(_device)), m_window(core::smart_refctd_ptr(window))
 	{
 		createSystem();
 		struct
@@ -603,8 +603,6 @@ namespace nbl::ext::imgui
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 		io.BackendUsingLegacyKeyArrays = 0; // 0: using AddKeyEvent() [new way of handling events in imgui]
-
-		m_mdiBuffers.resize(maxFramesInFlight);
 	}
 
 	UI::~UI() = default;
@@ -627,15 +625,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	bool UI::render(IGPUCommandBuffer* commandBuffer, const IGPUDescriptorSet* const descriptorSet, const uint32_t frameIndex)
+	bool UI::render(IGPUCommandBuffer* commandBuffer, const IGPUDescriptorSet* const descriptorSet)
 	{
-		const bool validFramesRange = frameIndex >= 0 && frameIndex < maxFramesInFlight;
-		if (!validFramesRange)
-		{
-			logger->log("Requested frame index is OOB!", system::ILogger::ELL_ERROR);
-			assert(false);
-		}
-
 		ImGuiIO& io = ImGui::GetIO();
 
 		if (!io.Fonts->IsBuilt())
@@ -692,19 +683,6 @@ namespace nbl::ext::imgui
 						return scissor;
 					}
 				}
-
-				bool prepass(const ImDrawCmd* cmd) const
-				{
-					const auto rectangle = getClipRectangle(cmd);
-
-					return prepass(rectangle);
-				}
-
-				bool prepass(const ImVec4& clipRectangle) const
-				{
-					return clipRectangle.x < framebuffer.x && clipRectangle.y < framebuffer.y && clipRectangle.z >= 0.0f && clipRectangle.w >= 0.0f;
-				}
-
 			} clip { .off = drawData->DisplayPos, .scale = drawData->FramebufferScale, .framebuffer = { frameBufferWidth, frameBufferHeight } };
 			
 			struct TRS
@@ -727,47 +705,111 @@ namespace nbl::ext::imgui
 
 				return std::move(retV);
 			}();
+
+			MDI::MULTI_ALLOC_PARAMS multiAllocParams;
+
+			multiAllocParams.alignments[MDI::EBC_DRAW_INDIRECT_STRUCTURES] = alignof(VkDrawIndexedIndirectCommand);
+			multiAllocParams.alignments[MDI::EBC_ELEMENT_STRUCTURES] = alignof(PerObjectData);
+			multiAllocParams.alignments[MDI::EBC_INDEX_BUFFERS] = alignof(ImDrawIdx);
+			multiAllocParams.alignments[MDI::EBC_VERTEX_BUFFERS] = alignof(ImDrawVert);
 			
-			struct
+			// calculate upper bound byte size for each mdi's content
+			for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
 			{
-				size_t vBufferSize = {}, iBufferSize = {},	// sizes in bytes
-				vPadding = {};								// indicies can break our alignment so small padding may be required before vertices in memory, vertices' offset must be multiple of 4
+				const ImDrawList* commandList = drawData->CmdLists[i];
 
-				std::vector<VkDrawIndexedIndirectCommand> indirects;
-				std::vector<PerObjectData> elements;
+				multiAllocParams.byteSizes[MDI::EBC_DRAW_INDIRECT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(VkDrawIndexedIndirectCommand);
+				multiAllocParams.byteSizes[MDI::EBC_ELEMENT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(PerObjectData);
+				multiAllocParams.byteSizes[MDI::EBC_INDEX_BUFFERS] += commandList->IdxBuffer.Size * sizeof(ImDrawIdx);
+				multiAllocParams.byteSizes[MDI::EBC_VERTEX_BUFFERS] += commandList->VtxBuffer.Size * sizeof(ImDrawVert);
+			}
 
-				size_t getMDIBufferSize() const				// buffer layout is [Draw Indirect structures] [Element Data] [All the Indices] [All the vertices]
+			// calculate upper bound byte size limit for mdi buffer with alignments taken into account
+			const auto mdiBufferByteSize = [&byteSizes = multiAllocParams.byteSizes, &alignments = multiAllocParams.alignments]() -> size_t
+			{
+				auto requestedByteSize = std::reduce(std::begin(byteSizes), std::end(byteSizes));
+				auto maxAlignment = *std::max_element(std::begin(alignments), std::end(alignments));
+				auto padding = requestedByteSize % maxAlignment;
+
+				return requestedByteSize + padding;
+			}();
+
+			// TOOD: lets start with preallocated buffer with like 
+			// 2 MB or something and then handle overflows
+
+			// create/update mdi composed streaming buffer
+			auto updateMDIBuffer = [&](const uint32_t totalByteSize, const bool forceRecreate = false) -> void
+			{
+				if (forceRecreate || !m_mdi.streamingTDBufferST || totalByteSize > m_mdi.streamingTDBufferST->get_total_size())
 				{
-					return getVerticesOffset() + vBufferSize;
-				}
+					constexpr static core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+					constexpr static uint32_t minStreamingBufferAllocationSize = 4u,
+						maxStreamingBufferAllocationAlignment = 1024u * 64u;
 
-				size_t getIndicesOffset() const
+					IGPUBuffer::SCreationParams mdiCreationParams = {};
+					mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+					mdiCreationParams.size = totalByteSize;
+
+					auto buffer = m_device->createBuffer(std::move(mdiCreationParams));
+
+					auto memoryReqs = buffer->getMemoryReqs();
+					memoryReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+
+					auto offset = m_device->allocate(memoryReqs, buffer.get(), allocateFlags);
+					auto memory = offset.memory;
+					const bool allocated = offset.isValid();
+					assert(allocated);
+
+					const auto properties = memory->getMemoryPropertyFlags();
+
+					core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessFlags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+					if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+						accessFlags |= IDeviceMemoryAllocation::EMCAF_READ;
+					if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+						accessFlags |= IDeviceMemoryAllocation::EMCAF_WRITE;
+
+					assert(accessFlags.value);
+
+					if (!memory->map({ 0ull, memoryReqs.size }, accessFlags))
+						logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
+
+					m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::MULTI_ALLOC_PARAMS::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+					m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
+				}
+			};
+
+			updateMDIBuffer(mdiBufferByteSize);
+			{
+				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
+
+				m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), multiAllocParams.alignments.data());
+			
+				const bool ok = [&offsets = multiAllocParams.offsets]() -> bool
 				{
-					return getElementsOffset() + elements.size() * sizeof(PerObjectData);
-				}
+					for (const auto& it : offsets)
+						if (it == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value)
+							return false;
 
-				size_t getVerticesOffset() const
-				{
-					return getIndicesOffset() + iBufferSize + vPadding;
-				}
+					return true;
+				}();
 
-				size_t getVkDrawIndexedIndirectCommandOffset() const
-				{
-					return 0u;
-				}
+				if(!ok)
+					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
 
-				size_t getElementsOffset() const
-				{
-					return elements.size() * sizeof(VkDrawIndexedIndirectCommand);
-				}
+				// how to handle it properly on fail? TODO: take intended submit info, play with bariers, handle overflow
+			}
 
-				bool validate() const
-				{
-					return indirects.size() == elements.size();
-				}
+			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer(), dont_grab_t{});
+			auto mdiBind = mdiBuffer->getBoundMemory();
 
-			} requestData;
+			assert(mdiBind.memory->isCurrentlyMapped());
 
+			auto* const indirectsPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
+			auto* const elementsPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
+			auto* indicesPointer = reinterpret_cast<ImDrawVert*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
+			auto* verticesPointer = reinterpret_cast<ImDrawIdx*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+
+			uint32_t drawCount {};
 			{
 				/*
 					IMGUI Render command lists. We merged all buffers into a single one so we 
@@ -786,133 +828,63 @@ namespace nbl::ext::imgui
 
 						const auto clipRectangle = clip.getClipRectangle(pcmd);
 
-						// count draw invocations and allocate cpu indirect + element data for mdi buffer
-						if (clip.prepass(clipRectangle))
+						// update mdi's indirect & element structures
+						auto* indirect = indirectsPointer + drawID;
+						auto* element = elementsPointer + drawID;
+
+						indirect->firstIndex = pcmd->IdxOffset + globalIOffset;
+						indirect->firstInstance = drawID; // use base instance as draw ID
+						indirect->indexCount = pcmd->ElemCount;
+						indirect->instanceCount = 1u;
+						indirect->vertexOffset = pcmd->VtxOffset + globalVOffset;
+
+						const auto scissor = clip.getScissor(clipRectangle);
+
+						auto packSnorm16 = [](float ndc) -> int16_t
 						{
-							// TODO: I guess we waste a lot of time on this emplace, we should reserve memory first or use some nice allocator probably?
-							auto& indirect = requestData.indirects.emplace_back();
-							auto& element = requestData.elements.emplace_back();
+							return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+						};
 
-							indirect.firstIndex = pcmd->IdxOffset + globalIOffset;
-							indirect.firstInstance = drawID; // use base instance as draw ID
-							indirect.indexCount = pcmd->ElemCount;
-							indirect.instanceCount = 1u;
-							indirect.vertexOffset = pcmd->VtxOffset + globalVOffset;
+						const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+						const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
 
-							const auto scissor = clip.getScissor(clipRectangle);
+						element->aabbMin.x = packSnorm16(vMin.x);
+						element->aabbMin.y = packSnorm16(vMin.y);
+						element->aabbMax.x = packSnorm16(vMax.x);
+						element->aabbMax.y = packSnorm16(vMax.y);
+						element->texId = pcmd->TextureId;
 
-							auto packSnorm16 = [](float ndc) -> int16_t
-							{
-								return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
-							};
-
-							const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
-							const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
-
-							element.aabbMin.x = packSnorm16(vMin.x);
-							element.aabbMin.y = packSnorm16(vMin.y);
-							element.aabbMax.x = packSnorm16(vMax.x);
-							element.aabbMax.y = packSnorm16(vMax.y);
-							element.texId = pcmd->TextureId;
-
-							++drawID;
-						}
+						++drawID;
 					}
+
+					// update mdi's vertex & index buffers
+					::memcpy(indicesPointer + globalIOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+					::memcpy(verticesPointer + globalVOffset, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
 
 					globalIOffset += cmd_list->IdxBuffer.Size;
 					globalVOffset += cmd_list->VtxBuffer.Size;
 				}
 
-				requestData.iBufferSize = drawData->TotalIdxCount * sizeof(ImDrawIdx);
-				requestData.vBufferSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
-				requestData.vPadding = requestData.getVerticesOffset() % 4u;
-				assert(requestData.validate());
+				drawCount = drawID + 1u;
 			}
-			
-			IGPUBuffer::SCreationParams mdiCreationParams = {};
-			mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT  | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-			mdiCreationParams.size = requestData.getMDIBufferSize();
 
-			auto mdiBuffer = m_mdiBuffers[frameIndex];
-			const uint32_t drawCount = requestData.elements.size();
-			const auto mdicBSize = drawCount * sizeof(VkDrawIndexedIndirectCommand);
-			const auto elementsBSize = drawCount * sizeof(PerObjectData);
-			const uint64_t elementsBOffset = requestData.getElementsOffset();
-
-			// create or resize the mdi buffer
-			if (!static_cast<bool>(mdiBuffer) || mdiBuffer->getSize() < mdiCreationParams.size)
+			// flush mdi's memory range if required
 			{
-				mdiBuffer = m_device->createBuffer(std::move(mdiCreationParams));
-
-				auto mReqs = mdiBuffer->getMemoryReqs();
-				mReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-				
-				auto memOffset = m_device->allocate(mReqs, mdiBuffer.get(), core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_DEVICE_ADDRESS_BIT));
-				assert(memOffset.isValid());
+				if (mdiBind.memory->haveToMakeVisible())
+				{
+					const ILogicalDevice::MappedMemoryRange range(mdiBind.memory, mdiBind.offset, mdiBuffer->getSize());
+					m_device->flushMappedMemoryRanges(1, &range);
+				}
 			}
 
 			auto* rawPipeline = pipeline.get();
 			commandBuffer->bindGraphicsPipeline(rawPipeline);
 			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &descriptorSet);
-
-			// update mdi buffer
-			{
-				auto binding = mdiBuffer->getBoundMemory();
-
-				{
-					if (!binding.memory->map({ 0ull, binding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory!", system::ILogger::ELL_WARNING);
-
-					assert(binding.memory->isCurrentlyMapped());
-				}
-
-				auto* mdiPointer = binding.memory->getMappedPointer();
-
-				auto getMDIPointer = [&mdiPointer]<typename T>(auto bOffset)
-				{
-					return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(mdiPointer) + bOffset);
-				};
-
-				auto* const indirectPointer = getMDIPointer.template operator() < VkDrawIndexedIndirectCommand > (requestData.getVkDrawIndexedIndirectCommandOffset());
-				auto* const elementPointer = getMDIPointer.template operator() < PerObjectData > (elementsBOffset);
-				auto* indicesPointer = getMDIPointer.template operator() < ImDrawIdx > (requestData.getIndicesOffset());
-				auto* verticesPointer = getMDIPointer.template operator() < ImDrawVert > (requestData.getVerticesOffset());
-
-				// fill indirect/element data
-				::memcpy(indirectPointer, requestData.indirects.data(), mdicBSize);
-				::memcpy(elementPointer, requestData.elements.data(), elementsBSize);
-
-				// flush elements data range if required
-				{
-					auto eData = mdiBuffer->getBoundMemory();
-
-					if (eData.memory->haveToMakeVisible())
-					{
-						const ILogicalDevice::MappedMemoryRange range(eData.memory, eData.offset, mdiBuffer->getSize());
-						m_device->flushMappedMemoryRanges(1, &range);
-					}
-				}
-
-				// fill vertex/index data, no flush request
-				for (int n = 0; n < drawData->CmdListsCount; n++)
-				{
-					const auto* cmd = drawData->CmdLists[n];
-
-					::memcpy(verticesPointer, cmd->VtxBuffer.Data, cmd->VtxBuffer.Size * sizeof(ImDrawVert));
-					::memcpy(indicesPointer, cmd->IdxBuffer.Data, cmd->IdxBuffer.Size * sizeof(ImDrawIdx));
-
-					verticesPointer += cmd->VtxBuffer.Size;
-					indicesPointer += cmd->IdxBuffer.Size;
-				}
-
-				binding.memory->unmap();
-			}
-
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
-					.offset = requestData.getIndicesOffset(),
-					.buffer = core::smart_refctd_ptr(mdiBuffer)
+					.offset = mdiBind.offset + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS],
+					.buffer = smart_refctd_ptr(mdiBuffer)
 				};
 
 				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
@@ -924,12 +896,10 @@ namespace nbl::ext::imgui
 
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
-				{
-					{
-						.offset = requestData.getVerticesOffset(),
-						.buffer = core::smart_refctd_ptr(mdiBuffer)
-					}
-				};
+				{{
+					.offset = mdiBind.offset + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS],
+					.buffer = smart_refctd_ptr(mdiBuffer)
+				}};
 
 				if(!commandBuffer->bindVertexBuffers(0, 1, bindings))
 				{
@@ -950,6 +920,7 @@ namespace nbl::ext::imgui
 
 			commandBuffer->setViewport(0, 1, &viewport);
 			{
+				// TODO: remove 
 				VkRect2D scissor[] = { {.offset = {(int32_t)viewport.x, (int32_t)viewport.y}, .extent = {(uint32_t)viewport.width, (uint32_t)viewport.height}} };
 				commandBuffer->setScissor(scissor); // cover whole viewport (only to not throw validation errors)
 			}
@@ -962,7 +933,7 @@ namespace nbl::ext::imgui
 			{
 				PushConstants constants
 				{
-					.elementBDA = { mdiBuffer->getDeviceAddress() + elementsBOffset },
+					.elementBDA = { mdiBuffer->getDeviceAddress() + mdiBind.offset + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]},
 					.elementCount = { drawCount },
 					.scale = { trs.scale[0u], trs.scale[1u] },
 					.translate = { trs.translate[0u], trs.translate[1u] },
@@ -974,7 +945,7 @@ namespace nbl::ext::imgui
 
 			const asset::SBufferBinding<const video::IGPUBuffer> binding =
 			{
-				.offset = requestData.getVkDrawIndexedIndirectCommandOffset(),
+				.offset = multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES],
 				.buffer = core::smart_refctd_ptr(mdiBuffer)
 			};
 
