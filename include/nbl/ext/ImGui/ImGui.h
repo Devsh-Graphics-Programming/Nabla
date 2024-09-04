@@ -28,6 +28,8 @@ class UI final : public core::IReferenceCounted
 		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
 
 		// TODO: just take an intended next submit instead of queue and cmdbuf, so we're consistent across utilities
+
+		void createMDIBuffer(const uint32_t totalByteSize);
 		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
 		void createSystem();
 		void handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const;

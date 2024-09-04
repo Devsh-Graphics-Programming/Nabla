@@ -599,6 +599,9 @@ namespace nbl::ext::imgui
 		}
 		tQueue->endCapture();
 
+		static constexpr auto DEFAULT_MDI_SIZE = 1024u * 1024u; // 1 Mb 
+		createMDIBuffer(DEFAULT_MDI_SIZE);
+
 		auto & io = ImGui::GetIO();
 		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
@@ -623,6 +626,43 @@ namespace nbl::ext::imgui
 			logger->log("Failed to create nbl::video::IUtilities!", system::ILogger::ELL_ERROR);
 			assert(false);
 		}
+	}
+
+	void UI::createMDIBuffer(const uint32_t totalByteSize)
+	{
+		constexpr static core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+		constexpr static uint32_t minStreamingBufferAllocationSize = 4u,
+			maxStreamingBufferAllocationAlignment = 1024u * 64u;
+
+		IGPUBuffer::SCreationParams mdiCreationParams = {};
+		mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+		mdiCreationParams.size = totalByteSize;
+
+		auto buffer = m_device->createBuffer(std::move(mdiCreationParams));
+
+		auto memoryReqs = buffer->getMemoryReqs();
+		memoryReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+
+		auto offset = m_device->allocate(memoryReqs, buffer.get(), allocateFlags);
+		auto memory = offset.memory;
+		const bool allocated = offset.isValid();
+		assert(allocated);
+
+		const auto properties = memory->getMemoryPropertyFlags();
+
+		core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessFlags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+		if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+			accessFlags |= IDeviceMemoryAllocation::EMCAF_READ;
+		if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+			accessFlags |= IDeviceMemoryAllocation::EMCAF_WRITE;
+
+		assert(accessFlags.value);
+
+		if (!memory->map({ 0ull, memoryReqs.size }, accessFlags))
+			logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
+
+		m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::MULTI_ALLOC_PARAMS::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+		m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
 	}
 
 	bool UI::render(IGPUCommandBuffer* commandBuffer, const IGPUDescriptorSet* const descriptorSet)
@@ -734,75 +774,21 @@ namespace nbl::ext::imgui
 				return requestedByteSize + padding;
 			}();
 
-			// TOOD: lets start with preallocated buffer with like 
-			// 2 MB or something and then handle overflows
-
-			// create/update mdi composed streaming buffer
-			auto updateMDIBuffer = [&](const uint32_t totalByteSize, const bool forceRecreate = false) -> void
-			{
-				if (forceRecreate || !m_mdi.streamingTDBufferST || totalByteSize > m_mdi.streamingTDBufferST->get_total_size())
-				{
-					constexpr static core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
-					constexpr static uint32_t minStreamingBufferAllocationSize = 4u,
-						maxStreamingBufferAllocationAlignment = 1024u * 64u;
-
-					IGPUBuffer::SCreationParams mdiCreationParams = {};
-					mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-					mdiCreationParams.size = totalByteSize;
-
-					auto buffer = m_device->createBuffer(std::move(mdiCreationParams));
-
-					auto memoryReqs = buffer->getMemoryReqs();
-					memoryReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
-
-					auto offset = m_device->allocate(memoryReqs, buffer.get(), allocateFlags);
-					auto memory = offset.memory;
-					const bool allocated = offset.isValid();
-					assert(allocated);
-
-					const auto properties = memory->getMemoryPropertyFlags();
-
-					core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessFlags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
-					if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
-						accessFlags |= IDeviceMemoryAllocation::EMCAF_READ;
-					if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
-						accessFlags |= IDeviceMemoryAllocation::EMCAF_WRITE;
-
-					assert(accessFlags.value);
-
-					if (!memory->map({ 0ull, memoryReqs.size }, accessFlags))
-						logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
-
-					m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::MULTI_ALLOC_PARAMS::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
-					m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
-				}
-			};
-
-			updateMDIBuffer(mdiBufferByteSize);
 			{
 				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
 
-				m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), multiAllocParams.alignments.data());
+				const size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), multiAllocParams.alignments.data());
 			
-				const bool ok = [&offsets = multiAllocParams.offsets]() -> bool
+				const bool ok = unallocatedSize == 0u;
+
+				if (!ok)
 				{
-					for (const auto& it : offsets)
-						if (it == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value)
-							return false;
-
-					return true;
-				}();
-
-				if(!ok)
 					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
-
-				// how to handle it properly on fail? TODO: take intended submit info, play with bariers, handle overflow
+					exit(0x45); // TODO: handle overflows, unallocatedSize tells how much is missing
+				}
 			}
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer(), dont_grab_t{});
-			auto mdiBind = mdiBuffer->getBoundMemory();
-
-			assert(mdiBind.memory->isCurrentlyMapped());
 
 			auto* const indirectsPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
 			auto* const elementsPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
@@ -868,22 +854,13 @@ namespace nbl::ext::imgui
 				drawCount = drawID + 1u;
 			}
 
-			// flush mdi's memory range if required
-			{
-				if (mdiBind.memory->haveToMakeVisible())
-				{
-					const ILogicalDevice::MappedMemoryRange range(mdiBind.memory, mdiBind.offset, mdiBuffer->getSize());
-					m_device->flushMappedMemoryRanges(1, &range);
-				}
-			}
-
 			auto* rawPipeline = pipeline.get();
 			commandBuffer->bindGraphicsPipeline(rawPipeline);
 			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &descriptorSet);
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
-					.offset = mdiBind.offset + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS],
+					.offset = multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS],
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				};
 
@@ -897,7 +874,7 @@ namespace nbl::ext::imgui
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
 				{{
-					.offset = mdiBind.offset + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS],
+					.offset = multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS],
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				}};
 
@@ -933,7 +910,7 @@ namespace nbl::ext::imgui
 			{
 				PushConstants constants
 				{
-					.elementBDA = { mdiBuffer->getDeviceAddress() + mdiBind.offset + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]},
+					.elementBDA = { mdiBuffer->getDeviceAddress() + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]},
 					.elementCount = { drawCount },
 					.scale = { trs.scale[0u], trs.scale[1u] },
 					.translate = { trs.translate[0u], trs.translate[1u] },
@@ -951,6 +928,7 @@ namespace nbl::ext::imgui
 
 			commandBuffer->drawIndexedIndirect(binding, drawCount, sizeof(VkDrawIndexedIndirectCommand));
 		}
+		assert(m_mdi.streamingTDBufferST->getBuffer()); // make sure no drop
 
 		return true;
 	}
