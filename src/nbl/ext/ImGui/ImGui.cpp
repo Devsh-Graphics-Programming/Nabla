@@ -790,29 +790,34 @@ namespace nbl::ext::imgui
 			{
 				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
 
-				const size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
+				size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 			
-				const bool ok = unallocatedSize == 0u;
-
-				if (!ok)
+				if (unallocatedSize != 0u)
 				{
-					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
+					// retry
+					m_mdi.streamingTDBufferST->cull_frees();
+					unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 
-					auto getOffsetStr = [&](const MDI::COMPOSE_T::value_type offset) -> std::string
+					if (unallocatedSize != 0u)
 					{
-						return offset == MDI::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
-					};
+						logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
 
-					logger->log("[mdi streaming buffer] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBuffer->getSize()).c_str());
-					logger->log("[requested] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBufferByteSize).c_str());
-					logger->log("[unallocated] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(unallocatedSize).c_str());
+						auto getOffsetStr = [&](const MDI::COMPOSE_T::value_type offset) -> std::string
+						{
+							return offset == MDI::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
+						};
 
-					logger->log("[MDI::EBC_DRAW_INDIRECT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]).c_str());
-					logger->log("[MDI::EBC_ELEMENT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]).c_str());
-					logger->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
-					logger->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
+						logger->log("[mdi streaming buffer] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBuffer->getSize()).c_str());
+						logger->log("[requested] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBufferByteSize).c_str());
+						logger->log("[unallocated] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(unallocatedSize).c_str());
 
-					exit(0x45); // TODO: handle OOB memory requests
+						logger->log("[MDI::EBC_DRAW_INDIRECT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]).c_str());
+						logger->log("[MDI::EBC_ELEMENT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]).c_str());
+						logger->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
+						logger->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
+
+						exit(0x45); // TODO: handle OOB memory requests
+					}
 				}
 			}
 
@@ -966,9 +971,7 @@ namespace nbl::ext::imgui
 			}
 
 			auto waitInfo = info.getFutureScratchSemaphore();
-			//logger->log("wait info semaphore value for deferred free latch \"%s\"", nbl::system::ILogger::ELL_PERFORMANCE, std::to_string(waitInfo.value).c_str());
-
-			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo); // TODO: why does it not free my offsets with deferred latch free? 
+			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo); // at some point a block would be needed anyway, cull frees but where? - so I just retry on failed allocation then cull free
 		}
 	
 		return true;
