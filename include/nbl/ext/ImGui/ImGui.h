@@ -46,6 +46,8 @@ class UI final : public core::IReferenceCounted
 
 		struct MDI
 		{
+			using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;
+
 			enum E_BUFFER_CONTENT : uint8_t
 			{
 				EBC_DRAW_INDIRECT_STRUCTURES,
@@ -56,18 +58,7 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			struct MULTI_ALLOC_PARAMS
-			{
-				static constexpr auto ALLOCATION_COUNT = EBC_COUNT;
-
-				using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;
-
-				std::array<typename COMPOSE_T::value_type, ALLOCATION_COUNT> alignments = {};
-				std::array<typename COMPOSE_T::size_type, ALLOCATION_COUNT> byteSizes = {};
-				std::array<typename COMPOSE_T::value_type, ALLOCATION_COUNT> offsets = { COMPOSE_T::invalid_value, COMPOSE_T::invalid_value, COMPOSE_T::invalid_value, COMPOSE_T::invalid_value };
-			};
-
-			nbl::core::smart_refctd_ptr<typename MULTI_ALLOC_PARAMS::COMPOSE_T> streamingTDBufferST; // composed buffer layout is [Draw Indirect structures] [Element structures] [Index buffers] [Vertex Buffers]
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; // composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
 		};
 
 		MDI m_mdi;

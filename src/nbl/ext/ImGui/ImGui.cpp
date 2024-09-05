@@ -661,7 +661,7 @@ namespace nbl::ext::imgui
 		if (!memory->map({ 0ull, memoryReqs.size }, accessFlags))
 			logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
 
-		m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::MULTI_ALLOC_PARAMS::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+		m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
 		m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
 	}
 
@@ -760,12 +760,17 @@ namespace nbl::ext::imgui
 				return std::move(retV);
 			}();
 
-			MDI::MULTI_ALLOC_PARAMS multiAllocParams;
+			static constexpr auto MDI_ALLOCATION_COUNT = MDI::EBC_COUNT;
+			static auto MDI_ALIGNMENTS = std::to_array<typename MDI::COMPOSE_T::size_type, MDI_ALLOCATION_COUNT>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
 
-			multiAllocParams.alignments[MDI::EBC_DRAW_INDIRECT_STRUCTURES] = alignof(VkDrawIndexedIndirectCommand);
-			multiAllocParams.alignments[MDI::EBC_ELEMENT_STRUCTURES] = alignof(PerObjectData);
-			multiAllocParams.alignments[MDI::EBC_INDEX_BUFFERS] = alignof(ImDrawIdx);
-			multiAllocParams.alignments[MDI::EBC_VERTEX_BUFFERS] = alignof(ImDrawVert);
+			struct MULTI_ALLOC_PARAMS
+			{
+				std::array<typename MDI::COMPOSE_T::size_type, MDI_ALLOCATION_COUNT> byteSizes = {};
+				std::array<typename MDI::COMPOSE_T::value_type, MDI_ALLOCATION_COUNT> offsets = {};
+			};
+
+			MULTI_ALLOC_PARAMS multiAllocParams;
+			std::fill(multiAllocParams.offsets.data(), multiAllocParams.offsets.data() + MDI_ALLOCATION_COUNT, MDI::COMPOSE_T::invalid_value);
 			
 			// calculate upper bound byte size for each mdi's content
 			for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
@@ -779,20 +784,13 @@ namespace nbl::ext::imgui
 			}
 
 			// calculate upper bound byte size limit for mdi buffer
-			const auto mdiBufferByteSize = [&byteSizes = multiAllocParams.byteSizes, &alignments = multiAllocParams.alignments]() -> size_t
-			{
-				auto requestedByteSize = std::reduce(std::begin(byteSizes), std::end(byteSizes));
-				auto maxAlignment = *std::max_element(std::begin(alignments), std::end(alignments));
-				auto padding = requestedByteSize % maxAlignment; // okay I don't need it at all but lets add a few bytes
-
-				return requestedByteSize + padding;
-			}();
+			const auto mdiBufferByteSize = std::reduce(std::begin(multiAllocParams.byteSizes), std::end(multiAllocParams.byteSizes));
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 			{
 				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
 
-				const size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), multiAllocParams.alignments.data());
+				const size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 			
 				const bool ok = unallocatedSize == 0u;
 
@@ -800,13 +798,14 @@ namespace nbl::ext::imgui
 				{
 					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
 
-					auto getOffsetStr = [&](const MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::value_type offset) -> std::string
+					auto getOffsetStr = [&](const MDI::COMPOSE_T::value_type offset) -> std::string
 					{
-						return offset == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
+						return offset == MDI::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
 					};
 
-					logger->log("[mdi streaming buffer size] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBuffer->getSize()).c_str());
-					logger->log("[unallocated size] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(unallocatedSize).c_str());
+					logger->log("[mdi streaming buffer] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBuffer->getSize()).c_str());
+					logger->log("[requested] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBufferByteSize).c_str());
+					logger->log("[unallocated] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(unallocatedSize).c_str());
 
 					logger->log("[MDI::EBC_DRAW_INDIRECT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]).c_str());
 					logger->log("[MDI::EBC_ELEMENT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]).c_str());
@@ -967,7 +966,9 @@ namespace nbl::ext::imgui
 			}
 
 			auto waitInfo = info.getFutureScratchSemaphore();
-			m_mdi.streamingTDBufferST->multi_deallocate(MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
+			//logger->log("wait info semaphore value for deferred free latch \"%s\"", nbl::system::ILogger::ELL_PERFORMANCE, std::to_string(waitInfo.value).c_str());
+
+			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo); // TODO: why does it not free my offsets with deferred latch free? 
 		}
 	
 		return true;
