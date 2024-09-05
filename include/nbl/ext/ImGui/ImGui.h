@@ -19,10 +19,11 @@ class UI final : public core::IReferenceCounted
 		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(uint32_t id);
-		inline nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getFontAtlasView() { return m_fontAtlasTexture; }
-		
-		void* getContext();
 		void setContext(void* imguiContext);
+
+		inline nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getFontAtlasView() { return m_fontAtlasTexture; }
+		inline auto getStreamingBuffer() -> decltype(auto) { return (std::as_const(m_mdi.streamingTDBufferST)); }
+		void* getContext();
 
 	private:
 		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);

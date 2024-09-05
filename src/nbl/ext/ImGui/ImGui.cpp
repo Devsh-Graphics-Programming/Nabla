@@ -761,7 +761,7 @@ namespace nbl::ext::imgui
 			}();
 
 			static constexpr auto MDI_ALLOCATION_COUNT = MDI::EBC_COUNT;
-			static auto MDI_ALIGNMENTS = std::to_array<typename MDI::COMPOSE_T::size_type, MDI_ALLOCATION_COUNT>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
+			static constexpr auto MDI_ALIGNMENTS = std::to_array<typename MDI::COMPOSE_T::size_type, MDI_ALLOCATION_COUNT>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
 
 			struct MULTI_ALLOC_PARAMS
 			{
@@ -794,7 +794,7 @@ namespace nbl::ext::imgui
 			
 				if (unallocatedSize != 0u)
 				{
-					// retry
+					// retry & cull frees
 					m_mdi.streamingTDBufferST->cull_frees();
 					unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 
@@ -816,7 +816,7 @@ namespace nbl::ext::imgui
 						logger->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
 						logger->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
 
-						exit(0x45); // TODO: handle OOB memory requests
+						exit(0x45); // TODO: handle OOB memory requests, probably need to extend the mdi buffer/let user pass more size at init
 					}
 				}
 			}
@@ -971,8 +971,10 @@ namespace nbl::ext::imgui
 			}
 
 			auto waitInfo = info.getFutureScratchSemaphore();
-			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo); // at some point a block would be needed anyway, cull frees but where? - so I just retry on failed allocation then cull free
+			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
 		}
+
+		m_mdi.streamingTDBufferST->cull_frees();
 	
 		return true;
 	}
