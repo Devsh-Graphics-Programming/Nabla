@@ -95,7 +95,7 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
 
 // Get the required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
 template <typename scalar_t, uint32_t WorkgroupSize>
-NBL_CONSTEXPR uint32_t sharedMemSize = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t))  * WorkgroupSize;
+NBL_CONSTEXPR uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t))  * WorkgroupSize;
 
 } //namespace fft
 
