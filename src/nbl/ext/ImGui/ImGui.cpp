@@ -599,7 +599,7 @@ namespace nbl::ext::imgui
 		}
 		tQueue->endCapture();
 
-		static constexpr auto DEFAULT_MDI_SIZE = 1024u * 1024u; // 1 Mb 
+		static constexpr auto DEFAULT_MDI_SIZE = 1024u * 1024u * 2u; // 2 Mb
 		createMDIBuffer(DEFAULT_MDI_SIZE);
 
 		auto & io = ImGui::GetIO();
