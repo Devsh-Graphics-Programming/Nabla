@@ -764,12 +764,12 @@ namespace nbl::ext::imgui
 				multiAllocParams.byteSizes[MDI::EBC_VERTEX_BUFFERS] += commandList->VtxBuffer.Size * sizeof(ImDrawVert);
 			}
 
-			// calculate upper bound byte size limit for mdi buffer with alignments taken into account
+			// calculate upper bound byte size limit for mdi buffer
 			const auto mdiBufferByteSize = [&byteSizes = multiAllocParams.byteSizes, &alignments = multiAllocParams.alignments]() -> size_t
 			{
 				auto requestedByteSize = std::reduce(std::begin(byteSizes), std::end(byteSizes));
 				auto maxAlignment = *std::max_element(std::begin(alignments), std::end(alignments));
-				auto padding = requestedByteSize % maxAlignment;
+				auto padding = requestedByteSize % maxAlignment; // okay I don't need it at all but lets add a few bytes
 
 				return requestedByteSize + padding;
 			}();
@@ -784,6 +784,18 @@ namespace nbl::ext::imgui
 				if (!ok)
 				{
 					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
+
+					auto callback = [&](const std::string_view section, const MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::value_type offset)
+					{
+						std::string value = offset == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
+						logger->log("%s offset = %s", system::ILogger::ELL_ERROR, section.data(), value.c_str());
+					};
+
+					callback("MDI::EBC_DRAW_INDIRECT_STRUCTURES", multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
+					callback("MDI::EBC_ELEMENT_STRUCTURES", multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
+					callback("MDI::EBC_INDEX_BUFFERS", multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
+					callback("MDI::EBC_VERTEX_BUFFERS", multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+
 					exit(0x45); // TODO: handle overflows, unallocatedSize tells how much is missing
 				}
 			}
