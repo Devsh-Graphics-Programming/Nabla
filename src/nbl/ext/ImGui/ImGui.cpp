@@ -790,13 +790,21 @@ namespace nbl::ext::imgui
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer(), dont_grab_t{});
 
-			auto* const indirectsPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
-			auto* const elementsPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
-			auto* indicesPointer = reinterpret_cast<ImDrawVert*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
-			auto* verticesPointer = reinterpret_cast<ImDrawIdx*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
-
-			uint32_t drawCount {};
+			const uint32_t drawCount = multiAllocParams.byteSizes[MDI::EBC_DRAW_INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
 			{
+				auto binding = mdiBuffer->getBoundMemory();
+
+				if(!binding.memory->isCurrentlyMapped())
+					if (!binding.memory->map({ 0ull, binding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
+						logger->log("Could not map device memory!", system::ILogger::ELL_WARNING);
+
+				assert(binding.memory->isCurrentlyMapped());
+
+				auto* const indirectsMappedPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
+				auto* const elementsMappedPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
+				auto* indicesMappedPointer = reinterpret_cast<ImDrawIdx*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
+				auto* verticesMappedPointer = reinterpret_cast<ImDrawVert*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+
 				/*
 					IMGUI Render command lists. We merged all buffers into a single one so we 
 					maintain our own offset into them, we pre-loop to get request data for 
@@ -815,8 +823,8 @@ namespace nbl::ext::imgui
 						const auto clipRectangle = clip.getClipRectangle(pcmd);
 
 						// update mdi's indirect & element structures
-						auto* indirect = indirectsPointer + drawID;
-						auto* element = elementsPointer + drawID;
+						auto* indirect = indirectsMappedPointer + drawID;
+						auto* element = elementsMappedPointer + drawID;
 
 						indirect->firstIndex = pcmd->IdxOffset + globalIOffset;
 						indirect->firstInstance = drawID; // use base instance as draw ID
@@ -844,14 +852,12 @@ namespace nbl::ext::imgui
 					}
 
 					// update mdi's vertex & index buffers
-					::memcpy(indicesPointer + globalIOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-					::memcpy(verticesPointer + globalVOffset, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+					::memcpy(indicesMappedPointer + globalIOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+					::memcpy(verticesMappedPointer + globalVOffset, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
 
 					globalIOffset += cmd_list->IdxBuffer.Size;
 					globalVOffset += cmd_list->VtxBuffer.Size;
 				}
-
-				drawCount = drawID + 1u;
 			}
 
 			auto* rawPipeline = pipeline.get();
