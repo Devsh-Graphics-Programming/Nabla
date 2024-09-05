@@ -15,7 +15,7 @@ class UI final : public core::IReferenceCounted
 		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
 		~UI() override;
 
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const nbl::video::IGPUDescriptorSet* const descriptorSet);
+		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
 		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(uint32_t id);

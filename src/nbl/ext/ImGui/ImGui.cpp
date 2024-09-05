@@ -665,14 +665,28 @@ namespace nbl::ext::imgui
 		m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
 	}
 
-	bool UI::render(IGPUCommandBuffer* commandBuffer, const IGPUDescriptorSet* const descriptorSet)
+	bool UI::render(SIntendedSubmitInfo& info, const IGPUDescriptorSet* const descriptorSet)
 	{
+		if (!info.valid())
+		{
+			logger->log("Invalid SIntendedSubmitInfo!", system::ILogger::ELL_ERROR);
+			return false;
+		}
+
+		struct
+		{
+			const uint64_t oldie;
+			uint64_t newie;
+		} scratchSemaphoreCounters = { .oldie = info.scratchSemaphore.value, .newie = 0u };
+
+		auto* commandBuffer = info.getScratchCommandBuffer();
+
 		ImGuiIO& io = ImGui::GetIO();
 
 		if (!io.Fonts->IsBuilt())
 		{
 			logger->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
-			assert(false);
+			return false;
 		}
 		
 		auto const* drawData = ImGui::GetDrawData();
@@ -774,6 +788,7 @@ namespace nbl::ext::imgui
 				return requestedByteSize + padding;
 			}();
 
+			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 			{
 				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
 
@@ -785,22 +800,22 @@ namespace nbl::ext::imgui
 				{
 					logger->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
 
-					auto callback = [&](const std::string_view section, const MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::value_type offset)
+					auto getOffsetStr = [&](const MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::value_type offset) -> std::string
 					{
-						std::string value = offset == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
-						logger->log("%s offset = %s", system::ILogger::ELL_ERROR, section.data(), value.c_str());
+						return offset == MDI::MULTI_ALLOC_PARAMS::COMPOSE_T::invalid_value ? "invalid_value" : std::to_string(offset);
 					};
 
-					callback("MDI::EBC_DRAW_INDIRECT_STRUCTURES", multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
-					callback("MDI::EBC_ELEMENT_STRUCTURES", multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
-					callback("MDI::EBC_INDEX_BUFFERS", multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
-					callback("MDI::EBC_VERTEX_BUFFERS", multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+					logger->log("[mdi streaming buffer size] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(mdiBuffer->getSize()).c_str());
+					logger->log("[unallocated size] = \"%s\" bytes", system::ILogger::ELL_ERROR, std::to_string(unallocatedSize).c_str());
 
-					exit(0x45); // TODO: handle overflows, unallocatedSize tells how much is missing
+					logger->log("[MDI::EBC_DRAW_INDIRECT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]).c_str());
+					logger->log("[MDI::EBC_ELEMENT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]).c_str());
+					logger->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
+					logger->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
+
+					exit(0x45); // TODO: handle OOB memory requests
 				}
 			}
-
-			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 
 			const uint32_t drawCount = multiAllocParams.byteSizes[MDI::EBC_DRAW_INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
 			{
@@ -816,12 +831,6 @@ namespace nbl::ext::imgui
 				auto* const elementsMappedPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
 				auto* indicesMappedPointer = reinterpret_cast<ImDrawIdx*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
 				auto* verticesMappedPointer = reinterpret_cast<ImDrawVert*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
-
-				/*
-					IMGUI Render command lists. We merged all buffers into a single one so we 
-					maintain our own offset into them, we pre-loop to get request data for 
-					MDI buffer alocation request/update.
-				*/
 
 				size_t globalIOffset = {}, globalVOffset = {}, drawID = {};
 
@@ -945,9 +954,22 @@ namespace nbl::ext::imgui
 			};
 
 			commandBuffer->drawIndexedIndirect(binding, drawCount, sizeof(VkDrawIndexedIndirectCommand));
-		}
-		assert(m_mdi.streamingTDBufferST->getBuffer()); // make sure no drop
 
+			scratchSemaphoreCounters.newie = info.scratchSemaphore.value;
+
+			if (scratchSemaphoreCounters.newie != scratchSemaphoreCounters.oldie)
+			{
+				const auto overflows = scratchSemaphoreCounters.newie - scratchSemaphoreCounters.oldie;
+				logger->log("%d overflows when rendering UI!\n", nbl::system::ILogger::ELL_PERFORMANCE, overflows);
+
+				// TODO: handle them?
+				exit(0x45);
+			}
+
+			auto waitInfo = info.getFutureScratchSemaphore();
+			m_mdi.streamingTDBufferST->multi_deallocate(MDI::MULTI_ALLOC_PARAMS::ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
+		}
+	
 		return true;
 	}
 
