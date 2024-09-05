@@ -306,7 +306,9 @@ template<class T>
 NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
-struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
+struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
 
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
@@ -321,6 +323,8 @@ struct is_scalar : bool_constant<
     impl::is_integral<typename remove_cv<T>::type>::value || 
     impl::is_floating_point<typename remove_cv<T>::type>::value
 > {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
 
 template<class T>
 struct is_const : bool_constant<false> {};
@@ -394,12 +398,6 @@ struct enable_if<true, T> : type_identity<T> {};
 
 template<bool B, class T = void>
 using enable_if_t = typename enable_if<B, T>::type;
-
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
-
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
 
 template<class T>
 struct alignment_of;
