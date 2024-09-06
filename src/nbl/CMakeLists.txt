@@ -658,19 +658,18 @@ glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
-add_custom_target(CheckGit COMMAND ${CMAKE_COMMAND}
-	-DWORKING_DIRECTORY:PATH=${NBL_ROOT_PATH}
-	-DGIT_EXECUTABLE:PATH=${GIT_EXECUTABLE}
-	-DINPUT_FILE:PATH="${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in"
-	-DOUTPUT_FILE:PATH="${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp"
-	-P ${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake
-	BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp
+# generate git info
+execute_process( COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
+    WORKING_DIRECTORY ${NBL_ROOT_PATH}
+    OUTPUT_VARIABLE NBL_GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
-set(INPUT_FILE "${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in")
-set(OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp")
-set(WORKING_DIRECTORY ${NBL_ROOT_PATH})
-include("${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake")
+execute_process( COMMAND ${GIT_EXECUTABLE} log -1 --format=%h
+    WORKING_DIRECTORY ${NBL_ROOT_PATH}
+    OUTPUT_VARIABLE NBL_GIT_COMMIT_SHORT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+configure_file("${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp")
 
 #on MSVC it won't compile without this option!
 if (MSVC)
