@@ -33,7 +33,7 @@ NBL_CONSTEXPR_INLINE_FUNC bool isinf(T val)
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 
 	AsUint tmp = bit_cast<AsUint>(val);
-	return (tmp & ~ieee754::traits<AsFloat>::signMask) == ieee754::traits<AsFloat>::inf;
+	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
 }

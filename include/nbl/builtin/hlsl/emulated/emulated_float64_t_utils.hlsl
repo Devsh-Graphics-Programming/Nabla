@@ -163,7 +163,6 @@ using emulated_vector_t3 = emulated_vector<EmulatedType, 3>;
 template<typename EmulatedType>
 using emulated_vector_t4 = emulated_vector<EmulatedType, 4>;
 
-// TODO: works only for float, fix
 namespace impl
 {
 
@@ -265,21 +264,19 @@ struct emulated_matrix<EmulatedType, 3, 3> // : emulated_matrix_base<EmulatedTyp
     type operator*(NBL_CONST_REF_ARG(type) rhs) NBL_CONST_MEMBER_FUNC
     {
         type output;
-        type lhsTransposed = getTransposed();
 
-        output.columns[0].x = (lhsTransposed.columns[0] * rhs.columns[0]).calcComponentSum();
-        output.columns[0].y = (lhsTransposed.columns[0] * rhs.columns[1]).calcComponentSum();
-        output.columns[0].z = (lhsTransposed.columns[0] * rhs.columns[2]).calcComponentSum();
+        output.columns[0].x = (columns[0] * rhs.columns[0]).calcComponentSum();
+        output.columns[0].y = (columns[0] * rhs.columns[1]).calcComponentSum();
+        output.columns[0].z = (columns[0] * rhs.columns[2]).calcComponentSum();
 
-        output.columns[1].x = (lhsTransposed.columns[1] * rhs.columns[0]).calcComponentSum();
-        output.columns[1].y = (lhsTransposed.columns[1] * rhs.columns[1]).calcComponentSum();
-        output.columns[1].z = (lhsTransposed.columns[1] * rhs.columns[2]).calcComponentSum();
+        output.columns[1].x = (columns[1] * rhs.columns[0]).calcComponentSum();
+        output.columns[1].y = (columns[1] * rhs.columns[1]).calcComponentSum();
+        output.columns[1].z = (columns[1] * rhs.columns[2]).calcComponentSum();
 
-        output.columns[2].x = (lhsTransposed.columns[2] * rhs.columns[0]).calcComponentSum();
-        output.columns[2].y = (lhsTransposed.columns[2] * rhs.columns[1]).calcComponentSum();
-        output.columns[2].z = (lhsTransposed.columns[2] * rhs.columns[2]).calcComponentSum();
+        output.columns[2].x = (columns[2] * rhs.columns[0]).calcComponentSum();
+        output.columns[2].y = (columns[2] * rhs.columns[1]).calcComponentSum();
+        output.columns[2].z = (columns[2] * rhs.columns[2]).calcComponentSum();
 
-        // TODO: avoid transpose
         return output.getTransposed();
     }
 
@@ -360,8 +357,6 @@ using portable_matrix_t3x3 = portable_matrix_t<T, 3, 3>;
 using portable_matrix64_t2x2 = portable_matrix_t2x2<portable_float64_t<> >;
 using portable_matrix64_t3x3 = portable_matrix_t3x3<portable_float64_t<> >;
 
-
-// TODO: fix
 template<typename T>
 NBL_CONSTEXPR_INLINE_FUNC portable_float64_t<> create_portable_float64_t(T val)
 {

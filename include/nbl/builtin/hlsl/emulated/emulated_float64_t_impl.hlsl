@@ -97,9 +97,14 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
     }
 };
 
+NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
+{
+    return (val << 1) == 0;
+}
+
 inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
 {
-    if (val == 0)
+    if (isZero(val))
         return val;
 
 #ifndef __HLSL_VERSION
@@ -187,6 +192,11 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rh
 #endif
 }
 
+NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExponent, uint64_t value)
+{
+    return extractedBiasedExponent ? value : ieee754::extractSignPreserveBitPattern(value);
+}
+
 static inline int countLeadingZeros32(uint32_t val)
 {
 #ifndef __HLSL_VERSION
@@ -215,122 +225,17 @@ NBL_CONSTEXPR_INLINE_FUNC uint32_t2 shift64RightJamming(uint32_t2 val, int count
     return output;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint32_t3 shift64ExtraRightJamming(uint32_t3 val, int count)
-{
-    uint32_t3 output;
-    output.x = 0u;
-   
-    int negCount = (-count) & 31;
-
-    output.z = glsl::mix(uint32_t(val.x != 0u), val.x, count == 64);
-    output.z = glsl::mix(output.z, val.x << negCount, count < 64);
-    output.z = glsl::mix(output.z, val.y << negCount, count < 32);
-
-    output.y = glsl::mix(0u, (val.x >> (count & 31)), count < 64);
-    output.y = glsl::mix(output.y, (val.x  << negCount) | (val.y >> count), count < 32);
-
-    val.z = glsl::mix(val.z | val.y, val.z, count < 32);
-    output.x = glsl::mix(output.x, val.x >> count, count < 32);
-    output.z |= uint32_t(val.z != 0u);
-
-    output.x = glsl::mix(output.x, 0u, (count == 32));
-    output.y = glsl::mix(output.y, val.x, (count == 32));
-    output.z = glsl::mix(output.z, val.y, (count == 32));
-    output.x = glsl::mix(output.x, val.x, (count == 0));
-    output.y = glsl::mix(output.y, val.y, (count == 0));
-    output.z = glsl::mix(output.z, val.z, (count == 0));
-   
-    return output;
-}
-
-NBL_CONSTEXPR_INLINE_FUNC uint64_t shortShift64Left(uint64_t val, int count)
-{
-    const uint32_t2 packed = packUint64(val);
-    
-    uint32_t2 output;
-    output.y = packed.y << count;
-    // TODO: fix
-    output.x = glsl::mix((packed.x << count | (packed.y >> ((-count) & 31))), packed.x, count == 0);
-
-    return unpackUint64(output);
-};
-
 NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
     return  signShifted + expShifted + mantissa;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint64_t roundAndPackFloat64(uint64_t zSign, int zExp, uint32_t3 mantissaExtended)
-{
-    bool roundNearestEven;
-    bool increment;
-
-    roundNearestEven = true;
-    increment = int(mantissaExtended.z) < 0;
-
-    // overflow handling?
-    // if biased exp is lesser then 2045
-    if (0x7FD <= zExp)
-    {
-        if ((0x7FD < zExp) || ((zExp == 0x7FD) && (0x001FFFFFu == mantissaExtended.x && 0xFFFFFFFFu == mantissaExtended.y) && increment))
-            return assembleFloat64(zSign, 0x7FE << ieee754::traits<float64_t>::mantissaBitCnt, 0x000FFFFFFFFFFFFFull);
- 
-        return assembleFloat64(zSign, ieee754::traits<float64_t>::exponentMask, 0ull);
-    }
-
-    if (zExp < 0)
-    {
-        mantissaExtended = shift64ExtraRightJamming(mantissaExtended, -zExp);
-        zExp = 0;
-    }
-
-    zExp = glsl::mix(zExp, 0, (mantissaExtended.x | mantissaExtended.y) == 0u);
-   
-    return assembleFloat64(zSign, uint64_t(zExp) << ieee754::traits<float64_t>::mantissaBitCnt, unpackUint64(mantissaExtended.xy));
-}
-
-static inline uint64_t normalizeRoundAndPackFloat64(uint64_t sign, int exp, uint32_t frac0, uint32_t frac1)
-{
-    int shiftCount;
-    uint32_t3 frac = uint32_t3(frac0, frac1, 0u);
-
-    if (frac.x == 0u)
-    {
-        exp -= 32;
-        frac.x = frac.y;
-        frac.y = 0u;
-    }
-
-    shiftCount = countLeadingZeros32(frac.x) - 11;
-    if (0 <= shiftCount)
-    {
-        // TODO: this is packing and unpacking madness, fix it
-        frac.xy = packUint64(shortShift64Left(unpackUint64(frac.xy), shiftCount));
-    }
-    else
-    {
-        frac.xyz = shift64ExtraRightJamming(uint32_t3(frac.xy, 0), -shiftCount);
-    }
-    exp -= shiftCount;
-    return roundAndPackFloat64(sign, exp, frac);
-}
-
+//TODO: remove
 static inline void normalizeFloat64Subnormal(uint64_t mantissa,
     NBL_REF_ARG(int) outExp,
     NBL_REF_ARG(uint64_t) outMantissa)
 {
-    uint32_t2 mantissaPacked = packUint64(mantissa);
-    int shiftCount;
-    uint32_t2 temp;
-    shiftCount = countLeadingZeros32(glsl::mix(mantissaPacked.x, mantissaPacked.y, mantissaPacked.x == 0u)) - 11;
-    outExp = glsl::mix(1 - shiftCount, -shiftCount - 31, mantissaPacked.x == 0u);
-
-    temp.x = glsl::mix(mantissaPacked.y << shiftCount, mantissaPacked.y >> (-shiftCount), shiftCount < 0);
-    temp.y = glsl::mix(0u, mantissaPacked.y << (shiftCount & 31), shiftCount < 0);
-
-    shortShift64Left(impl::unpackUint64(mantissaPacked), shiftCount);
-
-    outMantissa = glsl::mix(outMantissa, unpackUint64(temp), mantissaPacked.x == 0);
+    return;
 }
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
@@ -339,16 +244,6 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
     rhs &= ~ieee754::traits<float64_t>::signMask;
 
     return lhs == rhs && lhs == ieee754::traits<float64_t>::inf;
-}
-
-NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignInfinity(uint64_t lhs, uint64_t rhs)
-{
-    return lhs == rhs && (lhs & ~ieee754::traits<float64_t>::signMask) == ieee754::traits<float64_t>::inf;
-}
-
-NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
-{
-    return (val << 1) == 0;
 }
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
@@ -361,21 +256,6 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
     return ((lhs << 1) == 0ull) && (lhs == rhs);
 }
 
-// TODO: find more efficient algorithm
-static inline uint64_t nlz64(uint64_t x)
-{
-    static const uint64_t MASK = 1ull << 63;
-
-    uint64_t counter = 0;
-
-    while ((x & MASK) == 0)
-    {
-        x <<= 1;
-        ++counter;
-    }
-    return counter;
-}
-
 // returns pair of quotient and remainder
 static inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t dividentLow, uint64_t divisor)
 {
@@ -383,9 +263,7 @@ static inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t
     uint64_t un1, un0, vn1, vn0, q1, q0, un32, un21, un10, rhat, left, right;
     uint64_t s;
 
-    //TODO: countl_zero
     s = countl_zero(divisor);
-    //s = nlz64(divisor);
     divisor <<= s;
     vn1 = divisor >> 32;
     vn0 = divisor & 0xFFFFFFFF;
