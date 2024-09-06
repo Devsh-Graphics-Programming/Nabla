@@ -285,7 +285,7 @@ set(NBL_SCENE_SOURCES
 )
 
 set(NBL_GENERATED_SOURCES
-	${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp
 )
 
 set(NABLA_SRCS_COMMON
@@ -662,13 +662,13 @@ add_custom_target(CheckGit COMMAND ${CMAKE_COMMAND}
 	-DWORKING_DIRECTORY:PATH=${NBL_ROOT_PATH}
 	-DGIT_EXECUTABLE:PATH=${GIT_EXECUTABLE}
 	-DINPUT_FILE:PATH="${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in"
-	-DOUTPUT_FILE:PATH="${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp"
+	-DOUTPUT_FILE:PATH="${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp"
 	-P ${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake
-	BYPRODUCTS ${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp
+	BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp
 )
 
 set(INPUT_FILE "${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in")
-set(OUTPUT_FILE "${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp")
+set(OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp")
 set(WORKING_DIRECTORY ${NBL_ROOT_PATH})
 include("${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake")
 
