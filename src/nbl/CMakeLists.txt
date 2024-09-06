@@ -284,6 +284,10 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
+set(NBL_GENERATED_SOURCES
+	${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp
+)
+
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -291,6 +295,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_GENERATED_SOURCES}
 )
 
 if(MSVC)
@@ -652,6 +657,20 @@ endif()
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+add_custom_target(CheckGit COMMAND ${CMAKE_COMMAND}
+	-DWORKING_DIRECTORY:PATH=${NBL_ROOT_PATH}
+	-DGIT_EXECUTABLE:PATH=${GIT_EXECUTABLE}
+	-DINPUT_FILE:PATH="${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in"
+	-DOUTPUT_FILE:PATH="${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp"
+	-P ${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake
+	BYPRODUCTS ${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp
+)
+
+set(INPUT_FILE "${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in")
+set(OUTPUT_FILE "${CMAKE_BINARY_DIR}/src/nbl/git_info.cpp")
+set(WORKING_DIRECTORY ${NBL_ROOT_PATH})
+include("${NBL_ROOT_PATH}/cmake/scripts/nbl/gitInfo.cmake")
 
 #on MSVC it won't compile without this option!
 if (MSVC)
