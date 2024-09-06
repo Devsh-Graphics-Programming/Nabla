@@ -794,8 +794,7 @@ namespace nbl::ext::imgui
 			
 				if (unallocatedSize != 0u)
 				{
-					// retry & cull frees
-					m_mdi.streamingTDBufferST->cull_frees();
+					// retry, second attempt cull frees and execute deferred memory deallocation of offsets no longer in use
 					unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 
 					if (unallocatedSize != 0u)
@@ -973,8 +972,6 @@ namespace nbl::ext::imgui
 			auto waitInfo = info.getFutureScratchSemaphore();
 			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
 		}
-
-		m_mdi.streamingTDBufferST->cull_frees();
 	
 		return true;
 	}
