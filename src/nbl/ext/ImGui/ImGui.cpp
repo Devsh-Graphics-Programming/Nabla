@@ -30,7 +30,7 @@ namespace nbl::ext::imgui
 				.binding = 0,
 				.type = asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER,
 				.createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
-				.stageFlags = IShader::ESS_FRAGMENT,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_FRAGMENT,
 				.count = 1,
 				.immutableSamplers = nullptr // TODO: m_fontSampler?
 			}
@@ -44,7 +44,7 @@ namespace nbl::ext::imgui
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = {
 			{
-				.stageFlags = IShader::ESS_VERTEX,
+				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX,
 				.offset = 0,
 				.size = sizeof(PushConstants)
 			}
@@ -76,8 +76,8 @@ namespace nbl::ext::imgui
 				return m_device->createShader(shader.get());
 			};
 
-			shaders.vertex = createShader(spirv.vertex, IShader::ESS_VERTEX);
-			shaders.fragment = createShader(spirv.fragment, IShader::ESS_FRAGMENT);
+			shaders.vertex = createShader(spirv.vertex, IShader::E_SHADER_STAGE::ESS_VERTEX);
+			shaders.fragment = createShader(spirv.fragment, IShader::E_SHADER_STAGE::ESS_FRAGMENT);
 		}
 	
 		SVertexInputParams vertexInputParams{};
@@ -718,7 +718,7 @@ namespace nbl::ext::imgui
 				constants.translate[0] = -1.0f - drawData->DisplayPos.x * constants.scale[0];
 				constants.translate[1] = -1.0f - drawData->DisplayPos.y * constants.scale[1];
 
-				commandBuffer->pushConstants(pipeline->getLayout(), IShader::ESS_VERTEX, 0, sizeof(constants), &constants);
+				commandBuffer->pushConstants(pipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_VERTEX, 0, sizeof(constants), &constants);
 			}
 
 			// Will project scissor/clipping rectangles into frame-buffer space
