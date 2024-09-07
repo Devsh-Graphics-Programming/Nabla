@@ -234,7 +234,11 @@ enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t 
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
-Integral bitFieldInsert( Integral base, Integral insert, uint32_t offset, uint32_t count );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, Integral insert, uint32_t offset, uint32_t count );
+
+template<typename Integral>
+[[vk::ext_instruction( spv::OpBitReverse )]]
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
 
 }
 
