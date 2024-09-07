@@ -5,6 +5,8 @@
 #include <utility>
 
 #include "nbl/system/IApplicationFramework.h"
+#include "nbl/ui/IWindow.h"
+#include "nbl/ui/ICursorControl.h"
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
@@ -21,7 +23,7 @@ using namespace nbl::ui;
 
 namespace nbl::ext::imgui
 {
-	void UI::createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache)
+	void UI::createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, IGPUPipelineCache* pipelineCache)
 	{
 		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = 
@@ -128,7 +130,7 @@ namespace nbl::ext::imgui
 				param.layout = pipelineLayout.get();
 				param.shaders = specs;
 				param.renderpass = renderpass;
-				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = 0u }; // TODO: check "subpassIx"
+				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = subpassIx };
 			};
 			
 			if (!m_device->createGraphicsPipelines(pipelineCache, params, &pipeline))
@@ -309,13 +311,14 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const
+	void UI::handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, const ui::IWindow* window) const
 	{
 		auto& io = ImGui::GetIO();
 
-		const auto position = mousePosition - nbl::hlsl::float32_t2(m_window->getX(), m_window->getY());
+		const auto cursorPosition = window->getCursorControl()->getPosition();
+		const auto mousePixelPosition = nbl::hlsl::float32_t2(cursorPosition.x, cursorPosition.y) - nbl::hlsl::float32_t2(window->getX(), window->getY());
 
-		io.AddMousePosEvent(position.x, position.y);
+		io.AddMousePosEvent(mousePixelPosition.x, mousePixelPosition.y);
 
 		for (const auto& e : events)
 		{
@@ -519,8 +522,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, IGPUPipelineCache* pipelineCache, smart_refctd_ptr<IWindow> window)
-		: m_device(core::smart_refctd_ptr(_device)), m_window(core::smart_refctd_ptr(window))
+	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, IGPUPipelineCache* pipelineCache, uint32_t mdiTotalByteSize)
+		: m_device(core::smart_refctd_ptr(_device))
 	{
 		createSystem();
 		struct
@@ -571,7 +574,7 @@ namespace nbl::ext::imgui
 		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
 		{
 			using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
-			// need to be individually resettable such that we can form a valid SIntendedSubmit out of the commandbuffer allocated from the pool
+
 			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = m_device->createCommandPool(families.id.transfer, pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
 			if (!pool)
 			{
@@ -593,17 +596,15 @@ namespace nbl::ext::imgui
 			IMGUI_CHECKVERSION();
 			ImGui::CreateContext();
 
-			createPipeline(core::smart_refctd_ptr(_descriptorSetLayout), renderpass, pipelineCache);
+			createPipeline(core::smart_refctd_ptr(_descriptorSetLayout), renderpass, subpassIx, pipelineCache);
 			createFontAtlasTexture(transistentCMD.get(), tQueue);
 			adjustGlobalFontScale();
 		}
 		tQueue->endCapture();
 
-		static constexpr auto DEFAULT_MDI_SIZE = 1024u * 1024u * 2u; // 2 Mb
-		createMDIBuffer(DEFAULT_MDI_SIZE);
+		createMDIBuffer(mdiTotalByteSize);
 
 		auto & io = ImGui::GetIO();
-		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 		io.BackendUsingLegacyKeyArrays = 0; // 0: using AddKeyEvent() [new way of handling events in imgui]
 	}
@@ -931,7 +932,7 @@ namespace nbl::ext::imgui
 				VkRect2D scissor[] = { {.offset = {(int32_t)viewport.x, (int32_t)viewport.y}, .extent = {(uint32_t)viewport.width, (uint32_t)viewport.height}} };
 				commandBuffer->setScissor(scissor); // cover whole viewport (only to not throw validation errors)
 			}
-
+			
 			/*
 				Setup scale and translation, our visible imgui space lies from draw_data->DisplayPps (top left) to 
 				draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
@@ -976,14 +977,17 @@ namespace nbl::ext::imgui
 		return true;
 	}
 
-	void UI::update(float const deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents)
+	bool UI::update(const ui::IWindow* window, float const deltaTimeInSec, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents)
 	{
+		if (!window)
+			return false;
+
 		auto & io = ImGui::GetIO();
 
 		io.DeltaTime = deltaTimeInSec;
-		io.DisplaySize = ImVec2(m_window->getWidth(), m_window->getHeight());
+		io.DisplaySize = ImVec2(window->getWidth(), window->getHeight());
 
-		handleMouseEvents(mousePosition, mouseEvents);
+		handleMouseEvents(mouseEvents, window);
 		handleKeyEvents(keyboardEvents);
 
 		ImGui::NewFrame();
@@ -992,6 +996,8 @@ namespace nbl::ext::imgui
 			subscriber.listener();
 
 		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call for IMGUI cpu geometry buffers update
+
+		return true;
 	}
 
 	int UI::registerListener(std::function<void()> const& listener)
@@ -1024,5 +1030,4 @@ namespace nbl::ext::imgui
 	{
 		ImGui::SetCurrentContext(reinterpret_cast<ImGuiContext*>(imguiContext));
 	}
-
 }

@@ -5,35 +5,42 @@
 
 namespace nbl::ext::imgui
 {
-
 class UI final : public core::IReferenceCounted
 {
 	public:
-		// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
-		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
-
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
+		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache = nullptr, uint32_t mdiTotalByteSize = 1024u * 1024u * 2u /* 2Mb */);
 		~UI() override;
 
+		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error [TODO: could have a setter & getter to control the default & currently hooked font texture ID and init 0u by default]
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
+
+		//! update ImGUI internal state & cpu draw command lists, call it before this->render
+		bool update(const ui::IWindow* window, float deltaTimeInSec, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
+
+		//! updates mapped mdi buffer & records draw calls [TODO: maybe its a good idea to update mdi at the end of .update call instead of doing it here?]
 		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
-		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
+
+		//! registers lambda listener in which ImGUI calls should be recorded
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(uint32_t id);
+
+		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context
 		void setContext(void* imguiContext);
 
-		inline nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getFontAtlasView() { return m_fontAtlasTexture; }
+		//! image view getter to access default font texture
+		inline auto getFontAtlasView() -> decltype(auto) { return core::smart_refctd_ptr(m_fontAtlasTexture); }
+
+		//! mdi streaming buffer getter
 		inline auto getStreamingBuffer() -> decltype(auto) { return (std::as_const(m_mdi.streamingTDBufferST)); }
+
+		//! ImGUI context getter, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
-
 	private:
-		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
-
-		// TODO: just take an intended next submit instead of queue and cmdbuf, so we're consistent across utilities
-
+		void createSystem();
+		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache);
 		void createMDIBuffer(const uint32_t totalByteSize);
 		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void createSystem();
-		void handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const;
+		void handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, const ui::IWindow* window) const;
 		void handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const;
 
 		core::smart_refctd_ptr<system::ISystem> system;
@@ -43,7 +50,6 @@ class UI final : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
-		core::smart_refctd_ptr<ui::IWindow> m_window;
 
 		struct MDI
 		{
@@ -71,7 +77,6 @@ class UI final : public core::IReferenceCounted
 			std::function<void()> listener = nullptr;
 		};
 		std::vector<Subscriber> m_subscribers{};
-
 };
 }
 
