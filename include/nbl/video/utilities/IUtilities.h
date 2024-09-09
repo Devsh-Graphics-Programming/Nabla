@@ -395,6 +395,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return true;
         }
 
+        //! Auto-Submit utility
+        template<typename IntendedSubmitInfo, typename... Args> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>, SIntendedSubmitInfo>
+        inline ISemaphore::future_t<IQueue::RESULT> updateBufferRangeViaStagingBufferAutoSubmit(IntendedSubmitInfo&& submit, Args&&... args)
+        {
+            return autoSubmit(submit, [&](SIntendedSubmitInfo& nextSubmit)->bool {return updateBufferRangeViaStagingBuffer(nextSubmit, std::forward<Args>(args)...); });
+        }
+
         //! This only needs a valid queue in `submit`
         template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline ISemaphore::future_t<core::smart_refctd_ptr<IGPUBuffer>> createFilledDeviceLocalBufferOnDedMem(
