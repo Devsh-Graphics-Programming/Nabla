@@ -18,7 +18,7 @@
 #define __NABLA_H_INCLUDED__
 
 // meta info
-#include "nbl/git_info.h"
+#include "git_info.h"
 
 // core lib
 #include "nbl/core/declarations.h"

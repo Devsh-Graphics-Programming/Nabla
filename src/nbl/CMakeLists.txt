@@ -284,10 +284,6 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
-set(NBL_GENERATED_SOURCES
-	${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp
-)
-
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -658,18 +654,14 @@ glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
-# generate git info
-execute_process( COMMAND ${GIT_EXECUTABLE} log -1 --format=%H
-    WORKING_DIRECTORY ${NBL_ROOT_PATH}
-    OUTPUT_VARIABLE NBL_GIT_COMMIT_HASH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
+# git version tracking
+target_link_libraries(Nabla PUBLIC cmake_git_version_tracking)
+target_include_directories(cmake_git_version_tracking PUBLIC 
+	${CMAKE_CURRENT_BINARY_DIR}/include
+	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
+	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
 )
-execute_process( COMMAND ${GIT_EXECUTABLE} log -1 --format=%h
-    WORKING_DIRECTORY ${NBL_ROOT_PATH}
-    OUTPUT_VARIABLE NBL_GIT_COMMIT_SHORT_HASH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-configure_file("${NBL_ROOT_PATH}/src/nbl/git_info.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/nbl/git_info.cpp")
 
 #on MSVC it won't compile without this option!
 if (MSVC)
