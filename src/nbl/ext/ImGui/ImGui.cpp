@@ -522,7 +522,7 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, IGPUPipelineCache* pipelineCache, uint32_t mdiTotalByteSize)
+	UI::UI(smart_refctd_ptr<ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, IGPUPipelineCache* pipelineCache, nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer)
 		: m_device(core::smart_refctd_ptr(_device))
 	{
 		createSystem();
@@ -602,7 +602,7 @@ namespace nbl::ext::imgui
 		}
 		tQueue->endCapture();
 
-		createMDIBuffer(mdiTotalByteSize);
+		createMDIBuffer(_streamingMDIBuffer);
 
 		auto & io = ImGui::GetIO();
 		io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
@@ -629,41 +629,71 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	void UI::createMDIBuffer(const uint32_t totalByteSize)
+	void UI::createMDIBuffer(nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer)
 	{
-		constexpr static core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
-		constexpr static uint32_t minStreamingBufferAllocationSize = 4u,
-			maxStreamingBufferAllocationAlignment = 1024u * 64u;
+		constexpr static uint32_t minStreamingBufferAllocationSize = 4u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
+		constexpr static auto requiredAllocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+		constexpr static auto requiredUsageFlags = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
 
-		IGPUBuffer::SCreationParams mdiCreationParams = {};
-		mdiCreationParams.usage = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
-		mdiCreationParams.size = totalByteSize;
+		auto getRequiredAccessFlags = [&](const core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
+		{
+			core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> flags (IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
 
-		auto buffer = m_device->createBuffer(std::move(mdiCreationParams));
+			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
+				flags |= IDeviceMemoryAllocation::EMCAF_READ;
+			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
+				flags |= IDeviceMemoryAllocation::EMCAF_WRITE;
 
-		auto memoryReqs = buffer->getMemoryReqs();
-		memoryReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+			return flags;
+		};
 
-		auto offset = m_device->allocate(memoryReqs, buffer.get(), allocateFlags);
-		auto memory = offset.memory;
-		const bool allocated = offset.isValid();
-		assert(allocated);
+		if (_streamingMDIBuffer)
+			m_mdi.streamingTDBufferST = core::smart_refctd_ptr(_streamingMDIBuffer);
+		else
+		{
+			IGPUBuffer::SCreationParams mdiCreationParams = {};
+			mdiCreationParams.usage = requiredUsageFlags;
+			mdiCreationParams.size = mdiBufferDefaultSize;
 
-		const auto properties = memory->getMemoryPropertyFlags();
+			auto buffer = m_device->createBuffer(std::move(mdiCreationParams));
 
-		core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> accessFlags(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
-		if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
-			accessFlags |= IDeviceMemoryAllocation::EMCAF_READ;
-		if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_WRITABLE_BIT))
-			accessFlags |= IDeviceMemoryAllocation::EMCAF_WRITE;
+			auto memoryReqs = buffer->getMemoryReqs();
+			memoryReqs.memoryTypeBits &= m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-		assert(accessFlags.value);
+			auto allocation = m_device->allocate(memoryReqs, buffer.get(), requiredAllocateFlags);
+			{
+				const bool allocated = allocation.isValid();
+				assert(allocated);
+			}
+			auto memory = allocation.memory;
 
-		if (!memory->map({ 0ull, memoryReqs.size }, accessFlags))
-			logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
+			if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
+				logger->log("Could not map device memory!", system::ILogger::ELL_ERROR);
 
-		m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, totalByteSize, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
-		m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
+			m_mdi.streamingTDBufferST = core::make_smart_refctd_ptr<MDI::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+			m_mdi.streamingTDBufferST->getBuffer()->setObjectDebugName("MDI Upstream Buffer");
+		}
+
+		auto buffer = m_mdi.streamingTDBufferST->getBuffer();
+		auto binding = buffer->getBoundMemory();
+
+		const auto validation = std::to_array
+		({
+			std::make_pair(buffer->getCreationParams().usage.hasFlags(requiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF enabled!"),
+			std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
+			std::make_pair(binding.memory->getAllocateFlags().hasFlags(requiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
+			std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
+			std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")
+		});
+
+		for (const auto& [ok, error] : validation)
+		{
+			if (!ok)
+			{
+				logger->log(error, system::ILogger::ELL_ERROR);
+				assert(false);
+			}
+		}
 	}
 
 	bool UI::render(SIntendedSubmitInfo& info, const IGPUDescriptorSet* const descriptorSet)
