@@ -182,7 +182,6 @@ struct bitfieldExtract<T, isSigned, false>
     }
 };
 
-// TODO: redundant T
 template<typename T>
 struct bitfieldExtract<T, true, true>
 {
@@ -192,7 +191,6 @@ struct bitfieldExtract<T, true, true>
     }
 };
 
-// TODO: redundant T
 template<typename T>
 struct bitfieldExtract<T, false, true>
 {
