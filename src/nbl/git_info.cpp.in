@@ -1,9 +1,0 @@
-#include "nbl/git_info.h"
-
-namespace nbl
-{
-	const GitInfo git = {
-        .CommitHash = "@NBL_GIT_COMMIT_HASH@",
-		.ShortCommitHash = "@NBL_GIT_COMMIT_SHORT_HASH@"
-    };
-}
