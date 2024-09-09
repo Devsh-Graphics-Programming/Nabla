@@ -276,6 +276,7 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 # cmake-git-version-tracking
+set(GIT_WORKING_DIR ${NBL_ROOT_PATH})
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 
 
