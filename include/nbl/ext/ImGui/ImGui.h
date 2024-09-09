@@ -5,32 +5,59 @@
 
 namespace nbl::ext::imgui
 {
-
 class UI final : public core::IReferenceCounted
 {
 	public:
-		// Nabla IMGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error
-		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
+		struct MDI
+		{
+			using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;
 
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, uint32_t _maxFramesInFlight, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache, core::smart_refctd_ptr<ui::IWindow> window);
+			enum E_BUFFER_CONTENT : uint8_t
+			{
+				EBC_DRAW_INDIRECT_STRUCTURES,
+				EBC_ELEMENT_STRUCTURES,
+				EBC_INDEX_BUFFERS,
+				EBC_VERTEX_BUFFERS,
+
+				EBC_COUNT,
+			};
+
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; // composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+		};
+
+		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache = nullptr, nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer = nullptr);
 		~UI() override;
 
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const nbl::video::IGPUDescriptorSet* const descriptorSet, const uint32_t frameIndex);
-		void update(float deltaTimeInSec, const nbl::hlsl::float32_t2 mousePosition, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
+		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error [TODO: could have a setter & getter to control the default & currently hooked font texture ID and init 0u by default]
+		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
+
+		//! update ImGUI internal state & cpu draw command lists, call it before this->render
+		bool update(const ui::IWindow* window, float deltaTimeInSec, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
+
+		//! updates mapped mdi buffer & records draw calls
+		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
+
+		//! registers lambda listener in which ImGUI calls should be recorded
 		int registerListener(std::function<void()> const& listener);
 		bool unregisterListener(uint32_t id);
-		inline nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> getFontAtlasView() { return m_fontAtlasTexture; }
-		
-		void* getContext();
+
+		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context
 		void setContext(void* imguiContext);
 
-	private:
-		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, video::IGPUPipelineCache* pipelineCache);
+		//! image view default font texture
+		inline nbl::video::IGPUImageView* getFontAtlasView() { return m_fontAtlasTexture.get(); }
 
-		// TODO: just take an intended next submit instead of queue and cmdbuf, so we're consistent across utilities
-		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+		//! mdi streaming buffer
+		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.streamingTDBufferST.get(); }
+
+		//! ImGUI context getter, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
+		void* getContext();
+	private:
 		void createSystem();
-		void handleMouseEvents(const nbl::hlsl::float32_t2& mousePosition, const core::SRange<const nbl::ui::SMouseEvent>& events) const;
+		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache);
+		void createMDIBuffer(nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer);
+		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
+		void handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, const ui::IWindow* window) const;
 		void handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const;
 
 		core::smart_refctd_ptr<system::ISystem> system;
@@ -40,9 +67,8 @@ class UI final : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
-		core::smart_refctd_ptr<ui::IWindow> m_window;
-		std::vector<core::smart_refctd_ptr<video::IGPUBuffer>> m_mdiBuffers;
-		const uint32_t maxFramesInFlight;
+
+		MDI m_mdi;
 
 		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
 		struct Subscriber 
@@ -51,7 +77,6 @@ class UI final : public core::IReferenceCounted
 			std::function<void()> listener = nullptr;
 		};
 		std::vector<Subscriber> m_subscribers{};
-
 };
 }
 
