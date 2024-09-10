@@ -57,8 +57,8 @@ class UI final : public core::IReferenceCounted
 		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
 
 		//! registers lambda listener in which ImGUI calls should be recorded
-		int registerListener(std::function<void()> const& listener);
-		bool unregisterListener(uint32_t id);
+		std::optional<size_t> registerListener(std::function<void()> const& listener);
+		std::optional<size_t> unregisterListener(size_t id);
 
 		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context
 		void setContext(void* imguiContext);
@@ -88,14 +88,7 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
 
 		MDI m_mdi;
-
-		// TODO: Use a signal class instead like Signal<> UIRecordSignal{};
-		struct Subscriber 
-		{
-			uint32_t id = 0;
-			std::function<void()> listener = nullptr;
-		};
-		std::vector<Subscriber> m_subscribers{};
+		std::vector<std::function<void()>> m_subscribers {};
 };
 }
 

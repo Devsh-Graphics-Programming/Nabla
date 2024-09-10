@@ -626,9 +626,9 @@ namespace nbl::ext::imgui
 
 	void UI::createMDIBuffer(nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer)
 	{
-		constexpr static uint32_t minStreamingBufferAllocationSize = 4u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
+		constexpr static uint32_t minStreamingBufferAllocationSize = 32u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
 		constexpr static auto requiredAllocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
-		constexpr static auto requiredUsageFlags = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | nbl::asset::IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF;
+		constexpr static auto requiredUsageFlags = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
 
 		auto getRequiredAccessFlags = [&](const core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
 		{
@@ -674,7 +674,7 @@ namespace nbl::ext::imgui
 
 		const auto validation = std::to_array
 		({
-			std::make_pair(buffer->getCreationParams().usage.hasFlags(requiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT | IBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF enabled!"),
+			std::make_pair(buffer->getCreationParams().usage.hasFlags(requiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
 			std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_device->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
 			std::make_pair(binding.memory->getAllocateFlags().hasFlags(requiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 			std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
@@ -1011,30 +1011,27 @@ namespace nbl::ext::imgui
 		ImGui::NewFrame();
 
 		for (auto const& subscriber : m_subscribers)
-			subscriber.listener();
+			subscriber();
 
 		return true;
 	}
 
-	int UI::registerListener(std::function<void()> const& listener)
+	std::optional<size_t> UI::registerListener(const std::function<void()>& listener)
 	{
 		assert(listener != nullptr);
-		static int NextId = 0;
-		m_subscribers.emplace_back(NextId++, listener);
-		return m_subscribers.back().id;
+		m_subscribers.emplace_back(listener);
+		return m_subscribers.size() - 1;
 	}
 
-	bool UI::unregisterListener(const uint32_t id)
+	std::optional<size_t> UI::unregisterListener(size_t id)
 	{
-		for (int i = m_subscribers.size() - 1; i >= 0; --i)
+		if (id < m_subscribers.size())
 		{
-			if (m_subscribers[i].id == id)
-			{
-				m_subscribers.erase(m_subscribers.begin() + i);
-				return true;
-			}
+			m_subscribers.erase(m_subscribers.begin() + id);
+			return id;
 		}
-		return false;
+
+		return std::nullopt;
 	}
 
 	void* UI::getContext()
