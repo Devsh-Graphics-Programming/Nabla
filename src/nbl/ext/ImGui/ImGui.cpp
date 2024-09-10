@@ -816,7 +816,7 @@ namespace nbl::ext::imgui
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 			{
-				std::chrono::steady_clock::time_point timeout(std::chrono::seconds(0x45));
+				auto timeout(std::chrono::steady_clock::now() + std::chrono::seconds(1u));
 
 				size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 			
@@ -846,16 +846,14 @@ namespace nbl::ext::imgui
 						exit(0x45); // TODO: handle OOB memory requests, probably need to extend the mdi buffer/let user pass more size at init
 					}
 				}
+
+				auto waitInfo = info.getFutureScratchSemaphore();
+				m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
 			}
 
 			const uint32_t drawCount = multiAllocParams.byteSizes[MDI::EBC_DRAW_INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
 			{
 				auto binding = mdiBuffer->getBoundMemory();
-
-				if(!binding.memory->isCurrentlyMapped())
-					if (!binding.memory->map({ 0ull, binding.memory->getAllocationSize() }, IDeviceMemoryAllocation::EMCAF_READ))
-						logger->log("Could not map device memory!", system::ILogger::ELL_WARNING);
-
 				assert(binding.memory->isCurrentlyMapped());
 
 				auto* const indirectsMappedPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
@@ -996,9 +994,6 @@ namespace nbl::ext::imgui
 				// TODO: handle them?
 				exit(0x45);
 			}
-
-			auto waitInfo = info.getFutureScratchSemaphore();
-			m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
 		}
 	
 		return true;
