@@ -22,7 +22,18 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; // composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; //! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+		};
+
+		struct S_CREATION_PARAMETERS
+		{
+			video::IUtilities* const utilities;										//! required
+			video::IQueue* const transfer;											//! required
+			video::IGPURenderpass* const renderpass;								//! required
+			uint32_t subpassIx = 0u;												//! optional, default value if not provided
+			video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, default layout used if not provided [STILL TODO, currently its assumed its not nullptr!]
+			video::IGPUPipelineCache* const pipelineCache = nullptr;				//! optional, no cache used if not provided
+			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;			//! optional, default MDI buffer allocated if not provided
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
@@ -44,17 +55,17 @@ class UI final : public core::IReferenceCounted
 			S_EVENTS events;
 		};
 
-		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache = nullptr, nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer = nullptr);
+		UI(S_CREATION_PARAMETERS&& params);
 		~UI() override;
 
 		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error [TODO: could have a setter & getter to control the default & currently hooked font texture ID and init 0u by default]
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
 
 		//! update ImGuiIO & record ImGUI *cpu* draw command lists, call it before .render
-		bool update(const S_UPDATE_PARAMETERS params);
+		bool update(const S_UPDATE_PARAMETERS& params);
 
 		//! updates mapped mdi buffer & records *gpu* draw commands, handles overflows for mdi allocation failure cases (pop & submit)
-		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
+		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded
 		size_t registerListener(std::function<void()> const& listener);
@@ -72,17 +83,13 @@ class UI final : public core::IReferenceCounted
 		//! ImGUI context getter, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
 	private:
-		void createSystem();
-		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache);
-		void createMDIBuffer(nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer);
-		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, nbl::hlsl::float32_t2 mousePosition) const;
-		void handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const;
+		void createPipeline();
+		void createMDIBuffer();
+		void handleMouseEvents(const S_UPDATE_PARAMETERS& params) const;
+		void handleKeyEvents(const S_UPDATE_PARAMETERS& params) const;
+		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer);
 
-		core::smart_refctd_ptr<system::ISystem> system;
-		core::smart_refctd_ptr<system::ILogger> logger;
-		core::smart_refctd_ptr<video::IUtilities> utilities;
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
+		S_CREATION_PARAMETERS m_creationParams;
 
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
