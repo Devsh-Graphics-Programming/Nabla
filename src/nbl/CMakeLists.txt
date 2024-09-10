@@ -670,6 +670,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 		spirvBuiltinResourceData 
 		boostBuiltinResourceData 
 		deviceGenBuiltinResourceData
+		sprivIntrinsicsGenBuiltinResourceData
 	)
 	
 	NBL_HOOK_INTERNAL_BUILTIN_RESOURCES("${NBL_INTERNAL_BUILTIN_TARGETS}")

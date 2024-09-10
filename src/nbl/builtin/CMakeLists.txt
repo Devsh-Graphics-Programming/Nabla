@@ -326,11 +326,10 @@ ADD_CUSTOM_BUILTIN_RESOURCES(nblBuiltinResourceData NBL_RESOURCES_TO_EMBED "${NB
 get_filename_component(NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 set(NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}")
 
-set(NBL_OUTPUT_FILE "${NBL_OUTPUT_GEN_INCLUDE_DIR}/hlsl/spirv_intrinsics/core.hlsl")
-file(MAKE_DIRECTORY "${NBL_OUTPUT_GEN_INCLUDE_DIR}/nbl/builtin/hlsl/spirv_intrinsics")
+set(NBL_OUTPUT_FILE "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}/nbl/builtin/hlsl/spirv_intrinsics/core.hlsl")
+file(MAKE_DIRECTORY "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}/nbl/builtin/hlsl/spirv_intrinsics")
 
-set(NBL_GEN_PY "${CMAKE_CURRENT_SOURCE_DIR}/gen.py")
-
+set(NBL_GEN_PY "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/tools/hlsl_generator/gen.py")
 set(NBL_COMMAND
 	"${_Python3_EXECUTABLE}"
 	"${NBL_GEN_PY}"
@@ -346,9 +345,9 @@ add_custom_command(OUTPUT "${NBL_OUTPUT_FILE}"
 add_custom_target(SprivIntrinsics DEPENDS "${NBL_OUTPUT_FILE}")
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	LIST_BUILTIN_RESOURCE(NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "${NBL_OUTPUT_FILE}")
-	ADD_CUSTOM_BUILTIN_RESOURCES(sprivIntrinsicsGenBuiltinResourceData NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}" "nbl/builtin" "nbl::builtin" "${NBL_ROOT_PATH_BINARY}/include" "${NBL_ROOT_PATH_BINARY}/src" "STATIC" "INTERNAL")
-	add_dependencies(sprivIntrinsicsGenBuiltinResourceData DeviceHeaders)
+	LIST_BUILTIN_RESOURCE(NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "core.hlsl")
+	ADD_CUSTOM_BUILTIN_RESOURCES(sprivIntrinsicsGenBuiltinResourceData NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}" "nbl/builtin/hlsl/spirv_intrinsics" "nbl::builtin" "${CMAKE_CURRENT_BINARY_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/src" "STATIC" "INTERNAL")
+	add_dependencies(sprivIntrinsicsGenBuiltinResourceData SprivIntrinsics)
 endif()
 
 set(NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR
