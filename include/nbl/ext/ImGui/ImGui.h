@@ -25,16 +25,35 @@ class UI final : public core::IReferenceCounted
 			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; // composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
 		};
 
+		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
+		struct S_UPDATE_PARAMETERS
+		{
+			//! what we pass to ImGuiIO::AddMousePosEvent 
+			nbl::hlsl::float32_t2 mousePosition,
+
+			//! main display size in pixels (generally == GetMainViewport()->Size)
+			displaySize;
+
+			//! Nabla events you want to be handled with the backend
+			struct S_EVENTS
+			{
+				core::SRange<const nbl::ui::SMouseEvent> mouse;
+				core::SRange<const nbl::ui::SKeyboardEvent> keyboard;
+			};
+
+			S_EVENTS events;
+		};
+
 		UI(core::smart_refctd_ptr<video::ILogicalDevice> _device, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> _descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache = nullptr, nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer = nullptr);
 		~UI() override;
 
 		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error [TODO: could have a setter & getter to control the default & currently hooked font texture ID and init 0u by default]
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
 
-		//! update ImGUI internal state & cpu draw command lists, call it before this->render
-		bool update(const ui::IWindow* window, float deltaTimeInSec, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents);
+		//! update ImGuiIO & record ImGUI *cpu* draw command lists, call it before .render
+		bool update(const S_UPDATE_PARAMETERS params);
 
-		//! updates mapped mdi buffer & records draw calls
+		//! updates mapped mdi buffer & records *gpu* draw commands, handles overflows for mdi allocation failure cases (pop & submit)
 		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
 
 		//! registers lambda listener in which ImGUI calls should be recorded
@@ -57,7 +76,7 @@ class UI final : public core::IReferenceCounted
 		void createPipeline(core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> descriptorSetLayout, video::IGPURenderpass* renderpass, uint32_t subpassIx, video::IGPUPipelineCache* pipelineCache);
 		void createMDIBuffer(nbl::core::smart_refctd_ptr<typename MDI::COMPOSE_T> _streamingMDIBuffer);
 		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, video::IQueue* queue);
-		void handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, const ui::IWindow* window) const;
+		void handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, nbl::hlsl::float32_t2 mousePosition) const;
 		void handleKeyEvents(const core::SRange<const nbl::ui::SKeyboardEvent>& events) const;
 
 		core::smart_refctd_ptr<system::ISystem> system;

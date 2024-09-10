@@ -5,8 +5,6 @@
 #include <utility>
 
 #include "nbl/system/IApplicationFramework.h"
-#include "nbl/ui/IWindow.h"
-#include "nbl/ui/ICursorControl.h"
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
@@ -311,14 +309,11 @@ namespace nbl::ext::imgui
 		io.FontGlobalScale = 1.0f;
 	}
 
-	void UI::handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, const ui::IWindow* window) const
+	void UI::handleMouseEvents(const core::SRange<const nbl::ui::SMouseEvent>& events, nbl::hlsl::float32_t2 mousePosition) const
 	{
 		auto& io = ImGui::GetIO();
 
-		const auto cursorPosition = window->getCursorControl()->getPosition();
-		const auto mousePixelPosition = nbl::hlsl::float32_t2(cursorPosition.x, cursorPosition.y) - nbl::hlsl::float32_t2(window->getX(), window->getY());
-
-		io.AddMousePosEvent(mousePixelPosition.x, mousePixelPosition.y);
+		io.AddMousePosEvent(mousePosition.x, mousePosition.y);
 
 		for (const auto& e : events)
 		{
@@ -704,6 +699,8 @@ namespace nbl::ext::imgui
 			return false;
 		}
 
+		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, its an internal ImGUI call to update & prepare the data for rendering so we can call GetDrawData()
+
 		struct
 		{
 			const uint64_t oldie;
@@ -1007,25 +1004,19 @@ namespace nbl::ext::imgui
 		return true;
 	}
 
-	bool UI::update(const ui::IWindow* window, float const deltaTimeInSec, const core::SRange<const nbl::ui::SMouseEvent> mouseEvents, const core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents)
+	bool UI::update(const S_UPDATE_PARAMETERS params)
 	{
-		if (!window)
-			return false;
-
 		auto & io = ImGui::GetIO();
+	
+		io.DisplaySize = ImVec2(params.displaySize.x, params.displaySize.y);
 
-		io.DeltaTime = deltaTimeInSec;
-		io.DisplaySize = ImVec2(window->getWidth(), window->getHeight());
-
-		handleMouseEvents(mouseEvents, window);
-		handleKeyEvents(keyboardEvents);
+		handleMouseEvents(params.events.mouse, params.mousePosition);
+		handleKeyEvents(params.events.keyboard);
 
 		ImGui::NewFrame();
 
 		for (auto const& subscriber : m_subscribers)
 			subscriber.listener();
-
-		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, internal call for IMGUI cpu geometry buffers update
 
 		return true;
 	}
