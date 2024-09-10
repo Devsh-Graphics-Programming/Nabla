@@ -816,7 +816,7 @@ namespace nbl::ext::imgui
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 			{
-				auto timeout(std::chrono::steady_clock::now() + std::chrono::seconds(1u));
+				auto timeout(std::chrono::steady_clock::now() + std::chrono::milliseconds(1u));
 
 				size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 			
@@ -1020,7 +1020,7 @@ namespace nbl::ext::imgui
 	{
 		assert(listener != nullptr);
 		m_subscribers.emplace_back(listener);
-		return m_subscribers.size() - 1;
+		return m_subscribers.size() - 1u;
 	}
 
 	std::optional<size_t> UI::unregisterListener(size_t id)
