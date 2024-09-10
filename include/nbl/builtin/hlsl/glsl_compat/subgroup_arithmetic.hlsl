@@ -80,30 +80,161 @@ T subgroupExclusiveXor(T value) {
     return spirv::groupNonUniformBitwiseXor_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
 }
 
+namespace impl
+{
+
+template<typename T, bool isSigned>
+struct subgroupMin {};
+
 template<typename T>
-T subgroupMin(T value) {
-    return spirv::groupNonUniformMin_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
-}
+struct subgroupMin<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationReduce, val);
+    }
+};
+
 template<typename T>
-T subgroupInclusiveMin(T value) {
-    return spirv::groupNonUniformMin_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
-}
+struct subgroupMin<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationReduce, val);
+    } 
+};
+
+template<typename T, bool isSigned>
+struct subgroupInclusiveMin {};
+
 template<typename T>
-T subgroupExclusiveMin(T value) {
-    return spirv::groupNonUniformMin_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+struct subgroupInclusiveMin<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, val);
+    }
+};
+
+template<typename T>
+struct subgroupInclusiveMin<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, val);
+    } 
+};
+
+template<typename T, bool isSigned>
+struct subgroupExclusiveMin {};
+
+template<typename T>
+struct subgroupExclusiveMin<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, val);
+    }
+};
+
+template<typename T>
+struct subgroupExclusiveMin<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMin_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, val);
+    } 
+};
+
+template<typename T, bool isSigned>
+struct subgroupMax {};
+
+template<typename T>
+struct subgroupMax<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationReduce, val);
+    }
+};
+
+template<typename T>
+struct subgroupMax<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationReduce, val);
+    } 
+};
+
+template<typename T, bool isSigned>
+struct subgroupInclusiveMax {};
+
+template<typename T>
+struct subgroupInclusiveMax<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, val);
+    }
+};
+
+template<typename T>
+struct subgroupInclusiveMax<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, val);
+    } 
+};
+
+template<typename T, bool isSigned>
+struct subgroupExclusiveMax {};
+
+template<typename T>
+struct subgroupExclusiveMax<T, true>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformSMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, val);
+    }
+};
+
+template<typename T>
+struct subgroupExclusiveMax<T, false>
+{
+    static T __call(T val)
+    {
+        return spirv::groupNonUniformUMax_GroupNonUniformArithmetic<T>(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, val);
+    } 
+};
+
 }
 
 template<typename T>
-T subgroupMax(T value) {
-    return spirv::groupNonUniformMax_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationReduce, value);
+T subgroupMin(T val) {
+    return impl::subgroupMin<T, is_signed<T>::value>::__call(val);
 }
 template<typename T>
-T subgroupInclusiveMax(T value) {
-    return spirv::groupNonUniformMax_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationInclusiveScan, value);
+T subgroupInclusiveMin(T val) {
+    return impl::subgroupInclusiveMin<T, is_signed<T>::value>::__call(val);
 }
 template<typename T>
-T subgroupExclusiveMax(T value) {
-    return spirv::groupNonUniformMax_GroupNonUniformArithmetic(spv::ScopeSubgroup, spv::GroupOperationExclusiveScan, value);
+T subgroupExclusiveMin(T val) {
+    return impl::subgroupExclusiveMin<T, is_signed<T>::value>::__call(val);
+}
+
+template<typename T>
+T subgroupMax(T val) {
+    return impl::subgroupMax<T, is_signed<T>::value>::__call(val);
+}
+template<typename T>
+T subgroupInclusiveMax(T val) {
+    return impl::subgroupInclusiveMax<T, is_signed<T>::value>::__call(val);
+}
+template<typename T>
+T subgroupExclusiveMax(T val) {
+    return impl::subgroupExclusiveMax<T, is_signed<T>::value>::__call(val);
 }
 
 }

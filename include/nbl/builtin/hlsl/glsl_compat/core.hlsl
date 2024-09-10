@@ -187,7 +187,7 @@ struct bitfieldExtract<T, true, true>
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return spirv::bitFieldExtract( val, offsetBits, numBits );
+        return spirv::bitFieldSExtract( val, offsetBits, numBits );
     }
 };
 
@@ -196,7 +196,7 @@ struct bitfieldExtract<T, false, true>
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return spirv::bitFieldExtract( val, offsetBits, numBits );
+        return spirv::bitFieldUExtract( val, offsetBits, numBits );
     } 
 };
 
