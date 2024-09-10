@@ -57,7 +57,7 @@ class UI final : public core::IReferenceCounted
 		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet);
 
 		//! registers lambda listener in which ImGUI calls should be recorded
-		std::optional<size_t> registerListener(std::function<void()> const& listener);
+		size_t registerListener(std::function<void()> const& listener);
 		std::optional<size_t> unregisterListener(size_t id);
 
 		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context

@@ -1016,7 +1016,7 @@ namespace nbl::ext::imgui
 		return true;
 	}
 
-	std::optional<size_t> UI::registerListener(const std::function<void()>& listener)
+	size_t UI::registerListener(const std::function<void()>& listener)
 	{
 		assert(listener != nullptr);
 		m_subscribers.emplace_back(listener);
