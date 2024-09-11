@@ -6,6 +6,7 @@
 #include "spirv/builtin/CArchive.h"
 #include "boost/builtin/CArchive.h"
 #include "nbl/devicegen/builtin/CArchive.h"
+#include "nbl/builtin/hlsl/spirv_intrinsics/CArchive.h"
 #endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include "nbl/system/CArchiveLoaderZip.h"
@@ -25,12 +26,14 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<nbl::builtin::hlsl::spirv_intrinsics::CArchive>(nullptr));
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/video");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED, nullptr, this), "nbl/builtin/hlsl/spirv_intrinsics");
 #endif
 }
 

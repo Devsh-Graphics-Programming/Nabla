@@ -26,9 +26,9 @@ SVertexAttributes main()
 {
     using namespace ::nbl::hlsl::glsl;
 
-    spirv::Position.xy = SurfaceTransform::applyToNDC((SurfaceTransform::FLAG_BITS)SwapchainTransform,pos[gl_VertexIndex()]);
-    spirv::Position.z = 0.f;
-    spirv::Position.w = 1.f;
+    spirv::builtin::Position.xy = SurfaceTransform::applyToNDC((SurfaceTransform::FLAG_BITS)SwapchainTransform,pos[gl_VertexIndex()]);
+    spirv::builtin::Position.z = 0.f;
+    spirv::builtin::Position.w = 1.f;
 
     SVertexAttributes retval;
     retval.uv = tc[gl_VertexIndex()];

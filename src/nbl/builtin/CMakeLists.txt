@@ -346,10 +346,6 @@ add_custom_target(SprivIntrinsics DEPENDS "${NBL_OUTPUT_FILE}")
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	LIST_BUILTIN_RESOURCE(NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "core.hlsl")
-	ADD_CUSTOM_BUILTIN_RESOURCES(sprivIntrinsicsGenBuiltinResourceData NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}" "nbl/builtin/hlsl/spirv_intrinsics" "nbl::builtin" "${CMAKE_CURRENT_BINARY_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/src" "STATIC" "INTERNAL")
+	ADD_CUSTOM_BUILTIN_RESOURCES(sprivIntrinsicsGenBuiltinResourceData NBL_SPRIV_INTRINSICS_GEN_RESOURCES_TO_EMBED "${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}" "nbl/builtin/hlsl/spirv_intrinsics" "nbl::builtin::hlsl::spirv_intrinsics" "${CMAKE_CURRENT_BINARY_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include/nbl/builtin/hlsl/spirv_intrinsics" "STATIC" "INTERNAL")
 	add_dependencies(sprivIntrinsicsGenBuiltinResourceData SprivIntrinsics)
 endif()
-
-set(NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR
-	"${NBL_SPRIV_INTRINSICS_GEN_INCLUDE_DIR}"
-PARENT_SCOPE)
