@@ -514,10 +514,20 @@ namespace nbl::ext::imgui
 	UI::UI(S_CREATION_PARAMETERS&& params)
 		: m_creationParams(std::move(params))
 	{
-		// TODO: could validate & log
-		assert(m_creationParams.utilities);
-		assert(m_creationParams.transfer); // and check if proper capability enabled
-		assert(m_creationParams.renderpass);
+		const auto validation = std::to_array
+		({
+			std::make_pair(bool(m_creationParams.utilities), "Invalid `m_creationParams.utilities` is nullptr!"),
+			std::make_pair(bool(m_creationParams.transfer), "Invalid `m_creationParams.transfer` is nullptr!"),
+			std::make_pair(bool(m_creationParams.renderpass), "Invalid `m_creationParams.renderpass` is nullptr!"),
+			(m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!")
+		});
+
+		for (const auto& [ok, error] : validation)
+			if (!ok)
+			{
+				m_creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
+				assert(false);
+			}
 
 		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
 		{
@@ -609,13 +619,11 @@ namespace nbl::ext::imgui
 		});
 
 		for (const auto& [ok, error] : validation)
-		{
 			if (!ok)
 			{
 				m_creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
 				assert(false);
 			}
-		}
 	}
 
 	bool UI::render(SIntendedSubmitInfo& info, const IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors)
