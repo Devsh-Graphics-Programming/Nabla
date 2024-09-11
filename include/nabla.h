@@ -20,6 +20,10 @@
 // meta info
 #include "git_info.h"
 
+namespace nbl {
+	NBL_API2 const gtml::GitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
+}
+
 // core lib
 #include "nbl/core/declarations.h"
 

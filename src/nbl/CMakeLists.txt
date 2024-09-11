@@ -284,6 +284,10 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
+set(NBL_META_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/gtml.cpp
+)
+
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -292,6 +296,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
 	${NBL_GENERATED_SOURCES}
+	${NBL_META_SOURCES}
 )
 
 if(MSVC)
@@ -656,12 +661,6 @@ write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIO
 
 # git version tracking
 target_link_libraries(Nabla PUBLIC cmake_git_version_tracking)
-target_include_directories(cmake_git_version_tracking PUBLIC 
-	"${CMAKE_CURRENT_BINARY_DIR}/include"
-	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
-	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
-)
 
 #on MSVC it won't compile without this option!
 if (MSVC)

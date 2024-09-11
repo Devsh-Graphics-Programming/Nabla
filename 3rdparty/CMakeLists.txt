@@ -278,7 +278,9 @@ target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIO
 # cmake-git-version-tracking
 set(GIT_WORKING_DIR "${NBL_ROOT_PATH}")
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
-
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+NBL_GENERATE_GIT_TRACKING_META()
 
 if(NBL_BUILD_IMGUI)
 	add_library(imgui STATIC
@@ -386,7 +388,6 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc
 				jpeg-static
 				bzip2
-				cmake_git_version_tracking
 				simdjson
 				nlohmann_json
 				glslang
